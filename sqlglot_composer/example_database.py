@@ -83,6 +83,7 @@ import re
 
 import pandas as pd
 
+from .describe import StandIn
 from .engine import run_query
 from .refusals import refuse
 from .tables import Table
@@ -90,6 +91,7 @@ from .tables import Table
 TOOLBOX_VERSION = "7.1"
 
 # --- The Table references -----------------------------------------------------------------
+# Each column's description is the comment DESCRIBE prints for it.
 
 jobs = Table(
     "ops.jobs",
@@ -102,7 +104,7 @@ job_runs = Table(
     columns={
         "run_id": "bigint",
         "job_id": "bigint",
-        "status": "string",  # SUCCESS / FAILED / TEST, NULL while running
+        "status": "string",
         "duration_mins": "int",
         "avg_retry_secs": "double",
         "dt": "string",
@@ -110,6 +112,7 @@ job_runs = Table(
     partitioned_by=["dt"],
     key=["run_id"],
     does_not_add_up=["avg_retry_secs"],
+    descriptions={"status": "SUCCESS / FAILED / TEST, NULL while running"},
 )
 
 run_alerts = Table(
@@ -117,11 +120,12 @@ run_alerts = Table(
     columns={
         "alert_id": "bigint",
         "run_id": "bigint",
-        "severity": "string",  # low / high
+        "severity": "string",
         "dt": "string",
     },
     partitioned_by=["dt"],
     key=["alert_id"],
+    descriptions={"severity": "low / high"},
 )
 
 scheduler_runs = Table(
@@ -138,12 +142,14 @@ job_events = Table(
     columns={
         "event_id": "bigint",
         "job_id": "bigint",
-        "event_type": "string",  # start / finish / retry / fail
-        "minutes": "int",  # minutes since the run started
+        "event_type": "string",
+        "minutes": "int",
         "dt": "string",
     },
     partitioned_by=["dt"],
     key=["event_id"],
+    descriptions={"event_type": "start / finish / retry / fail",
+                  "minutes": "minutes since the run started"},
 )
 
 job_owners = Table(
@@ -151,23 +157,25 @@ job_owners = Table(
     columns={
         "job_id": "bigint",
         "team": "string",
-        "owner": "string",  # NULL when nobody owns the job
+        "owner": "string",
         "dt": "string",
     },
     partitioned_by=["dt"],
     key=["job_id", "dt"],
+    descriptions={"owner": "NULL when nobody owns the job"},
 )
 
 region_costs = Table(
     "ops.region_costs",
     columns={
         "job_id": "bigint",
-        "cost_cents": "bigint",  # NULL until the bill comes in
+        "cost_cents": "bigint",
         "region": "string",
         "dt": "string",
     },
     partitioned_by=["region", "dt"],
     key=["job_id", "region", "dt"],
+    descriptions={"cost_cents": "NULL until the bill comes in"},
 )
 
 # Two more, not partitioned by a day: one partitioned by region alone, one not at all.
@@ -176,11 +184,12 @@ region_budgets = Table(
     "ops.region_budgets",
     columns={
         "job_id": "bigint",
-        "budget_cents": "bigint",  # the most a day of the job should cost there
+        "budget_cents": "bigint",
         "region": "string",
     },
     partitioned_by=["region"],
     key=["job_id", "region"],
+    descriptions={"budget_cents": "the most a day of the job should cost there"},
 )
 
 team_notes = Table(
@@ -188,21 +197,10 @@ team_notes = Table(
     columns={
         "team": "string",
         "note": "string",
-        "written_on": "string",  # the day the note was written, as yyyy-MM-dd
+        "written_on": "string",
     },
+    descriptions={"written_on": "the day the note was written, as yyyy-MM-dd"},
 )
-
-# The column comments DESCRIBE returns.
-_COMMENTS = {
-    ("region_budgets", "budget_cents"): "the most a day of the job should cost there",
-    ("team_notes", "written_on"): "the day the note was written, as yyyy-MM-dd",
-    ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
-    ("run_alerts", "severity"): "low / high",
-    ("job_events", "event_type"): "start / finish / retry / fail",
-    ("job_events", "minutes"): "minutes since the run started",
-    ("job_owners", "owner"): "NULL when nobody owns the job",
-    ("region_costs", "cost_cents"): "NULL until the bill comes in",
-}
 
 
 # --- The rows: small enough to read by eye, so every wrong number is visibly wrong ----------
@@ -447,38 +445,21 @@ def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
     return _TABLES[short]
 
 
-def _partition_columns(table: Table) -> list[str]:
-    """The table's partition columns, in order."""
-    return list(table._partitioned_by)
-
-
-def _describe(name: str) -> pd.DataFrame:
-    """What DESCRIBE prints: the columns, then the partition columns again."""
-    table, _ = _table(name)
-    rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
-            for column, kind in table._columns.items()]
-    if table._partitioned_by:
-        rows += [
-            ("", None, None),
-            ("# Partition Information", None, None),
-            ("# col_name", "data_type", "comment"),
-        ]
-        rows += [(column, table._columns[column], "") for column in _partition_columns(table)]
-    return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-
-
-def _show_partitions(name: str) -> pd.DataFrame:
-    """What SHOW PARTITIONS prints: one row per partition, like dt=2026-09-23, or
-    region=eu/dt=20260911 for a table partitioned by two columns."""
-    table, rows = _table(name)
-    if not table._partitioned_by:
-        raise ValueError(f"Table {table._name} is not a partitioned table.")
-    columns = _partition_columns(table)
+def _partitions(table: Table, rows: list[tuple[object, ...]]) -> list[str]:
+    """The table's Partitions as SHOW PARTITIONS lists them: one per value its rows hold, like
+    dt=2026-09-23, or region=eu/dt=20260911 for a table partitioned by two columns."""
+    columns = table._partitioned_by
     positions = [list(table._columns).index(column) for column in columns]
     values = sorted({tuple(row[position] for position in positions) for row in rows})
-    return pd.DataFrame({"partition": [
-        "/".join(f"{column}={value}" for column, value in zip(columns, partition))
-        for partition in values]})
+    return ["/".join(f"{column}={value}" for column, value in zip(columns, partition))
+            for partition in values]
+
+
+# A stand-in warehouse holding the nine tables, which answers DESCRIBE and SHOW PARTITIONS as
+# Hive does, from their Table references and the Partitions their rows hold.
+_DESCRIBED = StandIn(*[table for table, _ in _TABLES.values()], partitions={
+    table._name: _partitions(table, rows) for table, rows in _TABLES.values()
+    if table._partitioned_by})
 
 
 # A string in single or double quotes, a name in backticks, or a comment to the end of its
@@ -566,9 +547,10 @@ def query(hive: str) -> pd.DataFrame:
     text = hive.strip()
     words = text.split()
     if words[:1] and words[0].upper() == "DESCRIBE":
-        return _describe(words[-1])
+        # Its tables are stored nowhere, so DESCRIBE FORMATTED is answered as DESCRIBE is.
+        return _DESCRIBED.answer(f"DESCRIBE {_table(words[-1])[0]._name}")
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
-        return _show_partitions(words[-1])
+        return _DESCRIBED.answer(f"SHOW PARTITIONS {_table(words[-1])[0]._name}")
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
         # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
         columns, rows = run_query(text, _TABLES)
