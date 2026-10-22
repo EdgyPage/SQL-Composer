@@ -115,6 +115,7 @@ from example_gallery import (  # noqa: E402
     message_text,
     names_html,
     names_in,
+    prose_html,
     run_step,
     table_html,
 )
@@ -433,38 +434,6 @@ def linked(text: str) -> str:
     return LINK.sub(r'<a href="\2">\1</a>', inline(text))
 
 
-def paragraphs(text: str) -> list[str]:
-    """Paragraphs, with indented code that has blank lines in it kept as one."""
-    found = []
-    for paragraph in re.split(r"\n\s*\n", text.strip("\n")):
-        if not paragraph.strip():
-            continue
-        if found and is_code(paragraph) and is_code(found[-1]):
-            found[-1] += "\n\n" + paragraph
-        else:
-            found.append(paragraph)
-    return found
-
-
-def is_code(paragraph: str) -> bool:
-    return all(line.startswith("    ") or not line.strip() for line in paragraph.splitlines())
-
-
-def prose_html(text: str) -> str:
-    """Prose: paragraphs, "- " lists and indented code."""
-    shown = []
-    for paragraph in paragraphs(text):
-        if is_code(paragraph):
-            shown.append(code_html(textwrap.dedent(paragraph)))
-        elif paragraph.startswith("- "):
-            items = re.split(r"\n(?=- )", paragraph)
-            shown.append("<ul>" + "".join(f"<li>{linked(item[2:])}</li>" for item in items)
-                         + "</ul>")
-        else:
-            shown.append(f"<p>{linked(paragraph)}</p>")
-    return "\n".join(shown)
-
-
 # --- A step, run -----------------------------------------------------------------------------
 
 
@@ -653,7 +622,7 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
             if part.strip() and waiting:
                 shown.append(code_html("".join(waiting)))
                 waiting = []
-            shown.append(prose_html(part))
+            shown.append(prose_html(part, linked))
             continue
         notebook.sources.append(part.source)
         waiting.append(part.source)

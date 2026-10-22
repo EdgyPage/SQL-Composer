@@ -224,6 +224,8 @@ Toolbox files and 198 times in 23 test files.
   the 7.0-only refusals out, one clock, one and_parts, nine underscores off, opt-outs tested.
 - [17 Compress the ranked shapes](issues/17-compress-the-ranked-shapes.md): about 25 copies of a shape
   made one each, behaviour-identical; −90 lines of code; the walkers left for refusal order.
+- [18 tools/ shared pieces](issues/18-tools-shared-pieces.md): one prose_html for both pages;
+  code_audit and offline_policy left as two readers.
 
 ## Not yet specified
 

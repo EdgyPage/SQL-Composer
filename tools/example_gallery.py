@@ -231,22 +231,36 @@ def inline(text: str) -> str:
     return re.sub(r"`([^`]+)`", r"<code>\1</code>", escape(" ".join(text.split())))
 
 
-def prose_html(text: str) -> str:
-    """Docstring prose: paragraphs, "- " lists, and indented code."""
-    blocks = []
+def paragraphs(text: str) -> list[str]:
+    """Paragraphs, with indented code that has blank lines in it kept as one."""
+    found = []
     for paragraph in re.split(r"\n\s*\n", text.strip("\n")):
-        lines = paragraph.splitlines()
         if not paragraph.strip():
             continue
-        if all(line.startswith("    ") for line in lines):
-            blocks.append(code_html(textwrap.dedent(paragraph)))
-        elif lines[0].startswith("- "):
-            items = re.split(r"\n(?=- )", paragraph)
-            blocks.append("<ul>" + "".join(f"<li>{inline(item[2:])}</li>" for item in items)
-                          + "</ul>")
+        if found and is_code(paragraph) and is_code(found[-1]):
+            found[-1] += "\n\n" + paragraph
         else:
-            blocks.append(f"<p>{inline(paragraph)}</p>")
-    return "\n".join(blocks)
+            found.append(paragraph)
+    return found
+
+
+def is_code(paragraph: str) -> bool:
+    return all(line.startswith("    ") or not line.strip() for line in paragraph.splitlines())
+
+
+def prose_html(text: str, line: Callable[[str], str] = inline) -> str:
+    """Prose: paragraphs, "- " lists and indented code, each line of words shown by `line`."""
+    shown = []
+    for paragraph in paragraphs(text):
+        if is_code(paragraph):
+            shown.append(code_html(textwrap.dedent(paragraph)))
+        elif paragraph.startswith("- "):
+            items = re.split(r"\n(?=- )", paragraph)
+            shown.append("<ul>" + "".join(f"<li>{line(item[2:])}</li>" for item in items)
+                         + "</ul>")
+        else:
+            shown.append(f"<p>{line(paragraph)}</p>")
+    return "\n".join(shown)
 
 
 def names_html(names: list[str]) -> str:
