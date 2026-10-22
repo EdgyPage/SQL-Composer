@@ -12,14 +12,13 @@ the Building block Templates, filled in, run.
 from __future__ import annotations
 
 import ast
-import json
 import re
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from sqlglot_composer import example_database, project, run_query, set_admin_log, to_hive
+from sqlglot_composer import example_database, notebooks, project, run_query, set_admin_log, to_hive
 from sqlglot_composer.project import TableLogic
 from sqlglot_composer.project_templates import (
     BUILDING_BLOCK,
@@ -95,19 +94,17 @@ def filled_notebook(root: Path, template: str, name: str,
     (root / "references" / f"{stem}.py").write_text(
         saved_reference(name, columns, partitioned_by, key), encoding="utf-8")
     path = root / "tables" / stem / f"{stem}.ipynb"
-    notebook = json.loads(path.read_text(encoding="utf-8"))
-    for cell in notebook["cells"]:
-        lines = cell["source"]
-        if unpartitioned and cell["cell_type"] == "code":
-            lines = [line for line in lines if "<PARTITION_COLUMN>" not in line
-                     and line.strip() not in ("READS = <READS>", "WHERE(READS),")]
-        text = "".join(lines)
+    filled = []
+    for kind, text in notebooks.read_cells(path):
+        if unpartitioned and kind == "code":
+            text = "".join(line for line in text.splitlines(keepends=True)
+                           if "<PARTITION_COLUMN>" not in line
+                           and line.strip() not in ("READS = <READS>", "WHERE(READS),"))
         for placeholder, value in fills.items():
             text = text.replace(placeholder, value)
-        cell["source"] = text.splitlines(keepends=True)
-    path.write_text(json.dumps(notebook), encoding="utf-8")
-    return ["".join(cell["source"]) for cell in notebook["cells"]
-            if cell["cell_type"] == "code"]
+        filled.append((kind, text))
+    notebooks.write_notebook(path, filled)
+    return [text for kind, text in filled if kind == "code"]
 
 
 def listed(text: str) -> set[str]:

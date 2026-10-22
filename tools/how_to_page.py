@@ -77,7 +77,6 @@ import datetime
 import doctest
 import importlib.util
 import io
-import json
 import os
 import re
 import sys
@@ -96,7 +95,13 @@ import toolbox_registry  # noqa: E402
 import pandas as pd  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
-from sqlglot_composer import example_database, lineage, project, unchecked  # noqa: E402
+from sqlglot_composer import (  # noqa: E402
+    example_database,
+    lineage,
+    notebooks,
+    project,
+    unchecked,
+)
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from example_gallery import (  # noqa: E402
     FILTER_SCRIPT,
@@ -307,11 +312,11 @@ def write_file(block: FileBlock, folder: Path) -> None:
         # The steps after it import the file, as a notebook would once you save it.
         importlib.invalidate_caches()
         return
-    cells = project._template_cells(block.text)
+    cells = notebooks.template_cells(block.text)
     if not cells:
         raise HowToRefused(f"The file `{block.path}` is a notebook: write its cells, each "
                            "starting at a `# %%` line, as a Template does.")
-    project._write_notebook(path, cells)
+    notebooks.write_notebook(path, cells)
 
 
 def check_written(block: FileBlock, folder: Path) -> None:
@@ -319,9 +324,8 @@ def check_written(block: FileBlock, folder: Path) -> None:
     what the how-to shows: a .ipynb file the same cells, any other the same text."""
     path = folder / block.path
     if path.suffix == ".ipynb" and path.is_file():
-        cells = [(cell["cell_type"], "".join(cell["source"]).strip("\n"))
-                 for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]]
-        same = cells == project._template_cells(block.text)
+        cells = [(kind, text.strip("\n")) for kind, text in notebooks.read_cells(path)]
+        same = cells == notebooks.template_cells(block.text)
     else:
         same = path.is_file() and (path.read_text(encoding="utf-8").strip("\n")
                                    == block.text.strip("\n"))
