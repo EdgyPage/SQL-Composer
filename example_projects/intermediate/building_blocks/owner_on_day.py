@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
 """owner_on_day - the team that owned each job on each day, joined as of that day.
 
 Why: mart.job_day_facts saves each job's day beside its team then, and mart.team_days'
@@ -8,18 +8,19 @@ ops.job_owners holds a snapshot a day: each job's team and owner that day. A job
 teams, so a row is joined to the snapshot of its own day, not the newest.
 """
 
-from sqlglot_composer import LEFT_JOIN, all_of, between, equals
+from sqlglot_composer import LEFT_JOIN, Clause, Column, all_of, between, equals
 from references.ops__job_owners import job_owners
 
 
-def owner_on_day(job_id_column, day_column, first_day, last_day):
+def owner_on_day(job_id_column: Column, day_column: Column, first_day: str,
+                 last_day: str) -> Clause:
     """LEFT_JOIN ops.job_owners on the job and the day, so job_owners.team is the team then.
 
     job_id_column and day_column are the reading Statement's columns, such as events.job_id
     and events.dt; first_day and last_day are the days it reads, written like "2026-09-24".
-    Every read of a table must bound its Date partition at both ends, a joined table's too, so
-    they bound job_owners here, in ON=. by_day leaves a joined table's bound as written, and
-    the match on the day keeps each row to its own day's snapshot.
+    Every read of a partitioned table must filter one of its partition columns, a joined
+    table's too, so they filter job_owners' dt here, in ON=, and the match on the day keeps
+    each row to its own day's snapshot.
 
     It is a LEFT_JOIN, so a row whose day has no snapshot yet keeps its numbers, with a NULL
     team, rather than being dropped. ON= names job_owners' whole key, the job and the day, so

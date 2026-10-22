@@ -1,5 +1,5 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
-"""events_per_job_day - one row per job and day: its events, runs and minutes.
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+"""events_per_job - each job's events, runs and minutes for each dt it reads.
 
 Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks a day from
 them too, and writing them once here means the two always count them the same way.
@@ -10,21 +10,22 @@ NULL.
 """
 
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, derived, equals, fill_null,
-    statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, count_rows, derived, equals,
+    fill_null, statement, sum_of,
 )
 from references.ops__job_events import ends_a_run, job_events  # ends_a_run: an Alias
 
 
-def events_per_job_day(first_day, last_day):
-    """One row per job and day from first_day to last_day: its events, runs and minutes.
+def events_per_job(first_day: str, last_day: str) -> Table:
+    """One row per job and dt from first_day to last_day: its events, runs and minutes.
 
-    The Date partition, dt, is kept in GROUP_BY, so each day's numbers stay apart when
-    first_day and last_day are days apart, and in SELECT, so a Statement that reads this can
-    join each row to another table on its day, and by_day can cut it into one write per day.
+    The day, dt, ops.job_events' partition column, is kept in GROUP_BY, so each day's numbers
+    stay apart when first_day and last_day are days apart, and in SELECT, so a Statement that
+    reads this can join each row to another table on its day, and a write that reads it fills
+    each day's Partition from it.
     """
     return derived(
-        "events_per_job_day",
+        "events_per_job",
         statement(
             SELECT(
                 job_events.job_id,

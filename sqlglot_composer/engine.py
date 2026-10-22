@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """What sqlglot Composer runs on: the sqlglot it needs, and the executor of its Example database.
 
 `__init__.py` calls `check_installed()` as soon as it knows the folder is whole, before it imports
@@ -11,14 +11,26 @@ from __future__ import annotations
 
 import contextlib
 import re
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, NoReturn
 
 from . import _four_part_message as four_part_message
 from . import _stop as _core_stop
 
-TOOLBOX_VERSION = "6.0"
+if TYPE_CHECKING:
+    # Only for hints: sqlglot is imported inside the functions, once it is checked, and
+    # tables.py imports writing.py, which imports this file.
+    from sqlglot import exp
+    from sqlglot.executor.context import Context
+    from sqlglot.executor.python import PythonExecutor
+    from sqlglot.planner import Aggregate
+
+    from .tables import Table
+
+TOOLBOX_VERSION = "7.1"
 
 
-def _stop(what, why, fix):
+def _stop(what: str, why: str, fix: str) -> NoReturn:
     """Stop the Toolbox's import, named by its own folder, with the four-part message."""
     _core_stop(what, why, fix, folder=__name__.split(".")[0])
 
@@ -33,11 +45,11 @@ _EXECUTOR_NEEDS = (30, 19, 0)
 # --- sqlglot ------------------------------------------------------------------------------------
 
 
-def _dotted(numbers):
+def _dotted(numbers: tuple[int, ...]) -> str:
     return ".".join(str(n) for n in numbers)
 
 
-def _numbers(text):
+def _numbers(text: str) -> tuple[int, ...] | None:
     found = re.match(r"(\d+)\.(\d+)\.(\d+)", text)
     return tuple(int(n) for n in found.groups()) if found else None
 
@@ -46,12 +58,12 @@ _IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 # What to install where an older sqlglot writes something wrong: the one the Toolbox is tested on,
 # or a newer one in its range.
-_INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
+INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
                   f'"sqlglot>={_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the '
                   f"kernel. {_NO_INSTALLING}")
 
 
-def check_installed():
+def check_installed() -> None:
     """Refuse a sqlglot outside the supported range, or one that behaves differently."""
     try:
         import sqlglot
@@ -93,7 +105,7 @@ def check_installed():
               f"({_dotted(_NEWEST_TESTED)}). Its behaviour checks passed.")
 
 
-def _sqlglot_behaviour():
+def _sqlglot_behaviour() -> list[str]:
     from sqlglot import exp
     from sqlglot.errors import OptimizeError, UnsupportedError
     from sqlglot.optimizer.qualify import qualify
@@ -102,7 +114,7 @@ def _sqlglot_behaviour():
     from .trees import Node
     from .writing import sql_text, to_sqlglot
 
-    def written(tree) -> str:
+    def written(tree: exp.Expression) -> str:
         try:
             return sql_text(tree)
         except UnsupportedError:
@@ -162,13 +174,13 @@ def _executor_ready() -> None:
     raise RuntimeError(four_part_message(
         what=what,
         why="An executor that counts COUNT(DISTINCT ...) wrong says nothing about it.",
-        fix=f"{_INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
+        fix=f"{INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
         "still shows a Statement's Hive.",
         opt_out=None,
     ))
 
 
-def _like_spelled_out(tree):
+def _like_spelled_out(tree: exp.Expression) -> exp.Expression:
     """Rewrite each escaped LIKE, since sqlglot's executor ignores LIKE's backslash.
 
     starts_with and contains put a backslash before % and _ so they match themselves. Hive
@@ -183,7 +195,7 @@ def _like_spelled_out(tree):
     return tree
 
 
-def _plain_casts(tree):
+def _plain_casts(tree: exp.Expression) -> exp.Expression:
     """Make each CAST to text a plain one, which is all sqlglot's executor knows.
 
     sqlglot reads Hive's CAST as a TRY_CAST, since Hive gives NULL for a value it can't cast.
@@ -199,7 +211,7 @@ def _plain_casts(tree):
     return tree
 
 
-def _matching_text(column, pattern: str):
+def _matching_text(column: exp.Expression, pattern: str) -> exp.Expression:
     """The same test as `column LIKE pattern`, for a pattern of text between optional %."""
     parts, i = [], 0
     while i < len(pattern):
@@ -231,7 +243,7 @@ def _matching_text(column, pattern: str):
     return exp.EQ(this=column, expression=found)
 
 
-def _missing_function(tree, error: str) -> str | None:
+def _missing_function(tree: exp.Expression, error: str) -> str | None:
     """The Hive name of the function the executor didn't know, from its error, or None."""
     from sqlglot import exp
 
@@ -245,19 +257,20 @@ def _missing_function(tree, error: str) -> str | None:
     return None
 
 
-def _refuse_missing_part(missing: str, error: Exception | None = None) -> None:
+def _refuse_missing_part(missing: str, error: Exception | None = None) -> NoReturn:
     """Refuse a query that needs a part of Hive the executor hasn't got, such as NEXT_DAY."""
     raise RuntimeError(four_part_message(
         what=f"The Example database can't run this Hive: its executor has no {missing}.",
         why="The Example database runs Hive on sqlglot's own small executor, which knows only "
         "part of Hive. Hive at work knows all of it.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send; or try "
+        fix="See the Hive with to_hive(...), and run it at work with your own query; or try "
         "the Statement here without that part.",
         opt_out=None,
     )) from error
 
 
-def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) -> None:
+def _refuse_unreadable(said: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]]],
+                       error: Exception | None = None) -> NoReturn:
     """Refuse a query sqlglot couldn't read or run, as a warehouse refuses one."""
     names = [f"ops.{name}" for name in tables]
     listed = f"{', '.join(names[:-1])} and {names[-1]}" if len(names) > 1 else names[0]
@@ -266,9 +279,10 @@ def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) 
         why="Most often a table, column or hive_function(...) name is spelt wrong, which your "
         "warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but "
         "the Example database's small executor doesn't.",
-        fix=f"Check the names: the tables are {listed}, and printing one, such as "
-        "example_database.jobs, shows its columns. If they're right, see the Hive with "
-        "to_hive(...), and run it at work with your own send.",
+        fix=f"Check the names: the tables are {listed}, and all_columns(...) of one, such as "
+        "all_columns(example_database.jobs), lists its columns, as the table alone on a "
+        "cell's last line does. If they're right, see the Hive with "
+        "to_hive(...), and run it at work with your own query.",
         opt_out=None,
     )) from error
 
@@ -276,12 +290,12 @@ def _refuse_unreadable(said: str, tables: dict, error: Exception | None = None) 
 class _MixUp(Exception):
     """The executor was about to read one column where another of the same name was asked for."""
 
-    def __init__(self, asked_for: str, would_read: str):
+    def __init__(self, asked_for: str, would_read: str) -> None:
         super().__init__(f"{asked_for} would read {would_read}")
         self.asked_for, self.would_read = asked_for, would_read
 
 
-def _set_equal_by_joins(tree) -> set:
+def _set_equal_by_joins(tree: exp.Expression) -> set[frozenset[tuple[str, str]]]:
     """Each pair of same-named columns that a JOIN (not a LEFT JOIN) sets equal in its ON, as
     {(table, column), (table, column)}: the two have the same value in every joined row."""
     from sqlglot import exp
@@ -300,7 +314,7 @@ def _set_equal_by_joins(tree) -> set:
 
 
 @contextlib.contextmanager
-def _mix_ups_stopped(tree):
+def _mix_ups_stopped(tree: exp.Expression) -> Iterator[None]:
     """While it lasts, the executor stops with a _MixUp before it adds up rows it would mix up.
 
     To add rows up after a join, sqlglot's executor works out the inside of each count or sum
@@ -316,7 +330,7 @@ def _mix_ups_stopped(tree):
     equal = _set_equal_by_joins(tree)
     real = PythonExecutor.aggregate
 
-    def aggregate(executor, step, context):
+    def aggregate(executor: PythonExecutor, step: Aggregate, context: Context) -> Context:
         # What it reads from the joined rows once they are widened: the groups, and each
         # count's or sum's inside that it reads without working it out first.
         read = {(column.table, column.name) for found in [*step.group.values(),
@@ -343,7 +357,7 @@ def _mix_ups_stopped(tree):
         PythonExecutor.aggregate = real
 
 
-def _refuse_a_mix_up(mix_up: _MixUp) -> None:
+def _refuse_a_mix_up(mix_up: _MixUp) -> NoReturn:
     """Refuse a query the executor would answer wrong, mixing up two columns of one name."""
     asked_for, would_read = mix_up.asked_for, mix_up.would_read
     table, column = would_read.split(".")
@@ -354,7 +368,7 @@ def _refuse_a_mix_up(mix_up: _MixUp) -> None:
         why="The Example database runs Hive on sqlglot's own small executor, which here would "
         f"read {would_read} where {asked_for} is asked for, and so give a wrong answer without "
         "saying so. Hive at work reads the right one.",
-        fix="See the Hive with to_hive(...), and run it at work with your own send. To try it "
+        fix="See the Hive with to_hive(...), and run it at work with your own query. To try it "
         f"here, rename {table}'s {column}: in the SELECT of derived(\"{table}\", ...), wrap "
         f'its {column} in AS(..., "{table}_{column}"), then read {table}.{table}_{column} in '
         f"ON= and wherever else you read {would_read}. A Table reference can't be renamed: "
@@ -369,7 +383,8 @@ def _sqlglot_said(error: Exception) -> str:
     return re.sub(r"\s*Line:? \d+, Col: \d+\.?$", "", said).rstrip(".")
 
 
-def _check_tables(tree, tables: dict) -> None:
+def _check_tables(tree: exp.Expression,
+                  tables: dict[str, tuple[Table, list[tuple[object, ...]]]]) -> None:
     """Refuse a table the query names with a database that isn't one of the Example database's,
     such as mart.jobs, as a warehouse refuses it, before a column of it is blamed."""
     from sqlglot import exp
@@ -379,7 +394,8 @@ def _check_tables(tree, tables: dict) -> None:
             _refuse_unreadable(f"it has no table {table.db}.{table.name}", tables)
 
 
-def run_query(text: str, tables: dict) -> tuple[list, list]:
+def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]]]
+              ) -> tuple[list[str], list[tuple[object, ...]]]:
     """Run a query's Hive on sqlglot's executor: its column names, and its rows.
 
     `tables` maps each table's short name to its Table reference and its rows.

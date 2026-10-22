@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Joins: how each join clause is written in Hive, and the checks statement(...) runs on
 SEMI_JOIN, ANTI_JOIN and FULL_JOIN.
 
@@ -15,10 +15,17 @@ what they need from a whole Statement:
 
 from __future__ import annotations
 
-from .refusals import guard_full_join_then_where, refuse
-from .trees import Node
+from typing import TYPE_CHECKING, NoReturn
 
-TOOLBOX_VERSION = "6.0"
+from .conditions import Condition
+from .refusals import guard_full_join_then_where, refuse
+from .tables import Table
+from .trees import Node, and_parts
+
+if TYPE_CHECKING:
+    from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
+
+TOOLBOX_VERSION = "7.1"
 
 # How each join clause is written in Hive.
 HOW = {
@@ -32,12 +39,12 @@ HOW = {
 # The joins that only test their table: they give each row before them once at most, and add
 # none of their table's columns, so only their own ON= may read those.
 ONLY_TESTS = ("SEMI_JOIN", "ANTI_JOIN")
-# The joins whose table's Date partition is bounded inside their own ON=: WHERE runs after
-# the join, and would throw away the rows they keep, or can't read their columns at all.
+# The joins whose table's partition columns are filtered inside their own ON=: WHERE runs
+# after the join, and would throw away the rows they keep, or can't read their columns at all.
 BOUNDED_IN_ON = ("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")
 
 
-def need_broadcast_true_or_false(call: str, table, broadcast) -> None:
+def need_broadcast_true_or_false(call: str, table: Table, broadcast: object) -> None:
     """Refuse a broadcast= that isn't True or False."""
     if not isinstance(broadcast, bool):
         refuse(
@@ -50,19 +57,13 @@ def need_broadcast_true_or_false(call: str, table, broadcast) -> None:
         )
 
 
-def _and_parts(tree: Node) -> list[Node]:
-    if tree.kind != "And":
-        return [tree]
-    return [part for side in tree.flatten() for part in _and_parts(side)]
-
-
-def tested_column(table, on) -> str | None:
+def tested_column(table: Table, on: Condition) -> str | None:
     """The column of `table` an ANTI_JOIN tests for NULL: one ON= sets equal to another
     table's column, else to anything that doesn't read `table`, such as a value, with
     equals(...) joined by AND at its top. A matched row has a value there, so a row with NULL
     there matched none. None when ON= has no such equals."""
     fallback = None
-    for part in _and_parts(on._tree):
+    for part in and_parts(on._tree):
         if part.kind != "EQ":
             continue
         sides = (part.parts["this"], part.parts["expression"])
@@ -77,7 +78,7 @@ def tested_column(table, on) -> str | None:
     return fallback
 
 
-def refuse_only_tests_with_no_on(call: str, alias: str) -> None:
+def refuse_only_tests_with_no_on(call: str, alias: str) -> NoReturn:
     """A SEMI_JOIN or ANTI_JOIN needs ON=: it never multiplies rows, so CROSS_JOIN isn't the
     way out the other joins' refusal offers."""
     kept = ("every row would be kept" if call == "SEMI_JOIN"
@@ -91,7 +92,7 @@ def refuse_only_tests_with_no_on(call: str, alias: str) -> None:
     )
 
 
-def refuse_anti_join_with_nothing_matched(table) -> None:
+def refuse_anti_join_with_nothing_matched(table: Table) -> NoReturn:
     alias = table._alias
     refuse(
         what=f"ANTI_JOIN({alias}, ON=...) has no equals(...) on a column of {alias} in ON=.",
@@ -104,7 +105,7 @@ def refuse_anti_join_with_nothing_matched(table) -> None:
     )
 
 
-def anti_join_tests(s) -> list[Node]:
+def anti_join_tests(s: Statement) -> list[Node]:
     """The WHERE tests that make each ANTI_JOIN keep only the rows with no match: its tested
     column IS NULL."""
     found = []
@@ -116,7 +117,7 @@ def anti_join_tests(s) -> list[Node]:
     return found
 
 
-def check_joins(s) -> None:
+def check_joins(s: Statement) -> None:
     """Refuse a SEMI_JOIN's or ANTI_JOIN's columns read outside its ON=, and a WHERE on a
     FULL_JOIN's tables that throws away the rows it keeps."""
     for read in s._reads:
@@ -133,7 +134,7 @@ def check_joins(s) -> None:
                                                read.keeps_only_matches)
 
 
-def _places(s, read) -> list[tuple[str, Node]]:
+def _places(s: Statement, read: Clause) -> list[tuple[str, Node]]:
     """Every part of a Statement but `read`'s own ON=, each with the clause it is in."""
     found = [("SELECT", column._tree) for column, _ in s._outputs]
     found += [("WHERE", c._tree) for c in s._where]
@@ -145,7 +146,7 @@ def _places(s, read) -> list[tuple[str, Node]]:
     return found
 
 
-def _refuse_columns_read(s, read) -> None:
+def _refuse_columns_read(s: Statement, read: Clause) -> None:
     alias, call = read.table._alias, read._name
     for place, tree in _places(s, read):
         column = next((c for c in tree.find_all("Column") if c.table == alias), None)
@@ -169,19 +170,20 @@ def _refuse_columns_read(s, read) -> None:
                why=why, fix=fix, error=ValueError)
 
 
-def full_joined(s, read) -> bool:
+def full_joined(s: Statement, read: Clause) -> bool:
     """Whether a read is one side of a FULL_JOIN: the FULL_JOIN's own table, or a table read
-    before it. FULL_JOIN keeps every row of each, so neither WHERE nor ON= can bound its days."""
+    before it. FULL_JOIN keeps every row of each, so neither WHERE nor ON= can filter its
+    Partitions."""
     position = s._reads.index(read)
     return any(other._name == "FULL_JOIN" for other in s._reads[position:])
 
 
-def broadcast(s) -> list[str]:
+def broadcast(s: Statement) -> list[str]:
     """The tables a Statement's joins ask Hive to copy to every worker, by their names in it."""
     return [read.table._alias for read in s._reads[1:] if read.broadcast]
 
 
-def refuse_right_join(table) -> None:
+def refuse_right_join(table: object) -> NoReturn:
     """RIGHT_JOIN is never written: the same rows come from LEFT_JOIN with the tables swapped."""
     alias = getattr(table, "_alias", None) or "t"
     refuse(

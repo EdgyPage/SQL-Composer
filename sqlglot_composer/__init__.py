@@ -1,9 +1,9 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Write Hive SQL as Python, one clause function per SQL clause.
 
 Import everything from here, never from a file inside the folder:
 
-    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
+    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run_query
 
 The Toolbox is this one folder. To update, delete it, copy it in again from the download and
 restart the kernel. It checks itself when imported. If a file is missing, extra, from another
@@ -14,16 +14,17 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'6.0'
+'7.1'
 >>> VERSION
-'sqlglot Composer 6.0, ...'
+'sqlglot Composer 7.1, ...'
 """
 
 from __future__ import annotations
 
 import os
+from typing import NoReturn
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 # The folder this file belongs in, and the name its export stamps on each of the folder's
 # files.
@@ -39,16 +40,21 @@ _FILES = [
     "checks.py",
     "clauses.py",
     "conditions.py",
+    "describe.py",
     "engine.py",
     "example_database.py",
     "examples.html",
     "how_to.html",
     "joins.py",
     "keys.py",
+    "kinds.py",
     "lineage.py",
+    "notebooks.py",
     "project.py",
+    "project_files.py",
     "project_templates.py",
     "public.py",
+    "python_steps.py",
     "refusals.py",
     "running.py",
     "stacking.py",
@@ -81,7 +87,7 @@ def _four_part_message(what: str, why: str, fix: str, opt_out: str | None) -> st
     )
 
 
-def _stop(what, why, fix, folder):
+def _stop(what: str, why: str, fix: str, folder: str) -> NoReturn:
     """Stop the import of `folder`, the one you imported, with the four-part message. No import
     stop can be switched off."""
     raise ImportError(f"{folder} stopped on import:"

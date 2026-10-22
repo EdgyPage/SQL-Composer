@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Windows: a calculation over the rows around each row, such as a running total or a rank.
 
 window(...) names the rows each row's value is worked out over: the rows that share its
@@ -11,12 +11,15 @@ in a derived(...) table, and test it in the Statement that reads it.
 
 from __future__ import annotations
 
-from .calculations import Ordering, _need_column, ordered
-from .refusals import refuse
+from typing import NoReturn
+
+from .calculations import Ordering, need_column, ordered
+from .conditions import Condition
+from .refusals import is_count, refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 # What a function needs of its window: ORDER_BY, and whether it takes rows=.
 TOTAL = "a total"  # sum_of, average_of, count_rows, min_of, max_of: rows= with ORDER_BY
@@ -25,9 +28,22 @@ VALUE = "a value"  # first_value, last_value: ORDER_BY; rows= left out is the wh
 
 
 class Window:
-    """The rows a calculation looks across for each row. Made by window(...), passed as over=."""
+    """The rows a calculation looks across for each row, made by window(...) for over=.
 
-    def __init__(self, partition_by: list[Node], order: Node | None, rows, call: str):
+    >>> window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt)
+    window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt)
+
+    Make one with window(...), never Window(). Write the name in a type hint, to say that a
+    function of yours gives back a Window:
+
+    >>> def each_jobs_runs_in_order() -> Window:
+    ...     return window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])
+    >>> each_jobs_runs_in_order()
+    window(PARTITION_BY=[job_runs.job_id], ORDER_BY=[job_runs.dt])
+    """
+
+    def __init__(self, partition_by: list[Node], order: Node | None,
+                 rows: tuple[int | None, int | None] | None, call: str) -> None:
         self._partition_by = partition_by  # each PARTITION_BY column's tree
         self._order = order  # an Order of ORDER_BY's Ordered trees, or None
         self._rows = rows  # (start, end), or None
@@ -37,13 +53,13 @@ class Window:
         return self._call
 
 
-def _listed(items) -> list:
+def _listed(items: object) -> list[object]:
     if items is None:
         return []
     return list(items) if isinstance(items, (list, tuple)) else [items]
 
 
-def _no_name(call: str, keyword: str, given) -> None:
+def _no_name(call: str, keyword: str, given: object) -> NoReturn:
     """Refuse text where a Window needs a column, such as the name given in SELECT."""
     example = "job_runs.job_id" if keyword == "PARTITION_BY" else "descending(job_runs.run_id)"
     refuse(
@@ -67,7 +83,7 @@ def no_window_inside(call: str, column: Column) -> None:
         )
 
 
-def _checked_rows(rows):
+def _checked_rows(rows: object) -> tuple[int | None, int | None]:
     """rows= as (start, end), once checked: whole numbers of rows, or None, start first."""
     if not isinstance(rows, (tuple, list)) or len(rows) != 2:
         refuse(
@@ -101,12 +117,17 @@ def _checked_rows(rows):
     return (start, end)
 
 
-def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
+def window(PARTITION_BY: Column | list[Column] | None = None,
+           ORDER_BY: Column | Ordering | list[Column | Ordering] | None = None,
+           rows: tuple[int | None, int | None] | None = None) -> Window:
     """The rows a calculation looks across for each row, passed to it as over=.
 
+    >>> sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
+    SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)
+
     - PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The
-      word is SQL's, and has nothing to do with a table's Date partition. Left out, every row
-      is in one group.
+      word is SQL's, and has nothing to do with the Partitions a table is stored in. Left out,
+      every row is in one group.
     - ORDER_BY= puts each group's rows in order, with descending(...) for largest first.
     - rows=(start, end) keeps only the rows near each one, counted from the row itself:
       negative before it, 0 the row itself, positive after it. None means no limit: every row
@@ -142,23 +163,16 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
     WHERE
       job_runs.dt = '2026-09-24'
 
-    by_day refuses a Statement whose Window looks across days: one whose PARTITION_BY leaves
-    out the day, such as each job's run before, which may be on the day before. Split by day,
-    each day's Statement would see only that day. To write such a Window into a Saved table,
-    one day at a time:
+    A Window sees only the rows its Statement reads. To write each run of one day beside its
+    job's run before, which may be on the day before, read both days in a derived(...) table
+    that works out the Window and keeps the day column, then keep only the day to write in the
+    Statement that writes, with WHERE(equals(the_derived_table.dt, ...)). Here, each run of
+    2026-09-24 beside the minutes of its job's run before, which may be on 2026-09-23, written
+    into the Partition of its own day:
 
-    - read the day written and the days before it that it needs, in a derived(...) table that
-      keeps the day column;
-    - in the Statement that writes, keep only the day written, with
-      WHERE(equals(the_derived_table.dt, day)). The Toolbox writes that day.
-
-    Only a write with a Window may read several days this way: any other write must read only
-    the day it writes. Send one such Statement for each day. Here, each run of 2026-09-24
-    beside the minutes of its job's run before, which may be on 2026-09-23:
-
-    >>> runs_before = Table("mart.runs_before", date_partition="dt", key=["run_id", "dt"],
+    >>> runs_before = Table("mart.runs_before", partitioned_by=["dt"], key=["run_id"],
     ...     columns={"run_id": "bigint", "minutes_before": "int", "dt": "string"},
-    ...     location="/data/your_team/tables")
+    ...     location="/data/your_team/mart.db/runs_before")
     >>> two_days = derived("two_days", statement(
     ...     SELECT(job_runs.run_id, job_runs.dt,
     ...            AS(lag(job_runs.duration_mins, over=window(
@@ -169,7 +183,7 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
     ... ))
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(runs_before),
-    ...     SELECT(two_days.run_id, two_days.minutes_before),
+    ...     SELECT(two_days.run_id, two_days.minutes_before, two_days.dt),
     ...     FROM(two_days),
     ...     WHERE(equals(two_days.dt, "2026-09-24")),
     ... )))
@@ -182,10 +196,11 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
       WHERE
         job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     )
-    INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+    INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt)
     SELECT
       two_days.run_id,
-      two_days.minutes_before
+      two_days.minutes_before,
+      two_days.dt
     FROM two_days
     WHERE
       two_days.dt = '2026-09-24'
@@ -193,7 +208,7 @@ def window(PARTITION_BY=None, ORDER_BY=None, rows=None):
     return _made_window(PARTITION_BY, ORDER_BY, rows, "window(...)")
 
 
-def _columns_of(items, keyword: str, call: str) -> list:
+def _columns_of(items: object, keyword: str, call: str) -> list[Column | Ordering]:
     """PARTITION_BY's or ORDER_BY's items, once each is a column, or descending(column)."""
     found = _listed(items)
     for item in found:
@@ -201,11 +216,11 @@ def _columns_of(items, keyword: str, call: str) -> list:
         target = item._target if sorted_down else item
         if isinstance(target, str):
             _no_name(call, keyword, items)
-        no_window_inside(call, _need_column(target, call))
+        no_window_inside(call, need_column(target, call))
     return found
 
 
-def _made_window(PARTITION_BY, ORDER_BY, rows, call: str) -> Window:
+def _made_window(PARTITION_BY: object, ORDER_BY: object, rows: object, call: str) -> Window:
     groups = [column._tree.copy() for column in _columns_of(PARTITION_BY, "PARTITION_BY", call)]
     sorts = _columns_of(ORDER_BY, "ORDER_BY", call)
     order = Node("Order", expressions=[ordered(item, call) for item in sorts]) if sorts else None
@@ -225,7 +240,7 @@ def _made_window(PARTITION_BY, ORDER_BY, rows, call: str) -> Window:
     return Window(groups, order, rows, f"window({', '.join(written)})")
 
 
-def windowed(tree: Node, over, call: str, needs: str) -> Node:
+def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
     """`tree` worked out over the window `over`, once the window suits it: `needs` says what
     the function needs of its window (TOTAL, PLACE or VALUE)."""
     if not isinstance(over, Window):
@@ -270,9 +285,9 @@ def windowed(tree: Node, over, call: str, needs: str) -> Node:
                 order=None if over._order is None else over._order.copy(), rows=rows)
 
 
-def _whole_number(value, given: str, call: str, what_it_is: str, example: str) -> None:
+def _whole_number(value: object, given: str, call: str, what_it_is: str, example: str) -> None:
     """Refuse `value` unless it is a whole number, 1 or more."""
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+    if not is_count(value):
         refuse(
             what=f"{call} was given {given}, which isn't a whole number, 1 or more.",
             why=f"It is {what_it_is}.",
@@ -287,8 +302,13 @@ def _of_column(tree: Node, column: Column) -> Column:
                   not_adding_up_because=column._not_adding_up_because)
 
 
-def row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None):
+def row_number(*, PARTITION_BY: Column | list[Column] | None = None,
+               ORDER_BY: Column | Ordering | list[Column | Ordering] | None = None,
+               over: Window | None = None) -> Column:
     """Number the rows of each group from 1, in ORDER_BY's order.
+
+    >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
+    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
 
     Give it PARTITION_BY= and ORDER_BY=, or over=window(...) as lag(...) and rank(...) take
     theirs: both write the same Hive. Keeping the rows numbered 1 gives the latest row per key;
@@ -359,46 +379,46 @@ def row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None):
     return Column(tree, type="int")
 
 
-def rank(*, over):
+def rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; rows that tie share a rank.
-
-    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank after both:
-    1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its
-    own to each. Since rows can tie, a rank kept at 1 can't promise one row per group, as a
-    Key needs; keep row_number(...) at 1 for that.
 
     >>> longest_first = window(PARTITION_BY=job_runs.job_id,
     ...                        ORDER_BY=descending(job_runs.duration_mins))
     >>> rank(over=longest_first)
     RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.duration_mins DESC)
+
+    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank after both:
+    1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its
+    own to each. Since rows can tie, a rank kept at 1 can't promise one row per group, as a
+    Key needs; keep row_number(...) at 1 for that.
     """
     tree = windowed(Node("WindowCall", name="rank", args=[]), over, "rank(...)", PLACE)
     return Column(made_by(tree, "rank", over=over), type="int")
 
 
-def dense_rank(*, over):
+def dense_rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; ties share a rank, and the next follows on.
-
-    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank straight
-    after: 1, 2, 2, 3, where rank(...) gives 1, 2, 2, 4.
 
     >>> dense_rank(over=window(PARTITION_BY=job_runs.job_id,
     ...                        ORDER_BY=descending(job_runs.duration_mins)))
     DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.duration_mins DESC)
+
+    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank straight
+    after: 1, 2, 2, 3, where rank(...) gives 1, 2, 2, 4.
     """
     tree = windowed(Node("WindowCall", name="dense_rank", args=[]), over, "dense_rank(...)",
                     PLACE)
     return Column(made_by(tree, "dense_rank", over=over), type="int")
 
 
-def ntile(parts, *, over):
+def ntile(parts: int, *, over: Window) -> Column:
     """Which of N nearly equal parts of its group each row falls in, 1 to N, in order.
-
-    ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first
-    rows in ORDER_BY's order. When the rows don't split evenly, the first parts get one more.
 
     >>> ntile(4, over=window(ORDER_BY=job_runs.duration_mins))
     NTILE(4) OVER (ORDER BY job_runs.duration_mins ASC)
+
+    ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first
+    rows in ORDER_BY's order. When the rows don't split evenly, the first parts get one more.
     """
     call = f"ntile({parts!r}, ...)"
     _whole_number(parts, repr(parts), call, "how many parts each group's rows are split into",
@@ -408,11 +428,11 @@ def ntile(parts, *, over):
     return Column(made_by(tree, "ntile", parts, over=over), type="int")
 
 
-def _shifted(name: str, column, over, keyword: str, by: int) -> Column:
+def _shifted(name: str, column: object, over: object, keyword: str, by: object) -> Column:
     """lag's or lead's Column: the value `by` rows back or ahead of each row in its group;
     `keyword` is back or ahead."""
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     no_window_inside(call, column)
     _whole_number(by, f"{keyword}={by!r}", call, f"how many rows {keyword} to look",
                   f"{keyword}=2")
@@ -422,80 +442,81 @@ def _shifted(name: str, column, over, keyword: str, by: int) -> Column:
     return _of_column(tree, column)
 
 
-def lag(column, *, over, back=1):
+def lag(column: Column, *, over: Window, back: int = 1) -> Column:
     """The column's value on the row before each row in its group, in ORDER_BY's order.
-
-    back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The
-    first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0)
-    puts a value in its place. Here, each run's minutes beside those of the job's run before
-    it:
 
     >>> lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                         ORDER_BY=job_runs.run_id))
     LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+
+    back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The
+    first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0)
+    puts a value in its place. The example above gives each run the minutes of its job's run
+    before it.
     """
     return _shifted("lag", column, over, "back", back)
 
 
-def lead(column, *, over, ahead=1):
+def lead(column: Column, *, over: Window, ahead: int = 1) -> Column:
     """The column's value on the row after each row in its group, in ORDER_BY's order.
-
-    ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none.
-    The last row of each group has no row after it, so it gets NULL.
 
     >>> lead(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
     ...                                   ORDER_BY=job_runs.run_id))
     LEAD(job_runs.status, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+
+    ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none.
+    The last row of each group has no row after it, so it gets NULL.
     """
     return _shifted("lead", column, over, "ahead", ahead)
 
 
-def _end_value(name: str, column, over) -> Column:
+def _end_value(name: str, column: object, over: object) -> Column:
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     no_window_inside(call, column)
     tree = windowed(Node("WindowCall", name=name, args=[column._tree.copy()]), over, call,
                     VALUE)
     return _of_column(made_by(tree, name, column, over=over), column)
 
 
-def first_value(column, *, over):
+def first_value(column: Column, *, over: Window) -> Column:
     """The column's value on the first row of each row's group, in ORDER_BY's order.
-
-    With no rows= in the Window, it is the whole group's first row, which the Hive spells out
-    as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first
-    of those rows.
 
     >>> first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
     ...                                          ORDER_BY=job_runs.run_id))
     FIRST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+
+    With no rows= in the Window, it is the whole group's first row, which the Hive spells out
+    as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first
+    of those rows.
     """
     return _end_value("first_value", column, over)
 
 
-def last_value(column, *, over):
+def last_value(column: Column, *, over: Window) -> Column:
     """The column's value on the last row of each row's group, in ORDER_BY's order.
+
+    >>> last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
+    ...                                         ORDER_BY=job_runs.run_id))
+    LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
 
     With no rows= in the Window, it is the whole group's last row, which the Hive spells out
     as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING: left to itself, Hive would
     stop at each row, and give each row its own value. With rows=, it is the last of those
     rows.
-
-    >>> last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
-    ...                                         ORDER_BY=job_runs.run_id))
-    LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
     """
     return _end_value("last_value", column, over)
 
 
-def refuse_a_window_in(place: str, part) -> None:
+def refuse_a_window_in(place: str, part: Column | Condition) -> NoReturn:
     """Refuse a Window in WHERE, HAVING, ON= or GROUP_BY of the Statement that works it out."""
+    shows = "help(row_number)"
     if numbers_rows(part._tree):
         made, worked_out, fix_it = "numbers rows", "Rows are numbered", "Number the rows"
-        use, shows = "the number", "help(row_number)"
+        use = "the number"
     else:
         made, worked_out = "looks across rows through a Window", "Windows are worked out"
-        fix_it, use, shows = "Work it out", "it", "help(row_number)"
+        fix_it, use = "Work it out", "it"
     refuse(
         what=f"{place} has {part!r}, which {made}.",
         why=f"{worked_out} last, after the rows are picked and grouped, so Hive can't use "

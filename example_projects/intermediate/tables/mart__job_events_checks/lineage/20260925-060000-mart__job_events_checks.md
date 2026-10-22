@@ -1,34 +1,36 @@
-<!-- sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy -->
-# Lineage: written
+<!-- sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy -->
+# Lineage: write_job_events_checks
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
 ## Graph
 
 ```mermaid
 flowchart LR
-  subgraph g0["written"]
+  subgraph g0["write_job_events_checks"]
     n0["row_count<br/><small>count_rows()</small>"]
+    n2["dt<br/><small>job_events.dt</small>"]
   end
-  subgraph g1["filters on written"]
-    n1{{"WHERE in written<br/><small>between(job_events.dt, #quot;2026-09-24#quot;, #quot;2026-…</small>"}}
+  subgraph g1["ops.job_events"]
+    n1["ops.job_events.dt<br/><small>string</small>"]
   end
-  subgraph g2["ops.job_events"]
-    n2["ops.job_events.dt<br/><small>string</small>"]
+  subgraph g2["filters on write_job_events_checks"]
+    n3{{"WHERE in write_job_events_checks<br/><small>equals(job_events.dt, #quot;2026-09-24#quot;)</small>"}}
   end
   subgraph g3["mart.job_events_checks"]
-    n3["mart.job_events_checks.row_count<br/><small>bigint</small>"]
-    n4["mart.job_events_checks.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n4["mart.job_events_checks.row_count<br/><small>bigint</small>"]
+    n5["mart.job_events_checks.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
-  n2 -.-> n1
-  n0 --> n3
-  n1 -.->|day written| n4
-  n1 -.->|filters| g0
+  n1 --> n2
+  n1 -.-> n3
+  n0 --> n4
+  n2 --> n5
+  n3 -.->|filters| g0
 ```
 
-## written
+## write_job_events_checks
 
-It writes the Saved table mart.job_events_checks, one day at a time.
+It writes the Saved table mart.job_events_checks, replacing each partition its rows fill.
 
 ### Calculated columns
 
@@ -36,38 +38,45 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `row_count`
 
-Calculated in **written** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **write_job_events_checks** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-written.row_count = count_rows()
+write_job_events_checks.row_count = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in written: `between(job_events.dt, "2026-09-24", "2026-09-24")`, which is `job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'` (reads ops.job_events.dt)
+- WHERE in write_job_events_checks: `equals(job_events.dt, "2026-09-24")`, which is `job_events.dt = '2026-09-24'` (reads ops.job_events.dt)
 
 One value for each different `job_events.dt`.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `dt` | ops.job_events.dt |
 
 ### Keys
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- written: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
+- write_job_events_checks: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.
 - mart.job_events_checks' Key (dt) holds: each row written has its own.
 
 ### Hive as submitted
 
 ```sql
-INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt = '2026-09-24')
+INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt)
 SELECT
-  COUNT(*) AS row_count
+  COUNT(*) AS row_count,
+  job_events.dt
 FROM ops.job_events AS job_events
 WHERE
-  job_events.dt BETWEEN '2026-09-24' AND '2026-09-24'
+  job_events.dt = '2026-09-24'
 GROUP BY
   job_events.dt
 ```
 
 ---
 
-Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 6.0.
+Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 7.1.

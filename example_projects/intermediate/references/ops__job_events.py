@@ -1,12 +1,12 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
 """ops.job_events - one row per event of a run: start, retry, finish or fail.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the
-key each join and count relies on, is checked as the Statement is built.
+key each join and count relies on, where it has one, is checked as the Statement is built.
 
-project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its three
-TODO lines were then filled in by hand: this docstring's first line, the key, and
-does_not_add_up.
+project.add_references wrote this file from the table's DESCRIBE, its partition columns, if any,
+among it. Its three TODO lines were then filled in by hand: this docstring's first line, the
+key, and does_not_add_up.
 """
 from sqlglot_composer import Table, is_in
 
@@ -19,7 +19,7 @@ job_events = Table(
         "minutes": "int",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id"],  # filled in by hand
     # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],
@@ -33,8 +33,8 @@ job_events = Table(
 # Your own names for this table's columns and conditions, written by hand below.
 # Import one beside the table: from references.ops__job_events import job_events, <alias>
 #
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-# gives back, still call the column by its own name. To rename an output, use AS(...).
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
 #     <alias> = job_events.event_type
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.

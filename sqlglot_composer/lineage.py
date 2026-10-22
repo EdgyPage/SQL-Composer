@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Lineage: draw where each column comes from, as an HTML page and as Markdown.
 
 export_lineage(s) writes two files. The HTML page draws every step as its own group of boxes,
@@ -6,7 +6,8 @@ from the table columns through each Derived table to the Statement's outputs, wi
 to expand, collapse or hide each table. The Markdown twin needs no script: a Mermaid chart,
 then a report on each calculated column, and the Hive as submitted. Pass several Statements
 and the drawing continues through each Saved table one writes and another reads. An Unchecked statement is drawn as one step its
-columns can't be followed through, linked to the tables its text names.
+columns can't be followed through, linked to the tables its text names, and so is a Python
+step, linked to the columns it read and the table it wrote.
 """
 
 from __future__ import annotations
@@ -17,32 +18,27 @@ import inspect
 import json
 import os
 import re
+from collections.abc import Callable, Iterable
 from pathlib import Path
+from types import FrameType
+from typing import NoReturn
 
+# unchecked.now is read through its module, never imported, so patching it pins every clock.
+from . import kinds, unchecked
 from .clauses import Statement, derived_tables
-from .keys import possessive, statement_keys, unproven, wanted_key, writes_one_day
-from .refusals import (
-    GuardRefused,
-    LoadRefused,
-    refuse,
-)
-from .running import (
-    bottom_read,
-    bottom_steps,
-    by_day,
-    kept_day,
-    name_in,
-    statements_within,
-    to_hive,
-)
+from .conditions import Condition
+from .keys import Keys, possessive, statement_keys, unproven, wanted_key
+from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
+from .refusals import refuse
+from .running import name_in, statements_within, to_hive
 from .stacking import STACK_HOW, nth
-from .tables import readable
+from .tables import Table, readable
 from .trees import Node, rows_text
-from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
+from .unchecked import SessionSettings, UncheckedStatement, inline_code, tables_read_and_written
 from .windows import call_of
 from .writing import hive_text
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 
 # --- What a box shows --------------------------------------------------------------------------
@@ -50,18 +46,22 @@ TOOLBOX_VERSION = "6.0"
 # alike.
 
 
-def formula_line(box: dict) -> str:
+def formula_line(box: dict[str, object]) -> str:
     """A table column's type; for anything else, how it was written."""
     if box["kind"] == "table":
         return box["type"] or ""
     return box["formula"]
 
 
-def box_lines(box: dict) -> list[str]:
+def box_lines(box: dict[str, object]) -> list[str]:
     """The lines of text a box shows: its name, then its formula line unless that is empty,
-    then "in the Key" for a column that is part of its table's or its step's Key."""
+    then "in the Key" for a column that is part of its table's or its step's Key, then, for a
+    partition column a write fills with one value, what it writes, such as
+    "writes region = 'EU'"; for a Python step, the line its function starts on."""
     key = KEY_LINE if box.get("in_key") else ""
-    return [line for line in (box["name"], formula_line(box), key) if line]
+    return [shown for shown in (box["name"], formula_line(box), key, box.get("static", ""),
+                                box.get("line", ""))
+            if shown]
 
 
 # The line a column that is part of a Key shows under its name and formula.
@@ -76,14 +76,14 @@ KEYS_ABOUT = ("The columns that tell each step's rows apart, as the Toolbox work
 
 class Graph:
     """Boxes and arrows. A box is a table column, a Derived table column, an output or a
-    condition. An arrow is "value" (the value flows along it), "rows" (it decides which rows
-    count) or "day" (a write's date bound decides the day a Saved table is written)."""
+    condition. An arrow is "value" (the value flows along it) or "rows" (it decides which
+    rows count)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.boxes = {}
         self.arrows = []
 
-    def add(self, key: str, **facts) -> str:
+    def add(self, key: str, **facts: object) -> str:
         """Add a box and return its key. A box already added keeps its first facts."""
         self.boxes.setdefault(key, facts)
         return key
@@ -97,24 +97,24 @@ class Graph:
         """The boxes with an arrow into `key`: only arrows of `kind`, unless it is None."""
         return [a for a, b, k in self.arrows if b == key and kind in (None, k)]
 
-    def upstream(self, key: str, kind: str | None = None) -> list[str]:
-        """Every box with a path of arrows into `key`: only arrows of `kind`, unless it is None."""
+    def upstream(self, key: str) -> list[str]:
+        """Every box with a path of arrows into `key`."""
         seen, todo = [], [key]
         while todo:
-            for parent in self.parents(todo.pop(), kind):
+            for parent in self.parents(todo.pop()):
                 if parent not in seen:
                     seen.append(parent)
                     todo.append(parent)
         return seen
 
 
-def _box_key(kind: str, *parts) -> str:
+def _box_key(kind: str, *parts: int | str) -> str:
     """The key a box is kept under in the graph: its kind, then the parts that tell it apart,
     joined by ":", such as "output:0:runs"."""
     return ":".join([kind] + [str(part) for part in parts])
 
 
-def _table_box(graph: Graph, table, column: str) -> str:
+def _table_box(graph: Graph, table: Table, column: str) -> str:
     """The key of a table column's box, added the first time the column is read or written."""
     return graph.add(_box_key("table", f"{table._name}.{column}"), kind="table",
                      group=table._name, name=f"{table._name}.{column}",
@@ -123,7 +123,7 @@ def _table_box(graph: Graph, table, column: str) -> str:
                      in_key=column in (table._key or []))
 
 
-def _resolver(graph: Graph, step: Statement, index: int):
+def _resolver(graph: Graph, step: Statement, index: int) -> Callable[[Node], str | None]:
     """A function from a column in `step` to the key of the box it reads."""
     tables = {read.table._alias: read.table for read in step._reads}
 
@@ -146,7 +146,8 @@ _JOIN_DOES = {
 }
 
 
-def _conditions_of(step: Statement) -> list[tuple[str, object, Node, str, str | None]]:
+def _conditions_of(step: Statement
+                   ) -> list[tuple[str, Condition | None, Node, str, str | None]]:
     """Each condition that decides which rows `step` keeps:
     (clause, condition, tree, then, kept).
 
@@ -177,7 +178,7 @@ def _condition_text(tree: Node, then: str) -> tuple[str, str]:
 
 
 def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
-              conditions: dict, table: str | None = None) -> None:
+              table: str | None = None) -> None:
     """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions.
 
     `index` is the Statement's place in the order, and `kind` is "derived" or "output".
@@ -185,7 +186,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     that group. `table` is the Derived table's own name, given only when kind is "derived".
     """
     if step._stack is not None:
-        _add_stack(graph, step, index, kind, group, conditions, table)
+        _add_stack(graph, step, index, kind, group, table)
         return
     resolve = _resolver(graph, step, index)
     made = []
@@ -193,10 +194,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all("Column")]
-        if kind == "output":
-            key, shown = _box_key("output", index, name), name
-        else:
-            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        key, shown = _output_box(index, kind, group, table, name)
         graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
                   type=column._type, sql=hive_text(tree), formula=readable(tree),
                   calculated=tree.kind != "Column",
@@ -206,28 +204,21 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
-    for number, (clause, condition, tree, then, kept) in enumerate(_conditions_of(step)):
+    for number, (clause, _, tree, then, kept) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
         # `joined`: the boxes of the LEFT JOIN's table this condition reads, where the rows
-        # that count stop; `kept`: that table's alias (see _deciding).
+        # that count stop; `kept`: that table's alias (see _deciding). Both are looked up
+        # once the condition's box is added, so that it comes before the table boxes it reads.
         joined = []
-        key = graph.add(_box_key("condition", index, group, number), kind="condition",
-                        group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
-                        type=None, sql=sql, formula=formula, calculated=False, statement=index,
-                        joined=joined, kept=kept, reads=_aliases_read(tree))
-        # `conditions` is filled in here for the caller, which passes it on to _add_write so
-        # a write's date bound can find its condition's box.
-        conditions[(id(step), id(condition))] = key
-        for used in tree.find_all("Column"):
-            graph.arrow(resolve(used), key, "rows")
-            if kept is not None and used.table == kept:
-                joined.append(resolve(used))
-        for target in made:
-            graph.arrow(key, target, "rows")
+        _add_condition(graph, index, group, number, clause, sql, formula, made,
+                       (resolve(used) for used in tree.find_all("Column")),
+                       joined=joined, kept=kept, reads=_aliases_read(tree))
+        joined += [resolve(used) for used in tree.find_all("Column")
+                   if kept is not None and used.table == kept]
 
 
 def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
-               conditions: dict, table: str | None) -> None:
+               table: str | None) -> None:
     """A Stack's boxes: each Statement it stacks as a step of its own, then its columns.
 
     UNION_ALL and UNION feed each column from that column of every Statement. INTERSECT and
@@ -238,15 +229,12 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
     prefix = table or ""
     for number, branch in enumerate(branches, start=1):
         _add_step(graph, branch, index, "derived", f"{group}, {nth(number)} Statement",
-                  conditions, table=f"{prefix}[{number}]")
+                  table=f"{prefix}[{number}]")
     in_key = _step_key(s)
     feeding = branches if call in ("UNION_ALL", "UNION") else branches[:1]
     made = []
     for column, name in s._outputs:
-        if kind == "output":
-            key, shown = _box_key("output", index, name), name
-        else:
-            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        key, shown = _output_box(index, kind, group, table, name)
         graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
                   type=column._type, sql=STACK_HOW[call], formula=f"{call}(...)",
                   calculated=True,
@@ -257,19 +245,38 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
     if call in ("INTERSECT", "EXCEPT"):
         what = ("keeps only the rows every other Statement returns too" if call == "INTERSECT"
                 else "leaves out the rows another Statement returns")
-        key = graph.add(_box_key("condition", index, group, "stack"), kind="condition",
-                        group=group, name=f"{call} in {group}", full=f"{call} in {group}",
-                        type=None, sql=call, formula=f"{call}(...) {what}", calculated=False,
-                        statement=index, joined=[], kept=None, reads=set())
-        for number in range(2, len(branches) + 1):
-            for _, name in s._outputs:
-                graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key,
-                            "rows")
-        for target in made:
-            graph.arrow(key, target, "rows")
+        others = (_box_key("derived", index, f"{prefix}[{number}].{name}")
+                  for number in range(2, len(branches) + 1) for _, name in s._outputs)
+        _add_condition(graph, index, group, "stack", call, call, f"{call}(...) {what}", made,
+                       others, joined=[], kept=None, reads=set())
 
 
-def _window_rows(tree: Node) -> list[dict]:
+def _output_box(index: int, kind: str, group: str, table: str | None,
+                name: str) -> tuple[str, str]:
+    """An output box's key and the name it shows: the Statement's column by its own name, a
+    Derived table's as <group>.<name>."""
+    if kind == "output":
+        return _box_key("output", index, name), name
+    return _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+
+
+def _add_condition(graph: Graph, index: int, group: str, number: int | str, clause: str,
+                   sql: str, formula: str, made: list[str], sources: Iterable[str | None], *,
+                   joined: list[str | None], kept: str | None, reads: set[str]) -> None:
+    """A condition's box, "<clause> in <group>", with an arrow into it from each of the
+    boxes `sources` gives, read once the box is added, then an arrow from it into each box in
+    `made`, whose rows it decides. `joined` and `kept` are as _add_step says."""
+    key = graph.add(_box_key("condition", index, group, number), kind="condition",
+                    group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
+                    type=None, sql=sql, formula=formula, calculated=False, statement=index,
+                    joined=joined, kept=kept, reads=reads)
+    for source in sources:
+        graph.arrow(source, key, "rows")
+    for target in made:
+        graph.arrow(key, target, "rows")
+
+
+def _window_rows(tree: Node) -> list[dict[str, str]]:
     """The PARTITION BY and ORDER BY of each Window a calculation is worked out over, for its
     "Rows that count": they decide which rows each row's value is worked out from."""
     found = []
@@ -293,11 +300,10 @@ def _window_rows(tree: Node) -> list[dict]:
     return found
 
 
-def _step_keys(step: Statement):
-    """A step's Keys. A write's are worked out as its write check does (one day at a time
-    for a table with days, over every day it reads for one without), the ones that show its
+def _step_keys(step: Statement) -> Keys:
+    """A step's Keys, worked out as a write's check does; for a write, the ones that show its
     Saved table's Key first."""
-    keys = statement_keys(step, one_day=writes_one_day(step))
+    keys = statement_keys(step)
     table = step._write
     if table is None or not table._key:
         return keys
@@ -352,49 +358,6 @@ def _aliases_read(tree: Node) -> set[str]:
     return {used.table for used in tree.find_all("Column") if used.table}
 
 
-def _date_bounds(step: Statement) -> list:
-    """The date-bound conditions of a step that reads a write's real table through FROM."""
-    table = step._reads[0].table
-    inner = [read.on for read in step._reads if read._name == "JOIN"]
-    key = (table._alias, table._date_partition)
-    return [c for c in step._where + inner if key in c._spans]
-
-
-def _bounds_that_follow_the_day_written(step: Statement) -> list:
-    """The conditions in the WHERE of a step that reads a write's real table through FROM that
-    do nothing but bound a joined table's Date partition, where that table's JOIN sets its Date
-    partition equal to the FROM table's, the day written: as how-to 26's team write reads each
-    job's team from that day's snapshot."""
-    table = step._reads[0].table
-    written = (table._alias, table._date_partition)
-    tied = []
-    for read in step._reads:
-        joined = (read.table._alias, read.table._date_partition)
-        if read._name == "JOIN" and read.table._date_partition and _sets_equal(
-                read.on, joined, written):
-            tied.append(joined)
-    return [c for c in step._where if c._only_bounds in tied]
-
-
-def _sets_equal(on, one: tuple[str, str], other: tuple[str, str]) -> bool:
-    """Whether an ON= condition sets two columns, each (table alias, column), equal: with an
-    equals(...) between them, alone or in all_of(...)."""
-    parts, todo = [], [on._tree]
-    while todo:
-        tree = todo.pop()
-        if tree.kind == "And":
-            todo += tree.flatten()
-        else:
-            parts.append(tree)
-    for part in parts:
-        if part.kind == "EQ":
-            sides = (part.parts["this"], part.parts["expression"])
-            if {(side.table, side.name) for side in sides if side.kind == "Column"} == {
-                    one, other}:
-                return True
-    return False
-
-
 # The badge an Unchecked statement's step and section are marked with.
 UNCHECKED = "\u26a0"
 
@@ -436,49 +399,62 @@ def _link_whole_tables(graph: Graph) -> None:
                 graph.arrow(*((whole, key) if written else (key, whole)), "value")
 
 
-def _add_write(graph: Graph, s: Statement, index: int, conditions: dict) -> list[str]:
-    """Arrows from a write's outputs into its Saved table, and the "day written" arrow."""
+def changed_in_python(step: PythonStep) -> str:
+    """What Lineage says of a Python step: where the function that made the change lives."""
+    return f"changed in Python by `{step_place(step)}`, {step_line(step)}"
+
+
+def _add_python_step(graph: Graph, step: PythonStep, index: int, name: str) -> list[str]:
+    """A Python step's one box, naming its function and where it lives, with an arrow in from
+    each column it read and out to each column of the table it wrote. It returns the boxes
+    that end there."""
+    key = graph.add(_box_key("python", index), kind="python", group=name,
+                    name="Python step", full=f"{name}: Python step",
+                    type=None, sql=changed_in_python(step).replace("`", ""),
+                    formula=step_place(step), line=step_line(step), calculated=False, statement=index,
+                    reads=set())
+    for table, column in step._reads:
+        graph.arrow(_table_box(graph, table, column), key, "value")
+    written = [_table_box(graph, step._writes, column) for column in step._writes._columns]
+    for target in written:
+        graph.arrow(key, target, "value")
+    return [key, *written]
+
+
+def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
+    """Arrows from a write's outputs into its Saved table, and a box for each partition column
+    it fills with one value, which says what it writes, such as "writes region = 'EU'"."""
     table, written = s._write, []
     for _, name in s._outputs:
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
-    if not writes_one_day(s):
-        return written  # written whole: no day written
-    day = _table_box(graph, table, table._date_partition)
-    written.append(day)
-    _, span = bottom_read(s)
-    kept = (kept_day(s) if span is not None and span.is_bounded() and len(span.dates()) > 1
-            else None)
-    if kept is not None:
-        # A write that reads earlier days keeps the day it writes in a step above, as a
-        # window that looks back does: that step's condition is the day written.
-        graph.arrow(conditions.get((id(kept.step), id(kept.condition))), day, "day")
-    for step in bottom_steps(s):
-        for condition in [] if kept is not None else _date_bounds(step):
-            graph.arrow(conditions.get((id(step), id(condition))), day, "day")
-        for condition in _bounds_that_follow_the_day_written(step):
-            graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
+    for column, value in s._partitions.values.items():
+        target = _table_box(graph, table, column)
+        graph.boxes[target]["static"] = f"writes {column} = {value}"
+        written.append(target)
     return written
 
 
-def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
+def build_graph(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+                ) -> Graph:
     """Every box and arrow of the Statements, writers first, keeping what reaches an output."""
     graph, ends = Graph(), []
     groups = _derived_group_names(ordered)
     for index, (s, name) in enumerate(ordered):
-        if isinstance(s, UncheckedStatement):
+        if kinds.kind(s) == kinds.UNCHECKED:
             ends += _add_unchecked(graph, s, index, name)
             continue
-        conditions = {}  # each condition's box key, filled in by _add_step
+        if kinds.kind(s) == kinds.PYTHON:
+            ends += _add_python_step(graph, s, index, name)
+            continue
         for table in derived_tables(s):
             _add_step(graph, table._statement, index=index, kind="derived",
-                      group=groups[(index, table._name)], conditions=conditions,
-                      table=table._name)
-        _add_step(graph, s, index=index, kind="output", group=name, conditions=conditions)
+                      group=groups[(index, table._name)], table=table._name)
+        _add_step(graph, s, index=index, kind="output", group=name)
         ends += [_box_key("output", index, output) for _, output in s._outputs]
-        if s._write is not None:
-            ends += _add_write(graph, s, index, conditions)
+        if kinds.kind(s) == kinds.WRITE:
+            ends += _add_write(graph, s, index)
     _link_whole_tables(graph)
     keep = set(ends)
     for key in ends:
@@ -488,7 +464,8 @@ def build_graph(ordered: list[tuple[Statement, str]]) -> Graph:
     return graph
 
 
-def _derived_group_names(ordered) -> dict:
+def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+                         ) -> dict[tuple[int, str], str]:
     """Each Derived table's group name: its own, plus "in <Statement>" when that name is
     taken by another passed Statement's Derived table, by a Statement or by a table."""
     names, taken = {}, {name for _, name in ordered}
@@ -504,38 +481,43 @@ def _derived_group_names(ordered) -> dict:
 # --- Putting the Statements in order ----------------------------------------------------------
 
 
-def _tables_read(s) -> set[str]:
+def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     """The names of the real tables a Statement reads, itself or through its Derived tables,
-    or that an Unchecked statement's text reads."""
-    if isinstance(s, UncheckedStatement):
+    that an Unchecked statement's text reads, or that a Python step read."""
+    if kinds.kind(s) == kinds.UNCHECKED:
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
+    if kinds.kind(s) == kinds.PYTHON:
+        return step_tables_read(s)
     return {read.table._name for step in statements_within(s) for read in step._reads
             if read.table._statement is None}
 
 
-def _tables_written(s) -> list[str]:
-    """The Saved table a Statement writes, or each table an Unchecked statement's text writes
-    or changes."""
-    if isinstance(s, UncheckedStatement):
+def _tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
+    """The Saved table a Statement writes, each table an Unchecked statement's text writes
+    or changes, or the table a Python step wrote."""
+    if kinds.kind(s) == kinds.UNCHECKED:
         return list(dict.fromkeys(name for name, how in tables_read_and_written(s._text)
                                   if how == "writes"))
-    return [s._write._name] if s._write is not None else []
+    if kinds.kind(s) == kinds.PYTHON:
+        return [s._writes._name]
+    return [s._write._name] if kinds.kind(s) == kinds.WRITE else []
 
 
-def _derived_tables_of(s) -> list:
-    """The Derived tables a Statement reads; an Unchecked statement has none the Toolbox
-    knows of."""
-    return [] if isinstance(s, UncheckedStatement) else derived_tables(s)
+def _derived_tables_of(s: Statement | UncheckedStatement | PythonStep) -> list[Table]:
+    """The Derived tables a Statement reads; an Unchecked statement and a Python step have
+    none the Toolbox knows of."""
+    return [] if kinds.kind(s) in (kinds.UNCHECKED, kinds.PYTHON) else derived_tables(s)
 
 
-def in_order(named: list[tuple[Statement, str]],
-             call: str | None = None) -> list[tuple[Statement, str]]:
+def in_order(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+             call: str | None = None
+             ) -> list[tuple[Statement | UncheckedStatement | PythonStep, str]]:
     """The Statements with every writer before the Statements that read what it writes. An
-    Unchecked statement that reads a table it changes, as many do, waits only on others.
-    `call`, given by project.run_tables, names it in the refusal of a loop."""
+    Unchecked statement or a Python step that reads a table it changes, as many do, waits
+    only on others. `call`, given by project.run_tables, names it in the refusal of a loop."""
     reads = [_tables_read(s) for s, _ in named]
     needs = [{j for j, (w, _) in enumerate(named) if set(_tables_written(w)) & reads[i]
-              and not (j == i and isinstance(w, UncheckedStatement))}
+              and not (j == i and kinds.kind(w) in (kinds.UNCHECKED, kinds.PYTHON))}
              for i in range(len(named))]
     placed = []
     while len(placed) < len(named):
@@ -546,7 +528,7 @@ def in_order(named: list[tuple[Statement, str]],
     return [named[i] for i in placed]
 
 
-def _in_the_loop(needs: list[set], placed: list[int]) -> list[int]:
+def _in_the_loop(needs: list[set[int]], placed: list[int]) -> list[int]:
     """The Statements left unplaced that are part of a loop, not just waiting on one."""
     stuck = [i for i in range(len(needs)) if i not in placed]
     while True:
@@ -557,7 +539,9 @@ def _in_the_loop(needs: list[set], placed: list[int]) -> list[int]:
         stuck = kept
 
 
-def _refuse_loop(named, reads, stuck: list[int], call: str | None = None) -> None:
+def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+                 reads: list[set[str]],
+                 stuck: list[int], call: str | None = None) -> NoReturn:
     """Refuse Statements that go round in a loop, naming each write and who reads it: to
     export_lineage, or, with `call`, to project.run_tables."""
     links = []
@@ -590,18 +574,11 @@ def _refuse_loop(named, reads, stuck: list[int], call: str | None = None) -> Non
 # --- The report ------------------------------------------------------------------------------
 
 
-def _code(text: str) -> str:
-    """Markdown inline code, with a fence that survives backticks inside it."""
-    fence = "`" * (max((len(run) for run in re.findall(r"`+", text)), default=0) + 1)
-    pad = " " if text.startswith("`") or text.endswith("`") else ""
-    return f"{fence}{pad}{text}{pad}{fence}"
-
-
-def _how(box: dict) -> str:
+def _how(box: dict[str, object]) -> str:
     """How the report names a calculation: as written, then the Hive it became."""
     if box["formula"] != box["sql"]:
-        return f"{_code(box['formula'])}, which is {_code(box['sql'])}"
-    return _code(box["sql"])
+        return f"{inline_code(box['formula'])}, which is {inline_code(box['sql'])}"
+    return inline_code(box["sql"])
 
 
 def tree_lines(graph: Graph, key: str, prefix: str = "", last: bool = True,
@@ -674,24 +651,13 @@ def _decides(graph: Graph, parent: str, at: str) -> bool:
     return kept in depends_on
 
 
-def _rows_that_count(graph: Graph, key: str) -> list[tuple[dict, list[str]]]:
-    """Each condition upstream of a box that decides its rows, with the table columns it reads.
-
-    A write's date bound decides which day of its Saved table is written, not which of
-    those days a later Statement reads, so it counts only in the write's own section. So does a
-    bound on a joined table's Date partition that follows the day written
-    (see _bounds_that_follow_the_day_written).
-    """
-    found, upstream = [], _deciding(graph, key)
-    day_bounds = {a for a, _, kind in graph.arrows if kind == "day"}
-    for condition in [k for k in graph.boxes if k in upstream]:
-        box = graph.boxes[condition]
-        day = condition in day_bounds or box.get("follows_the_day_written", False)
-        if box["kind"] != "condition" or (
-                day and box["statement"] != graph.boxes[key]["statement"]):
-            continue
-        found.append((box, _tables_read_by(graph, condition)))
-    return found
+def _rows_that_count(graph: Graph, key: str
+                     ) -> list[tuple[dict[str, object], list[str]]]:
+    """Each condition upstream of a box that decides its rows, with the table columns it reads."""
+    upstream = _deciding(graph, key)
+    return [(graph.boxes[condition], _tables_read_by(graph, condition))
+            for condition in graph.boxes
+            if condition in upstream and graph.boxes[condition]["kind"] == "condition"]
 
 
 def _tables_read_by(graph: Graph, condition: str) -> list[str]:
@@ -712,23 +678,31 @@ def _tables_read_by(graph: Graph, condition: str) -> list[str]:
 def _copied_from(graph: Graph, key: str) -> list[str]:
     """The full names of the boxes a copied column comes from, nearest first.
 
-    A box that is a calculation has " (calculated)" after its name.
+    A box that is a calculation has " (calculated)" after its name. A Python step ends the
+    chain, since which columns it copied can't be told: its own section lists what it read.
     """
     chain, at = [], key
     while graph.parents(at, "value"):
         at = graph.parents(at, "value")[0]
         box = graph.boxes[at]
         chain.append(box["full"] + (" (calculated)" if box.get("calculated") else ""))
+        if box["kind"] == "python":
+            break
     return chain
 
 
-def report(graph: Graph, ordered) -> list[dict]:
+def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
+           ) -> list[dict[str, object]]:
     """One section per Statement, writers first: its calculated and copied columns, its Hive."""
     sections = []
     for index, (s, name) in enumerate(ordered):
-        if isinstance(s, UncheckedStatement):
+        if kinds.kind(s) == kinds.UNCHECKED:
             sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
-                             "copied": [], "sql": s._text, "note": "", "unchecked": True})
+                             "copied": [], "sql": s._text, "unchecked": True})
+            continue
+        if kinds.kind(s) == kinds.PYTHON:
+            sections.append({"name": name, "about": _about_python_step(s), "calculated": [],
+                             "copied": [], "python": changed_in_python(s)})
             continue
         mine = [k for k, box in graph.boxes.items() if box.get("statement") == index
                 and box["kind"] in ("derived", "output")]
@@ -740,14 +714,14 @@ def report(graph: Graph, ordered) -> list[dict]:
         ]
         copied = [(graph.boxes[k]["name"], _copied_from(graph, k)) for k in mine
                   if graph.boxes[k]["kind"] == "output" and not graph.boxes[k]["calculated"]]
-        sql, note = _submitted(s, name)
         sections.append({"name": name, "about": _about(s, index, ordered),
                          "calculated": calculated, "copied": copied,
-                         "keys": keys_report(s, name), "sql": sql, "note": note})
+                         "keys": keys_report(s, name), "sql": to_hive(s)})
     return sections
 
 
-def _about(s: Statement, index: int, ordered) -> str:
+def _about(s: Statement, index: int,
+           ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]) -> str:
     """One sentence on how a Statement joins the others through Saved tables."""
     parts = []
     for table in sorted(_tables_read(s)):
@@ -755,13 +729,16 @@ def _about(s: Statement, index: int, ordered) -> str:
         if writers:
             parts.append(f"It reads the Saved table {table}, written by "
                          f"{' and '.join(writers)} above.")
-    if s._write is not None:
-        verb = "writes" if s._replaces_day else "adds to"
-        if not writes_one_day(s):
-            parts.append(f"It {verb} the whole Saved table {s._write._name}, which has no "
-                         "days.")
+    table = s._write
+    if table is not None:
+        if not s._replaces_rows:
+            written = f"It adds to the Saved table {table._name}."
+        elif table._partitioned_by:
+            written = (f"It writes the Saved table {table._name}, replacing each partition its "
+                       "rows fill.")
         else:
-            parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
+            written = f"It writes the whole Saved table {table._name}."
+        parts.append(written)
     return " ".join(parts)
 
 
@@ -780,21 +757,16 @@ def _about_unchecked(s: UncheckedStatement) -> str:
     return text
 
 
-def _submitted(s: Statement, name: str) -> tuple[str, str]:
-    """The Hive as submitted; for a write over several days, the first day's, even when
-    set_load_limits(dates=...) refuses the whole write."""
-    try:
-        return to_hive(s), ""
-    except (GuardRefused, LoadRefused):
-        _, span = bottom_read(s)
-        if (not writes_one_day(s) or span is None or not span.is_bounded()
-                or len(span.dates()) < 2):
-            raise
-    days = by_day(s)
-    return to_hive(days[0]), (
-        f"This write covers {len(days)} days, and a write fills one day at a time: send "
-        f"it with `for day in by_day({name}): run(day, send=...)`. This is the first day's "
-        "Hive.")
+def _about_python_step(s: PythonStep) -> str:
+    """What a Python step's section says of it: that it is a change made in Python, which the
+    Toolbox can't see inside and never sent, and what it read and wrote."""
+    return ("A Python step: a change made in Python, outside any Statement, and saved by your "
+            "own call. The Toolbox can't see inside it, so its columns can't be followed "
+            f"through it, and it never moved its data. {step_about(s)}")
+
+
+# What a Python step's section says under its heading, Where it lives, after where.
+PYTHON_WHERE = "Open the function there to see what the change does."
 
 
 # --- The Markdown twin -----------------------------------------------------------------------
@@ -812,7 +784,7 @@ def _short(text: str, n: int) -> str:
     return text if len(text) <= n else text[: n - 1] + "…"
 
 
-def group_of(box: dict) -> str:
+def group_of(box: dict[str, object]) -> str:
     """The group a box is drawn in: a condition sits in the filters of the group it filters."""
     return f"filters on {box['group']}" if box["kind"] == "condition" else box["group"]
 
@@ -837,9 +809,7 @@ def mermaid_chart(graph: Graph) -> list[str]:
         lines.append("  end")
     filters = []
     for source, target, kind in graph.arrows:
-        if kind == "day":
-            lines.append(f"  {ids[source]} -.->|day written| {ids[target]}")
-        elif graph.boxes[source]["kind"] == "condition":
+        if graph.boxes[source]["kind"] == "condition":
             line = f"  {ids[source]} -.->|filters| {group_ids[graph.boxes[target]['group']]}"
             if line not in filters:
                 filters.append(line)
@@ -848,18 +818,22 @@ def mermaid_chart(graph: Graph) -> list[str]:
     return lines + filters + ["```"]
 
 
-def _section_markdown(section: dict) -> list[str]:
+def _section_markdown(section: dict[str, object]) -> list[str]:
     lines = [f"## {section['name']}", ""]
     if section["about"]:
         lines += [section["about"], ""]
     if section.get("unchecked"):
         return lines + ["### Hive as submitted", "", "```sql", section["sql"], "```", ""]
+    if section.get("python"):
+        said = section["python"]
+        return lines + ["### Where it lives", "",
+                        f"{said[0].upper()}{said[1:]}. {PYTHON_WHERE}", ""]
     lines += ["### Calculated columns", "",
               "Every column that is calculated rather than copied, in the order it is "
               "calculated.", ""]
     for entry in section["calculated"]:
         box = entry["box"]
-        lines += [f"#### {_code(box['name'])}", "",
+        lines += [f"#### {inline_code(box['name'])}", "",
                   f"Calculated in **{box['group']}** as {_how(box)}.", "",
                   "```text", entry["tree"], "```", ""]
         if entry["conditions"]:
@@ -870,28 +844,26 @@ def _section_markdown(section: dict) -> list[str]:
             lines.append("")
         if box["group_by"]:
             lines += ["One value for each different "
-                      + " and ".join(_code(g) for g in box["group_by"]) + ".", ""]
+                      + " and ".join(inline_code(g) for g in box["group_by"]) + ".", ""]
     if not section["calculated"]:
         lines += ["None: every column is copied.", ""]
     if section["copied"]:
         lines += ["### Copied columns", "", "| Output | Comes from |", "| --- | --- |"]
-        lines += [f"| {_code(name)} | {' ← '.join(chain)} |" for name, chain in section["copied"]]
+        lines += [f"| {inline_code(name)} | {' ← '.join(chain)} |" for name, chain in section["copied"]]
         lines.append("")
     lines += ["### Keys", "", KEYS_ABOUT, ""] + [f"- {line}" for line in section["keys"]] + [""]
     lines += ["### Hive as submitted", ""]
-    if section["note"]:
-        lines += [section["note"], ""]
     return lines + ["```sql", section["sql"], "```", ""]
 
 
-def to_markdown(graph: Graph, sections: list[dict], title: str, footer: str) -> str:
+def to_markdown(graph: Graph, sections: list[dict[str, object]], title: str,
+                footer: str) -> str:
     lines = [f"# Lineage: {title}", "",
              "Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab "
              "draws. Arrows run from where a value comes from to where it goes. A solid "
              "arrow carries a value. A dotted arrow carries a column into a condition, or "
-             "runs from a condition to the step whose rows it decides (labelled \"filters\")."
-             " A dotted arrow labelled \"day written\" runs from a write's date bound to the "
-             "day of the Saved table it writes.", "", "## Graph", ""]
+             "runs from a condition to the step whose rows it decides (labelled \"filters\").",
+             "", "## Graph", ""]
     lines += mermaid_chart(graph) + [""]
     for section in sections:
         lines += _section_markdown(section)
@@ -905,14 +877,14 @@ def _inline_code(text: str) -> str:
     return f"<code>{html.escape(text)}</code>"
 
 
-def _how_html(box: dict) -> str:
+def _how_html(box: dict[str, object]) -> str:
     """_how for the HTML page: how a calculation was written, then the Hive it became."""
     if box["formula"] != box["sql"]:
         return f"{_inline_code(box['formula'])}, which is {_inline_code(box['sql'])}"
     return _inline_code(box["sql"])
 
 
-def _entry_html(entry: dict) -> str:
+def _entry_html(entry: dict[str, object]) -> str:
     """One calculated column in the HTML report: its tree, rows that count, GROUP BY."""
     box, e = entry["box"], html.escape
     parts = [f'<details open><summary>{_inline_code(box["name"])} '
@@ -931,7 +903,7 @@ def _entry_html(entry: dict) -> str:
     return "".join(parts) + "</details>"
 
 
-def report_html(sections: list[dict]) -> str:
+def report_html(sections: list[dict[str, object]]) -> str:
     e, parts = html.escape, []
     for section in sections:
         parts.append(f"<h2>{e(section['name'])}</h2>")
@@ -939,6 +911,12 @@ def report_html(sections: list[dict]) -> str:
             parts.append(f"<p>{e(section['about'])}</p>")
         if section.get("unchecked"):
             parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
+            continue
+        if section.get("python"):
+            said = re.sub(r"`([^`]*)`", lambda found: f"<code>{found[1]}</code>",
+                          e(section["python"]))
+            parts.append(f"<h3>Where it lives</h3><p>{said[0].upper()}{said[1:]}. "
+                         f"{e(PYTHON_WHERE)}</p>")
             continue
         parts.append("<h3>Calculated columns</h3>")
         parts += [_entry_html(entry) for entry in section["calculated"]]
@@ -951,14 +929,11 @@ def report_html(sections: list[dict]) -> str:
                          f"</tr>{rows}</table>")
         keys = "".join(f"<li>{e(line)}</li>" for line in section["keys"])
         parts.append(f"<h3>Keys</h3><p>{e(KEYS_ABOUT)}</p><ul>{keys}</ul>")
-        parts.append("<h3>Hive as submitted</h3>")
-        if section["note"]:
-            parts.append(f"<p>{e(section['note'])}</p>")
-        parts.append(f"<pre>{e(section['sql'])}</pre>")
+        parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
     return "\n".join(parts)
 
 
-def graph_data(graph: Graph) -> dict:
+def graph_data(graph: Graph) -> dict[str, list[dict[str, object]] | list[list[str]]]:
     """What the page's script draws from: the boxes with their lines, the arrows, the groups."""
     ids = {key: f"n{number}" for number, key in enumerate(graph.boxes)}
     boxes = [{"id": ids[key], "kind": _drawn_kind(box), "group": box["group"],
@@ -974,19 +949,21 @@ def graph_data(graph: Graph) -> dict:
             "groups": [{"name": name, "kind": kind} for name, kind in groups.items()]}
 
 
-def _drawn_kind(box: dict) -> str:
-    """The kind the page's script draws a box as: an Unchecked statement's step is drawn as an
-    output, marked unchecked."""
-    return "output unchecked" if box["kind"] == "unchecked" else box["kind"]
+def _drawn_kind(box: dict[str, object]) -> str:
+    """The kind the page's script draws a box as: an Unchecked statement's step and a Python
+    step are drawn as an output, marked unchecked or python."""
+    if box["kind"] in ("unchecked", "python"):
+        return f"output {box['kind']}"
+    return box["kind"]
 
 
-def _script_safe(data: dict) -> str:
+def _script_safe(data: dict[str, list[dict[str, object]] | list[list[str]]]) -> str:
     """JSON that can sit inside a <script> without ending it."""
     text = json.dumps(data, ensure_ascii=False)
     return text.replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
 
 
-def to_html(graph: Graph, sections: list[dict], title: str, markdown_name: str,
+def to_html(graph: Graph, sections: list[dict[str, object]], title: str, markdown_name: str,
             footer: str) -> str:
     filled = {"TITLE": html.escape(title), "MD": html.escape(markdown_name),
               "FOOTER": html.escape(footer), "REPORT": report_html(sections),
@@ -1037,16 +1014,22 @@ def _checked_out(place: Path, dot: Path) -> str:
     return "nocommits"
 
 
-def calling_file(frame) -> Path | None:
+def calling_file(frame: FrameType) -> Path | None:
     """The script or notebook that called export_lineage, if it can be told."""
-    filename = frame.f_code.co_filename
+    return file_of(frame.f_code.co_filename)
+
+
+def file_of(filename: str) -> Path | None:
+    """The script or notebook that Python code comes from, by the file name Python gives it:
+    code run in a notebook's cell is named by the notebook, if it can be told."""
     if filename.startswith("<") or "ipykernel" in filename:
         notebook = os.environ.get("JPY_SESSION_NAME")
         return Path(notebook) if notebook else None
     return Path(filename)
 
 
-def statement_names(statements, frame) -> list[str]:
+def statement_names(statements: list[Statement | UncheckedStatement | PythonStep],
+                    frame: FrameType) -> list[str]:
     """The caller's variable name for each Statement, found by identity."""
     return [name_in(frame, s) or ("statement" if len(statements) == 1 else f"statement_{position}")
             for position, s in enumerate(statements, start=1)]
@@ -1061,12 +1044,13 @@ def default_path(caller: Path | None, commit: str, names: list[str],
                  when: datetime.datetime) -> Path:
     """lineage/{time}_{commit}_lineage_{file}_{names}.html, beside the calling file."""
     stem = caller.stem if caller is not None else "notebook"
-    name = (f"{when:%Y%m%d-%H%M%S}_{commit}_lineage_{_plain(stem)}_"
+    name = (f"{when.strftime(unchecked.TIME_IN_A_NAME)}_{commit}_lineage_{_plain(stem)}_"
             f"{'__'.join(_plain(n) for n in names)}.html")
     return caller_folder(caller) / "lineage" / name
 
 
-def _table_folder_path(statements, caller: Path | None,
+def _table_folder_path(statements: list[Statement | UncheckedStatement | PythonStep],
+                       caller: Path | None,
                        when: datetime.datetime) -> Path | None:
     """Inside a Project, the Table folder's lineage/{time}-{db}__{table}.html for the
     Statements, or None: the folder of the one Saved table they all write, or else of the
@@ -1091,7 +1075,7 @@ def _table_folder_path(statements, caller: Path | None,
     folder = project / "tables" / stem
     if not folder.is_dir():
         return None
-    return folder / "lineage" / f"{when:%Y%m%d-%H%M%S}-{stem}.html"
+    return folder / "lineage" / f"{when.strftime(unchecked.TIME_IN_A_NAME)}-{stem}.html"
 
 
 def caller_folder(caller: Path | None) -> Path:
@@ -1099,7 +1083,9 @@ def caller_folder(caller: Path | None) -> Path:
     return caller.parent if caller is not None and caller.is_absolute() else Path.cwd()
 
 
-def _check_statements(statements) -> tuple[list, list]:
+def _check_statements(statements: tuple[object, ...]
+                      ) -> tuple[list[Statement | UncheckedStatement | PythonStep],
+                                 list[SessionSettings]]:
     """The Statements passed, each once, and the names of the Session settings passed with
     them; anything else is refused."""
     if not statements:
@@ -1110,15 +1096,14 @@ def _check_statements(statements) -> tuple[list, list]:
         )
     found, settings, admin = [], [], []
     for s in statements:
-        if isinstance(s, SessionSettings):
+        if kinds.kind(s) == kinds.SETTINGS:
             settings.append(s)
             continue
-        if isinstance(s, Statement) and s._admin_call is not None:
+        if kinds.kind(s) == kinds.ADMIN:
             # An Admin statement changes a table, or copies its rows whole: left out.
             admin.append(s)
             continue
-        if not isinstance(s, (Statement, UncheckedStatement)) or (
-                isinstance(s, Statement) and s._ddl is not None):
+        if kinds.kind(s) not in (kinds.READ, kinds.WRITE, kinds.UNCHECKED, kinds.PYTHON):
             refuse(
                 what=f"export_lineage was given {s!r}, which isn't a Statement that reads a "
                 "table.",
@@ -1134,7 +1119,7 @@ def _check_statements(statements) -> tuple[list, list]:
             what="export_lineage was given only Admin statements, and no Statement that reads "
             "a table.",
             why="It draws where each column of a Statement comes from, and an Admin statement, "
-            "from the admin module, changes a table's definition or its days, or, in the "
+            "from the admin module, changes a table's definition or its partitions, or, in the "
             "move, copies a table's rows whole into a copy of it, column for column, so it "
             "is left out: it makes no column from another.",
             fix="Pass the Statements that read and write your tables, such as a pipeline's "
@@ -1152,7 +1137,7 @@ def _check_statements(statements) -> tuple[list, list]:
     return found, settings
 
 
-def _html_path(to) -> Path:
+def _html_path(to: str | os.PathLike[str]) -> Path:
     """The to= path, refused unless it names an .html file."""
     path = Path(to)
     if path.suffix.lower() != ".html":
@@ -1165,26 +1150,9 @@ def _html_path(to) -> Path:
     return path
 
 
-def export_lineage(*statements, to=None):
+def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement | PythonStep,
+                   to: str | Path | None = None) -> tuple[Path, Path]:
     """Write where each column comes from, as an HTML page and a Markdown twin.
-
-    The HTML draws every step: the table columns, each Derived table and the outputs, with
-    the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
-    up its whole path; controls expand, collapse or hide each table, and switch to a grouped
-    flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
-    calculated column, and the Hive. Pass several Statements and the drawing follows each
-    Saved table from the Statement that writes it to the ones that read it.
-
-    The files go in a lineage/ folder beside your script or notebook, named by the time,
-    your scripts' git commit, the file and the Statement's variable, such as
-    lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a
-    Project, when every Statement you pass writes the same Saved table and it has a Table
-    folder, the files go in that folder's lineage/, named by the time and the table, such as
-    tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds
-    to the table's past Lineage; the commit is in the footer. So do Statements of several
-    tables passed from a Table notebook, when one of them writes that notebook's table: its
-    lineage across tables. Any others go beside your script or notebook, as above. to= names
-    the HTML file instead. It returns the two paths, HTML first.
 
     >>> runs_per_team = statement(
     ...     SELECT(jobs.team, AS(count_rows(), "runs")),
@@ -1198,10 +1166,30 @@ def export_lineage(*statements, to=None):
     ('lineage', '..._lineage_notebook_runs_per_team.html')
     >>> markdown_file.name
     '..._lineage_notebook_runs_per_team.md'
+
+    The HTML draws every step: the table columns, each Derived table and the outputs, with
+    the conditions (WHERE, JOIN's ON=, HAVING, LIMIT) as dashed boxes. Click a box to light
+    up its whole path; controls expand, collapse or hide each table, and switch to a grouped
+    flowchart. The Markdown file needs no script: a Mermaid chart, a report on each
+    calculated column, and the Hive. Pass several Statements and the drawing follows each
+    Saved table from the Statement that writes it to the ones that read it. An Unchecked
+    statement and a Python step (help(python_step)) are each drawn as one step it can't see
+    inside, with a section of the report of their own.
+
+    The files go in a lineage/ folder beside your script or notebook, named by the time,
+    your scripts' git commit, the file and the Statement's variable, such as
+    lineage/20260925-143000_1a2b3c4_lineage_weekly_report_runs_per_team.html. Inside a
+    Project, when every Statement you pass writes the same Saved table and it has a Table
+    folder, the files go in that folder's lineage/, named by the time and the table, such as
+    tables/mart__daily_runs/lineage/20260925-143000-mart__daily_runs.html, so each run adds
+    to the table's past Lineage; the commit is in the footer. So do Statements of several
+    tables passed from a Table notebook, when one of them writes that notebook's table: its
+    lineage across tables. Any others go beside your script or notebook, as above. to= names
+    the HTML file instead. It returns the two paths, HTML first.
     """
     statements, settings = _check_statements(statements)
     frame = inspect.currentframe().f_back
-    when = _now()
+    when = unchecked.now()
     names = statement_names(statements, frame)
     caller = calling_file(frame)
     commit = scripts_commit(caller_folder(caller))
@@ -1222,11 +1210,6 @@ def export_lineage(*statements, to=None):
     return html_path, markdown_path
 
 
-def _now() -> datetime.datetime:
-    """The time a lineage is exported, which names its files and is in their footer."""
-    return datetime.datetime.now()
-
-
 def _version() -> str:
     """The Toolbox version a lineage's footer names."""
     from . import VERSION
@@ -1234,7 +1217,7 @@ def _version() -> str:
     return VERSION
 
 
-def _footer(when: datetime.datetime, commit: str, settings: list) -> str:
+def _footer(when: datetime.datetime, commit: str, settings: list[SessionSettings]) -> str:
     """The line both files end with: when, from which commit, with which Toolbox, and each
     Session settings passed with the Statements: its names, and the SET lines it sends."""
     text = (f"Made by export_lineage on {when:%Y-%m-%d %H:%M}, from your scripts at commit "
@@ -1262,11 +1245,12 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
 .condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
 .unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
+.python rect{fill:#eaf6f6;stroke:#2b8a8a;stroke-width:2}
 .grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
 .n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
 .dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
 .n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
 summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
@@ -1278,7 +1262,8 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>Python step: changed in Python, saved by your own call</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -1422,14 +1407,10 @@ function drawnAs(box) {
 }
 
 // The kind of the one arrow drawn for two arrows in a row, when the box between them is
-// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
-// otherwise 'rows'.
+// hidden: 'value' if both carry a value, otherwise 'rows'.
 function joinedArrowKind(first, second) {
   if (first === 'value' && second === 'value') {
     return 'value';
-  }
-  if (first === 'day' || second === 'day') {
-    return 'day';
   }
   return 'rows';
 }
@@ -1781,20 +1762,11 @@ function curve(startX, startY, endX, endY) {
   return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
 }
 
-// The "day written" label, just above the middle of its arrow.
-function dayWrittenLabel(startX, startY, endX, endY) {
-  // 28 pixels is about half the label's width, so the label is centred on the arrow.
-  const x = (startX + endX) / 2 - 28;
-  const y = (startY + endY) / 2 - 4;
-  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
-}
-
-// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
-// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+// The SVG for one arrow between two boxes. data-a and data-b hold the ids of the boxes at its
+// two ends, for lighting up a path.
 function arrowSvg(source, target, kind, startX, startY, endX, endY) {
-  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+  return `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
     + `d="${curve(startX, startY, endX, endY)}"/>`;
-  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
 }
 
 // The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
@@ -1835,7 +1807,7 @@ function renderFlowchart(visible) {
     const [sourceX, sourceY] = layout.positions[source];
     const startX = sourceX + BOX_WIDTH;
     const startY = sourceY + layout.heights[source] / 2;
-    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+    if (visibleBoxById[source].kind === 'condition') {
       const frame = frameByName[visibleBoxById[target].group];
       const drawnKey = source + '>' + frame.name;
       if (!filterArrowsDrawn.has(drawnKey)) {

@@ -2,6 +2,298 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 7.1
+
+7.1 stops choosing between your two calls: you send each Statement through `query` or
+`execute` yourself, by the function you call. From 6.x, update as 7.0 says below, then as here,
+leaving out the two 7.0 steps 7.1 takes back: `unchecked_hive(..., returns_rows=...)` and
+`project.run_tables(query=...)`.
+
+### To update from 7.0
+
+- **Copy the `sqlglot_composer` folder in over 7.0's**, and restart the kernel.
+- **`run(s, query=..., execute=...)` becomes `run_query(s, query)` or `run_execute(s, execute)`:
+  you pick the call.** `run_query` sends a Statement through your `query` and gives back its
+  rows: a read, `explain(s)`, whose plan comes back as text, and an Unchecked statement.
+  `run_execute` sends one through your `execute` and gives back None: a write, `create_table`,
+  `repair_partitions`, `compute_statistics`, an Admin statement, `hive_settings(...)`, each SET
+  line in a call of its own, and an Unchecked statement. Each refuses the plain mix-up, a write
+  handed to `run_query` or a read to `run_execute`, saying which to call, and neither sends
+  anything to the other call; each refuses your other function given in its own's place, such
+  as `run_query(s, execute)`, knowing it by its name. `run` is gone. Each takes your call
+  second, by name or not: `run_query(s, query)` and `run_query(s, query=query)` are the same.
+- **`unchecked_hive(text)` takes no `returns_rows=`**: your text goes through whichever you
+  call, `run_query` for Hive that gives back rows, as a `SELECT` or `SHOW` does, `run_execute`
+  for the rest, as an `ALTER` or `INSERT` does. The Toolbox doesn't read the text to choose, so
+  a `SELECT` sent with `run_execute` goes to your execute.
+- **`project.run_tables(execute=execute)` takes no `query=`.** Everything a `write()` gives is
+  sent through your execute, so a read there is refused, naming the notebook, before anything is
+  sent. With no `execute` it is the dry run, as before.
+- **`admin.move_to_own_folder` gives the move's first two steps**: create the copy, and copy the
+  rows into it. `admin.check_the_copy(t, query=query)` then compares the rows of the two,
+  Partition by Partition, through your query, and stops the move if any differs; once they
+  match, it gives the steps that finish it, keep the old files, drop and rename, so the drop
+  can't be sent before the comparison. Send each list's steps with `run_execute(step,
+  execute)`, the check between them.
+- **The Templates and admin notebooks** that `project.start()` writes import `run_query` or
+  `run_execute`. For a Project made with 7.0, change each `run` in your own notebooks, and in
+  your copies of the Templates in `admin/templates/`, as above.
+
+### Also new
+
+- **`project.load` refuses a notebook Jupyter couldn't open**, naming its file: one that isn't
+  JSON, where 7.0 stopped with Python's own JSON error, and one with no list of cells Jupyter
+  can read, where 7.0 said it had no logic cell, or stopped with a Python error.
+- **`compute_statistics(t, partition=...)` refuses what a write's `partition=` refuses**, with
+  the same message for the same mistake. An empty `{}`, and a Column such as `t.region` as a
+  value, which 7.0 let through, are refused now; a name that isn't a partition column, a value
+  of None and names out of `partitioned_by`'s order were refused before, and now say so in the
+  write's words.
+
+## 7.0
+
+7.0 changes how the Toolbox reaches your warehouse and drops its assumption that tables are
+built a day at a time, so some of your files change: each change below says how.
+
+### To update from 6.x
+
+- **Copy the `sqlglot_composer` folder in over 6.1's**, and restart the kernel.
+- **`send.py` becomes `warehouse.py`, with two functions in place of `send`**: `query(hive)`,
+  which gives back rows as a pandas DataFrame, and `execute(hive)`, which gives back nothing, as
+  your work's API has a query call and an execute call. Make `warehouse.py` beside `send.py`:
+
+  ```python
+  import pandas as pd
+
+
+  def query(hive: str) -> pd.DataFrame:
+      """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+      ...  # what your send did for a SELECT
+
+
+  def execute(hive: str) -> None:
+      """Run a Hive string that changes something, such as a write, and give back nothing."""
+      ...  # your API's execute call
+  ```
+
+  then change each `from send import send` to `from warehouse import query, execute` (only the
+  ones the notebook uses), and delete `send.py`. `project.check()` reports a `send.py` left with
+  no `warehouse.py` beside it.
+- **`query` and `execute` raise when the warehouse reports a failure**, as your send did: the
+  Toolbox knows a step failed only when your function raises.
+- **Each `send=send` becomes the calls that function takes.** The Toolbox picks which one each
+  step goes to, so you never choose:
+  - `run(s, query=query, execute=execute)`: a read and `explain(s)` go to `query`; a write,
+    `create_table`, `repair_partitions`, `compute_statistics`, `hive_settings(...)` and the
+    Admin statements go to `execute`, and `run` gives back None for them, where it gave back
+    what your send did. The one Admin statement that reads rows is the step of
+    `admin.move_to_own_folder` that compares the counts, which goes to `query`: send that
+    list's steps with `run(step, query=query, execute=execute)`. Pass only the one a Statement needs, if you like: `run` refuses one it
+    needs and wasn't given, naming it.
+  - `query=query` alone: `check_key`, `check_table_reference`, `write_table_reference`,
+    `project.add_references`, `admin.add_columns` and `admin.move_to_own_folder`.
+  - `project.run_tables(query=query, execute=execute)`; with no `execute` it is the dry
+    run, as it was with no `send`.
+
+  `send=` anywhere is refused, with a message naming what to pass, or saying to leave it out
+  where a function takes neither call. These arguments are named only: `run(s, query)` is
+  Python's TypeError.
+- **`unchecked_hive(text, returns_rows=...)` says whether its text gives back rows**: `True`
+  sends it through `query` and gives back the DataFrame, as for a `SELECT` or `SHOW`; `False`
+  sends it through `execute`, as for an `ALTER` or `INSERT`. It has no default: the Toolbox
+  doesn't read the text, so it can't tell.
+- **`example_database.send` is now `example_database.query`**, which answers SELECT, DESCRIBE
+  and SHOW PARTITIONS as `send` did; a `SET` goes to `example_database.execute`, which stands
+  in for your execute, printing the first line of the Hive it is given and changing nothing,
+  since the Example database is never written to.
+- **A table's Partitions are its own: no column is a day to the Toolbox.** In each Table
+  reference, `date_partition="dt"` becomes `partitioned_by=["dt"]`, a table partitioned by more
+  columns lists them all in Hive's order, such as `partitioned_by=["region", "dt"]`, and
+  `date_partition=None` goes. `date_format=` goes too: a date is compared as it is written, and
+  a date the Toolbox writes is yyyy-MM-dd. `partitioned_by=` no longer needs `location=`, so a
+  table someone else owns lists its Partitions too. `Table(...)` refuses `date_partition=` and
+  `date_format=`, saying what to write. Its arguments after `columns` are named only.
+- **A read of a partitioned table filters at least one of its partition columns**, with
+  `equals`, `between`, `is_in`, `last_n_days` or a comparison, or says
+  `FROM(t, reads_all_partitions=True)`. It needn't bound a date at both ends any more, and a
+  table that isn't partitioned is never limited. `set_load_limits(dates=...)` is gone.
+- **A write fills the Partitions its rows hold.** `INSERT_OVERWRITE(t)` and `INSERT_INTO(t)`
+  into a partitioned table write `PARTITION(<its columns>)`, filled from each row's values,
+  so its SELECT lists them; `partition={"region": "EU"}` names the first ones as values, which
+  the SELECT then leaves out. A write that fills a partition column from its rows needs Hive's
+  dynamic partitioning, which 6.x's one-day writes didn't: send
+  `run(hive_settings("dynamic_partitions"), execute=execute)` first, as `show_hive` prints
+  ahead of such a write and `project.run_tables` does for you, or name every partition column
+  in `partition={...}`. A write may read from any table. `by_day` is gone, and so are the
+  Guards that kept a write to one day: to write some Partitions at a time, loop over the
+  values yourself, with `partition={...}` or a WHERE that picks them.
+- **A write into a table someone else owns is refused**, as ADR 0007 says: `INSERT_OVERWRITE(t)`
+  and `INSERT_INTO(t)` take only your Saved tables, those with `location=`, where 6.x let
+  through a write into a table with a day and no `location=`. Give each table you write a
+  `location=` of its own folder.
+- **Not every table has a Key.** A Key no longer drops its day: it names one row of the table.
+  A table with no Key is written unchecked. `check_key(t, query=query, where=...)` checks the
+  rows `where=` picks, or, with `reads_all_partitions=True`, every Partition; it no longer reads
+  the newest day by itself.
+- **`write_day(day)` becomes `write()`, and `project.run_tables()` takes no day.** In each Table
+  notebook's logic cell, rename `write_day(day)` to `write()`, with the value it needs, if
+  any, as a constant in that cell. `run_tables(query=query, execute=execute)` runs each table's
+  `write()`.
+- **`location=` is the table's own folder, as written.** The Toolbox adds nothing to it, so a
+  reference that said `location="/data/your_team/tables"` for `mart.daily_runs` now says
+  `location="/data/your_team/tables/mart/daily_runs"`, where 6.x put it, or the folder you
+  choose. It needn't start with `/`, so `${hivevar:root}/mart.db/daily_runs` is fine: send its
+  `SET` first, with `hive_settings`, and `check_table_reference` notes such a table's folder
+  rather than comparing it. Two Saved tables still can't share a folder.
+- **Upkeep and the admin module.** `admin.drop_days(t, before=...)` becomes
+  `admin.drop_partitions(t, where=less_than(t.dt, "2025-10-01"))`, from conditions on its
+  partition columns. `compute_statistics(t, day)` becomes `compute_statistics(t, partition={...})`,
+  or every Partition when it is left out. `repair_partitions` works on any partitioned table,
+  and `admin.move_to_own_folder` copies a table whole.
+- **`first_look(t)` reads 20 rows from any Partition**, where it read 20 of yesterday's: it
+  has no WHERE, and reads a partitioned table with `reads_all_partitions=True`, since Hive stops
+  reading at the 20th row.
+- **The Reference sheet's `date_partition` column is now `partition`**, "yes" for each column
+  the table is partitioned by.
+- **Each Database has a file of its own in `references/`, so `from references import ops`
+  gives `ops.jobs`, and `ops.jobs.job_id` its column**, with tab completion at each dot. To
+  write them in a Project from 6.x, run `project.refresh_reference_sheet()` once, from
+  `admin/refresh_reference_sheet.ipynb`; from then on `add_references`, `new_table`,
+  `register`, `remove_reference` and `refresh_reference_sheet` write them again from your Table
+  references, so never edit one. A Table reference still to fill in joins its Database's file
+  once it is filled in and the sheet refreshed. A Database whose name Python can't import,
+  such as `class`, gets no file, and the report says how to import its tables instead. Your
+  `from references.ops__jobs import jobs` lines keep working.
+- **A table's text is its Hive, as FROM writes it**: `str(jobs)` and `f"{jobs}"` give
+  `ops.jobs AS jobs`, where they gave `Table('ops.jobs', columns: ...)`, so
+  `f"SELECT {jobs.job_id} FROM {jobs}"` is Hive `unchecked_hive` can send. A column's text
+  stays `jobs.job_id`, and both now take a format spec, as `f"{jobs.job_id:>20}"`, as a str
+  does. A table on a cell's last line still shows as `Table('ops.jobs', columns: ...)`;
+  `print(jobs)` prints its Hive text.
+- **Two Table notebook Templates are left: `saved_table` and `quality_checks`.**
+  `daily_table`, `incremental_load`, `weekly_rollup` and `as_of_lookup` are gone, and
+  `project.new_table(...)` makes a notebook from `saved_table` unless `template=` names
+  another. `saved_table` defines `create`, `rows`, `preview` and `write`, takes no day, and
+  writes a table partitioned however its Table reference says, or not at all; `READS`, a
+  condition at the top of its logic cell, picks the rows `write()` reads. `quality_checks`
+  checks the rows its `READS` picks, so its `repeated_keys()` and `null_counts()` take no days.
+  A Project's own copies in `admin/templates/` stay as they are until you delete them, and
+  `new_table` still makes notebooks from them: delete the four that are gone. To get the new
+  ones, run `project.start()` again in your Project: it adds only the Templates and admin
+  notebooks, and anything else of what it makes, that the Project is missing, and writes over
+  nothing. `new_table` with no `template=` looks for
+  `saved_table.py` there, and refuses, naming the Templates it found, until it is. Notebooks
+  already made from the old Templates keep working.
+- **The `saved_table_reference` and `building_block` Templates hold no day either**, and each
+  Template's first lines list its placeholders. The Saved table's Table reference starts
+  `partitioned_by=[]` and `key=None`, for you to fill in; the Building block takes `reads`, a
+  condition, in place of a first and last day.
+- **The Example database has nine tables**: `ops.region_budgets`, each job's budget for a
+  day's cost, partitioned by region alone, and `ops.team_notes`, the notes each team wrote,
+  not partitioned and with no Key, join the seven. Nothing in your files changes.
+- **The Example projects are made from the new Templates**: the starter one builds four Saved
+  tables, among them the new `mart.alerts_per_severity`, which is the `saved_table` Template
+  filled in and nothing else; the intermediate one builds six, among them one partitioned by
+  region and one with no partitions and no Key.
+  Three of their Building blocks are renamed: `runs_per_job_day`, `costs_per_job_day` and
+  `events_per_job_day` are now `runs_per_job`, `costs_per_job` and `events_per_job`.
+  Their Building blocks are made by `project.new_block`, as their Admin logs show:
+  `runs_per_job` in the starter one, and `costs_per_job`, `days_rewritten`, `events_per_job`
+  and `owner_on_day` in the intermediate one.
+- **Your Building blocks join the registry.** `project.check()` now reports each file in
+  `building_blocks/` that the registry doesn't list, so each one you wrote by hand before 7.0
+  is reported: adopt it with `project.register("runs_per_job")`, given its name, as
+  `admin/check_project.ipynb`'s last cell shows. `register` leaves the file as it is.
+  `project.new_block` can't adopt one: it refuses a name already taken, so as never to write
+  over your file. `check()` now gives the call that mends each thing it reports, one to a line,
+  such as `references/ops__jobs.py: project.register("ops.jobs")`.
+- **`project.start()`, run again in a Project, adds what the Project lacks** of what `start()`
+  makes, such as an admin notebook or a Template a newer Toolbox ships, and writes over nothing.
+  A Project still holding `send.py` gets no `warehouse.py` from it, but a line saying to write
+  one by hand, as the `send.py` bullet above says.
+- **Two new admin notebooks, `new_block.ipynb` and `check_references.ipynb`.** `project.start()`
+  writes them into a new Project's `admin/`. For yours, run `project.start()` again in your
+  Project, which adds only what the Project is missing, and writes over nothing.
+  `new_block` makes a Building block from your own `admin/templates/building_block.py`, 6.x's
+  among them, filling in its `<BLOCK>` and `<BLOCK_NAME>`.
+
+### New
+
+- **The how-tos are one story, then a menu: 26 where there were 41.** The README's eight
+  steps are the eight Getting started how-tos, in order, each going on from the Project the one
+  before left, through one Project, much like the Starter Example project: Start a Project, Add
+  your tables' references, Build and run a first Statement, Count, join and stay safe, Share
+  Building blocks, Save a table, Follow Lineage, and Keep the Project in order. The 18 Intermediate
+  how-tos are a menu, each starting from the Intermediate Example project. How-tos that
+  covered the same job are one now, and each job is done one way.
+- **The README holds a map of every file of a Project**: its path, the Project action that
+  makes it, and what you fill in. You make three things by hand: the Project's folder, the copy
+  of `sqlglot_composer` in it, and the notebook you run `start()` from.
+- **The chain of types is shown first**, in the README and atop the how-to page: a Table
+  reference gives a Table, its attribute a Column, a test a Condition, the clause functions
+  Clauses, `statement(...)` a Statement, `to_hive(...)` the Hive as text and `run(...)` a
+  DataFrame. Each how-to labels the type of each value its steps make, as `# -> Statement`.
+- **A how-to shows a file you edit as it is after the edit**, under a heading naming its path,
+  where it changed files with code before. A how-to is named by its title, never by a number.
+- **Every public name's help opens with an example call**, right after its first line. Where
+  the Toolbox refuses an argument a function doesn't take, such as the `send=` 7.0 replaced, its
+  message lists the arguments the function does take; elsewhere Python's own TypeError names the
+  one it didn't expect.
+
+- **`project.new_block("runs_per_job")` makes a Building block**: it writes
+  `building_blocks/runs_per_job.py` from your Project's `admin/templates/building_block.py`,
+  with its name filled in, registers it and logs it, as `new_table` does for a Table folder.
+  It refuses a name already taken, by a file or by the registry, and a name Python can't
+  import. `project.remove_block("runs_per_job")` archives one into `admin/removed/`, as
+  `remove_table` does, and refuses while a Table notebook or another Building block imports
+  it. Both run from `admin/new_block.ipynb`. Nothing in a Project is made by hand now but its
+  folder and the copy of `sqlglot_composer` in it: a Project action makes every other file,
+  for you to fill in.
+- **`admin/check_references.ipynb` checks every Table reference against its table**: it
+  refreshes the Reference sheet, then, for each table it lists, prints what
+  `check_table_reference(..., query=query)` found and, for a table with a Key that isn't
+  partitioned, what `check_key` found. A partitioned table's Key isn't checked there, since
+  that reads every Partition: it prints the `check_key(..., where=...)` call to run in the
+  notebook's last cell, which also checks a Saved table's storage, its folder and file format,
+  on its own Table reference.
+
+- **A Python step declares a change you make in pandas**, so Lineage shows where it lives:
+  pull the rows with a Statement, change them with a function of yours, save them with your
+  own call, then `python_step(add_margin, reads=[sales.price, sales.cost], writes=margins)`.
+  It sends nothing, and the Toolbox never moves its data. `export_lineage` draws it as one
+  box, from the columns it read to the table it wrote, with a section naming the function, its
+  file from your Project's folder and its first line, such as "changed in Python by
+  `building_blocks/margins.py:add_margin`, line 12"; a function defined in a Table notebook's
+  logic cell is named by that notebook, and one in a cell you run by its notebook, when
+  JupyterLab tells the Toolbox its name. A lambda, or anything that isn't a function written
+  with def, is refused. `run` refuses the step, `show_hive` prints comment lines saying what it is, and a
+  Table notebook's `write()` may give it beside its Statements: `project.run_tables` puts it
+  in order and passes over it. `PythonStep` is the name a type hint uses. The how-to "Declare a
+  change made in Python" walks through one.
+
+## 6.1
+
+Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder in over 6.0's.
+
+- **`Statement`, `Clause`, `Column`, `Named`, `Condition`, `Ordering`, `Window`, `Subtotals`,
+  `Verdict`, `SessionSettings` and `UncheckedStatement` are public names**, so a function of
+  yours can say in a type hint what it takes and gives back: `def failed_runs(first_day: str,
+  last_day: str) -> Statement:`. Import them as any other name, `from sqlglot_composer import
+  Statement`. Make each as before, with the function that gives it back, such as
+  `statement(...)` for a Statement or `AS(...)` for a Named, never by calling the name itself:
+  `help()` on each name says which.
+- **Every function says in a type hint what it takes and gives back.** `help(FROM)` now
+  starts `FROM(table: 'Table', reads_all_partitions: 'bool' = False) -> 'Clause'`: each hint is
+  shown in quotes, and a name in it that isn't public, such as `ProjectReport` from the
+  project module's functions, is only the name of what that function gives. The Templates
+  `project.new_table` writes from, the how-tos, the Example gallery and the Example projects
+  are hinted the same way, with public names only. A notebook made from a 6.0 Template still
+  works as it is.
+- **`project.run_tables` refuses a `write_day` that gives something it can't put in order**,
+  such as Session settings or an empty list, with a message naming the table and what its
+  `write_day` gave, before anything is sent. Session settings stopped with Python's
+  AttributeError before, and an empty list skipped the table without a word.
+
 ## 6.0
 
 6.0 is sqlglot Composer alone, tested on Python 3.12, pandas 3 and numpy 2.5.

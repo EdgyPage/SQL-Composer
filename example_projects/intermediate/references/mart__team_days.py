@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
 """mart.team_days - one row per team and day: its events, runs, minutes and cost.
 
 Why: its notebook saves each team's day, made from what mart.job_day_costs and
@@ -20,9 +20,9 @@ team_days = Table(
         "cost_cents": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["team", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/team_days",  # its own folder
     descriptions={
         "team": "NULL for the jobs whose day had no snapshot to say",
         "cost_cents": "NULL while none of the team's bills for the day has come in",
@@ -35,8 +35,8 @@ team_days = Table(
 # Import one beside the table, such as:
 #     from references.mart__team_days import team_days, <alias>
 #
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-# gives back, still call the column by its own name. To rename an output, use AS(...).
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
 #     <alias> = team_days.<column>
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.

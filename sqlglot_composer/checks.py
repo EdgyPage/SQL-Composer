@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The import self-check: the Toolbox's folder checks itself before any other file is trusted.
 
 At work the Toolbox is one folder pasted beside your scripts. Its __init__.py runs these checks
@@ -17,7 +17,7 @@ import sys
 
 from . import _stop
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 _PYTHON_NEEDED = (3, 11)
 
@@ -90,7 +90,7 @@ def _home_of(name: str, stamp: str | None, folder: str) -> str | None:
     return _STAMP.match(stamp).group(1).lower().replace(" ", "_")
 
 
-def _check_home(here: str, folder: str, stamps: dict, importing: str) -> None:
+def _check_home(here: str, folder: str, stamps: dict[str, str | None], importing: str) -> None:
     """Stop if a file came from another Toolbox folder than the one it sits in."""
     on_disk = os.path.basename(here)
     homes = {name: _home_of(name, stamp, folder) for name, stamp in stamps.items()}
@@ -123,7 +123,7 @@ def _check_home(here: str, folder: str, stamps: dict, importing: str) -> None:
         )
 
 
-def check_folder(here: str, folder: str, product: str, files, version: str,
+def check_folder(here: str, folder: str, product: str, files: list[str] | None, version: str,
                  importing: str) -> None:
     """Stop if a pasted Toolbox folder is missing a file, has an extra one, or mixes versions,
     exports or Toolbox folders.

@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
 """days_rewritten - the days each run writes again: its own, and the two before it.
 
 Why: a bill or an event can come in a day or two after its day was saved, so each table of
@@ -14,7 +14,7 @@ import datetime
 DAYS_REWRITTEN = 3  # each run writes its own day and the 2 days before it
 
 
-def first_day_written(day):
+def first_day_written(day: str) -> str:
     """The first day a run for `day` writes: first_day_written("2026-09-24") is
     "2026-09-22"."""
     first_day = datetime.date.fromisoformat(day) - datetime.timedelta(days=DAYS_REWRITTEN - 1)
