@@ -20,6 +20,8 @@ import shutil
 from pathlib import Path
 from typing import NamedTuple
 
+from .unchecked import TIME_IN_A_NAME, TIME_SHOWN
+
 TOOLBOX_VERSION = "7.1"
 
 # The registry: the file a folder is a Project by, as start() writes it.
@@ -91,7 +93,7 @@ class FileKind(NamedTuple):
         admin/removed/20261021-093000-ops__jobs.py, and give that path, as messages show it."""
         removed = root / REMOVED
         removed.mkdir(exist_ok=True)
-        target = removed / f"{when:%Y%m%d-%H%M%S}-{self.path(root, stem).name}"
+        target = removed / f"{when:{TIME_IN_A_NAME}}-{self.path(root, stem).name}"
         shutil.move(str(self.path(root, stem)), str(target))
         return f"{REMOVED}/{target.name}{'/' if self.is_folder else ''}"
 
@@ -178,7 +180,7 @@ class Registry:
         registry once."""
         if not listed:
             return
-        made = f"{when:%Y-%m-%d %H:%M:%S}"
+        made = f"{when:{TIME_SHOWN}}"
         self.rows += [{"kind": kind.kind, "table": name, "created_at": made, "removed_at": ""}
                       for kind, name in listed]
         _write(self.root, self.rows)
@@ -188,7 +190,7 @@ class Registry:
         registry."""
         for row in self.rows:
             if row["kind"] == kind.kind and row["table"] == name and not row["removed_at"]:
-                row["removed_at"] = f"{when:%Y-%m-%d %H:%M:%S}"
+                row["removed_at"] = f"{when:{TIME_SHOWN}}"
         _write(self.root, self.rows)
 
 

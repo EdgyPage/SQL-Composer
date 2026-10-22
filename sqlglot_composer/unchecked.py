@@ -554,7 +554,7 @@ def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> N
                                   else caller_folder(caller) / "admin_log.md")
     tables = tables_named(hive)
     fence = "`" * max(3, _longest_backticks(hive) + 1)
-    lines = ["", f"## {now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {inline_code(call)}"]
+    lines = ["", f"## {now():{TIME_SHOWN}}, {kind}", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines += [script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
@@ -595,6 +595,12 @@ def now() -> datetime.datetime:
     """The time now: an Admin log entry's, a Project action's and an exported lineage's, from
     this one clock, which the page tools and tests pin by patching unchecked.now."""
     return datetime.datetime.now()
+
+
+# A time as the logs and a Project's files show it, such as 2026-10-22 09:30:00, and as a
+# file's name holds it, such as 20261022-093000.
+TIME_SHOWN = "%Y-%m-%d %H:%M:%S"
+TIME_IN_A_NAME = "%Y%m%d-%H%M%S"
 
 
 # The words after which Hive text names a table: FROM and JOIN read one; INSERT, and ALTER,

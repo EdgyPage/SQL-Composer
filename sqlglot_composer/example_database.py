@@ -85,7 +85,7 @@ import pandas as pd
 
 from .describe import StandIn
 from .engine import run_query
-from .refusals import refuse
+from .refusals import in_words, refuse
 from .tables import Table
 from .unchecked import SAID
 
@@ -440,7 +440,7 @@ def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
         refuse(
             what=f"The Example database has no table {name!r}.",
             why="It holds nine made-up tables, all in the database ops.",
-            fix=f"Use {', '.join(names[:-1])} or {names[-1]}.",
+            fix=f"Use {in_words(names, last='or')}.",
             error=ValueError,
         )
     return _TABLES[short]
