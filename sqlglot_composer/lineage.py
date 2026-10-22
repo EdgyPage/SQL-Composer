@@ -418,7 +418,7 @@ def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
-    for column, value in s._static_partitions.items():
+    for column, value in s._partitions.values.items():
         target = _table_box(graph, table, column)
         graph.boxes[target]["static"] = f"writes {column} = {value}"
         written.append(target)

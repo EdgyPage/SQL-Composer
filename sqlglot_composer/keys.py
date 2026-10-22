@@ -405,7 +405,7 @@ def unproven(s: Statement) -> str | None:
     table = s._write
     if not table._key:
         return None
-    wanted = wanted_key(table, s._static_partitions)
+    wanted = wanted_key(table, s._partitions.values)
     keys = statement_keys(s)
     if any(set(found.names) <= set(wanted) for found in keys.found):
         return None

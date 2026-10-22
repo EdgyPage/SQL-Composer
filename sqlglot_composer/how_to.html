@@ -11183,8 +11183,8 @@ Problems:
 <pre class="python">INSERT_OVERWRITE(job_region_costs, partition={&quot;dt&quot;: &quot;20260924&quot;})</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  INSERT_OVERWRITE(job_region_costs, partition=...) names dt, but not region, which comes before it in mart.job_region_costs&#x27;s partitioned_by (region, dt).
-  Why it matters: Hive takes the partition columns in order: the ones the write names first, then the ones it fills from the rows. A column named after one left out can&#x27;t be.
-  Usual fix:      Name region too, or leave out the ones after it, to fill them from the rows.
+  Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can&#x27;t be.
+  Usual fix:      Name region too, or leave out the ones after it: the write fills each partition column it doesn&#x27;t name from the rows&#x27; own values.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Name region too, or leave dt to the rows.</p>
 <h5>Storage on a table you only read</h5>
@@ -13259,9 +13259,9 @@ print(to_hive(repair))</pre>
 <p><code>compute_statistics</code> names the Partitions to count by their partition columns, so the value alone is refused:</p>
 <pre class="python">compute_statistics(job_day_facts, &quot;2026-09-24&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
-  What happened:  compute_statistics(job_day_facts, &quot;2026-09-24&quot;) wasn&#x27;t given a dict for partition=.
-  Why it matters: partition= names the Partitions to count, from each partition column to its value.
-  Usual fix:      Write it as a dict, such as partition={&quot;dt&quot;: &quot;2026-09-24&quot;}, or leave it out to count every Partition.
+  What happened:  compute_statistics(job_day_facts, partition=&quot;2026-09-24&quot;): partition= is a dict of partition columns and their values.
+  Why it matters: It names Partitions by their partition columns: each column it names, with one value of it.
+  Usual fix:      Write it like compute_statistics(job_day_facts, partition={&quot;dt&quot;: ...}), or leave partition= out: compute_statistics counts every value of each partition column it doesn&#x27;t name.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Write <code>partition={&quot;dt&quot;: &quot;2026-09-24&quot;}</code>, as the steps do.</p>
 <h5>Sending Session settings to an execute that forgets them</h5>

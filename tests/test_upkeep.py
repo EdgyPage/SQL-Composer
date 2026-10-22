@@ -173,30 +173,11 @@ def test_compute_statistics_refuses_day_naming_partition() -> None:
 
 
 def test_compute_statistics_refuses_a_day_where_partition_goes() -> None:
+    # The rest of partition='s refusals are a write's: test_partitions.py runs them on both.
     with pytest.raises(TypeError, match=re.escape(
-            "compute_statistics(daily_runs, \"2026-09-24\") wasn't given a dict for "
-            "partition=")):
+            "compute_statistics(daily_runs, partition=\"2026-09-24\"): partition= is a dict "
+            "of partition columns and their values.")):
         compute_statistics(DAILY_RUNS, "2026-09-24")
-
-
-@pytest.mark.parametrize(("t", "partition", "says"), [
-    (DAILY_RUNS, {"job_id": 1},
-     "compute_statistics(daily_runs, partition=...): \"job_id\" isn't one of mart.daily_runs's "
-     "partition columns."),
-    (REGION_RUNS, {"dt": "2026-09-24"},
-     "compute_statistics(region_runs, partition=...) names dt, but not the partition columns "
-     "before it: mart.region_runs is partitioned by region, dt."),
-    (REGION_RUNS, {"region": None},
-     "compute_statistics(region_runs, partition=...): the value of region is None."),
-    (JOB_NAMES, {"job_id": 1},
-     "compute_statistics(job_names, partition=...): mart.job_names has no partitioned_by=, "
-     "and was given partition=[\"job_id\"]."),
-], ids=["not a partition column", "skips the leading columns", "no value", "unpartitioned"])
-def test_compute_statistics_refuses_partitions_it_cant_name(
-        t: Table, partition: dict[str, object], says: str) -> None:
-    with pytest.raises(ValueError) as refused:
-        compute_statistics(t, partition=partition)
-    assert says in " ".join(str(refused.value).split())
 
 
 @pytest.mark.parametrize(("columns", "says"), [

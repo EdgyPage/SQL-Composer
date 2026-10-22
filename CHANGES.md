@@ -42,6 +42,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **`project.load` refuses a notebook Jupyter couldn't open**, naming its file: one that isn't
   JSON, where 7.0 stopped with Python's own JSON error, and one with no list of cells Jupyter
   can read, where 7.0 said it had no logic cell, or stopped with a Python error.
+- **`compute_statistics(t, partition=...)` refuses what a write's `partition=` refuses**, with
+  the same message for the same mistake: an empty `{}` and a column as a value, which 7.0 let
+  through, as well as a name that isn't a partition column, a value of None and names out of
+  `partitioned_by`'s order.
 
 ## 7.0
 
