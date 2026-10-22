@@ -321,21 +321,24 @@ def start() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
 
     The folder holds the Toolbox's folder, sqlglot_composer, and the notebook you run this
     from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
     them:
     admin/ gets a notebook for each Project action, the Templates in admin/templates/, an
     empty registry and the Admin log, whose first entry is this one. It refuses a folder that
-    has any of them already, or that is inside a Project. Then write your query and execute in
-    warehouse.py, and make your first Table folder from admin/new_table.ipynb.
+    isn't a Project but has any of them already, and a folder inside a Project. Then write
+    your two functions, query and execute, in warehouse.py, and make your first Table folder
+    from admin/new_table.ipynb.
 
-    Run again in a Project, from a notebook in its folder, it adds what the Project lacks of
-    what start() makes, and changes nothing else: an admin notebook or a Template this
-    Toolbox ships that isn't there, as after you copy in a newer sqlglot_composer, or one
-    deleted by mistake, and warehouse.py if there is none. It never writes over a file of
-    yours, and logs what it added:
+    Run again in a Project's own folder, from a notebook there, it completes the Project: it
+    adds only what start() makes and the Project is missing, and writes over nothing. That is
+    a folder, an admin notebook or a Template this Toolbox ships that isn't there, as after you
+    copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is
+    none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line
+    saying how to write it. It logs what it added:
 
     >>> import os
     >>> os.remove("admin/new_block.ipynb")
@@ -349,10 +352,8 @@ def start() -> ProjectReport:
         return _complete(here, frame)
     if inside is not None:
         refuse(
-            what="project.start() was run inside a Project: "
-            + ("this folder is one." if inside == here else
-               f"the folder {inside.name!r}, {len(here.relative_to(inside).parts)} up, "
-               "is one."),
+            what="project.start() was run inside a Project: the folder "
+            f"{inside.name!r}, {len(here.relative_to(inside).parts)} up, is one.",
             why="A Project is made once, and one inside another would split its tables "
             "between two registries and two Admin logs.",
             fix="Use the Project there is. To start another, run project.start() from a "
@@ -388,7 +389,8 @@ def start() -> ProjectReport:
     return ProjectReport([
         "Started a Project in the folder you're working in: admin/, references/, "
         "building_blocks/,",
-        "tables/ and warehouse.py. Next: write your query and execute in warehouse.py.",
+        "tables/ and warehouse.py.",
+        "Next: write your two functions, query and execute, in warehouse.py.",
     ])
 
 
@@ -412,15 +414,30 @@ def _complete(root: Path, frame: FrameType) -> ProjectReport:
             _write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                                    *[("code", cell) for cell in cells]])
             added.append(f"admin/{name}.ipynb")
-    if not (root / WAREHOUSE).exists():
+    # A Project from before 7.0 holds send.py: its calls go into warehouse.py by hand.
+    before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
+    if not (root / WAREHOUSE).exists() and not before_7:
         (root / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
-        added.append(f"{WAREHOUSE}: write your query and execute in it")
-    if not added:
-        return ProjectReport(["This folder is a Project already, and lacks nothing start() "
-                              "makes."])
-    _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
-    return ProjectReport([f"This folder is a Project already. Added what it lacked: "
-                          f"{', '.join(added)}."])
+        added.append(f"{WAREHOUSE}: write your two functions, query and execute, in it")
+    if added:
+        _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
+    return _completed(added, before_7)
+
+
+def _completed(added: list[str], before_7: bool) -> ProjectReport:
+    """What start(), run again in a Project, says: what it added, and how to write a
+    warehouse.py for a Project from before 7.0."""
+    if added:
+        lines = [f"This folder is a Project already. Added what it lacked: {', '.join(added)}."]
+    elif before_7:
+        lines = ["This folder is a Project already."]
+    else:
+        lines = ["This folder is a Project already, and lacks nothing start() makes."]
+    if before_7:
+        lines.append(f"{OLD_SEND} is from before 7.0, so no {WAREHOUSE} was written: write your "
+                     f"two functions, query and execute, in a new {WAREHOUSE}, as CHANGES.md's "
+                     f"7.0 says, then delete {OLD_SEND}.")
+    return ProjectReport(lines)
 
 
 # --- new_table --------------------------------------------------------------------------------
@@ -432,7 +449,8 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -531,7 +549,8 @@ def remove_table(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -558,7 +577,8 @@ def remove_reference(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
@@ -635,7 +655,8 @@ def new_block(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
     fill in its <...> and TODO lines.
@@ -679,8 +700,8 @@ def new_block(name: str) -> ProjectReport:
             what=f"{call}: there is no admin/templates/{BLOCK_TEMPLATE}.py to make it from.",
             why="A Building block is made from the Project's own Template, which start() "
             "wrote into admin/templates/.",
-            fix="Put it back with project.start(), run again in this Project: it adds the "
-            "Templates and admin notebooks the Project lacks, and changes nothing else.",
+            fix="Put it back with project.start(), run again in this Project: it adds only "
+            "what start() makes and the Project is missing, and writes over nothing.",
             error=FileNotFoundError,
         )
     # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
@@ -699,7 +720,8 @@ def remove_block(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.new_block("runs_per_job")
     Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
     fill in its <...> and TODO lines.
@@ -786,7 +808,8 @@ def add_references(names: list[str],
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
@@ -881,7 +904,8 @@ def register(name: str) -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.register("ops.jobs")
@@ -937,7 +961,8 @@ def check() -> ProjectReport:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.check()
@@ -992,7 +1017,8 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
     Wrote references/ops.py: from references import ops gives ops.run_alerts.
@@ -1368,7 +1394,8 @@ def load(name: str) -> TableLogic:
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
     ...     "# %%\n# logic\ndef write() -> str:\n    return 'what writes it'\n")
@@ -1522,7 +1549,8 @@ def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
     >>> project.run_tables()
     No Table folder to run: make one with project.new_table(...).
 

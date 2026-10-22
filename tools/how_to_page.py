@@ -44,7 +44,14 @@ Under the headings go:
   among the steps, the file is written, dedented, to that path in the folder the steps run in,
   and the page shows it in a box headed by its path. A `.ipynb` file is written as its cells,
   each starting at a `# %%` line as in a Template (a `# %% [markdown]` cell's lines start with
-  `# `), and saved as the notebook Jupyter reads. Nothing else about it runs.
+  `# `), and saved as the notebook Jupyter reads. Nothing else about it runs;
+- a file as a Project action wrote it, before you fill it in: a line such as
+
+      The file `references/mart__alerts_per_severity.py`, as project.new_table wrote it:
+
+  then the file, laid out as above. Nothing writes it: where it stands among the steps, the
+  file at that path must hold just that, or the how-to is refused, and the page shows it in a
+  box headed by its path and the call. Its `<...>` placeholders needn't be Python yet.
 
 Where the Example database can't run a Statement's Hive, such as one with
 row_number or week_start, the how-to's file gives a pandas stand-in after its docstring: a
@@ -68,9 +75,9 @@ import ast
 import contextlib
 import datetime
 import doctest
-import importlib
 import importlib.util
 import io
+import json
 import os
 import re
 import sys
@@ -133,9 +140,9 @@ class Group(NamedTuple):
 # In the order their how-tos are numbered: every Getting started how-to comes first.
 GROUPS = (
     Group("Getting started", "getting-started",
-          "one story through the Starter Example project, a how-to for each of the README's "
-          "steps: a Project, its Table references, Statements, Building blocks, Saved tables, "
-          "their Lineage and the Project's upkeep"),
+          "one story through one Project, a how-to for each of the README's steps: a "
+          "Project, its Table references, Statements, Building blocks, Saved tables, their "
+          "Lineage and the Project's upkeep"),
     Group("Intermediate", "intermediate",
           "a menu, each starting from the Intermediate Example project: one job each, such as "
           "rewriting some partitions, rollups, Keys, quality checks and testing"),
@@ -236,15 +243,20 @@ class FileBlock:
 
     # Where it goes, from the folder the steps run in, such as references/ops__job_runs.py.
     path: str
-    # What you did to it, such as "fill it in": its heading says "after you fill it in".
+    # What you did to it, such as "fill it in": its heading says "after you fill it in". ""
+    # for a file shown as a Project action wrote it.
     what: str
     # The file's text, dedented.
     text: str
     # How many lines of the docstring it takes, its heading and blank line among them.
     lines: int = field(compare=False)
+    # The call that wrote it, such as project.new_table, for a file shown as that call wrote
+    # it, which the steps check rather than write; "" for a file shown after an edit.
+    written_by: str = ""
 
 
-FILE_HEADING = re.compile(r"The file `(?P<path>[^`]+)`, after you (?P<what>[a-z ]+):")
+FILE_HEADING = re.compile(r"The file `(?P<path>[^`]+)`, (?:after you (?P<what>[a-z ]+)"
+                          r"|as (?P<written_by>[a-z_.]+) wrote it):")
 
 
 def with_file_blocks(text: str) -> list[str | FileBlock]:
@@ -277,9 +289,9 @@ def with_file_blocks(text: str) -> list[str | FileBlock]:
         if Path(path).is_absolute() or ".." in Path(path).parts:
             raise HowToRefused(f"The file `{path}` must be a path inside the Project, such as "
                                "references/ops__job_runs.py.")
-        found += ["".join(prose), FileBlock(path, heading["what"],
+        found += ["".join(prose), FileBlock(path, heading["what"] or "",
                                             textwrap.dedent("".join(lines[at + 2:end])),
-                                            end - at)]
+                                            end - at, heading["written_by"] or "")]
         prose = []
         at = end
     return [*found, "".join(prose)]
@@ -302,11 +314,39 @@ def write_file(block: FileBlock, folder: Path) -> None:
     project._write_notebook(path, cells)
 
 
+def check_written(block: FileBlock, folder: Path) -> None:
+    """Refuse a file shown as a Project action wrote it, unless the file in `folder` holds just
+    what the how-to shows: a .ipynb file the same cells, any other the same text."""
+    path = folder / block.path
+    if path.suffix == ".ipynb" and path.is_file():
+        cells = [(cell["cell_type"], "".join(cell["source"]).strip("\n"))
+                 for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]]
+        same = cells == project._template_cells(block.text)
+    else:
+        same = path.is_file() and (path.read_text(encoding="utf-8").strip("\n")
+                                   == block.text.strip("\n"))
+    if not same:
+        raise HowToRefused(f"The file `{block.path}`, shown as {block.written_by} wrote it, "
+                           "isn't what the folder holds there: show the file as the call "
+                           "wrote it.")
+
+
+def write_or_check(block: FileBlock, folder: Path) -> None:
+    """Write a file shown after an edit, or check one shown as a Project action wrote it."""
+    if block.written_by:
+        check_written(block, folder)
+    else:
+        write_file(block, folder)
+
+
 def file_block_html(block: FileBlock) -> str:
-    """A file shown as it is after an edit: a box headed by its path."""
+    """A file shown as it is after an edit, or as a Project action wrote it: a box headed by
+    its path."""
     kind = "python" if Path(block.path).suffix in (".py", ".ipynb") else "file"
-    return (f'<p class="label">The file <code>{escape(block.path)}</code>, after you '
-            f"{escape(block.what)}</p>\n" + code_html(block.text, kind))
+    after = (f"as <code>{escape(block.written_by)}</code> wrote it" if block.written_by
+             else f"after you {escape(block.what)}")
+    return (f'<p class="label">The file <code>{escape(block.path)}</code>, {after}</p>\n'
+            + code_html(block.text, kind))
 
 
 # The top folders and files of a Project a notebook imports by name.
@@ -345,7 +385,7 @@ def run_as_doctest(path: Path) -> tuple[int, str]:
 
     A Warning a step gives is shown on the page, and here doesn't stop the step.
     """
-    scope: dict = {}
+    scope: dict[str, object] = {}
     runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
     report: list[str] = []
     line = 0
@@ -354,7 +394,7 @@ def run_as_doctest(path: Path) -> tuple[int, str]:
         warnings.simplefilter("always")
         for number, part in enumerate(with_file_blocks(docstring_of(path)), start=1):
             if isinstance(part, FileBlock):
-                write_file(part, Path.cwd())
+                write_or_check(part, Path.cwd())
                 line += part.lines
                 continue
             # Each part its own name: doctest finds a step's source by it, and a function an
@@ -533,6 +573,11 @@ def printed_html(source: str, printed: str) -> str:
     return label("Python prints") + code_html(printed, "output")
 
 
+# A step that runs on the Example database: through its query, or through the Project's
+# from warehouse.py, which runs on it on the page.
+ON_THE_EXAMPLE_DATABASE = re.compile(r"\bquery=(?:example_database\.)?query\b")
+
+
 def value_html(source: str, value: object, in_pandas: bool) -> str:
     """What a step gives: a result table, the message it stops with, or the value Python shows.
 
@@ -545,7 +590,7 @@ def value_html(source: str, value: object, in_pandas: bool) -> str:
                                                                    "refusal")
     if isinstance(value, pd.DataFrame):
         on = (f"Result, {PANDAS_LABEL}" if in_pandas
-              else "Result on the Example database" if "example_database.query" in source
+              else "Result on the Example database" if ON_THE_EXAMPLE_DATABASE.search(source)
               else "Python shows")
         return label(on) + table_html(value)
     return label("Python shows") + code_html(repr(value), "output")
@@ -596,7 +641,7 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
             if waiting:
                 shown.append(code_html("".join(waiting)))
                 waiting = []
-            write_file(part, notebook.folder)
+            write_or_check(part, notebook.folder)
             if Path(part.path).suffix in (".py", ".md"):
                 notebook.files_shown.setdefault(part.text, part.path)
             shown.append(file_block_html(part))

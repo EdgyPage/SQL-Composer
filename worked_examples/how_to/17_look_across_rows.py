@@ -46,7 +46,7 @@ query and execute:
 >>> from sqlglot_composer import project
 >>> import pandas as pd
 >>> from references import ops
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 >>> job_events = ops.job_events  # -> Table
 >>> region_costs = ops.region_costs  # -> Table
 
@@ -159,7 +159,7 @@ run the rank after both, as job 1's two runs of 12 minutes do: both 3, then 5 fo
 `dense_rank` gives a tie the same rank too, but the next rank follows straight on: 3, 3,
 then 4. To keep each
 job's one newest run, or its top N, use `row_number`, which never ties: see [The latest row
-of each group, and the top N](#latest_row_per_key).
+of each group, and the top N](#latest_row_of_each_group).
 
 ### A rolling sum, and a group's total beside each row
 
@@ -405,7 +405,7 @@ Add up per job first, as `cost_per_job` does, then merge.
 - Check that a Statement, and what you do in pandas after it, give the numbers you meant:
   [Review and test a change](#review_and_test_a_change).
 - Each job's last row, or its top N, kept with `row_number`: [The latest row of each
-  group](#latest_row_per_key).
+  group](#latest_row_of_each_group).
 - [Keys](#keys): a Window keeps every row, so a Statement's Key is
   its FROM table's; a `row_number` kept at 1 gives one row per group.
 - The gallery's [`window`](examples.html#window), [`lag`](examples.html#lag) and

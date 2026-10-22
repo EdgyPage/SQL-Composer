@@ -36,12 +36,12 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, its project module, the Project's `query` from warehouse.py, which here
-calls the Example database, and the Project's `ops` Database:
+Then import the Toolbox, its project module, the Project's `query` and `execute` from
+warehouse.py, which here call the Example database, and the Project's `ops` Database:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> from references import ops
 >>> job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_notes
 
@@ -164,8 +164,8 @@ The Toolbox looks at how a write makes its rows. Each of these shows a Key:
 - **SELECT_DISTINCT**: one row for each different row. A column whose value another column
   already fixes doesn't count: one `job_events.event_id` always comes with the same
   `job_events.job_id`, so SELECT_DISTINCT of both makes one row for each event.
-- **row_number(...) kept at 1 for each Key**, in a Derived table, as [The latest row per
-  key](#latest_row_per_key) does: one row for each `PARTITION_BY=` value.
+- **row_number(...) kept at 1 for each Key**, in a Derived table, as [The latest row of each
+  group](#latest_row_of_each_group) does: one row for each `PARTITION_BY=` value.
 - **The rows of the table in FROM, by its own Key**, when SELECT returns that Key's columns,
   and each join matches its joined table's whole Key, so each row from FROM meets at most one
   row of the joined table. A SEMI_JOIN or ANTI_JOIN keeps the Key whatever its ON= matches,
@@ -197,7 +197,7 @@ each job and day:
 `export_lineage` marks each column that is part of a Key "in the Key", and its Markdown file
 lists each step's Key, or where it lost one, and whether a write's Key holds:
 
->>> html_file, markdown_file = export_lineage(last_events, write,
+>>> html_file, markdown_file = export_lineage(last_events, write,  # -> tuple[Path, Path]
 ...                                           to="lineage/keys.html")
 >>> for keys in markdown_file.read_text(encoding="utf-8").split("### Keys")[1:]:
 ...     print(keys.split("###")[0].strip().split("\\n\\n")[1])
@@ -372,7 +372,7 @@ might not be. Reach for GROUP_BY, SELECT_DISTINCT or row_number first.
 
 - [Count, join and stay safe](#count_join_and_stay_safe): the repeated-rows Warning, which reads
   the Keys of the tables a Statement joins.
-- [The latest row per key](#latest_row_per_key): row_number, kept at 1 for each Key.
+- [The latest row of each group](#latest_row_of_each_group): row_number, kept at 1 for each Key.
 - [Semi-, anti- and full joins](#semi_anti_and_full_joins): which joins keep a Key.
 - The gallery's [`INSERT_OVERWRITE`](examples.html#INSERT_OVERWRITE) and
   [`check_key`](examples.html#check_key).

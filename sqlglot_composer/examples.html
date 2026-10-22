@@ -2518,7 +2518,7 @@ GROUP BY
     jobs.team,
     ()
   )</pre>
-<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total. Not every Example database makes subtotals; the how-to &quot;Subtotals and grand totals&quot; shows their rows.</p>
+<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total. Not every Example database makes subtotals; the how-to &quot;Rollups and subtotals&quot; shows their rows.</p>
 <p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. The Toolbox writes this form rather than ROLLUP, so the Hive names each set of rows it makes.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
 <p class="names">Toolbox names used: <code>rollup</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
@@ -3785,7 +3785,8 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
@@ -3801,7 +3802,8 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.check()</pre>
@@ -3819,7 +3821,8 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
     &quot;# %%\n# logic\ndef write() -&gt; str:\n    return &#x27;what writes it&#x27;\n&quot;)</pre>
@@ -3842,7 +3845,8 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -3857,7 +3861,8 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -3873,7 +3878,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.run_alerts&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.
@@ -3892,7 +3898,8 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.register(&quot;ops.jobs&quot;)</pre>
@@ -3913,7 +3920,8 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -3931,7 +3939,8 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -3953,7 +3962,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -3972,7 +3982,8 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">project.run_tables()</pre>
 <p class="label">Python shows</p>
 <pre class="output">No Table folder to run: make one with project.new_table(...).</pre>
@@ -3986,9 +3997,10 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that has any of them already, or that is inside a Project. Then write your query and execute in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
-<p>Run again in a Project, from a notebook in its folder, it adds what the Project lacks of what start() makes, and changes nothing else: an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none. It never writes over a file of yours, and logs what it added:</p>
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>
 <pre class="python">project.start()</pre>

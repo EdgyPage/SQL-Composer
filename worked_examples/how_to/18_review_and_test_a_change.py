@@ -20,7 +20,7 @@ known shape, such as a join that repeats rows; only a test catches a Statement t
 wrong thing.
 
 It needs [Share Building blocks](#share_building_blocks), [Save a table](#save_a_table) and
-[Follow Lineage](#follow_lineage).
+[Follow lineage](#follow_lineage).
 
 ## Steps
 
@@ -42,7 +42,7 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> import pandas as pd
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> from references import ops
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table
 
@@ -125,11 +125,11 @@ Pass both Statements to [`export_lineage`](examples.html#export_lineage), so one
 everything the Building block feeds. `to=` gives the files a name you can find again;
 otherwise each export gets a new name, from the time it ran:
 
->>> html_file, markdown_file = export_lineage(facts_write, team_day, to="before.html")
+>>> html_file, markdown_file = export_lineage(facts_write, team_day, to="before.html")  # -> tuple[Path, Path]
 
 The Markdown file holds, for each Statement, every calculated column with the table columns it
 comes from and the conditions that decide which rows count, then the copied columns, then the
-Keys, then the Hive, as [Follow Lineage](#follow_lineage) shows. Open the HTML page in your
+Keys, then the Hive, as [Follow lineage](#follow_lineage) shows. Open the HTML page in your
 browser to see the same drawn.
 
 ### Change the Building block
@@ -185,7 +185,7 @@ built, and export the Lineage after:
 
 >>> team_day_before = team_day
 >>> facts_write, team_day = build_statements("2026-09-18")
->>> html_file, markdown_file = export_lineage(facts_write, team_day, to="after.html")
+>>> html_file, markdown_file = export_lineage(facts_write, team_day, to="after.html")  # -> tuple[Path, Path]
 
 ### Compare the two Markdown files
 

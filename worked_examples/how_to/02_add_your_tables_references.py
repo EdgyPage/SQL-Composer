@@ -36,10 +36,11 @@ has none, so it starts one; in your own Project, which is started already, leave
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> from warehouse import query
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
 
-Every step here passes that `query`. Here it runs on the Example database, as warehouse.py
+Every step here passes that `query`; `execute` waits for a step that changes a table. Here it runs on the Example database, as warehouse.py
 holds it; at work it is your own, and you name your own tables.
 
 ### See what a table says about itself
@@ -71,7 +72,9 @@ of dt.
 
 `project.add_references` takes a list of tables. For each, it sends those two commands through
 your query, turns what comes back into a Table reference file in `references/`, and adds it to
-the registry, admin/registry.csv; then it logs what it did in the Admin log:
+the registry, admin/registry.csv; then it logs what it did in the Admin log. Run it from the
+admin notebook admin/add_references.ipynb, which holds this call ready for your tables' names,
+or from any notebook in the Project's folder, as here:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
@@ -86,8 +89,8 @@ The last file is the Database module of the Database ops, the first part of each
 references/ops.py, which the Project actions write again each time a Table reference is added
 or archived, and which you never edit.
 
-Open references/ops__job_runs.py, which the page shows above. It imports `Table`, then makes
-one variable, `job_runs`:
+Open references/ops__job_runs.py in your editor. It imports `Table`, then makes one variable,
+`job_runs`:
 
 - `columns=` holds every column and its type;
 - `partitioned_by=["dt"]` comes from DESCRIBE's `# Partition Information` rows;
@@ -272,7 +275,8 @@ Run it after you edit a Table reference, and whenever the table may have changed
 >>> check_table_reference(ops.job_runs, query=query)  # -> Verdict
 ops.job_runs matches its Table reference.
 
-When something differs, it lists each problem with the line to change in the file. It never
+It gives back a Verdict: what the check found, which prints as the sentence above, and whose
+`.ok` is True when it found nothing wrong. When something differs, it lists each problem with the line to change in the file. It never
 edits the file itself.
 
 ### Check the Key you wrote
@@ -367,7 +371,7 @@ and run the import again: `ops` then gives the new table too.
 - Describe a table that doesn't exist yet, by hand:
   [Describe a table by hand](#describe_a_table_by_hand).
 - Read every column of the Project's tables in one place, and check every Table reference at
-  once: [Keep the project in order](#keep_the_project_in_order).
+  once: [Keep the Project in order](#keep_the_project_in_order).
 - Each function here has a Worked example in the gallery:
   [`write_table_reference`](examples.html#write_table_reference), which writes one table's
   file, [`check_table_reference`](examples.html#check_table_reference) and

@@ -55,6 +55,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |
 | `tables/mart__job_day_costs/mart__job_day_costs.ipynb`, and the same for each of the other five Saved tables | `project.new_table("mart.job_day_costs")`, and so on; `template="quality_checks"` for mart.job_events_checks | its `<...>` lines |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
+| `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing: nothing is archived here, so there is none yet |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs

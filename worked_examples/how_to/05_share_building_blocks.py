@@ -22,19 +22,20 @@ imports. `project.new_block` makes the file, from the Project's building_block T
 
 ### Where the last how-to left the Project
 
-[Count, join and stay safe](#count_join_and_stay_safe) left the Starter Example project with
-its Table references filled in, as [Add your tables' references](#add_your_tables_references)
-fills them. This how-to reads two of them, `ops.job_runs`, with its Aliases minutes and
-failed, and `ops.jobs`. In your own Project they are there already; here, the steps make
-them again, their comments left out:
+[Count, join and stay safe](#count_join_and_stay_safe) left the Project with its Table
+references filled in, as [Add your tables' references](#add_your_tables_references) fills
+them, and two more beside them. This how-to reads two of them, `ops.job_runs`, with its Aliases
+minutes and failed, and `ops.jobs`. In your own Project they are there already; here, the steps
+make them again, their comments left out:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
-...                        query=example_database.query)
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
+>>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -133,7 +134,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_totals.job_id
 GROUP BY
   jobs.team;
->>> run(per_team, query=example_database.query)  # -> DataFrame
+>>> run(per_team, query=query)  # -> DataFrame
       team  minutes
 0     data       50
 1  finance       50
@@ -162,9 +163,9 @@ The file `building_blocks/runs_per_job.py`, after you fill it in:
 
     \"\"\"runs_per_job - each job's runs, failed runs and minutes for each dt it reads.
 
-    Why: mart.daily_job_runs saves these numbers, and mart.team_day's notebook checks a day
-    from them too, and writing them once here means the two can never count them two
-    different ways.
+    Why: more than one Statement needs each job's runs, failed runs and minutes, such as each
+    team's failed runs and a check of one day, and writing them once here means they can never
+    be counted two different ways.
 
     Every run counts, TEST runs and runs still going among them, since each one takes the
     cluster's time: a team that wants TEST runs left out says so in its own Statement.
@@ -183,8 +184,8 @@ The file `building_blocks/runs_per_job.py`, after you fill it in:
 
         `reads` is a condition on ops.job_runs, such as equals(job_runs.dt, "2026-09-24"):
         the table is partitioned by dt, so it must filter dt. dt is kept in GROUP_BY, so the
-        counts of each dt stay apart when `reads` picks several, and in SELECT, so a write
-        that reads this fills each dt's Partition from it.
+        counts of each dt stay apart when `reads` picks several, and in SELECT, so a Statement
+        that reads this can tell its days apart, or keep them apart in its own GROUP_BY.
         \"\"\"
         return derived(
             "runs_per_job",
@@ -210,8 +211,9 @@ Three things to notice:
   order](#keep_the_project_in_order) says why.
 - Its function is named as its file is, and so is its Derived table, `"runs_per_job"`: the
   Hive and the Lineage of every Statement that reads it call it the same.
-- Its argument is a Condition, the rows it reads. The Table notebooks of
-  [Save a table](#save_a_table) hand it the condition they call READS.
+- Its argument is a Condition, the rows it reads, so each Statement that calls it picks its
+  own. A Saved table built on it hands it the rows it saves, as
+  [Follow lineage](#follow_lineage) shows.
 
 ### Import it, and check it alone
 
@@ -225,7 +227,7 @@ the smallest Statement that reads it: every column, with `all_columns`. Check a 
 before you build on it:
 
 >>> check_last_day = statement(SELECT(all_columns(last_day)), FROM(last_day))  # -> Statement
->>> run(check_last_day, query=example_database.query)  # -> DataFrame
+>>> run(check_last_day, query=query)  # -> DataFrame
    job_id          dt  runs  failed_runs  minutes
 0       1  2026-09-24     2            0       50
 1       2  2026-09-24     1            1       20
@@ -266,7 +268,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = runs_per_job.job_id
 GROUP BY
   jobs.team;
->>> run(failed_per_team, query=example_database.query)  # -> DataFrame
+>>> run(failed_per_team, query=query)  # -> DataFrame
       team  failed_runs
 0     data            0
 1  finance            2
@@ -293,9 +295,8 @@ Every Table folder, Table reference and Building block is registered, and each o
 
 The block, checked alone over the two days, gives the failed runs the team Statement adds up:
 
->>> by_job = run(statement(SELECT(all_columns(two_days)), FROM(two_days)),
-...              query=example_database.query)
->>> by_team = run(failed_per_team, query=example_database.query)
+>>> by_job = run(statement(SELECT(all_columns(two_days)), FROM(two_days)), query=query)
+>>> by_team = run(failed_per_team, query=query)
 >>> print(by_job["failed_runs"].sum(), by_team["failed_runs"].sum())
 2 2
 
@@ -305,7 +306,7 @@ The block, checked alone over the two days, gives the failed runs the team State
 
 `run` takes a Statement. A Derived table is a step to read, so on its own it stops:
 
->>> run(last_day, query=example_database.query)
+>>> run(last_day, query=query)
 Traceback (most recent call last):
 ...
 TypeError:
@@ -342,10 +343,10 @@ Open the file that is there, or give the new block a name of its own.
 
 ## Next
 
-- Save a Statement's rows in a Saved table, from a Table notebook that can read this block:
+- Save a Statement's rows in a Saved table, from a Table notebook:
   [Save a table](#save_a_table).
-- Follow a column through the block, and the Saved tables built on it:
-  [Follow lineage](#follow_lineage).
+- Save this block's rows in a Saved table, and follow a column through the block and the
+  Saved tables built on it: [Follow lineage](#follow_lineage).
 - Which file may import which, and the registry: [Keep the Project in
   order](#keep_the_project_in_order).
 - The gallery's Worked example of [`derived`](examples.html#derived), and a long Statement

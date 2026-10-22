@@ -130,8 +130,9 @@ built a day at a time, so some of your files change: each change below says how.
   checks the rows its `READS` picks, so its `repeated_keys()` and `null_counts()` take no days.
   A Project's own copies in `admin/templates/` stay as they are until you delete them, and
   `new_table` still makes notebooks from them: delete the four that are gone. To get the new
-  ones, run `project.start()` again in your Project: it adds the Templates and admin notebooks
-  the Project lacks, and changes nothing else. `new_table` with no `template=` looks for
+  ones, run `project.start()` again in your Project: it adds only the Templates and admin
+  notebooks, and anything else of what it makes, that the Project is missing, and writes over
+  nothing. `new_table` with no `template=` looks for
   `saved_table.py` there, and refuses, naming the Templates it found, until it is. Notebooks
   already made from the old Templates keep working.
 - **The `saved_table_reference` and `building_block` Templates hold no day either**, and each
@@ -141,8 +142,10 @@ built a day at a time, so some of your files change: each change below says how.
 - **The Example database has nine tables**: `ops.region_budgets`, each job's budget for a
   day's cost, partitioned by region alone, and `ops.team_notes`, the notes each team wrote,
   not partitioned and with no Key, join the seven. Nothing in your files changes.
-- **The Example projects are made from the new Templates**: the intermediate one builds six
-  Saved tables, among them one partitioned by region and one with no partitions and no Key.
+- **The Example projects are made from the new Templates**: the starter one builds four Saved
+  tables, among them the new `mart.alerts_per_severity`, which is the `saved_table` Template
+  filled in and nothing else; the intermediate one builds six, among them one partitioned by
+  region and one with no partitions and no Key.
   Three of their Building blocks are renamed: `runs_per_job_day`, `costs_per_job_day` and
   `events_per_job_day` are now `runs_per_job`, `costs_per_job` and `events_per_job`.
   Their Building blocks are made by `project.new_block`, as their Admin logs show:
@@ -159,7 +162,7 @@ built a day at a time, so some of your files change: each change below says how.
   makes, such as an admin notebook or a Template a newer Toolbox ships, and writes over nothing.
 - **Two new admin notebooks, `new_block.ipynb` and `check_references.ipynb`.** `project.start()`
   writes them into a new Project's `admin/`. For yours, run `project.start()` again in your
-  Project, which adds them and changes nothing else.
+  Project, which adds only what the Project is missing, and writes over nothing.
   `new_block` makes a Building block from your own `admin/templates/building_block.py`, 6.x's
   among them, filling in its `<BLOCK>` and `<BLOCK_NAME>`.
 
@@ -181,8 +184,10 @@ built a day at a time, so some of your files change: each change below says how.
   DataFrame. Each how-to labels the type of each value its steps make, as `# -> Statement`.
 - **A how-to shows a file you edit as it is after the edit**, under a heading naming its path,
   where it changed files with code before. A how-to is named by its title, never by a number.
-- **Every public name's help opens with an example call**, right after its first line, and a
-  refusal of an argument a function doesn't take lists the arguments it does.
+- **Every public name's help opens with an example call**, right after its first line. Where
+  the Toolbox refuses an argument a function doesn't take, such as the `send=` 7.0 replaced, its
+  message lists the arguments the function does take; elsewhere Python's own TypeError names the
+  one it didn't expect.
 
 - **`project.new_block("runs_per_job")` makes a Building block**: it writes
   `building_blocks/runs_per_job.py` from your Project's `admin/templates/building_block.py`,

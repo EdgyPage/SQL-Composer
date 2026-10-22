@@ -26,8 +26,8 @@ doesn't stop at it.
 
 ### Where the last how-to left the Project
 
-[Save a table](#save_a_table) left the Starter Example project with its Table references, its
-Building block and one Saved table. This how-to reads two of the Table references and the
+[Save a table](#save_a_table) left the Project with its Table references, its Building block
+and one Saved table. This how-to reads two of the Table references and the
 Building block, so the steps make those again, shortened; mart.alerts_per_severity isn't read
 here, so it is left out:
 
@@ -37,8 +37,10 @@ here, so it is left out:
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
->>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+>>> from warehouse import query, execute
+>>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
 Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -130,7 +132,7 @@ The Statement here counts each team's runs, and their failed runs, over two days
 ...     WHERE(between(ops.job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(ops.jobs.team),
 ... )
->>> run(team_runs, query=example_database.query)  # -> DataFrame
+>>> run(team_runs, query=query)  # -> DataFrame
       team  runs  failed_runs
 0     data     4            0
 1  finance     5            2
@@ -139,17 +141,27 @@ The Statement here counts each team's runs, and their failed runs, over two days
 files and gives back their paths, the HTML page first. Nothing is sent to the warehouse: the
 Lineage is worked out from the Statement alone.
 
->>> html_file, markdown_file = export_lineage(team_runs)  # -> two Paths
+Where the files go, and their names, take one of two forms, each starting with the time it ran,
+such as `20260925-090000` for 09:00:00 on 2026-09-25, so each export gets a name of its own
+and the ones before stay as they were:
+
+- a Statement exported outside a Table notebook, as here, goes in a folder named lineage
+  beside the notebook you run it from, at the Project's top for a notebook there. Its name
+  goes on with the git commit of your scripts, here pinned to `1a2b3c4` (`"nogit"` outside a
+  git repository), then "lineage", the notebook's name, `"notebook"` where the steps don't run
+  in a saved one, and the name of the variable that holds the Statement, here `team_runs`. So
+  put a Statement in a variable with a meaningful name before you export it;
+- a write of a Saved table goes in its Table folder's lineage/, wherever you run it, and its
+  name goes on with the table alone, such as `20260925-090000-mart__daily_job_runs.md`, as the
+  next step shows.
+
+`to=`, such as `to="lineage/team_runs.html"`, names the files instead, replacing the last.
+
+>>> html_file, markdown_file = export_lineage(team_runs)  # -> tuple[Path, Path]
 >>> markdown_file.name  # -> str
 '20260925-090000_1a2b3c4_lineage_notebook_team_runs.md'
-
-The files go in a folder named lineage, where you are. Each name says when it was written,
-`20260925-090000` for 09:00:00 on 2026-09-25; from which git commit of your scripts, here
-pinned to `1a2b3c4` (`"nogit"` outside a git repository); by which notebook, `"notebook"` where
-the steps don't run in a saved one; and for which Statement: the name of the variable that
-holds it, `team_runs`. So put a Statement in a variable with a meaningful name before you
-export it. Each export gets a new name, so earlier ones stay as they were; `to=`, such as
-`to="lineage/team_runs.html"`, names the files instead, replacing the last.
+>>> markdown_file.parent.name  # -> str
+'lineage'
 
 Read the Markdown file from the top. Graph is a chart in Mermaid, a text format for charts that
 JupyterLab and GitHub draw: each table read is a group holding the columns the Statement uses,
@@ -273,13 +285,13 @@ cell 2 does when it runs; the write goes in a variable with a meaningful name fi
 
 >>> daily = project.load("mart.daily_job_runs")  # -> the notebook's functions
 >>> write_daily_job_runs = daily.write()  # -> Statement
->>> html_file, markdown_file = export_lineage(write_daily_job_runs)  # -> two Paths
+>>> html_file, markdown_file = export_lineage(write_daily_job_runs)  # -> tuple[Path, Path]
 >>> markdown_file.relative_to(Path.cwd()).as_posix()  # -> str
 'tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.md'
 
-A write that fills a table with a Table folder goes in that folder's lineage/, named by the
-time and the table alone, wherever you run it. Each export adds a pair, so lineage/ keeps every
-one before: the table's history, oldest first, to compare when its logic changes. Its Graph
+The write fills a table with a Table folder, so the pair goes in that folder's lineage/, named
+by the time and the table alone, the second form above. Each export adds a pair, so lineage/
+keeps every one before: the table's history, oldest first, to compare when its logic changes. Its Graph
 draws the Building block as a group of its own, named `"runs_per_job"` as the block names it:
 `"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the table.
 
@@ -402,7 +414,8 @@ does:
 >>> os.chdir("tables/mart__team_day")
 >>> team = project.load("mart.team_day")  # -> the notebook's functions
 >>> write_team_day = team.write()  # -> Statement
->>> html_file, markdown_file = export_lineage(write_daily_job_runs, write_team_day)
+>>> html_file, markdown_file = export_lineage(  # -> tuple[Path, Path]
+...     write_daily_job_runs, write_team_day)
 >>> markdown_file.name  # -> str
 '20260925-090000-mart__team_day.md'
 
@@ -423,7 +436,6 @@ warehouse.py, which here hold the Example database's, it sends each in turn, and
 database's execute prints the first line of each:
 
 >>> os.chdir("../..")
->>> from warehouse import execute, query
 >>> project.run_tables(query=query, execute=execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
@@ -554,7 +566,7 @@ Its function lives in the logic cell, so any notebook that loads the logic can c
 pulls the rows and changes them:
 
 >>> speed = project.load("mart.run_speed")  # -> the notebook's functions
->>> runs = run(speed.preview(), query=example_database.query)  # -> DataFrame
+>>> runs = run(speed.preview(), query=query)  # -> DataFrame
 >>> changed = speed.add_minutes_over_median(runs)  # -> DataFrame
 >>> changed
    run_id  job_id  duration_mins          dt  minutes_over_median
@@ -619,7 +631,8 @@ reaching back through the Saved table to `ops.job_runs`:
 mart.team_day's write alone draws mart.daily_job_runs as a table like any other, with nothing
 behind it:
 
->>> alone_html, alone_markdown = export_lineage(write_team_day, to="lineage/team_alone.html")
+>>> alone_html, alone_markdown = export_lineage(  # -> tuple[Path, Path]
+...     write_team_day, to="lineage/team_alone.html")
 >>> "ops.job_runs" in alone_markdown.read_text(encoding="utf-8")
 False
 

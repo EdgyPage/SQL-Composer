@@ -15,7 +15,7 @@ concat or substr, or date functions such as datediff and date_format. And when t
 see isn't quite what you typed.
 
 It needs the Getting started how-tos [Build and run a first
-Statement](#build_and_run_a_first_statement) and [Count, join and stay
+statement](#build_and_run_a_first_statement) and [Count, join and stay
 safe](#count_join_and_stay_safe).
 
 ## Steps
@@ -38,7 +38,7 @@ Then import the Toolbox, the Project's `ops` Database and your query:
 
 >>> from sqlglot_composer import *
 >>> from references import ops
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> job_owners = ops.job_owners  # -> Table
 >>> job_events = ops.job_events  # -> Table
 

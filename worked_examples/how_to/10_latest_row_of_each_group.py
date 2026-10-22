@@ -19,7 +19,7 @@ or numbers 1 to N.
   shows it happen.
 
 It needs the Getting started how-tos [Build and run a first
-Statement](#build_and_run_a_first_statement), [Count, join and stay
+statement](#build_and_run_a_first_statement), [Count, join and stay
 safe](#count_join_and_stay_safe) and [Share Building blocks](#share_building_blocks), which
 starts with Derived tables.
 
@@ -47,7 +47,7 @@ what each job's runs did: a `"start"` row when a run starts, then `"retry"`, `"f
 >>> from sqlglot_composer import *
 >>> from references import ops
 >>> from references.ops__job_events import ends_a_run
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> job_events = ops.job_events  # -> Table
 >>> ends_a_run  # -> Condition
 job_events.event_type IN ('finish', 'fail')

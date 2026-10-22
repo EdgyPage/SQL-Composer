@@ -43,6 +43,7 @@ import sys
 import textwrap
 from collections.abc import Iterable
 from pathlib import Path
+from unittest import mock
 from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -303,9 +304,9 @@ def _export_lineage(name: str, folder: Path) -> None:
             names += ([named] if len(several) == 1
                       else [f"{named}_{number}" for number in range(1, len(several) + 1)])
         # This tool holds no variable per write, so the names a notebook's would give are
-        # pinned, as pin() pins the time.
-        lineage.statement_names = lambda _statements, _frame, names=names: names
-        export_lineage(*writes)
+        # pinned for this export, as pin() pins the time.
+        with mock.patch.object(lineage, "statement_names", return_value=names):
+            export_lineage(*writes)
         os.chdir(folder)
 
 

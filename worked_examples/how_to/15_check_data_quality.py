@@ -47,7 +47,7 @@ below.
 >>> from sqlglot_composer import project
 >>> import pandas as pd
 >>> from references import ops
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> job_owners = ops.job_owners  # -> Table
 >>> job_events = ops.job_events  # -> Table
 >>> region_costs = ops.region_costs  # -> Table
@@ -241,7 +241,7 @@ and defines a check of repeated Keys and a NULL count, as above, beside a `check
 each day's row count, so a day that came in short shows beside the days around it.
 `project.load` gives its functions:
 
->>> checks_logic = project.load("mart.job_events_checks")  # -> TableLogic
+>>> checks_logic = project.load("mart.job_events_checks")  # -> the notebook's functions
 >>> checks_logic
 The logic of mart.job_events_checks: create, rows, preview, write, repeated_keys, column_name, null_counts.
 >>> run(checks_logic.repeated_keys(), query=query)  # -> DataFrame

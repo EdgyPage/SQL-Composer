@@ -15,8 +15,8 @@ your query and execute.
 
 Once, when you start writing Hive with the Toolbox for your team's tables. Every notebook after
 it lives in the Project and finds the Toolbox and your query and execute there. The
-Getting started how-tos after this one go on in the Project it makes, one step at a time, to
-the Project the Starter Example project shows filled in.
+Getting started how-tos after this one go on in the Project it makes, one step at a time. The
+Starter Example project shows a Project much like the one they leave, filled in.
 
 ## Steps
 
@@ -56,7 +56,8 @@ Most often a file is missing, or files from different downloads were mixed in on
 
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
 
 ### Know every file of a Project
 
@@ -68,7 +69,7 @@ file, the call that makes it, and what you fill in:
 - `sqlglot_composer/`: copied in by you. You fill in nothing: never edit a file inside it.
 - start.ipynb, or any name you like, the notebook you run `project.start()` from: made by
   you, in Jupyter. Keep it for trying things out, or delete it.
-- `warehouse.py`: `project.start()`. You write your query and execute in it, below.
+- `warehouse.py`: `project.start()`. You write your two functions, query and execute, in it, below.
 - `admin/`, a notebook per Project action, such as new_table.ipynb, add_references.ipynb
   and run_tables.ipynb: `project.start()`. You fill in the call each holds, such as the
   table's name, and run it. Calling the same Project action from any notebook of the Project
@@ -90,12 +91,15 @@ file, the call that makes it, and what you fill in:
 - references/reference_sheet.csv, the Reference sheet: `project.refresh_reference_sheet()`.
   You fill in nothing.
 - `building_blocks/<name>.py`, a Building block: `project.new_block("<name>")`. You fill in its
-  `<...>` and TODO lines, as [Share building blocks](#share_building_blocks) shows.
+  `<...>` and TODO lines, as [Share Building blocks](#share_building_blocks) shows.
 - `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table:
   `project.new_table("<db>.<table>")`. You fill in its `<...>` lines, as
   [Save a table](#save_a_table) shows.
 - `tables/<db>__<table>/lineage/`, the Lineage of that table: its notebook's lineage cell.
   You fill in nothing.
+- `lineage/`, beside the notebook you run it from, such as start.ipynb: the Lineage of a
+  Statement exported outside a Table notebook, by `export_lineage(...)`, as
+  [Follow lineage](#follow_lineage) shows. You fill in nothing.
 - `admin/removed/`, what you archive: `project.remove_table(...)`, `project.remove_reference(...)`
   and `project.remove_block(...)` move a file or folder here rather than delete it.
 
@@ -196,9 +200,9 @@ function raises.
 
 ### Try your query
 
-Every notebook of the Project imports the two from warehouse.py, or only the one it uses:
+Every notebook of the Project imports the two from warehouse.py:
 
->>> from warehouse import query
+>>> from warehouse import query, execute
 
 Try it on Hive that reads no table. A working query gives back a pandas DataFrame, one column
 for each name after SELECT:
@@ -292,7 +296,7 @@ start again.
 
 A Table reference or Table folder you make in your file explorer isn't in the registry, so
 nothing logs it, and `project.check()` reports it. Make each with its Project action, as the
-file map above says; [Keep the project in order](#keep_the_project_in_order) shows how to adopt
+file map above says; [Keep the Project in order](#keep_the_project_in_order) shows how to adopt
 one made by hand.
 
 ## Next
@@ -302,6 +306,6 @@ one made by hand.
 - Build a Statement on one of them, read its Hive and run it:
   [Build and run a first statement](#build_and_run_a_first_statement).
 - See a Project filled in: the Starter Example project, in the folder
-  example_projects/starter, is the Project the Getting started how-tos build, one step at a
-  time.
+  example_projects/starter, is much like the Project the Getting started how-tos build; its
+  README says how the two differ.
 """

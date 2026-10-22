@@ -29,7 +29,7 @@
 # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
 # It is partitioned however its Table reference says, or not at all.
 #
-# Made by `project.new_table("<DB>.<TABLE>", template="saved_table")` from
+# Made by `project.new_table("<DB>.<TABLE>")` from
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
 # <NAME>. Run the cells top to bottom once both are filled in.
 #

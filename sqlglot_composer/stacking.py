@@ -440,8 +440,8 @@ def rollup(*columns: Column | str | list[Column | str]) -> Subtotals:
     GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day,
     never one across days. is_total(column) tells a subtotal row from a row whose column is
     really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the
-    rows they total. Not every Example database makes subtotals; the how-to "Subtotals and
-    grand totals" shows their rows.
+    rows they total. Not every Example database makes subtotals; the how-to "Rollups and
+    subtotals" shows their rows.
 
     Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each
     job, jobs.team each team's subtotal, and (), no column, the grand total. The Toolbox writes

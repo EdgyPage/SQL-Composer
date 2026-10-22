@@ -6,9 +6,10 @@ Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, .
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial in eight steps, one story through the Starter Example project: you
-start a Project, add your tables' Table references, build Statements on them, share Building
-blocks, save tables of your own, follow their Lineage and keep the Project in order. Each step
+This page is a tutorial in eight steps, one story through one Project: you start it, add your
+tables' Table references, build Statements on them, share Building blocks, save tables of your
+own, follow their Lineage and keep the Project in order. The Starter Example project shows a
+Project much like the one the story leaves, filled in. Each step
 is a short summary of the Getting started how-to of the same name, which walks through it in
 full on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. Every
 example here runs on the Example database, nine made-up tables that ship inside the Toolbox.
@@ -38,7 +39,8 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
 >>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
-tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
 ```
 
 Import from `sqlglot_composer`, at its top level, never from a file inside it.
@@ -67,6 +69,7 @@ or made by hand.
 | `building_blocks/<name>.py`, a Building block | `project.new_block("<name>")` | its `<...>` and TODO lines |
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
+| `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
 | admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing |
 
 ### Your query and execute
@@ -105,7 +108,7 @@ or a region) and its Key (the columns that name one row), where it has them.
 file, and the Database module of its Database:
 
 ```python
->>> from warehouse import query
+>>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
@@ -172,7 +175,9 @@ Beeline or DBeaver.
 
 Every function and class in the cheat sheet has a Worked example in its docstring:
 `help(to_hive)` shows the one for `to_hive`. The examples use every Toolbox name and the Example
-database's `jobs` and `job_runs`, so run this first to paste one into a notebook:
+database's `jobs` and `job_runs`: its own Table references of `ops.jobs` and `ops.job_runs`,
+the same tables as your Project's `ops.jobs` and `ops.job_runs`, which ship inside the Toolbox
+so an example runs with no Project. Run this first to paste one into a notebook:
 
 ```python
 from sqlglot_composer import *
@@ -300,9 +305,9 @@ Every how-to walks through one job from start to finish, in steps you paste into
 in order: its goal, its steps, each run on the Example database with what it shows, how to check
 it worked, and the mistakes people make first.
 
-- Getting started: one story through the Starter Example project, a how-to for each of the
-  README's steps: a Project, its Table references, Statements, Building blocks, Saved tables,
-  their Lineage and the Project's upkeep.
+- Getting started: one story through one Project, a how-to for each of the README's steps: a
+  Project, its Table references, Statements, Building blocks, Saved tables, their Lineage and
+  the Project's upkeep.
 - Intermediate: a menu, each starting from the Intermediate Example project: one job each,
   such as rewriting some partitions, rollups, Keys, quality checks and testing. Each says
   which Getting started how-tos it needs.
@@ -327,12 +332,17 @@ made by the `project` module's Project actions, then filled in by hand. `example
 holds two, and each one's `README.md` shows the file map of step 1 filled in, how each file was
 made, and how to run it:
 
-- `starter/`, the Project the Getting started how-tos build, on `ops.jobs`, `ops.job_runs` and
-  `ops.run_alerts`: four Saved tables, each made from the `saved_table` Template.
-  `mart.alerts_per_severity` is the Template filled in and nothing else; `mart.daily_job_runs`
-  takes its rows from the Building block `runs_per_job`; `mart.alerts_per_job` joins each
-  alert to its run; and `mart.team_day` adds up each team's day from `mart.daily_job_runs`
-  alone among the Saved tables, with each job's team from `ops.jobs`, so it is written after it.
+- `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: four Saved tables, each
+  made from the `saved_table` Template. `mart.alerts_per_severity` is the Template filled in
+  and nothing else; `mart.daily_job_runs` takes its rows from the Building block
+  `runs_per_job`; `mart.alerts_per_job` joins each alert to its run; and `mart.team_day` adds
+  up each team's day from `mart.daily_job_runs` alone among the Saved tables, with each job's
+  team from `ops.jobs`, so it is written after it. It is much like the Project the Getting
+  started how-tos leave, but not the same: it also holds `mart.alerts_per_job`, which no
+  how-to makes, and it lacks what the how-tos add to show one thing each: the Table references
+  of `ops.region_budgets` and `ops.team_notes`, from Count, join and stay safe,
+  `mart.run_speed`, from Follow lineage, and `ops.scheduler_runs`, from Keep the Project in
+  order.
 - `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
   `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: six Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the

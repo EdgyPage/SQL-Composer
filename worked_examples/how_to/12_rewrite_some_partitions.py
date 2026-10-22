@@ -48,7 +48,7 @@ Then import the Toolbox, the `project` module, and your query and execute:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
->>> from warehouse import execute, query
+>>> from warehouse import query, execute
 
 ### Load a Table notebook's logic
 
@@ -57,7 +57,7 @@ owned the job that day. It is partitioned by its day, dt. Its Table notebook,
 tables/mart__job_day_facts/mart__job_day_facts.ipynb, defines its steps as functions in its
 logic cell, and `project.load` gives them, from any notebook of the Project:
 
->>> facts = project.load("mart.job_day_facts")  # -> TableLogic
+>>> facts = project.load("mart.job_day_facts")  # -> the notebook's functions
 >>> facts
 The logic of mart.job_day_facts: create, rows, preview, write_days, write.
 
@@ -254,7 +254,7 @@ region and the days its cost went over it, and is partitioned by region. Its `wr
 list, a write per region, each naming its Partition, so a write replaces that region's
 Partition alone:
 
->>> overruns = project.load("mart.budget_overruns")  # -> TableLogic
+>>> overruns = project.load("mart.budget_overruns")  # -> the notebook's functions
 >>> by_region = overruns.write()  # -> list[Statement]
 >>> for write in by_region:
 ...     print(to_hive(write).splitlines()[0])
@@ -282,7 +282,7 @@ each row holds back the Project's way, so mart.job_day_costs saves its days like
 >>> from building_blocks.costs_per_job import as_written_here
 >>> as_written_here("2026-09-24")  # -> str
 '20260924'
->>> costs = project.load("mart.job_day_costs")  # -> TableLogic
+>>> costs = project.load("mart.job_day_costs")  # -> the notebook's functions
 >>> hive = to_hive(costs.write())  # -> str
 >>> [line for line in hive.splitlines() if "BETWEEN" in line]
 ["    region_costs.dt BETWEEN '20260922' AND '20260924'"]
@@ -297,7 +297,7 @@ after them, the same days. `project.run_tables` loads each table's `write()` and
 the order Lineage draws them, every table before the tables that read it, with the Session
 setting "dynamic_partitions" first, since some fill their Partitions from their rows:
 
->>> project.run_tables(query=query, execute=execute,  # -> ProjectReport
+>>> project.run_tables(query=query, execute=execute,  # -> a report, printed
 ...                    tables=["mart.team_days", "mart.job_day_costs", "mart.job_day_facts"])
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
@@ -447,7 +447,7 @@ Send each in turn, with a loop, as `send_each` does, or let `project.run_tables`
 - Look things up as of each day in a table that keeps a copy of itself every day, as
   `owner_on_day` does: [Look things up as of a day](#look_things_up_as_of_a_day).
 - See where each column of mart.team_days comes from, through the tables it reads:
-  [Follow Lineage](#follow_lineage).
+  [Follow lineage](#follow_lineage).
 - Choose how a Saved table is stored, its Buckets and its compression: [Choose how a Saved
   table is stored](#choose_how_a_saved_table_is_stored).
 - The gallery's [Saved table Worked example](examples.html#saved_table), and its Worked

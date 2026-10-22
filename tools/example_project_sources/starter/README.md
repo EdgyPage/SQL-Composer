@@ -1,8 +1,15 @@
 # The starter Example project
 
 A Project made for the Example database's tables `ops.jobs`, `ops.job_runs` and
-`ops.run_alerts`, laid out as yours is. The Getting started how-tos walk through it, one step
-at a time: each goes on from where the one before left this Project.
+`ops.run_alerts`, laid out as yours is. It is much like the Project the Getting started
+how-tos build, one step at a time, but not the same:
+
+- it also holds `mart.alerts_per_job`, which no how-to makes;
+- it lacks what the how-tos add to show one thing each: the Table references of
+  `ops.region_budgets` and `ops.team_notes`, which Count, join and stay safe adds,
+  `mart.run_speed`, which Follow lineage makes, and `ops.scheduler_runs`, which Keep the
+  Project in order adopts;
+- its files are in full where a how-to shortens them, such as its Table references' comments.
 
 It builds four Saved tables, each in a Table folder of its own, each made from the
 `saved_table` Template and partitioned by dt, the day, as `ops.job_runs` and `ops.run_alerts`
@@ -53,6 +60,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `building_blocks/runs_per_job.py`, a Building block | `project.new_block("runs_per_job")` | its `<...>` and TODO lines |
 | `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, and the same for mart__daily_job_runs, mart__alerts_per_job and mart__team_day | `project.new_table("mart.alerts_per_severity")`, and so on | its `<...>` lines |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
+| `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing: nothing is archived here, so there is none yet |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs
@@ -69,7 +77,7 @@ written, so a notebook's cell 3 prints each write's Hive and runs only the previ
 which only a warehouse holds, reports that DESCRIBE failed, as expected on the Example
 database.
 
-At work, write your query and execute in `warehouse.py`, and `admin/run_tables.ipynb`'s last
+At work, write your two functions, query and execute, in `warehouse.py`, and `admin/run_tables.ipynb`'s last
 cell writes every table: each notebook's `write()`, which writes the rows its `READS` picks,
 sending the Session setting "dynamic_partitions" first, since each write fills dt from its
 rows.
