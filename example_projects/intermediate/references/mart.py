@@ -23,8 +23,10 @@ from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
 
-# Its tables, by the names tab completion lists and a wrong name's message gives.
-_TABLES = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "team_days"]
+# Its tables, by the names tab completion lists and a wrong name's message gives: the names
+# `from references.mart import *` gives, too.
+__all__ = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "team_days"]
+_TABLES = __all__
 
 
 def __getattr__(name: str) -> NoReturn:

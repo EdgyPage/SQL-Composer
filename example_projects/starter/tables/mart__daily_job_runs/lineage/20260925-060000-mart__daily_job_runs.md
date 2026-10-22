@@ -1,4 +1,4 @@
-# Lineage: written
+# Lineage: write_daily_job_runs
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
@@ -22,7 +22,7 @@ flowchart LR
   subgraph g2["filters on runs_per_job"]
     n9{{"WHERE in runs_per_job<br/><small>equals(job_runs.dt, #quot;2026-09-24#quot;)</small>"}}
   end
-  subgraph g3["written"]
+  subgraph g3["write_daily_job_runs"]
     n10["job_id<br/><small>runs_per_job.job_id</small><br/><small>in the Key</small>"]
     n11["runs<br/><small>runs_per_job.runs</small>"]
     n12["failed_runs<br/><small>runs_per_job.failed_runs</small>"]
@@ -54,7 +54,7 @@ flowchart LR
   n9 -.->|filters| g1
 ```
 
-## written
+## write_daily_job_runs
 
 It writes the Saved table mart.daily_job_runs, replacing each partition its rows fill.
 
@@ -119,7 +119,7 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('runs_per_job', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
-- written: Key (job_id), since runs_per_job's rows are told apart by job_id.
+- write_daily_job_runs: Key (job_id), since runs_per_job's rows are told apart by job_id.
 - mart.daily_job_runs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted

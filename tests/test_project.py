@@ -150,9 +150,24 @@ def test_start_refuses_a_folder_inside_a_project(
     monkeypatch.chdir(started / "building_blocks")
     with pytest.raises(FileExistsError, match="was run inside a Project"):
         project.start()
-    with pytest.raises(FileExistsError, match="this folder is one"):
-        monkeypatch.chdir(started)
-        project.start()
+
+
+def test_start_run_again_in_a_project_adds_only_what_it_lacks(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(started)
+    assert str(project.start()) == ("This folder is a Project already, and lacks nothing "
+                                    "start() makes.")
+    (started / "admin" / "new_block.ipynb").unlink()
+    (started / "admin" / "templates" / "saved_table.py").unlink()
+    warehouse = started / "warehouse.py"
+    warehouse.write_text("# mine\n", encoding="utf-8")
+    report = str(project.start())
+    assert report == ("This folder is a Project already. Added what it lacked: "
+                      "admin/templates/saved_table.py, admin/new_block.ipynb.")
+    assert (started / "admin" / "new_block.ipynb").exists()
+    assert warehouse.read_text(encoding="utf-8") == "# mine\n"  # never written over
+    assert "added admin/templates/saved_table.py" in (
+        started / "admin" / "admin_log.md").read_text(encoding="utf-8")
 
 
 # --- new_table --------------------------------------------------------------------------------
@@ -548,8 +563,12 @@ def test_a_building_block_made_by_hand_is_adopted_with_register(started: Path) -
 def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path) -> None:
     notebook = started / "admin" / "new_block.ipynb"
     code = [text for kind, text in cells(notebook) if kind == "code"]
-    assert code[1:] == ['project.new_block("your_block")', '# project.remove_block("your_block")']
+    # Both lines wait, commented, for a name: run as it is, the notebook makes nothing.
+    assert code[1:] == ['# project.new_block("your_block")',
+                        '# project.remove_block("your_block")']
     run_admin_notebook(notebook)
+    assert not (started / "building_blocks" / "your_block.py").exists()
+    project.new_block("your_block")
     assert (started / "building_blocks" / "your_block.py").is_file()
     run_admin_notebook(notebook, [code[0], code[2].removeprefix("# ")])
     assert not (started / "building_blocks" / "your_block.py").exists()

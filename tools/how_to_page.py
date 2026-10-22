@@ -9,12 +9,13 @@ A test fails while a committed page differs from what this writes.
 
 A how-to walks through one job from start to finish, as one fresh notebook. Each is a file
 `worked_examples/how_to/NN_slug.py`: NN is its number, and the page's link to it is `#slug`.
-The file holds a docstring and any pandas stand-ins (below). The docstring is laid
-out like this:
+The how-tos are numbered 1, 2, 3 and on, every Getting started how-to before every Intermediate
+one, so the groups' numbers come from the files. The file holds a docstring and any pandas
+stand-ins (below). The docstring is laid out like this:
 
     Start a Project                     <- the title, on line 1
 
-    For: Getting started                <- Getting started (how-tos 1-21) or Intermediate (22-41)
+    For: Getting started                <- its group: Getting started or Intermediate
 
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
@@ -34,7 +35,16 @@ Under the headings go:
   FOLD_AFTER lines, or named only when it is the same as one shown before, and an .html file
   by name;
 - indented code, shown but not run, for what works only at work, such as your own query and
-  execute.
+  execute;
+- a file as it is after an edit: a line such as
+
+      The file `references/ops__job_runs.py`, after you fill it in:
+
+  then a blank line, then the whole file, indented four more than that line. Where it stands
+  among the steps, the file is written, dedented, to that path in the folder the steps run in,
+  and the page shows it in a box headed by its path. A `.ipynb` file is written as its cells,
+  each starting at a `# %%` line as in a Template (a `# %% [markdown]` cell's lines start with
+  `# `), and saved as the notebook Jupyter reads. Nothing else about it runs.
 
 Where the Example database can't run a Statement's Hive, such as one with
 row_number or week_start, the how-to's file gives a pandas stand-in after its docstring: a
@@ -58,6 +68,7 @@ import ast
 import contextlib
 import datetime
 import doctest
+import importlib
 import importlib.util
 import io
 import os
@@ -106,23 +117,28 @@ HEADINGS = ("Goal", "When you'd use it", "Steps", "Check it worked", "Common mis
 
 
 class Group(NamedTuple):
-    """Getting started how-tos or Intermediate how-tos: what a how-to's `For:` line names."""
+    """Getting started how-tos or Intermediate how-tos: what a how-to's `For:` line names.
+
+    Which how-tos a group holds, and so their numbers, comes from the how-tos' own `For:`
+    lines: see check_numbering.
+    """
 
     name: str
     # The id of its heading on the page, and its badges' class.
     id: str
-    # The numbers of the how-tos it holds.
-    numbers: range
     # What its contents list says it is for.
     for_what: str
 
 
+# In the order their how-tos are numbered: every Getting started how-to comes first.
 GROUPS = (
-    Group("Getting started", "getting-started", range(1, 22),
-          "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
-    Group("Intermediate", "intermediate", range(22, 42),
-          "work over many days and many tables: daily copies, rollups, pipelines of Saved "
-          "tables and their Keys, quality checks and testing"),
+    Group("Getting started", "getting-started",
+          "one story through the Starter Example project, a how-to for each of the README's "
+          "steps: a Project, its Table references, Statements, Building blocks, Saved tables, "
+          "their Lineage and the Project's upkeep"),
+    Group("Intermediate", "intermediate",
+          "a menu, each starting from the Intermediate Example project: one job each, such as "
+          "rewriting some partitions, rollups, Keys, quality checks and testing"),
 )
 GROUP_NAMED = {group.name: group for group in GROUPS}
 # What a lineage written on the page says of when, from which commit and with which Toolbox.
@@ -188,16 +204,168 @@ def read_how_to(path: Path) -> HowTo:
     if laid_out is None:
         raise HowToRefused(f"{path.name} must start with its title on line 1 and a line such as "
                            "`For: Getting started` on line 3, each followed by a blank line.")
-    name, number = laid_out["group"], int(path.stem[:2])
+    name = laid_out["group"]
     if name not in GROUP_NAMED:
         raise HowToRefused(f"{path.name} says `For: {name}`: write "
                            f"{' or '.join(f'`For: {group.name}`' for group in GROUPS)}.")
-    numbers = GROUP_NAMED[name].numbers
-    if number not in numbers:
-        raise HowToRefused(f"{path.name} is how-to {number}, but the {name} how-tos are "
-                           f"{numbers.start} to {numbers.stop - 1}.")
-    return HowTo(number, slug_of(path), laid_out["title"], name,
+    return HowTo(int(path.stem[:2]), slug_of(path), laid_out["title"], name,
                  laid_out["rest"], stand_ins_of(path))
+
+
+def check_numbering(how_tos: list[HowTo]) -> None:
+    """Refuse how-tos, in number order, unless they are numbered 1, 2, 3 and on, each once, and
+    every how-to of a group comes before every how-to of the groups after it in GROUPS."""
+    numbers = [how_to.number for how_to in how_tos]
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise HowToRefused(f"The how-tos' files are numbered {', '.join(map(str, numbers))}: "
+                           "number them 1, 2, 3 and on, each once, with none left out.")
+    for before, after in zip(how_tos, how_tos[1:]):
+        if GROUPS.index(GROUP_NAMED[after.group]) < GROUPS.index(GROUP_NAMED[before.group]):
+            raise HowToRefused(
+                f"{after.number:02}_{after.slug}.py is {after.group}, after "
+                f"{before.number:02}_{before.slug}.py, which is {before.group}: number every "
+                f"{' how-to before every '.join(group.name for group in GROUPS)} how-to.")
+
+
+# --- A file shown as it is after an edit -----------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FileBlock:
+    """A file a how-to shows as it is after an edit, which its steps write where it stands."""
+
+    # Where it goes, from the folder the steps run in, such as references/ops__job_runs.py.
+    path: str
+    # What you did to it, such as "fill it in": its heading says "after you fill it in".
+    what: str
+    # The file's text, dedented.
+    text: str
+    # How many lines of the docstring it takes, its heading and blank line among them.
+    lines: int = field(compare=False)
+
+
+FILE_HEADING = re.compile(r"The file `(?P<path>[^`]+)`, after you (?P<what>[a-z ]+):")
+
+
+def with_file_blocks(text: str) -> list[str | FileBlock]:
+    """`text` cut at each file it shows: its prose and steps, with each FileBlock where it
+    stands.
+
+    A file is a line such as "The file `references/ops__job_runs.py`, after you fill it in:",
+    a blank line, then the file, each of its lines indented four more than that line.
+    """
+    lines = text.splitlines(keepends=True)
+    found: list[str | FileBlock] = []
+    prose: list[str] = []
+    at = 0
+    while at < len(lines):
+        heading = FILE_HEADING.fullmatch(lines[at].strip())
+        if heading is None:
+            prose.append(lines[at])
+            at += 1
+            continue
+        indent = " " * (len(lines[at]) - len(lines[at].lstrip()) + 4)
+        if at + 2 >= len(lines) or lines[at + 1].strip() or not lines[at + 2].startswith(indent):
+            raise HowToRefused(f"{lines[at].strip()!r} must be followed by a blank line, then "
+                               "the whole file, each line indented four more than it.")
+        end = at + 2
+        while end < len(lines) and (not lines[end].strip() or lines[end].startswith(indent)):
+            end += 1
+        while not lines[end - 1].strip():
+            end -= 1
+        path = heading["path"]
+        if Path(path).is_absolute() or ".." in Path(path).parts:
+            raise HowToRefused(f"The file `{path}` must be a path inside the Project, such as "
+                               "references/ops__job_runs.py.")
+        found += ["".join(prose), FileBlock(path, heading["what"],
+                                            textwrap.dedent("".join(lines[at + 2:end])),
+                                            end - at)]
+        prose = []
+        at = end
+    return [*found, "".join(prose)]
+
+
+def write_file(block: FileBlock, folder: Path) -> None:
+    """Write a file a how-to shows as it is after an edit, into `folder`: a .ipynb file from
+    its `# %%` cells, as project.new_table writes a Template's, and any other as its text."""
+    path = folder / block.path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.suffix != ".ipynb":
+        path.write_text(block.text, encoding="utf-8", newline="\n")
+        # The steps after it import the file, as a notebook would once you save it.
+        importlib.invalidate_caches()
+        return
+    cells = project._template_cells(block.text)
+    if not cells:
+        raise HowToRefused(f"The file `{block.path}` is a notebook: write its cells, each "
+                           "starting at a `# %%` line, as a Template does.")
+    project._write_notebook(path, cells)
+
+
+def file_block_html(block: FileBlock) -> str:
+    """A file shown as it is after an edit: a box headed by its path."""
+    kind = "python" if Path(block.path).suffix in (".py", ".ipynb") else "file"
+    return (f'<p class="label">The file <code>{escape(block.path)}</code>, after you '
+            f"{escape(block.what)}</p>\n" + code_html(block.text, kind))
+
+
+# The top folders and files of a Project a notebook imports by name.
+PROJECT_MODULES = ("references", "building_blocks", "warehouse", "tables")
+
+
+@contextlib.contextmanager
+def project_on_the_path(folder: Path) -> Iterator[None]:
+    """Import a Project's own scripts as a notebook started in `folder` does: references,
+    building_blocks, warehouse and tables by their own names.
+
+    The Worked examples have folders of the same names, so a module of those names is put away
+    first, `folder` goes first on the path, and afterwards the Project's modules go and the
+    others come back: no how-to sees another's references.
+    """
+    def is_the_projects(module: str) -> bool:
+        return module.split(".")[0] in PROJECT_MODULES
+
+    put_away = {name: sys.modules.pop(name) for name in list(sys.modules)
+                if is_the_projects(name)}
+    sys.path.insert(0, str(folder))
+    try:
+        yield
+    finally:
+        sys.path.remove(str(folder))
+        for name in [name for name in sys.modules if is_the_projects(name)]:
+            del sys.modules[name]
+        sys.modules.update(put_away)
+
+
+def run_as_doctest(path: Path) -> tuple[int, str]:
+    """Run a how-to as a doctest in the folder you're working in, as one fresh notebook: its
+    steps in order, each file it shows written where it stands, times pinned and its pandas
+    stand-ins answering, as on the page. Gives the number of steps that failed, and what
+    doctest reports of them.
+
+    A Warning a step gives is shown on the page, and here doesn't stop the step.
+    """
+    scope: dict = {}
+    runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
+    report: list[str] = []
+    line = 0
+    with (warnings.catch_warnings(record=True), times_pinned(), project_on_the_path(Path.cwd()),
+          pandas_standing_in(stand_ins_of(path), scope, [])):
+        warnings.simplefilter("always")
+        for number, part in enumerate(with_file_blocks(docstring_of(path)), start=1):
+            if isinstance(part, FileBlock):
+                write_file(part, Path.cwd())
+                line += part.lines
+                continue
+            # Each part its own name: doctest finds a step's source by it, and a function an
+            # earlier part defined would otherwise be looked up among this part's steps.
+            test = doctest.DocTestParser().get_doctest(part, {}, f"{path.stem} part {number}",
+                                                       str(path), line)
+            # One scope for every part, as one notebook's, which the stand-ins read too.
+            test.globs = scope
+            runner.run(test, out=report.append, clear_globs=False)
+            line += part.count("\n")
+    return runner.failures, "".join(report)
 
 
 def sections(how_to: HowTo) -> list[tuple[str, str]]:
@@ -415,10 +583,24 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
     """Prose and `>>>` steps, run in `notebook`, each shown with what it really gives.
 
     The gallery's steps_html shows what a docstring writes under a step instead, and
-    handed_html the Statements its example scope noted. Steps in a row that show nothing share one block of Python with the step after them.
+    handed_html the Statements its example scope noted. Steps in a row that show nothing share
+    one block of Python with the step after them. A file shown as it is after an edit is
+    written where it stands: see with_file_blocks.
     """
     shown, waiting = [], []
-    for part in doctest.DocTestParser().parse(text):
+    parts = []
+    for piece in with_file_blocks(text):
+        parts += [piece] if isinstance(piece, FileBlock) else doctest.DocTestParser().parse(piece)
+    for part in parts:
+        if isinstance(part, FileBlock):
+            if waiting:
+                shown.append(code_html("".join(waiting)))
+                waiting = []
+            write_file(part, notebook.folder)
+            if Path(part.path).suffix in (".py", ".md"):
+                notebook.files_shown.setdefault(part.text, part.path)
+            shown.append(file_block_html(part))
+            continue
         if isinstance(part, str):
             if part.strip() and waiting:
                 shown.append(code_html("".join(waiting)))
@@ -466,7 +648,7 @@ def times_pinned() -> Iterator[None]:
 def how_to_html(how_to: HowTo) -> str:
     """A how-to's entry on the page, its steps run in a fresh notebook's scope."""
     shown = []
-    with example_setting(), times_pinned():
+    with example_setting(), times_pinned(), project_on_the_path(Path.cwd()):
         # A notebook's own scope is named __main__.
         notebook = Notebook(scope={"__name__": "__main__"}, folder=Path.cwd())
         with pandas_standing_in(how_to.stand_ins, notebook.scope, notebook.answered):
@@ -522,9 +704,7 @@ def how_to_page() -> str:
         raise RuntimeError(f"The how-to page runs every step on the Example database, and "
                            f"{cannot_run}.")
     how_tos = [read_how_to(path) for path in how_to_paths()]
-    numbers = [how_to.number for how_to in how_tos]
-    if len(set(numbers)) != len(numbers):
-        raise HowToRefused("Two how-tos have the same number: give each its own.")
+    check_numbering(how_tos)
     groups, contents = [], []
     for group in GROUPS:
         in_group = [how_to for how_to in how_tos if how_to.group == group.name]
@@ -538,6 +718,7 @@ def how_to_page() -> str:
         "PRODUCT": escape(toolbox_registry.PRODUCT),
         "FOLDER": escape(toolbox_registry.FOLDER),
         "VERSION": escape(sqlglot_composer.TOOLBOX_VERSION),
+        "CHAIN": chain_html(),
         "CONTENTS": "\n".join(contents),
         "GROUPS": "\n".join(groups),
         "SCRIPT": FILTER_SCRIPT + HOW_TO_SCRIPT,
@@ -546,6 +727,28 @@ def how_to_page() -> str:
     page = re.sub(r"__([A-Z]+)__", lambda found: filled[found[1]], PAGE)
     check_links(page)
     return page
+
+
+# The chain of types a Statement is built along, atop the page: each call, the type of the
+# value it gives, in the type hints' names, and what that value is.
+CHAIN = (
+    ("`ops.jobs`, a Table reference", "Table", "a table: its columns, its Partitions and its Key"),
+    ("`ops.jobs.job_id`", "Column", "one of its columns"),
+    ("a test, such as `equals(...)`", "Condition", "a test of each row, for WHERE or ON"),
+    ("`SELECT(...)`, `FROM(...)`, `WHERE(...)` and the others", "Clause",
+     "one part of a query"),
+    ("`statement(...)`", "Statement", "its Clauses, checked together as one query"),
+    ("`to_hive(...)`", "str", "the Hive: the query's text, ready to paste"),
+    ("`run(..., query=query)`", "DataFrame", "the rows your query gives back, in pandas"),
+)
+
+
+def chain_html() -> str:
+    """The chain of types, as a table: each call and the type of what it gives."""
+    rows = "\n".join(f"<tr><td>{inline(call)}</td><td><code>{escape(type_name)}</code></td>"
+                     f"<td>{inline(what)}</td></tr>" for call, type_name, what in CHAIN)
+    return ('<table class="chain">\n<tr><th>You write</th><th>It gives</th><th>Which is</th>'
+            f"</tr>\n{rows}\n</table>")
 
 
 HOW_TO_STYLE = """h5{font-size:15px;margin:16px 0 4px;color:#333}
@@ -604,6 +807,9 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <code>between</code> with the dates instead.</p>
 <p>The <a href="examples.html">Example gallery</a>, beside this page in the
 <code>__FOLDER__</code> folder, holds every Worked example, and the how-tos link to it.</p>
+<p>A Statement is built along a chain of types, each made by a call on the one before. A step
+says the type of each value it makes in a comment, such as <code># -&gt; Statement</code>.</p>
+__CHAIN__
 </header>
 <p id="filter" hidden><label>Show only the how-tos holding every word:
 <input type="search" placeholder="for example: show_hive or query"></label>

@@ -2964,6 +2964,73 @@ GROUP BY
 ---
 
 
+== doc:descending
+-- Statement 1: to_hive
+SELECT
+  jobs.job_name
+FROM ops.jobs AS jobs
+ORDER BY
+  jobs.job_name DESC
+LIMIT 2
+-- Statement 1: the Statement
+output job_name: jobs.job_name
+-- export_lineage
+# Lineage: statement
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0["ops.jobs"]
+    n0["ops.jobs.job_name<br/><small>string</small>"]
+  end
+  subgraph g1["statement"]
+    n1["job_name<br/><small>jobs.job_name</small>"]
+  end
+  subgraph g2["filters on statement"]
+    n2{{"LIMIT in statement<br/><small>ORDER BY jobs.job_name DESC LIMIT 2</small>"}}
+  end
+  n0 --> n1
+  n0 -.-> n2
+  n2 -.->|filters| g1
+```
+
+## statement
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `job_name` | ops.jobs.job_name |
+
+### Keys
+
+The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
+
+- statement: no Key the Toolbox can see, since jobs' rows are told apart by job_id, and SELECT leaves out jobs.job_id.
+
+### Hive as submitted
+
+```sql
+SELECT
+  jobs.job_name
+FROM ops.jobs AS jobs
+ORDER BY
+  jobs.job_name DESC
+LIMIT 2
+```
+
+---
+
+
 == doc:window
 -- Statement 1: to_hive
 SELECT
@@ -23089,7 +23156,7 @@ ValueError:
 -- refused
 TypeError:
   What happened:  compute_statistics(...) was given day=, which Toolbox 7.0 replaced.
-  Why it matters: A table's Partitions are its own, of any kind, so the Partitions to count are named by their partition columns.
+  Why it matters: A table's Partitions are its own, of any kind, so the Partitions to count are named by their partition columns. It takes t, partition= and columns=.
   Usual fix:      Pass partition={...} instead, such as partition={"dt": "2026-09-24"}, or leave it out to count every Partition.
   Opt-out:        none - this one can't be switched off.
 

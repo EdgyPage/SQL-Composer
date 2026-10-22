@@ -1,4 +1,4 @@
-# Lineage: written
+# Lineage: write_job_day_facts
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
@@ -22,7 +22,7 @@ flowchart LR
   subgraph g2["filters on events_per_job"]
     n9{{"WHERE in events_per_job<br/><small>between(job_events.dt, #quot;2026-09-22#quot;, #quot;2026-…</small>"}}
   end
-  subgraph g3["written"]
+  subgraph g3["write_job_day_facts"]
     n10["job_id<br/><small>events_per_job.job_id</small><br/><small>in the Key</small>"]
     n12["team<br/><small>job_owners.team</small>"]
     n13["events<br/><small>events_per_job.events</small>"]
@@ -35,8 +35,8 @@ flowchart LR
     n18["ops.job_owners.dt<br/><small>string</small><br/><small>in the Key</small>"]
     n19["ops.job_owners.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
   end
-  subgraph g5["filters on written"]
-    n17{{"LEFT JOIN ON in written<br/><small>all_of(equals(job_owners.job_id, events_per…</small>"}}
+  subgraph g5["filters on write_job_day_facts"]
+    n17{{"LEFT JOIN ON in write_job_day_facts<br/><small>all_of(equals(job_owners.job_id, events_per…</small>"}}
   end
   subgraph g6["mart.job_day_facts"]
     n20["mart.job_day_facts.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
@@ -72,7 +72,7 @@ flowchart LR
   n17 -.->|filters| g3
 ```
 
-## written
+## write_job_day_facts
 
 It writes the Saved table mart.job_day_facts, replacing each partition its rows fill.
 
@@ -139,7 +139,7 @@ One value for each different `job_events.job_id` and `job_events.dt`.
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
 - derived('events_per_job', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- written: Key (job_id, dt), since events_per_job's rows are told apart by job_id, dt.
+- write_job_day_facts: Key (job_id, dt), since events_per_job's rows are told apart by job_id, dt.
 - mart.job_day_facts' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted

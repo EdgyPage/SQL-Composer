@@ -377,16 +377,41 @@ def test_every_path_the_readme_names_is_on_main(clean: Path) -> None:
     assert not missing
 
 
+def how_to_groups() -> dict[str, list[tuple[int, str]]]:
+    """Each group's how-tos, as (number, slug), read from the `For:` line of each how-to."""
+    groups: dict[str, list[tuple[int, str]]] = {}
+    for path in sorted((ROOT / export_clean.HOW_TOS).glob("[0-9][0-9]_*.py")):
+        group = re.search(r"^For: (.+)$", path.read_text(encoding="utf-8"), re.MULTILINE)[1]
+        groups.setdefault(group, []).append((int(path.stem[:2]), path.stem[3:]))
+    return groups
+
+
 def test_the_readme_lists_each_how_to_by_its_number_in_its_group(clean: Path) -> None:
     section = section_of(readme(clean), "The how-tos")
-    numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./sqlglot_composer/how_to\.html#\w+\)$",
+    numbered = re.findall(r"^(\d+)\. \[(.+)\]\(\.\./sqlglot_composer/how_to\.html#(\w+)\)$",
                           section, re.MULTILINE)
-    assert [int(number) for number, _ in numbered] == list(range(1, 42))
-    assert numbered[0] == ("1", "Start a Project")
-    assert numbered[21] == ("22", "A day written another way, and a second partition")
-    assert section.index("Getting started, how-tos 1 to 21:\n\n1. [Start a Project](") < (
-        section.index("Intermediate, how-tos 22 to 41:\n\n22. [A day written another way"))
+    groups = how_to_groups()
+    assert [(int(number), slug) for number, _, slug in numbered] == [
+        how_to for how_tos in groups.values() for how_to in how_tos]
+    assert numbered[0] == ("1", "Start a Project", "start_a_project")
+    # Each group's heading, Getting started first, comes from the how-tos' own files.
+    assert list(groups)[:1] == ["Getting started"]
+    headings = [f"{group}, how-tos {how_tos[0][0]} to {how_tos[-1][0]}:\n\n{how_tos[0][0]}. ["
+                for group, how_tos in groups.items()]
+    at = [section.index(heading) for heading in headings]
+    assert at == sorted(at)
     assert "<!--" not in section
+
+
+def test_how_tos_out_of_number_order_are_refused(tmp_path: Path) -> None:
+    folder = tmp_path / export_clean.HOW_TOS
+    folder.mkdir(parents=True)
+    for name, group in [("01_a", "Getting started"), ("02_b", "Intermediate"),
+                        ("03_c", "Getting started")]:
+        (folder / f"{name}.py").write_text(f'"""Title\n\nFor: {group}\n\nWords.\n"""\n',
+                                             encoding="utf-8")
+    with pytest.raises(export_clean.ExportRefused, match="numbered 1, 2, 3 and on"):
+        export_clean.how_tos_text(tmp_path)
 
 
 def test_the_export_ships_what_dev_committed_not_ignored_leftovers(repo: Path) -> None:

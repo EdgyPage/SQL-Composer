@@ -29,6 +29,9 @@ VALUE = "a value"  # first_value, last_value: ORDER_BY; rows= left out is the wh
 class Window:
     """The rows a calculation looks across for each row, made by window(...) for over=.
 
+    >>> window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt)
+    window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.dt)
+
     Make one with window(...), never Window(). Write the name in a type hint, to say that a
     function of yours gives back a Window:
 
@@ -117,6 +120,9 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
            ORDER_BY: Column | Ordering | list[Column | Ordering] | None = None,
            rows: tuple[int | None, int | None] | None = None) -> Window:
     """The rows a calculation looks across for each row, passed to it as over=.
+
+    >>> sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id))
+    SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)
 
     - PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The
       word is SQL's, and has nothing to do with the Partitions a table is stored in. Left out,
@@ -300,6 +306,9 @@ def row_number(*, PARTITION_BY: Column | list[Column] | None = None,
                over: Window | None = None) -> Column:
     """Number the rows of each group from 1, in ORDER_BY's order.
 
+    >>> row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))
+    ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
+
     Give it PARTITION_BY= and ORDER_BY=, or over=window(...) as lag(...) and rank(...) take
     theirs: both write the same Hive. Keeping the rows numbered 1 gives the latest row per key;
     keeping those up to N gives the top N per group. Hive can't filter on a row number in the
@@ -372,15 +381,15 @@ def row_number(*, PARTITION_BY: Column | list[Column] | None = None,
 def rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; rows that tie share a rank.
 
-    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank after both:
-    1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its
-    own to each. Since rows can tie, a rank kept at 1 can't promise one row per group, as a
-    Key needs; keep row_number(...) at 1 for that.
-
     >>> longest_first = window(PARTITION_BY=job_runs.job_id,
     ...                        ORDER_BY=descending(job_runs.duration_mins))
     >>> rank(over=longest_first)
     RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.duration_mins DESC)
+
+    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank after both:
+    1, 2, 2, 4. dense_rank(...) gives 1, 2, 2, 3 instead, and row_number(...) a number of its
+    own to each. Since rows can tie, a rank kept at 1 can't promise one row per group, as a
+    Key needs; keep row_number(...) at 1 for that.
     """
     tree = windowed(Node("WindowCall", name="rank", args=[]), over, "rank(...)", PLACE)
     return Column(made_by(tree, "rank", over=over), type="int")
@@ -389,12 +398,12 @@ def rank(*, over: Window) -> Column:
 def dense_rank(*, over: Window) -> Column:
     """Rank each row in its group from 1; ties share a rank, and the next follows on.
 
-    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank straight
-    after: 1, 2, 2, 3, where rank(...) gives 1, 2, 2, 4.
-
     >>> dense_rank(over=window(PARTITION_BY=job_runs.job_id,
     ...                        ORDER_BY=descending(job_runs.duration_mins)))
     DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.duration_mins DESC)
+
+    Two rows tied in ORDER_BY's order get the same rank, and the next row the rank straight
+    after: 1, 2, 2, 3, where rank(...) gives 1, 2, 2, 4.
     """
     tree = windowed(Node("WindowCall", name="dense_rank", args=[]), over, "dense_rank(...)",
                     PLACE)
@@ -404,11 +413,11 @@ def dense_rank(*, over: Window) -> Column:
 def ntile(parts: int, *, over: Window) -> Column:
     """Which of N nearly equal parts of its group each row falls in, 1 to N, in order.
 
-    ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first
-    rows in ORDER_BY's order. When the rows don't split evenly, the first parts get one more.
-
     >>> ntile(4, over=window(ORDER_BY=job_runs.duration_mins))
     NTILE(4) OVER (ORDER BY job_runs.duration_mins ASC)
+
+    ntile(4, over=...) gives each row 1, 2, 3 or 4: its quarter of its group, from the first
+    rows in ORDER_BY's order. When the rows don't split evenly, the first parts get one more.
     """
     call = f"ntile({parts!r}, ...)"
     _whole_number(parts, repr(parts), call, "how many parts each group's rows are split into",
@@ -435,14 +444,14 @@ def _shifted(name: str, column: object, over: object, keyword: str, by: object) 
 def lag(column: Column, *, over: Window, back: int = 1) -> Column:
     """The column's value on the row before each row in its group, in ORDER_BY's order.
 
-    back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The
-    first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0)
-    puts a value in its place. Here, each run's minutes beside those of the job's run before
-    it:
-
     >>> lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                         ORDER_BY=job_runs.run_id))
     LAG(job_runs.duration_mins, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+
+    back=2 looks 2 rows back; the Hive writes it after the column, 1 when you give none. The
+    first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0)
+    puts a value in its place. The example above gives each run the minutes of its job's run
+    before it.
     """
     return _shifted("lag", column, over, "back", back)
 
@@ -450,12 +459,12 @@ def lag(column: Column, *, over: Window, back: int = 1) -> Column:
 def lead(column: Column, *, over: Window, ahead: int = 1) -> Column:
     """The column's value on the row after each row in its group, in ORDER_BY's order.
 
-    ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none.
-    The last row of each group has no row after it, so it gets NULL.
-
     >>> lead(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
     ...                                   ORDER_BY=job_runs.run_id))
     LEAD(job_runs.status, 1) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)
+
+    ahead=2 looks 2 rows ahead; the Hive writes it after the column, 1 when you give none.
+    The last row of each group has no row after it, so it gets NULL.
     """
     return _shifted("lead", column, over, "ahead", ahead)
 
@@ -472,13 +481,13 @@ def _end_value(name: str, column: object, over: object) -> Column:
 def first_value(column: Column, *, over: Window) -> Column:
     """The column's value on the first row of each row's group, in ORDER_BY's order.
 
-    With no rows= in the Window, it is the whole group's first row, which the Hive spells out
-    as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first
-    of those rows.
-
     >>> first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
     ...                                          ORDER_BY=job_runs.run_id))
     FIRST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+
+    With no rows= in the Window, it is the whole group's first row, which the Hive spells out
+    as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first
+    of those rows.
     """
     return _end_value("first_value", column, over)
 
@@ -486,14 +495,14 @@ def first_value(column: Column, *, over: Window) -> Column:
 def last_value(column: Column, *, over: Window) -> Column:
     """The column's value on the last row of each row's group, in ORDER_BY's order.
 
+    >>> last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
+    ...                                         ORDER_BY=job_runs.run_id))
+    LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
+
     With no rows= in the Window, it is the whole group's last row, which the Hive spells out
     as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING: left to itself, Hive would
     stop at each row, and give each row its own value. With rows=, it is the last of those
     rows.
-
-    >>> last_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id,
-    ...                                         ORDER_BY=job_runs.run_id))
-    LAST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)
     """
     return _end_value("last_value", column, over)
 

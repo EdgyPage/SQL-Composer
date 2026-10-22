@@ -28,15 +28,18 @@ _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=marg
 class PythonStep:
     """A change made in Python and saved by your own call, made by python_step(...).
 
-    It isn't a Statement, and has no Hive: run refuses it, show_hive prints comment lines
-    saying what it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
-    name in a type hint, to say that a function of yours gives back a Python step:
-
     >>> import pandas as pd
     >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:
     ...     return runs.assign(hours=runs.duration_mins / 60)
     >>> hours = Table("mart.run_hours", columns={"run_id": "bigint", "hours": "double"},
     ...               location="/data/your_team/mart.db/run_hours")
+    >>> python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins], writes=hours)
+    <Python step: add_hours in a notebook, line 1 of its cell; writes mart.run_hours>
+
+    It isn't a Statement, and has no Hive: run refuses it, show_hive prints comment lines
+    saying what it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
+    name in a type hint, to say that a function of yours gives back a Python step:
+
     >>> def hours_step() -> PythonStep:
     ...     return python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins],
     ...                        writes=hours)
@@ -62,6 +65,18 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
                 writes: Table) -> PythonStep:
     """Declare a change you make in Python and save yourself, for Lineage to show.
 
+    >>> import pandas as pd
+    >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:
+    ...     return runs.assign(hours=runs.duration_mins / 60)
+    >>> hours = Table("mart.run_hours", columns={"run_id": "bigint", "hours": "double"},
+    ...               location="/data/your_team/mart.db/run_hours")
+    >>> hours_step = python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins],
+    ...                          writes=hours)
+    >>> text = show_hive(hours_step)
+    -- Python step: changed in Python by add_hours in a notebook, line 1 of its cell. It reads
+    -- ops.job_runs.run_id and ops.job_runs.duration_mins, and writes mart.run_hours. Nothing is
+    -- sent for it: your own call saves its rows.
+
     Some steps are easier in pandas than in a Statement. You pull the rows with a Statement,
     change them with a function of your own, and save them to a table with your own call, as
     your work's API does. The Toolbox moves none of that data. python_step tells it what
@@ -86,18 +101,6 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     show_hive prints comment lines saying what it is, run refuses it, and a Table notebook's
     write() may give it beside its Statements: project.run_tables passes over it, but still
     puts it in order.
-
-    >>> import pandas as pd
-    >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:
-    ...     return runs.assign(hours=runs.duration_mins / 60)
-    >>> hours = Table("mart.run_hours", columns={"run_id": "bigint", "hours": "double"},
-    ...               location="/data/your_team/mart.db/run_hours")
-    >>> hours_step = python_step(add_hours, reads=[job_runs.run_id, job_runs.duration_mins],
-    ...                          writes=hours)
-    >>> text = show_hive(hours_step)
-    -- Python step: changed in Python by add_hours in a notebook, line 1 of its cell. It reads
-    -- ops.job_runs.run_id and ops.job_runs.duration_mins, and writes mart.run_hours. Nothing is
-    -- sent for it: your own call saves its rows.
     """
     # A function wrapped by a decorator of yours lives where its own def is.
     function = inspect.unwrap(function) if callable(function) else function

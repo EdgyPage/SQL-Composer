@@ -5,73 +5,104 @@ For: Getting started
 ## Goal
 
 Get a Project ready: one folder that holds the Toolbox, warehouse.py, where your own two
-functions, `query` and `execute`, run Hive SQL on your warehouse, and, as you add them, your tables' Table references, the Building blocks
-your notebooks share and a notebook per Saved table. `project.start()` lays the folder out the
-same way every time. Then you try a first Statement on the Example database, the made-up tables
-that ship inside the Toolbox, so you see each piece work before you touch a real table.
+functions, `query` and `execute`, run Hive SQL on your warehouse, and, as you add them, your
+tables' Table references, the Building blocks your notebooks share and a notebook per Saved
+table. You install what the Toolbox needs, copy it into the folder, let `project.start()` lay
+the folder out, learn which call makes each file of a Project and what you fill in, and write
+your query and execute.
 
 ## When you'd use it
 
 Once, when you start writing Hive with the Toolbox for your team's tables. Every notebook after
-it lives in the Project, finds the Toolbox and your query and execute through it, and makes and removes its
-folders and files through the Project's admin notebooks, which log each change.
+it lives in the Project and finds the Toolbox and your query and execute there. The
+Getting started how-tos after this one go on in the Project it makes, one step at a time, to
+the Project the Starter Example project shows filled in.
 
 ## Steps
 
-### Make the Project's folder and put the Toolbox in it
+### Install what the Toolbox needs
+
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot. Download the Toolbox and
+extract it; in its top folder, requirements.txt pins each package to the version it is
+tested on. Install them from a terminal in that folder, with
+`pip install -r requirements.txt`, or from a notebook, with `%pip install -r` followed by the
+path to that file.
+
+A package your notebooks already have, such as pandas, needn't be installed again: delete its
+line from requirements.txt first, so pip doesn't replace it.
+
+### Make the Project's folder and copy the Toolbox in
 
 Make an empty folder for the Project, such as my_project. The Toolbox is one folder,
-`sqlglot_composer`: copy it whole from the Toolbox you downloaded into the Project's folder.
-Keep your own files beside it, never inside it: to update the Toolbox, you delete the folder
-and copy it in again.
+`sqlglot_composer`: copy it whole from the download into the Project's folder. Keep your own
+files beside it, never inside it: to update the Toolbox, you delete the folder and copy the
+new one in.
 
-Then open a notebook in the Project's folder for the steps here. Jupyter runs a notebook in the
-folder it is in, so the notebook finds `sqlglot_composer` beside it.
+Then open a notebook in the Project's folder, such as start.ipynb, for the steps here. Jupyter
+runs a notebook in the folder it is in, so the notebook finds `sqlglot_composer` beside it.
+The folder, the copied Toolbox and this notebook are the only things of a Project you make by
+hand: the Toolbox makes the rest.
 
-### Import the Toolbox
+### Start the Project
 
-One line imports every Toolbox name: `statement`, the clause functions such as `SELECT`,
-`FROM` and `WHERE`, `to_hive`, `show_hive`, `run`, `example_database`, and the rest. A second
-imports the `project` module, which makes and keeps the Project's folders: like the admin
-module, which later how-tos use, it is imported by its name, since the first line leaves it
-out.
+The `project` module makes and keeps the Project's folders and files. Import it by its name:
 
->>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 
 If the import stops instead, its message says what happened, why it matters and the usual fix.
 Most often a file is missing, or files from different downloads were mixed in one folder.
 
-### Start the Project
-
-`project.start()` makes the Project's folders and files in the folder your notebook runs in:
+`project.start()` lays out the folder your notebook runs in:
 
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
 
-This is the Project, beside the Toolbox you copied in, and what each part is for:
+### Know every file of a Project
 
-- warehouse.py: your query and execute, written once, which every notebook imports from
-  here;
-- `admin/`: a notebook per Project action, which you run to make or remove a folder or file,
-  such as new_table.ipynb; admin_log.md, the Admin log, every Project action, oldest
-  first; registry.csv, every Table folder and Table reference made, and when; and
-  `templates/`, the Templates a new Table notebook is made from;
-- `references/`: a Table reference per table you read or write, and the Reference sheet;
-- `building_blocks/`: the pieces several notebooks share;
-- `tables/`: a Table folder per Saved table, holding its notebook and `lineage/`, its Lineage,
-  a pair of files each time you export it.
+Besides the three things you made by hand, each file of a Project is made by a call of the
+`project` module, a Project action, and never by hand in your file explorer. Here is every
+file, the call that makes it, and what you fill in:
 
-`references/`, `building_blocks/` and `tables/` are empty for now:
-[Add your tables' references](#add_your_tables_references) fills the first, and
-[Add a Saved table](#add_a_saved_table) the last. Make and remove Table folders and Table
-references with the `project` module's calls, such as `project.new_table(...)`, never by hand
-in your file explorer. Each admin notebook holds one such call, ready to fill in, and calling
-it from any notebook of the Project does just the same: it refuses a folder or file that is
-already there, so nothing of yours is written over, lists what it made in the registry, and
-logs what it did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the
-log's first entry is the one after its heading:
+- `my_project/`, the Project's folder: made by you, in your file explorer.
+- `sqlglot_composer/`: copied in by you. You fill in nothing: never edit a file inside it.
+- start.ipynb, or any name you like, the notebook you run `project.start()` from: made by
+  you, in Jupyter. Keep it for trying things out, or delete it.
+- `warehouse.py`: `project.start()`. You write your query and execute in it, below.
+- `admin/`, a notebook per Project action, such as new_table.ipynb, add_references.ipynb
+  and run_tables.ipynb: `project.start()`. You fill in the call each holds, such as the
+  table's name, and run it. Calling the same Project action from any notebook of the Project
+  does just the same.
+- admin/admin_log.md, the Admin log: `project.start()`, then each Project action adds an
+  entry. You fill in nothing.
+- admin/registry.csv, the registry: `project.start()`, then each Project action that makes or
+  archives a Table folder, a Table reference or a Building block adds a row. You fill in
+  nothing.
+- `admin/templates/`, the Templates a new notebook or Building block is made from:
+  `project.start()`. Nothing, unless you want your team's own shape.
+- `references/<db>__<table>.py`, a Table reference per table:
+  `project.add_references([...], query=query)` for a table in the warehouse, or
+  `project.new_table(...)` for a Saved table of your own. You fill in its TODO lines, and add
+  your own names for its columns, as [Add your tables' references](#add_your_tables_references)
+  shows.
+- `references/<db>.py`, a Database module per Database, such as references/ops.py: written
+  again by each Project action that adds or archives a Table reference. Never edit it.
+- references/reference_sheet.csv, the Reference sheet: `project.refresh_reference_sheet()`.
+  You fill in nothing.
+- `building_blocks/<name>.py`, a Building block: `project.new_block("<name>")`. You fill in its
+  `<...>` and TODO lines, as [Share building blocks](#share_building_blocks) shows.
+- `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table:
+  `project.new_table("<db>.<table>")`. You fill in its `<...>` lines, as
+  [Save a table](#save_a_table) shows.
+- `tables/<db>__<table>/lineage/`, the Lineage of that table: its notebook's lineage cell.
+  You fill in nothing.
+- `admin/removed/`, what you archive: `project.remove_table(...)`, `project.remove_reference(...)`
+  and `project.remove_block(...)` move a file or folder here rather than delete it.
+
+`references/`, `building_blocks/` and `tables/` are empty for now. Each Project action refuses
+a file or folder that is already there, so nothing of yours is written over, and logs what it
+did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
+is the one after its heading:
 
 >>> from pathlib import Path
 >>> print(Path("admin/admin_log.md").read_text(encoding="utf-8").split("## ")[1])
@@ -87,24 +118,20 @@ log's first entry is the one after its heading:
 The Script line names the git commit your Project's folder is at, when you keep it in git,
 and nogit when you don't; this page shows a made-up one, 1a2b3c4.
 
-### Write your query and execute
+### Read the warehouse.py start wrote
 
-The Toolbox never connects to anything itself. It writes Hive as text, and `run` hands that
-text to a function of yours, which runs it. Your team's API most likely runs Hive with two
-calls: one that gives back rows, as a SELECT does, and one that gives back nothing, as a
-statement that changes a table does, such as a write or a CREATE TABLE. So you write two
-functions, one over each call:
+The Toolbox never connects to anything itself. It writes Hive as text, and hands that text to
+a function of yours, which runs it. Your team's API most likely runs Hive with two calls: one
+that gives back rows, as a SELECT does, and one that gives back nothing, as a statement that
+changes a table does, such as a write or a CREATE TABLE. So warehouse.py holds two functions,
+one over each call:
 
 - `query` runs Hive and gives back its rows as a pandas DataFrame;
 - `execute` runs Hive and gives back nothing.
 
-The Toolbox picks which one each Statement goes to: a read goes to your `query`, and a write, a
-CREATE TABLE or anything else that changes a table goes to your `execute`. How you connect,
-retry or save files stays in the two functions, so the Toolbox works with whatever your
-notebooks use to reach the warehouse.
-
-`project.start()` wrote warehouse.py with a query and an execute that run Hive on the Example
-database, for you to replace:
+The Toolbox picks which one each Statement goes to. `project.start()` wrote them to run Hive on
+the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs
+before you touch a real table:
 
 >>> print(Path("warehouse.py").read_text(encoding="utf-8"))
 \"\"\"warehouse - your two calls to the warehouse, query and execute.
@@ -119,64 +146,79 @@ def execute(hive: str) -> None:
     example_database.execute(hive)  # at work: your warehouse's execute call
 <BLANKLINE>
 
-Open warehouse.py in your editor and write your own two. Each calls your team's API, whatever
-it uses to run a Hive string: `query` its call that gives back rows, turning them into a pandas
-DataFrame, each column named, and `execute` its call that gives back nothing:
+`example_database.query` runs Hive on the Example database's nine tables, and
+`example_database.execute` prints the first line of the Hive and changes nothing, since the
+Example database can't be written to. The Getting started how-tos keep warehouse.py just so.
+
+### Write your query and execute
+
+At work, open warehouse.py in your editor and replace the two calls with your team's. Each
+calls your team's API, whatever it uses to run a Hive string: `query` its call that gives back
+rows, turning them into a pandas DataFrame, each column named, and `execute` its call that
+gives back nothing. When your API gives each row as a dict, such as
+`{"run_id": 97, "job_id": 3}`, `pd.DataFrame(rows)` takes the column names from its keys:
 
     import pandas as pd
 
+    import my_api  # your team's query API
+
+
     def query(hive: str) -> pd.DataFrame:
-        rows = my_api.query(hive)  # your team's own call that gives back rows goes here
+        rows = my_api.query(hive)  # your team's own call that gives back rows
         return pd.DataFrame(rows)
 
+
     def execute(hive: str) -> None:
-        my_api.execute(hive)  # your team's own call that gives back nothing goes here
+        my_api.execute(hive)  # your team's own call that gives back nothing
 
 `hive: str`, `-> pd.DataFrame` and `-> None` are type hints: they say a Hive string goes in,
 and that a DataFrame comes out of `query` and nothing out of `execute`. Python doesn't check
-them. A function of yours that takes your query hints it as a function that takes one `str`
-and gives back a DataFrame, `Callable[[str], pd.DataFrame]`, and one that takes your execute as
-a function that takes one `str` and gives back nothing, `Callable[[str], None]`, as later
-how-tos do:
+them.
 
-    from collections.abc import Callable
-
-    def run_today(query: Callable[[str], pd.DataFrame],
-                  execute: Callable[[str], None]) -> None:
-        ...
-
-This works when your API gives each row as a dict, such as `{"run_id": 97, "job_id": 3}`:
-`pd.DataFrame(rows)` takes the column names from its keys. If it gives each row as a tuple, it
-gives the column names apart too, as a database cursor does in `cursor.description`. Pass those
-names on; don't type them yourself, since each Statement has its own columns:
+When your API gives each row as a tuple, it gives the column names apart, as a database cursor
+does in `cursor.description`. Pass those names on; don't type them yourself, since each
+Statement has its own columns:
 
     def query(hive: str) -> pd.DataFrame:
         cursor.execute(hive)  # your team's own cursor, from its database library
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
+
     def execute(hive: str) -> None:
         cursor.execute(hive)  # the same cursor: nothing comes back to read
 
 Both use one cursor, so they share one session: a Session setting sent through `execute` holds
-for what is sent after it on that session, through either function. And let each raise when
-the warehouse reports a failure. If your API gives back an error rather than raising one,
-raise it yourself, such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed
-only when your function raises, and otherwise logs it as one that worked.
+for what is sent after it, through either function. And let each raise when the warehouse
+reports a failure. If your API gives back an error rather than raising one, raise it yourself,
+such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed only when your
+function raises.
 
-Every notebook of the Project then imports them with `from warehouse import query, execute`,
-or only the one it uses. There is no warehouse on this page, so the next steps use the Example
-database's own two: `example_database.query`, which runs Hive on the Example database's seven
-made-up tables, and `example_database.execute`, which prints the first line of the Hive and
-changes nothing, since the Example database can't be written to. At work you give `run` your
-own `query` and `execute` in their place.
+### Try your query
+
+Every notebook of the Project imports the two from warehouse.py, or only the one it uses:
+
+>>> from warehouse import query
+
+Try it on Hive that reads no table. A working query gives back a pandas DataFrame, one column
+for each name after SELECT:
+
+>>> one = query("SELECT 1 AS one")  # -> DataFrame
+>>> one
+   one
+0    1
+
+You won't write Hive by hand like this again: from
+[Build and run a first statement](#build_and_run_a_first_statement) on, the Toolbox writes it,
+and `run` hands it to your query.
 
 ### See how a notebook deeper in the Project finds the Toolbox
 
-Python looks for what a notebook imports in the folder the notebook runs in. A notebook in the
-Project's folder finds `sqlglot_composer` and warehouse.py there. A Table notebook sits two
-folders down, in `tables/<db>__<table>/`, so its first cell starts with three lines: two
-imports, and one that puts the Project's folder on Python's list of places to look:
+Python looks for what a notebook imports in the folder the notebook runs in, so a notebook in
+the Project's folder finds `sqlglot_composer`, warehouse.py and `references/` there. A Table
+notebook sits two folders down, in `tables/<db>__<table>/`, so its first cell starts with three
+lines, two imports and one that puts the Project's folder on Python's list of places to look,
+before its own imports:
 
     import pathlib
     import sys
@@ -186,85 +228,8 @@ imports, and one that puts the Project's folder on Python's list of places to lo
     from warehouse import query, execute
 
 `pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
-it: the Project's. After them, the notebook imports the Toolbox, your query and execute, and
-your tables'
-Table references and Building blocks by their folders, as in
-`from references.ops__job_runs import job_runs`. A Table notebook is written with these lines
-already in it, as [Add a Saved table](#add_a_saved_table) shows.
-
-### Build a first Statement on the Example database
-
-The Example database's first three tables are `ops.jobs`, one row per job; `ops.job_runs`, one
-row per run of a job, on two days, 2026-09-23 and 2026-09-24; and `ops.run_alerts`, the alerts
-a run raised. A fourth, `ops.scheduler_runs`, is the scheduler's own record of the two days'
-runs, and three more, which the Intermediate how-tos use, hold 14 days each. Each table's
-Table reference, which says what columns it has, comes with the Toolbox. Give the one you need
-a short name:
-
->>> job_runs = example_database.job_runs
-
-A Statement is one query, built from clause functions written in SQL's order: `SELECT` the
-columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` keeps a row
-only if every condition in it holds. This Statement finds the runs that failed.
-
-`job_runs` is partitioned by `job_runs.dt`, the day each row belongs to: the warehouse stores
-the table a Partition, here a day, at a time, so every Statement that reads it must filter
-`job_runs.dt`, here with `between`: a Load limit refuses one that doesn't.
-
->>> failed = statement(
-...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
-...     FROM(job_runs),
-...     WHERE(equals(job_runs.status, "FAILED"),
-...           between(job_runs.dt, "2026-09-23", "2026-09-24")),
-... )
-
-Nothing has run yet: `failed` holds the Statement, ready to become Hive.
-
-### See its Hive
-
-`to_hive` gives the Hive as text: exactly what `run` sends. In it, `FROM ops.job_runs AS
-job_runs` reads the table and calls it `job_runs`, the name the other lines use.
-
->>> print(to_hive(failed))
-SELECT
-  job_runs.run_id,
-  job_runs.job_id,
-  job_runs.dt
-FROM ops.job_runs AS job_runs
-WHERE
-  job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
-
-`show_hive` prints the same Hive with a `;` at the end, ready to paste into another program,
-such as Hue, Beeline or DBeaver. It gives the text back too, so `text` keeps it to save or
-use again:
-
->>> text = show_hive(failed)
-SELECT
-  job_runs.run_id,
-  job_runs.job_id,
-  job_runs.dt
-FROM ops.job_runs AS job_runs
-WHERE
-  job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24';
-
-In a notebook you can also write `show_hive(failed)` on a line of its own: it prints the Hive
-once, and the text it gives back isn't shown a second time. After you build each Statement,
-call `show_hive` on it to read what will run.
-
-### Run it
-
-`run` turns the Statement into Hive, hands it to your `query` function, since it reads rows,
-and gives back the DataFrame `query` returns. Here the Example database's query runs it:
-
->>> run(failed, query=example_database.query)
-   run_id  job_id          dt
-0      97       3  2026-09-23
-1     102       2  2026-09-24
-
-At work it is the same call with your own query, `run(failed, query=query)`, after
-`from warehouse import query`, and a Statement that reads your own tables. A Statement that
-writes a table goes to your execute instead, and `run` gives back nothing for it, as
-[Save a table](#save_a_table) shows.
+it: the Project's. An admin notebook, one folder down, starts with `.parent` in its place.
+`project.new_table` and `project.start` write these lines into each notebook they make.
 
 ## Check it worked
 
@@ -281,40 +246,15 @@ page's folder has none.
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is there.
 
-Keep what `run` gives back, and check that it is a pandas DataFrame holding the two failed
-runs:
+Your query gives back a pandas DataFrame, with the column named as the Hive names it:
 
 >>> import pandas as pd
->>> result = run(failed, query=example_database.query)
->>> isinstance(result, pd.DataFrame)
+>>> isinstance(one, pd.DataFrame)
 True
->>> len(result)
-2
-
-At work, try your own query on its own, with Hive that reads no table, such as
-`query("SELECT 1 AS one")`. A working query gives back a pandas DataFrame with one column,
-named `"one"`. The Example database's query shows what to expect:
-
->>> example_database.query("SELECT 1 AS one")
-   one
-0    1
+>>> list(one.columns)
+['one']
 
 ## Common mistakes
-
-### Starting a Project inside another
-
-`project.start()` refuses a folder inside a Project, the Project's own folder among them, so a
-second run never writes over the first's files:
-
->>> project.start()
-Traceback (most recent call last):
-...
-FileExistsError:
-  What happened:  project.start() was run inside a Project: ...
-...
-
-Run it once, in the Project's folder. To work on the Project, open a notebook in it: there is
-nothing to start again.
 
 ### A query that gives back the wrong thing
 
@@ -323,64 +263,45 @@ Many APIs give each row as a tuple, without the column names. A query that hands
 This page has no API, so a stand-in plays yours here, giving each row as a tuple:
 
 >>> def query_api(hive: str) -> list[tuple[object, ...]]:
-...     answer = example_database.query(hive)
+...     answer = query(hive)
 ...     return [tuple(row) for row in answer.itertuples(index=False)]
->>> query_without_column_names = lambda hive: pd.DataFrame(query_api(hive))
->>> run(failed, query=query_without_column_names)
-     0  1           2
-0   97  3  2026-09-23
-1  102  2  2026-09-24
+>>> def query_without_column_names(hive: str) -> pd.DataFrame:
+...     return pd.DataFrame(query_api(hive))
+>>> query_without_column_names("SELECT 1 AS one, 2 AS two, 3 AS three")
+   0  1  2
+0  1  2  3
 
-Nothing stops it, but no column has its name: reading one by name, such as `"run_id"`, stops
-with a `KeyError`. Check that `query("SELECT 1 AS one")` gives back a column named `"one"`. If
-it doesn't, pass `pd.DataFrame` the column names your API gives, as the step Write your query
-and execute shows.
+Nothing stops it, but no column has its name: reading one by name, such as `"one"`, stops
+with a `KeyError`. Pass `pd.DataFrame` the column names your API gives, as the step Write your
+query and execute shows. A query that gives back the rows as a plain list, without
+`pd.DataFrame`, is refused the first time `run` gets them back.
 
-A query that gives back the rows just as the API gives them, a plain list, without
-`pd.DataFrame`, stops when `run` gets them back:
+### Starting the Project again
 
->>> query_without_a_dataframe = lambda hive: query_api(hive)
->>> run(failed, query=query_without_a_dataframe)
-Traceback (most recent call last):
-...
-TypeError:
-  What happened:  Your query gave back a list, where a pandas DataFrame goes.
-...
+`project.start()` run again in the Project's folder writes over nothing. It adds only what
+start() makes and the Project lacks, such as an admin notebook deleted by mistake, and says so:
 
-The fix is the message's: end your query with `return pd.DataFrame(rows)`, with the column
-names when each row is a tuple, as the step Write your query and execute shows. Your execute
-needs no such care: `run` never reads what it gives back.
+>>> project.start()
+This folder is a Project already, and lacks nothing start() makes.
 
-### A Statement that doesn't filter a partition column
+Run it in a folder inside the Project, such as `tables/`, and it refuses, so no Project is ever
+started inside another. To work on the Project, open a notebook in it: there is nothing to
+start again.
 
-A partitioned table is stored a Partition at a time, and a Statement that filters none of its
-partition columns would read every Partition the table holds. The Toolbox refuses it as you
-build it, before anything runs:
+### Making a file by hand
 
->>> every_failed_run = statement(
-...     SELECT(job_runs.run_id),
-...     FROM(job_runs),
-...     WHERE(equals(job_runs.status, "FAILED")),
-... )
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
-...
-  Opt-out:        FROM(job_runs, reads_all_partitions=True)
-
-Filter the partition column as the message says, such as with `between` or `last_n_days` in
-`WHERE`, as `failed` does. The message's Opt-out, `reads_all_partitions=True`, reads every
-Partition: use it only for a small table you truly need whole.
+A Table reference or Table folder you make in your file explorer isn't in the registry, so
+nothing logs it, and `project.check()` reports it. Make each with its Project action, as the
+file map above says; [Keep the project in order](#keep_the_project_in_order) shows how to adopt
+one made by hand.
 
 ## Next
 
 - Write the Table references of the tables you read, many at once:
   [Add your tables' references](#add_your_tables_references).
-- Build a Statement a clause at a time, then paste its Hive into another program:
-  [Build a first Statement and paste its Hive](#build_a_first_statement).
-- Give a Saved table its own Table folder and notebook: [Add a Saved table](#add_a_saved_table).
-- Build Statements of your own from the [Example gallery](examples.html), which has a Worked
-  example for every Toolbox name, such as [`statement`](examples.html#statement),
-  [`run`](examples.html#run) and [`show_hive`](examples.html#show_hive).
+- Build a Statement on one of them, read its Hive and run it:
+  [Build and run a first statement](#build_and_run_a_first_statement).
+- See a Project filled in: the Starter Example project, in the folder
+  example_projects/starter, is the Project the Getting started how-tos build, one step at a
+  time.
 """

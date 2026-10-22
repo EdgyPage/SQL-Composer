@@ -112,7 +112,8 @@ FILLED_IN = {
 PROJECTS = tuple(FILLED_IN)
 # Each project's Saved tables, in the order a user makes them, each with its Template.
 SAVED_TABLES = {
-    "starter": [("mart.daily_job_runs", "saved_table"), ("mart.alerts_per_job", "saved_table"),
+    "starter": [("mart.alerts_per_severity", "saved_table"),
+                ("mart.daily_job_runs", "saved_table"), ("mart.alerts_per_job", "saved_table"),
                 ("mart.team_day", "saved_table")],
     "intermediate": [("mart.job_day_costs", "saved_table"),
                      ("mart.job_day_facts", "saved_table"),
@@ -124,7 +125,7 @@ SAVED_TABLES = {
 # The tables whose lineage cell draws other tables too, through their notebooks' logic: each
 # table's lineage reads these tables' writes, then its own.
 LINEAGE_ACROSS = {
-    "mart.team_day": ["mart.daily_job_runs", "mart.alerts_per_job"],
+    "mart.team_day": ["mart.daily_job_runs"],
     "mart.team_days": ["mart.job_day_costs", "mart.job_day_facts"],
 }
 
@@ -284,15 +285,26 @@ def _add_saved_tables(name: str, folder: Path) -> None:
 
 def _export_lineage(name: str, folder: Path) -> None:
     """Export each Saved table's lineage from its Table folder, as its notebook's lineage cell
-    does, from each notebook's write(), drawing the tables in LINEAGE_ACROSS first."""
-    from sqlglot_composer import export_lineage, project
+    does, from each notebook's write(), drawing the tables in LINEAGE_ACROSS first.
+
+    Each write is named as a Table notebook's cell 4 names it, in a variable of its own:
+    write_ and the table's name, such as write_team_day, and a number after it for each of a
+    write() that gives several, such as write_budget_overruns_1."""
+    from sqlglot_composer import export_lineage, lineage, project
 
     for table, _ in SAVED_TABLES[name]:
         os.chdir(folder / "tables" / project.table_stem(table))
-        writes = []
+        writes, names = [], []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
             written = project.load(drawn).write()
-            writes += written if isinstance(written, list) else [written]
+            several = written if isinstance(written, list) else [written]
+            writes += several
+            named = f"write_{drawn.split('.', 1)[1]}"
+            names += ([named] if len(several) == 1
+                      else [f"{named}_{number}" for number in range(1, len(several) + 1)])
+        # This tool holds no variable per write, so the names a notebook's would give are
+        # pinned, as pin() pins the time.
+        lineage.statement_names = lambda _statements, _frame, names=names: names
         export_lineage(*writes)
         os.chdir(folder)
 

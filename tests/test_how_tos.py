@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import textwrap
-import warnings
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -67,6 +66,12 @@ def test_there_is_a_how_to_and_how_to_1_starts_a_project() -> None:
     assert HOW_TOS[0].stem.startswith("01_")
 
 
+def test_the_how_tos_are_numbered_from_1_getting_started_first() -> None:
+    how_tos = [how_to_page.read_how_to(path) for path in HOW_TOS]
+    how_to_page.check_numbering(how_tos)
+    assert how_tos[0].group == how_to_page.GROUPS[0].name == "Getting started"
+
+
 # --- Each how-to's source --------------------------------------------------------------------
 
 
@@ -74,18 +79,10 @@ def test_there_is_a_how_to_and_how_to_1_starts_a_project() -> None:
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
 def test_each_how_to_runs_as_a_doctest(
         path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Each file the how-to shows after an edit is written where it stands, out of sight.
     monkeypatch.chdir(tmp_path)
-    text = how_to_page.docstring_of(path)
-    test = doctest.DocTestParser().get_doctest(text, {}, path.stem, str(path), 0)
-    runner = doctest.DocTestRunner(optionflags=doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS)
-    report = []
-    # A Warning is shown on the page; here it may not stop the step it comes from. A pandas
-    # stand-in answers as on the page.
-    with (warnings.catch_warnings(record=True), how_to_page.times_pinned(),
-          how_to_page.pandas_standing_in(how_to_page.stand_ins_of(path), test.globs, [])):
-        warnings.simplefilter("always")
-        runner.run(test, out=report.append)
-    assert runner.failures == 0, "".join(report)
+    failures, report = how_to_page.run_as_doctest(path)
+    assert failures == 0, report
 
 
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
@@ -94,22 +91,34 @@ def test_a_how_to_has_its_title_its_group_and_its_headings_in_order(path: Path) 
     lines = doc.splitlines()
     assert lines[0].strip() and lines[1] == "" and lines[3] == ""
     group = re.fullmatch(r"For: (.+)", lines[2]).group(1)
-    assert int(path.stem[:2]) in how_to_page.GROUP_NAMED[group].numbers
+    assert group in how_to_page.GROUP_NAMED
     assert re.findall(r"^## (.+)$", doc, re.MULTILINE) == list(how_to_page.HEADINGS)
 
 
+def file_blocks(path: Path) -> list[how_to_page.FileBlock]:
+    """The files a how-to shows as they are after an edit."""
+    return [part for part in how_to_page.with_file_blocks(how_to_page.docstring_of(path))
+            if isinstance(part, how_to_page.FileBlock)]
+
+
 def code_and_prose(path: Path) -> tuple[list[str], list[str]]:
-    """A how-to's code, its >>> steps and indented code, and its `backticked` spans of prose."""
+    """A how-to's code, its >>> steps and indented code, and its `backticked` spans of prose.
+
+    A file it shows after an edit is neither: see test_each_python_file_a_how_to_shows_names_only
+    _what_it_defines_or_imports."""
     code, spans = [], []
-    for part in doctest.DocTestParser().parse(how_to_page.docstring_of(path)):
-        if not isinstance(part, str):
-            code.append(part.source)
+    for piece in how_to_page.with_file_blocks(how_to_page.docstring_of(path)):
+        if isinstance(piece, how_to_page.FileBlock):
             continue
-        for paragraph in how_to_page.paragraphs(part):
-            if how_to_page.is_code(paragraph):
-                code.append(paragraph)
-            else:
-                spans += re.findall(r"`([^`]+)`", paragraph)
+        for part in doctest.DocTestParser().parse(piece):
+            if not isinstance(part, str):
+                code.append(part.source)
+                continue
+            for paragraph in how_to_page.paragraphs(part):
+                if how_to_page.is_code(paragraph):
+                    code.append(paragraph)
+                else:
+                    spans += re.findall(r"`([^`]+)`", paragraph)
     return [textwrap.dedent(block) for block in code], spans
 
 
@@ -156,6 +165,18 @@ def test_every_name_a_how_to_uses_exists(path: Path) -> None:
         "These names are neither Toolbox names, nor made in the how-to, nor Python's own")
 
 
+@pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
+def test_each_python_file_a_how_to_shows_names_only_what_it_defines_or_imports(
+        path: Path) -> None:
+    """A file of the Project, or a notebook's cells, runs on its own, so it imports what it
+    uses."""
+    for block in file_blocks(path):
+        if Path(block.path).suffix not in (".py", ".ipynb"):
+            continue
+        defined, read = names_of(ast.parse(block.text))
+        assert read - defined - set(dir(builtins)) - {"__file__"} == set(), block.path
+
+
 def link_targets(path: Path) -> set[str]:
     return {target for _, target in how_to_page.LINK.findall(how_to_page.docstring_of(path))}
 
@@ -198,7 +219,6 @@ def test_each_group_has_its_heading_and_contents_and_each_how_to_its_badge() -> 
         if not in_group:
             assert f'<p class="note">No {group.name.lower()} how-tos yet.</p>' in text
         for how_to in in_group:
-            assert how_to.number in group.numbers
             # A title is plain text on the page, so a ' in it, as in "a table's", is escaped.
             title = html.escape(how_to.title)
             assert (f'<h3>{how_to.number}. {title} <span class="badge {group.id}">'
@@ -209,6 +229,25 @@ def test_each_group_has_its_heading_and_contents_and_each_how_to_its_badge() -> 
 
 def test_every_how_to_is_on_the_page_in_number_order() -> None:
     assert list(page_sections()) == SLUGS
+
+
+def test_the_top_of_the_page_shows_the_chain_of_types() -> None:
+    header = page().split("</header>")[0]
+    chain = re.search(r'<table class="chain">(.*?)</table>', header, re.DOTALL)
+    gives = re.findall(r"<tr><td>.*?</td><td><code>(\w+)</code></td>", chain.group(1))
+    assert gives == ["Table", "Column", "Condition", "Clause", "Statement", "str", "DataFrame"]
+    for call in ("ops.jobs", "ops.jobs.job_id", "equals(...)", "SELECT(...)", "statement(...)",
+                 "to_hive(...)", "run(..., query=query)"):
+        assert f"<code>{html.escape(call)}</code>" in chain.group(1), call
+    # Each type but the Hive's str and pandas' DataFrame is one of the Toolbox's public names.
+    assert set(gives) - {"str", "DataFrame"} <= PUBLIC
+
+
+def test_the_readme_gives_each_group_the_words_the_page_does() -> None:
+    readme = " ".join((ROOT / "docs" / "clean-branch-readme.md").read_text(
+        encoding="utf-8").split())
+    for group in how_to_page.GROUPS:
+        assert " ".join(group.for_what.split()) in readme, group.name
 
 
 def test_the_example_gallery_beside_the_page_points_to_it() -> None:
@@ -248,8 +287,8 @@ def test_a_refusal_on_the_page_is_the_toolbox_s_own_message() -> None:
     with pytest.raises(toolbox.LoadRefused) as refused:
         toolbox.statement(toolbox.SELECT(job_runs.run_id), toolbox.FROM(job_runs),
                           toolbox.WHERE(toolbox.equals(job_runs.status, "FAILED")))
-    shown = re.findall(r'<pre class="refusal">.*?</pre>', page_sections()["start_a_project"],
-                       re.DOTALL)
+    shown = re.findall(r'<pre class="refusal">.*?</pre>',
+                       page_sections()["build_and_run_a_first_statement"], re.DOTALL)
     assert example_gallery.code_html(example_gallery.message_text(refused.value),
                                      "refusal") in shown
 
@@ -260,13 +299,13 @@ def test_the_query_mistake_shows_the_numbered_columns_it_gives() -> None:
 
 
 def test_a_step_that_prints_hive_shows_it_as_hive_ready_to_paste() -> None:
-    section = page_sections()["start_a_project"]
+    section = page_sections()["build_and_run_a_first_statement"]
     assert ('<p class="label">Hive, ready to paste</p><pre class="hive">SELECT' in section)
     assert "&#x27;2026-09-24&#x27;;</pre>" in section
 
 
 def test_a_result_shows_as_a_table() -> None:
-    cells = re.findall(r"<td>(.*?)</td>", page_sections()["start_a_project"])
+    cells = re.findall(r"<td>(.*?)</td>", page_sections()["build_and_run_a_first_statement"])
     assert cells[:6] == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
 
 
@@ -544,15 +583,133 @@ def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path: Path)
         how_to_page.sections(how_to_page.read_how_to(path))
 
 
-@pytest.mark.parametrize(("name", "group", "says"), [
-    ("22_try_it.py", "Getting started", "the Getting started how-tos are 1 to 21"),
-    ("02_try_it.py", "Intermediate", "the Intermediate how-tos are 22 to 41"),
-    ("02_try_it.py", "Advanced", "says `For: Advanced`"),
+def test_a_how_to_s_for_line_must_name_a_group(tmp_path: Path) -> None:
+    with pytest.raises(how_to_page.HowToRefused, match="says `For: Advanced`"):
+        how_to_page.read_how_to(a_how_to(tmp_path, "Words.", group="Advanced"))
+
+
+def numbered(*groups: str) -> list[how_to_page.HowTo]:
+    """How-tos 1, 2, 3 and on, in `groups`, one each."""
+    return [how_to_page.HowTo(number, f"try_{number}", "Try it", group, "")
+            for number, group in enumerate(groups, start=1)]
+
+
+def test_how_tos_numbered_1_to_n_getting_started_first_are_taken() -> None:
+    how_to_page.check_numbering(numbered("Getting started", "Getting started", "Intermediate"))
+    how_to_page.check_numbering(numbered("Intermediate"))
+
+
+@pytest.mark.parametrize(("how_tos", "says"), [
+    (numbered("Getting started", "Getting started")[1:], "numbered 2: number them 1, 2, 3"),
+    (numbered("Getting started", "Getting started")[::-1], "numbered 2, 1"),
+    (numbered("Getting started") * 2, "numbered 1, 1"),
+    (numbered("Getting started", "Intermediate", "Getting started"),
+     "03_try_3.py is Getting started, after 02_try_2.py, which is Intermediate: number every "
+     "Getting started how-to before every Intermediate how-to."),
 ])
-def test_a_how_to_s_for_line_must_name_a_group_holding_its_number(tmp_path: Path, name: str,
-                                                                  group: str, says: str) -> None:
-    with pytest.raises(how_to_page.HowToRefused, match=says):
-        how_to_page.read_how_to(a_how_to(tmp_path, "Words.", name=name, group=group))
+def test_how_tos_out_of_their_order_are_refused(how_tos: list[how_to_page.HowTo],
+                                                says: str) -> None:
+    with pytest.raises(how_to_page.HowToRefused, match=re.escape(says)):
+        how_to_page.check_numbering(how_tos)
+
+
+# A how-to that edits files: a Table reference, a notebook and a note, each shown as it is
+# after the edit, and steps that read each.
+EDITS = r""">>> from pathlib import Path
+>>> Path("references").exists()
+False
+
+The file `references/ops__little.py`, after you write it:
+
+    \"\"\"ops.little - a made-up Table reference.\"\"\"
+    from sqlglot_composer import Table
+
+    little = Table("ops.little", columns={"n": "bigint"})
+
+>>> text = Path("references/ops__little.py").read_text(encoding="utf-8")
+>>> text.splitlines()[0].startswith(chr(34) * 3 + "ops.little - a made-up")
+True
+>>> exec(text, {})
+
+The file `tables/ops__little/ops__little.ipynb`, after you fill it in:
+
+    # %% [markdown]
+    # # ops.little
+
+    # %%
+    # logic
+    WRITES = "ops.little"
+
+>>> import json
+>>> notebook = json.loads(Path("tables/ops__little/ops__little.ipynb").read_text())
+>>> [cell["cell_type"] for cell in notebook["cells"]]
+['markdown', 'code']
+>>> print("".join(notebook["cells"][1]["source"]))
+# logic
+WRITES = "ops.little"
+
+    The file `notes.md`, after you add a line:
+
+        A note.
+
+        >>> not a step
+
+>>> Path("notes.md").read_text().splitlines()
+['A note.', '', '>>> not a step']"""
+
+
+def test_a_file_shown_after_an_edit_is_written_where_it_stands(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = a_how_to(tmp_path, EDITS)
+    parts = how_to_page.with_file_blocks(how_to_page.docstring_of(path))
+    blocks = [part for part in parts if isinstance(part, how_to_page.FileBlock)]
+    assert [(block.path, block.what) for block in blocks] == [
+        ("references/ops__little.py", "write it"),
+        ("tables/ops__little/ops__little.ipynb", "fill it in"), ("notes.md", "add a line")]
+    assert blocks[0].text.startswith('"""ops.little - a made-up Table reference."""\nfrom ')
+    assert blocks[0].text.endswith('columns={"n": "bigint"})\n')
+    # The steps around the files are still steps, and none comes from inside a file.
+    steps = [example.source for piece in parts if isinstance(piece, str)
+             for example in doctest.DocTestParser().get_examples(piece)]
+    assert "not a step\n" not in steps and "exec(text, {})\n" in steps
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    failures, report = how_to_page.run_as_doctest(path)
+    assert failures == 0, report
+
+
+def test_the_page_shows_a_file_after_an_edit_in_a_box_headed_by_its_path(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = a_how_to(tmp_path, EDITS)
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
+    box = re.search(r'<p class="label">The file <code>references/ops__little.py</code>, after '
+                    r'you write it</p>\n<pre class="python">(.*?)</pre>', shown, re.DOTALL)
+    assert page_text(box.group(1)).startswith('"""ops.little - a made-up Table reference."""')
+    assert ('<p class="label">The file <code>tables/ops__little/ops__little.ipynb</code>, after '
+            'you fill it in</p>\n<pre class="python"># %% [markdown]') in shown
+    assert ('<p class="label">The file <code>notes.md</code>, after you add a line</p>\n'
+            '<pre class="file">A note.') in shown
+    # The steps read what the files hold, and none is shown as written by a step.
+    assert "It writes" not in shown and '<p class="label">Python shows</p>' in shown
+    assert "The file `" not in page_text(shown)
+
+
+@pytest.mark.parametrize(("steps", "says"), [
+    ("The file `a.py`, after you write it:\n    x = 1", "must be followed by a blank line"),
+    ("The file `a.py`, after you write it:\n\nx = 1", "must be followed by a blank line"),
+    ("The file `../a.py`, after you write it:\n\n    x = 1", "a path inside the Project"),
+    ("The file `a.ipynb`, after you write it:\n\n    x = 1", "starting at a `# %%` line"),
+])
+def test_a_file_shown_after_an_edit_but_not_laid_out_so_is_refused(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, steps: str, says: str) -> None:
+    path = a_how_to(tmp_path, steps)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(how_to_page.HowToRefused, match=re.escape(says)):
+        how_to_page.run_as_doctest(path)
 
 
 def test_a_step_that_shows_the_folder_it_ran_in_is_refused(tmp_path: Path) -> None:

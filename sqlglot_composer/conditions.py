@@ -36,6 +36,9 @@ def today() -> datetime.date:
 class Condition:
     """A test on rows, for WHERE, HAVING or ON=: the condition functions give one back.
 
+    >>> equals(job_runs.status, "FAILED")
+    job_runs.status = 'FAILED'
+
     Combine several with all_of(...) or any_of(...). Write the name in a type hint, to say
     that a function of yours gives back a Condition:
 
@@ -143,13 +146,13 @@ def equals(column: Column,
            value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column equals the value.
 
-    To find missing values use is_null(column): equals(column, None) is refused, because in
-    SQL nothing equals NULL.
-
     >>> equals(job_runs.status, "FAILED")
     job_runs.status = 'FAILED'
     >>> equals(job_runs.status, "O'Brien")
     job_runs.status = 'O\\'Brien'
+
+    To find missing values use is_null(column): equals(column, None) is refused, because in
+    SQL nothing equals NULL.
     """
     return _compare("equals", "EQ", column, value)
 
@@ -158,11 +161,11 @@ def not_equals(column: Column,
                value: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column differs from the value; rows where it is NULL drop out.
 
-    Unlike pandas' !=, SQL's <> leaves out rows where the column is NULL. To keep them, use
-    any_of(not_equals(column, value), is_null(column)).
-
     >>> not_equals(job_runs.status, "TEST")
     job_runs.status <> 'TEST'
+
+    Unlike pandas' !=, SQL's <> leaves out rows where the column is NULL. To keep them, use
+    any_of(not_equals(column, value), is_null(column)).
     """
     return _compare("not_equals", "NEQ", column, value, bounds=False)
 
@@ -211,11 +214,11 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
             high: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is from low to high, both ends included.
 
-    On a partition column, such as a day, this is the usual way to bound the Partitions a
-    Statement reads.
-
     >>> between(job_runs.dt, "2026-09-01", "2026-09-24")
     job_runs.dt BETWEEN '2026-09-01' AND '2026-09-24'
+
+    On a partition column, such as a day, this is the usual way to bound the Partitions a
+    Statement reads.
     """
     call = f"between({python_text(column)}, ...)"
     column = _need_column(column, call)
@@ -252,12 +255,12 @@ def _comparable(low: object, high: object) -> bool:
 def last_n_days(column: Column, n: int) -> Condition:
     """Rows from the n days before today; today itself isn't included.
 
+    >>> last_n_days(job_runs.dt, 7)
+    job_runs.dt BETWEEN '2026-09-18' AND '2026-09-24'
+
     The dates are worked out when the condition is made, and written into the Hive as
     yyyy-MM-dd, so the days a Statement reads are there to see. last_n_days(job_runs.dt, 1)
     is yesterday. It works on any column of dates, a partition column or not.
-
-    >>> last_n_days(job_runs.dt, 7)
-    job_runs.dt BETWEEN '2026-09-18' AND '2026-09-24'
     """
     call = f"last_n_days({python_text(column)}, {n!r})"
     column = _need_column(column, call)
@@ -339,10 +342,10 @@ def is_not_in(column: Column,
               values: list[str | int | float | bool | datetime.date]) -> Condition:
     """Rows where the column is none of the values; rows where it is NULL drop out.
 
-    A None in the list is refused: in SQL it would make the whole test match nothing.
-
     >>> is_not_in(job_runs.status, ["TEST"])
     NOT job_runs.status IN ('TEST')
+
+    A None in the list is refused: in SQL it would make the whole test match nothing.
     """
     return _in("is_not_in", column, values, negated=True)
 
@@ -390,14 +393,14 @@ def _like(name: str, column: object, text: object,
 def contains(column: Column, text: str) -> Condition:
     """Rows where the column contains your text, a % or _ in it matched as % or _.
 
-    It writes SQL's LIKE, which reads % as any run of characters and _ as any one character.
-    So the Hive puts a backslash before each % or _ of your own text, for it to match just
-    itself, and writes that backslash as \\\\ inside the quotes.
-
     >>> contains(jobs.job_name, "sync")
     jobs.job_name LIKE '%sync%'
     >>> contains(jobs.job_name, "a_b")
     jobs.job_name LIKE '%a\\\\_b%'
+
+    It writes SQL's LIKE, which reads % as any run of characters and _ as any one character.
+    So the Hive puts a backslash before each % or _ of your own text, for it to match just
+    itself, and writes that backslash as \\\\ inside the quotes.
     """
     return _like("contains", column, text, lambda escaped: f"%{escaped}%")
 
@@ -405,10 +408,10 @@ def contains(column: Column, text: str) -> Condition:
 def starts_with(column: Column, text: str) -> Condition:
     """Rows where the column starts with your text, a % or _ in it matched as % or _.
 
-    As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.
-
     >>> starts_with(jobs.job_name, "invoice_")
     jobs.job_name LIKE 'invoice\\\\_%'
+
+    As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.
     """
     return _like("starts_with", column, text, lambda escaped: f"{escaped}%")
 
@@ -454,12 +457,12 @@ def any_of(*conditions: Condition | list[Condition]) -> Condition:
 def all_of(*conditions: Condition | list[Condition]) -> Condition:
     """Rows where every one of the conditions holds (AND), for use inside any_of.
 
-    WHERE(...) already joins its conditions with AND, so all_of is needed only inside
-    any_of(...) or in JOIN's ON=.
-
     >>> any_of(all_of(equals(jobs.team, "finance"), equals(jobs.region, "PAR")),
     ...        equals(jobs.team, "data"))
     (jobs.team = 'finance' AND jobs.region = 'PAR') OR jobs.team = 'data'
+
+    WHERE(...) already joins its conditions with AND, so all_of is needed only inside
+    any_of(...) or in JOIN's ON=.
     """
     found = _conditions(conditions, "all_of(...)")
     tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)

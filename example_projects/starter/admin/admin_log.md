@@ -26,9 +26,17 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.new_table("mart.alerts_per_severity")`
+- Tables named: mart.alerts_per_severity
+- Files: created tables/mart__alerts_per_severity/ (mart__alerts_per_severity.ipynb, lineage/); created references/mart__alerts_per_severity.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_table("mart.daily_job_runs")`
 - Tables named: mart.daily_job_runs
-- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py
+- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py; wrote references/mart.py
 - Script: a notebook, at commit nogit
 - Result: worked
 

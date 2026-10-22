@@ -1,4 +1,4 @@
-# Lineage: statement_1, statement_2
+# Lineage: write_budget_overruns_1, write_budget_overruns_2
 
 Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
@@ -12,7 +12,7 @@ flowchart LR
     n8["ops.region_costs.region<br/><small>string</small><br/><small>in the Key</small>"]
     n10["ops.region_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
-  subgraph g1["statement_1"]
+  subgraph g1["write_budget_overruns_1"]
     n1["job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
     n3["budget_cents<br/><small>region_budgets.budget_cents</small>"]
     n4["days<br/><small>count_rows()</small>"]
@@ -23,10 +23,10 @@ flowchart LR
     n12["ops.region_budgets.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
     n13["ops.region_budgets.region<br/><small>string</small><br/><small>in the Key</small>"]
   end
-  subgraph g3["filters on statement_1"]
-    n7{{"WHERE in statement_1<br/><small>equals(region_costs.region, #quot;eu#quot;)</small>"}}
-    n9{{"WHERE in statement_1<br/><small>between(region_costs.dt, #quot;20260911#quot;, #quot;20260…</small>"}}
-    n11{{"JOIN ON in statement_1<br/><small>all_of(equals(region_budgets.job_id, region…</small>"}}
+  subgraph g3["filters on write_budget_overruns_1"]
+    n7{{"WHERE in write_budget_overruns_1<br/><small>equals(region_costs.region, #quot;eu#quot;)</small>"}}
+    n9{{"WHERE in write_budget_overruns_1<br/><small>between(region_costs.dt, #quot;20260911#quot;, #quot;20260…</small>"}}
+    n11{{"JOIN ON in write_budget_overruns_1<br/><small>all_of(equals(region_budgets.job_id, region…</small>"}}
   end
   subgraph g4["mart.budget_overruns"]
     n14["mart.budget_overruns.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
@@ -35,16 +35,16 @@ flowchart LR
     n17["mart.budget_overruns.days_over<br/><small>bigint</small>"]
     n18["mart.budget_overruns.region<br/><small>string</small><br/><small>in the Key</small><br/><small>writes region = 'us'</small>"]
   end
-  subgraph g5["statement_2"]
+  subgraph g5["write_budget_overruns_2"]
     n19["job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
     n20["budget_cents<br/><small>region_budgets.budget_cents</small>"]
     n21["days<br/><small>count_rows()</small>"]
     n22["days_over<br/><small>count_rows(where=more_than(region_costs.cos…</small>"]
   end
-  subgraph g6["filters on statement_2"]
-    n23{{"WHERE in statement_2<br/><small>equals(region_costs.region, #quot;us#quot;)</small>"}}
-    n24{{"WHERE in statement_2<br/><small>between(region_costs.dt, #quot;20260911#quot;, #quot;20260…</small>"}}
-    n25{{"JOIN ON in statement_2<br/><small>all_of(equals(region_budgets.job_id, region…</small>"}}
+  subgraph g6["filters on write_budget_overruns_2"]
+    n23{{"WHERE in write_budget_overruns_2<br/><small>equals(region_costs.region, #quot;us#quot;)</small>"}}
+    n24{{"WHERE in write_budget_overruns_2<br/><small>between(region_costs.dt, #quot;20260911#quot;, #quot;20260…</small>"}}
+    n25{{"JOIN ON in write_budget_overruns_2<br/><small>all_of(equals(region_budgets.job_id, region…</small>"}}
   end
   n0 --> n1
   n2 --> n3
@@ -80,7 +80,7 @@ flowchart LR
   n25 -.->|filters| g5
 ```
 
-## statement_1
+## write_budget_overruns_1
 
 It writes the Saved table mart.budget_overruns, replacing each partition its rows fill.
 
@@ -90,34 +90,34 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `days`
 
-Calculated in **statement_1** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **write_budget_overruns_1** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-statement_1.days = count_rows()
+write_budget_overruns_1.days = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in statement_1: `equals(region_costs.region, "eu")`, which is `region_costs.region = 'eu'` (reads ops.region_costs.region)
-- WHERE in statement_1: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
-- JOIN ON in statement_1: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "eu"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'eu'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
+- WHERE in write_budget_overruns_1: `equals(region_costs.region, "eu")`, which is `region_costs.region = 'eu'` (reads ops.region_costs.region)
+- WHERE in write_budget_overruns_1: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
+- JOIN ON in write_budget_overruns_1: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "eu"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'eu'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
 
 One value for each different `region_costs.job_id` and `region_budgets.budget_cents`.
 
 #### `days_over`
 
-Calculated in **statement_1** as `count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))`, which is `COUNT(CASE WHEN region_costs.cost_cents > region_budgets.budget_cents THEN 1 END)`.
+Calculated in **write_budget_overruns_1** as `count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))`, which is `COUNT(CASE WHEN region_costs.cost_cents > region_budgets.budget_cents THEN 1 END)`.
 
 ```text
-statement_1.days_over = count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))
+write_budget_overruns_1.days_over = count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))
 ├─ ops.region_costs.cost_cents  (bigint)
 └─ ops.region_budgets.budget_cents  (bigint)
 ```
 
 Rows that count:
-- WHERE in statement_1: `equals(region_costs.region, "eu")`, which is `region_costs.region = 'eu'` (reads ops.region_costs.region)
-- WHERE in statement_1: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
-- JOIN ON in statement_1: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "eu"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'eu'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
+- WHERE in write_budget_overruns_1: `equals(region_costs.region, "eu")`, which is `region_costs.region = 'eu'` (reads ops.region_costs.region)
+- WHERE in write_budget_overruns_1: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
+- JOIN ON in write_budget_overruns_1: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "eu"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'eu'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
 
 One value for each different `region_costs.job_id` and `region_budgets.budget_cents`.
 
@@ -132,7 +132,7 @@ One value for each different `region_costs.job_id` and `region_budgets.budget_ce
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_1: Key (job_id), since GROUP_BY makes one row for each job_id.
+- write_budget_overruns_1: Key (job_id), since GROUP_BY makes one row for each job_id.
 - mart.budget_overruns' Key (job_id, region) holds: each row written has its own.
 
 ### Hive as submitted
@@ -154,7 +154,7 @@ GROUP BY
   region_budgets.budget_cents
 ```
 
-## statement_2
+## write_budget_overruns_2
 
 It writes the Saved table mart.budget_overruns, replacing each partition its rows fill.
 
@@ -164,34 +164,34 @@ Every column that is calculated rather than copied, in the order it is calculate
 
 #### `days`
 
-Calculated in **statement_2** as `count_rows()`, which is `COUNT(*)`.
+Calculated in **write_budget_overruns_2** as `count_rows()`, which is `COUNT(*)`.
 
 ```text
-statement_2.days = count_rows()
+write_budget_overruns_2.days = count_rows()
 └─ (no columns: it counts rows)
 ```
 
 Rows that count:
-- WHERE in statement_2: `equals(region_costs.region, "us")`, which is `region_costs.region = 'us'` (reads ops.region_costs.region)
-- WHERE in statement_2: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
-- JOIN ON in statement_2: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "us"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'us'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
+- WHERE in write_budget_overruns_2: `equals(region_costs.region, "us")`, which is `region_costs.region = 'us'` (reads ops.region_costs.region)
+- WHERE in write_budget_overruns_2: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
+- JOIN ON in write_budget_overruns_2: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "us"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'us'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
 
 One value for each different `region_costs.job_id` and `region_budgets.budget_cents`.
 
 #### `days_over`
 
-Calculated in **statement_2** as `count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))`, which is `COUNT(CASE WHEN region_costs.cost_cents > region_budgets.budget_cents THEN 1 END)`.
+Calculated in **write_budget_overruns_2** as `count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))`, which is `COUNT(CASE WHEN region_costs.cost_cents > region_budgets.budget_cents THEN 1 END)`.
 
 ```text
-statement_2.days_over = count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))
+write_budget_overruns_2.days_over = count_rows(where=more_than(region_costs.cost_cents, region_budgets.budget_cents))
 ├─ ops.region_costs.cost_cents  (bigint)
 └─ ops.region_budgets.budget_cents  (bigint)
 ```
 
 Rows that count:
-- WHERE in statement_2: `equals(region_costs.region, "us")`, which is `region_costs.region = 'us'` (reads ops.region_costs.region)
-- WHERE in statement_2: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
-- JOIN ON in statement_2: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "us"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'us'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
+- WHERE in write_budget_overruns_2: `equals(region_costs.region, "us")`, which is `region_costs.region = 'us'` (reads ops.region_costs.region)
+- WHERE in write_budget_overruns_2: `between(region_costs.dt, "20260911", "20260924")`, which is `region_costs.dt BETWEEN '20260911' AND '20260924'` (reads ops.region_costs.dt)
+- JOIN ON in write_budget_overruns_2: `all_of(equals(region_budgets.job_id, region_costs.job_id), equals(region_budgets.region, "us"))`, which is `region_budgets.job_id = region_costs.job_id AND region_budgets.region = 'us'` (reads ops.region_budgets.job_id, ops.region_budgets.region, ops.region_costs.job_id)
 
 One value for each different `region_costs.job_id` and `region_budgets.budget_cents`.
 
@@ -206,7 +206,7 @@ One value for each different `region_costs.job_id` and `region_budgets.budget_ce
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- statement_2: Key (job_id), since GROUP_BY makes one row for each job_id.
+- write_budget_overruns_2: Key (job_id), since GROUP_BY makes one row for each job_id.
 - mart.budget_overruns' Key (job_id, region) holds: each row written has its own.
 
 ### Hive as submitted

@@ -120,6 +120,20 @@ def _check_purge(t: Table) -> str:
 def drop_table(t: Table) -> Statement:
     """Drop one of your Saved tables: the DROP TABLE IF EXISTS Statement.
 
+    >>> from sqlglot_composer import admin
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs", purge=True)
+    >>> text = show_hive(admin.drop_table(daily_runs))
+    -- admin.drop_table(mart.daily_runs) drops the table mart.daily_runs: the warehouse forgets
+    -- it, and every Statement that reads it fails until it is created again.
+    -- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+    -- Table reference asks: then the table's files go too, and nothing brings them back.
+    -- Check first: DESCRIBE FORMATTED mart.daily_runs shows, under Table Parameters, whether
+    -- external.table.purge is true in the table itself: that, not the Table reference, decides
+    -- whether the files go.
+    DROP TABLE IF EXISTS mart.daily_runs;
+
     The warehouse forgets the table, and every Statement that reads it fails until it is
     created again. Whether its files go too is up to the table itself: they go, every
     Partition of it, when the table has external.table.purge true, which purge=True in its
@@ -135,20 +149,6 @@ def drop_table(t: Table) -> Statement:
     make, such as removing or renaming one: drop the table, create it again, and write its
     rows again, with purge=True set in the table first, or the old rows come back. IF EXISTS
     means that sending it for a table that isn't there does nothing, rather than failing.
-
-    >>> from sqlglot_composer import admin
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs", purge=True)
-    >>> text = show_hive(admin.drop_table(daily_runs))
-    -- admin.drop_table(mart.daily_runs) drops the table mart.daily_runs: the warehouse forgets
-    -- it, and every Statement that reads it fails until it is created again.
-    -- Can't be undone when the table itself has external.table.purge true, as purge=True in its
-    -- Table reference asks: then the table's files go too, and nothing brings them back.
-    -- Check first: DESCRIBE FORMATTED mart.daily_runs shows, under Table Parameters, whether
-    -- external.table.purge is true in the table itself: that, not the Table reference, decides
-    -- whether the files go.
-    DROP TABLE IF EXISTS mart.daily_runs;
     """
     t = need_saved_table(t, "admin.drop_table(...)")
     call = f"admin.drop_table({t._name})"
@@ -160,6 +160,21 @@ def drop_table(t: Table) -> Statement:
 
 def drop_partitions(t: Table, *, where: Condition | list[Condition]) -> Statement:
     """Drop some of a Saved table's Partitions: an ALTER TABLE Statement.
+
+    >>> from sqlglot_composer import admin
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs", purge=True)
+    >>> text = show_hive(admin.drop_partitions(daily_runs,
+    ...     where=less_than(daily_runs.dt, "2025-10-01")))
+    -- admin.drop_partitions(mart.daily_runs, where=less_than(daily_runs.dt, "2025-10-01")) drops
+    -- each Partition of mart.daily_runs where dt < '2025-10-01', every row of it, so no
+    -- Statement reads it again.
+    -- Can't be undone when the table itself has external.table.purge true, as purge=True in its
+    -- Table reference asks: then those Partitions' files go too, and nothing brings them back.
+    -- Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: the ones where dt <
+    -- '2025-10-01' go.
+    ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-10-01');
 
     Each Partition of the table that `where` picks goes: every row of it, so no Statement
     reads it again. It is how a Saved table keeps only so many Partitions, and does the job
@@ -177,21 +192,6 @@ def drop_partitions(t: Table, *, where: Condition | list[Condition]) -> Statemen
     calculation, and any other condition. It refuses a table with no partitioned_by=, and one
     that isn't one of your Saved tables. The Example database, which is never written to,
     doesn't run it.
-
-    >>> from sqlglot_composer import admin
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs", purge=True)
-    >>> text = show_hive(admin.drop_partitions(daily_runs,
-    ...     where=less_than(daily_runs.dt, "2025-10-01")))
-    -- admin.drop_partitions(mart.daily_runs, where=less_than(daily_runs.dt, "2025-10-01")) drops
-    -- each Partition of mart.daily_runs where dt < '2025-10-01', every row of it, so no
-    -- Statement reads it again.
-    -- Can't be undone when the table itself has external.table.purge true, as purge=True in its
-    -- Table reference asks: then those Partitions' files go too, and nothing brings them back.
-    -- Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: the ones where dt <
-    -- '2025-10-01' go.
-    ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-10-01');
 
     DROP PARTITION has no BETWEEN, so between(...) becomes its two ends; a list's conditions
     are all written in the brackets, each of which must hold:
@@ -334,20 +334,6 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                 **removed: object) -> Statement:
     """Add the new columns of a Saved table's Table reference to the table itself.
 
-    It sends DESCRIBE through your `query` as it is made, and adds each column of the Table
-    reference that the table doesn't have yet. So you add a column by adding its line to the
-    Table reference first, after the table's other columns (the lines of its partition
-    columns may stay last, as they aren't among them): Hive adds new columns after the table's
-    own, and a write fills a table's columns in their order. Then run the Statement it gives,
-    with your execute. The rows already in the table read NULL in a new column until they are
-    written again. For a table with partitioned_by= it writes CASCADE: each Partition already
-    there gets the new columns too. Without it, each of those Partitions would keep its old
-    list of columns, and a Partition written again would lose the new columns' values.
-
-    It refuses a table that isn't one of your Saved tables, a Table reference with no new
-    column, a new column that isn't after the table's own, and a new partition column, which a
-    table can't gain: create a new table with it, and copy the rows in.
-
     >>> import pandas as pd
     >>> from sqlglot_composer import admin
     >>> # the warehouse's answer to DESCRIBE mart.daily_runs
@@ -371,8 +357,22 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
     ALTER TABLE mart.daily_runs ADD COLUMNS (
       fails BIGINT
     ) CASCADE;
+
+    It sends DESCRIBE through your `query` as it is made, and adds each column of the Table
+    reference that the table doesn't have yet. So you add a column by adding its line to the
+    Table reference first, after the table's other columns (the lines of its partition
+    columns may stay last, as they aren't among them): Hive adds new columns after the table's
+    own, and a write fills a table's columns in their order. Then run the Statement it gives,
+    with your execute. The rows already in the table read NULL in a new column until they are
+    written again. For a table with partitioned_by= it writes CASCADE: each Partition already
+    there gets the new columns too. Without it, each of those Partitions would keep its old
+    list of columns, and a Partition written again would lose the new columns' values.
+
+    It refuses a table that isn't one of your Saved tables, a Table reference with no new
+    column, a new column that isn't after the table's own, and a new partition column, which a
+    table can't gain: create a new table with it, and copy the rows in.
     """
-    refuse_removed_arguments("add_columns", removed, "query=")
+    refuse_removed_arguments("add_columns", removed, add_columns)
     need_warehouse_call("admin.add_columns", "query", query, "It sends DESCRIBE through your "
                         "query, to see which columns the table has.")
     t = need_saved_table(t, "admin.add_columns(...)")
@@ -458,13 +458,6 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
 def set_properties(t: Table) -> Statement:
     """Set a Saved table's properties as its Table reference gives them.
 
-    It sets the table's properties to its Table reference's: purge= as external.table.purge,
-    compression= and properties=. Change the Table reference, then send this, and
-    check_table_reference finds the two alike again. Properties the Table reference doesn't
-    give stay as they are, and so do the rows. A compression applies to the files written
-    from then on; the files already there keep theirs. It refuses a table that isn't one of
-    your Saved tables, and a Table reference that gives none of the three.
-
     >>> from sqlglot_composer import admin
     >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
@@ -481,6 +474,13 @@ def set_properties(t: Table) -> Statement:
     ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
       'external.table.purge'='true'
     );
+
+    It sets the table's properties to its Table reference's: purge= as external.table.purge,
+    compression= and properties=. Change the Table reference, then send this, and
+    check_table_reference finds the two alike again. Properties the Table reference doesn't
+    give stay as they are, and so do the rows. A compression applies to the files written
+    from then on; the files already there keep theirs. It refuses a table that isn't one of
+    your Saved tables, and a Table reference that gives none of the three.
     """
     t = need_saved_table(t, "admin.set_properties(...)")
     call = f"admin.set_properties({t._name})"
@@ -526,6 +526,31 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
                        **removed: object) -> list[Statement]:
     """Move a Saved table to a folder of its own: a list of Statements to run.
 
+    >>> import pandas as pd
+    >>> from sqlglot_composer import admin
+    >>> # the warehouse's answer to DESCRIBE FORMATTED, with mart.daily_runs in a shared folder
+    >>> def query_at_work(hive: str) -> pd.DataFrame:
+    ...     return pd.DataFrame([
+    ...         ("job_id", "bigint", ""), ("runs", "bigint", ""),
+    ...         ("# Partition Information", None, None), ("dt", "string", ""),
+    ...         ("# Detailed Table Information", None, None),
+    ...         ("Location:", "hdfs://namenode:8020/data/your_team/tables", None),
+    ...         ("Table Type:", "EXTERNAL_TABLE", None),
+    ...     ], columns=["col_name", "data_type", "comment"])
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    ...     location="/data/your_team/mart.db/daily_runs")
+    >>> moves = admin.move_to_own_folder(daily_runs, query=query_at_work)
+    >>> len(moves)
+    6
+    >>> print(to_hive(moves[1]))
+    INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
+    SELECT
+      daily_runs.job_id,
+      daily_runs.runs,
+      daily_runs.dt
+    FROM mart.daily_runs AS daily_runs
+
     A Saved table belongs in its own folder, the one its Table reference's location= names: in
     a folder it shares, two tables read each other's files, and an INSERT OVERWRITE of a
     Partition in one can delete the other's files for that Partition. This sends DESCRIBE
@@ -555,37 +580,12 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
     tables, one already at its own folder, and one that lacks a column of its Table reference.
     The Example database is never written to, so it doesn't run the steps.
 
-    >>> import pandas as pd
-    >>> from sqlglot_composer import admin
-    >>> # the warehouse's answer to DESCRIBE FORMATTED, with mart.daily_runs in a shared folder
-    >>> def query_at_work(hive: str) -> pd.DataFrame:
-    ...     return pd.DataFrame([
-    ...         ("job_id", "bigint", ""), ("runs", "bigint", ""),
-    ...         ("# Partition Information", None, None), ("dt", "string", ""),
-    ...         ("# Detailed Table Information", None, None),
-    ...         ("Location:", "hdfs://namenode:8020/data/your_team/tables", None),
-    ...         ("Table Type:", "EXTERNAL_TABLE", None),
-    ...     ], columns=["col_name", "data_type", "comment"])
-    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
-    ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/mart.db/daily_runs")
-    >>> moves = admin.move_to_own_folder(daily_runs, query=query_at_work)
-    >>> len(moves)
-    6
-    >>> print(to_hive(moves[1]))
-    INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)
-    SELECT
-      daily_runs.job_id,
-      daily_runs.runs,
-      daily_runs.dt
-    FROM mart.daily_runs AS daily_runs
-
     show_hive(moves) prints every step, and at work each is sent in turn:
 
         for step in moves:
             run(step, query=query, execute=execute)
     """
-    refuse_removed_arguments("move_to_own_folder", removed, "query=")
+    refuse_removed_arguments("move_to_own_folder", removed, move_to_own_folder)
     need_warehouse_call("admin.move_to_own_folder", "query", query, "It sends DESCRIBE "
                         "FORMATTED through your query, to find the table's folder.")
     t = need_saved_table(t, "admin.move_to_own_folder(...)")

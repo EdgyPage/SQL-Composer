@@ -22,6 +22,7 @@ from .conditions import Condition
 from .joins import HOW, anti_join_tests, broadcast
 from .python_steps import PythonStep, python_step_text
 from .refusals import (
+    arguments_of,
     load_limit_rows,
     need_warehouse_call,
     refuse,
@@ -50,15 +51,15 @@ _limits = {"rows": None}
 def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int | None]:
     """Switch on an automatic LIMIT for every Statement that reads; it starts off.
 
-    Call it from your own notebook, since the Toolbox folder is replaced on each update.
-    `rows` adds LIMIT rows to every Statement that has no LIMIT of its own, and run(...)
-    refuses a result that fills it, since it was probably cut short. Left out, there is no
-    limit, so set_load_limits() switches it off. It returns the limits now in force.
-
     >>> set_load_limits(rows=100000)
     {'rows': 100000}
     >>> set_load_limits()
     {'rows': None}
+
+    Call it from your own notebook, since the Toolbox folder is replaced on each update.
+    `rows` adds LIMIT rows to every Statement that has no LIMIT of its own, and run(...)
+    refuses a result that fills it, since it was probably cut short. Left out, there is no
+    limit, so set_load_limits() switches it off. It returns the limits now in force.
     """
     if "dates" in removed:
         refuse(
@@ -66,9 +67,9 @@ def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int
             why="A table's Partitions are its own, of any kind, so there is no count of days "
             "to cap. A read of a partitioned table must still filter one of its partition "
             "columns.",
-            fix="Leave dates= out.",
+            fix=f"Leave dates= out: it takes {arguments_of(set_load_limits)}, and nothing else.",
         )
-    refuse_removed_arguments("set_load_limits", removed, "rows=")
+    refuse_removed_arguments("set_load_limits", removed, set_load_limits)
     if rows is not None and (isinstance(rows, bool) or not isinstance(rows, int) or rows < 1):
         refuse(
             what=f"set_load_limits(rows={rows!r}): a limit must be a whole number, 1 or more, "
@@ -222,14 +223,6 @@ def _self_check(text: str) -> None:
 def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) -> str:
     """The Hive string for a Statement, ready to send.
 
-    It checks itself by reading the string back. An Admin statement, from the admin module, is
-    checked by the function that made it instead: an ALTER TABLE it writes isn't read back.
-    The Hive may write a function
-    differently from how you would by hand, for example DATE_SUB(dt, 7) as
-    DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET
-    lines, one to a line; given an Unchecked statement, its text as you wrote it. A Python
-    step has no Hive, so it is refused: show_hive prints comment lines saying what it is.
-
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -240,6 +233,14 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) ->
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt = '2026-09-24'
+
+    It checks itself by reading the string back. An Admin statement, from the admin module, is
+    checked by the function that made it instead: an ALTER TABLE it writes isn't read back.
+    The Hive may write a function
+    differently from how you would by hand, for example DATE_SUB(dt, 7) as
+    DATE_ADD(dt, 7 * -1), which means the same. Given Session settings, it gives their SET
+    lines, one to a line; given an Unchecked statement, its text as you wrote it. A Python
+    step has no Hive, so it is refused: show_hive prints comment lines saying what it is.
     """
     if isinstance(s, SessionSettings):
         return "\n".join(s._lines)
@@ -362,6 +363,18 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
               | list[Statement]) -> str:
     """Print the Hive that runs, ready to paste into another program, and return it.
 
+    >>> failed_runs = statement(
+    ...     SELECT(job_runs.run_id),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+    ... )
+    >>> text = show_hive(failed_runs)
+    SELECT
+      job_runs.run_id
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
+
     Each Statement's Hive is exactly what to_hive gives and run sends, with a ; added at the
     end, which a program such as Hue, Beeline or DBeaver needs between Statements; run sends
     it without one. Pass several Statements, or a list of them, and each is headed by a
@@ -376,19 +389,9 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     wrote, and that nothing is sent for it.
 
     It returns the same text, so `text = show_hive(...)` keeps it to use or save. In a
-    notebook, show_hive(...) on its own shows the Hive once.
+    notebook, show_hive(...) on its own shows the Hive once. Given two Statements, it heads
+    each with its number and its variable's name:
 
-    >>> failed_runs = statement(
-    ...     SELECT(job_runs.run_id),
-    ...     FROM(job_runs),
-    ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
-    ... )
-    >>> text = show_hive(failed_runs)
-    SELECT
-      job_runs.run_id
-    FROM ops.job_runs AS job_runs
-    WHERE
-      job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
     >>> every_run = statement(
     ...     SELECT(job_runs.run_id),
     ...     FROM(job_runs),
@@ -464,6 +467,15 @@ def run(s: Statement | SessionSettings | UncheckedStatement | PythonStep, *,
         **removed: object) -> pd.DataFrame | str | None:
     """Send a Statement's Hive through your query or execute; a read gives back rows.
 
+    >>> run(statement(
+    ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.status, "FAILED"), last_n_days(job_runs.dt, 2)),
+    ... ), query=example_database.query)
+       run_id  job_id          dt
+    0      97       3  2026-09-23
+    1     102       2  2026-09-24
+
     `query` and `execute` are your own functions, in your Project's warehouse.py: `query`
     sends Hive whose rows you want back and gives them back as a pandas DataFrame; `execute`
     sends Hive that changes something, and gives back nothing. run picks which one each
@@ -479,17 +491,8 @@ def run(s: Statement | SessionSettings | UncheckedStatement | PythonStep, *,
     run(hive_settings("dynamic_partitions"), execute=...), as show_hive prints and
     help(INSERT_OVERWRITE) explains: run sends the write alone. hive_settings(...) sends each SET line as a call of its own.
     A Python step is refused, since it sends nothing: you save its rows yourself.
-
-    >>> run(statement(
-    ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
-    ...     FROM(job_runs),
-    ...     WHERE(equals(job_runs.status, "FAILED"), last_n_days(job_runs.dt, 2)),
-    ... ), query=example_database.query)
-       run_id  job_id          dt
-    0      97       3  2026-09-23
-    1     102       2  2026-09-24
     """
-    refuse_removed_arguments("run", removed, "query= and execute=")
+    refuse_removed_arguments("run", removed, run)
     if isinstance(s, PythonStep):
         _refuse_a_python_step("run", "It sends Hive through your query or execute, and a "
                               "Python step has none")

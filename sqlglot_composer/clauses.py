@@ -61,6 +61,9 @@ JOINS = ("JOIN", "LEFT_JOIN", "CROSS_JOIN", "SEMI_JOIN", "ANTI_JOIN", "FULL_JOIN
 class Clause:
     """One clause of a Statement, made by a clause function such as SELECT(...).
 
+    >>> SELECT(jobs.job_name)
+    <SELECT clause - put it in statement(...)>
+
     Each clause function fills in only the parts its clause has; the rest keep their
     defaults. statement(...) reads them back to build the Statement. Make one with its clause
     function, never Clause(). Write the name in a type hint, to say that a function of yours
@@ -124,6 +127,9 @@ class Clause:
 class Named:
     """A column or calculation with the name it gets in the result, made by AS(...).
 
+    >>> AS(count_rows(), "runs")
+    COUNT(*) AS runs
+
     Make one with AS(...), never Named(). Write the name in a type hint, to say that a function
     of yours gives back a named column:
 
@@ -143,6 +149,9 @@ class Named:
 
 class Statement:
     """A query, made by statement(...): to_hive(s) gives its Hive string.
+
+    >>> statement(SELECT(jobs.job_name), FROM(jobs))
+    <Statement reading ops.jobs - print(to_hive(s)) shows its Hive>
 
     Make one with statement(...), never Statement(); a Stack, such as UNION_ALL(...), and
     explain(...) give back a Statement too. Write the name in a type hint, to say that a
@@ -223,14 +232,14 @@ class Statement:
 def AS(expression: Column | Table, name: str) -> Named | Table:
     """Name a calculation, as AS(count_rows(), "runs"), or give a table a second name.
 
-    Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
-    uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
-    3.5, and dividing by zero gives NULL rather than an error.
-
     >>> AS(count_rows(), "runs")
     COUNT(*) AS runs
     >>> AS(job_runs.duration_mins / 60, "hours")
     job_runs.duration_mins / 60 AS hours
+
+    Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic
+    uses Python's + - * / and comes out bracketed. / divides as Python's / does, so 7 / 2 is
+    3.5, and dividing by zero gives NULL rather than an error.
 
     A table named twice in one Statement, such as a table joined to itself, needs a second
     name for one of them: AS(job_runs, "earlier") is read as FROM ops.job_runs AS earlier.
@@ -471,11 +480,6 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
          reads_all_partitions: bool = False, broadcast: bool = False) -> Clause:
     """Add a second table's columns to the rows its ON= condition matches.
 
-    When ON= doesn't pin down the joined table's whole Key, one row can match several, and
-    sums over them come out too big. The Statement is still built, with a warning at your
-    JOIN line; many_matches=True says you mean it and silences it. To keep only the rows that
-    have a match, each once, without the joined table's columns, use SEMI_JOIN.
-
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, jobs.team),
     ...     FROM(job_runs),
@@ -490,6 +494,11 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
       ON jobs.job_id = job_runs.job_id
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+
+    When ON= doesn't pin down the joined table's whole Key, one row can match several, and
+    sums over them come out too big. The Statement is still built, with a warning at your
+    JOIN line; many_matches=True says you mean it and silences it. To keep only the rows that
+    have a match, each once, without the joined table's columns, use SEMI_JOIN.
 
     broadcast=True asks for a map join: a small joined table, such as jobs, is copied whole to
     every worker (each of the machines that share the work), so each matches the big table's
@@ -525,13 +534,6 @@ def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
               broadcast: bool = False) -> Clause:
     """Like JOIN, but rows with no match are kept, with NULL in the joined columns.
 
-    A condition on the joined table in WHERE would throw those rows away again, so it is
-    refused: put it in ON= instead, filter the joined table's partition columns there too,
-    or pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is
-    allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among
-    its conditions, as for the jobs that never ran or whose run failed; ANTI_JOIN keeps just
-    the rows with no match. broadcast=True asks for a map join, as JOIN's does.
-
     >>> print(to_hive(statement(
     ...     SELECT(jobs.job_name, AS(count_rows(where=is_not_null(job_runs.run_id)), "runs")),
     ...     FROM(jobs),
@@ -548,6 +550,13 @@ def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
       AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     GROUP BY
       jobs.job_name
+
+    A condition on the joined table in WHERE would throw those rows away again, so it is
+    refused: put it in ON= instead, filter the joined table's partition columns there too,
+    or pass keeps_only_matches=True if you mean it. A WHERE that keeps the rows with no match is
+    allowed: is_null(...) of a joined column, or any_of(...) that has such an is_null among
+    its conditions, as for the jobs that never ran or whose run failed; ANTI_JOIN keeps just
+    the rows with no match. broadcast=True asks for a map join, as JOIN's does.
     """
     return _join("LEFT_JOIN", table, ON, many_matches, reads_all_partitions, broadcast,
                  keeps_only_matches=keeps_only_matches)
@@ -555,12 +564,6 @@ def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
 
 def CROSS_JOIN(table: Table, reads_all_partitions: bool = False) -> Clause:
     """Pair every row with every row of another table, with no ON=.
-
-    JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row
-    multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that
-    refusal: its name says you mean every row with every row, so it takes no ON=.
-
-    Joining a table to itself needs a second name for it, given with AS:
 
     >>> other = AS(jobs, "other")
     >>> print(to_hive(statement(
@@ -573,6 +576,12 @@ def CROSS_JOIN(table: Table, reads_all_partitions: bool = False) -> Clause:
       other.job_name AS other_job
     FROM ops.jobs AS jobs
     CROSS JOIN ops.jobs AS other
+
+    JOIN and LEFT_JOIN refuse a join with no ON=, because pairing every row with every row
+    multiplies the rows and every sum and count over them. CROSS_JOIN is the opt-out of that
+    refusal: its name says you mean every row with every row, so it takes no ON=.
+
+    Joining a table to itself needs a second name for it, given with AS, as `other` is above.
     """
     return Clause("CROSS_JOIN", table=_need_table(table, "CROSS_JOIN(...)"), on=None,
                   reads_all_partitions=reads_all_partitions)
@@ -581,14 +590,6 @@ def CROSS_JOIN(table: Table, reads_all_partitions: bool = False) -> Clause:
 def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: bool = False,
               broadcast: bool = False) -> Clause:
     """Keep each row another table matches, once, adding none of that table's columns.
-
-    Where JOIN gives a row for each match, so a run with three alerts comes out three times,
-    SEMI_JOIN keeps the run once however many match: it never repeats rows, so it needs no
-    many_matches=. Hive adds none of the joined table's columns to the rows, so only ON= may
-    read them: a SELECT, WHERE or any other clause that reads one is refused. Filter the
-    joined table's partition columns inside ON=. It is written LEFT SEMI JOIN: LEFT, as the
-    rows kept are those of the tables on its left, before it. broadcast=True asks for a map
-    join, as JOIN's does. Below, the runs that raised a high alert:
 
     >>> run_alerts = example_database.run_alerts
     >>> print(to_hive(statement(
@@ -609,6 +610,14 @@ def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
       AND run_alerts.dt BETWEEN '2026-09-23' AND '2026-09-24'
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+
+    Where JOIN gives a row for each match, so a run with three alerts comes out three times,
+    SEMI_JOIN keeps the run once however many match: it never repeats rows, so it needs no
+    many_matches=. Hive adds none of the joined table's columns to the rows, so only ON= may
+    read them: a SELECT, WHERE or any other clause that reads one is refused. Filter the
+    joined table's partition columns inside ON=. It is written LEFT SEMI JOIN: LEFT, as the
+    rows kept are those of the tables on its left, before it. broadcast=True asks for a map
+    join, as JOIN's does. The example above keeps the runs that raised a high alert.
     """
     return _join("SEMI_JOIN", table, ON, False, reads_all_partitions, broadcast)
 
@@ -616,16 +625,6 @@ def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
 def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: bool = False,
               broadcast: bool = False) -> Clause:
     """Keep each row with no match in another table, such as the jobs that never ran.
-
-    Hive 3 has no anti join of its own, so it is written as a LEFT JOIN, which gives a row with
-    no match NULL in every joined column, then a WHERE that keeps the rows where the joined
-    table's column ON= matches with equals(...) is NULL: a row with a match has a value
-    there. So ON= needs an equals(...) on a column of the joined table, joined with all_of(...)
-    to any other condition. Every joined column is NULL in the rows it keeps, so only ON= may
-    read them, and a clause that reads one is refused. Filter the joined table's partition
-    columns inside ON=: only its rows in those Partitions count as a match. It never repeats
-    rows, since the rows with a match, however many, are all left out. broadcast=True asks for
-    a map join, as JOIN's does.
 
     >>> print(to_hive(statement(
     ...     SELECT(jobs.job_id, jobs.job_name),
@@ -642,6 +641,16 @@ def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
       AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     WHERE
       job_runs.job_id IS NULL
+
+    Hive 3 has no anti join of its own, so it is written as a LEFT JOIN, which gives a row with
+    no match NULL in every joined column, then a WHERE that keeps the rows where the joined
+    table's column ON= matches with equals(...) is NULL: a row with a match has a value
+    there. So ON= needs an equals(...) on a column of the joined table, joined with all_of(...)
+    to any other condition. Every joined column is NULL in the rows it keeps, so only ON= may
+    read them, and a clause that reads one is refused. Filter the joined table's partition
+    columns inside ON=: only its rows in those Partitions count as a match. It never repeats
+    rows, since the rows with a match, however many, are all left out. broadcast=True asks for
+    a map join, as JOIN's does.
     """
     clause = _join("ANTI_JOIN", table, ON, False, reads_all_partitions, broadcast)
     if tested_column(clause.table, clause.on) is None:
@@ -652,20 +661,6 @@ def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
 def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: bool = False,
               many_matches: bool = False, reads_all_partitions: bool = False) -> Clause:
     """Pair two tables' matching rows, and keep each table's rows with no match.
-
-    Use it to compare two records of the same things, such as the runs job_runs holds and the
-    runs the scheduler started: each run comes out once, matched or not, with NULL in the
-    columns of the side that lacks it, and fill_null(...) takes a value from whichever side
-    has one. A WHERE on either side's columns would throw away the rows the other side lacks,
-    so it is refused, unless it keeps them: is_null(...) of a column, or any_of(...) with such
-    an is_null among its conditions. keeps_only_matches=True lets such a WHERE through, for
-    when losing those rows is what you mean. For the same reason, read a partitioned table,
-    on either side, through a derived(...) table that filters its partition columns in its own
-    WHERE, and FULL_JOIN that: ON= can't filter it, since FULL_JOIN keeps the rows ON= doesn't
-    match anyway. Either side's columns may be NULL, so its rows have no Key the Toolbox can
-    see: a write needs a GROUP_BY to give them one, such as
-    GROUP_BY(fill_null(recorded.run_id, started.run_id)) below. A repeated-rows Warning, and
-    its many_matches=True, work as JOIN's do. Below, the runs only one side holds:
 
     >>> recorded = derived("recorded", statement(
     ...     SELECT(job_runs.run_id), FROM(job_runs), WHERE(last_n_days(job_runs.dt, 2))))
@@ -701,6 +696,21 @@ def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
       ON started.run_id = recorded.run_id
     WHERE
       recorded.run_id IS NULL OR started.run_id IS NULL
+
+    Use it to compare two records of the same things, such as the runs job_runs holds and the
+    runs the scheduler started: each run comes out once, matched or not, with NULL in the
+    columns of the side that lacks it, and fill_null(...) takes a value from whichever side
+    has one. A WHERE on either side's columns would throw away the rows the other side lacks,
+    so it is refused, unless it keeps them: is_null(...) of a column, or any_of(...) with such
+    an is_null among its conditions. keeps_only_matches=True lets such a WHERE through, for
+    when losing those rows is what you mean. For the same reason, read a partitioned table,
+    on either side, through a derived(...) table that filters its partition columns in its own
+    WHERE, and FULL_JOIN that: ON= can't filter it, since FULL_JOIN keeps the rows ON= doesn't
+    match anyway. Either side's columns may be NULL, so its rows have no Key the Toolbox can
+    see: a write needs a GROUP_BY to give them one, such as
+    GROUP_BY(fill_null(recorded.run_id, started.run_id)) for the example above. A
+    repeated-rows Warning, and its many_matches=True, work as JOIN's do. The example above
+    gives the runs only one side holds.
     """
     return _join("FULL_JOIN", table, ON, many_matches, reads_all_partitions,
                  keeps_only_matches=keeps_only_matches)
@@ -709,17 +719,17 @@ def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
 def RIGHT_JOIN(table: Table, ON: Condition | None = None, **anything: object) -> NoReturn:
     """Refused: write LEFT_JOIN with the two tables swapped, which keeps the same rows.
 
-    A RIGHT JOIN keeps every row of the table it joins, and only the matching rows of the
-    tables before it. The Toolbox writes it as LEFT_JOIN, which reads in the order the rows
-    are kept: the table whose every row you want goes in FROM, and the other in
-    LEFT_JOIN(..., ON=...), with the same ON=.
-
     >>> RIGHT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id))
     Traceback (most recent call last):
     ...
     ValueError:
       What happened:  RIGHT_JOIN(jobs, ...): the Toolbox doesn't write a RIGHT JOIN.
     ...
+
+    A RIGHT JOIN keeps every row of the table it joins, and only the matching rows of the
+    tables before it. The Toolbox writes it as LEFT_JOIN, which reads in the order the rows
+    are kept: the table whose every row you want goes in FROM, and the other in
+    LEFT_JOIN(..., ON=...), with the same ON=.
     """
     refuse_right_join(table)
 
@@ -760,11 +770,6 @@ def _conditions(items: tuple[object, ...], call: str) -> list[Condition]:
 def GROUP_BY(*columns: Column | str | Subtotals | list[Column | str | Subtotals]) -> Clause:
     """Group rows that share these values, one output row per group.
 
-    A calculation may be named by its output name, such as GROUP_BY("week"), and the
-    Toolbox repeats it, since Hive can't group by a name given in SELECT. For subtotal rows
-    added to the groups' rows, pass rollup(...), cube(...) or grouping_sets(...), with any
-    plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
-
     >>> print(to_hive(statement(
     ...     SELECT(AS(week_start(job_runs.dt), "week"), AS(count_rows(), "runs")),
     ...     FROM(job_runs),
@@ -779,6 +784,11 @@ def GROUP_BY(*columns: Column | str | Subtotals | list[Column | str | Subtotals]
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     GROUP BY
       CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
+
+    A calculation may be named by its output name, such as GROUP_BY("week"), and the
+    Toolbox repeats it, since Hive can't group by a name given in SELECT. For subtotal rows
+    added to the groups' rows, pass rollup(...), cube(...) or grouping_sets(...), with any
+    plain columns: GROUP_BY(rollup(jobs.team, jobs.job_name)).
     """
     from .stacking import Subtotals  # here: stacking.py imports this file
 
@@ -825,12 +835,6 @@ def ORDER_BY(*columns: Column | str | Ordering | list[Column | str | Ordering],
              sorts_everything: bool = False) -> Clause:
     """Sort the result; it needs a LIMIT, as sorting every row is slow, or use pandas.
 
-    Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
-    it makes the warehouse put every row in order before any comes back: sort in pandas after
-    run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
-    ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
-    may not be kept, so a Statement that reads it can't rely on that order.
-
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), "minutes")),
     ...     FROM(job_runs),
@@ -850,6 +854,12 @@ def ORDER_BY(*columns: Column | str | Ordering | list[Column | str | Ordering],
     ORDER BY
       minutes DESC
     LIMIT 3
+
+    Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
+    it makes the warehouse put every row in order before any comes back: sort in pandas after
+    run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
+    ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
+    may not be kept, so a Statement that reads it can't rely on that order.
     """
     items = _flatten(columns)
     if not items:
@@ -980,23 +990,6 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
                      ) -> Clause:
     """Write rows into a Saved table, replacing the Partitions they fill, or all of it.
 
-    It goes first, before SELECT. Columns are matched to the Saved table by name, and the
-    Toolbox puts them in the table's order, its partition columns last, as Hive fills them.
-    Into a table with partitioned_by=, each row goes to the Partition its own values of the
-    partition columns name, and INSERT_OVERWRITE replaces only the Partitions the rows fill: one
-    they don't fill keeps what it held. Sent again, it replaces them again rather than adding
-    to them, so a write can safely be sent twice; to add rows instead, use INSERT_INTO. If your
-    warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a write that now
-    comes back empty may leave the old rows in place (HIVE-18702). After editing a Saved
-    table's Table reference, check it with check_table_reference(t, query=...).
-
-    Filling Partitions from the rows needs Hive's dynamic partitioning switched on, the
-    Session setting the Toolbox calls "dynamic_partitions", whose two SET lines show_hive
-    prints ahead of such a write. Send them with run(hive_settings("dynamic_partitions"),
-    execute=execute) before the first such write: the warehouse keeps them for as long as your
-    execute's connection lasts, and sending them again does no harm. Below, each job's runs on
-    each of two days, one Partition for each day:
-
     >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
     ...     location="/data/your_team/mart.db/daily_runs")
@@ -1021,6 +1014,23 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
     GROUP BY
       job_runs.job_id,
       job_runs.dt;
+
+    It goes first, before SELECT. Columns are matched to the Saved table by name, and the
+    Toolbox puts them in the table's order, its partition columns last, as Hive fills them.
+    Into a table with partitioned_by=, each row goes to the Partition its own values of the
+    partition columns name, and INSERT_OVERWRITE replaces only the Partitions the rows fill: one
+    they don't fill keeps what it held. Sent again, it replaces them again rather than adding
+    to them, so a write can safely be sent twice; to add rows instead, use INSERT_INTO. If your
+    warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a write that now
+    comes back empty may leave the old rows in place (HIVE-18702). After editing a Saved
+    table's Table reference, check it with check_table_reference(t, query=...).
+
+    Filling Partitions from the rows needs Hive's dynamic partitioning switched on, the
+    Session setting the Toolbox calls "dynamic_partitions", whose two SET lines show_hive
+    prints ahead of such a write. Send them with run(hive_settings("dynamic_partitions"),
+    execute=execute) before the first such write: the warehouse keeps them for as long as your
+    execute's connection lasts, and sending them again does no harm. The example above writes
+    each job's runs on each of two days, one Partition for each day.
 
     partition={"dt": "2026-09-24"} names the Partition instead: each column it names is one
     value, written into the Hive, so SELECT leaves it out. The columns it names are the first
@@ -1096,18 +1106,6 @@ def INSERT_INTO(table: Table, unproven_key: bool = False,
                 ) -> Clause:
     """Add rows to a Saved table or its Partitions; sent twice, it adds twice.
 
-    It follows every rule of INSERT_OVERWRITE: it goes first, its columns are matched by name,
-    it fills Partitions from the rows or names one with partition={...}, and it writes into
-    the whole table for one with no partitioned_by=. The difference is what happens to the
-    rows already there: INSERT_OVERWRITE replaces the Partitions it fills, INSERT_INTO keeps
-    their rows and adds more. Use it when a Partition's rows come from more than one table:
-    send INSERT_OVERWRITE first, from the first table, then INSERT_INTO from each other table.
-    Sending the same INSERT_INTO twice adds its rows twice, so to redo it, start again from
-    its INSERT_OVERWRITE. A Saved table's Key is checked as INSERT_OVERWRITE checks it, on the
-    rows this write adds: rows the table holds already may share a Key with them, which
-    check_key(t, query=..., where=...) finds once they are written. Below, a day of failed runs
-    gets the runs with a high alert added, each run once, by its Key, run_id.
-
     >>> run_alerts = example_database.run_alerts
     >>> runs_to_review = Table("mart.runs_to_review", partitioned_by=["dt"], key=["run_id"],
     ...     columns={"run_id": "bigint", "dt": "string"},
@@ -1124,6 +1122,18 @@ def INSERT_INTO(table: Table, unproven_key: bool = False,
     FROM ops.run_alerts AS run_alerts
     WHERE
       run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
+
+    It follows every rule of INSERT_OVERWRITE: it goes first, its columns are matched by name,
+    it fills Partitions from the rows or names one with partition={...}, and it writes into
+    the whole table for one with no partitioned_by=. The difference is what happens to the
+    rows already there: INSERT_OVERWRITE replaces the Partitions it fills, INSERT_INTO keeps
+    their rows and adds more. Use it when a Partition's rows come from more than one table:
+    send INSERT_OVERWRITE first, from the first table, then INSERT_INTO from each other table.
+    Sending the same INSERT_INTO twice adds its rows twice, so to redo it, start again from
+    its INSERT_OVERWRITE. A Saved table's Key is checked as INSERT_OVERWRITE checks it, on the
+    rows this write adds: rows the table holds already may share a Key with them, which
+    check_key(t, query=..., where=...) finds once they are written. In the example above, a
+    day of failed runs gets the runs with a high alert added, each run once, by its Key, run_id.
     """
     return _write_clause("INSERT_INTO", table, unproven_key, partition)
 
@@ -1176,10 +1186,6 @@ def _check_order(clauses: tuple[object, ...]) -> None:
 def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     """Assemble clause functions, in SQL order, into a Statement.
 
-    It runs the Guards and Load limits that need the whole Statement. to_hive(s) gives the
-    Hive string, and run(s, query=...) sends it. returns_all_rows=True drops the automatic
-    LIMIT, if set_load_limits(rows=...) has set one.
-
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, job_runs.status),
     ...     FROM(job_runs),
@@ -1191,6 +1197,10 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
+
+    It runs the Guards and Load limits that need the whole Statement. to_hive(s) gives the
+    Hive string, and run(s, query=...) sends it. returns_all_rows=True drops the automatic
+    LIMIT, if set_load_limits(rows=...) has set one.
     """
     _check_order(clauses)
     s = Statement()
@@ -1445,17 +1455,6 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
 def derived(name: str, statement: Statement) -> Table:
     """Name a Statement so another Statement can read it like a table.
 
-    You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo
-    in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
-    runs_per_job AS (...). The warehouse usually works it out again each time the Statement
-    reads it, so if it gets slow, write it to a Saved table instead. Its Key, which a JOIN on it
-    checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns (it has
-    none when GROUP_BY holds rollup, cube or grouping_sets, whose subtotal rows repeat them),
-    every column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), every column
-    of a UNION, INTERSECT or EXCEPT, which give distinct rows (none for a UNION_ALL), or the Key
-    of the table in its FROM, carried through each join that matches its table's whole Key, and
-    through a row_number(...) kept at 1.
-
     >>> runs_per_job = derived("runs_per_job", statement(
     ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
     ...     FROM(job_runs),
@@ -1483,6 +1482,17 @@ def derived(name: str, statement: Statement) -> Table:
     FROM runs_per_job
     JOIN ops.jobs AS jobs
       ON jobs.job_id = runs_per_job.job_id
+
+    You then use its output columns like a Table reference's, as runs_per_job.runs, and a typo
+    in one is caught the same way. The Toolbox writes it at the top of the Hive, as WITH
+    runs_per_job AS (...). The warehouse usually works it out again each time the Statement
+    reads it, so if it gets slow, write it to a Saved table instead. Its Key, which a JOIN on it
+    checks ON= against, is worked out from how it makes its rows: its GROUP_BY columns (it has
+    none when GROUP_BY holds rollup, cube or grouping_sets, whose subtotal rows repeat them),
+    every column of a SELECT_DISTINCT, none for a SELECT of only totals (one row), every column
+    of a UNION, INTERSECT or EXCEPT, which give distinct rows (none for a UNION_ALL), or the Key
+    of the table in its FROM, carried through each join that matches its table's whole Key, and
+    through a row_number(...) kept at 1.
     """
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
         refuse(what=f"derived({name!r}, ...) needs a plain name.",
