@@ -192,6 +192,13 @@ Toolbox files and 198 times in 23 test files.
   breaks only its Database; str(table) is `ops.jobs AS jobs`.
 - [08 Python steps](issues/08-python-steps.md): python_step(fn, reads=, writes=) declares a
   pandas change; Lineage names its file, function and line; run_tables passes over it; how-to 41.
+- [09 You pick query or execute](issues/09-you-pick-query-or-execute.md): Toolbox 7.1;
+  run_query and run_execute replace run, each refusing the mix-up and a swapped function;
+  returns_rows= and run_tables' query= refused; check_the_copy gives the move's last steps.
+- [10 One answer to a Statement's kind](issues/10-one-answer-to-a-statements-kind.md):
+  kinds.py, marked by each maker, asked by every reader.
+- [11 One notebook reader](issues/11-one-notebook-reader.md): notebooks.py; load refuses a
+  broken notebook.
 
 ## Not yet specified
 

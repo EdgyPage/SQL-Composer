@@ -1,7 +1,7 @@
 # One answer to "what kind of Statement is this?"
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 08
 Size: M
 
@@ -28,3 +28,21 @@ A Statement is a record whose meaning lives in its readers: `running.run`, `sett
   Lineage ask it; none outside it reads `_ddl.kind`, `_write` or `_admin_*` to tell a kind.
 - One table-driven test: each maker, the kind it makes and the call that sends it.
 - No public name added; `tools/toolbox_registry.py` lists the new file.
+
+## Answer
+
+Built 2026-10-22 with ticket 09 (03e0075). `sqlglot_composer/kinds.py`: `kind(step)`,
+`sent_by(step)`, `is_a_query(step)`, `SENT_BY` and `WORDS`. statement(...) marks a read or a
+write, create_table a create, repair_partitions and compute_statistics upkeep, explain a plan,
+the admin module an Admin statement; SessionSettings, UncheckedStatement and PythonStep carry
+their kind as a class attribute. run_query, run_execute, show_hive, settings_needed,
+_statement_tree, derived, Stack, explain, export_lineage and run_tables ask it.
+`tests/test_kinds.py` holds each maker's kind and call. Registered in toolbox_registry.
+
+## Reviews
+
+- Spec: explain's refusal still read `_ddl.kind` to name the maker; it now names it from the
+  kind, and only an upkeep Statement's maker (repair or compute) from its Hive tree, which
+  says which of the two made it. `_admin_hive` in to_hive is the Admin statement's own text,
+  not a kind.
+- Standards: see ticket 09's.

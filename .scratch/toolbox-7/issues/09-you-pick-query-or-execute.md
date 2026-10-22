@@ -1,7 +1,7 @@
 # You pick query or execute: run_query and run_execute replace run
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 08
 Size: L
 
@@ -52,3 +52,49 @@ day; the user said yes to all six answers below. ADR 0012, amended, records it.
 - The version is 7.1 wherever the current version is named, and CHANGES.md has a `## 7.1` with
   "To update from 7.0"; its `## 7.0` stays as 7.0 was.
 - CLAUDE.md's Definition of done, the beginner reader included.
+
+## Answer
+
+Built 2026-10-22 on dev as Toolbox 7.1 (03e0075, with ticket 10; drift fixes 2f27ee6; review
+fixes efcb9d6).
+
+- `run_query(s, query)` and `run_execute(s, execute)` replace `run`. Each refuses the plain
+  mix-up, naming the other (`kinds.SENT_BY` decides which call a kind goes through); the other
+  call's keyword (`run_query(s, execute=...)`); and, from the beginner read, your other
+  function given in its place, known by its `__name__` (`run_query(s, execute)`), before
+  anything is sent.
+- `unchecked_hive(text)`: `returns_rows=` is refused, saying to pick the call.
+- `run_tables(*, execute=None, tables=None)`: `query=` is refused; a read in a `write()` is
+  refused before anything is sent.
+- `admin.move_to_own_folder` gives the create and copy steps; `admin.check_the_copy(t,
+  query=query)` sends the comparison through query, logged, and only then gives keep-files,
+  drop and rename. That it gives the steps, not only checks, was this build's call, so a loop
+  over the move's steps can't drop the old table unchecked; the user had agreed to "the count
+  check becomes its own call".
+- Version 7.1 in every Toolbox file, CONTEXT.md and the docstring; CHANGES.md `## 7.1` with
+  "To update from 7.0", `## 7.0` as 7.0 was. ADR 0012 amended. CLAUDE.md names 7.1.
+
+## Reviews
+
+- Spec (2026-10-22): the row Load limit isn't applied to an Unchecked statement's rows, now
+  said in a comment (no LIMIT is added to hand-written text); move_to_own_folder's docstring
+  overstated the guarantee and miscounted (fixed); `returns_rows=` gave Python's TypeError
+  (now refused). `to_hive`'s `_admin_hive` test reads data, not a kind: answered.
+- Standards (2026-10-22): no breach. Fixed: wrapping; `kinds.is_a_query` for the repeated
+  read-or-write test; `kinds.reads_rows` dropped, `kinds.sent_by` used by `_need_its_call`,
+  whose parameter is `through`; `names_of_run` is `names_of_senders`; `_numbered`'s marking
+  explained (the create step is create_table's). Answered: `check_the_copy` keeps the name
+  the user agreed to, its docstring saying it gives the last steps; a Statement's `_kind`
+  beside `_write`/`_ddl` is ticket 10's design, every maker setting both.
+- Beginner reader (2026-10-22), costliest stops and what changed: a swapped function wasn't
+  refused (now refused by name); the move's at-work loop lacked the Session setting, and its
+  first line said it gave the whole move (both fixed); the Admin log's place outside a Project
+  went unsaid (run_execute's docstring says it). Also fixed: `run_tables(query=)` and
+  `returns_rows=` refused with a reason; "one SET line a call"; run_tables' "Statements that
+  write"; how-to 22 says where `WITH old_counts` comes from; run_query names
+  repair_partitions and compute_statistics instead of "upkeep", and "no INSERT_OVERWRITE or
+  INSERT_INTO" instead of "no write"; the broken wrapping. Left: `run(...)` from 7.0 is
+  Python's NameError (a star import can't refuse a name it doesn't bring; CHANGES.md 7.1 says
+  what replaces it); `query=` by name or not on run_query/run_execute but by name elsewhere
+  (CHANGES.md says so; the two calls take their call second, as their names say).
+- Drift: 03e0075 opened D250 to D252, closed by 2f27ee6.
