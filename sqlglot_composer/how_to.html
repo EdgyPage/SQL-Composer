@@ -101,6 +101,7 @@ your real today, so in your own notebook it finds no rows on the Example databas
 <li data-for="reconcile_two_tables"><a href="#reconcile_two_tables">38. Reconcile two tables</a></li>
 <li data-for="subtotals_and_grand_totals"><a href="#subtotals_and_grand_totals">39. Subtotals and grand totals</a></li>
 <li data-for="keep_reads_and_joins_fast"><a href="#keep_reads_and_joins_fast">40. Keep reads and joins fast</a></li>
+<li data-for="declare_a_change_made_in_python"><a href="#declare_a_change_made_in_python">41. Declare a change made in Python</a></li>
 </ul>
 </div>
 </nav>
@@ -10813,6 +10814,268 @@ GROUP BY
 <h4>Next</h4>
 <ul><li>Give a big table Partitions inside each day, or Buckets: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a>.</li><li>Ask for a map join on one join, with <code>broadcast=True</code>: <a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>.</li><li>Keep each Statement&#x27;s reads small: <a href="#keep_queries_small_with_load_limits">Keep queries small with load limits</a>.</li><li>Every option in one place: the gallery&#x27;s <a href="examples.html#explain"><code>explain</code></a>, <a href="examples.html#compute_statistics"><code>compute_statistics</code></a> and <a href="examples.html#repair_partitions"><code>repair_partitions</code></a> entries.</li></ul>
 <p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code>, <code>run</code>, <code>hive_settings</code>, <code>repair_partitions</code>, <code>compute_statistics</code>, <code>explain</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="declare_a_change_made_in_python">
+<h3>41. Declare a change made in Python <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Change some rows in pandas, in a function of your own, save them to a table with your own call, and declare the change to the Toolbox with <code>python_step</code>, so the Lineage of your tables shows where the change lives, rather than stopping at the gap.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When a step is easier in pandas than in a Statement. Here it is how many minutes longer each run took than its job&#x27;s usual run, the median, which pandas works out in one line. The Toolbox never moves the rows: you pull them with a Statement, change them with your function, and save them with your work&#x27;s own call. <code>python_step</code> only tells the Toolbox which columns the change read, which table it wrote, and which function made it, so whoever reads the Lineage can open that function and see what it does.</p>
+<h4>Steps</h4>
+<h5>Start a Project and write the change in a Building block</h5>
+<p>Keep the function in a file of the Project&#x27;s building_blocks/ folder, where its line stays put and any notebook can import it. This page writes the file for you; in your own Project, which is started already, leave out <code>project.start()</code> and make the file in your editor.</p>
+<pre class="python">import sys
+from pathlib import Path
+from sqlglot_composer import *
+from sqlglot_composer import project
+project.start()</pre>
+<p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</pre>
+<p class="label">It writes 17 files</p>
+<pre class="file">admin/add_references.ipynb
+admin/admin_log.md
+admin/change_a_saved_table.ipynb
+admin/check_project.ipynb
+admin/new_table.ipynb
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove_table.ipynb
+admin/run_tables.ipynb
+admin/templates/as_of_lookup.py
+admin/templates/building_block.py
+admin/templates/daily_table.py
+admin/templates/incremental_load.py
+admin/templates/quality_checks.py
+admin/templates/saved_table_reference.py
+admin/templates/weekly_rollup.py
+warehouse.py</pre>
+<pre class="python">run_speed_py = &#x27;&#x27;&#x27;# How each run&#x27;s minutes compare with its job&#x27;s usual run.
+
+import pandas as pd
+
+
+def add_minutes_over_median(runs: pd.DataFrame) -&gt; pd.DataFrame:
+    # The minutes each run took over its job&#x27;s median run, the job&#x27;s usual one.
+    median = runs.groupby(&quot;job_id&quot;)[&quot;duration_mins&quot;].transform(&quot;median&quot;)
+    return runs.assign(minutes_over_median=runs[&quot;duration_mins&quot;] - median)
+&#x27;&#x27;&#x27;
+_ = Path(&quot;building_blocks/run_speed.py&quot;).write_text(run_speed_py, encoding=&quot;utf-8&quot;)</pre>
+<p class="label">It writes building_blocks/run_speed.py</p>
+<pre class="python"># How each run&#x27;s minutes compare with its job&#x27;s usual run.
+
+import pandas as pd
+
+
+def add_minutes_over_median(runs: pd.DataFrame) -&gt; pd.DataFrame:
+    # The minutes each run took over its job&#x27;s median run, the job&#x27;s usual one.
+    median = runs.groupby(&quot;job_id&quot;)[&quot;duration_mins&quot;].transform(&quot;median&quot;)
+    return runs.assign(minutes_over_median=runs[&quot;duration_mins&quot;] - median)</pre>
+<p>A notebook imports it once the Project&#x27;s folder is on Python&#x27;s path, as cell 1 of a Table notebook puts it. This page works in the Project&#x27;s own folder, so the folder is this one:</p>
+<pre class="python">sys.path.insert(0, str(Path.cwd()))  # the Project folder
+from building_blocks.run_speed import add_minutes_over_median</pre>
+<h5>Pull the rows with a Statement</h5>
+<p>The runs that worked on the Example database&#x27;s last two days, with the columns the change reads. <code>run</code> gives back a DataFrame:</p>
+<pre class="python">job_runs = example_database.job_runs
+worked = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins, job_runs.dt),
+    FROM(job_runs),
+    WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;),
+          equals(job_runs.status, &quot;SUCCESS&quot;)),
+)
+runs = run(worked, query=example_database.query)
+runs</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>duration_mins</th><th>dt</th></tr>
+<tr><td>95</td><td>1</td><td>12</td><td>2026-09-23</td></tr>
+<tr><td>96</td><td>2</td><td>18</td><td>2026-09-23</td></tr>
+<tr><td>101</td><td>1</td><td>10</td><td>2026-09-24</td></tr>
+<tr><td>103</td><td>3</td><td>30</td><td>2026-09-24</td></tr>
+<tr><td>104</td><td>1</td><td>40</td><td>2026-09-24</td></tr>
+</table></div>
+<h5>Change them in pandas</h5>
+<p>Your function takes the DataFrame and gives back another, as any pandas code does:</p>
+<pre class="python">changed = add_minutes_over_median(runs)
+changed</pre>
+<p class="label">Python shows</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th><th>duration_mins</th><th>dt</th><th>minutes_over_median</th></tr>
+<tr><td>95</td><td>1</td><td>12</td><td>2026-09-23</td><td>0.0</td></tr>
+<tr><td>96</td><td>2</td><td>18</td><td>2026-09-23</td><td>0.0</td></tr>
+<tr><td>101</td><td>1</td><td>10</td><td>2026-09-24</td><td>-2.0</td></tr>
+<tr><td>103</td><td>3</td><td>30</td><td>2026-09-24</td><td>0.0</td></tr>
+<tr><td>104</td><td>1</td><td>40</td><td>2026-09-24</td><td>28.0</td></tr>
+</table></div>
+<p>Run 104 took 28 minutes longer than job 1&#x27;s usual run.</p>
+<h5>Save them with your own call</h5>
+<p>The table the rows go to has a Table reference like any other, here mart.run_speed. In your Project it is references/mart__run_speed.py, as <a href="#describe_a_table_by_hand">Describe a table by hand</a> writes one; this page makes it in place:</p>
+<pre class="python">run_speed = Table(
+    &quot;mart.run_speed&quot;,
+    columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;job_id&quot;: &quot;bigint&quot;, &quot;duration_mins&quot;: &quot;int&quot;,
+             &quot;minutes_over_median&quot;: &quot;double&quot;, &quot;dt&quot;: &quot;string&quot;},
+    partitioned_by=[&quot;dt&quot;],
+    location=&quot;/data/your_team/mart.db/run_speed&quot;,
+)</pre>
+<p>The Toolbox has no call that saves a DataFrame: you save it the way your work does, such as your API&#x27;s own write call. It is shown here, not run, since it reaches your warehouse:</p>
+<pre class="python">my_api.write_table(changed, &quot;mart.run_speed&quot;, partition_by=[&quot;dt&quot;])</pre>
+<h5>Declare the step</h5>
+<p><code>python_step</code> takes your function itself, not what it gave back, the columns it read, each through its Table reference (a Table reference stands for every one of its columns), and the table it wrote. It gives back a <code>PythonStep</code>, and sends nothing:</p>
+<pre class="python">speed_step = python_step(
+    add_minutes_over_median,
+    reads=[job_runs.run_id, job_runs.job_id, job_runs.duration_mins, job_runs.dt],
+    writes=run_speed,
+)
+speed_step</pre>
+<p class="label">Python shows</p><pre class="output">&lt;Python step: building_blocks/run_speed.py:add_minutes_over_median, line 6; writes mart.run_speed&gt;</pre>
+<p>It read where the function lives from the function itself: its file, from the Project&#x27;s folder, its name, and the line its <code>def</code> is on. <code>show_hive</code> prints what it is, as comment lines, since it has no Hive:</p>
+<pre class="python">text = show_hive(speed_step)</pre>
+<p class="label">Hive, ready to paste</p><pre class="hive">-- Python step: changed in Python by building_blocks/run_speed.py:add_minutes_over_median,
+-- line 6. It reads ops.job_runs.run_id, ops.job_runs.job_id, ops.job_runs.duration_mins and
+-- ops.job_runs.dt, and writes mart.run_speed. Nothing is sent for it: your own call saves
+-- its rows.</pre>
+<h5>Export the Lineage, the step drawn as one box</h5>
+<p>Pass the step to <code>export_lineage</code> with the Statements around it, here one that reads mart.run_speed: the runs that took more than 5 minutes over their job&#x27;s usual run. The step comes first, since it writes the table the Statement reads:</p>
+<pre class="python">slow_runs = statement(
+    SELECT(run_speed.run_id, run_speed.minutes_over_median),
+    FROM(run_speed),
+    WHERE(equals(run_speed.dt, &quot;2026-09-24&quot;), more_than(run_speed.minutes_over_median, 5)),
+)
+html_file, markdown_file = export_lineage(slow_runs, speed_step, to=&quot;run_speed.html&quot;)</pre>
+<p class="label">It writes run_speed.md</p>
+<pre class="file"># Lineage: speed_step, slow_runs
+
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled &quot;filters&quot;).
+
+## Graph
+
+```mermaid
+flowchart LR
+  subgraph g0[&quot;speed_step&quot;]
+    n0[&quot;Python step&lt;br/&gt;&lt;small&gt;building_blocks/run_speed.py:add_minutes_ov…&lt;/small&gt;&lt;br/&gt;&lt;small&gt;line 6&lt;/small&gt;&quot;]
+  end
+  subgraph g1[&quot;ops.job_runs&quot;]
+    n1[&quot;ops.job_runs.run_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&lt;br/&gt;&lt;small&gt;in the Key&lt;/small&gt;&quot;]
+    n2[&quot;ops.job_runs.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n3[&quot;ops.job_runs.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+    n4[&quot;ops.job_runs.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g2[&quot;mart.run_speed&quot;]
+    n5[&quot;mart.run_speed.run_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n6[&quot;mart.run_speed.job_id&lt;br/&gt;&lt;small&gt;bigint&lt;/small&gt;&quot;]
+    n7[&quot;mart.run_speed.duration_mins&lt;br/&gt;&lt;small&gt;int&lt;/small&gt;&quot;]
+    n8[&quot;mart.run_speed.minutes_over_median&lt;br/&gt;&lt;small&gt;double&lt;/small&gt;&quot;]
+    n9[&quot;mart.run_speed.dt&lt;br/&gt;&lt;small&gt;string&lt;/small&gt;&quot;]
+  end
+  subgraph g3[&quot;slow_runs&quot;]
+    n10[&quot;run_id&lt;br/&gt;&lt;small&gt;run_speed.run_id&lt;/small&gt;&quot;]
+    n11[&quot;minutes_over_median&lt;br/&gt;&lt;small&gt;run_speed.minutes_over_median&lt;/small&gt;&quot;]
+  end
+  subgraph g4[&quot;filters on slow_runs&quot;]
+    n12{{&quot;WHERE in slow_runs&lt;br/&gt;&lt;small&gt;equals(run_speed.dt, #quot;2026-09-24#quot;)&lt;/small&gt;&quot;}}
+    n13{{&quot;WHERE in slow_runs&lt;br/&gt;&lt;small&gt;more_than(run_speed.minutes_over_median, 5)&lt;/small&gt;&quot;}}
+  end
+  n1 --&gt; n0
+  n2 --&gt; n0
+  n3 --&gt; n0
+  n4 --&gt; n0
+  n0 --&gt; n5
+  n0 --&gt; n6
+  n0 --&gt; n7
+  n0 --&gt; n8
+  n0 --&gt; n9
+  n5 --&gt; n10
+  n8 --&gt; n11
+  n9 -.-&gt; n12
+  n8 -.-&gt; n13
+  n12 -.-&gt;|filters| g3
+  n13 -.-&gt;|filters| g3
+```
+
+## speed_step
+
+A Python step: a change made in Python, outside any Statement, and saved by your own call. The Toolbox can&#x27;t see inside it, so its columns can&#x27;t be followed through it, and it never moved its data. It reads ops.job_runs.run_id, ops.job_runs.job_id, ops.job_runs.duration_mins and ops.job_runs.dt, and writes mart.run_speed.
+
+### Where it lives
+
+Changed in Python by `building_blocks/run_speed.py:add_minutes_over_median`, line 6. Open the function there to see what the change does.
+
+## slow_runs
+
+It reads the Saved table mart.run_speed, written by speed_step above.
+
+### Calculated columns
+
+Every column that is calculated rather than copied, in the order it is calculated.
+
+None: every column is copied.
+
+### Copied columns
+
+| Output | Comes from |
+| --- | --- |
+| `run_id` | mart.run_speed.run_id ← speed_step: Python step |
+| `minutes_over_median` | mart.run_speed.minutes_over_median ← speed_step: Python step |
+
+### Keys
+
+The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.
+
+- slow_runs: no Key the Toolbox can see, since run_speed declares no Key.
+
+### Hive as submitted
+
+```sql
+SELECT
+  run_speed.run_id,
+  run_speed.minutes_over_median
+FROM mart.run_speed AS run_speed
+WHERE
+  run_speed.dt = &#x27;2026-09-24&#x27; AND run_speed.minutes_over_median &gt; 5
+```
+
+---
+
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 7.0.</pre>
+<p class="note">It writes <code>run_speed.html</code> too, a page to open in your browser.</p>
+<p>The chart draws the step as one box, &quot;Python step&quot;, naming the function and its line, with an arrow in from each column it read and out to each column of mart.run_speed. The Toolbox can&#x27;t see inside it, so it can&#x27;t tell which column made which: the copied columns of slow_runs go back as far as the step, and the step&#x27;s own section says what it read and where its function lives.</p>
+<p>In a Project, a Table notebook&#x27;s write() may give the step beside its Statements, so <code>project.run_tables</code> puts it in order with the tables it reads and writes. It sends nothing for it, and says it passed it over: run that table&#x27;s own notebook, whose call saves its rows.</p>
+<h4>Check it worked</h4>
+<p>The step&#x27;s section names the function and where it lives, and slow_runs reads the table the step wrote:</p>
+<pre class="python">text = markdown_file.read_text(encoding=&quot;utf-8&quot;)
+&quot;Changed in Python by `building_blocks/run_speed.py:add_minutes_over_median`, line 6.&quot; in text</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<pre class="python">&quot;It reads the Saved table mart.run_speed, written by speed_step above.&quot; in text</pre>
+<p class="label">Python shows</p><pre class="output">True</pre>
+<h4>Common mistakes</h4>
+<h5>Running the step</h5>
+<p>A Python step only declares a change; the rows are yours to save. <code>run</code> refuses it:</p>
+<pre class="python">run(speed_step, execute=example_database.execute)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  run was given a Python step, which sends nothing.
+  Why it matters: It sends Hive through your query or execute, and a Python step has none: python_step(...) only declares a change you make in Python and save with your own call, so Lineage can show it. The Toolbox never moves its data.
+  Usual fix:      Save the rows with your own call, as you do now, and pass the step to export_lineage(...) with your Statements. show_hive(step) prints a line saying what it is, and in a Table notebook&#x27;s write() project.run_tables passes over it.
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Save the rows with your own call, and pass the step to <code>export_lineage</code>.</p>
+<h5>Passing what the function gave back</h5>
+<p><code>add_minutes_over_median(runs)</code> is the changed DataFrame, not the function that changed it:</p>
+<pre class="python">python_step(add_minutes_over_median(runs), reads=[job_runs.duration_mins],
+            writes=run_speed)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">TypeError:
+  What happened:  python_step was given a DataFrame, where the function that made the change goes.
+  Why it matters: Lineage names where the change lives, so you can open it: the file, the name and the first line of the function, which only a function written with def has.
+  Usual fix:      Pass the function itself, without calling it: add_margin, not add_margin(rows), as in python_step(add_margin, reads=[sales.price, sales.cost], writes=margins).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Pass the function&#x27;s name alone, with no brackets after it.</p>
+<h5>A lambda</h5>
+<p>A lambda has no name, so the Lineage couldn&#x27;t say where to find it:</p>
+<pre class="python">python_step(lambda rows: rows, reads=[job_runs.duration_mins], writes=run_speed)</pre>
+<p class="label">Python stops with this message</p><pre class="refusal">ValueError:
+  What happened:  python_step was given a lambda.
+  Why it matters: Lineage names where the change lives, so you can open it: the file, the name and the first line of the function, which only a function written with def has. A lambda has no name to find it by.
+  Usual fix:      Write the change as a function with def and a name, in a file of building_blocks/, and pass it: python_step(add_margin, reads=[sales.price, sales.cost], writes=margins).
+  Opt-out:        none - this one can&#x27;t be switched off.</pre>
+<p>Write the change with <code>def</code> and a name, in a file of building_blocks/.</p>
+<h4>Next</h4>
+<ul><li>Compare the Lineage before and after you change the function: <a href="#review_a_change_with_lineage">Review a change with Lineage</a>.</li><li>More on finishing a job in pandas: <a href="#finish_in_pandas">Look across rows, then finish in pandas</a>.</li><li>The gallery&#x27;s <a href="examples.html#python_step"><code>python_step</code></a> and <a href="examples.html#export_lineage"><code>export_lineage</code></a> entries.</li></ul>
+<p class="names">Toolbox names used: <code>Table</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>more_than</code>, <code>between</code>, <code>show_hive</code>, <code>run</code>, <code>export_lineage</code>, <code>python_step</code>, <code>example_database</code>, <code>project.start</code></p>
 </section>
 </main>
 <script>

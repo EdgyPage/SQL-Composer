@@ -14,7 +14,7 @@ out like this:
 
     Start a Project                     <- the title, on line 1
 
-    For: Getting started                <- Getting started (how-tos 1-21) or Intermediate (22-40)
+    For: Getting started                <- Getting started (how-tos 1-21) or Intermediate (22-41)
 
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
@@ -120,7 +120,7 @@ class Group(NamedTuple):
 GROUPS = (
     Group("Getting started", "getting-started", range(1, 22),
           "your first notebooks: from one Statement to a daily pipeline and its Lineage"),
-    Group("Intermediate", "intermediate", range(22, 41),
+    Group("Intermediate", "intermediate", range(22, 42),
           "work over many days and many tables: daily copies, rollups, pipelines of Saved "
           "tables and their Keys, quality checks and testing"),
 )

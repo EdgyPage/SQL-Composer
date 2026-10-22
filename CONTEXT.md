@@ -197,6 +197,14 @@ shows it as one opaque step. Each one marks something the Toolbox should learn t
 Python, `unchecked_hive(...)` gives back an `UncheckedStatement`, the name a type hint uses.
 _Avoid_: raw SQL, passthrough, custom query
 
+**Python step**:
+A change the user makes to data in Python, outside any Statement, and saves to a table
+themselves, declared to the Toolbox with the columns it read and the table it wrote. Lineage
+shows it as one opaque step naming the function that made the change and where it lives; the
+Toolbox never moves its data. In Python, `python_step(...)` gives back a `PythonStep`, the name a
+type hint uses.
+_Avoid_: transform, pandas step, UDF
+
 **Admin statement**:
 A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
 data, such as dropping a table or some of its Partitions, adding columns, setting its properties or moving
