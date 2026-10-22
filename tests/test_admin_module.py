@@ -43,6 +43,7 @@ from sqlglot_composer import (
     statement,
     to_hive,
 )
+from sqlglot_composer.describe import StandIn
 
 job_runs = example_database.job_runs
 # Where the warehouse says a Saved table is before it is moved: a folder it shares with others.
@@ -62,8 +63,8 @@ def saved(name: str = "mart.daily_runs", columns: dict[str, str | None] | None =
                  location=location, **storage)
 
 
-def at_work(t: Table, **answer: object) -> object:
-    """The warehouse's answer for t, at a folder it shares with others unless `answer` names
+def at_work(t: Table, **answer: str | bool | tuple[str, ...] | pd.DataFrame) -> StandIn:
+    """A stand-in warehouse holding t, at a folder it shares with others unless `answer` names
     another."""
     return warehouse(t, **{"location": SHARED, **answer})
 
@@ -230,11 +231,10 @@ def test_add_columns_cascades_into_any_partitioned_table() -> None:
 
 
 def test_add_columns_sends_describe_and_writes_no_cascade_without_partitions() -> None:
-    sent = []
     t = saved(columns={"job_id": "bigint", "note": "string"})
-    answer = at_work(t, lacking=("note",))
-    adding = admin.add_columns(t, query=lambda hive: sent.append(hive) or answer(hive))
-    assert sent == ["DESCRIBE mart.daily_runs"]
+    query = at_work(t, lacking=("note",))
+    adding = admin.add_columns(t, query=query)
+    assert query.sent == ["DESCRIBE mart.daily_runs"]
     assert to_hive(adding) == "ALTER TABLE mart.daily_runs ADD COLUMNS (\n  note STRING\n)"
 
 
@@ -288,21 +288,16 @@ def test_set_properties_refuses_a_table_reference_that_gives_none() -> None:
 MATCHING = pd.DataFrame({"dt": [], "old_rows": [], "copied_rows": []})
 
 
-def comparing(t: Table, compared: pd.DataFrame = MATCHING, **answer: object
-              ) -> Callable[[str], pd.DataFrame]:
+def comparing(t: Table, compared: pd.DataFrame = MATCHING,
+              **answer: str | bool | tuple[str, ...]) -> StandIn:
     """The warehouse's answers for check_the_copy: DESCRIBE FORMATTED as at_work gives it,
-    then `compared` for the comparison of the counts; each comparison's Hive is kept in
-    .compared."""
-    described = at_work(t, **answer)
+    then `compared` for the comparison of the counts."""
+    return at_work(t, rows=compared, **answer)
 
-    def query(hive: str) -> pd.DataFrame:
-        if hive.startswith("WITH old_counts AS ("):
-            query.compared.append(hive)
-            return compared
-        return described(hive)
 
-    query.compared = []
-    return query
+def comparisons(query: StandIn) -> list[str]:
+    """The Hive of each comparison of the counts the stand-in was sent."""
+    return [hive for hive in query.sent if hive.startswith("WITH old_counts AS (")]
 
 
 def test_the_move_creates_and_copies_then_the_check_keeps_files_drops_and_renames() -> None:
@@ -352,7 +347,7 @@ def test_the_check_compares_each_partition_rows_with_no_value_too() -> None:
     t = REGION_RUNS
     query = comparing(t)
     admin.check_the_copy(t, query=query)
-    compare, = query.compared
+    compare, = comparisons(query)
     for counts, alias in (("old_counts", "region_runs"),
                           ("copied_counts", "region_runs_moving")):
         assert (f"{counts} AS (\n  SELECT\n"
@@ -371,7 +366,7 @@ def test_the_check_of_an_unpartitioned_table_compares_its_rows_whole() -> None:
     query = comparing(whole, pd.DataFrame({"old_rows": [], "copied_rows": []}),
                       location="/data/elsewhere")
     admin.check_the_copy(whole, query=query)
-    compare, = query.compared
+    compare, = comparisons(query)
     assert "GROUP BY" not in compare
     assert "FROM old_counts\nCROSS JOIN copied_counts\n" in compare
 
@@ -379,7 +374,7 @@ def test_the_check_of_an_unpartitioned_table_compares_its_rows_whole() -> None:
 def test_a_managed_table_is_moved_without_setting_purge() -> None:
     t = saved()
     managed = {"location": "hdfs://namenode:8020/warehouse/mart.db/daily_runs",
-               "kind": "MANAGED_TABLE"}
+               "managed": True}
     moves = admin.move_to_own_folder(t, query=at_work(t, **managed))
     finish = admin.check_the_copy(t, query=comparing(t, **managed))
     assert not any("TBLPROPERTIES" in to_hive(step) for step in moves + finish)

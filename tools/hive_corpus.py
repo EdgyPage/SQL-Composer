@@ -38,13 +38,13 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "tools"), str(ROOT / "tests")]
 
 import toolbox_registry  # noqa: E402
-import pandas as pd  # noqa: E402
 
 import example_gallery as gallery  # noqa: E402
 import hive_corpus_cases  # noqa: E402
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
+from sqlglot_composer.describe import StandIn  # noqa: E402
 from sqlglot_composer.tables import Table  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
@@ -249,44 +249,17 @@ def _undated(line: str) -> str | None:
 # --- The commands sent to the warehouse ------------------------------------------------------
 
 
-class Recording:
-    """A query that notes each command and answers like the warehouse, without running one.
-
-    DESCRIBE is answered from the Table reference itself, as Hive lists it; any other command
-    gets an empty frame, so check_key finds no repeats.
-    """
-
-    def __init__(self, t: Table) -> None:
-        self.table = t
-        self.sent = []
-
-    def __call__(self, text: str) -> pd.DataFrame:
-        self.sent.append(text)
-        if text.startswith("DESCRIBE"):
-            return describe_frame(self.table)
-        return pd.DataFrame()
-
-
-def describe_frame(t: Table) -> pd.DataFrame:
-    """What Hive's DESCRIBE lists for a Table reference: its columns, then its partition
-    columns, in order."""
-    rows = [(name, kind, "") for name, kind in t._columns.items()]
-    if t._partitioned_by:
-        rows += [("", None, None), ("# Partition Information", None, None),
-                 ("# col_name", "data_type", "comment"),
-                 *[(column, t._columns[column], "") for column in t._partitioned_by]]
-    return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-
-
 def warehouse_text(t: Table) -> str:
-    """The commands write_table_reference, check_table_reference and check_key send for `t`."""
+    """The commands write_table_reference, check_table_reference and check_key send for `t`,
+    each through a stand-in warehouse holding the table, which keeps them; any query but
+    DESCRIBE gives back nothing, so check_key's is refused for its answer's lack of columns."""
     lines = [CASE_MARK + f"warehouse:{t._name}"]
     helpers = [("write_table_reference", _write_table_reference),
                ("check_table_reference", sqlglot_composer.check_table_reference),
                ("check_key", _check_key)]
     with gallery.example_setting():
         for name, helper in helpers:
-            query = Recording(t)
+            query = StandIn(t)
             try:
                 helper(t, query=query)
             except REFUSAL_TYPES as error:
@@ -295,12 +268,12 @@ def warehouse_text(t: Table) -> str:
     return "\n".join(lines + [""])
 
 
-def _check_key(t: Table, *, query: Recording) -> None:
+def _check_key(t: Table, *, query: StandIn) -> None:
     """check_key, reading every Partition of a partitioned table, which picks none itself."""
     sqlglot_composer.check_key(t, query=query, reads_all_partitions=bool(t._partitioned_by))
 
 
-def _write_table_reference(t: Table, *, query: Recording) -> None:
+def _write_table_reference(t: Table, *, query: StandIn) -> None:
     """write_table_reference, in a folder of its own, so its file never meets another."""
     with tempfile.TemporaryDirectory() as folder, contextlib.chdir(folder):
         sqlglot_composer.write_table_reference(t._name, query=query)
