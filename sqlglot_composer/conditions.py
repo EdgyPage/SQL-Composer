@@ -92,7 +92,7 @@ def _no_combining(symbol: str, instead: str) -> NoReturn:
     )
 
 
-def need_column(column: object, call: str) -> Column:
+def _need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
         return column
     fix = ("Pass the column as an attribute of its Table reference, such as "
@@ -131,7 +131,7 @@ def _compare(name: str, kind: str, column: object, value: object,
     """A comparison of a column with one value. `bounds` says whether it holds the column to
     some values, as at_least(...) does and not_equals(...) doesn't."""
     call = f"{name}({python_text(column)}, ...)"
-    column = need_column(column, call)
+    column = _need_column(column, call)
     if value is None:
         guard_none_in_condition(f"{name}({python_text(column)}, None)")
     tree = Node(kind, this=column._tree.copy(),
@@ -221,7 +221,7 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
     Statement reads.
     """
     call = f"between({python_text(column)}, ...)"
-    column = need_column(column, call)
+    column = _need_column(column, call)
     if low is None or high is None:
         guard_none_in_condition(f"between({python_text(column)}, {low!r}, {high!r})")
     tree = Node(
@@ -263,7 +263,7 @@ def last_n_days(column: Column, n: int) -> Condition:
     is yesterday. It works on any column of dates, a partition column or not.
     """
     call = f"last_n_days({python_text(column)}, {n!r})"
-    column = need_column(column, call)
+    column = _need_column(column, call)
     if isinstance(n, bool) or not isinstance(n, int) or n < 1:
         refuse(
             what=f"{call}: n must be a whole number of days, 1 or more.",
@@ -314,7 +314,7 @@ def _values(values: object, call: str) -> list[object]:
 
 def _in(name: str, column: object, values: object, negated: bool) -> Condition:
     call = f"{name}({python_text(column)}, ...)"
-    column = need_column(column, call)
+    column = _need_column(column, call)
     values = _values(values, call)
     if any(value is None for value in values):
         guard_none_in_condition(f"{name}({python_text(column)}, [..., None, ...])")
@@ -356,7 +356,7 @@ def is_null(column: Column) -> Condition:
     >>> is_null(job_runs.status)
     job_runs.status IS NULL
     """
-    column = need_column(column, "is_null(...)")
+    column = _need_column(column, "is_null(...)")
     tree = Node("Is", this=column._tree.copy(), expression=Node("Null"))
     # A table's row with no match has NULL in every column, so is_null of one keeps it.
     keeps = frozenset([column._tree.table]) if column._tree.kind == "Column" else frozenset()
@@ -369,7 +369,7 @@ def is_not_null(column: Column) -> Condition:
     >>> is_not_null(job_runs.status)
     NOT job_runs.status IS NULL
     """
-    column = need_column(column, "is_not_null(...)")
+    column = _need_column(column, "is_not_null(...)")
     tree = Node("Not", this=Node("Is", this=column._tree.copy(), expression=Node("Null")))
     return Condition(made_by(tree, "is_not_null", column))
 
@@ -377,7 +377,7 @@ def is_not_null(column: Column) -> Condition:
 def _like(name: str, column: object, text: object,
           pattern: Callable[[str], str]) -> Condition:
     call = f"{name}({python_text(column)}, {text!r})"
-    column = need_column(column, call)
+    column = _need_column(column, call)
     if not isinstance(text, str):
         refuse(
             what=f"{call} needs a string to look for.",

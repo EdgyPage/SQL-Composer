@@ -35,8 +35,9 @@ EXAMPLES = doctest.DocTestParser()
 # TOOLBOX_VERSION by its text, and Python reads __all__.
 READ_BY_NAME = {"TOOLBOX_VERSION", "__all__"}
 
-# Defined and used nowhere, each to go with ticket 16 of .scratch/toolbox-7/map.md. The test
-# fails on a name missing from here, and on a name here that is used again or gone.
+# Defined and used nowhere: empty since ticket 16 of .scratch/toolbox-7/map.md. A name listed
+# here needs a reason it stays; the test fails on one not listed, and on one listed that is used
+# again or gone.
 KNOWN_DEAD: set[tuple[str, str]] = set()
 
 # Private names one file reaches in another, each for a reason. A new one fails the test;
@@ -58,7 +59,8 @@ PRIVATE_SEAMS = {
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",
 }
 
-# Keywords of a public function nothing passes yet: each wants a test (ticket 16).
+# Keywords of a public function nothing passes: empty since ticket 16 added
+# tests/test_opt_outs.py. A keyword added later wants a test, not a place here.
 UNTESTED_KEYWORDS: set[tuple[str, str]] = set()
 
 
@@ -236,7 +238,7 @@ def _reached(node: ast.AST, aliases: dict[str, set[str]]) -> Iterator[tuple[str,
     elif (isinstance(node, ast.Call) and len(node.args) >= 2
           and isinstance(node.args[0], ast.Name) and node.args[0].id in aliases
           and isinstance(node.args[1], ast.Constant)):
-        # mock.patch.object(lineage, "_now", ...), monkeypatch.setattr(...)
+        # mock.patch.object(unchecked, "now", ...), monkeypatch.setattr(...)
         yield from ((owner, node.args[1].value) for owner in aliases[node.args[0].id])
 
 
