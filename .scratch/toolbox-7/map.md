@@ -133,6 +133,9 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 - [02 query and execute replace send](issues/02-query-and-execute-replace-send.md)
 - [03 Tables have no days](issues/03-tables-have-no-days.md)
 - [04 The Example database, the Templates and the Example projects](issues/04-the-example-database-the-templates-and-the-example-projects.md)
+- [04 The Example database, the Templates and the Example projects](issues/04-the-example-database-the-templates-and-the-example-projects.md):
+  nine tables of three kinds; Templates saved_table and quality_checks (READS, PARTITION_COLUMN);
+  Example projects rebuilt; the Starter notebooks to follow the Template plainly (ticket 07).
 - [05 Databases and the text of a table](issues/05-databases-and-the-text-of-a-table.md)
 - [06 new_block and check_references](issues/06-new-block-and-check-references.md)
 - [07 The docs rework](issues/07-the-docs-rework.md)

@@ -76,3 +76,19 @@ then the Intermediate how-tos.
 - CLAUDE.md's Definition of done. The beginner reader runs on the README, every Getting started
   how-to and the Starter Example project, read in order as one story. Its report is linked from
   this ticket.
+
+## Inputs from the reviews of 03 to 08 (2026-10-21)
+
+- Starter project: one Table notebook is the saved_table Template filled in and nothing else,
+  and the others use READS as the Template does (none uses a DAY the Template hasn't); a
+  filled-in notebook and its Table reference shown side by side; what to give `<LOCATION>`.
+- Show `from references import ops` in use: a Statement and an f-string with
+  `ops.job_runs.status`; say when the per-file import is needed (Aliases).
+- Show a Guard, a Warning and the Load limit on ops.region_budgets and ops.team_notes.
+- How-tos 10 and 12: a Key names a row of the table, not of a day; the partition column goes
+  anywhere in SELECT, the Toolbox puts it last; the days wording throughout.
+- How-to 26 and others: no "each write is a function of the day it writes".
+- How-to 41 / a Python step in a Table notebook: show the notebook (write() giving the step,
+  the cell that pulls, changes and saves), and that tables written after it read what it held.
+- The README's description of the intermediate project.
+
