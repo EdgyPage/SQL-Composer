@@ -41,6 +41,7 @@ from sqlglot_composer import (
     example_database,
     notebooks,
     project,
+    project_files,
     run_query,
     set_admin_log,
     statement,
@@ -161,9 +162,8 @@ def test_each_building_block_was_made_by_new_block(name: str) -> None:
     for block in blocks:
         assert (f'- Call: `project.new_block("{block}")`\n'
                 f"- Files: created building_blocks/{block}.py\n") in log
-    with open(root / "admin" / "registry.csv", encoding="utf-8", newline="") as rows:
-        assert sorted(row["table"] for row in csv.DictReader(rows)
-                      if row["kind"] == "building_block") == blocks
+    registry = project_files.Registry(root)
+    assert sorted(registry.in_force(project_files.BUILDING_BLOCK)) == blocks
     readme = " ".join((root / "README.md").read_text(encoding="utf-8").split())
     assert "project.new_block(" in readme
     assert "written by hand: no Project action" not in readme
