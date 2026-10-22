@@ -220,6 +220,8 @@ Toolbox files and 198 times in 23 test files.
   compute_statistics refuses what a write refuses.
 - [15 Usage tests and a ranking](issues/15-usage-tests-and-a-ranking.md): test_dead_code's three
   lists; usage_report's call counts and unreached lines; cleanup-ranking.md orders 16 and 17.
+- [16 Dead and stale code out](issues/16-dead-and-stale-code-out.md): dead names and branches out,
+  the 7.0-only refusals out, one clock, one and_parts, nine underscores off, opt-outs tested.
 
 ## Not yet specified
 
