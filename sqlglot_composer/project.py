@@ -542,7 +542,7 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
         if not registry.listed(REFERENCE, name):
             rows.append(REFERENCE)
         report.append(f"Wrote {reference_shown}: fill in its <...> and TODO lines.")
-    registry.list_it(rows, name, _now())
+    registry.add([(kind, name) for kind in rows], _now())
     changed, said = _write_databases(root)
     _log(root, call, [name], made + changed, frame)
     return ProjectReport(report + said)
@@ -643,8 +643,9 @@ def _remove(root: Path, kind: FileKind, name: str, call: str,
              frame)
         return ProjectReport([f"{shown} wasn't there, so only its registry row is marked "
                               "removed."])
-    moved = kind.archive(root, stem, _now())
-    registry.mark_removed(kind, name, _now())
+    now = _now()
+    moved = kind.archive(root, stem, now)
+    registry.mark_removed(kind, name, now)
     changed, said = _write_databases(root) if kind.writes_databases else ([], [])
     _log(root, call, [name], [f"moved {shown} to {moved}", *changed], frame)
     return ProjectReport([f"Moved {shown} to {moved}.", *said])
@@ -712,7 +713,7 @@ def new_block(name: str) -> ProjectReport:
     # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
     fills = {"<BLOCK>": name, "<BLOCK_NAME>": f'"{name}"'}
     path.write_text(_filled(template.read_text(encoding="utf-8"), fills), encoding="utf-8")
-    registry.list_it([BUILDING_BLOCK], name, _now())
+    registry.add([(BUILDING_BLOCK, name)], _now())
     _log(root, call, [], [f"created {shown}"], frame)
     return ProjectReport([f"Wrote {shown}, from admin/templates/{BLOCK_TEMPLATE}.py:",
                           "fill in its <...> and TODO lines."])
@@ -842,7 +843,7 @@ def add_references(names: list[str],
             fix='Write it as a list, such as project.add_references(["ops.jobs"], query=query).',
             error=ValueError,
         )
-    files, said = [], []
+    files, said, listed = [], [], []
     registry = Registry(root)
     for name in names:
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name) or "." not in name:
@@ -861,7 +862,8 @@ def add_references(names: list[str],
             continue
         files.append(file)
         if not registry.listed(REFERENCE, name):
-            registry.list_it([REFERENCE], name, _now())
+            listed.append((REFERENCE, name))
+    registry.add(listed, _now())
     result = "worked" if not said else (
         f"{len(files)} of {len(names)} written; SkippedTables named the rest, above")
     changed, databases = _write_databases(root)
@@ -955,8 +957,9 @@ def register(name: str) -> ProjectReport:
             "adopts each.",
             error=ValueError,
         )
-    registry.list_it(adopted, name, _now())
-    changed, said = _write_databases(root) if tables else ([], [])
+    registry.add([(kind, name) for kind in adopted], _now())
+    changed, said = (_write_databases(root) if any(kind.writes_databases for kind in adopted)
+                     else ([], []))
     _log(root, call, tables, [f"registered {kind.shown(stem)}" for kind in adopted] + changed,
          frame)
     return ProjectReport([f"Registered {' and '.join(kind.shown(stem) for kind in adopted)}.",
@@ -1249,12 +1252,12 @@ def _database_name_problem(root: Path, database: str) -> str | None:
     if database.startswith("__") and database.endswith("__"):
         return (f"{database} starts and ends with two underscores, as the names Python keeps "
                 "for itself do")
-    module = root / "references" / f"{database}.py"
+    module = root / REFERENCE.folder / f"{database}.py"
     if module.exists() and not is_database_module(module):
-        return (f"references/{database}.py is a file of yours, which the Project actions never "
+        return (f"{REFERENCE.folder}/{database}.py is a file of yours, which the Project actions never "
                 "write over")
-    if (root / "references" / database).exists():
-        return (f"references/{database}/ is a folder of yours, which Python would import in "
+    if (root / REFERENCE.folder / database).exists():
+        return (f"{REFERENCE.folder}/{database}/ is a folder of yours, which Python would import in "
                 "its place")
     return None
 
@@ -1313,7 +1316,7 @@ def _write_databases(root: Path) -> tuple[list[str], list[str]]:
                         f"{problem}. Import each of its tables from its own file instead, such "
                         f"as {example}.")
             continue
-        module = root / "references" / f"{database}.py"
+        module = root / REFERENCE.folder / f"{database}.py"
         text = _database_text(database, tables)
         if module.is_file() and module.read_text(encoding="utf-8") == text:
             continue
@@ -1340,10 +1343,10 @@ def _remove_databases(root: Path, databases: set[str], changed: list[str],
                       said: list[str]) -> None:
     """Remove each Database module in references/ whose Database no Table reference names
     any more, adding to what changed, for the Admin log, and to the action's report."""
-    for module in sorted((root / "references").glob("*.py")):
+    for module in sorted((root / REFERENCE.folder).glob("*.py")):
         if is_database_module(module) and module.stem not in databases:
             module.unlink()
-            changed.append(f"removed references/{module.name}")
+            changed.append(f"removed {REFERENCE.folder}/{module.name}")
             said.append(f"Removed references/{module.name}, since no Table reference left "
                         f"names the Database {module.stem}.")
 

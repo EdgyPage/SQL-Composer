@@ -8,7 +8,8 @@ mart.daily_job_runs, and a Building block's for its own name, such as runs_per_j
 would be one more entry in KINDS.
 
 The registry, admin/registry.csv, is read here and nowhere else: a Project action reads it once,
-as a Registry, asks it what it lists, and has each row it adds or marks removed written at once.
+as a Registry, asks it what it lists, and has the rows it adds, or marks removed, written at
+once.
 """
 
 from __future__ import annotations
@@ -75,11 +76,15 @@ class FileKind(NamedTuple):
 
     def found(self, root: Path) -> list[str]:
         """The stem of each one of this kind on disk in the Project at `root`, in order: each
-        folder in its folder, or each .py file but __init__.py and the Database modules."""
+        folder in its folder, or each .py file but __init__.py, and in references/ but the
+        Database modules."""
         if self.is_folder:
             return sorted(path.name for path in (root / self.folder).iterdir()
                           if path.is_dir())
-        return [path.stem for path in _python_files(root / self.folder)]
+        if self is REFERENCE:
+            return [path.stem for path in table_references(root)]
+        return sorted(path.stem for path in (root / self.folder).glob("*.py")
+                      if path.name != "__init__.py")
 
     def archive(self, root: Path, stem: str, when: datetime.datetime) -> str:
         """Move it into admin/removed/, named by `when`, such as
@@ -136,14 +141,9 @@ def is_database_module(path: Path) -> bool:
 
 
 def table_references(root: Path) -> list[Path]:
-    """Every file in references/ but the Database modules: the Table references, and any
-    other file of yours there."""
-    return _python_files(root / REFERENCE.folder)
-
-
-def _python_files(folder: Path) -> list[Path]:
-    """Each .py file in `folder`, in order, but __init__.py and a Database module."""
-    return sorted(path for path in folder.glob("*.py")
+    """Every .py file in references/ but __init__.py and the Database modules: the Table
+    references, and any other file of yours there."""
+    return sorted(path for path in (root / REFERENCE.folder).glob("*.py")
                   if path.name != "__init__.py" and not is_database_module(path))
 
 
@@ -157,7 +157,7 @@ def start_registry(root: Path) -> None:
 
 class Registry:
     """The registry of the Project at `root`, read once: its rows, oldest first, each a dict
-    of the registry's columns. Each row it adds or marks removed is written at once."""
+    of the registry's columns. The rows it adds, or marks removed, are written at once."""
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -173,11 +173,14 @@ class Registry:
         """Whether it lists `kind` for `name`, not marked removed."""
         return name in self.in_force(kind)
 
-    def list_it(self, kinds: list[FileKind], name: str, when: datetime.datetime) -> None:
-        """Add a row for each of `kinds` of `name`, made at `when`, and write the registry."""
+    def add(self, listed: list[tuple[FileKind, str]], when: datetime.datetime) -> None:
+        """Add a row for each (kind, name) in `listed`, made at `when`, and write the
+        registry once."""
+        if not listed:
+            return
         made = f"{when:%Y-%m-%d %H:%M:%S}"
         self.rows += [{"kind": kind.kind, "table": name, "created_at": made, "removed_at": ""}
-                      for kind in kinds]
+                      for kind, name in listed]
         _write(self.root, self.rows)
 
     def mark_removed(self, kind: FileKind, name: str, when: datetime.datetime) -> None:

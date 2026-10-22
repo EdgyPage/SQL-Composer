@@ -114,6 +114,14 @@ def test_each_kind_is_found_on_disk(root: Path) -> None:
     assert not project_files.is_database_module(root / "references" / "ops__jobs.py")
 
 
+def test_only_references_leave_a_database_module_out(root: Path) -> None:
+    """A Database module is written only into references/: a file in building_blocks/ whose
+    first line looks like one is still a Building block, as check() found it before."""
+    (root / "building_blocks" / "ops.py").write_text(
+        f'"""ops{project_files.DATABASE_TITLE}\n"""\n', encoding="utf-8")
+    assert BUILDING_BLOCK.found(root) == ["ops"]
+
+
 @pytest.mark.parametrize(("kind", "stem", "moved"), [
     (TABLE_FOLDER, "mart__daily_job_runs", "admin/removed/20261021-093000-mart__daily_job_runs/"),
     (REFERENCE, "ops__jobs", "admin/removed/20261021-093000-ops__jobs.py"),
@@ -142,8 +150,8 @@ def test_a_new_registry_has_only_its_header(root: Path) -> None:
 
 def test_the_registry_lists_marks_removed_and_gives_the_rows_in_force(root: Path) -> None:
     registry = Registry(root)
-    registry.list_it([TABLE_FOLDER, REFERENCE], "mart.daily_job_runs", NOW)
-    registry.list_it([BUILDING_BLOCK], "runs_per_job", NOW)
+    registry.add([(TABLE_FOLDER, "mart.daily_job_runs"), (REFERENCE, "mart.daily_job_runs")], NOW)
+    registry.add([(BUILDING_BLOCK, "runs_per_job")], NOW)
     assert registry.listed(TABLE_FOLDER, "mart.daily_job_runs")
     assert not registry.listed(BUILDING_BLOCK, "mart.daily_job_runs")
     registry.mark_removed(TABLE_FOLDER, "mart.daily_job_runs", LATER)
@@ -171,8 +179,8 @@ def test_marking_removed_what_the_registry_doesnt_list_changes_nothing(root: Pat
 
 def test_a_name_listed_again_after_its_removal_is_in_force_once(root: Path) -> None:
     registry = Registry(root)
-    registry.list_it([REFERENCE], "ops.jobs", NOW)
+    registry.add([(REFERENCE, "ops.jobs")], NOW)
     registry.mark_removed(REFERENCE, "ops.jobs", NOW)
-    registry.list_it([REFERENCE], "ops.jobs", LATER)
+    registry.add([(REFERENCE, "ops.jobs")], LATER)
     assert registry.in_force(REFERENCE) == ["ops.jobs"]
     assert [row["removed_at"] for row in Registry(root).rows] == ["2026-10-21 09:30:00", ""]
