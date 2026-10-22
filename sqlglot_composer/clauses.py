@@ -43,7 +43,15 @@ from .refusals import (
     refuse_what_another_folder_made,
     warning_repeated_rows,
 )
-from .tables import Column, Table, aliased, literal, need_saved_table, python_text
+from .tables import (
+    Column,
+    NamedPartitions,
+    Table,
+    aliased,
+    need_saved_table,
+    partitions_named,
+    python_text,
+)
 from .trees import SIMPLE_NAME, Node, has_aggregate, has_window, is_aggregate
 from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
@@ -84,7 +92,7 @@ class Clause:
                  group_columns: list[Column | str | Subtotals] | None = None,
                  sort_keys: list[Node] | None = None, sorts_everything: bool = False,
                  n: int | None = None, unproven_key: bool = False,
-                 partition: dict[str, Node] | None = None, broadcast: bool = False) -> None:
+                 partition: NamedPartitions | None = None, broadcast: bool = False) -> None:
         self._name = name  # the clause function's name: "SELECT", "LEFT_JOIN", ...
         # SELECT and SELECT_DISTINCT: the (column, output name) pairs, and whether DISTINCT.
         self.outputs = outputs
@@ -97,9 +105,8 @@ class Clause:
         self.keeps_only_matches = keeps_only_matches
         self.broadcast = broadcast  # a join's ask that Hive copy its table to every worker
         self.unproven_key = unproven_key  # the writes' opt-out of the Key check
-        # The writes' partition={...}: each partition column it names, in the table's order,
-        # with its value as a Hive literal.
-        self.partition = partition or {}
+        # The writes' partition={...}, checked: partitions_named(...)'s answer.
+        self.partition = partition
         # WHERE and HAVING: the conditions. GROUP_BY: its columns and output names.
         self.conditions = conditions
         self.group_columns = group_columns
@@ -183,9 +190,9 @@ class Statement:
         self._write = None  # the Saved table an INSERT_OVERWRITE or INSERT_INTO writes
         self._write_call = None  # how that write was called, for messages
         self._replaces_rows = False  # True for INSERT_OVERWRITE, False for INSERT_INTO
-        # The write's partition={...}: each partition column it names, with its value as Hive
-        # text, such as {"region": "'EU'"}; empty when it names none.
-        self._static_partitions = {}
+        # The write's Partitions, partitions_named(...)'s answer: the PARTITION(...) it writes,
+        # and the partition columns its partition={...} names, each with its value as Hive text.
+        self._partitions = None
         self._unproven_key = False  # the write's opt-out of the Key check
         self._outputs = []  # SELECT's (column, output name) pairs
         self._distinct = False  # whether it is SELECT_DISTINCT
@@ -893,6 +900,11 @@ def LIMIT(n: int) -> Clause:
     return Clause("LIMIT", n=n)
 
 
+# What a write does with a partition column its partition= doesn't name, for the refusals.
+_WRITE_LEAVES_OUT = ("the write fills each partition column it doesn't name from the rows' "
+                     "own values")
+
+
 def _write_clause(call: str, table: object, unproven_key: object,
                   partition: object) -> Clause:
     """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
@@ -918,72 +930,7 @@ def _write_clause(call: str, table: object, unproven_key: object,
     # the rows, or the Partitions, the write replaces.
     need_saved_table(table, f"{call}({table._alias})")
     return Clause(call, table=table, unproven_key=unproven_key,
-                  partition=_static_partition(call, table, partition))
-
-
-def _static_partition(call: str, table: Table, partition: object) -> dict[str, Node]:
-    """A write's partition={...}, checked: each column it names a partition column of the
-    table, together the first ones of its partitioned_by, each with one value. They come back
-    in the table's order, each value a Hive literal."""
-    if partition is None:
-        return {}
-    columns = table._partitioned_by
-    written = f"{call}({table._alias}, partition={partition!r})"
-    example = f'{call}({table._alias}, partition={{"{columns[0] if columns else "dt"}": ...}})'
-    if not isinstance(partition, dict) or not partition:
-        refuse(
-            what=f"{written}: partition= is a dict of partition columns and their values.",
-            why="It names the Partition the write fills: each partition column it names, with "
-            "the one value the write gives it.",
-            fix=f"Write it like {example}, or leave it out to fill every partition column from "
-            "the rows.",
-            given=partition, call=call,
-        )
-    if not columns:
-        refuse(
-            what=f"{call}({table._alias}, partition=...): {table._name} isn't partitioned.",
-            why="partition= names values of a table's partition columns, and its Table "
-            "reference has no partitioned_by=.",
-            fix="Leave partition= out: the write fills the whole table.",
-            error=ValueError,
-        )
-    unknown = [name for name in partition if name not in columns]
-    if unknown:
-        refuse(
-            what=f"{call}({table._alias}, partition=...) names {', '.join(map(repr, unknown))}, "
-            f"which isn't a partition column of {table._name}.",
-            why="partition= gives values only to the columns the table is partitioned by.",
-            fix=f"Name its partition columns, in its partitioned_by: {', '.join(columns)}.",
-            error=ValueError,
-        )
-    first = columns[:len(partition)]
-    skipped = [name for name in first if name not in partition]
-    if skipped:
-        refuse(
-            what=f"{call}({table._alias}, partition=...) names {', '.join(partition)}, but not "
-            f"{', '.join(skipped)}, which comes before it in {table._name}'s partitioned_by "
-            f"({', '.join(columns)}).",
-            why="Hive takes the partition columns in order: the ones the write names first, "
-            "then the ones it fills from the rows. A column named after one left out can't be.",
-            fix=f"Name {', '.join(skipped)} too, or leave out the ones after it, to fill them "
-            "from the rows.",
-            error=ValueError,
-        )
-    values = {}
-    for name in first:
-        value = partition[name]
-        if value is None or isinstance(value, Column):
-            refuse(
-                what=f"{call}({table._alias}, partition=...) gives {name} {python_text(value)}.",
-                why="partition= names the one value each of its columns has in every row the "
-                "write fills, written into the Hive as it is.",
-                fix=f"Give {name} a value, such as a string or a number, or leave {name} out to "
-                "fill it from each row's own value.",
-                error=ValueError,
-            )
-        values[name] = literal(value, call=f"{call}({table._alias}, partition=...)",
-                               column=table._column(name), position=f"the value of {name}")
-    return values
+                  partition=partitions_named(table, partition, call, _WRITE_LEAVES_OUT))
 
 
 def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
@@ -1215,8 +1162,7 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     # How the write was called, for messages: INSERT_INTO(daily_runs).
     s._write_call = f"{write._name}({write.table._alias})" if write else None
     s._replaces_rows = write is not None and write._name == "INSERT_OVERWRITE"
-    s._static_partitions = {name: hive_text(value)
-                            for name, value in write.partition.items()} if write else {}
+    s._partitions = write.partition if write else None
     s._unproven_key = write is not None and write.unproven_key
     select = by_place["SELECT"]
     s._outputs, s._distinct = select.outputs, select.distinct
@@ -1361,7 +1307,7 @@ def _run_guards(s: Statement) -> None:
                 guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
     if kinds.kind(s) == kinds.WRITE:
         table = s._write
-        expected = [c for c in table._columns if c not in s._static_partitions]
+        expected = [c for c in table._columns if c not in s._partitions.values]
         names = [name for _, name in s._outputs]
         missing = [c for c in expected if c not in names]
         extra = [n for n in names if n not in expected]

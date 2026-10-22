@@ -113,7 +113,7 @@ def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
         # The table's columns in its order, then the partition columns its rows fill, which
         # Hive fills from the last columns; partition={...} gives the others their values.
         partitioned_by = s._write._partitioned_by
-        later = [column for column in partitioned_by if column not in s._static_partitions]
+        later = [column for column in partitioned_by if column not in s._partitions.values]
         # A write's own order wins over `order`: a write is never stacked.
         order = [column for column in s._write._columns if column not in partitioned_by] + later
     if order is not None:
@@ -169,31 +169,13 @@ def statements_within(s: Statement) -> list[Statement]:
             for part in stack_steps(step)]
 
 
-def partition_node(table: Table, static: dict[str, Node]) -> Node | None:
-    """PARTITION(region = 'EU', dt): each partition column `static` names, with its value as a
-    Hive literal, then the others by name alone, for every value they hold; None for a table
-    that isn't partitioned."""
-    if not table._partitioned_by:
-        return None
-    return Node("Partition", expressions=[
-        Node("EQ", this=Node("Column", name=column), expression=static[column].copy())
-        if column in static else Node("Column", name=column)
-        for column in table._partitioned_by])
-
-
-def _the_write(s: Statement) -> Clause:
-    """The INSERT_OVERWRITE or INSERT_INTO clause of a write."""
-    return next(clause for clause in s._clauses if clause._place() == "INSERT")
-
-
 def _write_tree(s: Statement) -> Node:
     """INSERT OVERWRITE or INSERT INTO the Saved table, then its SELECT: into the Partitions
     its rows fill, and those partition={...} names, or the whole of a table that isn't
     partitioned."""
-    table = s._write
-    partition = partition_node(table, _the_write(s).partition)
-    return Node("Insert", target=table_node(table._name, partition=partition),
-                select=_select_tree(s), overwrite=s._replaces_rows)
+    partition = s._partitions.tree
+    target = table_node(s._write._name, partition=None if partition is None else partition.copy())
+    return Node("Insert", target=target, select=_select_tree(s), overwrite=s._replaces_rows)
 
 
 def _statement_tree(s: Statement) -> Node:
@@ -331,7 +313,7 @@ def settings_needed(s: Statement) -> list[str]:
     if kinds.kind(s) != kinds.WRITE:
         return []
     filled = ", ".join(column for column in s._write._partitioned_by
-                       if column not in s._static_partitions)
+                       if column not in s._partitions.values)
     if not filled:
         return []
     return [f'-- The Session setting "dynamic_partitions": this write fills {filled} from its '

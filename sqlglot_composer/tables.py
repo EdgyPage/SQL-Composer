@@ -1780,6 +1780,105 @@ def partition_columns(t: Table) -> list[str]:
     return list(t._partitioned_by)
 
 
+class NamedPartitions:
+    """The Partitions a call names on a Saved table, with partition={...}, as partitions_named
+    gives them back.
+
+    `tree` is PARTITION(region = 'EU', dt): each partition column, with its value where
+    partition= names one and by its name alone where it doesn't, or None for a table that
+    isn't partitioned. `values` holds each partition column partition= names, in the table's
+    order, with its value as Hive text, such as {"region": "'EU'"}; empty when it names none.
+    """
+
+    def __init__(self, tree: Node | None, values: dict[str, str]) -> None:
+        self.tree = tree
+        self.values = values
+
+
+def partitions_named(t: Table, partition: object = None, call: str = "",
+                     left_out: str = "") -> NamedPartitions:
+    """The one check of partition={...}, which a write and compute_statistics both take: each
+    name a partition column of `t`, together the first of its partitioned_by, each with one
+    value. None, or leaving it out, names no Partition, so each partition column is by its name
+    alone. `call` and `left_out` word the refusals: the function given partition=, such as
+    "INSERT_OVERWRITE", and what it does with a partition column partition= doesn't name."""
+    columns = t._partitioned_by
+    if partition is None:
+        named = {}
+    else:
+        named = _checked_partition(t, partition, call, left_out)
+    values = {name: hive_text(value) for name, value in named.items()}
+    if not columns:
+        return NamedPartitions(None, values)
+    return NamedPartitions(Node("Partition", expressions=[
+        Node("EQ", this=Node("Column", name=column), expression=named[column])
+        if column in named else Node("Column", name=column)
+        for column in columns]), values)
+
+
+def _checked_partition(t: Table, partition: object, call: str, left_out: str
+                       ) -> dict[str, Node]:
+    """partitions_named's checks of a partition= that was given: each column it names, in
+    partitioned_by order, with its value as a Hive literal."""
+    columns = t._partitioned_by
+    example = f'{call}({t._alias}, partition={{"{columns[0] if columns else "dt"}": ...}})'
+    if not isinstance(partition, dict) or not partition:
+        refuse(
+            what=f"{call}({t._alias}, partition={python_text(partition)}): partition= is a dict "
+            "of partition columns and their values.",
+            why="It names Partitions by their partition columns: each column it names, with "
+            "one value of it.",
+            fix=f"Write it like {example}, or leave partition= out: {left_out}.",
+            given=partition, call=call,
+        )
+    if not columns:
+        refuse(
+            what=f"{call}({t._alias}, partition=...): {t._name} isn't partitioned.",
+            why="partition= names values of a table's partition columns, and its Table "
+            "reference has no partitioned_by=.",
+            fix=f"Leave partition= out, as in {call}({t._alias}): the table is one whole, with "
+            "no Partitions to name.",
+            error=ValueError,
+        )
+    unknown = [name for name in partition if name not in columns]
+    if unknown:
+        refuse(
+            what=f"{call}({t._alias}, partition=...) names {', '.join(map(repr, unknown))}, "
+            f"which isn't a partition column of {t._name}.",
+            why="partition= gives values only to the columns the table is partitioned by.",
+            fix=f"Name its partition columns, in its partitioned_by: {', '.join(columns)}.",
+            error=ValueError,
+        )
+    first = columns[:len(partition)]
+    skipped = [name for name in first if name not in partition]
+    if skipped:
+        refuse(
+            what=f"{call}({t._alias}, partition=...) names {', '.join(partition)}, but not "
+            f"{', '.join(skipped)}, which comes before it in {t._name}'s partitioned_by "
+            f"({', '.join(columns)}).",
+            why="Hive takes the partition columns in order: the ones partition= names first, "
+            "then the others by name alone. A column named after one left out can't be.",
+            fix=f"Name {', '.join(skipped)} too, or leave out the ones after it: {left_out}.",
+            error=ValueError,
+        )
+    named = {}
+    for name in first:
+        value = partition[name]
+        if value is None or isinstance(value, Column):
+            refuse(
+                what=f"{call}({t._alias}, partition=...) gives {name} {python_text(value)}.",
+                why="partition= names one value of each column it gives, written into the Hive "
+                "as it is.",
+                fix=f"Give {name} a value, such as a string or a number, or leave {name} out: "
+                f"{left_out}.",
+                error=ValueError,
+            )
+        named[name] = literal(value, call=f"{call}({t._alias}, partition=...)",
+                              column=t._column(name), position=f"the value of {name}",
+                              in_condition=False)
+    return named
+
+
 # Types people often write for one create_table takes, and the one to write instead.
 _NEAREST_TYPE = {
     "integer": "int", "long": "bigint", "short": "smallint", "byte": "tinyint", "real": "float",
