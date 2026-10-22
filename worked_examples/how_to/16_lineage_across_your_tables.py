@@ -47,8 +47,9 @@ Wrote references/ops__job_runs.py: fill in its TODO lines.
 ...     variable = name.split(".")[1]
 ...     Path(f"references/{stem}.py").write_text(
 ...         "from sqlglot_composer import Table\\n\\n"
-...         f"{variable} = Table({name!r}, columns={columns!r}, date_partition='dt',\\n"
-...         f"    key={key!r}, location='/data/your_team/tables')\\n", encoding="utf-8")
+...         f"{variable} = Table({name!r}, columns={columns!r}, partitioned_by=['dt'],\\n"
+...         f"    key={key!r}, location='/data/your_team/mart.db/{variable}')\\n",
+...         encoding="utf-8")
 ...     path = Path(f"tables/{stem}/{stem}.ipynb")
 ...     notebook = json.loads(path.read_text(encoding="utf-8"))
 ...     for cell in notebook["cells"]:
@@ -76,7 +77,7 @@ variable with a meaningful name first: the Lineage names each Statement after th
 that holds it, and one passed straight in is named statement_1.
 
 >>> daily_job_runs_logic = project.load("mart.daily_job_runs")
->>> write_daily_job_runs = daily_job_runs_logic.write_day("2026-09-24")
+>>> write_daily_job_runs = daily_job_runs_logic.write()
 >>> html_file, markdown_file = export_lineage(write_daily_job_runs)
 >>> markdown_file.relative_to(Path.cwd()).as_posix()
 'tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.md'
@@ -96,7 +97,7 @@ moves there first, as opening the notebook would:
 >>> import os
 >>> os.chdir("tables/mart__jobs_by_runs")
 >>> jobs_by_runs_logic = project.load("mart.jobs_by_runs")
->>> write_jobs_by_runs = jobs_by_runs_logic.write_day("2026-09-24")
+>>> write_jobs_by_runs = jobs_by_runs_logic.write()
 >>> html_file, markdown_file = export_lineage(write_daily_job_runs, write_jobs_by_runs)
 >>> markdown_file.name
 '20260925-090000-mart__jobs_by_runs.md'
@@ -111,8 +112,8 @@ has a section for each write. The second's first line says it reads mart.daily_j
 written by write_daily_job_runs above, so the tree of its `"jobs"` count goes on through the
 Saved table, back to `ops.job_runs`.
 
-In the notebook itself, cell 1 has already set DAY and cell 2 defined the table's own
-write_day, so cell 4 only loads the tables it reads. The starter Example project's
+In the notebook itself, cell 2 has already set DAY and defined the table's own write(), so
+cell 4 only loads the tables it reads. The starter Example project's
 mart.team_day notebook draws three tables this way.
 
 `project.load` works from any notebook of the Project: it finds the Project's folder by
@@ -176,6 +177,6 @@ the Project only reads has no write to draw: its columns show as the start of ea
   [Lineage of a pipeline across Saved tables](#lineage_of_a_pipeline_across_saved_tables).
 - Compare a table's Lineage before and after a change:
   [Review a change with Lineage](#review_a_change_with_lineage).
-- Write every table's day in that same order: [Add a Saved table](#add_a_saved_table).
+- Write every table in that same order: [Add a Saved table](#add_a_saved_table).
 - The gallery's [`export_lineage`](examples.html#export_lineage) entry.
 """

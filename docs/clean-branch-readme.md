@@ -7,7 +7,7 @@ SQL order, and the Toolbox writes the Hive string. It refuses a Statement that w
 give a wrong number, or read or return too much, and says what to change.
 
 This page is a tutorial: eight steps, from installing the Toolbox and starting a Project,
-through your tables' references, a Saved table written every day and the Lineage of each of its
+through your tables' references, a Saved table of your own and the Lineage of each of its
 columns, to keeping the Project in order. Most steps point to the how-to that walks through them
 in full, on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. What
 changed in each version, and how to update from it, is in `CHANGES.md`.
@@ -130,16 +130,15 @@ database's `jobs` and `job_runs`, so run this first to paste one into a notebook
 The examples take today as 2026-09-25, the day after the Example database's last day.
 `last_n_days(...)` counts back from your own today, so in a pasted example that uses it, write
 `between(...)` with the days the example's Hive shows in its place, such as
-`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows. `first_look(...)`
-reads your own yesterday too, so pasted, its Hive shows another day, and no rows.
+`between(job_runs.dt, "2026-09-23", "2026-09-24")`, to get the rows it shows.
 
 How-to: [Build a first Statement and paste its Hive](../sqlglot_composer/how_to.html#build_a_first_statement).
 
 ## 4. Your own tables
 
 A Statement reads your tables through their Table references: each table's columns, their
-types, its Date partition (the date column it is stored by, a day at a time) and its Key (the
-columns that name one row). `project.add_references(["your_db.your_table", ...], query=query)`
+types, its Partitions (the columns it is stored by, such as a day or a region) and its Key (the
+columns that name one row), where it has them. `project.add_references(["your_db.your_table", ...], query=query)`
 asks each table for its columns and writes its file into `references/`; you fill in what it
 can't know, and add Aliases, your own names for its columns and conditions. A notebook then
 imports one as `from references.your_db__your_table import your_table`.
@@ -158,16 +157,18 @@ How-tos: [Filter rows](../sqlglot_composer/how_to.html#filter_rows),
 [Guards, Warnings and opt-outs](../sqlglot_composer/how_to.html#guards_warnings_and_opt_outs)
 covers them all.
 
-## 6. Save a table, every day
+## 6. Save a table
 
-A Saved table is a table of yours that a Statement writes, a day at a time, so a number worked
-out once a day is read by everyone after. Hive can't change single rows of such a table, so the
-Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: a day is written again, whole, with
-`INSERT_OVERWRITE`, which replaces it, and old days go with `admin.drop_days`.
+A Saved table is a table of yours that a Statement writes, in a folder of its own, so a number
+worked out once is read by everyone after. Hive can't change single rows of such a table, so the
+Toolbox has no `UPDATE`, `DELETE`, `MERGE` or `TRUNCATE`: `INSERT_OVERWRITE` writes the
+Partitions its rows fill again, whole, replacing them, or the whole table when it has none, and
+old Partitions go with `admin.drop_partitions`.
 
 In a Project, `project.new_table("mart.your_table")` gives each Saved table a Table folder in
 `tables/`, holding its notebook, made from a Template, and writes its Table reference for you
-to fill in. `project.run_tables(day, query=query, execute=execute)` then writes a day of every
+to fill in. The notebook's logic defines `write()`, which takes nothing and gives the Statement
+that writes the table. `project.run_tables(query=query, execute=execute)` then writes every
 table, each after the tables it reads.
 
 How-tos: [Save a table](../sqlglot_composer/how_to.html#save_a_table),
@@ -304,7 +305,7 @@ They come as they are, with no warranty.
 Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
 lives in. Import every name from `sqlglot_composer` itself, never from a file inside it.
 Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
-`job_runs.duration_mins / 60`. The star import brings the 100 names listed here before the admin
+`job_runs.duration_mins / 60`. The star import brings the 99 names listed here before the admin
 module. Two modules' functions come last: the admin module's, which change your own Saved
 tables, and the project module's, which make and archive a Project's folders and files. The star
 import leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

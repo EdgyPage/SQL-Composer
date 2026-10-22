@@ -3,7 +3,8 @@
 `tools/hive_corpus.py` writes what the Toolbox shows for each of these, beside every docstring
 example and Worked example. They reach the corners the examples don't: where a pretty line
 wraps, brackets, Derived tables three deep, writes with and without them, every column type
-create_table may meet, awkward names, compact Date partitions, the upkeep Statements, and
+create_table may meet, awkward names, tables partitioned by a day written like 20260924, by a
+region or by a load, the upkeep Statements, and
 about 200 Statements built at random from the public names; and, apart from those, Session
 settings and Unchecked statements beside Statements. Each case is a function returning the Statements it builds;
 a case that a Guard or Load limit refuses is written as its refusal.
@@ -54,7 +55,6 @@ from sqlglot_composer import (
     at_most,
     average_of,
     between,
-    by_day,
     contains,
     count_distinct,
     compute_statistics,
@@ -107,63 +107,77 @@ from sqlglot_composer import admin
 
 DAY = "2026-09-24"
 FIRST_DAY = "2026-09-23"
-# The folder the corpus's Saved tables go in.
-BASE = "/data/your_team/tables"
+# A folder the corpus's Saved tables share in the warehouse, before admin.move_to_own_folder.
+SHARED = "/data/your_team/tables"
+
+
+def folder_of(name: str) -> str:
+    """A Saved table's own folder, as the user writes it in location=: mart.daily_runs's is
+    /data/your_team/mart.db/daily_runs. Each Saved table here has its own, since two can't
+    share one."""
+    database, table = name.split(".")
+    return f"/data/your_team/{database}.db/{table}"
+
 
 # --- Table references of the edge cases ---------------------------------------------------
 
 odd = Table(
     "ops.order",
     columns={"select": "string", "1st": "bigint", "two words": "string", "dt": "string"},
-    date_partition="dt",
-    location=BASE,
+    partitioned_by=["dt"],
+    location=folder_of("ops.order"),
 )
 """A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
 
 standard_words = Table(
     "ops.semi",
     columns={"any": "string", "minus": "bigint", "current_user": "string", "dt": "string"},
-    date_partition="dt",
-    location=BASE,
+    partitioned_by=["dt"],
+    location=folder_of("ops.semi"),
 )
 """A table whose name and columns are words the SQL standard reserves and Hive doesn't."""
 
 compact = Table(
     "ops.compact_runs",
     columns={"run_id": "bigint", "status": "string", "day": "string"},
-    date_partition="day",
-    date_format="%Y%m%d",
+    partitioned_by=["day"],
     key=["run_id"],
-    location=BASE,
+    location=folder_of("ops.compact_runs"),
 )
-"""A Date partition written as 20260924."""
+"""A table partitioned by a day written as 20260924, which is compared as it is written."""
 
 events = Table(
     "ops.events",
     columns={"event_id": "bigint", "at": "timestamp", "is_active": "boolean", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id"],
-    location=BASE,
+    location=folder_of("ops.events"),
 )
 """A timestamp column and a boolean one."""
 
 daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    date_partition="dt",
-    key=["job_id"],
-    location=BASE,
+    partitioned_by=["dt"],
+    key=["job_id", "dt"],
+    location=folder_of("mart.daily_runs"),
 )
-"""A Saved table, for the writes."""
+"""A Saved table, for the writes: one row per job and day."""
 
 region_runs = Table(
     "mart.region_runs",
     columns={"job_id": "bigint", "region": "string", "runs": "bigint", "dt": "string"},
-    date_partition="dt",
-    location=BASE,
-    partitioned_by=["region"],
+    partitioned_by=["dt", "region"],
+    location=folder_of("mart.region_runs"),
 )
-"""A Saved table with a Partition inside each day, filled from the rows of each write."""
+"""A Saved table partitioned by a day, then a region, and with no Key."""
+
+loads = Table(
+    "ops.loads",
+    columns={"row_id": "bigint", "region": "string", "load_id": "bigint", "amount": "double"},
+    partitioned_by=["region", "load_id"],
+)
+"""A table someone else owns, partitioned by a region, then a load, neither of them a day."""
 
 TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "real",
          "double precision", "decimal", "decimal(10,2)", "decimal(10, 2)", "numeric(5,1)",
@@ -174,10 +188,11 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
 
 EDGE_TABLES = {"odd": odd, "standard_words": standard_words, "compact": compact, "events": events,
                "daily_runs": daily_runs, "region_runs": region_runs}
+"""The edge cases' Saved tables, each created, repaired and dropped."""
 
 
 def edge_tables() -> list[Table]:
-    return list(EDGE_TABLES.values())
+    return [*EDGE_TABLES.values(), loads]
 
 
 def one_day(t: Table = job_runs) -> Condition:
@@ -239,15 +254,15 @@ def _width_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
         is_in(job_runs.status, [f"{v}{n}" for n in range(5)])]), "x" * 20)))
     wide = "struct<" + ",".join(f"field_{n}:string" for n in range(8)) + ">"
     found.append(("edge:width:struct", lambda: [create_table(Table(
-        "mart.typed", columns={"c": wide, "dt": "string"}, date_partition="dt",
-        location=BASE))]))
+        "mart.typed", columns={"c": wide, "dt": "string"}, partitioned_by=["dt"],
+        location=folder_of("mart.typed")))]))
     return found
 
 
 def _window(length: int) -> Statement:
     key = "k" + "x" * length
     wide = Table("ops.wide", columns={key: "string", "v": "bigint", "dt": "string"},
-                 date_partition="dt")
+                 partitioned_by=["dt"])
     return statement(
         SELECT(AS(row_number(PARTITION_BY=[getattr(wide, key), wide.v],
                              ORDER_BY=descending(wide.v)), "rn")),
@@ -388,10 +403,26 @@ def _read_cases() -> dict[str, Callable[..., list[Statement]]]:
             SELECT(events.event_id), FROM(events),
             WHERE(one_day(events), last_n_days(events.at, 3), equals(events.is_active, True)))],
         "reads:derived_top_n": lambda: [_reading_top_n()],
-        "reads:by_day": lambda: by_day(statement(
+        "reads:two_days_by_day": lambda: [statement(
             SELECT(job_runs.job_id, job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
             WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
-            GROUP_BY(job_runs.job_id, job_runs.dt))),
+            GROUP_BY(job_runs.job_id, job_runs.dt))],
+        "reads:partitioned_by_region_and_load": lambda: [statement(
+            SELECT(loads.load_id, AS(sum_of(loads.amount), "amount")), FROM(loads),
+            WHERE(equals(loads.region, "EU")), GROUP_BY(loads.load_id))],
+        "reads:a_range_of_loads": lambda: [statement(
+            SELECT(loads.row_id), FROM(loads), WHERE(between(loads.load_id, 3, 7)))],
+        "reads:every_partition": lambda: [statement(
+            SELECT(loads.region, AS(count_rows(), "rows")),
+            FROM(loads, reads_all_partitions=True), GROUP_BY(loads.region))],
+        "reads:refused:no_partition_filtered": lambda: [statement(
+            SELECT(loads.row_id), FROM(loads), WHERE(more_than(loads.amount, 10)))],
+        "reads:refused:not_equals_reads_most_partitions": lambda: [statement(
+            SELECT(loads.row_id), FROM(loads), WHERE(not_equals(loads.region, "EU")))],
+        "reads:refused:join_reading_every_partition": lambda: [statement(
+            SELECT(job_runs.run_id), FROM(job_runs),
+            JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),
+            WHERE(one_day()))],
     }
 
 
@@ -445,7 +476,7 @@ def _join_cases() -> dict[str, Callable[..., list[Statement]]]:
             ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id), one_day())),
             GROUP_BY(jobs.team))],
         "joins:semi_and_anti_in_a_write": lambda: [statement(
-            INSERT_OVERWRITE(runs_to_check),
+            INSERT_OVERWRITE(runs_to_check, partition={"dt": DAY}),
             SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
             SEMI_JOIN(run_alerts, ON=_alerts_of_the_day()),
             ANTI_JOIN(jobs, ON=all_of(equals(jobs.job_id, job_runs.job_id),
@@ -457,7 +488,7 @@ def _join_cases() -> dict[str, Callable[..., list[Statement]]]:
         "joins:full_where_refused": lambda: [_full_join(equals(recorded.job_id, 1))],
         "joins:full_keeps_only_matches": lambda: [_full_join(
             equals(recorded.job_id, 1), keeps_only_matches=True)],
-        "joins:full_of_a_table_with_days": lambda: [statement(
+        "joins:full_of_a_partitioned_table": lambda: [statement(
             SELECT(recorded.run_id), FROM(recorded),
             FULL_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.run_id, recorded.run_id),
                                                 one_day(scheduler_runs))))],
@@ -495,9 +526,9 @@ def _broadcast_in_steps(other: Table) -> Statement:
 runs_to_check = Table(
     "mart.runs_to_check",
     columns={"run_id": "bigint", "status": "string", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],
-    location=BASE,
+    location=folder_of("mart.runs_to_check"),
 )
 """A Saved table written through a SEMI_JOIN and an ANTI_JOIN, which keep its Key."""
 
@@ -535,12 +566,14 @@ def _reading_steps(depth: int) -> list[Statement]:
 
 
 def _write(clause: Callable[..., Clause], depth: int) -> list[Statement]:
-    """A write of one day, reading Derived tables `depth` deep (0: straight from job_runs)."""
+    """A write of the Partition of one day, reading Derived tables `depth` deep (0: straight
+    from job_runs)."""
+    into = clause(daily_runs, partition={"dt": DAY})
     if depth == 0:
-        return [statement(clause(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        return [statement(into, SELECT(job_runs.job_id, AS(count_rows(), "runs")),
                           FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
     step = _last_step(depth)
-    return [statement(clause(daily_runs), SELECT(step.job_id, step.runs), FROM(step))]
+    return [statement(into, SELECT(step.job_id, step.runs), FROM(step))]
 
 
 def _structure_cases() -> dict[str, Callable[..., list[Statement]]]:
@@ -551,48 +584,55 @@ def _structure_cases() -> dict[str, Callable[..., list[Statement]]]:
             name = f"write:{clause.__name__}:derived_{depth}"
             found[name] = lambda clause=clause, depth=depth: _write(clause, depth)
     found["write:two_days"] = lambda: [statement(
-        INSERT_OVERWRITE(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        INSERT_OVERWRITE(daily_runs),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs), WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
-        GROUP_BY(job_runs.job_id))]
+        GROUP_BY(job_runs.job_id, job_runs.dt))]
+    found["write:refused:two_days_into_one"] = lambda: [statement(
+        INSERT_OVERWRITE(daily_runs, partition={"dt": DAY}),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs), WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
+        GROUP_BY(job_runs.job_id, job_runs.dt))]
     for kind in TYPES:
         found[f"create_table:{kind}"] = lambda kind=kind: [create_table(Table(
-            "mart.typed", columns={"c": kind, "dt": "string"}, date_partition="dt",
-            location=BASE))]
+            "mart.typed", columns={"c": kind, "dt": "string"}, partitioned_by=["dt"],
+            location=folder_of("mart.typed")))]
     found["create_table:may_exist"] = lambda: [create_table(daily_runs, may_exist=True)]
     found["create_table:untyped"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": None, "dt": "string"}, date_partition="dt",
-        location=BASE))]
-    found["create_table:no_date_partition"] = lambda: [create_table(Table(
-        "mart.typed", columns={"c": "bigint"}, date_partition=None, location=BASE))]
+        "mart.typed", columns={"c": None, "dt": "string"}, partitioned_by=["dt"],
+        location=folder_of("mart.typed")))]
+    found["create_table:unpartitioned"] = lambda: [create_table(Table(
+        "mart.typed", columns={"c": "bigint"}, location=folder_of("mart.typed")))]
+    found["create_table:location_as_written"] = lambda: [create_table(Table(
+        "mart.configured", columns={"c": "bigint", "dt": "string"}, partitioned_by=["dt"],
+        location="${hivevar:root}/mart.db/configured"))]
     for name, t in EDGE_TABLES.items():
         found[f"create_table:{name}"] = lambda t=t: [create_table(t)]
-    found["create_table:key_with_the_day"] = lambda: [create_table(runs_per_job_day)]
+    found["create_table:key_with_a_partition_column"] = lambda: [create_table(runs_per_job_day)]
     found.update(_storage_cases())
-    return {**found, **_key_cases(), **_no_day_cases(), **_admin_cases()}
+    return {**found, **_key_cases(), **_unpartitioned_cases(), **_admin_cases()}
 
 
 job_teams = Table(
     "mart.job_teams",
     columns={"team": "string", "job_id": "bigint"},
-    date_partition=None,
     key=["job_id"],
-    location=BASE,
+    location=folder_of("mart.job_teams"),
 )
-"""A Saved table with no days, written whole."""
+"""A Saved table with no partitions, written whole."""
 
 team_runs = Table(
     "mart.team_runs",
     columns={"team": "string", "runs": "bigint"},
-    date_partition=None,
     key=["team"],
-    location=BASE,
+    location=folder_of("mart.team_runs"),
 )
-"""A Saved table with no days, written from several days of job_runs."""
+"""A Saved table with no partitions, written from several days of job_runs."""
 
 
-def _no_day_cases() -> dict[str, Callable[..., list[Statement]]]:
-    """A write into a Saved table with no days: each clause, from several days, a Derived
-    table and a Stack, the Key's refusal, and what refuses it as working one day at a time."""
+def _unpartitioned_cases() -> dict[str, Callable[..., list[Statement]]]:
+    """A write into a Saved table with no partitions: each clause, from several days, a Derived
+    table and a Stack, the Key's refusal, and what else refuses it."""
     def runs_per_team(clause: Callable[..., Clause] = INSERT_OVERWRITE,
                       where: tuple[Condition, ...] = (between(job_runs.dt, FIRST_DAY, DAY),)
                       ) -> Statement:
@@ -613,25 +653,29 @@ def _no_day_cases() -> dict[str, Callable[..., list[Statement]]]:
                          FROM(teams))
 
     return {
-        "write:no_day:insert_overwrite": lambda: [statement(
+        "write:unpartitioned:insert_overwrite": lambda: [statement(
             INSERT_OVERWRITE(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs))],
-        "write:no_day:insert_into": lambda: [statement(
+        "write:unpartitioned:insert_into": lambda: [statement(
             INSERT_INTO(job_teams), SELECT_DISTINCT(jobs.job_id, jobs.team), FROM(jobs))],
-        "write:no_day:several_days": lambda: [runs_per_team()],
-        "write:no_day:insert_into_several_days": lambda: [runs_per_team(INSERT_INTO)],
-        "write:no_day:derived_table": lambda: [from_a_derived_table()],
-        "write:no_day:stack": lambda: [from_a_stack()],
-        "write:no_day:create_table": lambda: [create_table(job_teams)],
-        "write:no_day:refused:unproven_key": lambda: [statement(
+        "write:unpartitioned:several_days": lambda: [runs_per_team()],
+        "write:unpartitioned:insert_into_several_days": lambda: [runs_per_team(INSERT_INTO)],
+        "write:unpartitioned:derived_table": lambda: [from_a_derived_table()],
+        "write:unpartitioned:stack": lambda: [from_a_stack()],
+        "write:unpartitioned:create_table": lambda: [create_table(job_teams)],
+        "write:unpartitioned:no_key": lambda: [statement(
+            INSERT_OVERWRITE(Table("mart.team_jobs", columns={"team": "string",
+                                                              "job_id": "bigint"},
+                                   location=folder_of("mart.team_jobs"))),
+            SELECT(jobs.team, job_runs.job_id), FROM(job_runs),
+            JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)), WHERE(one_day()))],
+        "write:unpartitioned:refused:unproven_key": lambda: [statement(
             INSERT_OVERWRITE(job_teams), SELECT(jobs.team, job_runs.job_id), FROM(job_runs),
             JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)), WHERE(one_day()))],
-        "write:no_day:refused:unbounded_days": lambda: [runs_per_team(where=())],
-        "write:no_day:refused:by_day": lambda: by_day(runs_per_team()),
-        "write:no_day:refused:not_a_saved_table": lambda: [statement(
-            INSERT_OVERWRITE(Table("ops.theirs", columns={"team": "string", "runs": "bigint"},
-                                   date_partition=None)),
+        "write:unpartitioned:refused:reads_every_partition": lambda: [runs_per_team(where=())],
+        "write:unpartitioned:refused:not_a_saved_table": lambda: [statement(
+            INSERT_OVERWRITE(Table("ops.theirs", columns={"team": "string", "runs": "bigint"})),
             SELECT(jobs.team, AS(count_rows(), "runs")), FROM(jobs), GROUP_BY(jobs.team))],
-        "write:no_day:refused:keeps_one_day_above": lambda: [statement(
+        "write:unpartitioned:keeps_one_day_above": lambda: [statement(
             INSERT_OVERWRITE(team_runs), SELECT(per_day.team, per_day.runs), FROM(per_day),
             WHERE(equals(per_day.dt, DAY))) for per_day in [derived("per_day", statement(
                 SELECT(jobs.team, job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
@@ -643,11 +687,11 @@ def _no_day_cases() -> dict[str, Callable[..., list[Statement]]]:
 runs_per_job_day = Table(
     "mart.runs_per_job_day",
     columns={"job_id": "bigint", "run_id": "bigint", "team": "string", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location=BASE,
+    location=folder_of("mart.runs_per_job_day"),
 )
-"""A Saved table whose Key holds its Date partition, for the Key's writes."""
+"""A Saved table whose Key holds its partition column, for the Key's writes."""
 
 
 def _key_cases() -> dict[str, Callable[..., list[Statement]]]:
@@ -657,13 +701,13 @@ def _key_cases() -> dict[str, Callable[..., list[Statement]]]:
             SELECT(job_runs.job_id, job_runs.run_id, AS(row_number(
                 PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)), "newest")),
             FROM(job_runs), WHERE(one_day())))
-        return statement(INSERT_OVERWRITE(runs_per_job_day, **opt_out),
+        return statement(INSERT_OVERWRITE(runs_per_job_day, partition={"dt": DAY}, **opt_out),
                          SELECT(numbered.job_id, numbered.run_id, AS(jobs.team, "team")),
                          FROM(numbered), JOIN(jobs, ON=equals(jobs.job_id, numbered.job_id)),
                          WHERE(equals(numbered.newest, 1)))
 
     def every_run(**opt_out: bool) -> Statement:
-        return statement(INSERT_OVERWRITE(runs_per_job_day, **opt_out),
+        return statement(INSERT_OVERWRITE(runs_per_job_day, partition={"dt": DAY}, **opt_out),
                          SELECT(job_runs.job_id, job_runs.run_id, AS(jobs.team, "team")),
                          FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                          WHERE(one_day()))
@@ -671,63 +715,99 @@ def _key_cases() -> dict[str, Callable[..., list[Statement]]]:
     return {
         "write:key:row_number_kept_at_1_and_a_key_keeping_join": lambda: [newest_per_job()],
         "write:key:group_by": lambda: [statement(
-            INSERT_INTO(runs_per_job_day),
+            INSERT_INTO(runs_per_job_day, partition={"dt": DAY}),
             SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), "run_id"), jobs.team),
             FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
             WHERE(one_day()), GROUP_BY(job_runs.job_id, jobs.team))],
         "write:key:select_distinct": lambda: [statement(
-            INSERT_OVERWRITE(runs_per_job_day),
+            INSERT_OVERWRITE(runs_per_job_day, partition={"dt": DAY}),
             SELECT_DISTINCT(job_runs.job_id, AS(job_runs.job_id, "run_id"), jobs.team),
             FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
             WHERE(one_day()))],
         "write:key:unproven": lambda: [every_run()],
         "write:key:unproven_key": lambda: [every_run(unproven_key=True)],
+        "write:key:filled_from_the_rows": lambda: [statement(
+            INSERT_OVERWRITE(runs_per_job_day),
+            SELECT(job_runs.job_id, AS(max_of(job_runs.run_id), "run_id"), jobs.team,
+                   job_runs.dt),
+            FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+            WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
+            GROUP_BY(job_runs.job_id, jobs.team, job_runs.dt))],
     }
 
 
-def _stored(location: str = BASE, **storage: bool | str | int | list[str] | dict[str, str]
+def _stored(location: str = folder_of("mart.stored"),
+            **storage: bool | str | int | list[str] | dict[str, str]
             ) -> Callable[..., list[Statement]]:
-    """create_table for a Saved table of three columns, stored as `storage` says."""
+    """create_table for a Saved table of four columns, partitioned by dt unless `storage`
+    says otherwise, and stored as `storage` says."""
     return lambda: [create_table(Table(
         "mart.stored", columns={"job_id": "bigint", "region": "string", "runs": "bigint",
                                 "dt": "string"},
-        date_partition="dt", location=location, **storage))]
+        location=location, **{"partitioned_by": ["dt"], **storage}))]
 
 
 def _storage_cases() -> dict[str, Callable[..., list[Statement]]]:
     """A Saved table's storage, each option on its own and all together, and the writes into
-    a table with a Partition inside each day."""
+    a table partitioned by a day, then a region."""
     found = {
         "storage:no_location": lambda: [create_table(Table(
-            "mart.stored", columns={"runs": "bigint"}, date_partition=None))],
-        "storage:location_with_a_scheme": _stored(location="hdfs:///data/your_team/tables/"),
+            "mart.stored", columns={"runs": "bigint"}))],
+        "storage:location_with_a_scheme": _stored(
+            location="hdfs:///data/your_team/mart.db/stored/"),
+        "storage:relative_location": _stored(location="mart.db/stored"),
         "storage:purge": _stored(purge=True),
         "storage:no_purge": _stored(purge=False),
         "storage:properties": _stored(properties={"made_by": "it's daily", "team": "data"}),
         "storage:parquet": _stored(stored_as="PARQUET"),
         "storage:orc_compression": _stored(compression="ZLIB"),
         "storage:parquet_compression": _stored(stored_as="parquet", compression="gzip"),
-        "storage:partitioned_by": _stored(partitioned_by=["region"]),
+        "storage:partitioned_by": _stored(partitioned_by=["dt", "region"]),
+        "storage:partitioned_by_a_region_alone": _stored(partitioned_by=["region"]),
+        "storage:unpartitioned": _stored(partitioned_by=None),
         "storage:buckets": _stored(bucketed_by=["job_id"], buckets=16),
         "storage:sorted_buckets": _stored(bucketed_by=["job_id", "region"], buckets=4,
                                           sorted_by=["region", "job_id"]),
         "storage:all": _stored(purge=True, properties={"made_by": "runs"}, stored_as="PARQUET",
-                               compression="SNAPPY", partitioned_by=["region"],
+                               compression="SNAPPY", partitioned_by=["dt", "region"],
                                bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"]),
         "storage:odd_names_in_buckets": lambda: [create_table(Table(
             "ops.order_buckets", columns={"select": "string", "two words": "bigint",
                                           "dt": "string"},
-            date_partition="dt", location=BASE, partitioned_by=["select"],
+            location=folder_of("ops.order_buckets"), partitioned_by=["dt", "select"],
             bucketed_by=["two words"], buckets=2, sorted_by=["two words"]))],
     }
     for clause in (INSERT_OVERWRITE, INSERT_INTO):
         found[f"write:partitioned_by:{clause.__name__}"] = lambda clause=clause: [statement(
-            clause(region_runs), SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+            clause(region_runs, partition={"dt": DAY}),
+            SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
             FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
             WHERE(one_day()), GROUP_BY(job_runs.job_id, jobs.region))]
     found["write:partitioned_by:leaves_out_the_partition"] = lambda: [statement(
-        INSERT_OVERWRITE(region_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        INSERT_OVERWRITE(region_runs, partition={"dt": DAY}),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs), WHERE(one_day()), GROUP_BY(job_runs.job_id))]
+    found["write:partitioned_by:every_partition_from_the_rows"] = lambda: [statement(
+        INSERT_OVERWRITE(region_runs),
+        SELECT(job_runs.dt, jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
+        GROUP_BY(job_runs.job_id, jobs.region, job_runs.dt))]
+    found["write:partitioned_by:every_partition_named"] = lambda: [statement(
+        INSERT_INTO(region_runs, partition={"dt": DAY, "region": "EU"}),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        WHERE(one_day(), equals(jobs.region, "EU")), GROUP_BY(job_runs.job_id))]
+    found["write:partitioned_by:refused:names_a_later_column"] = lambda: [statement(
+        INSERT_OVERWRITE(region_runs, partition={"region": "EU"}),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
+        FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        WHERE(one_day(), equals(jobs.region, "EU")), GROUP_BY(job_runs.job_id, job_runs.dt))]
+    found["write:partitioned_by:refused:names_another_column"] = lambda: [statement(
+        INSERT_OVERWRITE(region_runs, partition={"job_id": 1}),
+        SELECT(jobs.region, AS(count_rows(), "runs"), job_runs.dt),
+        FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        WHERE(one_day()), GROUP_BY(jobs.region, job_runs.dt))]
     return found
 
 
@@ -738,23 +818,35 @@ def _upkeep_cases() -> dict[str, Callable[..., list[Statement]]]:
              for name, t in EDGE_TABLES.items()}
     found.update({
         "upkeep:repair_partitions:not_a_saved_table": lambda: [repair_partitions(job_runs)],
-        "upkeep:compute_statistics:a_day": lambda: [compute_statistics(daily_runs, DAY)],
+        "upkeep:repair_partitions:unpartitioned": lambda: [repair_partitions(job_teams)],
+        "upkeep:compute_statistics:a_partition": lambda: [
+            compute_statistics(daily_runs, partition={"dt": DAY})],
         "upkeep:compute_statistics:every_region_of_a_day": lambda: [
-            compute_statistics(region_runs, DAY, columns=True)],
+            compute_statistics(region_runs, partition={"dt": DAY}, columns=True)],
+        "upkeep:compute_statistics:one_region_of_a_day": lambda: [
+            compute_statistics(region_runs, partition={"dt": DAY, "region": "EU"})],
         "upkeep:compute_statistics:some_columns": lambda: [
-            compute_statistics(daily_runs, DAY, columns=["runs"])],
+            compute_statistics(daily_runs, partition={"dt": DAY}, columns=["runs"])],
         "upkeep:compute_statistics:compact_day": lambda: [
-            compute_statistics(compact, "20260924", columns=True)],
+            compute_statistics(compact, partition={"day": "20260924"}, columns=True)],
         "upkeep:compute_statistics:odd_names": lambda: [
-            compute_statistics(odd, DAY, columns=True)],
+            compute_statistics(odd, partition={"dt": DAY}, columns=True)],
         "upkeep:compute_statistics:standard_words": lambda: [
-            compute_statistics(standard_words, DAY, columns=True)],
-        "upkeep:compute_statistics:no_date_partition": lambda: [compute_statistics(Table(
+            compute_statistics(standard_words, partition={"dt": DAY}, columns=True)],
+        "upkeep:compute_statistics:unpartitioned": lambda: [compute_statistics(Table(
             "mart.job_names", columns={"job_id": "bigint", "job_name": "string"},
-            date_partition=None, location=BASE), columns=True)],
-        "upkeep:compute_statistics:no_day": lambda: [compute_statistics(daily_runs)],
+            location=folder_of("mart.job_names")), columns=True)],
+        "upkeep:compute_statistics:every_partition": lambda: [compute_statistics(daily_runs)],
         "upkeep:compute_statistics:not_a_saved_table": lambda: [
-            compute_statistics(job_runs, DAY)],
+            compute_statistics(job_runs, partition={"dt": DAY})],
+        "upkeep:compute_statistics:refused:day": lambda: [
+            compute_statistics(daily_runs, day=DAY)],
+        "upkeep:compute_statistics:refused:a_day_as_text": lambda: [
+            compute_statistics(daily_runs, DAY)],
+        "upkeep:compute_statistics:refused:names_a_later_column": lambda: [
+            compute_statistics(region_runs, partition={"region": "EU"})],
+        "upkeep:compute_statistics:refused:unpartitioned_given_a_partition": lambda: [
+            compute_statistics(job_teams, partition={"team": "data"})],
         "upkeep:explain:a_read": lambda: [explain(_rows(job_runs.run_id, job_runs.status))],
         "upkeep:explain:a_write": lambda: [explain(_write(INSERT_OVERWRITE, 1)[-1])],
         "upkeep:explain:derived_tables": lambda: [explain(_reading_steps(2)[-1])],
@@ -768,17 +860,13 @@ def _upkeep_cases() -> dict[str, Callable[..., list[Statement]]]:
 
 
 def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE",
-              lacking: tuple[str, ...] = (), days: tuple[str, ...] = (DAY,)
-              ) -> Callable[..., pd.DataFrame]:
-    """A stand-in for query at work: the warehouse's DESCRIBE, DESCRIBE FORMATTED and SHOW
-    PARTITIONS for a Saved table, without the columns `lacking`, at `location` (by default a
-    folder it shares with others, BASE itself), holding `days`."""
-    partitions = [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
+              lacking: tuple[str, ...] = ()) -> Callable[..., pd.DataFrame]:
+    """A stand-in for query at work: the warehouse's DESCRIBE and DESCRIBE FORMATTED for a
+    Saved table, without the columns `lacking`, at `location` (by default a folder it shares
+    with others, SHARED)."""
+    partitions = t._partitioned_by
 
     def query(hive: str) -> pd.DataFrame:
-        if hive.startswith("SHOW PARTITIONS"):
-            listed = [f"{t._date_partition}={day}" for day in days]
-            return pd.DataFrame({"partition": listed})
         rows = [(name, kind_, "") for name, kind_ in t._columns.items()
                 if name not in lacking and name not in partitions]
         if partitions:
@@ -787,18 +875,19 @@ def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE
                      *[(name, t._columns[name], "") for name in partitions if name not in lacking]]
         if hive.startswith("DESCRIBE FORMATTED"):
             rows += [("", None, None), ("# Detailed Table Information", None, None),
-                     ("Location:", location or f"hdfs://namenode:8020{BASE}", None),
+                     ("Location:", location or f"hdfs://namenode:8020{SHARED}", None),
                      ("Table Type:", kind, None)]
         return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
     return query
 
 
 def _saved(name: str = "mart.admin_runs", columns: dict[str, str | None] | None = None,
-           date_partition: str | None = "dt", **storage: bool | str | dict[str, str] | None
-           ) -> Table:
+           partitioned_by: tuple[str, ...] | None = ("dt",),
+           **storage: bool | str | dict[str, str] | None) -> Table:
     """A Saved table of the user's for the admin module's cases."""
     columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
-    return Table(name, columns=columns, date_partition=date_partition, location=BASE, **storage)
+    return Table(name, columns=columns, partitioned_by=list(partitioned_by or []),
+                 location=folder_of(name), **storage)
 
 
 def _admin_cases() -> dict[str, Callable[..., list[Statement]]]:
@@ -808,19 +897,9 @@ def _admin_cases() -> dict[str, Callable[..., list[Statement]]]:
     found["admin:drop_table:purge"] = lambda: [admin.drop_table(_saved(purge=True))]
     found["admin:drop_table:not_saved"] = lambda: [admin.drop_table(job_runs)]
     for purge in (True, False, None):
-        found[f"admin:drop_days:purge_{purge}"] = lambda purge=purge: [
-            admin.drop_days(_saved(purge=purge), before="2025-01-01")]
-    found["admin:drop_days:compact"] = lambda: [admin.drop_days(compact, before="20250101")]
-    found["admin:drop_days:a_date"] = lambda: [admin.drop_days(
-        compact, before=datetime.date(2025, 1, 1))]
-    found["admin:drop_days:written_another_way"] = lambda: [admin.drop_days(
-        compact, before="2025-01-01")]
-    found["admin:drop_days:region_runs"] = lambda: [admin.drop_days(region_runs,
-                                                                    before=FIRST_DAY)]
-    found["admin:drop_days:no_date_partition"] = lambda: [admin.drop_days(
-        _saved(columns={"job_id": "bigint"}, date_partition=None), before="2025-01-01")]
-    found["admin:drop_days:not_a_day"] = lambda: [admin.drop_days(_saved(), before="2025/01/01")]
-    found["admin:drop_days:not_saved"] = lambda: [admin.drop_days(job_runs, before=DAY)]
+        found[f"admin:drop_partitions:purge_{purge}"] = lambda purge=purge: [
+            _dropping_before(_saved(purge=purge), "2025-01-01")]
+    found.update(_drop_partitions_cases())
     found.update(_add_columns_cases())
     found["admin:set_properties:all"] = lambda: [admin.set_properties(_saved(
         purge=False, compression="SNAPPY", properties={"made_by": "it's daily"}))]
@@ -828,6 +907,45 @@ def _admin_cases() -> dict[str, Callable[..., list[Statement]]]:
     found["admin:set_properties:none"] = lambda: [admin.set_properties(_saved())]
     found.update(_move_cases())
     return found
+
+
+def _dropping_before(t: Table, value: str) -> Statement:
+    """admin.drop_partitions of a Saved table's Partitions whose dt is before `value`."""
+    return admin.drop_partitions(t, where=less_than(t.dt, value))
+
+
+def _drop_partitions_cases() -> dict[str, Callable[..., list[Statement]]]:
+    """admin.drop_partitions: a day written another way, several partition columns, each
+    comparison it takes, and what it refuses."""
+    return {
+        "admin:drop_partitions:compact": lambda: [admin.drop_partitions(
+            compact, where=less_than(compact.day, "20250101"))],
+        "admin:drop_partitions:a_date": lambda: [admin.drop_partitions(
+            compact, where=less_than(compact.day, datetime.date(2025, 1, 1)))],
+        "admin:drop_partitions:written_another_way": lambda: [admin.drop_partitions(
+            compact, where=less_than(compact.day, "2025-01-01"))],
+        "admin:drop_partitions:region_runs": lambda: [admin.drop_partitions(
+            region_runs, where=less_than(region_runs.dt, FIRST_DAY))],
+        "admin:drop_partitions:a_region_of_a_day": lambda: [admin.drop_partitions(
+            region_runs, where=[equals(region_runs.dt, DAY),
+                                equals(region_runs.region, "EU")])],
+        "admin:drop_partitions:every_comparison": lambda: [admin.drop_partitions(
+            region_runs, where=all_of(between(region_runs.dt, FIRST_DAY, DAY),
+                                      not_equals(region_runs.region, "EU")))],
+        "admin:drop_partitions:any_value": lambda: [_dropping_before(_saved(), "2025/01/01")],
+        "admin:drop_partitions:refused:unpartitioned": lambda: [admin.drop_partitions(
+            job_teams, where=equals(job_teams.team, "data"))],
+        "admin:drop_partitions:refused:no_where": lambda: [admin.drop_partitions(daily_runs)],
+        "admin:drop_partitions:refused:not_a_partition_column": lambda: [
+            admin.drop_partitions(daily_runs, where=more_than(daily_runs.runs, 3))],
+        "admin:drop_partitions:refused:any_of": lambda: [admin.drop_partitions(
+            daily_runs, where=any_of(equals(daily_runs.dt, FIRST_DAY),
+                                     equals(daily_runs.dt, DAY)))],
+        "admin:drop_partitions:refused:is_in": lambda: [admin.drop_partitions(
+            daily_runs, where=is_in(daily_runs.dt, [FIRST_DAY, DAY]))],
+        "admin:drop_partitions:not_saved": lambda: [admin.drop_partitions(
+            job_runs, where=equals(job_runs.dt, DAY))],
+    }
 
 
 def _add_columns_cases() -> dict[str, Callable[..., list[Statement]]]:
@@ -839,10 +957,16 @@ def _add_columns_cases() -> dict[str, Callable[..., list[Statement]]]:
         "admin:add_columns:two": lambda: [admin.add_columns(
             _saved(columns=wider), query=warehouse(_saved(columns=wider),
                                                   lacking=("fails", "note")))],
-        "admin:add_columns:no_date_partition": lambda: [admin.add_columns(
-            _saved(columns={"job_id": "bigint", "two words": "string"}, date_partition=None),
+        "admin:add_columns:unpartitioned": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "two words": "string"}, partitioned_by=None),
             query=warehouse(_saved(columns={"job_id": "bigint", "two words": "string"},
-                                  date_partition=None), lacking=("two words",)))],
+                                  partitioned_by=None), lacking=("two words",)))],
+        "admin:add_columns:partitioned_by_a_region": lambda: [admin.add_columns(
+            _saved(columns={"job_id": "bigint", "fails": "bigint", "region": "string"},
+                   partitioned_by=("region",)),
+            query=warehouse(_saved(columns={"job_id": "bigint", "fails": "bigint",
+                                            "region": "string"}, partitioned_by=("region",)),
+                            lacking=("fails",)))],
         "admin:add_columns:none_new": lambda: [admin.add_columns(
             _saved(), query=warehouse(_saved()))],
         "admin:add_columns:before_the_tables_own": lambda: [admin.add_columns(
@@ -857,24 +981,28 @@ def _add_columns_cases() -> dict[str, Callable[..., list[Statement]]]:
 
 def _move_cases() -> dict[str, Callable[..., list[Statement]]]:
     return {
-        "admin:move:two_days": lambda: admin.move_to_own_folder(
-            daily_runs, query=warehouse(daily_runs, days=(FIRST_DAY, DAY))),
+        "admin:move:partitioned": lambda: admin.move_to_own_folder(
+            daily_runs, query=warehouse(daily_runs)),
         "admin:move:region_runs": lambda: admin.move_to_own_folder(
             region_runs, query=warehouse(region_runs)),
         "admin:move:compact": lambda: admin.move_to_own_folder(compact, query=warehouse(
-            compact, days=("20260924",))),
+            compact)),
         "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, query=warehouse(
             daily_runs, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs",
             kind="MANAGED_TABLE")),
-        "admin:move:no_date_partition": lambda: admin.move_to_own_folder(
-            _saved(columns={"job_id": "bigint"}, date_partition=None),
-            query=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None))),
-        "admin:move:no_date_partition_elsewhere": lambda: admin.move_to_own_folder(
-            _saved(columns={"job_id": "bigint"}, date_partition=None),
-            query=warehouse(_saved(columns={"job_id": "bigint"}, date_partition=None),
+        "admin:move:unpartitioned": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, partitioned_by=None),
+            query=warehouse(_saved(columns={"job_id": "bigint"}, partitioned_by=None))),
+        "admin:move:unpartitioned_elsewhere": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, partitioned_by=None),
+            query=warehouse(_saved(columns={"job_id": "bigint"}, partitioned_by=None),
                            location="hdfs://namenode:8020/data/old_tables")),
+        "admin:move:refused:unpartitioned_inside_where_it_is": lambda: admin.move_to_own_folder(
+            _saved(columns={"job_id": "bigint"}, partitioned_by=None),
+            query=warehouse(_saved(columns={"job_id": "bigint"}, partitioned_by=None),
+                           location="hdfs://namenode:8020/data/your_team")),
         "admin:move:at_its_own_folder": lambda: admin.move_to_own_folder(
-            daily_runs, query=warehouse(daily_runs, location=f"{BASE}/mart/daily_runs")),
+            daily_runs, query=warehouse(daily_runs, location=folder_of("mart.daily_runs"))),
         "admin:move:lacking_a_column": lambda: admin.move_to_own_folder(
             daily_runs, query=warehouse(daily_runs, lacking=("runs",))),
     }
@@ -949,7 +1077,7 @@ def _stack_cases() -> dict[str, Callable[..., list[Statement]]]:
                   FROM(per_job)))]
     found["stack:read_as_a_derived_table"] = lambda: [_per_job_of(UNION, written=False)]
     found["stack:written"] = lambda: [_per_job_of(UNION_ALL, written=True)]
-    found["stack:by_day"] = _stack_by_day
+    found["stack:two_days"] = _stack_of_two_days
     found["stack:refused:missing_column"] = lambda: [UNION_ALL(_failed(), statement(
         SELECT(run_alerts.run_id), FROM(run_alerts), WHERE(one_day(run_alerts))))]
     found["stack:refused:another_type"] = lambda: [EXCEPT(_failed(), statement(
@@ -965,19 +1093,19 @@ def _per_job_of(stack: Callable[..., Statement], written: bool) -> Statement:
     """The runs of each job in a Stack of _failed and _alerted, read, or written into
     daily_runs."""
     flags = derived("flags", stack(_failed(), _alerted()))
-    write = [INSERT_OVERWRITE(daily_runs)] if written else []
+    write = [INSERT_OVERWRITE(daily_runs, partition={"dt": DAY})] if written else []
     return statement(*write, SELECT(flags.job_id, AS(count_rows(), "runs")), FROM(flags),
                      GROUP_BY(flags.job_id))
 
 
-def _stack_by_day() -> list[Statement]:
-    """A UNION_ALL over two days, split by day: each Statement it stacks is split."""
+def _stack_of_two_days() -> list[Statement]:
+    """A UNION_ALL over two days, each Statement it stacks filtering its own Partitions."""
     flags = derived("flags", UNION_ALL(
         statement(SELECT(job_runs.run_id), FROM(job_runs),
                   WHERE(between(job_runs.dt, FIRST_DAY, DAY))),
         statement(SELECT(run_alerts.run_id), FROM(run_alerts),
                   WHERE(between(run_alerts.dt, FIRST_DAY, DAY)))))
-    return by_day(statement(SELECT(flags.run_id), FROM(flags)))
+    return [statement(SELECT(flags.run_id), FROM(flags))]
 
 
 def _subtotal_cases() -> dict[str, Callable[..., list[Statement]]]:
@@ -1010,7 +1138,8 @@ def _subtotal_cases() -> dict[str, Callable[..., list[Statement]]]:
             SELECT(jobs.team, AS(count_rows(), "jobs")), FROM(jobs),
             WHERE(is_total(jobs.team)), GROUP_BY(rollup(jobs.team)))],
         "subtotals:refused:written": lambda: [statement(
-            INSERT_OVERWRITE(daily_runs), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+            INSERT_OVERWRITE(daily_runs, partition={"dt": DAY}),
+            SELECT(job_runs.job_id, AS(count_rows(), "runs")),
             FROM(job_runs), WHERE(one_day()), GROUP_BY(rollup(job_runs.job_id)))],
     }
 
@@ -1018,16 +1147,17 @@ def _subtotal_cases() -> dict[str, Callable[..., list[Statement]]]:
 events_before = Table(
     "mart.events_before",
     columns={"event_id": "bigint", "minutes_before": "int", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id", "dt"],
-    location=BASE,
+    location=folder_of("mart.events_before"),
 )
 """A Saved table written from a window that looks back on earlier days."""
 
 
 def _window_cases() -> dict[str, Callable[..., list[Statement]]]:
     """Each function over a window, each way rows= is written, a window that wraps, a write
-    that reads earlier days and keeps one, and what by_day and a Statement refuse."""
+    that reads earlier days and keeps one, with a window and without, and what a Statement
+    refuses."""
     minutes, by_job = job_runs.duration_mins, window(PARTITION_BY=job_runs.job_id,
                                                      ORDER_BY=job_runs.run_id)
 
@@ -1044,24 +1174,24 @@ def _window_cases() -> dict[str, Callable[..., list[Statement]]]:
 
     def write_looking_back() -> Statement:
         with_before = looking_back(FIRST_DAY)
-        return statement(INSERT_OVERWRITE(events_before),
+        return statement(INSERT_OVERWRITE(events_before, partition={"dt": DAY}),
                          SELECT(AS(with_before.run_id, "event_id"), with_before.minutes_before),
                          FROM(with_before), WHERE(equals(with_before.dt, DAY)))
 
     def write_keeping_a_day_with_no_window() -> Statement:
-        # Only a write with a Window may read several days and keep one: this one has none.
+        # A write reads what it reads: several days, of which it keeps one, with no Window.
         several = derived("several", statement(
             SELECT(job_runs.run_id, job_runs.dt, job_runs.duration_mins), FROM(job_runs),
             WHERE(between(job_runs.dt, FIRST_DAY, DAY))))
-        return statement(INSERT_OVERWRITE(events_before),
+        return statement(INSERT_OVERWRITE(events_before, partition={"dt": DAY}),
                          SELECT(AS(several.run_id, "event_id"),
                                 AS(several.duration_mins, "minutes_before")),
                          FROM(several), WHERE(equals(several.dt, DAY)))
 
-    def by_day_looking_back() -> list[Statement]:
+    def reading_back_across_days() -> list[Statement]:
         with_before = looking_back(FIRST_DAY)
-        return by_day(statement(SELECT(with_before.run_id, with_before.minutes_before),
-                                FROM(with_before)))
+        return [statement(SELECT(with_before.run_id, with_before.minutes_before),
+                          FROM(with_before))]
 
     return {
         "windows:totals": lambda: [_rows(
@@ -1087,8 +1217,8 @@ def _window_cases() -> dict[str, Callable[..., list[Statement]]]:
             SELECT(looking_back(DAY).run_id), FROM(looking_back(DAY)),
             WHERE(more_than(looking_back(DAY).minutes_before, 10)))],
         "windows:write_looking_back": lambda: [write_looking_back()],
-        "windows:refused:by_day_across_days": by_day_looking_back,
-        "windows:refused:write_keeping_a_day_with_no_window": lambda: [
+        "windows:read_across_days": reading_back_across_days,
+        "windows:write_keeping_a_day_with_no_window": lambda: [
             write_keeping_a_day_with_no_window()],
         "windows:refused:in_where": lambda: [_rows(job_runs.run_id, where=[
             more_than(lag(minutes, over=by_job), 10)])],

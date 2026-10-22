@@ -107,7 +107,7 @@ def test_the_cheat_sheet_has_one_line_per_public_name(clean: Path) -> None:
 def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path) -> None:
     text = readme(clean)
     running = text.split("### `running.py`\n", 1)[1].split("###", 1)[0]
-    assert "Running: turn a Statement into Hive, send it, split it by day" in running
+    assert "Running: turn a Statement into Hive, send it, and set the load limit on rows" in running
     assert "- `to_hive` - The Hive string for a Statement, ready to send.\n" in running
     constants = text.split("### `__init__.py`\n", 1)[1]
     assert (f"- `TOOLBOX_VERSION` = `{VERSION!r}` - the feature number, raised only when a big "

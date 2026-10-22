@@ -7,8 +7,8 @@ For: Getting started
 Give a Saved table its own place in your Project: a Table folder holding its notebook, and a
 Table reference in references/. `project.new_table` makes both from a Template and registers
 them. You fill in the Table reference and the notebook's `<...>`, try its steps, and from then
-on `project.run_tables` writes it every day with the Project's other Saved tables, each after
-the tables it reads.
+on `project.run_tables` writes it with the Project's other Saved tables, each after the tables
+it reads.
 
 ## When you'd use it
 
@@ -61,11 +61,11 @@ registry:
 
 The notebook has five code cells, run top to bottom:
 
-1. the path lines and imports from [Start a Project](#start_a_project), your query, and DAY, a
-   day to try things on;
-2. the logic, whose first line is `# logic`: only imports and functions, each giving a
-   Statement and running nothing: create, preview, write_day, and backfill, which writes a
-   range of past days, as [Backfill a range of days](#backfill_a_range_of_days) shows;
+1. the path lines and imports from [Start a Project](#start_a_project), and your query;
+2. the logic, whose first line is `# logic`: imports, `DAY`, the day `write()` writes, and
+   functions, each giving a Statement and running nothing: create, preview, write, and
+   backfill, which writes a range of past days, as
+   [Backfill a range of days](#backfill_a_range_of_days) shows;
 3. try it: each step's Hive, then the day's rows;
 4. its Lineage, as [Lineage across your tables](#lineage_across_your_tables) shows;
 5. its rows in the Reference sheet, as [The Reference sheet](#the_reference_sheet) shows.
@@ -73,8 +73,8 @@ The notebook has five code cells, run top to bottom:
 ### Fill in its Table reference
 
 Open references/mart__daily_job_runs.py in your editor and fill it in: what one row is, the
-columns write_day saves with their types, then the day, the key, and the folder your Saved
-tables go in, as [Describe a table by hand](#describe_a_table_by_hand) explains. Its key is
+columns `write()` saves with their types, then its partition column, the key, and the table's
+own folder, as [Describe a table by hand](#describe_a_table_by_hand) explains. Its key is
 `["job_id", "dt"]`: the table has a row per job every day, so a job's rows are told apart by
 the day. This page has no editor, so this step writes the file filled in:
 
@@ -90,20 +90,20 @@ the day. This page has no editor, so this step writes the file filled in:
 ...         "runs": "bigint",
 ...         "dt": "string",
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/daily_job_runs",
 ... )
 ... ''', encoding="utf-8")
 
 ### Fill in its notebook
 
 Open the notebook in Jupyter and type over each `<...>` in its code cells: the table it reads,
-by its file in references/ and its variable, its Date partition, the column each row is for,
-the name of the count, and a day to try. A name Python reads, such as the table's variable,
-goes in bare; a value, such as the count's name or the day, goes in quotes, as the notebook's
-text cell says. This page has no Jupyter, so these lines do the same. A notebook is a JSON
-file, and each cell keeps its lines in its `"source"`:
+by its file in references/ and its variable, its partition column holding the day, the column
+each row is for, the name of the count, and the day `write()` writes. A name Python reads, such
+as the table's variable, goes in bare; a value, such as the count's name or the day, goes in
+quotes, as the notebook's text cell says. This page has no Jupyter, so these lines do the same.
+A notebook is a JSON file, and each cell keeps its lines in its `"source"`:
 
 >>> import json
 >>> path = Path("tables/mart__daily_job_runs/mart__daily_job_runs.ipynb")
@@ -117,21 +117,31 @@ file, and each cell keeps its lines in its `"source"`:
 ...             cell["source"] = [line.replace(placeholder, value) for line in cell["source"]]
 >>> size = path.write_text(json.dumps(notebook, indent=1), encoding="utf-8")
 
-Its logic cell now imports `ops.job_runs`' Table reference, and counts each job's runs a day:
+Its logic cell now imports its own Table reference and `ops.job_runs`', and counts each job's
+runs a day:
 
+    from references.mart__daily_job_runs import daily_job_runs
     from references.ops__job_runs import job_runs
+
+
+    DAY = "2026-09-24"  # the day write() writes: change it to write another
 
 
     def rows(first_day: str, last_day: str) -> list[Clause]:
         \"\"\"The clauses every step below shares. The day stays in GROUP_BY, so the days
-        stay apart, and out of SELECT: INSERT_OVERWRITE writes it as this table's Date
-        partition, the day the table read is bounded to.\"\"\"
+        stay apart, and comes last in SELECT, as "dt": INSERT_OVERWRITE writes each day's rows
+        into that day's partition of this table, replacing only the days the rows hold.\"\"\"
         return [
-            SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+            SELECT(job_runs.job_id, AS(count_rows(), "runs"), AS(job_runs.dt, "dt")),
             FROM(job_runs),
             WHERE(between(job_runs.dt, first_day, last_day)),
             GROUP_BY(job_runs.dt, job_runs.job_id),
         ]
+
+
+    def write() -> Statement:
+        \"\"\"Step 3: save DAY's rows, replacing whatever DAY held.\"\"\"
+        return statement(INSERT_OVERWRITE(daily_job_runs), *rows(DAY, DAY))
 
 ### Try its steps
 
@@ -140,12 +150,12 @@ and gives back what it defines, as any notebook or admin notebook of the Project
 
 >>> logic = project.load("mart.daily_job_runs")
 >>> logic
-The logic of mart.daily_job_runs: create, rows, preview, write_day, backfill.
+The logic of mart.daily_job_runs: create, rows, preview, write, backfill.
 
-Cell 3 prints the Hive of the steps that create the table and write a day, then runs the
-preview, the rows the day's write would save:
+Cell 3 prints the Hive of the steps that create the table and write `DAY`, then runs the
+preview, the rows the write would save:
 
->>> text = show_hive([logic.create(), logic.write_day("2026-09-24")])
+>>> text = show_hive([logic.create(), logic.write()])
 -- 1 of 2
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_job_runs (
   job_id BIGINT,
@@ -156,24 +166,33 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/daily_job_runs';
+LOCATION '/data/your_team/mart.db/daily_job_runs';
 <BLANKLINE>
 -- 2 of 2
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)
 SELECT
   job_runs.job_id,
-  COUNT(*) AS runs
+  COUNT(*) AS runs,
+  job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
 GROUP BY
   job_runs.dt,
   job_runs.job_id;
->>> run(logic.preview("2026-09-24"), query=example_database.query)
-   job_id  runs
-0       1     2
-1       2     1
-2       3     1
+>>> run(logic.preview(), query=example_database.query)
+   job_id  runs          dt
+0       1     2  2026-09-24
+1       2     1  2026-09-24
+2       3     1  2026-09-24
+
+The write fills the day's Partition from the rows' own dt, so Hive's dynamic partitioning must
+be switched on first: show_hive prints the two SET lines that do it ahead of the write. At
+work, send them once on your connection, `run(hive_settings("dynamic_partitions"),
+execute=execute)`, before the first such write.
 
 The CREATE writes the Key, `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE`, for whoever reads the
 table's description: Hive keeps it but never checks it, and the Toolbox checks it as you build
@@ -183,18 +202,22 @@ is a column of every row all the same.
 At work, send the create step once, `run(logic.create(), execute=...)` with your execute, before the
 first write. The Example database can be read but not written, so this page sends neither.
 
-### Write it every day, with the Project's other tables
+### Write it with the Project's other tables
 
-`project.run_tables` loads every Table notebook's logic and writes each table's day, a
+`project.run_tables` loads every Table notebook's logic and sends each table's `write()`, a
 table before any table that reads it: it finds which tables each write reads from its Hive. With no execute, it prints each write's Hive in that order
 and sends nothing, a dry run to read first:
 
->>> project.run_tables("2026-09-24")
+>>> project.run_tables()
 -- 1 of 1: mart.daily_job_runs
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)
 SELECT
   job_runs.job_id,
-  COUNT(*) AS runs
+  COUNT(*) AS runs,
+  job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
@@ -203,9 +226,10 @@ GROUP BY
   job_runs.job_id;
 Printed 1 write in order, and sent nothing. Pass execute= to run them.
 
-At work, you run the admin notebook admin/run_tables.ipynb each day, or your team's scheduler
-does: it does this, then sends them with your query and execute,
-project.run_tables(DAY, query=query, execute=execute), printing a line as each table is written.
+At work, you run the admin notebook admin/run_tables.ipynb, or your team's scheduler does: it
+does this, then sends them with your query and execute,
+`project.run_tables(query=query, execute=execute)`, printing a line as each table is written.
+Each `write()` writes the day its notebook's `DAY` names: change `DAY` to write another.
 
 ## Check it worked
 
@@ -217,10 +241,10 @@ Table references:
 >>> project.check()
 Every Table folder and Table reference is registered, and each one registered is there.
 
-With no `<...>` left in it, the notebook's logic runs, and its write_day writes the day:
+With no `<...>` left in it, the notebook's logic runs, and its `write()` writes the table:
 
->>> to_hive(logic.write_day("2026-09-24")).splitlines()[0]
-"INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')"
+>>> to_hive(logic.write()).splitlines()[0]
+'INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)'
 
 ## Common mistakes
 
@@ -242,8 +266,7 @@ ValueError:
 ...
 
 Fill in every `<...>`, run the notebook's cells to check them, then load it again. Until then,
-`project.run_tables("2026-09-24", tables=["mart.daily_job_runs"])` writes only the tables you
-name.
+`project.run_tables(tables=["mart.daily_job_runs"])` writes only the tables you name.
 
 ### Making a Table folder that is already there
 
@@ -264,7 +287,7 @@ folder that isn't there.
 
 ## Next
 
-- Write a range of past days of the table, one day at a time:
+- Write a range of past days of the table:
   [Backfill a range of days](#backfill_a_range_of_days).
 - Follow each of its columns back to the tables it reads, across the Project's notebooks:
   [Lineage across your tables](#lineage_across_your_tables).

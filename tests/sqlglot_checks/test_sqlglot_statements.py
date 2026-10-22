@@ -51,8 +51,8 @@ def test_a_call_sqlglot_cant_build_is_refused_in_the_toolboxs_words() -> None:
 
 def test_a_struct_column_is_written_with_its_colons_or_refused() -> None:
     """Hive reads STRUCT<name: type>; sqlglot 25 writes STRUCT<name type>."""
-    t = Table("mart.t", columns={"a": "struct<name:string,runs:int>"}, date_partition=None,
-              location="/data/tables")
+    t = Table("mart.t", columns={"a": "struct<name:string,runs:int>"},
+              location="/data/your_team/mart.db/t")
     if writing._writes_struct_colons():
         assert "  a STRUCT<name: STRING, runs: INT>\n" in to_hive(create_table(t))
     else:
@@ -63,7 +63,7 @@ def test_a_struct_column_is_written_with_its_colons_or_refused() -> None:
 def test_a_struct_column_this_sqlglot_cant_write_is_refused(
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(writing, "_writes_struct_colons", lambda: False)
-    t = Table("mart.t", columns={"a": "array<struct<name:string>>"}, date_partition=None)
+    t = Table("mart.t", columns={"a": "array<struct<name:string>>"})
     with pytest.raises(ValueError, match=re.escape(
             "create_table(t): a's type 'array<struct<name:string>>' holds a struct, and the "
             "sqlglot this Python has")):

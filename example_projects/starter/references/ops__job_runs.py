@@ -3,8 +3,8 @@
 Why: the project's notebooks read the table through this file, so each column they name, and the
 key each join and count relies on, is checked as the Statement is built.
 
-project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its three
-TODO lines were then filled in by hand: this docstring's first line, the key, and
+project.add_references wrote this file from the table's DESCRIBE, its partition columns among
+it. Its three TODO lines were then filled in by hand: this docstring's first line, the key, and
 does_not_add_up.
 """
 from sqlglot_composer import Table, equals
@@ -19,7 +19,7 @@ job_runs = Table(
         "avg_retry_secs": "double",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],  # filled in by hand
     # filled in by hand: summing these gives a wrong total, since avg_retry_secs is an average
     does_not_add_up=["avg_retry_secs"],

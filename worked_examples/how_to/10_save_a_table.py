@@ -5,10 +5,10 @@ For: Getting started
 ## Goal
 
 Keep a Statement's result in a Saved table: a real table in the warehouse that your Statements
-write into, one day at a time, or whole for a table with no days, and that other Statements
-then read like any other table. You
-describe the table in a Table reference, create it, fill a day, add more rows to a day, and
-rebuild it when its columns change.
+write into, a Partition at a time, or whole for a table that isn't partitioned, and that other
+Statements then read like any other table. You
+describe the table in a Table reference, create it, fill a day's Partition, add more rows to
+it, and rebuild the table when its columns change.
 
 ## When you'd use it
 
@@ -33,8 +33,8 @@ your warehouse, through your own execute.
 
 The table this how-to saves, mart.runs_to_review, holds the runs someone should look at each
 day: the runs that failed, and the runs that succeeded but raised a high alert. Like every
-table, it gets a Table reference: its name, its columns and their types, its Date partition
-and its key. `write_table_reference` can't write this one for you, since the table doesn't
+table, it gets a Table reference: its name, its columns and their types, its partition
+column and its key. `write_table_reference` can't write this one for you, since the table doesn't
 exist yet, so you write it by hand, as [Describe a table by hand](#describe_a_table_by_hand)
 shows argument by argument:
 
@@ -45,29 +45,30 @@ shows argument by argument:
 ...         "job_id": "bigint",
 ...         "dt": "string",  # the day the run happened, as yyyy-MM-dd
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/runs_to_review",
 ...     purge=True,
 ... )
 
 - Name a database you are allowed to write to, here mart; the tables you read, such as
   `ops.job_runs`, usually belong to someone else.
 - Write each type as the warehouse's DESCRIBE prints it, such as `"bigint"`, `"int"` or `"string"`.
-- `date_partition="dt"` makes the table stored a day at a time: each write fills one day, and
-  every Statement that reads it gives the days it reads.
+- `partitioned_by=["dt"]` makes the table stored a Partition, here a day, at a time: a write
+  replaces or adds to the Partitions it fills, and every Statement that reads the table filters
+  `runs_to_review.dt`.
 - `key=["run_id"]` names the table's Key, the columns that tell one row from another: no two
   rows of a day share a `"run_id"`. The warehouse never checks it, so the Toolbox does: each
   write below must show that every row it writes has a `"run_id"` of its own, or it is
   refused, as [Keys](#keys) shows. It also warns when a join could repeat rows, as
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows.
-- `location="/data/your_team/tables"` is the folder all your Saved tables go in: ask whoever
-  looks after your warehouse which one you may write to. The Toolbox adds the table's own
-  folder, here mart/runs_to_review, so no two of your tables ever share one: two tables in one
-  folder read each other's files.
+- `location="/data/your_team/mart.db/runs_to_review"` is the table's own folder, used exactly
+  as written: ask whoever looks after your warehouse where you may write. No two of your Saved
+  tables may share a folder, or have one inside the other, and the Toolbox refuses two that do:
+  two tables in one folder read each other's files.
 - `purge=True` makes dropping the table delete its files too, as the last step below needs.
   Without it, the warehouse forgets a dropped table but keeps its files, and a table created
-  in the same folder again gets its old rows back once their days are listed again, as
+  in the same folder again gets its old rows back once their Partitions are listed again, as
   `repair_partitions` does.
 
 At work, keep this in its own file, as the gallery's
@@ -89,13 +90,13 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/runs_to_review'
+LOCATION '/data/your_team/mart.db/runs_to_review'
 TBLPROPERTIES (
   'external.table.purge'='true'
 );
 
 EXTERNAL and LOCATION make it a table whose files are yours, in its own folder.
-`PARTITIONED BY (dt STRING)` is the Date partition: the table keeps each day apart.
+`PARTITIONED BY (dt STRING)` is its partition column: the table keeps each day apart.
 `STORED AS ORC` is the file format the warehouse saves it in. TBLPROPERTIES holds
 `purge=True`.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows the rest of
@@ -119,7 +120,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/runs_to_review'
+LOCATION '/data/your_team/mart.db/runs_to_review'
 TBLPROPERTIES (
   'external.table.purge'='true'
 );
@@ -128,7 +129,7 @@ TBLPROPERTIES (
 
 A write is a SELECT with a line on top that says where its rows go. Run the SELECT on its own
 first, to see the rows the write would save. These are the runs that failed on 2026-09-24.
-`equals` on the Date partition bounds it to one day, its first and last day at once:
+`equals` on the partition column `job_runs.dt` reads one day's Partition:
 
 >>> failed_on_the_day = statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id),
@@ -141,12 +142,13 @@ first, to see the rows the write would save. These are the runs that failed on 2
 
 ### Write a day with INSERT_OVERWRITE
 
-`INSERT_OVERWRITE(runs_to_review)` turns the same SELECT into a write. A daily write is a
-function of the day, so the same lines write any day:
+`INSERT_OVERWRITE(runs_to_review, partition={"dt": day})` turns the same SELECT into a write
+into one day's Partition. A daily write is a function of the day, so the same lines write any
+day:
 
 >>> def failed_runs(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(runs_to_review),
+...         INSERT_OVERWRITE(runs_to_review, partition={"dt": day}),
 ...         SELECT(job_runs.run_id, job_runs.job_id),
 ...         FROM(job_runs),
 ...         WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")),
@@ -163,15 +165,15 @@ WHERE
 
 Three things to notice:
 
-- The SELECT doesn't list the Date partition, dt. The Toolbox reads the day from the WHERE,
-  which must name one day, and writes it into the first line as PARTITION(dt = '2026-09-24'),
-  which fills the Date partition.
+- The SELECT doesn't list the partition column, dt. `partition={"dt": day}` names its value,
+  which the Toolbox writes into the first line as PARTITION(dt = '2026-09-24'). It says where
+  the rows go, and WHERE which rows are read: keep them the same day.
 - The SELECT lists every other column of the Table reference, each under its own name:
   `job_runs.run_id` fills `"run_id"` because the names match. A column named otherwise would
   need `AS`, such as `AS(job_runs.job_id, "job_id")`. The Toolbox puts them in the table's
   order, since the warehouse fills columns by position.
-- INSERT OVERWRITE replaces whatever the day held. Sending it twice leaves the same rows, not
-  twice as many, which makes it the safe first write of each day.
+- INSERT OVERWRITE replaces whatever the day's Partition held, and no other. Sending it twice
+  leaves the same rows, not twice as many, which makes it the safe first write of each day.
 
 ### Send it
 
@@ -204,19 +206,19 @@ row for each different `"run_id"` and `"job_id"`, and one `"run_id"` always come
 [Keys](#keys) shows. The Toolbox checks only the rows this write adds. Here they can't share a
 `"run_id"` with the failed runs the day holds already, since these runs succeeded.
 
-The day written comes from the table in `FROM`, here `run_alerts.dt`. The joined table needs a
-bound on its days too; here it is the same day.
+The day written is the one `partition=` names. Each table read needs a filter on its partition
+column, the joined one too; here both read the same day.
 
 >>> def alerted_runs(day: str) -> Statement:
 ...     return statement(
-...         INSERT_INTO(runs_to_review),
+...         INSERT_INTO(runs_to_review, partition={"dt": day}),
 ...         # A run can raise several high alerts: DISTINCT keeps each run once.
 ...         SELECT_DISTINCT(job_runs.run_id, job_runs.job_id),
 ...         FROM(run_alerts),
 ...         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
 ...         WHERE(
 ...             equals(run_alerts.dt, day),
-...             equals(job_runs.dt, day),  # the joined table's days need a bound too
+...             equals(job_runs.dt, day),  # the joined table needs its own filter too
 ...             equals(run_alerts.severity, "high"),
 ...             equals(job_runs.status, "SUCCESS"),
 ...         ),
@@ -257,9 +259,9 @@ day is always written in the same order: the INSERT_OVERWRITE first, which clear
 then the INSERT_INTO. To redo a day, send both again, in that order. Keep the day's writes in
 one list, in the order they are sent:
 
->>> def write_day(day: str) -> list[Statement]:
+>>> def writes_for(day: str) -> list[Statement]:
 ...     return [failed_runs(day), alerted_runs(day)]
->>> day_writes = write_day("2026-09-24")
+>>> day_writes = writes_for("2026-09-24")
 >>> len(day_writes)
 2
 
@@ -269,7 +271,7 @@ stands in for it, and prints the first line of each write:
 
 >>> from collections.abc import Callable
 >>> def send_day(day: str, execute: Callable[[str], None]) -> None:
-...     for write in write_day(day):
+...     for write in writes_for(day):
 ...         run(write, execute=execute)
 >>> send_day("2026-09-24", execute=example_database.execute)
 execute: INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt = '2026-09-24')
@@ -290,16 +292,16 @@ Say the reviewers want each run's minutes too. Change the Table reference first:
 ...         "duration_mins": "int",
 ...         "dt": "string",
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/runs_to_review",
 ...     purge=True,
 ... )
 
 The real table still has the old columns, and `create_table` alone would be refused by the
 warehouse, since the table exists. To rebuild it, drop it and create it again. Dropping a
 table is one of the changes the admin module writes, which the star import leaves out, so
-import it by name. `admin.drop_table` deletes the whole table, every day of it, since
+import it by name. `admin.drop_table` deletes the whole table, every Partition of it, since
 `purge=True` was in the Table reference when `create_table` made the table, and the Toolbox
 can't bring it back; it refuses a table that isn't one of your Saved tables, and `show_hive`
 says what it changes before its Hive:
@@ -327,7 +329,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/runs_to_review'
+LOCATION '/data/your_team/mart.db/runs_to_review'
 TBLPROPERTIES (
   'external.table.purge'='true'
 );
@@ -340,8 +342,8 @@ A rebuild suits any change to the columns: one removed, renamed or given another
 as one added. A column only added after the others can instead be added in place, keeping the
 days already written, which read NULL in it until they are written again:
 `admin.add_columns(runs_to_review, query=...)`, as
-[A pipeline of Saved tables](#a_pipeline_of_saved_tables) shows. For a table with a Date
-partition it writes CASCADE, so the days already there get the column too. Here the table is
+[A pipeline of Saved tables](#a_pipeline_of_saved_tables) shows. For a partitioned table it
+writes CASCADE, so the Partitions already there get the column too. Here the table is
 young and its days are written again from their sources anyway, so the rebuild is the simpler
 choice.
 
@@ -361,14 +363,14 @@ the functions written again here write the new table:
 
 >>> def failed_runs(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(runs_to_review),
+...         INSERT_OVERWRITE(runs_to_review, partition={"dt": day}),
 ...         SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...         FROM(job_runs),
 ...         WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")),
 ...     )
 >>> def alerted_runs(day: str) -> Statement:
 ...     return statement(
-...         INSERT_INTO(runs_to_review),
+...         INSERT_INTO(runs_to_review, partition={"dt": day}),
 ...         SELECT_DISTINCT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...         FROM(run_alerts),
 ...         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
@@ -392,21 +394,20 @@ WHERE
 Then write every day again, oldest first, as
 [Backfill a range of days](#backfill_a_range_of_days) shows: the drop deleted them all.
 
-### A table with no days, written whole
+### A table that isn't partitioned, written whole
 
-Some results have no days: each team's runs over the last two days, say, which the next write
-replaces. Give such a Saved table `date_partition=None`. `create_table` then makes it with no
-PARTITIONED BY, and a write fills the whole table: `INSERT_OVERWRITE` replaces every row it
-holds, and its Hive names no PARTITION. Its Key here is the team, which GROUP_BY makes one row
-for:
+Some results aren't kept a day at a time: each team's runs over the last two days, say, which
+the next write replaces. Leave `partitioned_by=` out of such a Saved table. `create_table` then
+makes it with no PARTITIONED BY, and a write fills the whole table: `INSERT_OVERWRITE` replaces
+every row it holds, and its Hive names no PARTITION. Its Key here is the team, which GROUP_BY
+makes one row for:
 
 >>> jobs = example_database.jobs
 >>> team_runs = Table(
 ...     "mart.team_runs",
 ...     columns={"team": "string", "runs": "bigint"},
-...     date_partition=None,
 ...     key=["team"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/team_runs",
 ... )
 >>> text = show_hive(statement(
 ...     INSERT_OVERWRITE(team_runs),
@@ -428,17 +429,15 @@ WHERE
 GROUP BY
   jobs.team;
 
-It reads two days of job_runs and writes their rows into the one table at once, so it is sent
-whole: `by_day` refuses it. Everything else is checked as for a write of one day: its Key, and
-that the days of job_runs are bounded in WHERE. It must be one of your Saved tables, with
-`location=`, since the write replaces all of it. `date_partition=None` has to be written out: a
-Table reference without `date_partition=...` is refused, so a table with days is never read
-whole by mistake.
+It reads two days of job_runs and writes their rows into the one table at once. Everything is
+checked as for a write into a Partition: its Key, and that job_runs's partition column is
+filtered in WHERE. It must be one of your Saved tables, with `location=`, since the write
+replaces all of it.
 
 ## Check it worked
 
-Every write above was built without a refusal, so its SELECT matches the Table reference and
-reads one day. At work, after sending the day's writes, read the day back from the Saved table
+Every write above was built without a refusal, so its SELECT matches the Table reference. At
+work, after sending the day's writes, read the day back from the Saved table
 and count its rows: here, 2 for 2026-09-24, run 102 and run 101.
 
 >>> saved = statement(
@@ -463,13 +462,13 @@ Then check that the real table matches its Table reference with
 
 ## Common mistakes
 
-### Selecting the Date partition in a write
+### Selecting a partition column the write names
 
-The day comes from the WHERE, so a write that also selects `job_runs.dt` is refused as you
+The day comes from `partition=`, so a write that also selects `job_runs.dt` is refused as you
 build it:
 
 >>> statement(
-...     INSERT_OVERWRITE(runs_to_review),
+...     INSERT_OVERWRITE(runs_to_review, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins, job_runs.dt),
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
@@ -480,37 +479,55 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(runs_to_review): it also selects dt.
 ...
 
-Leave `job_runs.dt` out of SELECT, and bound it to one day in WHERE.
+Leave `job_runs.dt` out of SELECT, and filter the same day in WHERE.
 
-### A write that reads more than one day
+### A partition= that names one day, and a WHERE that reads two
 
-A write into a table with days fills one day, so a write whose WHERE reads two days is
-refused when its Hive is written, by `show_hive`, `to_hive` or `run`:
+`partition=` says where the rows go, and WHERE which rows are read. Nothing checks that they
+agree, so this write would put the failed runs of both days into 2026-09-24's Partition:
 
->>> two_days = statement(
-...     INSERT_OVERWRITE(runs_to_review),
+>>> two_days_into_one = statement(
+...     INSERT_OVERWRITE(runs_to_review, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
 ...           equals(job_runs.status, "FAILED")),
 ... )
->>> text = show_hive(two_days)
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(runs_to_review) covers 2 days.
-...
 
-Split it into one write per day with `by_day`, as
-[Backfill a range of days](#backfill_a_range_of_days) shows.
+Read the same day you name. To write several days at once, leave `partition=` out and SELECT
+`job_runs.dt` last: each row then goes to its own day's Partition, filled from the rows, and
+show_hive prints the Session setting that needs ahead of the write. Send it first with
+`run(hive_settings("dynamic_partitions"), execute=...)`:
 
-### A joined table without a bound on its days
+>>> text = show_hive(statement(
+...     INSERT_OVERWRITE(runs_to_review),
+...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins, job_runs.dt),
+...     FROM(job_runs),
+...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"),
+...           equals(job_runs.status, "FAILED")),
+... ))
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.runs_to_review PARTITION(dt)
+SELECT
+  job_runs.run_id,
+  job_runs.job_id,
+  job_runs.duration_mins,
+  job_runs.dt
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_runs.status = 'FAILED';
 
-Every table with a Date partition needs its days bounded, the joined one too. Leave out
-`job_runs.dt` and the write stops before anything runs:
+[Backfill a range of days](#backfill_a_range_of_days) writes a range of days this way.
+
+### A joined table without a filter on its partition column
+
+Every partitioned table a Statement reads needs a filter on its partition column, the joined
+one too. Leave out `job_runs.dt` and the write stops before anything runs:
 
 >>> statement(
-...     INSERT_INTO(runs_to_review),
+...     INSERT_INTO(runs_to_review, partition={"dt": "2026-09-24"}),
 ...     SELECT_DISTINCT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
 ...     FROM(run_alerts),
 ...     JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
@@ -519,11 +536,11 @@ Every table with a Date partition needs its days bounded, the joined one too. Le
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(job_runs, ON=...) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
+  What happened:  JOIN(job_runs, ON=...) reads ops.job_runs, but filters none of its partition columns: dt.
 ...
 
-The day written still comes from `run_alerts.dt`, the table in `FROM`; the joined table's
-bound only limits what it reads. Bound `job_runs.dt` to the same day. If a run can raise an
+The day written still comes from `partition=`; the joined table's filter only limits what it
+reads. Filter `job_runs.dt` to the same day. If a run can raise an
 alert after midnight, its run is from the day before, so read both days of `job_runs`:
 `between(job_runs.dt, "2026-09-23", "2026-09-24")`.
 
@@ -534,7 +551,7 @@ which to write:
 
 >>> create_table(Table("mart.runs_to_review",
 ...     columns={"run_id": "integer", "job_id": "bigint", "dt": "string"},
-...     date_partition="dt"))
+...     partitioned_by=["dt"]))
 Traceback (most recent call last):
 ...
 ValueError:
@@ -544,18 +561,18 @@ ValueError:
 ### Leaving out location=
 
 Every Saved table is made in a folder of its own, so `create_table` refuses a Table reference
-that doesn't say where your Saved tables go:
+that doesn't say which:
 
 >>> create_table(Table("mart.runs_to_review",
 ...     columns={"run_id": "bigint", "job_id": "bigint", "dt": "string"},
-...     date_partition="dt"))
+...     partitioned_by=["dt"]))
 Traceback (most recent call last):
 ...
 ValueError:
   What happened:  create_table(runs_to_review): its Table reference has no location=.
 ...
 
-Add `location=` with the folder your Saved tables go in, as above. The tables you only read
+Add `location=` with the table's own folder, as above. The tables you only read
 need none: they are someone else's, in folders of their own.
 
 ## Next

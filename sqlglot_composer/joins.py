@@ -38,8 +38,8 @@ HOW = {
 # The joins that only test their table: they give each row before them once at most, and add
 # none of their table's columns, so only their own ON= may read those.
 ONLY_TESTS = ("SEMI_JOIN", "ANTI_JOIN")
-# The joins whose table's Date partition is bounded inside their own ON=: WHERE runs after
-# the join, and would throw away the rows they keep, or can't read their columns at all.
+# The joins whose table's partition columns are filtered inside their own ON=: WHERE runs
+# after the join, and would throw away the rows they keep, or can't read their columns at all.
 BOUNDED_IN_ON = ("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")
 
 
@@ -177,7 +177,8 @@ def _refuse_columns_read(s: Statement, read: Clause) -> None:
 
 def full_joined(s: Statement, read: Clause) -> bool:
     """Whether a read is one side of a FULL_JOIN: the FULL_JOIN's own table, or a table read
-    before it. FULL_JOIN keeps every row of each, so neither WHERE nor ON= can bound its days."""
+    before it. FULL_JOIN keeps every row of each, so neither WHERE nor ON= can filter its
+    Partitions."""
     position = s._reads.index(read)
     return any(other._name == "FULL_JOIN" for other in s._reads[position:])
 

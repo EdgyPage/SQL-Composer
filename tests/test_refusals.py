@@ -21,7 +21,6 @@ import pytest
 from sqlglot_composer import (
     AS,
     CROSS_JOIN,
-    EXCEPT,
     FROM,
     FULL_JOIN,
     GROUP_BY,
@@ -41,7 +40,6 @@ from sqlglot_composer import (
     at_least,
     average_of,
     between,
-    by_day,
     count_distinct,
     count_rows,
     derived,
@@ -49,6 +47,7 @@ from sqlglot_composer import (
     equals,
     is_in,
     is_null,
+    not_equals,
     run,
     set_load_limits,
     statement,
@@ -73,7 +72,7 @@ DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
 daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
 )
 
 
@@ -290,42 +289,34 @@ def test_guard_order_by_in_derived_table_refuses() -> None:
         derived("sorted_jobs", inner)
 
 
-def test_guard_date_formats_differ_refuses() -> None:
-    with pytest.raises(GuardRefused) as refused:
-        equals(region_costs.dt, job_events.dt)
-    message = str(refused.value)
-    assert "date_format='%Y%m%d'" in message and "date_format='%Y-%m-%d'" in message
-    assert "Opt-out:        none" in message
-
-
 @pytest.mark.parametrize("make", [
+    lambda: equals(region_costs.dt, job_events.dt),
     lambda: JOIN(job_events, ON=all_of(equals(job_events.job_id, region_costs.job_id),
-                                       equals(job_events.dt, region_costs.dt))),
+                                       equals(job_events.dt, region_costs.dt)),
+                 many_matches=True),
     lambda: at_least(job_events.dt, region_costs.dt),
     lambda: between(job_events.dt, region_costs.dt, region_costs.dt),
     lambda: is_in(job_events.dt, [region_costs.dt]),
-], ids=["join_on", "at_least", "between", "is_in"])
-def test_guard_date_formats_differ_refuses_every_comparison(make: Callable[[], object]) -> None:
-    with pytest.raises(GuardRefused, match="written like '20260925'"):
-        make()
-
-
-def test_guard_date_formats_differ_follows_a_derived_tables_column() -> None:
-    costs = derived("costs", statement(
-        SELECT(region_costs.job_id, region_costs.dt),
-        FROM(region_costs),
-        WHERE(between(region_costs.dt, "20260918", "20260924")),
-    ))
-    with pytest.raises(GuardRefused, match=r"costs\.dt"):
-        equals(job_events.dt, costs.dt)
-
-
-def test_date_partitions_written_the_same_way_are_compared() -> None:
-    assert repr(equals(job_owners.dt, job_events.dt)) == "job_owners.dt = job_events.dt"
+], ids=["equals", "join_on", "at_least", "between", "is_in"])
+def test_dates_written_another_way_are_compared_as_written(make: Callable[[], object]) -> None:
+    """Since 7.0 no column is a day to the Toolbox: region_costs.dt, written like 20260911,
+    is compared with another table's dt as it is, and the user matches how they are written."""
+    make()
 
 
 def test_guard_write_lines_up_refuses() -> None:
     with pytest.raises(GuardRefused, match="it leaves out runs, and it also selects dt"):
+        statement(
+            INSERT_OVERWRITE(daily_runs, partition={"dt": "2026-09-24"}),
+            SELECT(job_runs.job_id, job_runs.dt),
+            FROM(job_runs),
+            WHERE(equals(job_runs.dt, "2026-09-24")),
+        )
+
+
+def test_guard_write_lines_up_wants_the_partition_columns_of_a_write_from_its_rows() -> None:
+    with pytest.raises(GuardRefused, match=r"INSERT_OVERWRITE\(daily_runs\): it leaves out "
+                       r"runs\.\n"):
         statement(
             INSERT_OVERWRITE(daily_runs),
             SELECT(job_runs.job_id, job_runs.dt),
@@ -334,14 +325,14 @@ def test_guard_write_lines_up_refuses() -> None:
         )
 
 
-daily_runs_by_job = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
+daily_runs_by_job = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
                           columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
 
 
 def runs_written(**opt_out: bool) -> Statement:
     """A write of each run's job and duration, where the Saved table wants one row per job."""
     return statement(
-        INSERT_OVERWRITE(daily_runs_by_job, **opt_out),
+        INSERT_OVERWRITE(daily_runs_by_job, partition={"dt": "2026-09-24"}, **opt_out),
         SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, "2026-09-24")),
@@ -358,38 +349,22 @@ def test_guard_unproven_key_opt_out() -> None:
     assert to_hive(runs_written(unproven_key=True)).startswith("INSERT OVERWRITE TABLE")
 
 
-def test_guard_one_day_per_write_refuses() -> None:
+def test_a_write_fills_every_partition_its_rows_hold() -> None:
+    """The one-day Guard is gone: a write of two days fills both of their Partitions."""
     backfill = statement(
         INSERT_OVERWRITE(daily_runs),
-        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs),
         WHERE(DAYS),
         GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    with pytest.raises(GuardRefused, match="covers 2 days"):
-        to_hive(backfill)
+    assert to_hive(backfill).startswith("INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)\n")
 
 
-def test_guard_kept_day_without_window_refuses() -> None:
-    # Two days read in a Derived table, one kept above: only a write with a Window may.
-    two_days = derived("two_days", statement(
-        SELECT(job_runs.job_id, job_runs.dt), FROM(job_runs), WHERE(DAYS)))
-    write = statement(
-        INSERT_OVERWRITE(daily_runs),
-        SELECT(two_days.job_id, AS(count_rows(), "runs")),
-        FROM(two_days),
-        WHERE(equals(two_days.dt, "2026-09-24")),
-        GROUP_BY(two_days.job_id),
-    )
-    with pytest.raises(GuardRefused, match=r"reads 2 days, and keeps one of them with "
-                                           r"equals\(two_days\.dt, \.\.\.\)"):
-        to_hive(write)
-
-
-def test_guard_kept_day_in_a_whole_table_write_refuses() -> None:
-    # A table with no days is written whole: keeping one day above would leave only its rows.
+def test_a_whole_table_write_may_keep_one_day_of_what_it_reads() -> None:
+    """The kept-day Guards are gone: a write reads what it reads, and the user picks the rows."""
     job_counts = Table("mart.job_counts", columns={"job_id": "bigint", "runs": "bigint"},
-                       date_partition=None, location="/data/your_team/tables")
+                       location="/data/your_team/mart.db/job_counts")
     two_days = derived("two_days", statement(
         SELECT(job_runs.job_id, job_runs.dt), FROM(job_runs), WHERE(DAYS)))
     write = statement(
@@ -399,51 +374,7 @@ def test_guard_kept_day_in_a_whole_table_write_refuses() -> None:
         WHERE(equals(two_days.dt, "2026-09-24")),
         GROUP_BY(two_days.job_id),
     )
-    with pytest.raises(GuardRefused, match=r"writes the whole of mart\.job_counts, which has "
-                                           r"no days, and keeps one day"):
-        to_hive(write)
-
-
-def test_guard_by_day_limit_refuses() -> None:
-    top = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS),
-                    ORDER_BY(descending(job_runs.duration_mins)), LIMIT(10))
-    with pytest.raises(GuardRefused, match="this Statement: it has LIMIT 10"):
-        by_day(top)
-
-
-def test_guard_by_day_grouping_refuses() -> None:
-    weekly = statement(
-        SELECT(job_runs.status, AS(count_distinct(job_runs.job_id), "jobs")),
-        FROM(job_runs),
-        WHERE(DAYS),
-        GROUP_BY(job_runs.status),
-    )
-    with pytest.raises(GuardRefused, match="without keeping the Date partition job_runs.dt"):
-        by_day(weekly)
-
-
-def test_guard_by_day_stack_refuses() -> None:
-    alerted = statement(SELECT(run_alerts.run_id), FROM(run_alerts),
-                        WHERE(between(run_alerts.dt, "2026-09-23", "2026-09-24")))
-    failed = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))
-    with pytest.raises(GuardRefused, match=r"this Statement: it is made by EXCEPT\(\.\.\.\), "
-                                           "and not every Statement it stacks returns the "
-                                           "day"):
-        by_day(EXCEPT(alerted, failed))
-
-
-def test_guard_by_day_window_refuses() -> None:
-    from sqlglot_composer import lag, window
-
-    with_before = statement(
-        SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=window(
-            PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)), "before")),
-        FROM(job_runs),
-        WHERE(DAYS),
-    )
-    with pytest.raises(GuardRefused, match="it works out lag\\(...\\) over a Window whose "
-                       "PARTITION_BY leaves out the Date partition job_runs.dt"):
-        by_day(with_before)
+    assert "\nINSERT OVERWRITE TABLE mart.job_counts\n" in to_hive(write)
 
 
 # --- The Warning --------------------------------------------------------------------------
@@ -525,19 +456,26 @@ def test_one_block_read_twice_under_two_names_joins_with_no_warning() -> None:
     assert "JOIN runs_the_day_before" in to_hive(s)
 
 
-def test_a_table_with_no_key_warns_and_says_to_declare_one() -> None:
-    no_key = Table("ops.jobs", columns={"job_id": "bigint", "team": "string"},
-                   date_partition=None)
-    with pytest.warns(RepeatedRowsWarning, match=r"declares no Key.*key=\[\.\.\.\]"):
+def test_a_table_with_no_key_warns_and_says_many_matches_may_be_right() -> None:
+    no_key = Table("ops.jobs", columns={"job_id": "bigint", "team": "string"})
+    with pytest.warns(RepeatedRowsWarning) as caught:
         JOIN(no_key, ON=equals(no_key.job_id, job_runs.job_id))
+    message = str(caught[0].message)
+    assert "declares no Key" in message
+    assert ("If you know each row matches one jobs row at most, many_matches=True is right."
+            in message)
+    # Not every table has a Key, so the Warning doesn't tell it to declare one.
+    assert "key=[" not in message
 
 
-def test_a_join_on_part_of_a_snapshots_key_says_to_match_the_day_too() -> None:
-    """job_owners holds one row per job per day: the fix is to match the day, not to group."""
+def test_a_join_on_part_of_a_key_names_the_whole_key_and_says_to_group_first() -> None:
+    """job_owners holds one row per job per day, its Key: a join on job_id alone repeats."""
     with pytest.warns(RepeatedRowsWarning) as caught:
         JOIN(job_owners, ON=equals(job_owners.job_id, job_events.job_id))
-    fix = str(caught[0].message).split("Usual fix:")[1].split("\n")[0]
-    assert "ON=all_of(equals(...), equals(job_owners.dt, job_events.dt))" in fix
+    message = str(caught[0].message)
+    assert "told apart only by its Key (job_id, dt)" in message
+    fix = message.split("Usual fix:")[1].split("\n")[0]
+    assert "Group job_owners first so it has one row per value you join on" in fix
 
 
 def test_a_join_on_the_whole_key_does_not_warn() -> None:
@@ -561,14 +499,43 @@ def test_joining_a_grouped_derived_table_on_its_groups_does_not_warn() -> None:
 # --- Load limits --------------------------------------------------------------------------
 
 
-def test_load_limit_date_bound_refuses() -> None:
-    with pytest.raises(LoadRefused, match=r"FROM\(job_runs\) reads ops.job_runs"):
+def test_load_limit_partition_bound_refuses() -> None:
+    with pytest.raises(LoadRefused, match=r"FROM\(job_runs\) reads ops.job_runs, but filters "
+                       r"none of its partition columns: dt\."):
         statement(SELECT(job_runs.run_id), FROM(job_runs))
 
 
-def test_load_limit_date_bound_opt_out() -> None:
+def test_load_limit_partition_bound_opt_out() -> None:
     s = statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True))
     assert "WHERE" not in to_hive(s)
+
+
+def test_an_unpartitioned_table_is_never_limited() -> None:
+    assert "WHERE" not in to_hive(statement(SELECT(jobs.job_name), FROM(jobs)))
+
+
+# A table partitioned by a region and a load, neither of them a day.
+loads = Table("ops.loads", columns={"n": "bigint", "region": "string", "load_id": "bigint"},
+              partitioned_by=["region", "load_id"])
+
+
+@pytest.mark.parametrize("condition", [
+    lambda: equals(loads.region, "EU"), lambda: at_least(loads.load_id, 7),
+    lambda: between(loads.load_id, 1, 7), lambda: is_in(loads.region, ["EU", "US"]),
+], ids=["equals", "at_least", "between", "is_in"])
+def test_a_filter_on_any_partition_column_bounds_a_read(condition: Callable[[], object]) -> None:
+    statement(SELECT(loads.n), FROM(loads), WHERE(condition()))
+
+
+@pytest.mark.parametrize("condition", [
+    lambda: not_equals(loads.region, "EU"), lambda: is_null(loads.region),
+    lambda: equals(loads.n, 3),
+], ids=["not_equals", "is_null", "another_column"])
+def test_a_filter_that_leaves_most_partitions_doesnt_bound_a_read(
+        condition: Callable[[], object]) -> None:
+    with pytest.raises(LoadRefused, match="filters none of its partition columns: region, "
+                       "load_id"):
+        statement(SELECT(loads.n), FROM(loads), WHERE(condition()))
 
 
 def test_a_date_bound_inside_left_joins_on_counts() -> None:
@@ -631,20 +598,12 @@ def test_a_limit_the_user_writes_is_never_refused() -> None:
     assert len(run(s, query=rows_of(2))) == 2
 
 
-def test_load_limit_dates_refuses() -> None:
-    set_load_limits(dates=1)
-    s = statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))
-    with pytest.raises(LoadRefused, match="reads 2 days of ops.job_runs"):
-        to_hive(s)
-
-
-def test_load_limit_dates_opt_out() -> None:
-    set_load_limits(dates=1)
-    s = statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True),
-                  WHERE(DAYS))
-    to_hive(s)
-    for day in by_day(statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS))):
-        to_hive(day)
+def test_set_load_limits_refuses_the_dates_cap_7_took_out() -> None:
+    with pytest.raises(TypeError, match="set_load_limits was given dates=, which Toolbox 7.0 "
+                       "took out"):
+        set_load_limits(dates=1)
+    # Reading two days is no longer capped.
+    to_hive(statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(DAYS)))
 
 
 # --- Every one of them is covered ---------------------------------------------------------
@@ -658,7 +617,7 @@ REFUSALS = [
 
 
 def test_refusals_are_found() -> None:
-    assert len(REFUSALS) >= 15
+    assert len(REFUSALS) >= 17
 
 
 @pytest.mark.parametrize(("name", "function"), REFUSALS, ids=[n for n, _ in REFUSALS])

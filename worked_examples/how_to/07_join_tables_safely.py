@@ -126,8 +126,8 @@ WHERE
 8     104             40         9
 
 Run 101 is there three times, with its 10 minutes each time, and the runs with no alert, such
-as 95, are gone, because `JOIN` keeps only rows that match. `run_alerts` has a Date partition
-too, so it gets its own days in `WHERE`.
+as 95, are gone, because `JOIN` keeps only rows that match. `run_alerts` is partitioned by its
+day too, so it gets its own filter on `run_alerts.dt` in `WHERE`.
 
 ### Watch a total come out too big
 
@@ -414,12 +414,11 @@ joins the two conditions:
 with no match: `is_null`, as in the step Find the rows with no match, or an `any_of` with such
 an `is_null` among its conditions.
 
-### Forgetting the joined table's days
+### Forgetting the joined table's partition filter
 
-Each table with a Date partition needs its own days, the joined one too. (Here too,
-`many_matches=True` says that a run's several alerts are meant, so only the missing days
-stop.) The message says "bounds": to bound a Date partition is to give its first and last
-day.
+Each partitioned table a Statement reads needs a filter on one of its own partition columns,
+the joined one too. (Here too, `many_matches=True` says that a run's several alerts are meant,
+so only the missing filter stops.)
 
 >>> alerts_any_day = statement(
 ...     SELECT(job_runs.run_id, run_alerts.alert_id),
@@ -430,7 +429,7 @@ day.
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but nothing bounds its Date partition dt at both ends.
+  What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but filters none of its partition columns: dt.
 ...
 
 ## Next

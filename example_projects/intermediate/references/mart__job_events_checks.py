@@ -15,9 +15,9 @@ job_events_checks = Table(
         "row_count": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/job_events_checks",  # its own folder
     descriptions={
         "row_count": "ops.job_events' rows that day",
         "dt": "the day counted, as yyyy-MM-dd",

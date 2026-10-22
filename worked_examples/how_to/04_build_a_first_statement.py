@@ -28,8 +28,8 @@ The question here is: which runs on 2026-09-24 took 20 minutes or more?
 
 ### Start with SELECT, FROM and the day
 
-Start with the columns you want, the table, and the day to read. `equals(job_runs.dt,
-"2026-09-24")` reads one day: it gives the first and the last day at once.
+Start with the columns you want, the table, and the day to read. `job_runs` is partitioned
+by its day, `job_runs.dt`, and `equals(job_runs.dt, "2026-09-24")` reads one day of it.
 
 >>> runs_that_day = statement(
 ...     SELECT(job_runs.run_id, job_runs.status, job_runs.duration_mins),

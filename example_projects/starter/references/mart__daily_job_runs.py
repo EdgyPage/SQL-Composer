@@ -18,9 +18,9 @@ daily_job_runs = Table(
         "minutes": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/daily_job_runs",  # its own folder
     descriptions={
         "runs": "every run of the job that day, TEST runs among them",
         "failed_runs": "its runs whose status is FAILED",

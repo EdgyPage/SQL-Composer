@@ -1,7 +1,8 @@
 """The admin module: changes to the user's own Saved tables, written and checked for them.
 
 Map family 4 and ADR 0006. `from sqlglot_composer import admin` (the star import leaves it
-out) gives drop_table, drop_days, add_columns, set_properties and move_to_own_folder. Each makes
+out) gives drop_table, drop_partitions, add_columns, set_properties and move_to_own_folder.
+Each makes
 an ordinary Statement, or for the move a list of them, which run sends like any other and logs
 in the Admin log; show_hive prints what it changes, what can't be undone and what to check
 first, ahead of its Hive; and each refuses a table that isn't one of the user's Saved tables. The
@@ -10,7 +11,6 @@ golden corpus pins every one's Hive and notes (the `edge:admin:*` cases).
 
 from __future__ import annotations
 
-import datetime
 import inspect
 import re
 from collections.abc import Callable
@@ -19,7 +19,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from conftest import toolbox_module
-from hive_corpus_cases import BASE, warehouse
+from hive_corpus_cases import warehouse
 
 import sqlglot_composer
 from sqlglot_composer import (
@@ -28,10 +28,15 @@ from sqlglot_composer import (
     Statement,
     Table,
     admin,
+    all_of,
+    any_of,
+    between,
     create_table,
     derived,
+    equals,
     example_database,
     export_lineage,
+    less_than,
     run,
     set_admin_log,
     show_hive,
@@ -40,14 +45,27 @@ from sqlglot_composer import (
 )
 
 job_runs = example_database.job_runs
+# Where the warehouse says a Saved table is before it is moved: a folder it shares with others.
+SHARED = "hdfs://namenode:8020/data/your_team/tables"
 
 
 def saved(name: str = "mart.daily_runs", columns: dict[str, str | None] | None = None,
-          date_partition: str | None = "dt", **storage: object) -> Table:
-    """One of the user's Saved tables."""
+          partitioned_by: list[str] | None = None, **storage: object) -> Table:
+    """One of the user's Saved tables, in its own folder, partitioned by dt unless
+    partitioned_by= or columns= says otherwise."""
     columns = columns or {"job_id": "bigint", "runs": "bigint", "dt": "string"}
-    return Table(name, columns=columns, date_partition=date_partition, location=BASE,
-                 **storage)
+    if partitioned_by is None:
+        partitioned_by = ["dt"] if "dt" in columns else []
+    database, table = name.split(".")
+    location = storage.pop("location", f"/data/your_team/{database}.db/{table}")
+    return Table(name, columns=columns, partitioned_by=partitioned_by or None,
+                 location=location, **storage)
+
+
+def at_work(t: Table, **answer: object) -> object:
+    """The warehouse's answer for t, at a folder it shares with others unless `answer` names
+    another."""
+    return warehouse(t, **{"location": SHARED, **answer})
 
 
 # --- Where it is ---------------------------------------------------------------------------
@@ -57,8 +75,12 @@ def test_admin_is_imported_by_name_and_the_star_import_leaves_it_out() -> None:
     assert "admin" not in sqlglot_composer.__all__
     assert "drop_table" not in sqlglot_composer.__all__
     assert not hasattr(sqlglot_composer, "drop_table")
-    assert admin.__all__ == ["drop_table", "drop_days", "add_columns", "set_properties",
+    assert admin.__all__ == ["drop_table", "drop_partitions", "add_columns", "set_properties",
                              "move_to_own_folder"]
+
+
+def test_drop_days_is_gone() -> None:
+    assert not hasattr(admin, "drop_days")
 
 
 # --- Each refuses a table that isn't one of the user's Saved tables ------------------------
@@ -67,10 +89,11 @@ def test_admin_is_imported_by_name_and_the_star_import_leaves_it_out() -> None:
 def _refusing(call: str) -> Callable[[object], Statement | list[Statement]]:
     return {
         "drop_table": lambda t: admin.drop_table(t),
-        "drop_days": lambda t: admin.drop_days(t, before="2025-01-01"),
-        "add_columns": lambda t: admin.add_columns(t, query=warehouse(saved())),
+        "drop_partitions": lambda t: admin.drop_partitions(
+            t, where=less_than(job_runs.dt, "2025-01-01")),
+        "add_columns": lambda t: admin.add_columns(t, query=at_work(saved())),
         "set_properties": lambda t: admin.set_properties(t),
-        "move_to_own_folder": lambda t: admin.move_to_own_folder(t, query=warehouse(saved())),
+        "move_to_own_folder": lambda t: admin.move_to_own_folder(t, query=at_work(saved())),
     }[call]
 
 
@@ -99,7 +122,7 @@ def test_need_saved_table_is_the_one_check() -> None:
         need(job_runs, "repair_partitions(...)")
 
 
-# --- drop_table and drop_days ------------------------------------------------------------------
+# --- drop_table and drop_partitions ------------------------------------------------------------
 
 
 def test_drop_table_drops_only_if_it_exists() -> None:
@@ -120,29 +143,63 @@ def test_show_hive_prints_what_it_changes_and_what_cant_be_undone_first(
 
 def test_without_purge_the_notes_say_the_files_stay() -> None:
     notes = " ".join(admin.drop_table(saved())._admin_about)
-    assert "files stay in the table's folder, /data/your_team/tables/mart/daily_runs" in notes
+    assert "files stay in the table's folder, /data/your_team/mart.db/daily_runs" in notes
 
 
-@pytest.mark.parametrize("before", ["2025-01-01", datetime.date(2025, 1, 1)])
-def test_drop_days_drops_every_day_before_one(before: str | datetime.date) -> None:
-    assert to_hive(admin.drop_days(saved(), before=before)) == (
-        "ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')")
+REGION_RUNS = saved("mart.region_runs", columns={"job_id": "bigint", "runs": "bigint",
+                                                 "region": "string", "dt": "string"},
+                    partitioned_by=["region", "dt"])
+region_runs = REGION_RUNS
 
 
-def test_drop_days_writes_the_day_as_the_table_writes_days() -> None:
-    compact = saved(date_format="%Y%m%d")
-    assert to_hive(admin.drop_days(compact, before=datetime.date(2025, 1, 1))).endswith(
-        "PARTITION (dt < '20250101')")
-    with pytest.raises(ValueError, match="writes days like '20250101'"):
-        admin.drop_days(compact, before="2025-01-01")
+@pytest.mark.parametrize(("where", "dropped"), [
+    (equals(region_runs.region, "EU"), "region = 'EU'"),
+    (less_than(region_runs.dt, "2025-01-01"), "dt < '2025-01-01'"),
+    (all_of(equals(region_runs.region, "EU"), less_than(region_runs.dt, "2025-01-01")),
+     "region = 'EU', dt < '2025-01-01'"),
+    ([equals(region_runs.region, "EU"), between(region_runs.dt, "2025-01-01", "2025-01-31")],
+     "region = 'EU', dt >= '2025-01-01', dt <= '2025-01-31'"),
+], ids=["equals", "less_than", "all_of", "a list, with between"])
+def test_drop_partitions_drops_the_partitions_where_picks(
+        where: object, dropped: str) -> None:
+    assert to_hive(admin.drop_partitions(region_runs, where=where)) == (
+        f"ALTER TABLE mart.region_runs DROP IF EXISTS PARTITION ({dropped})")
 
 
-def test_drop_days_refuses_a_table_with_no_date_partition() -> None:
-    with pytest.raises(ValueError, match="has no Date partition") as refused:
-        admin.drop_days(saved(columns={"job_id": "bigint"}, date_partition=None),
-                        before="2025-01-01")
+def test_drop_partitions_writes_a_value_as_it_is_given() -> None:
+    compact = saved(columns={"job_id": "bigint", "day": "string"}, partitioned_by=["day"])
+    assert to_hive(admin.drop_partitions(compact, where=less_than(compact.day, "20250101"))
+                   ).endswith("PARTITION (day < '20250101')")
+
+
+@pytest.mark.parametrize(("where", "says"), [
+    (any_of(equals(region_runs.region, "EU"), equals(region_runs.region, "US")),
+     "where= holds any_of(...)."),
+    (equals(region_runs.job_id, 3),
+     "region_runs.job_id isn't one of mart.region_runs's partition columns."),
+    (equals(region_runs.dt, region_runs.region),
+     "dt is compared with region_runs.region, which isn't a value."),
+    (equals(job_runs.dt, "2025-01-01"), "job_runs.dt isn't a column of region_runs."),
+], ids=["any_of", "not a partition column", "a column compared with a column",
+        "another table's column"])
+def test_drop_partitions_refuses_what_drop_partition_cant_take(where: object, says: str) -> None:
+    with pytest.raises(ValueError) as refused:
+        admin.drop_partitions(region_runs, where=where)
+    assert says in " ".join(str(refused.value).split())
+
+
+def test_drop_partitions_refuses_a_table_with_no_partitions() -> None:
+    whole = saved(columns={"job_id": "bigint"})
+    with pytest.raises(ValueError, match="whose Table reference has no partitioned_by=") as (
+            refused):
+        admin.drop_partitions(whole, where=equals(whole.job_id, 3))
     # Its fix names the write that replaces such a table whole.
     assert "INSERT_OVERWRITE(daily_runs)" in str(refused.value)
+
+
+def test_drop_partitions_needs_where() -> None:
+    with pytest.raises(TypeError, match=r"wasn't given where=\."):
+        admin.drop_partitions(region_runs)
 
 
 # --- add_columns -------------------------------------------------------------------------------
@@ -153,14 +210,21 @@ WIDER = {"job_id": "bigint", "runs": "bigint", "fails": "bigint", "note": "strin
 
 def test_add_columns_adds_what_the_table_lacks_with_cascade() -> None:
     t = saved(columns=WIDER)
-    assert to_hive(admin.add_columns(t, query=warehouse(t, lacking=("fails", "note")))) == (
+    assert to_hive(admin.add_columns(t, query=at_work(t, lacking=("fails", "note")))) == (
         "ALTER TABLE mart.daily_runs ADD COLUMNS (\n  fails BIGINT,\n  note STRING\n) CASCADE")
 
 
-def test_add_columns_sends_describe_and_writes_no_cascade_without_days() -> None:
+def test_add_columns_cascades_into_any_partitioned_table() -> None:
+    t = saved(columns={"job_id": "bigint", "note": "string", "region": "string"},
+              partitioned_by=["region"])
+    assert to_hive(admin.add_columns(t, query=at_work(t, lacking=("note",)))) == (
+        "ALTER TABLE mart.daily_runs ADD COLUMNS (\n  note STRING\n) CASCADE")
+
+
+def test_add_columns_sends_describe_and_writes_no_cascade_without_partitions() -> None:
     sent = []
-    t = saved(columns={"job_id": "bigint", "note": "string"}, date_partition=None)
-    answer = warehouse(t, lacking=("note",))
+    t = saved(columns={"job_id": "bigint", "note": "string"})
+    answer = at_work(t, lacking=("note",))
     adding = admin.add_columns(t, query=lambda hive: sent.append(hive) or answer(hive))
     assert sent == ["DESCRIBE mart.daily_runs"]
     assert to_hive(adding) == "ALTER TABLE mart.daily_runs ADD COLUMNS (\n  note STRING\n)"
@@ -173,21 +237,22 @@ def test_add_columns_sends_describe_and_writes_no_cascade_without_days() -> None
 def test_add_columns_refuses_what_it_cant_add(lacking: tuple[str, ...], refusal: str) -> None:
     t = saved(columns=WIDER)
     with pytest.raises(ValueError, match=refusal):
-        admin.add_columns(t, query=warehouse(t, lacking=lacking))
+        admin.add_columns(t, query=at_work(t, lacking=lacking))
 
 
 def test_add_columns_refuses_a_new_partition_and_a_column_with_no_type() -> None:
     region = saved(columns={"job_id": "bigint", "region": "string", "dt": "string"},
-                   partitioned_by=["region"])
-    with pytest.raises(ValueError, match="region is a Partition in the Table reference"):
-        admin.add_columns(region, query=warehouse(region, lacking=("region",)))
+                   partitioned_by=["region", "dt"])
+    with pytest.raises(ValueError, match="region is a partition column in the Table "
+                                         "reference, but not in the table"):
+        admin.add_columns(region, query=at_work(region, lacking=("region",)))
     untyped = saved(columns={"job_id": "bigint", "fails": None, "dt": "string"})
     with pytest.raises(ValueError, match="fails has no type"):
-        admin.add_columns(untyped, query=warehouse(untyped, lacking=("fails",)))
+        admin.add_columns(untyped, query=at_work(untyped, lacking=("fails",)))
     odd = saved(columns={"job_id": "bigint", "fails": "integer", "dt": "string"})
     with pytest.raises(ValueError, match=r"admin\.add_columns\(mart\.daily_runs, query=\.\.\.\): "
                                          "fails's type 'integer'"):
-        admin.add_columns(odd, query=warehouse(odd, lacking=("fails",)))
+        admin.add_columns(odd, query=at_work(odd, lacking=("fails",)))
 
 
 # --- set_properties ----------------------------------------------------------------------------
@@ -212,54 +277,81 @@ def test_set_properties_refuses_a_table_reference_that_gives_none() -> None:
 
 
 def test_the_move_creates_copies_compares_keeps_files_drops_and_renames() -> None:
-    t = saved(key=["job_id"])
-    moves = admin.move_to_own_folder(t, query=warehouse(t, days=("2026-09-23", "2026-09-24")))
+    t = saved(key=["job_id", "dt"])
+    moves = admin.move_to_own_folder(t, query=at_work(t))
     hives = [to_hive(step) for step in moves]
     assert hives[0].startswith("CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (")
-    assert "LOCATION '/data/your_team/tables/mart/daily_runs'" in hives[0]
-    assert hives[1].startswith("INSERT OVERWRITE TABLE mart.daily_runs_moving "
-                               "PARTITION(dt = '2026-09-23')")
-    assert hives[2].endswith("daily_runs.dt = '2026-09-24'")
-    assert hives[3].startswith("WITH old_days AS (")
-    assert hives[4] == ("ALTER TABLE mart.daily_runs SET TBLPROPERTIES (\n"
+    assert "LOCATION '/data/your_team/mart.db/daily_runs'" in hives[0]
+    assert hives[2].startswith("WITH old_counts AS (")
+    assert hives[3] == ("ALTER TABLE mart.daily_runs SET TBLPROPERTIES (\n"
                         "  'external.table.purge'='false'\n)")
-    assert hives[5] == "DROP TABLE IF EXISTS mart.daily_runs"
-    assert hives[6] == "ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs"
+    assert hives[4] == "DROP TABLE IF EXISTS mart.daily_runs"
+    assert hives[5] == "ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs"
     assert [step._admin_call for step in moves] == [
-        f"admin.move_to_own_folder(mart.daily_runs, query=...)[{n}]" for n in range(7)]
+        f"admin.move_to_own_folder(mart.daily_runs, query=...)[{n}]" for n in range(6)]
+
+
+def test_the_move_copies_the_whole_table_in_one_write() -> None:
+    t = REGION_RUNS
+    copy = admin.move_to_own_folder(t, query=at_work(t))[1]
+    assert to_hive(copy) == (
+        "INSERT OVERWRITE TABLE mart.region_runs_moving PARTITION(region, dt)\nSELECT\n"
+        "  region_runs.job_id,\n  region_runs.runs,\n  region_runs.region,\n  region_runs.dt\n"
+        "FROM mart.region_runs AS region_runs")
+    # Each Partition is filled from the rows, which needs dynamic partitioning sent first.
+    assert any('run(hive_settings("dynamic_partitions"), execute=...) before it' in item
+               for item in copy._admin_about)
+
+
+def test_the_moves_count_check_compares_each_partition_rows_with_no_value_too() -> None:
+    t = REGION_RUNS
+    compare = to_hive(admin.move_to_own_folder(t, query=at_work(t))[2])
+    for counts, alias in (("old_counts", "region_runs"),
+                          ("copied_counts", "region_runs_moving")):
+        assert (f"{counts} AS (\n  SELECT\n"
+                f"    COALESCE(CAST({alias}.region AS STRING), '__HIVE_DEFAULT_PARTITION__') "
+                f"AS region,\n"
+                f"    COALESCE(CAST({alias}.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,\n"
+                "    COUNT(*) AS row_count\n") in compare
+    assert ("LEFT JOIN copied_counts\n"
+            "  ON copied_counts.region = old_counts.region AND copied_counts.dt = old_counts.dt\n"
+            "WHERE\n  copied_counts.row_count IS NULL\n"
+            "  OR copied_counts.row_count <> old_counts.row_count") in compare
+
+
+def test_the_moves_count_check_of_an_unpartitioned_table_compares_its_rows_whole() -> None:
+    whole = saved(columns={"job_id": "bigint"})
+    compare = to_hive(admin.move_to_own_folder(
+        whole, query=at_work(whole, location="/data/elsewhere"))[2])
+    assert "GROUP BY" not in compare
+    assert "FROM old_counts\nCROSS JOIN copied_counts\n" in compare
 
 
 def test_a_managed_table_is_moved_without_setting_purge() -> None:
     t = saved()
-    moves = admin.move_to_own_folder(t, query=warehouse(
+    moves = admin.move_to_own_folder(t, query=at_work(
         t, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs", kind="MANAGED_TABLE"))
     assert not any("TBLPROPERTIES" in to_hive(step) for step in moves)
     assert "its files go too, since it is managed" in moves[-2]._admin_about[0]
 
 
-def test_rows_with_no_day_are_said_not_to_be_copied() -> None:
-    t = saved()
-    moves = admin.move_to_own_folder(t, query=warehouse(
-        t, days=("2026-09-24", "__HIVE_DEFAULT_PARTITION__")))
-    assert len(moves) == 6
-    assert any("aren't copied" in item for item in moves[0]._admin_about)
-
-
 @pytest.mark.parametrize("answer, refusal", [
-    ({"location": f"{BASE}/mart/daily_runs"}, "is at its own folder already"),
+    ({"location": "hdfs://namenode:8020/data/your_team/mart.db/daily_runs"},
+     "is at its own folder already"),
     ({"lacking": ("runs",)}, "has no column runs, which its Table reference lists"),
 ])
 def test_the_move_refuses_a_table_it_cant_or_neednt_move(
         answer: dict[str, str | tuple[str, ...]], refusal: str) -> None:
     t = saved()
     with pytest.raises(ValueError, match=refusal):
-        admin.move_to_own_folder(t, query=warehouse(t, **answer))
+        admin.move_to_own_folder(t, query=at_work(t, **answer))
 
 
-def test_the_comparison_stops_the_move_and_logs_it_when_a_day_differs(tmp_path: Path) -> None:
+def test_the_comparison_stops_the_move_and_logs_it_when_a_partition_differs(
+        tmp_path: Path) -> None:
     log = set_admin_log(tmp_path / "admin_log.md")
     t = saved()
-    moves = admin.move_to_own_folder(t, query=warehouse(t))
+    moves = admin.move_to_own_folder(t, query=at_work(t))
     compare = moves[2]
     differ = pd.DataFrame({"dt": ["2026-09-24"], "old_rows": [3], "copied_rows": [2]})
     with pytest.raises(ValueError, match="The move of mart.daily_runs stopped"):
@@ -277,7 +369,7 @@ def test_the_comparison_stops_the_move_and_logs_it_when_a_day_differs(tmp_path: 
 def recording() -> tuple[Callable[[str], pd.DataFrame], Callable[[str], None],
                          list[tuple[str, str]]]:
     """A query and an execute that keep each Hive they are given, with which of them it went
-    to: the query gives back the comparison's columns with no row, a day that differs."""
+    to: the query gives back the comparison's columns with no row: no Partition differs."""
     sent = []
 
     def query(hive: str) -> pd.DataFrame:
@@ -293,7 +385,7 @@ def recording() -> tuple[Callable[[str], pd.DataFrame], Callable[[str], None],
 def test_the_moves_comparison_reads_through_query_and_the_rest_go_to_execute() -> None:
     t = saved()
     query, execute, sent = recording()
-    moves = admin.move_to_own_folder(t, query=warehouse(t))
+    moves = admin.move_to_own_folder(t, query=at_work(t))
     for step in moves:
         run(step, query=query, execute=execute)
     assert [call for call, _ in sent] == ["execute", "execute", "query", "execute", "execute",
@@ -303,7 +395,9 @@ def test_the_moves_comparison_reads_through_query_and_the_rest_go_to_execute() -
 
 @pytest.mark.parametrize("make", [
     pytest.param(lambda: admin.drop_table(saved()), id="drop_table"),
-    pytest.param(lambda: admin.drop_days(saved(), before="2025-01-01"), id="drop_days"),
+    pytest.param(lambda: admin.drop_partitions(region_runs, where=equals(region_runs.region,
+                                                                         "EU")),
+                 id="drop_partitions"),
     pytest.param(lambda: admin.set_properties(saved(purge=True)), id="set_properties"),
 ])
 def test_an_admin_statement_goes_to_execute_and_gives_back_none(
@@ -317,7 +411,7 @@ def test_an_admin_statement_without_the_call_it_needs_is_refused_naming_it() -> 
     query, execute, sent = recording()
     with pytest.raises(TypeError, match=r"run needs execute=, and wasn't given it\."):
         run(admin.drop_table(saved()), query=query)
-    compare = admin.move_to_own_folder(saved(), query=warehouse(saved()))[2]
+    compare = admin.move_to_own_folder(saved(), query=at_work(saved()))[2]
     with pytest.raises(TypeError, match=r"run needs query=, and wasn't given it\."):
         run(compare, execute=execute)
     assert sent == []
@@ -331,7 +425,7 @@ def test_an_admin_statement_without_the_call_it_needs_is_refused_naming_it() -> 
 ])
 def test_send_is_refused_naming_query(make: Callable[..., object]) -> None:
     with pytest.raises(TypeError) as refused:
-        make(send=warehouse(saved(columns=WIDER)))
+        make(send=at_work(saved(columns=WIDER)))
     message = str(refused.value)
     assert "was given send=, which Toolbox 7.0 replaced." in message
     assert "Pass query= instead" in message
@@ -343,17 +437,17 @@ def test_send_is_refused_naming_query(make: Callable[..., object]) -> None:
 def test_each_run_is_logged_in_the_admin_log_and_show_hive_logs_nothing(tmp_path: Path) -> None:
     log = set_admin_log(tmp_path / "admin_log.md")
     t = saved()
-    show_hive(admin.drop_days(t, before="2025-01-01"))
+    show_hive(admin.drop_partitions(t, where=less_than(t.dt, "2025-01-01")))
     assert not log.exists()
     sent = []
-    run(admin.drop_days(t, before="2025-01-01"), execute=sent.append)
+    run(admin.drop_partitions(t, where=less_than(t.dt, "2025-01-01")), execute=sent.append)
     assert sent == ["ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')"]
-    assert ('- Call: `admin.drop_days(mart.daily_runs, before="2025-01-01")`'
-            in log.read_text(encoding="utf-8"))
+    assert ('- Call: `admin.drop_partitions(mart.daily_runs, where=less_than(daily_runs.dt, '
+            '"2025-01-01"))`' in log.read_text(encoding="utf-8"))
 
 
 def test_an_admin_statement_isnt_a_query_to_read_or_split() -> None:
-    drop = admin.drop_days(saved(), before="2025-01-01")
+    drop = admin.drop_partitions(region_runs, where=equals(region_runs.region, "EU"))
     with pytest.raises(TypeError, match="derived names a Statement made by statement"):
         derived("dropped", drop)
     assert repr(drop) == "<Statement - print(to_hive(s)) shows it>"
@@ -377,11 +471,12 @@ def test_the_notes_and_fixes_that_name_an_admin_function_call_it_as_it_is() -> N
             assert written == parameters, text
 
 
-def test_a_table_with_no_days_isnt_moved_into_a_folder_inside_its_own() -> None:
-    whole = saved(columns={"job_id": "bigint"}, date_partition=None)
+def test_a_table_with_no_partitions_isnt_moved_into_a_folder_inside_its_own() -> None:
+    whole = saved(columns={"job_id": "bigint"})
     with pytest.raises(ValueError, match="is inside the folder it is in now"):
-        admin.move_to_own_folder(whole, query=warehouse(whole))
-    moves = admin.move_to_own_folder(whole, query=warehouse(whole, location="/data/elsewhere"))
+        admin.move_to_own_folder(whole, query=at_work(
+            whole, location="hdfs://namenode:8020/data/your_team"))
+    moves = admin.move_to_own_folder(whole, query=at_work(whole, location="/data/elsewhere"))
     assert to_hive(moves[1]) == ("INSERT OVERWRITE TABLE mart.daily_runs_moving\nSELECT\n"
                                  "  daily_runs.job_id\nFROM mart.daily_runs AS daily_runs")
 

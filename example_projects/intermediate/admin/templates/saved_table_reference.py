@@ -5,7 +5,7 @@ Why: TODO: who reads this table, and why it is saved rather than worked out each
 project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
 table's Table reference is filled in by hand, since the table doesn't exist until its
 notebook's create() makes it from this file. Its notebook's text cell says which columns it
-lists.
+lists, and its Key.
 """
 
 from sqlglot_composer import Table
@@ -13,12 +13,12 @@ from sqlglot_composer import Table
 <TABLE> = Table(
     "<DB>.<TABLE>",
     columns={
-        <COLUMN>: <COLUMN_TYPE>,  # every column write_day saves, in order, each in quotes
-        "dt": "string",  # the day, as yyyy-MM-dd
+        <COLUMN>: <COLUMN_TYPE>,  # every column write() saves, in order, each in quotes
+        "dt": "string",  # the day, as yyyy-MM-dd: its partition column, last
     },
-    date_partition="dt",
-    key=[<COLUMN>, "dt"],  # the columns that pick out one row of a day
-    location=<LOCATION>,  # the folder your Saved tables go in, such as "/data/your_team/tables"
+    partitioned_by=["dt"],  # its partition columns, in order, each also in columns
+    key=None,  # or the columns that pick out one row, such as ["job_id", "dt"]
+    location=<LOCATION>,  # its own folder, in quotes, such as "/data/your_team/<DB>.db/<TABLE>"
     descriptions={},  # optional: {"column": "what it holds"}, for the Reference sheet
 )
 

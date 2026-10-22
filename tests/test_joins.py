@@ -38,7 +38,6 @@ from sqlglot_composer import (
     all_of,
     any_of,
     between,
-    by_day,
     count_rows,
     derived,
     equals,
@@ -299,9 +298,9 @@ def test_right_join_is_refused_naming_the_swapped_left_join() -> None:
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
-def test_a_semi_or_anti_joined_table_s_days_are_bounded_in_its_on(
+def test_a_semi_or_anti_joined_table_s_partitions_are_filtered_in_its_on(
         join: Callable[..., Clause]) -> None:
-    with pytest.raises(LoadRefused, match=r"Bound it inside ON="):
+    with pytest.raises(LoadRefused, match=r"Filter one of them inside ON="):
         statement(SELECT(job_runs.run_id), FROM(job_runs),
                   join(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id)),
                   WHERE(both_days(job_runs)))
@@ -350,19 +349,19 @@ def test_a_full_join_s_where_may_keep_the_rows_with_no_match() -> None:
                   WHERE(condition))
 
 
-def test_a_full_join_of_a_table_with_a_date_partition_says_to_bound_it_in_a_derived_table() -> None:
+def test_a_full_join_of_a_partitioned_table_says_to_filter_it_in_a_derived_table() -> None:
     rec = recorded()
     with pytest.raises(LoadRefused) as refused:
         statement(SELECT(rec.run_id), FROM(rec),
                   FULL_JOIN(scheduler_runs, ON=all_of(equals(scheduler_runs.run_id, rec.run_id),
                                                       both_days(scheduler_runs))))
     message = str(refused.value)
-    assert "through a derived(...) table that bounds its days" in message
+    assert "through a derived(...) table that filters one of them in its own WHERE" in message
     assert "and FULL_JOIN that" in message
 
 
-def test_a_full_join_from_a_table_with_a_date_partition_and_no_bound_says_the_same() -> None:
-    """Not "bound it in WHERE", which the FULL_JOIN Guard would then refuse."""
+def test_a_full_join_from_a_partitioned_table_with_no_filter_says_the_same() -> None:
+    """Not "filter it in WHERE", which the FULL_JOIN Guard would then refuse."""
     sta = started()
     with pytest.raises(LoadRefused) as refused:
         statement(SELECT(job_runs.run_id), FROM(job_runs),
@@ -380,7 +379,7 @@ def test_anti_join_tests_a_column_matched_to_a_calculation_of_another_table() ->
     assert "jobs.job_id IS NULL" in to_hive(s)
 
 
-def test_a_full_join_from_a_table_with_a_date_partition_is_refused_at_its_where() -> None:
+def test_a_full_join_from_a_partitioned_table_is_refused_at_its_where() -> None:
     sta = started()
     with pytest.raises(GuardRefused, match="a condition on job_runs"):
         statement(SELECT(job_runs.run_id), FROM(job_runs),
@@ -392,13 +391,13 @@ def test_a_full_join_from_a_table_with_a_date_partition_is_refused_at_its_where(
 
 per_run = Table("mart.per_run", columns={"run_id": "bigint", "status": "string",
                                          "dt": "string"},
-                date_partition="dt", key=["run_id"], location="/data/your_team/tables")
+                partitioned_by=["dt"], key=["run_id"])
 
 
 @pytest.mark.parametrize("join", [SEMI_JOIN, ANTI_JOIN])
 def test_a_semi_or_anti_join_keeps_the_reading_table_s_key(
         join: Callable[..., Clause]) -> None:
-    statement(INSERT_OVERWRITE(per_run), SELECT(job_runs.run_id, job_runs.status),
+    statement(INSERT_OVERWRITE(per_run), SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
               FROM(job_runs), join(run_alerts, ON=alerts_match()),
               WHERE(equals(job_runs.dt, LAST)))
     kept = derived("kept", statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
@@ -414,7 +413,7 @@ def test_a_semi_or_anti_join_keeps_the_reading_table_s_key(
 def test_a_full_join_loses_the_key_and_says_so() -> None:
     rec, sta = recorded(), started()
     with pytest.raises(GuardRefused) as refused:
-        statement(INSERT_OVERWRITE(per_run),
+        statement(INSERT_OVERWRITE(per_run, partition={"dt": LAST}),
                   SELECT(AS(fill_null(rec.run_id, sta.run_id), "run_id"),
                          AS(fill_null(rec.run_id, 0), "status")),
                   FROM(rec), FULL_JOIN(sta, ON=equals(sta.run_id, rec.run_id)))
@@ -424,20 +423,14 @@ def test_a_full_join_loses_the_key_and_says_so() -> None:
 
 def test_a_group_by_after_a_full_join_shows_its_key() -> None:
     rec, sta = recorded(), started()
-    statement(INSERT_OVERWRITE(per_run),
+    statement(INSERT_OVERWRITE(per_run, partition={"dt": LAST}),
               SELECT(AS(fill_null(rec.run_id, sta.run_id), "run_id"),
                      AS(count_rows(), "status")),
               FROM(rec), FULL_JOIN(sta, ON=equals(sta.run_id, rec.run_id)),
               GROUP_BY("run_id"))
 
 
-# --- by_day and Lineage ----------------------------------------------------------------------
-
-
-def test_by_day_splits_an_anti_join_on_its_from_table() -> None:
-    days = by_day(runs_with_no_alert())
-    assert [to_hive(day).count("run_alerts.run_id IS NULL") for day in days] == [1, 1]
-    assert "job_runs.dt = '2026-09-23'" in to_hive(days[0])
+# --- Lineage ---------------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(("make", "said"), [

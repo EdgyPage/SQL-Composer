@@ -63,7 +63,7 @@ from run 99, though run 104 succeeded. Each `max_of` picks its own row.
 `row_number` numbers the rows of each group from 1:
 
 - `PARTITION_BY=` names the column whose values make the groups, here each job. The word is
-  SQL's; it has nothing to do with a table's Date partition.
+  SQL's; it has nothing to do with a table's Partitions.
 - `ORDER_BY=` says the order to number them in. `descending` makes the largest come first, so
   each job's newest run gets 1.
 

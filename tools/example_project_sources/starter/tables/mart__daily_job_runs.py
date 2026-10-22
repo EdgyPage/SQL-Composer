@@ -16,7 +16,7 @@
 # written, so cell 3 prints each write's Hive and runs only the preview.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -24,16 +24,16 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = "2026-09-24"  # the Example database's last day
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the day it writes, and functions only
 from sqlglot_composer import (
-    FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, by_day, create_table, statement,
+    FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, create_table, statement,
 )
 from building_blocks.runs_per_job_day import runs_per_job_day
 from references.mart__daily_job_runs import daily_job_runs
+
+DAY = "2026-09-24"  # the day write() writes, the Example database's last day
 
 
 def create() -> Statement:
@@ -45,41 +45,42 @@ def create() -> Statement:
 
 def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's numbers per day, from the Building
-    block. The day, dt, isn't selected: INSERT_OVERWRITE(daily_job_runs) writes it in
-    PARTITION(dt = '...') itself, reading it from the Building block's
-    between(job_runs.dt, first_day, last_day). Cell 3 prints the Hive it makes."""
+    block. The day, dt, comes last in SELECT: INSERT_OVERWRITE(daily_job_runs) writes each
+    day's rows into that day's Partition, PARTITION(dt), and replaces only the days the rows
+    hold. Cell 3 prints the Hive it makes."""
     per_job_day = runs_per_job_day(first_day, last_day)
     return [
         SELECT(per_job_day.job_id, per_job_day.runs, per_job_day.failed_runs,
-               per_job_day.minutes),
+               per_job_day.minutes, per_job_day.dt),
         FROM(per_job_day),
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
-    return statement(*rows(day, day))
+def preview() -> Statement:
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows(DAY, DAY))
 
 
-def write_day(day: str) -> Statement:
-    """Step 3, every day: save the day's rows, replacing whatever the day held, so sending it
-    twice leaves the same rows, not twice as many."""
-    return statement(INSERT_OVERWRITE(daily_job_runs), *rows(day, day))
+def write() -> Statement:
+    """Step 3: save DAY's rows, replacing whatever DAY held, so sending it twice leaves the
+    same rows, not twice as many."""
+    return statement(INSERT_OVERWRITE(daily_job_runs), *rows(DAY, DAY))
 
 
-def backfill(first_day: str, last_day: str) -> list[Statement]:
-    """Step 4, when needed: one write per day from first_day to last_day, oldest first. The
-    Building block keeps the day in its GROUP_BY, so no day's counts mix with another's."""
-    return by_day(statement(INSERT_OVERWRITE(daily_job_runs), *rows(first_day, last_day)))
+def backfill(first_day: str, last_day: str) -> Statement:
+    """Step 4, when needed: save every day from first_day to last_day in one write, replacing
+    those days. The Building block keeps the day in its GROUP_BY, so no day's counts mix with
+    another's."""
+    return statement(INSERT_OVERWRITE(daily_job_runs), *rows(first_day, last_day))
 
 # %%
 # 3. Try it: the Hive of each step, then the day's rows
-show_hive([create(), write_day(DAY)])
-run(preview(DAY), query=query)
+show_hive([create(), write()])
+run(preview(), query=query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-export_lineage(write_day(DAY))
+export_lineage(write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py

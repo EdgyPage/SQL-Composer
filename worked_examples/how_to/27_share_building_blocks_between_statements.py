@@ -85,9 +85,9 @@ reads it:
 ...         WHERE(is_null(finishes.job_id)),
 ...     ))
 
-The days live inside the blocks, so `ON=` needs only the match. A day bound written on the
-LEFT_JOIN's table in `WHERE` would throw away the very starts with no finish; the last mistake
-below shows the Toolbox refusing it.
+The days live inside the blocks, so `ON=` needs only the match. A filter on the days of the
+LEFT_JOIN's table, written in `WHERE`, would throw away the very starts with no finish; the last
+mistake below shows the Toolbox refusing it.
 
 ### A Statement built from the blocks
 
@@ -261,14 +261,13 @@ ValueError:
 
 Keep the name fixed, `derived("starts", ...)`, and let the days be the block's arguments.
 
-### Bounding the LEFT_JOIN's table in WHERE
+### Filtering the LEFT_JOIN's table in WHERE
 
-Written without a block, an anti-join on job_events itself needs its days bounded, and `WHERE`
-is the first place people put them. But a job with no match has NULL in every job_events
-column, its day too, so a day bound in `WHERE` would drop the very jobs the anti-join is for.
-The Toolbox refuses it. (`many_matches=True` is the opt-out of the Warning that a job matches
-many events, and so repeats: here that is fine, since the anti-join keeps only the jobs with
-none.)
+Written without a block, an anti-join on job_events itself needs a filter on its days, and `WHERE`
+is the first place people put it. But a job with no match has NULL in every job_events column, its
+day too, so a filter on the days in `WHERE` would drop the very jobs the anti-join is for. The
+Toolbox refuses it. (`many_matches=True` is the opt-out of the Warning that a job matches many
+events, and so repeats: here that is fine, since the anti-join keeps only the jobs with none.)
 
 >>> statement(
 ...     SELECT(jobs.job_id, jobs.job_name),
@@ -282,9 +281,9 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  WHERE has job_events.dt BETWEEN '2026-09-11' AND '2026-09-24', a condition on job_events, which LEFT_JOIN brought in.
 ...
 
-Move the day into `ON=`, as the message says. A bound in `ON=` bounds the table as one in
-`WHERE` does, and for a LEFT_JOIN's table `ON=` is the place for it: there it decides which
-rows match, and keeps every job.
+Move the day into `ON=`, as the message says. A filter on a partition column in `ON=` counts for
+the Load limit as one in `WHERE` does, and for a LEFT_JOIN's table `ON=` is the place for it: there
+it decides which rows match, and keeps every job.
 
 >>> run(statement(
 ...     SELECT(jobs.job_id, jobs.job_name),

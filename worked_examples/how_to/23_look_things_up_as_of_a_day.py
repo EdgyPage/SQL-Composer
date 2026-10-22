@@ -53,9 +53,10 @@ A run is a `"start"` row of job_events. Join the snapshot on both parts of its k
 job, and the same day. Each run then meets exactly one row, its job's row on the day it ran.
 [Join tables safely](#join_tables_safely) shows why a join on only part of a key repeats rows.
 
-The snapshot is a table with days too, so it needs its own bound, in `WHERE` (or in `ON=`): the
-Toolbox checks each table's days separately, and `equals(job_owners.dt, job_events.dt)` in
-`ON=` matches the two tables' days without saying which days to read.
+The snapshot is partitioned by dt too, so it needs its own filter on dt, in `WHERE` (or in
+`ON=`): the Toolbox checks each table's partition columns separately, and
+`equals(job_owners.dt, job_events.dt)` in `ON=` matches the two tables' days without saying
+which days to read.
 
 >>> report_build_runs = statement(
 ...     SELECT(job_events.dt, job_owners.team),
@@ -233,10 +234,10 @@ The total is still 28, but report_build's two runs before 2026-09-18 count for f
 team that didn't own it then. Use today's table only for what you want as
 it is today.
 
-### Leaving the snapshot's days unbounded
+### Leaving the snapshot's days unfiltered
 
-The day in `ON=` matches the two tables' days, but it doesn't bound job_owners' days, so the
-Toolbox refuses as you build the Statement:
+The day in `ON=` matches the two tables' days, but it doesn't say which of job_owners' days to
+read, so the Toolbox refuses as you build the Statement:
 
 >>> statement(
 ...     SELECT(job_owners.team, AS(count_rows(), "runs")),
@@ -250,10 +251,10 @@ Toolbox refuses as you build the Statement:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but nothing bounds its Date partition dt at both ends.
+  What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but filters none of its partition columns: dt.
 ...
 
-Bound it with the same days as the table it is joined to, in `WHERE` as the steps do. A bound
+Filter it with the same days as the table it is joined to, in `WHERE` as the steps do. A filter
 in `ON=`, such as `between(job_owners.dt, "2026-09-11", "2026-09-24")` inside the `all_of`,
 counts too.
 

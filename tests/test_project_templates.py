@@ -2,9 +2,9 @@
 
 Toolbox 6.0's ticket 09. Each Table notebook Template is made into a Table folder's notebook by
 project.new_table, filled in with the Example database's tables as a user fills it in, and its
-logic cell loaded: each code cell parses, write_day writes the table's day, and preview runs
-on the Example database. Each lists every placeholder it holds in its text cell, with an
-example. The Saved table's Table reference and the Building block Templates, filled in, run.
+logic cell loaded: each code cell parses, write() writes the table's day into its partition,
+and preview() runs on the Example database. Each lists every placeholder it holds in its text
+cell, with an example. The Saved table's Table reference and the Building block Templates, filled in, run.
 """
 
 from __future__ import annotations
@@ -76,8 +76,8 @@ def saved_reference(name: str, columns: dict[str, str], key: list[str]) -> str:
     """A Saved table's Table reference, as a user fills in the one new_table wrote."""
     table = name.split(".")[1]
     return (f"from sqlglot_composer import Table\n\n{table} = Table(\n    {name!r},\n"
-            f"    columns={ {**columns, 'dt': 'string'} !r},\n    date_partition='dt',\n"
-            f"    key={key!r},\n    location='/data/your_team/tables',\n)\n")
+            f"    columns={ {**columns, 'dt': 'string'} !r},\n    partitioned_by=['dt'],\n"
+            f"    key={key!r},\n    location='/data/your_team/mart.db/{table}',\n)\n")
 
 
 def filled_notebook(root: Path, template: str) -> tuple[str, list[str]]:
@@ -125,19 +125,36 @@ def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, templat
 def test_a_filled_notebooks_logic_writes_its_day(started: Path, template: str) -> None:
     name, _ = filled_notebook(started, template)
     logic = project.load(name)
-    written = logic.write_day(DAY)
-    writes = written if isinstance(written, list) else [written]
-    assert [to_hive(write).split("\n")[0] for write in writes][-1] == (
-        f"INSERT OVERWRITE TABLE {name} PARTITION(dt = '{DAY}')")
-    preview = run(logic.preview(DAY), query=example_database.query)
+    hive = to_hive(logic.write())
+    # The day comes from the rows, dt last in the SELECT, into its partition of the table.
+    assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name} PARTITION(dt)"
+    assert re.search(r"\.dt\nFROM ", hive), hive
+    preview = run(logic.preview(), query=example_database.query)
     assert isinstance(preview, pd.DataFrame) and len(preview) > 0
+    assert list(preview.columns)[-1] == "dt"
+    assert set(preview["dt"]) <= {"2026-09-22", "2026-09-23", DAY}
+
+
+@pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
+def test_a_templates_write_and_preview_take_nothing(template: str) -> None:
+    cell = next(cell for cell in NOTEBOOK_TEMPLATES[template].split("# %%\n")
+                if cell.startswith("# logic\n"))
+    # Each placeholder made a name, so the cell parses before it is filled in.
+    logic = ast.parse(PLACEHOLDER.sub(r"_\1", cell))
+    defined = {node.name: node for node in logic.body if isinstance(node, ast.FunctionDef)}
+    for name in ("write", "preview"):
+        assert not defined[name].args.args, (template, name)
+    assert "write_day" not in defined and "by_day" not in NOTEBOOK_TEMPLATES[template]
+    # The day it writes is a constant in the logic cell, filled in from <DAY>.
+    assert any(isinstance(node, ast.Assign) and node.targets[0].id == "DAY"
+               for node in logic.body)
 
 
 def test_an_incremental_load_writes_its_last_days(started: Path) -> None:
     name, _ = filled_notebook(started, "incremental_load")
-    writes = project.load(name).write_day(DAY)
-    assert [to_hive(write).split("\n")[0][-13:] for write in writes] == [
-        "'2026-09-22')", "'2026-09-23')", "'2026-09-24')"]
+    hive = to_hive(project.load(name).write())
+    # One write of the last 3 days, each into its own partition.
+    assert "job_runs.dt BETWEEN '2026-09-22' AND '2026-09-24'" in hive
 
 
 def test_a_weekly_rollup_reads_its_saved_days_a_week_at_a_time(started: Path) -> None:
@@ -158,8 +175,10 @@ def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: P
 def logic_reading(root: Path, name: str, lines: str) -> TableLogic:
     """The logic of a table made from a one-cell Template of `lines`, which reads what a
     Template under test was filled in to make."""
-    (root / "admin" / "templates" / "reader.py").write_text(f"# %%\n# logic\n{lines}",
-                                                            encoding="utf-8")
+    # load needs a write(), which these readers have no use for.
+    (root / "admin" / "templates" / "reader.py").write_text(
+        f"# %%\n# logic\n{lines}\n\ndef write() -> None:\n    return None\n",
+        encoding="utf-8")
     project.new_table(name, template="reader")
     return project.load(name)
 
@@ -169,7 +188,7 @@ def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) 
     for placeholder, value in {"<DB>": "mart", "<TABLE>": "daily_runs",
                                "<NAME>": "mart__daily_runs", "<COLUMN>": '"job_id"',
                                "<COLUMN_TYPE>": '"bigint"',
-                               "<LOCATION>": '"/data/your_team/tables"'}.items():
+                               "<LOCATION>": '"/data/your_team/mart.db/daily_runs"'}.items():
         text = text.replace(placeholder, value)
     (started / "references" / "mart__daily_runs.py").write_text(text, encoding="utf-8")
     logic = logic_reading(started, "mart.reader", "from references.mart__daily_runs import "

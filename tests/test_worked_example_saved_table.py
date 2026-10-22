@@ -1,7 +1,7 @@
 """Worked example: building a Saved table, from create_table to drop_table.
 
 The Example database can't be written to, so these check each step's Hive, and check what
-each write would put in its day by sending the write's SELECT on its own and comparing it
+each write would put in its day's Partition by sending the write's SELECT on its own and comparing it
 with pandas.
 """
 
@@ -22,7 +22,7 @@ def select_part(s: Statement) -> str:
 def test_create_and_create_if_missing() -> None:
     assert to_hive(example.create()).startswith("CREATE EXTERNAL TABLE mart.runs_to_review (")
     assert to_hive(example.create()).endswith(
-        "LOCATION '/data/your_team/tables/mart/runs_to_review'\n"
+        "LOCATION '/data/your_team/mart.db/runs_to_review'\n"
         "TBLPROPERTIES (\n  'external.table.purge'='true'\n)")
     assert to_hive(example.create_if_missing()).startswith(
         "CREATE EXTERNAL TABLE IF NOT EXISTS mart.runs_to_review (")

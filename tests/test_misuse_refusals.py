@@ -25,7 +25,6 @@ from sqlglot_composer import (
     all_columns,
     any_of,
     at_least,
-    by_day,
     contains,
     count_rows,
     create_table,
@@ -97,7 +96,6 @@ MISUSES = [
     pytest.param(lambda: hive_function("drop table", jobs.team), ValueError,
                  "isn't a function name", id="hive_function_name"),
     pytest.param(lambda: to_hive(42), TypeError, "isn't a Statement", id="to_hive_42"),
-    pytest.param(lambda: by_day(42), TypeError, "isn't a Statement", id="by_day_42"),
     pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs))), TypeError,
                  "run needs query=, and wasn't given it", id="run_no_query"),
     pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs)), query=5), TypeError,
@@ -109,21 +107,26 @@ MISUSES = [
     pytest.param(lambda: export_lineage(5), TypeError, "isn't a Statement", id="lineage_5"),
     pytest.param(lambda: set_load_limits(rows=-1), ValueError, "a limit must be a whole number",
                  id="load_limits_negative"),
-    pytest.param(lambda: Table("bad name", columns={"a": "string"}, date_partition=None),
+    pytest.param(lambda: Table("bad name", columns={"a": "string"}),
                  ValueError, "isn't a table name", id="table_name"),
-    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, date_partition=None,
-                               date_format="%Y%m%d"),
-                 ValueError, "has a date_format but no date_partition", id="table_date_format"),
-    pytest.param(lambda: Table("ops.t", columns=["a"], date_partition=None), ValueError,
+    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, date_format="%Y%m%d"),
+                 TypeError, "was given date_format=, which Toolbox 7.0 replaced",
+                 id="table_date_format"),
+    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, date_partition="a"),
+                 TypeError, "was given date_partition=, which Toolbox 7.0 replaced",
+                 id="table_date_partition"),
+    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, partitioned_by=5),
+                 ValueError, "partitioned_by=5 isn't a list of column names",
+                 id="table_partitioned_by_5"),
+    pytest.param(lambda: Table("ops.t", columns=["a"]), ValueError,
                  "needs a dict of column names", id="table_columns_list"),
-    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, date_partition=None,
-                               key=["b"]),
+    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, key=["b"]),
                  ValueError, "isn't one of its columns", id="table_key_not_a_column"),
-    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, date_partition=None, key=5),
+    pytest.param(lambda: Table("ops.t", columns={"a": "string"}, key=5),
                  ValueError, "isn't a list of column names", id="table_key_5"),
     pytest.param(lambda: derived("x", statement(
         INSERT_OVERWRITE(Table("mart.d", columns={"team": "string", "dt": "string"},
-                               date_partition="dt")),
+                               partitioned_by=["dt"]), partition={"dt": "2026-09-24"}),
         SELECT(jobs.team), FROM(jobs))),
                  ValueError, "was given a write", id="derived_write"),
     pytest.param(lambda: example_database.query("DESCRIBE ops.nope"), ValueError,
@@ -248,8 +251,8 @@ def test_a_query_that_doesnt_give_back_a_dataframe_is_refused(answer: object, sa
 def test_a_write_isnt_refused_for_what_its_execute_gives_back() -> None:
     """A write goes to execute, whose result is never read: run gives back None whatever it
     gave."""
-    owners = Table("mart.job_owners", columns=dict(job_owners._columns), date_partition="dt",
-                   location="/data/your_team/tables")
+    owners = Table("mart.job_owners", columns=dict(job_owners._columns), partitioned_by=["dt"],
+                   location="/data/your_team/mart.db/job_owners")
     assert run(create_table(owners, may_exist=True), execute=lambda hive: "anything") is None
 
 

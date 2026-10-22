@@ -13,7 +13,7 @@
 # its runs with NULL alerts, and fill_null counts them as 0.
 #
 # The Saved tables are in your warehouse, not in the Example database, so its preview can't
-# run here. `team_runs_from_job_runs(day)` can: it groups the Building block's rows by team the
+# run here. `team_runs_from_job_runs(DAY)` can: it groups the Building block's rows by team the
 # same way, from ops.job_runs itself. Its lineage, cell 4, draws all three tables, from
 # ops.job_runs and ops.run_alerts to here, through the other two notebooks' logic.
 #
@@ -21,7 +21,7 @@
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -29,20 +29,20 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = "2026-09-24"  # the Example database's last day
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the day it writes, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
-    all_of, between, by_day, create_table, equals, fill_null, statement, sum_of,
+    all_of, between, create_table, equals, fill_null, statement, sum_of,
 )
 from building_blocks.runs_per_job_day import runs_per_job_day
 from references.mart__alerts_per_job import alerts_per_job
 from references.mart__daily_job_runs import daily_job_runs
 from references.mart__team_day import team_day
 from references.ops__jobs import jobs
+
+DAY = "2026-09-24"  # the day write() writes, the Example database's last day
 
 
 def create() -> Statement:
@@ -52,10 +52,11 @@ def create() -> Statement:
 
 def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each team's numbers per day of daily_job_runs,
-    the table in FROM, whose day INSERT_OVERWRITE writes as this table's Date partition. The
-    alerts are joined on their day as well as their job, so each day's runs meet only that
-    day's alerts; their days go in LEFT_JOIN's ON=, not WHERE, since a WHERE on alerts_per_job
-    would drop the jobs LEFT_JOIN keeps for having no alert."""
+    the table in FROM, whose day comes last in SELECT: INSERT_OVERWRITE writes each day's rows
+    into that day's Partition of this table. The alerts are joined on their day as well as
+    their job, so each day's runs meet only that day's alerts; their days go in LEFT_JOIN's
+    ON=, not WHERE, since a WHERE on alerts_per_job would drop the jobs LEFT_JOIN keeps for
+    having no alert."""
     return [
         SELECT(
             jobs.team,
@@ -64,6 +65,7 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
             AS(sum_of(daily_job_runs.minutes), "minutes"),
             AS(fill_null(sum_of(alerts_per_job.alerts), 0), "alerts"),
             AS(fill_null(sum_of(alerts_per_job.high_alerts), 0), "high_alerts"),
+            daily_job_runs.dt,
         ),
         FROM(daily_job_runs),
         JOIN(jobs, ON=equals(jobs.job_id, daily_job_runs.job_id)),
@@ -76,19 +78,20 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
-    return statement(*rows(day, day))
+def preview() -> Statement:
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows(DAY, DAY))
 
 
-def write_day(day: str) -> Statement:
-    """Step 3, every day, once the two tables it reads have written the day."""
-    return statement(INSERT_OVERWRITE(team_day), *rows(day, day))
+def write() -> Statement:
+    """Step 3: save DAY's rows, once the two tables it reads have written DAY."""
+    return statement(INSERT_OVERWRITE(team_day), *rows(DAY, DAY))
 
 
-def backfill(first_day: str, last_day: str) -> list[Statement]:
-    """Step 4, when needed, once the two tables it reads have backfilled the same days."""
-    return by_day(statement(INSERT_OVERWRITE(team_day), *rows(first_day, last_day)))
+def backfill(first_day: str, last_day: str) -> Statement:
+    """Step 4, when needed, once the two tables it reads have backfilled the same days: every
+    day from first_day to last_day in one write."""
+    return statement(INSERT_OVERWRITE(team_day), *rows(first_day, last_day))
 
 
 def team_runs_from_job_runs(day: str) -> Statement:
@@ -110,16 +113,16 @@ def team_runs_from_job_runs(day: str) -> Statement:
 
 # %%
 # 3. Try it: the Hive of each step, then each team's runs from ops.job_runs
-show_hive([create(), write_day(DAY)])
+show_hive([create(), write()])
 run(team_runs_from_job_runs(DAY), query=query)
 
 # %%
 # 4. Lineage: the three tables together, in a new pair in lineage/ named by the time and this
-# table. project.load gives another notebook's logic cell, run, so its write_day can be
-# drawn here too.
+# table. project.load gives another notebook's logic cell, run, so its write() can be drawn
+# here too.
 daily = project.load("mart.daily_job_runs")
 alerts = project.load("mart.alerts_per_job")
-export_lineage(daily.write_day(DAY), alerts.write_day(DAY), write_day(DAY))
+export_lineage(daily.write(), alerts.write(), write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/mart__team_day.py

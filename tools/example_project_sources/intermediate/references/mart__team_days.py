@@ -19,9 +19,9 @@ team_days = Table(
         "cost_cents": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["team", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/team_days",  # its own folder
     descriptions={
         "team": "NULL for the jobs whose day had no snapshot to say",
         "cost_cents": "NULL while none of the team's bills for the day has come in",

@@ -156,7 +156,7 @@ WHERE
 
 `FULL_JOIN` pairs the rows that match and keeps the rows of each side that have none, with
 NULL in the other side's columns. Each side keeps all of its rows, so its days can't be
-bounded in `WHERE`, which would throw away the other side's unmatched rows, nor in `ON=`,
+filtered in `WHERE`, which would throw away the other side's unmatched rows, nor in `ON=`,
 which keeps every row anyway: each side reads its own days in a Derived table first.
 
 >>> recorded = derived("recorded", statement(
@@ -325,7 +325,7 @@ ValueError:
   What happened:  SELECT reads run_alerts.severity, a column of run_alerts, which SEMI_JOIN only tests.
 ...
 
-### Bounding an ANTI_JOIN's days in WHERE
+### Filtering an ANTI_JOIN's days in WHERE
 
 Every column of an `ANTI_JOIN`'s table is NULL in the rows it keeps, so `WHERE` can't test
 one, the days included. They go inside `ON=`, as in the steps:

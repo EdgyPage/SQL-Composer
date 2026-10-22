@@ -5,9 +5,9 @@ For: Intermediate
 ## Goal
 
 Read a table whose days are written like `20260911` rather than `2026-09-11`, and which is
-split by region before it is split by day. You write its Table reference, finish the line
-`write_table_reference` leaves to you, and bound its days in a Statement, so the warehouse
-reads only the days you ask for.
+partitioned by region before it is partitioned by day. You write its Table reference, finish the
+lines `write_table_reference` leaves to you, and filter its partitions in a Statement, writing
+each day as the table writes it, so the warehouse reads only the days you ask for.
 
 ## When you'd use it
 
@@ -56,25 +56,21 @@ written as `20260924`, the year, then the month, then the day, with nothing betw
 
 ### Write its Table reference
 
-`write_table_reference` sends the same two commands through your query and writes the Table
-reference for you, as ops__region_costs.py in the folder you're working in:
+`write_table_reference` sends DESCRIBE through your query and writes the Table reference for
+you, as ops__region_costs.py in the folder you're working in:
 
 >>> path = write_table_reference("ops.region_costs", query=example_database.query)
 
-Look at its line starting `date_partition=`. The Date partition is the one column of days that
-every Statement must bound at both ends, and `write_table_reference` looks for it in the first
-partition column only. Here that is region, which holds `"eu"` and `"us"`, not days, so it
-can't be the Date partition: it writes `date_partition=None` and a TODO. The TODO names both
-partition columns, says region's last value, `'us'`, isn't a day the Toolbox could bound, and
-asks you to name dt, the column that holds the days, yourself.
+Look at its line starting `partitioned_by=`. It lists both partition columns, in the order
+DESCRIBE gives them, `partitioned_by=["region", "dt"]`, and nothing in it is a guess: to the
+Toolbox, dt is a column of text like any other, compared exactly as you write it. The two lines
+it can't know are left as TODOs: the Key, and the columns that don't add up.
 
 ### Finish the Table reference
 
-Change the TODO line into two lines: `date_partition="dt",` names the Date partition, and
-`date_format="%Y%m%d",` says how its days are written, in the codes Python's dates use: `%Y` is
-the year, `%m` the month and `%d` the day. Fill in the other two TODOs while you are there: one
-row is one job's cost in one region on one day, so the key is job_id, region and dt; and
-cost_cents is a plain amount, which adds up, so `does_not_add_up=[]` stays empty.
+Fill in the two TODOs: one row is one job's cost in one region on one day, so the key is job_id,
+region and dt; and cost_cents is a plain amount, which adds up, so `does_not_add_up=[]` stays
+empty.
 
 Try the finished reference in your notebook first, as below; once the next step says it
 matches, copy it into ops__region_costs.py and import it from there in every notebook:
@@ -87,8 +83,7 @@ matches, copy it into ops__region_costs.py and import it from there in every not
 ...         "region": "string",
 ...         "dt": "string",
 ...     },
-...     date_partition="dt",
-...     date_format="%Y%m%d",
+...     partitioned_by=["region", "dt"],
 ...     key=["job_id", "region", "dt"],
 ...     does_not_add_up=[],
 ... )
@@ -99,20 +94,19 @@ matches, copy it into ops__region_costs.py and import it from there in every not
 
 >>> check_table_reference(region_costs, query=example_database.query)
 ops.region_costs matches its Table reference.
-Notes:
-  - the table is also partitioned by region, which a Statement may bound too.
 
-It matches. The note is about region: it is a partition too, so a Statement that needs only one
-region can say so and read fewer folders, as the last step shows. The Toolbox doesn't ask you
-to, since a region isn't a day. `check_key` checks your key on the newest day:
+It matches. `check_key` checks your key on the rows `where=` picks, here the newest day,
+written the table's way:
 
->>> check_key(region_costs, query=example_database.query)
-ops.region_costs: the key (job_id, region, dt) holds on 20260924.
+>>> check_key(region_costs, query=example_database.query,
+...           where=equals(region_costs.dt, "20260924"))
+ops.region_costs: the key (job_id, region, dt) holds where region_costs.dt = '20260924'.
 
-### Bound its days
+### Filter its days
 
-Write the days the way the table writes them. Each region's cost over the week from
-2026-09-18 to 2026-09-24:
+Every read of a partitioned table must filter at least one of its partition columns, and here
+the days are the one to filter. Write them the way the table writes them. Each region's cost
+over the week from 2026-09-18 to 2026-09-24:
 
 >>> cost_per_region = statement(
 ...     SELECT(region_costs.region, AS(sum_of(region_costs.cost_cents), "cost_cents")),
@@ -134,14 +128,10 @@ GROUP BY
 0     eu        1610
 1     us         450
 
-A Python date works in its place, and so does `last_n_days(region_costs.dt, 7)`: the Toolbox
-writes each day as `date_format=` says. A condition shows the Hive it becomes:
+Hive compares the days as text, and days written this way sort as the days do, so `between`
+picks the week.
 
->>> import datetime
->>> between(region_costs.dt, datetime.date(2026, 9, 18), datetime.date(2026, 9, 24))
-region_costs.dt BETWEEN '20260918' AND '20260924'
-
-### Bound the second partition too
+### Filter the second partition too
 
 To read one region, add a condition on region to `WHERE`. The warehouse then opens only that
 region's folders. Each job's cost in eu over the same week:
@@ -182,22 +172,21 @@ first one, 1610.
 
 ## Common mistakes
 
-### Keeping date_partition=None
+### Leaving partitioned_by= out
 
-No message stops you here. A Table reference with `date_partition=None` has no Date partition
-for the Toolbox to check, so nothing stops a Statement that reads every day of every region.
-Here is the reference as `write_table_reference` left it:
+A Table reference with no `partitioned_by=` says the table isn't partitioned, so nothing
+stops a Statement that reads every day of every region. `check_table_reference` says so, and
+gives the line to add:
 
 >>> unfinished = Table("ops.region_costs", columns={"job_id": "bigint",
-...     "cost_cents": "bigint", "region": "string", "dt": "string"}, date_partition=None)
+...     "cost_cents": "bigint", "region": "string", "dt": "string"})
 >>> check_table_reference(unfinished, query=example_database.query)
-ops.region_costs matches its Table reference.
-Notes:
-  - the table is partitioned by region, dt: if one holds days, name it in date_partition=...
+ops.region_costs differs from its Table reference.
+Problems:
+  - the table is partitioned by region, dt: change the line to partitioned_by=["region", "dt"],
 
-It says it matches, since no column in it is wrong: something is missing, not wrong. The note
-is the part to act on. Until you do, a Statement without a day builds and runs without a word,
-and adds up all 14 days:
+Until you add it, a Statement that filters nothing builds and runs without a word, and adds
+up all 14 days:
 
 >>> every_day = statement(
 ...     SELECT(unfinished.region, AS(sum_of(unfinished.cost_cents), "cost_cents")),
@@ -209,78 +198,52 @@ and adds up all 14 days:
 0     eu        3460
 1     us        1160
 
-On a real table that is every day it has ever held. Name dt, and the same Statement is refused
-until it bounds its days.
-
-### Naming dt without its date_format
-
-Without `date_format=`, the Toolbox expects days written the usual way, like `2026-09-25`.
-`check_table_reference` gives the line to add:
-
->>> without_format = Table("ops.region_costs", columns={"job_id": "bigint",
-...     "cost_cents": "bigint", "region": "string", "dt": "string"}, date_partition="dt")
->>> check_table_reference(without_format, query=example_database.query)
-ops.region_costs differs from its Table reference.
-Problems:
-  - the newest dt, '20260924', isn't written like date_format='%Y-%m-%d', the usual one: change the line to date_format="%Y%m%d",
-Notes:
-  - the table is also partitioned by region, which a Statement may bound too.
-
-A Statement written with the table's own days is refused until you add it:
+On a real table that is every day it has ever held. With `partitioned_by=` in the Table
+reference, the same Statement is refused until it filters a partition column:
 
 >>> statement(
-...     SELECT(without_format.job_id),
-...     FROM(without_format),
-...     WHERE(between(without_format.dt, "20260918", "20260924")),
+...     SELECT(region_costs.region, AS(sum_of(region_costs.cost_cents), "cost_cents")),
+...     FROM(region_costs),
+...     GROUP_BY(region_costs.region),
 ... )
 Traceback (most recent call last):
 ...
-ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '20260918', but its Table reference writes days like '2026-09-18'.
+sqlglot_composer.refusals.LoadRefused:
+  What happened:  FROM(region_costs) reads ops.region_costs, but filters none of its partition columns: region, dt.
 ...
-
-Its fix offers both ways out: write the day the Table reference's way, `'2026-09-18'`, or, if
-the table's days really are written like `'20260918'`, add the line
-`date_format="%Y%m%d"`. Here the table is right and the Table reference is short of a line.
 
 ### Writing the day the usual way
 
-Once `date_format="%Y%m%d"` is in the Table reference, a day written with dashes is refused,
-since it would match no folder:
+No message stops you here. The Toolbox compares a day exactly as you write it, so a day
+written with dashes matches no row of this table, and the Statement gives nothing:
 
->>> statement(
-...     SELECT(region_costs.job_id),
+>>> with_dashes = statement(
+...     SELECT(region_costs.job_id, region_costs.cost_cents),
 ...     FROM(region_costs),
 ...     WHERE(between(region_costs.dt, "2026-09-18", "2026-09-24")),
 ... )
-Traceback (most recent call last):
-...
-ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-18', but its Table reference writes days like '20260918'.
-...
+>>> run(with_dashes, query=example_database.query)
+Empty DataFrame
+Columns: [job_id, cost_cents]
+Index: []
 
-The message writes your own day the table's way: `"20260918"`. A `datetime.date(2026, 9, 18)`
-works too.
+A Python date, and `last_n_days`, are written with dashes too, so on this table write the days
+as text, like `"20260918"`:
+
+>>> import datetime
+>>> between(region_costs.dt, datetime.date(2026, 9, 18), datetime.date(2026, 9, 24))
+region_costs.dt BETWEEN '2026-09-18' AND '2026-09-24'
 
 ### Joining it on the day to a table that writes days the usual way
 
-`ops.job_events` writes its days like `2026-09-18`. Matching its days with region_costs' in
-`ON=` is refused as you write the condition:
+`ops.job_events` writes its days like `2026-09-18`. Hive compares the days as text, so
+`equals(region_costs.dt, job_events.dt)` in `ON=` matches no row: `'20260918'` never equals
+`'2026-09-18'`. Write one side the other's way with a Hive function, as [Call other Hive
+functions](#call_other_hive_functions) shows: Hive's regexp_replace takes the dashes out.
 
 >>> job_events = example_database.job_events
->>> JOIN(region_costs, ON=all_of(equals(region_costs.job_id, job_events.job_id),
-...                              equals(region_costs.dt, job_events.dt)))
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  equals(region_costs.dt, ...) compares region_costs.dt, whose days are written like '20260925' (date_format='%Y%m%d'), with job_events.dt, whose days are written like '2026-09-25' (date_format='%Y-%m-%d').
-...
-
-Hive compares the days as text, so `'20260918'` never equals `'2026-09-18'`, and no row would
-match. Save region_costs' rows first in a Saved table that writes its days the usual way, then
-join that: a write writes its day the Saved table's way. The intermediate Example project, in
-the Toolbox download's example_projects folder, does just that in mart.job_day_costs's Table
-notebook.
+>>> equals(region_costs.dt, hive_function("regexp_replace", job_events.dt, "-", ""))
+region_costs.dt = REGEXP_REPLACE(job_events.dt, '-', '')
 
 ## Next
 

@@ -497,7 +497,7 @@ def careless_html(module: ModuleType) -> str:
 
 
 def builds_statements(value: object) -> bool:
-    """Whether a function's value is a Statement, or a list of them such as by_day(...) gives."""
+    """Whether a function's value is a Statement, or a list of them."""
     if isinstance(value, list):
         return bool(value) and all(isinstance(item, Statement) for item in value)
     return isinstance(value, Statement)
@@ -693,8 +693,7 @@ this one in the <code>{folder}</code> folder: how-to 1 starts a Project.</p>
 <code>last_n_days(job_runs.dt, 2)</code> reads 2026-09-23 and 2026-09-24. Pasted into your
 notebook, an example uses your own today, so <code>last_n_days</code> reads other days and finds
 no rows here: write <code>between(job_runs.dt, "2026-09-23", "2026-09-24")</code> in its place
-to get the results shown. <code>first_look(t)</code> reads your own yesterday too, so pasted, it
-shows no rows here.</p>
+to get the results shown.</p>
 <p>To paste a docstring's example, first run <code>from {folder} import *</code> and
 <code>jobs, job_runs = example_database.jobs, example_database.job_runs</code>. The Worked
 examples on their own are scripts the Toolbox's makers keep, which the download doesn't hold, so

@@ -42,7 +42,7 @@ work, pass your own, `from warehouse import query`, and name your own tables.
 ### See what the table says about itself
 
 A table in the warehouse can describe itself. The Hive command DESCRIBE lists its columns and
-their types, and SHOW PARTITIONS lists the days it holds. Neither reads a single row, so both
+their types, and SHOW PARTITIONS lists the Partitions it holds. Neither reads a single row, so both
 are quick on the biggest table. Here is what DESCRIBE says of `ops.run_alerts`, sent straight
 through the Example database's query:
 
@@ -60,7 +60,8 @@ through the Example database's query:
 The first four rows are its columns. The fifth is a blank line DESCRIBE leaves before its next
 section: its name is empty, and its other two cells are missing, NULL in Hive, which the table
 on the how-to page shows as NULL and pandas 3 prints as NaN. The rows under
-`# Partition Information` say which column splits the table into days: dt, its Date partition.
+`# Partition Information` say which columns split the table into Partitions: here dt alone,
+one Partition a day.
 
 ### Write your tables' Table references
 
@@ -83,7 +84,7 @@ one variable,
 `job_runs`:
 
 - `columns` holds every column and its type;
-- `date_partition="dt"` comes from `SHOW PARTITIONS`;
+- `partitioned_by=["dt"]` comes from DESCRIBE's `# Partition Information` rows;
 - three lines say TODO: the line at the top that says what one row is, `key=None` and
   `does_not_add_up=[]`. The table can't tell anyone those, so the file leaves them to you;
 - `descriptions=` holds what each column holds, in words, from its comment in the warehouse,
@@ -110,7 +111,7 @@ lines are left out here:
             "avg_retry_secs": "double",
             "dt": "string",
         },
-        date_partition="dt",
+        partitioned_by=["dt"],
         key=["run_id"],
         does_not_add_up=["avg_retry_secs"],
         descriptions={
@@ -167,17 +168,21 @@ edits the file itself. A table that changed, and what it says then, is in
 ### Check the key you wrote
 
 The warehouse never checks a key: nothing stops two rows sharing one `job_runs.run_id`.
-`check_key` counts the rows for each key on the newest day the table holds, and lists any key
-that repeats:
+`check_key` counts the rows for each key on the rows `where=` picks, and lists any key that
+repeats. `job_runs` is partitioned, so say which Partitions to check, here one day's:
 
->>> check_key(job_runs, query=example_database.query)
-ops.job_runs: the key (run_id) holds on 2026-09-24.
+>>> check_key(job_runs, query=example_database.query,
+...           where=equals(job_runs.dt, "2026-09-24"))
+ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
+
+`reads_all_partitions=True` in place of `where=` checks the whole table. A table that isn't
+partitioned is always checked whole.
 
 ### Take a first look at the rows
 
-`first_look` builds an ordinary Statement that reads every column and 20 rows of yesterday,
-so it is safe to run on a big table. `show_hive` prints its Hive, and `run` runs it. These
-steps ran as if today were 2026-09-25, so yesterday is 2026-09-24:
+`first_look` builds an ordinary Statement that reads every column and the first 20 rows the
+warehouse comes to, so it is quick to run on a big table: `LIMIT 20` stops the read early.
+`show_hive` prints its Hive, and `run` runs it:
 
 >>> text = show_hive(first_look(job_runs))
 SELECT
@@ -188,19 +193,21 @@ SELECT
   job_runs.avg_retry_secs,
   job_runs.dt
 FROM ops.job_runs AS job_runs
-WHERE
-  job_runs.dt = '2026-09-24'
 LIMIT 20;
 >>> run(first_look(job_runs), query=example_database.query)
    run_id  job_id   status  duration_mins  avg_retry_secs          dt
-0     101       1  SUCCESS             10             1.0  2026-09-24
-1     102       2   FAILED             20             6.0  2026-09-24
-2     103       3  SUCCESS             30             0.0  2026-09-24
-3     104       1  SUCCESS             40             3.0  2026-09-24
+0      95       1  SUCCESS             12             2.0  2026-09-23
+1      96       2  SUCCESS             18             0.0  2026-09-23
+2      97       3   FAILED             30             8.0  2026-09-23
+3      98       2      NaN             15             NaN  2026-09-23
+4      99       1     TEST              5             0.0  2026-09-23
+5     101       1  SUCCESS             10             1.0  2026-09-24
+6     102       2   FAILED             20             6.0  2026-09-24
+7     103       3  SUCCESS             30             0.0  2026-09-24
+8     104       1  SUCCESS             40             3.0  2026-09-24
 
-This page was run as if today were 2026-09-25. In your own notebook, yesterday is your real
-yesterday, and the Example database holds only 2026-09-23 and 2026-09-24, so on it this result
-comes back empty, with its column names and no rows. At work, it shows your table's yesterday.
+The Example database's `job_runs` holds only nine rows, so all of them come back. Which 20 rows
+a big table gives is up to the warehouse.
 
 ### Build a SELECT from every column
 
@@ -282,8 +289,9 @@ Once you've filled in a file's TODOs, both checks pass for its table:
 
 >>> check_table_reference(job_runs, query=example_database.query)
 ops.job_runs matches its Table reference.
->>> check_key(job_runs, query=example_database.query)
-ops.job_runs: the key (run_id) holds on 2026-09-24.
+>>> check_key(job_runs, query=example_database.query,
+...           where=equals(job_runs.dt, "2026-09-24"))
+ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
 ## Common mistakes
 
@@ -353,11 +361,12 @@ looks right, but `check_key` shows the run_ids that repeat:
 ...     "ops.run_alerts",
 ...     columns={"alert_id": "bigint", "run_id": "bigint", "severity": "string",
 ...              "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
 ... )
->>> check_key(wrong_key, query=example_database.query)
-ops.run_alerts: the key (run_id) repeats on 2026-09-24. Keys with more than one row:
+>>> check_key(wrong_key, query=example_database.query,
+...           where=equals(wrong_key.dt, "2026-09-24"))
+ops.run_alerts: the key (run_id) repeats where run_alerts.dt = '2026-09-24'. Keys with more than one row:
  run_id  copies
     101       3
     103       2
@@ -374,7 +383,7 @@ Its key is `["alert_id"]`: one row per alert.
   [The Reference sheet](#the_reference_sheet).
 - When a table gains or changes a column after you wrote its file:
   [Keep a Table reference true over time](#keep_a_table_reference_true_over_time).
-- A table whose days are written like 20260924, or which is split by a second column too:
+- A table whose days are written like 20260924, and which is partitioned by a second column too:
   [A day written another way, and a second partition](#a_day_written_another_way).
 - Each function here has a Worked example in the gallery:
   [`write_table_reference`](examples.html#write_table_reference), which writes one table's

@@ -15,7 +15,8 @@ send them on, and after every change to a Building block it reads, such as one s
 [Share Building blocks between Statements](#share_building_blocks_between_statements). The
 Toolbox's Guards and Warnings catch mistakes of a known shape, such as a join that repeats rows,
 as [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs) shows, and a Load limit
-catches a missing day bound; only a test catches a Statement that counts the wrong thing.
+catches a read that filters none of a table's partition columns; only a test catches a
+Statement that counts the wrong thing.
 
 ## Steps
 

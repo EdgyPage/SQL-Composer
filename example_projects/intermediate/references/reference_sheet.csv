@@ -1,4 +1,4 @@
-table,column,type,date_partition,in_key,aliases,description,exported_at
+table,column,type,partition,in_key,aliases,description,exported_at
 mart.job_day_costs,job_id,bigint,,yes,,,2026-09-25 06:00:00
 mart.job_day_costs,cost_cents,bigint,,,,every region's cost added up; NULL until the bill comes in,2026-09-25 06:00:00
 mart.job_day_costs,dt,string,yes,yes,,"the day the cost is for, as yyyy-MM-dd",2026-09-25 06:00:00
@@ -27,5 +27,5 @@ ops.job_owners,owner,string,,,,NULL when nobody owns the job,2026-09-25 06:00:00
 ops.job_owners,dt,string,yes,yes,,,2026-09-25 06:00:00
 ops.region_costs,job_id,bigint,,yes,,,2026-09-25 06:00:00
 ops.region_costs,cost_cents,bigint,,,,NULL until the bill comes in,2026-09-25 06:00:00
-ops.region_costs,region,string,,yes,,,2026-09-25 06:00:00
+ops.region_costs,region,string,yes,yes,,,2026-09-25 06:00:00
 ops.region_costs,dt,string,yes,yes,,,2026-09-25 06:00:00

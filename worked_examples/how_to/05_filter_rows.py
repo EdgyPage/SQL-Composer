@@ -11,9 +11,9 @@ keeps on the Example database, so you can see each one work.
 
 ## When you'd use it
 
-In nearly every Statement. Every Statement on a table with a Date partition gives the days it
-reads, and most keep only some rows of those days: the failed runs, the jobs of one team, the
-runs that took too long.
+In nearly every Statement. Every Statement on a partitioned table filters its partition
+column, here the days it reads, and most keep only some rows of those days: the failed runs,
+the jobs of one team, the runs that took too long.
 
 ## Steps
 
@@ -29,8 +29,8 @@ your notebook, pandas 3, as NaN.
 
 ### Give the days to read
 
-Each Statement on `job_runs` gives the first and the last day it reads, through its Date
-partition, `job_runs.dt`. There are three ways to write them:
+Each Statement on `job_runs` filters its partition column, `job_runs.dt`, the day of each
+run, so it reads only the days it needs. There are three usual ways to write them:
 
 - `equals(job_runs.dt, "2026-09-24")` reads one day;
 - `between(job_runs.dt, "2026-09-23", "2026-09-24")` reads from the first day to the last, both

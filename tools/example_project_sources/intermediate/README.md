@@ -39,8 +39,10 @@ intermediate/
 └── tables/                  a Table folder per Saved table, each with its lineage/
 ```
 
-`references/ops__region_costs.py`'s Date partition was filled in by hand: the table is
-partitioned by region first, which holds no days, so `add_references` left it as a TODO.
+`ops.region_costs` is partitioned by region, then dt, which `add_references` read from the
+table into `references/ops__region_costs.py`, and writes its days like 20260924:
+`building_blocks/costs_per_job_day.py` writes them like 2026-09-24, as the project's other
+tables do.
 `references/ops__job_events.py` ends with an Alias, `ends_a_run`, the events that end a run,
 which `building_blocks/events_per_job_day.py` reads.
 
@@ -49,5 +51,5 @@ which `building_blocks/events_per_job_day.py` reads.
 Copy the `sqlglot_composer` folder into this folder first, as a Project holds it. Then open a
 notebook in Jupyter and run its cells top to bottom. The Example database can be read but not
 written, so a notebook's cell 3 prints each write's Hive and runs only what reads ops tables,
-and `admin/run_tables.ipynb`, with no execute, prints every write of the last 3 days in order,
-writers first, and sends nothing.
+and `admin/run_tables.ipynb`, with no execute, prints every write in order, writers first,
+each of the last 3 days, and sends nothing.

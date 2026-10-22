@@ -41,9 +41,9 @@ from sqlglot_composer import (
 HERE = Path(__file__).resolve().parent
 TEXT = "ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')"
 job_runs = example_database.job_runs
-daily_runs = Table("mart.daily_runs", date_partition="dt",
+daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
                    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-                   location="/data/your_team/tables")
+                   location="/data/your_team/mart.db/daily_runs")
 
 
 @pytest.fixture

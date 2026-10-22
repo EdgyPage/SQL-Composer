@@ -4,9 +4,10 @@ For: Getting started
 
 ## Goal
 
-Write many past days of a Saved table at once. You build the day's write once, over the whole
-range of days, let `by_day` cut it into one write per day, oldest first, and print them all
-with `show_hive`, ready to paste into another program or to send one after another.
+Write many past days of a Saved table at once. You build the write once, over the whole range
+of days, with the day last in its SELECT: each row then goes to its own day's Partition, filled
+from the rows, in one write. For a range too long to read at once, a loop writes it a day at a
+time instead, each write naming its day with `partition=`.
 
 ## When you'd use it
 
@@ -38,8 +39,9 @@ ran, and how many of those runs failed. Its Table reference is written by hand, 
 ...         "failed_runs": "bigint",
 ...         "dt": "string",  # the day of the runs, as yyyy-MM-dd
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
+...     location="/data/your_team/mart.db/daily_job_runs",
 ... )
 
 ### Build the write over the whole range
@@ -54,6 +56,7 @@ Write the Statement once, as a function of the first and the last day. It reads 
 ...             job_runs.job_id,
 ...             AS(count_rows(), "runs"),
 ...             AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed_runs"),
+...             job_runs.dt,
 ...         ),
 ...         FROM(job_runs),
 ...         WHERE(between(job_runs.dt, first_day, last_day)),
@@ -67,17 +70,15 @@ which the Hive writes as `COUNT(CASE WHEN ... THEN 1 END)`. See
 [`GROUP_BY`](examples.html#GROUP_BY) and [`count_rows`](examples.html#count_rows), or
 [Count and add up per group](#count_and_add_up_per_group) from the start.
 
-`job_runs.dt` is in `GROUP_BY` but not in `SELECT`. In `GROUP_BY`, it keeps each day's counts
-apart, so no day's runs are counted with another's. It stays out of `SELECT` because a write
-never selects the Date partition: each day's write names its day in its first line instead.
-
-`backfill` reads two days, and a write fills one day, so it can't be sent as it is. The next
-steps check its rows, then split it.
+`job_runs.dt` is in `GROUP_BY`, which keeps each day's counts apart, and last in `SELECT`,
+which says which day's Partition each row goes to. `INSERT_OVERWRITE` with no `partition=`
+fills the table's partition column from the rows, and replaces only the days the rows hold:
+any other day of the table keeps what it held.
 
 ### Check the rows first
 
-The same counts as a plain SELECT, with the day shown, run on the Example database. These are
-the rows the backfill would save, one per job and day:
+The same counts as a plain SELECT, run on the Example database. These are the rows the
+backfill would save, one per job and day:
 
 >>> preview = statement(
 ...     SELECT(
@@ -99,99 +100,107 @@ the rows the backfill would save, one per job and day:
 4  2026-09-24       2     1            1
 5  2026-09-24       3     1            0
 
-### Split it into one write per day
+### Print it, ready to paste
 
-`by_day` gives back a list: one Statement per day the range reads, oldest first, each the
-same write with its WHERE bounded to its one day.
+`show_hive` prints the write's Hive, ending with a `;`, ready for a program such as Hue,
+Beeline or DBeaver. Filling Partitions from the rows needs Hive's dynamic partitioning switched
+on, so it prints the two SET lines that do it first:
 
->>> days = by_day(backfill)
->>> len(days)
-2
-
-### Print them all, ready to paste
-
-`show_hive` takes the whole list. It prints each write's Hive, headed by its place in the list
-and its name, `days[0]` then `days[1]`, each ending with a `;`, so a program such as Hue,
-Beeline or DBeaver runs them one after another, in this order:
-
->>> text = show_hive(days)
--- 1 of 2: days[0]
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
+>>> text = show_hive(backfill)
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)
 SELECT
   job_runs.job_id,
   COUNT(*) AS runs,
-  COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs
+  COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs,
+  job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt = '2026-09-23'
-GROUP BY
-  job_runs.job_id,
-  job_runs.dt;
-<BLANKLINE>
--- 2 of 2: days[1]
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
-SELECT
-  job_runs.job_id,
-  COUNT(*) AS runs,
-  COUNT(CASE WHEN job_runs.status = 'FAILED' THEN 1 END) AS failed_runs
-FROM ops.job_runs AS job_runs
-WHERE
-  job_runs.dt = '2026-09-24'
+  job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 GROUP BY
   job_runs.job_id,
   job_runs.dt;
 
 `text` keeps the same Hive as one string, to save in a file or paste elsewhere.
 
-### Send them in order
+### Send it
 
-From a notebook, send each write in turn with `run`, oldest first. At work, a loop does it,
-here a function that takes your own execute, written as in [Start a Project](#start_a_project).
-On this page the Example database's execute stands in for it: it prints the first line of
-each write and changes nothing:
+From a notebook, `run` sends the write through your execute, as in
+[Start a Project](#start_a_project). It doesn't send the SET lines with it: send the Session
+setting first, `hive_settings("dynamic_partitions")`, which holds for as long as your execute's
+connection lasts. On this page the Example database's execute stands in for yours: it prints
+the first line of each and changes nothing:
 
->>> from collections.abc import Callable
->>> def send_backfill(writes: list[Statement], execute: Callable[[str], None]) -> None:
-...     for write in writes:
-...         run(write, execute=execute)
->>> send_backfill(days, execute=example_database.execute)
-execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
-execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+>>> run(hive_settings("dynamic_partitions"), execute=example_database.execute)
+execute: SET hive.exec.dynamic.partition=true
+execute: SET hive.exec.dynamic.partition.mode=nonstrict
+>>> run(backfill, execute=example_database.execute)
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)
 
-Each write is an INSERT OVERWRITE, which replaces its day. So if the loop stops halfway, say
-on a network error, send it again from the day that failed, or from the start: a day written
-twice holds the same rows, not twice as many. Don't backfill with `INSERT_INTO`, which adds
-rows each time it is sent.
+The write is an INSERT OVERWRITE, which replaces the days it writes. So if it fails, say on a
+network error, send it again: a day written twice holds the same rows, not twice as many.
+Don't backfill with `INSERT_INTO`, which adds rows each time it is sent.
 
-### Backfill a longer range
+### Backfill a longer range, a day at a time
 
-At work a backfill covers weeks or months. The same function builds it, and `by_day` cuts a
-month into 30 writes:
+At work a backfill can cover months, more than one Statement should read at once. Then write
+it a day at a time: a function of one day, whose write names its day with
+`partition={"dt": day}` and leaves dt out of SELECT, and a Python loop over the days. Python's
+`datetime` makes the list of days:
 
->>> september = by_day(daily_counts("2026-09-01", "2026-09-30"))
->>> len(september)
+>>> import datetime
+>>> def one_day(day: str) -> Statement:
+...     return statement(
+...         INSERT_OVERWRITE(daily_job_runs, partition={"dt": day}),
+...         SELECT(
+...             job_runs.job_id,
+...             AS(count_rows(), "runs"),
+...             AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed_runs"),
+...         ),
+...         FROM(job_runs),
+...         WHERE(equals(job_runs.dt, day)),
+...         GROUP_BY(job_runs.job_id),
+...     )
+>>> first = datetime.date(2026, 9, 1)
+>>> september = [str(first + datetime.timedelta(days=n)) for n in range(30)]
+>>> september[:3]
+['2026-09-01', '2026-09-02', '2026-09-03']
+>>> writes = [one_day(day) for day in september]
+>>> len(writes)
 30
->>> for write in september[:3]:
+>>> for write in writes[:3]:
 ...     print(to_hive(write).splitlines()[0])
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-01')
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-02')
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-03')
 
-`by_day` cuts the range in WHERE into its days, whether or not the table holds rows on each:
-a day with no runs is written with no rows. Sending one day at a time also keeps each
-Statement small: a Load limit set with `set_load_limits(dates=7)` refuses a Statement that
-reads more than 7 days, and each of these reads one. See
-[Keep queries small with Load limits](#keep_queries_small_with_load_limits).
+Each names every partition column, so it needs no Session setting. `show_hive(writes)` prints
+them all, each headed by its place in the list; a loop sends them, oldest first:
+
+>>> from collections.abc import Callable
+>>> def send_backfill(writes: list[Statement], execute: Callable[[str], None]) -> None:
+...     for write in writes:
+...         run(write, execute=execute)
+>>> send_backfill(writes[:2], execute=example_database.execute)
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-01')
+execute: INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-02')
+
+A day the table it reads holds no rows of is written with no rows. If the loop stops halfway,
+send it again from the day that failed, or from the start.
 
 ## Check it worked
 
-Each write reads exactly one day, the day in its first line, and the days come oldest first,
-with none missing:
+The range write fills dt from its rows, and the day-at-a-time writes come oldest first, with
+none missing:
 
->>> for write in days:
+>>> to_hive(backfill).splitlines()[0]
+'INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)'
+>>> for write in writes[-2:]:
 ...     print(to_hive(write).splitlines()[0])
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-23')
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-29')
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-30')
 
 At work, after the backfill, count the Saved table's rows and runs per day, and compare them
 with the same counts from `ops.job_runs`, which the Example database can show here: 5 runs on
@@ -229,25 +238,12 @@ GROUP BY
 
 ## Common mistakes
 
-### Sending the whole range as one write
+### Leaving the day out of SELECT
 
-A write fills one day, so the range write is refused as soon as its Hive is written, by
-`show_hive`, `to_hive` or `run`. The message's fix is `by_day`:
+A write with no `partition=` takes each row's day from its last column, so one whose SELECT
+leaves dt out is refused as you build it:
 
->>> text = show_hive(backfill)
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(daily_job_runs) covers 2 days.
-...
-
-### Leaving the day out of GROUP_BY
-
-Group by the job alone, and the Statement means something different whole and split. Whole,
-it gives one total per job over the range; cut into days, it would give one per job and day.
-`by_day` never changes what a Statement means, so it refuses:
-
->>> per_job_only = statement(
+>>> statement(
 ...     INSERT_OVERWRITE(daily_job_runs),
 ...     SELECT(
 ...         job_runs.job_id,
@@ -256,19 +252,42 @@ it gives one total per job over the range; cut into days, it would give one per 
 ...     ),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-...     GROUP_BY(job_runs.job_id),
+...     GROUP_BY(job_runs.job_id, job_runs.dt),
 ... )
->>> by_day(per_job_only)
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  by_day can't split this Statement: it groups rows without keeping the Date partition job_runs.dt.
+  What happened:  INSERT_OVERWRITE(daily_job_runs): it leaves out dt.
 ...
 
-Add `job_runs.dt` to `GROUP_BY`, as `daily_counts` does: then whole and split both give one
-row per job and day. A write of a single day, bounded with `equals`, needn't group by the day,
-as [Run a daily pipeline](#run_a_daily_pipeline) shows: only a range you cut with `by_day`
-does.
+Add `job_runs.dt` at the end of SELECT, as `daily_counts` does, or name the day with
+`partition={"dt": ...}`, as `one_day` does.
+
+### Leaving the day out of GROUP_BY
+
+Group by the job alone, and each row would be one job's total over the whole range, with no
+single day to go to. The Toolbox refuses it, as Hive would:
+
+>>> statement(
+...     INSERT_OVERWRITE(daily_job_runs),
+...     SELECT(
+...         job_runs.job_id,
+...         AS(count_rows(), "runs"),
+...         AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed_runs"),
+...         job_runs.dt,
+...     ),
+...     FROM(job_runs),
+...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+...     GROUP_BY(job_runs.job_id),
+... )
+Traceback (most recent call last):
+...
+sqlglot_composer.refusals.GuardRefused:
+  What happened:  SELECT has job_runs.dt, which GROUP_BY leaves out.
+...
+
+Add `job_runs.dt` to `GROUP_BY`, as `daily_counts` does. A write of a single day, read with
+`equals`, needn't group by the day, as `one_day` shows.
 
 ### A range written back to front
 
@@ -282,33 +301,14 @@ ValueError:
   What happened:  between(job_runs.dt, '2026-09-30', '2026-09-01') starts after it ends.
 ...
 
-### A LIMIT in a Statement to split
-
-`LIMIT 10` keeps 10 rows of the whole result. Split by day, each day would keep 10 rows of its
-own, so `by_day` refuses a Statement with a LIMIT:
-
->>> some_runs = statement(
-...     SELECT(job_runs.run_id, job_runs.dt),
-...     FROM(job_runs),
-...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-...     LIMIT(10),
-... )
->>> by_day(some_runs)
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  by_day can't split this Statement: it has LIMIT 10.
-...
-
 ## Next
 
-- Run the day's writes every morning, in order: [Run a daily pipeline](#run_a_daily_pipeline).
+- Write the Project's tables in order: [Run a daily pipeline](#run_a_daily_pipeline).
 - Rewrite only the last few days each morning, for rows that arrive late:
   [Incremental loads and late data](#incremental_loads_and_late_data).
-- Cap how many days one Statement may read:
+- Keep each Statement's reads small:
   [Keep queries small with Load limits](#keep_queries_small_with_load_limits).
-- Each name's own entry in the gallery: [`by_day`](examples.html#by_day) and
-  [`show_hive`](examples.html#show_hive), and the
-  [Saved table example](examples.html#saved_table), whose `backfill` writes two Statements a
-  day.
+- Each name's own entry in the gallery: [`INSERT_OVERWRITE`](examples.html#INSERT_OVERWRITE),
+  [`hive_settings`](examples.html#hive_settings) and [`show_hive`](examples.html#show_hive),
+  and the [Saved table example](examples.html#saved_table).
 """

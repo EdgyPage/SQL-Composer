@@ -5,7 +5,7 @@ For: Getting started
 ## Goal
 
 See every column of every table your Project reads or writes in one table: its type, whether
-it is the Date partition or in the Key, its Aliases and what it holds.
+it is a partition column or in the Key, its Aliases and what it holds.
 `project.refresh_reference_sheet()` writes it, references/reference_sheet.csv, from the Table
 references in references/, to read in pandas, a spreadsheet, or any program that opens a CSV
 file.
@@ -50,8 +50,8 @@ It has a row per column of each table, and these columns:
 
 - table and column: the table's name, such as ops.job_runs, and the column's;
 - type: its Hive type, such as bigint;
-- date_partition and in_key: "yes" for the table's Date partition, and for each column of its
-  Key, as its Table reference's `date_partition=` and `key=` say;
+- partition and in_key: "yes" for each of the table's partition columns, and for each column
+  of its Key, as its Table reference's `partitioned_by=` and `key=` say;
 - aliases: each Alias written below the Table reference that reads this column alone, a
   condition shown as "failed (a condition)";
 - description: what the column holds, from the Table reference's `descriptions=`;

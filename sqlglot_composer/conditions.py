@@ -17,8 +17,6 @@ from .refusals import (
 )
 from .tables import (
     Column,
-    as_date,
-    is_date_partition,
     literal,
     made_by,
     python_text,
@@ -35,67 +33,6 @@ def today() -> datetime.date:
     return datetime.date.today()
 
 
-class Span:
-    """The days a condition lets through for one Date partition.
-
-    A condition's own Span runs from low to high, or holds only the days in a list, and
-    never the days it leaves out. Spans joined with AND or OR keep the two they were made
-    from, so a day is let through exactly when the conditions would let it through.
-    """
-
-    def __init__(self, low: datetime.date | None = None, high: datetime.date | None = None,
-                 days: frozenset[datetime.date] | None = None,
-                 left_out: frozenset[datetime.date] = frozenset(), *,
-                 both: tuple[Span, ...] = (), either: tuple[Span, ...] = ()) -> None:
-        self.low = low
-        self.high = high
-        self.days = days
-        # The days not_equals and is_not_in leave out, which by_day and the Load limits skip.
-        self.left_out = left_out
-        self.both = both
-        self.either = either
-
-    def is_bounded(self) -> bool:
-        return self.days is not None or (self.low is not None and self.high is not None)
-
-    def lets_through(self, day: datetime.date) -> bool:
-        if self.low is not None and day < self.low:
-            return False
-        if self.high is not None and day > self.high:
-            return False
-        if (self.days is not None and day not in self.days) or day in self.left_out:
-            return False
-        if self.both and not all(span.lets_through(day) for span in self.both):
-            return False
-        return not self.either or any(span.lets_through(day) for span in self.either)
-
-    def dates(self) -> list[datetime.date]:
-        """Every day in the span, oldest first. Only for a bounded span."""
-        if self.days is not None:
-            found = sorted(self.days)
-        else:
-            count = (self.high - self.low).days + 1
-            found = [self.low + datetime.timedelta(days=n) for n in range(max(count, 0))]
-        return [day for day in found if self.lets_through(day)]
-
-
-def days_in_both(first: Span, second: Span) -> Span:
-    """The days two conditions joined with AND both let through."""
-    low = max((s.low for s in (first, second) if s.low is not None), default=None)
-    high = min((s.high for s in (first, second) if s.high is not None), default=None)
-    sets = [s.days for s in (first, second) if s.days is not None]
-    days = frozenset.intersection(*sets) if sets else None
-    return Span(low, high, days, both=(first, second))
-
-
-def days_in_either(first: Span, second: Span) -> Span:
-    """The days two conditions joined with OR let through between them."""
-    low = None if None in (first.low, second.low) else min(first.low, second.low)
-    high = None if None in (first.high, second.high) else max(first.high, second.high)
-    days = None if None in (first.days, second.days) else first.days | second.days
-    return Span(low, high, days, either=(first, second))
-
-
 class Condition:
     """A test on rows, for WHERE, HAVING or ON=: the condition functions give one back.
 
@@ -108,14 +45,13 @@ class Condition:
     job_runs.status = 'FAILED'
     """
 
-    def __init__(self, tree: Node, *, spans: dict[tuple[str, str], Span] | None = None,
-                 only_bounds: tuple[str, str] | None = None,
+    def __init__(self, tree: Node, *, bounds: frozenset[tuple[str, str]] = frozenset(),
                  keeps_unmatched: frozenset[str] = frozenset()) -> None:
         self._tree = tree
-        # {(table alias, column): Span} for each Date partition this condition bounds.
-        self._spans = spans or {}
-        # The (alias, column) this condition does nothing but bound, so by_day can replace it.
-        self._only_bounds = only_bounds
+        # The (table alias, column) pairs this condition holds to values, such as
+        # equals(dt, ...) or between(dt, ...): the read limit counts a partition column among
+        # them as bounding its table's Partitions.
+        self._bounds = bounds
         # The tables whose rows with no match this condition keeps, as is_null(...) of one of
         # their columns does, so LEFT_JOIN allows it in WHERE.
         self._keeps_unmatched = keeps_unmatched
@@ -179,14 +115,18 @@ _COMPARING = ("equals", "not_equals", "at_least", "at_most", "more_than", "less_
               "between")
 
 
-def _spans_key(column: Column) -> tuple[str, str]:
-    """(table alias, column name): how a condition's spans name the Date partition they bound."""
-    return (column._table._alias, column._name)
+def _bound(column: Column) -> frozenset[tuple[str, str]]:
+    """(table alias, column name) of a column a condition holds to values, for its _bounds;
+    none for a column made by a calculation, which has no table."""
+    if column._table is None or column._tree.kind != "Column":
+        return frozenset()
+    return frozenset([(column._table._alias, column._name)])
 
 
 def _compare(name: str, kind: str, column: object, value: object,
-             span_of: Callable[[datetime.date], Span]) -> Condition:
-    """A comparison of a column with one value, noting any Date partition bound."""
+             bounds: bool = True) -> Condition:
+    """A comparison of a column with one value. `bounds` says whether it holds the column to
+    some values, as at_least(...) does and not_equals(...) doesn't."""
     call = f"{name}({python_text(column)}, ...)"
     column = _need_column(column, call)
     if value is None:
@@ -194,11 +134,9 @@ def _compare(name: str, kind: str, column: object, value: object,
     tree = Node(kind, this=column._tree.copy(),
                 expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
-    if not is_date_partition(column) or isinstance(value, Column):
+    if not bounds or isinstance(value, Column):
         return Condition(tree)
-    span = span_of(as_date(value, column, call))
-    key = _spans_key(column)
-    return Condition(tree, spans={key: span}, only_bounds=key)
+    return Condition(tree, bounds=_bound(column))
 
 
 def equals(column: Column,
@@ -206,15 +144,14 @@ def equals(column: Column,
     """Rows where the column equals the value.
 
     To find missing values use is_null(column): equals(column, None) is refused, because in
-    SQL nothing equals NULL. Matching two tables' Date partitions whose days are written
-    differently, such as '20260925' and '2026-09-25', is refused too: no day would match.
+    SQL nothing equals NULL.
 
     >>> equals(job_runs.status, "FAILED")
     job_runs.status = 'FAILED'
     >>> equals(job_runs.status, "O'Brien")
     job_runs.status = 'O\\'Brien'
     """
-    return _compare("equals", "EQ", column, value, lambda day: Span(day, day, frozenset([day])))
+    return _compare("equals", "EQ", column, value)
 
 
 def not_equals(column: Column,
@@ -227,8 +164,7 @@ def not_equals(column: Column,
     >>> not_equals(job_runs.status, "TEST")
     job_runs.status <> 'TEST'
     """
-    return _compare("not_equals", "NEQ", column, value,
-                    lambda day: Span(left_out=frozenset([day])))
+    return _compare("not_equals", "NEQ", column, value, bounds=False)
 
 
 def at_least(column: Column,
@@ -238,7 +174,7 @@ def at_least(column: Column,
     >>> at_least(job_runs.duration_mins, 30)
     job_runs.duration_mins >= 30
     """
-    return _compare("at_least", "GTE", column, value, lambda day: Span(low=day))
+    return _compare("at_least", "GTE", column, value)
 
 
 def at_most(column: Column,
@@ -248,7 +184,7 @@ def at_most(column: Column,
     >>> at_most(job_runs.duration_mins, 30)
     job_runs.duration_mins <= 30
     """
-    return _compare("at_most", "LTE", column, value, lambda day: Span(high=day))
+    return _compare("at_most", "LTE", column, value)
 
 
 def more_than(column: Column,
@@ -258,8 +194,7 @@ def more_than(column: Column,
     >>> more_than(job_runs.duration_mins, 30)
     job_runs.duration_mins > 30
     """
-    return _compare("more_than", "GT", column, value,
-                    lambda day: Span(low=day + datetime.timedelta(days=1)))
+    return _compare("more_than", "GT", column, value)
 
 
 def less_than(column: Column,
@@ -269,15 +204,15 @@ def less_than(column: Column,
     >>> less_than(job_runs.duration_mins, 30)
     job_runs.duration_mins < 30
     """
-    return _compare("less_than", "LT", column, value,
-                    lambda day: Span(high=day - datetime.timedelta(days=1)))
+    return _compare("less_than", "LT", column, value)
 
 
 def between(column: Column, low: str | int | float | bool | datetime.date | Column,
             high: str | int | float | bool | datetime.date | Column) -> Condition:
     """Rows where the column is from low to high, both ends included.
 
-    On a Date partition this is the usual way to bound the days a Statement reads.
+    On a partition column, such as a day, this is the usual way to bound the Partitions a
+    Statement reads.
 
     >>> between(job_runs.dt, "2026-09-01", "2026-09-24")
     job_runs.dt BETWEEN '2026-09-01' AND '2026-09-24'
@@ -293,26 +228,33 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
         high=literal(high, call=call, column=column, position="the high end"),
     )
     made_by(tree, "between", column, low, high)
-    if not is_date_partition(column) or isinstance(low, Column) or isinstance(high, Column):
+    if isinstance(low, Column) or isinstance(high, Column):
         return Condition(tree)
-    first, last = as_date(low, column, call), as_date(high, column, call)
-    if first > last:
+    if _comparable(low, high) and low > high:
         refuse(
             what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
-            why="No day is both on or after the first and on or before the second, so "
-            "this would match nothing.",
-            fix="Put the earlier day first.",
+            why="No value is both at least the first and at most the second, so this would "
+            "match nothing.",
+            fix="Put the lower value first.",
             error=ValueError,
         )
-    key = _spans_key(column)
-    return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
+    return Condition(tree, bounds=_bound(column))
+
+
+def _comparable(low: object, high: object) -> bool:
+    """Whether between's two ends compare as Hive compares them: two numbers, two dates, or
+    two strings, which Hive compares as text, as Python does."""
+    kinds = (int, float, datetime.date, str)
+    return any(isinstance(low, kind) and isinstance(high, kind) for kind in kinds) and not (
+        isinstance(low, bool) or isinstance(high, bool))
 
 
 def last_n_days(column: Column, n: int) -> Condition:
     """Rows from the n days before today; today itself isn't included.
 
-    The dates are worked out when the condition is made, and written into the Hive, so the
-    days a Statement reads are there to see. last_n_days(job_runs.dt, 1) is yesterday.
+    The dates are worked out when the condition is made, and written into the Hive as
+    yyyy-MM-dd, so the days a Statement reads are there to see. last_n_days(job_runs.dt, 1)
+    is yesterday. It works on any column of dates, a partition column or not.
 
     >>> last_n_days(job_runs.dt, 7)
     job_runs.dt BETWEEN '2026-09-18' AND '2026-09-24'
@@ -344,10 +286,7 @@ def last_n_days(column: Column, n: int) -> Condition:
             high=literal(last, call=call, column=column),
         )
     made_by(tree, "last_n_days", column, n)
-    if not is_date_partition(column):
-        return Condition(tree)
-    key = _spans_key(column)
-    return Condition(tree, spans={key: Span(first, last)}, only_bounds=key)
+    return Condition(tree, bounds=_bound(column))
 
 
 def _values(values: object, call: str) -> list[object]:
@@ -384,12 +323,7 @@ def _in(name: str, column: object, values: object, negated: bool) -> Condition:
     if negated:
         tree = Node("Not", this=tree)
     made_by(tree, name, column, values)
-    if not is_date_partition(column):
-        return Condition(tree)
-    days = frozenset(as_date(value, column, call) for value in values)
-    span = Span(left_out=days) if negated else Span(min(days), max(days), days)
-    key = _spans_key(column)
-    return Condition(tree, spans={key: span}, only_bounds=key)
+    return Condition(tree, bounds=frozenset() if negated else _bound(column))
 
 
 def is_in(column: Column, values: list[str | int | float | bool | datetime.date]) -> Condition:
@@ -509,14 +443,12 @@ def any_of(*conditions: Condition | list[Condition]) -> Condition:
     job_runs.status = 'FAILED' OR job_runs.status IS NULL
     """
     found = _conditions(conditions, "any_of(...)")
-    spans = dict(found[0]._spans)
-    for condition in found[1:]:
-        spans = {key: days_in_either(span, condition._spans[key])
-                 for key, span in spans.items() if key in condition._spans}
+    # A column is held to values by OR only when every part holds it.
+    bounds = frozenset.intersection(*(c._bounds for c in found))
     tree = combined("Or", [c._tree.copy() for c in found])
     # Any one part that keeps a table's rows with no match keeps them for the whole.
     keeps = frozenset().union(*(c._keeps_unmatched for c in found))
-    return Condition(made_by(tree, "any_of", *found), spans=spans, keeps_unmatched=keeps)
+    return Condition(made_by(tree, "any_of", *found), bounds=bounds, keeps_unmatched=keeps)
 
 
 def all_of(*conditions: Condition | list[Condition]) -> Condition:
@@ -531,7 +463,7 @@ def all_of(*conditions: Condition | list[Condition]) -> Condition:
     """
     found = _conditions(conditions, "all_of(...)")
     tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
-    return Condition(tree, spans=combined_spans(found), keeps_unmatched=_kept_by_all(found))
+    return Condition(tree, bounds=bounded_columns(found), keeps_unmatched=_kept_by_all(found))
 
 
 def _kept_by_all(found: list[Condition]) -> frozenset[str]:
@@ -546,13 +478,9 @@ def _kept_by_all(found: list[Condition]) -> frozenset[str]:
     return frozenset(kept)
 
 
-def combined_spans(conditions: list[Condition]) -> dict[tuple[str, str], Span]:
-    """The Date partition bounds of several conditions joined with AND."""
-    spans = {}
-    for condition in conditions:
-        for key, span in condition._spans.items():
-            spans[key] = days_in_both(spans[key], span) if key in spans else span
-    return spans
+def bounded_columns(conditions: list[Condition]) -> frozenset[tuple[str, str]]:
+    """The (table alias, column) pairs several conditions joined with AND hold to values."""
+    return frozenset().union(*(condition._bounds for condition in conditions))
 
 
 __all__ = [

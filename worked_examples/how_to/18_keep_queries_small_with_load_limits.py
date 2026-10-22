@@ -5,16 +5,16 @@ For: Getting started
 ## Goal
 
 Stop a Statement before it reads, or brings back, more than the cluster or your notebook can
-take. You switch on the two Load limits that are off until you switch them on, a LIMIT added
-to every query and a cap on the days one Statement reads, with `set_load_limits`; you read
-what each refusal says; and you learn when its opt-out is the right answer.
+take. You switch on the Load limit that is off until you switch it on, a LIMIT added to every
+query, with `set_load_limits`; you read what each refusal says; you learn when its opt-out is
+the right answer; and you read a long range a day at a time.
 
 ## When you'd use it
 
 In the first cell of every notebook at work, after the import and your query. A Load limit
-protects the cluster everyone shares, and your notebook's memory: a query that reads a year of
-a big table, or brings back millions of rows, can stall both. It matters most when you explore
-a table you don't know yet, or share a notebook with someone new to the warehouse.
+protects the cluster everyone shares, and your notebook's memory: a query that reads every
+Partition of a big table, or brings back millions of rows, can stall both. It matters most when
+you explore a table you don't know yet, or share a notebook with someone new to the warehouse.
 
 Load limits aren't Guards. A Guard stops a Statement that would give a wrong answer; a Load
 limit stops one that would cost too much, and its answer would have been right.
@@ -30,27 +30,24 @@ limit stops one that would cost too much, and its answer would have been right.
 
 Two Load limits need no switching on:
 
-- Every table with a Date partition must have its days bounded at both ends, or the Statement
-  is refused as you build it, as [Start a Project](#start_a_project) shows.
+- Every partitioned table a Statement reads must have at least one of its partition columns
+  filtered, or the Statement is refused as you build it, as
+  [Start a Project](#start_a_project) shows.
 - `ORDER_BY` without a `LIMIT` is refused, since the warehouse would sort every row before
   sending any back: sort in pandas instead. Common mistakes, below, shows it.
 
-The other two are off until you switch them on, since only you know how much your cluster
-and notebook can take.
+The third is off until you switch it on, since only you know how much your notebook can take.
 
-### Switch on the other two
+### Switch on the row limit
 
-`set_load_limits` takes two numbers:
+`set_load_limits(rows=...)` adds a LIMIT to every query that has none of its own, and refuses a
+result that fills it, since it was then probably cut short.
 
-- `rows=`: a LIMIT added to every query that has none of its own, and a refusal when a result
-  fills it, since it was then probably cut short;
-- `dates=`: the most days one Statement may read from one table.
+At work, `set_load_limits(rows=100000)` is a good start. The Example database is tiny, so this
+page sets a small number, to see the limit at work:
 
-At work, `set_load_limits(rows=100000, dates=31)` is a good start. The Example database is
-tiny, so this page sets small numbers, to see each limit at work:
-
->>> set_load_limits(rows=5, dates=7)
-{'rows': 5, 'dates': 7}
+>>> set_load_limits(rows=5)
+{'rows': 5}
 
 It gives back the limits now in force. Call it in your own notebook, never inside the
 Toolbox's folder, which you replace with each update.
@@ -132,34 +129,23 @@ It is right when you know how big the result is, and that your notebook can hold
 one row per job, or a result you will save straight to a file. It is wrong as a way to make the
 refusal go away from a result whose size you don't know.
 
-### Cap the days one Statement reads
+### Read a long range a day at a time
 
 `ops.job_events`, another of the Example database's tables, holds 14 days of each job's
-events: when it started, finished, retried or failed. A Statement counting its events over ten
-days reads more than the 7 set. It is refused as soon as its Hive is written, by `show_hive`,
-`to_hive` or `run`, before anything is sent:
+events: when it started, finished, retried or failed. On a big table, ten days at once may be
+more than one query should read. Write the Statement as a function of one day, and a Python
+loop reads the days one after another:
 
 >>> job_events = example_database.job_events
->>> ten_days = statement(
-...     SELECT(job_events.dt, AS(count_rows(), "events")),
-...     FROM(job_events),
-...     WHERE(between(job_events.dt, "2026-09-15", "2026-09-24")),
-...     GROUP_BY(job_events.dt),
-... )
->>> text = show_hive(ten_days)
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(job_events) reads 10 days of ops.job_events, more than the 7 set by set_load_limits(dates=...).
-...
-
-Its usual fix is to send one day at a time. `by_day` cuts the Statement into 10, each reading
-one day, which the cap lets through:
-
->>> days = by_day(ten_days)
->>> len(days)
-10
->>> print(to_hive(days[0]))
+>>> def events_on(day: str) -> Statement:
+...     return statement(
+...         SELECT(job_events.dt, AS(count_rows(), "events")),
+...         FROM(job_events),
+...         WHERE(equals(job_events.dt, day)),
+...         GROUP_BY(job_events.dt),
+...     )
+>>> days = [f"2026-09-{day}" for day in range(15, 25)]
+>>> print(to_hive(events_on(days[0])))
 SELECT
   job_events.dt,
   COUNT(*) AS events
@@ -174,7 +160,7 @@ Each day's query keeps the automatic `LIMIT 5`, but gives one row, well under it
 after another, and put their results together in pandas with `pd.concat`:
 
 >>> import pandas as pd
->>> results = [run(day, query=example_database.query) for day in days]
+>>> results = [run(events_on(day), query=example_database.query) for day in days]
 >>> pd.concat(results, ignore_index=True)
            dt  events
 0  2026-09-15       4
@@ -188,34 +174,33 @@ after another, and put their results together in pandas with `pd.concat`:
 8  2026-09-23       4
 9  2026-09-24       3
 
-The opt-out, `reads_all_partitions=True` on `FROM`, reads the days without a cap. It is right
-for a small table you truly need whole, not for a big one.
+The partition opt-out, `reads_all_partitions=True` on `FROM`, reads every Partition at once. It
+is right for a small table you truly need whole, not for a big one.
 
-### Switch them off
+### Switch it off
 
-`set_load_limits()` with nothing in it switches both off again:
+`set_load_limits()` with nothing in it switches the row limit off again:
 
 >>> set_load_limits()
-{'rows': None, 'dates': None}
+{'rows': None}
 
 ## Check it worked
 
-Set the limits you use at work, and check that a query's Hive ends with the LIMIT:
+Set the limit you use at work, and check that a query's Hive ends with the LIMIT:
 
->>> set_load_limits(rows=100000, dates=31)
-{'rows': 100000, 'dates': 31}
+>>> set_load_limits(rows=100000)
+{'rows': 100000}
 >>> print(to_hive(all_runs).splitlines()[-1])
 LIMIT 100000
 
-A Statement that reads more than 31 days is now refused, and one with a LIMIT of its own keeps
-it.
+A query with a LIMIT of its own keeps it.
 
 ## Common mistakes
 
 ### A limit written as text
 
-A limit is a whole number of rows or days, 1 or more. Anything else is refused at once, so a
-typo can't quietly switch a limit off:
+A limit is a whole number of rows, 1 or more. Anything else is refused at once, so a typo
+can't quietly switch a limit off:
 
 >>> set_load_limits(rows="100000")
 Traceback (most recent call last):
@@ -266,36 +251,32 @@ Sort the rows in pandas once they are back, with sort_values, or add a LIMIT for
 message's opt-out, `sorts_everything=True` on `ORDER_BY`, is right only for a result you know
 is small.
 
-### A joined table over the cap
+### A filter on the partition column that keeps nearly everything
 
-The cap counts the days of every table a Statement reads, a joined one too. `by_day` splits only
-the days of the table in `FROM`, so for a joined table the message says to narrow its days
-instead:
+`not_equals` on a partition column leaves every Partition but one to read, so it doesn't count
+as filtering it, and the Statement is refused all the same:
 
->>> run_alerts = example_database.run_alerts
->>> text = show_hive(statement(
-...     SELECT(run_alerts.alert_id, job_runs.status),
-...     FROM(run_alerts),
-...     JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
-...     WHERE(equals(run_alerts.dt, "2026-09-24"),
-...           between(job_runs.dt, "2026-08-01", "2026-09-24")),
-... ))
+>>> statement(
+...     SELECT(job_runs.run_id),
+...     FROM(job_runs),
+...     WHERE(not_equals(job_runs.dt, "2026-09-23")),
+... )
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(job_runs, ON=...) reads 55 days of ops.job_runs, more than the 31 set by set_load_limits(dates=...).
+  What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
 ...
 
-An alert's run happened on the alert's day or just before it, so a day or two of `job_runs` is
-enough: `between(job_runs.dt, "2026-09-23", "2026-09-24")`.
+`is_not_in` and `is_null` don't count either. Name the Partitions to read, with `equals`,
+`between`, `is_in`, `at_least` or `last_n_days`.
 
 ## Next
 
-- Cut a long range into days, and send them in order:
+- Write a long range of days, all at once or a day at a time:
   [Backfill a range of days](#backfill_a_range_of_days).
 - Guards and Warnings, which protect the answer rather than the cluster:
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
-- Give each table's days, the joined table's too, and see why a join can repeat rows:
+- Filter each partitioned table, the joined table's too, and see why a join can repeat rows:
   [Join tables safely](#join_tables_safely).
 - The gallery's [`set_load_limits`](examples.html#set_load_limits) and
   [`LoadRefused`](examples.html#LoadRefused) entries.

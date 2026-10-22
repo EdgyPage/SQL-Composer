@@ -22,8 +22,8 @@ Any other Window, such as a lag(...), a rank(...) or a running total, gives each
 keeps every row, so it changes no Key. A rank kept at 1 isn't a Key: rows tied in its
 ORDER_BY share rank 1.
 
-A column WHERE holds to one value, such as the day a write writes or a row number kept at 1,
-is left out of a Key. So is a column the rest of the Key decides: a run's run_id, job_runs'
+A column WHERE holds to one value, such as equals(jobs.team, "data") or a row number kept at 1,
+is left out of a Key, and so is a partition column a write names in partition={...}. So is a column the rest of the Key decides: a run's run_id, job_runs'
 Key, decides its job_id, so a Key of run_id and job_id needs only run_id.
 
 statement(...) refuses a write into a Saved table whose Key it can't find this way, derived(...)
@@ -34,7 +34,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, NamedTuple
 
-from .conditions import combined_spans
 from .writing import hive_text
 from .joins import ONLY_TESTS
 from .tables import Table
@@ -108,50 +107,19 @@ def _columns(tree: Node) -> list[tuple[str, str]]:
 
 
 class _Facts:
-    """What a Statement's clauses say about its columns, read once.
+    """What a Statement's clauses say about its columns, read once: the columns WHERE and
+    each JOIN's ON= hold to one value with equals(...), and the columns they set equal."""
 
-    `one_day` is True for a write into a table with a Date partition, which writes one day of
-    the table at the bottom of its FROM at a time (by_day splits a longer one), so that table's
-    Date partition, and each column that carries it up through the Derived tables in FROM,
-    holds one value. A write into a table with no days is written whole, from every day it
-    reads, so for it `one_day` is False.
-    """
-
-    def __init__(self, s: Statement, one_day: bool = False) -> None:
-        self.s, self.one_day = s, one_day
+    def __init__(self, s: Statement) -> None:
+        self.s = s
         self.tables = {read.table._alias: read.table for read in s._reads}
         conditions = s._where + [read.on for read in s._reads if read._name == "JOIN"]
         self.one_value, self.same = set(), {}
         for condition in conditions:
             for part in _and_parts(condition._tree):
                 self._read_equals(part)
-        for column, span in combined_spans(conditions).items():
-            if span.is_bounded() and len(span.dates()) == 1:
-                self.one_value.add(column)
-        if one_day:
-            self.one_value |= self._day_columns()
         self.left_joins = self._left_joins()
         self.fixed = self.decided(set())
-
-    def _day_columns(self) -> set[tuple[str, str]]:
-        """The columns of the FROM table that hold the day a write writes."""
-        first = self.s._reads[0].table
-        if first._statement is None:
-            return {(first._alias, first._date_partition)} if first._date_partition else set()
-        return {(first._alias, name) for name in day_outputs(first._statement)}
-
-    def day_outputs(self) -> list[str]:
-        """The output names that hold the day a write writes, as they are."""
-        days = self._day_columns()
-        return [name for column, name in self.s._outputs
-                if _plain(column._tree) in days | {other for day in days
-                                                   for other in self.same.get(day, set())}]
-
-    def keys(self, table: Table) -> list[list[str]]:
-        """keys_of(table), for a write's FROM table worked out again with its day held."""
-        if self.one_day and table._statement is not None and table is self.s._reads[0].table:
-            return [found.names for found in statement_keys(table._statement, True).found]
-        return keys_of(table)
 
     def _read_equals(self, part: Node) -> None:
         if part.kind != "EQ":
@@ -176,7 +144,7 @@ class _Facts:
             for column in list(known):
                 known |= self.same.get(column, set())
             for alias, table in self.tables.items():
-                if any(all((alias, k) in known for k in key) for key in self.keys(table)):
+                if any(all((alias, k) in known for k in key) for key in keys_of(table)):
                     known |= {(alias, c) for c in table._columns}
             for alias, needed in self.left_joins:
                 if needed <= known:
@@ -216,9 +184,6 @@ def _left_join_match(read: Clause) -> tuple[set[tuple[str, str]] | None, set[str
     None when ON= tests other tables in any other way, since then they alone don't decide it."""
     alias = read.table._alias
     needed, matched = set(), set()
-    for (table, column), span in combined_spans([read.on]).items():
-        if table == alias and span.is_bounded() and len(span.dates()) == 1:
-            matched.add(column)
     for part in _and_parts(read.on._tree):
         columns = _columns(part)
         others = [column for column in columns if column[0] != alias]
@@ -248,14 +213,14 @@ def _reduced(entries: list[tuple[str, Node]], facts: _Facts) -> list[str]:
 # --- A Statement's Keys ----------------------------------------------------------------------
 
 
-def statement_keys(s: Statement, one_day: bool = False) -> Keys:
+def statement_keys(s: Statement) -> Keys:
     """Every Key the Toolbox can see for a Statement's rows, as output names."""
     if s._stack is not None:
-        return _stack_keys(s, one_day)
+        return _stack_keys(s)
     if s._grouping_sets is not None:
         return Keys([], f"GROUP_BY({s._subtotals_call}) adds subtotal rows, with NULL in each "
                     "column they total over, as a real row may have")
-    facts = _Facts(s, one_day)
+    facts = _Facts(s)
     if s._distinct:
         names = _reduced([(name, column._tree) for column, name in s._outputs], facts)
         return Keys([Found(names, "SELECT_DISTINCT makes one row for each different "
@@ -271,7 +236,7 @@ def _listed(names: list[str]) -> str:
     return ", ".join(names) or "nothing"
 
 
-def _stack_keys(s: Statement, one_day: bool) -> Keys:
+def _stack_keys(s: Statement) -> Keys:
     """A Stack's Keys. UNION, INTERSECT and EXCEPT keep each different row once, so every
     column is a Key; EXCEPT keeps some of its first Statement's rows, and INTERSECT some of
     each one's, so their Keys hold too. UNION_ALL keeps every row of each, and two may share a
@@ -280,23 +245,13 @@ def _stack_keys(s: Statement, one_day: bool) -> Keys:
     if call == "UNION_ALL":
         return Keys([], f"UNION_ALL(...) keeps every row of each of its {len(branches)} "
                     "Statements, and rows of two of them may share a Key")
-    held = day_outputs(s) if one_day else []
-    names = [name for _, name in s._outputs if name not in held]
+    names = [name for _, name in s._outputs]
     found = []
     for branch in {"EXCEPT": branches[:1], "INTERSECT": branches}.get(call, []):
-        found += statement_keys(branch, one_day).found
-    why = f"{call}(...) makes one row for each different {_listed(names + held)}{_held(held)}"
+        found += statement_keys(branch).found
+    why = f"{call}(...) makes one row for each different {_listed(names)}"
     found.append(Found(names, why, "not one for each"))
     return Keys(_once(found), None)
-
-
-def day_outputs(s: Statement) -> list[str]:
-    """The output names of a write's Statement, or of the Derived table it reads, that hold the
-    day it writes; for a Stack, those that hold it in every Statement it stacks."""
-    if s._stack is None:
-        return _Facts(s, True).day_outputs()
-    each = [set(day_outputs(branch)) for branch in s._stack[1]]
-    return [name for _, name in s._outputs if all(name in found for found in each)]
 
 
 def _grouped_keys(s: Statement, facts: _Facts) -> Keys:
@@ -319,7 +274,8 @@ def _grouped_keys(s: Statement, facts: _Facts) -> Keys:
 
 
 def _held(columns: list[str]) -> str:
-    """What a reason adds for the columns of a Key held to one value, as the day written is."""
+    """What a reason adds for the columns of a Key held to one value, as equals(...) in WHERE
+    holds one."""
     if not columns:
         return ""
     return f", with {_listed(columns)} held to one value"
@@ -353,7 +309,7 @@ def _row_keys(s: Statement, facts: _Facts) -> Keys:
         return Keys(found, None if found else (
             f"{full._call()} keeps the rows of each side that have no match, with NULL in the "
             "other side's columns"))
-    if not facts.keys(first):
+    if not keys_of(first):
         return Keys([], why_no_key(first))
     added, joins = [], []
     for read in s._reads[1:]:
@@ -366,7 +322,7 @@ def _row_keys(s: Statement, facts: _Facts) -> Keys:
         added += [(read.table._alias, column) for column in joined[0]]
         joins.append(why)
     found, lost = [], None
-    for key in facts.keys(first):
+    for key in keys_of(first):
         columns = [(first._alias, column) for column in key]
         names, missing = _named(_less_decided(columns + added, facts), [], facts)
         told_apart = f"{possessive(first._alias)} rows are told apart by {_listed(key)}"
@@ -436,16 +392,11 @@ def _once(found: list[Found]) -> list[Found]:
 # --- A write's Key ---------------------------------------------------------------------------
 
 
-def wanted_key(table: Table) -> list[str]:
+def wanted_key(table: Table, static: dict[str, str] | None = None) -> list[str]:
     """The columns a write into a Saved table must show its rows are one per: its Key, less
-    its Date partition, since a write fills one day."""
-    return [column for column in table._key or [] if column != table._date_partition]
-
-
-def writes_one_day(s: Statement) -> bool:
-    """Whether a Statement writes one day of a Saved table: a write into a table with no Date
-    partition writes the whole table, from every day it reads."""
-    return s._write is not None and s._write._date_partition is not None
+    the partition columns `static` names, the write's partition={...}, each of which holds one
+    value in every row it writes."""
+    return [column for column in table._key or [] if column not in (static or {})]
 
 
 def unproven(s: Statement) -> str | None:
@@ -454,17 +405,18 @@ def unproven(s: Statement) -> str | None:
     table = s._write
     if not table._key:
         return None
-    wanted = wanted_key(table)
-    keys = statement_keys(s, one_day=writes_one_day(s))
+    wanted = wanted_key(table, s._static_partitions)
+    keys = statement_keys(s)
     if any(set(found.names) <= set(wanted) for found in keys.found):
         return None
     if not keys.found:
-        what = _listed(wanted) if wanted else "the day"
-        return f"{keys.lost}, so nothing makes its rows one for each {what}"
+        if not wanted:
+            return f"{keys.lost}, so nothing makes it write one row at most"
+        return f"{keys.lost}, so nothing makes its rows one for each {_listed(wanted)}"
     first = keys.found[0]
     if not first.instead:
         return first.why
     if not wanted:
-        return f"{first.why}, where its Key allows one row in a day"
+        return (f"{first.why}, where its Key allows one row at most: partition={{...}} names "
+                "each of its columns")
     return f"{first.why}, {first.instead} {_listed(wanted)}"
-

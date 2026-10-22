@@ -32,38 +32,39 @@ says so, with `key=`:
 >>> job_day = Table(
 ...     "mart.job_day",
 ...     columns={"job_id": "bigint", "runs": "bigint", "minutes": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/job_day",
 ... )
 
-`location=` is the folder your Saved tables go in, as
+`location=` is the table's own folder, as
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) shows.
 
-The Key holds the Date partition, `job_day.dt`, since a job has a row on every day. A write
-fills one day, so within a write every row has the same `job_day.dt`: the Toolbox checks that
-the write has one row for each `"job_id"`.
+The Key holds the partition column, `job_day.dt`, since a job has a row on every day. Each
+write below fills one day, named with `partition={"dt": day}`, so within a write every row has
+the same `job_day.dt`: the Toolbox checks that the write has one row for each `"job_id"`.
 
-A Key may also leave the Date partition out, as `key=["run_id"]` does in
-[Save a table](#save_a_table): a write is checked the same way. Name the Date partition when
+A Key may also leave the partition column out, as `key=["run_id"]` does in
+[Save a table](#save_a_table): a write is checked the same way. Name the partition column when
 the same value comes back on every day, as a job does here, so the Key says what one row is
-over all the days; leave it out when each value appears on one day only, as a run does.
+over all the days; leave it out when each value appears on one day only, as a run does. A
+Saved table with no `key=` at all has nothing to check, and its writes go unchecked.
 
 ### A write that shows its Key
 
 `GROUP_BY(job_runs.job_id)` makes one row for each `"job_id"`, so the Toolbox can see the Key
 holds, and builds the write:
 
->>> def write_day(day: str) -> Statement:
+>>> def write_job_day(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(job_day),
+...         INSERT_OVERWRITE(job_day, partition={"dt": day}),
 ...         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
 ...                AS(sum_of(job_runs.duration_mins), "minutes")),
 ...         FROM(job_runs),
 ...         WHERE(equals(job_runs.dt, day)),
 ...         GROUP_BY(job_runs.job_id),
 ...     )
->>> text = show_hive(write_day("2026-09-24"))
+>>> text = show_hive(write_job_day("2026-09-24"))
 INSERT OVERWRITE TABLE mart.job_day PARTITION(dt = '2026-09-24')
 SELECT
   job_runs.job_id,
@@ -81,7 +82,7 @@ Leave GROUP_BY out, and the write would save one row for each run: a job with tw
 day would have two rows with the same Key. It is refused as it is built:
 
 >>> statement(
-...     INSERT_OVERWRITE(job_day),
+...     INSERT_OVERWRITE(job_day, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.job_id, AS(job_runs.run_id, "runs"),
 ...            AS(job_runs.duration_mins, "minutes")),
 ...     FROM(job_runs),
@@ -118,7 +119,7 @@ joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for ea
 >>> newest_run = Table(
 ...     "mart.newest_run",
 ...     columns={"job_id": "bigint", "run_id": "bigint", "team": "string", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
 ... )
 >>> def write_newest(day: str) -> Statement:
@@ -130,7 +131,7 @@ joined to `ops.jobs` on its whole Key, `jobs.job_id`, which keeps one row for ea
 ...         WHERE(equals(job_runs.dt, day)),
 ...     ))
 ...     return statement(
-...         INSERT_OVERWRITE(newest_run),
+...         INSERT_OVERWRITE(newest_run, partition={"dt": day}),
 ...         SELECT(numbered.job_id, numbered.run_id, jobs.team),
 ...         FROM(numbered),
 ...         JOIN(jobs, ON=equals(jobs.job_id, numbered.job_id)),
@@ -148,7 +149,7 @@ Sometimes you know more than the Toolbox can see: a table whose rows are one per
 reason no Table reference says. Then `unproven_key=True` on the write lets it through:
 
 >>> one_per_job = statement(
-...     INSERT_OVERWRITE(job_day, unproven_key=True),
+...     INSERT_OVERWRITE(job_day, unproven_key=True, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.job_id, AS(job_runs.run_id, "runs"),
 ...            AS(job_runs.duration_mins, "minutes")),
 ...     FROM(job_runs),
@@ -173,7 +174,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/job_day';
+LOCATION '/data/your_team/mart.db/job_day';
 
 `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE` is the Key. `DISABLE NOVALIDATE` tells Hive to
 keep it as information only: Hive never checks it, which is why the Toolbox does.
@@ -202,11 +203,11 @@ keeps number 1, holding newest_first to one value, which leaves one row for each
 ## Check it worked
 
 The Toolbox's check sees how the rows are made; `check_key` counts the rows themselves, on the
-newest day the table holds. Run it on a Saved table after its first writes, and on any table
-you join to by its Key. On the Example database's `ops.job_runs`:
+rows `where=` picks, such as the newest day. Run it on a Saved table after its first writes,
+and on any table you join to by its Key. On the Example database's `ops.job_runs`:
 
->>> check_key(job_runs, query=example_database.query)
-ops.job_runs: the key (run_id) holds on 2026-09-24.
+>>> check_key(job_runs, query=example_database.query, where=equals(job_runs.dt, "2026-09-24"))
+ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
 ## Common mistakes
 
@@ -217,11 +218,11 @@ A GROUP_BY with one more column makes one row for each pair, not for each Key:
 >>> job_status = Table(
 ...     "mart.job_status",
 ...     columns={"job_id": "bigint", "status": "string", "runs": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
 ... )
 >>> statement(
-...     INSERT_OVERWRITE(job_status),
+...     INSERT_OVERWRITE(job_status, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.job_id, job_runs.status, AS(count_rows(), "runs")),
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-24")),
@@ -245,11 +246,11 @@ with two alerts comes out twice:
 >>> run_and_alert = Table(
 ...     "mart.run_and_alert",
 ...     columns={"run_id": "bigint", "severity": "string", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id", "dt"],
 ... )
 >>> statement(
-...     INSERT_OVERWRITE(run_and_alert),
+...     INSERT_OVERWRITE(run_and_alert, partition={"dt": "2026-09-24"}),
 ...     SELECT(job_runs.run_id, run_alerts.severity),
 ...     FROM(job_runs),
 ...     JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True),

@@ -31,26 +31,27 @@ shows what it would send.
 ...     "mart.daily_job_runs",
 ...     columns={"job_id": "bigint", "runs": "bigint", "failed_runs": "bigint",
 ...              "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/daily_job_runs",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "runs": "bigint", "failed_runs": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["team", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/team_day",
 ... )
 
 ### Write each step as a function of the day
 
 Each step takes the day it writes, so the same lines write any day: yesterday's every
-morning, or a day from last week when it has to be written again.
+morning, or a day from last week when it has to be written again. `partition={"dt": day}`
+names the day's Partition the rows go to:
 
 >>> def write_job_day(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(daily_job_runs),
+...         INSERT_OVERWRITE(daily_job_runs, partition={"dt": day}),
 ...         SELECT(
 ...             job_runs.job_id,
 ...             AS(count_rows(), "runs"),
@@ -61,15 +62,16 @@ morning, or a day from last week when it has to be written again.
 ...         GROUP_BY(job_runs.job_id),
 ...     )
 
-It writes one day, bounded with `equals`, so it needn't group by the day: only a range cut
-with `by_day` must, as [Backfill a range of days](#backfill_a_range_of_days) shows.
+It reads one day, with `equals`, and names it in `partition=`, so it needn't select or group
+by the day: only a write of a range, which fills each day from its rows, must, as
+[Backfill a range of days](#backfill_a_range_of_days) shows.
 
 The team step reads the Saved table the job step writes, through its Table reference, like
 any other table, and reads the same day of it:
 
 >>> def write_team_day(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(team_day),
+...         INSERT_OVERWRITE(team_day, partition={"dt": day}),
 ...         SELECT(
 ...             jobs.team,
 ...             AS(sum_of(daily_job_runs.runs), "runs"),
@@ -121,7 +123,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/daily_job_runs';
+LOCATION '/data/your_team/mart.db/daily_job_runs';
 <BLANKLINE>
 -- 2 of 4: steps[1]
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
@@ -133,7 +135,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/team_day';
+LOCATION '/data/your_team/mart.db/team_day';
 <BLANKLINE>
 -- 3 of 4: steps[2]
 INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
@@ -270,11 +272,11 @@ Send the list's steps one at a time, with a loop, as the message's fix and `run_
 
 ### Reading a Saved table without naming its day
 
-A step that reads a Saved table must bound its days, like any table with a Date partition.
+A step that reads a Saved table must filter its partition column, like any partitioned table.
 Leave out the WHERE, and the team step is refused as you build it:
 
 >>> statement(
-...     INSERT_OVERWRITE(team_day),
+...     INSERT_OVERWRITE(team_day, partition={"dt": "2026-09-24"}),
 ...     SELECT(jobs.team, AS(sum_of(daily_job_runs.runs), "runs"),
 ...            AS(sum_of(daily_job_runs.failed_runs), "failed_runs")),
 ...     FROM(daily_job_runs),
@@ -284,28 +286,29 @@ Leave out the WHERE, and the team step is refused as you build it:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(daily_job_runs) reads mart.daily_job_runs, but nothing bounds its Date partition dt at both ends.
+  What happened:  FROM(daily_job_runs) reads mart.daily_job_runs, but filters none of its partition columns: dt.
 ...
 
-Bound it to the day being written, `equals(daily_job_runs.dt, day)`, so each step of a day
+Filter it to the day being written, `equals(daily_job_runs.dt, day)`, so each step of a day
 reads that same day.
 
 ### A step that works out its own day
 
-A step bounded with `last_n_days(job_runs.dt, 1)` reads yesterday, counted from the day it
-runs, so it can't write any other day. On this page today is 2026-09-25, so it writes
-2026-09-24:
+A step that reads `last_n_days(job_runs.dt, 1)` reads yesterday, counted from the day it
+runs, and fills the day from its rows, so it can't write any other day. On this page today is
+2026-09-25, so it reads 2026-09-24:
 
 >>> yesterday_only = statement(
 ...     INSERT_OVERWRITE(daily_job_runs),
 ...     SELECT(job_runs.job_id, AS(count_rows(), "runs"),
-...            AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed_runs")),
+...            AS(count_rows(where=equals(job_runs.status, "FAILED")), "failed_runs"),
+...            job_runs.dt),
 ...     FROM(job_runs),
 ...     WHERE(last_n_days(job_runs.dt, 1)),
-...     GROUP_BY(job_runs.job_id),
+...     GROUP_BY(job_runs.job_id, job_runs.dt),
 ... )
->>> print(to_hive(yesterday_only).splitlines()[0])
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+>>> print(to_hive(yesterday_only).splitlines()[-4])
+  job_runs.dt = '2026-09-24'
 
 Run it a week later to redo 2026-09-24, and it writes a different day. Give every step the day
 as an argument, as `write_job_day` does, and work out yesterday once, in `run_yesterday`.
@@ -332,8 +335,9 @@ table exists, and `run_day` stops before writing anything. In a list that runs e
   [Incremental loads and late data](#incremental_loads_and_late_data).
 - Several Saved tables, each read by the next, written in order every day:
   [A pipeline of Saved tables](#a_pipeline_of_saved_tables).
-- In a Project, each Saved table's steps sit in its own Table notebook, and one call writes
-  every table's day in this order: [Add a Saved table](#add_a_saved_table).
+- In a Project, each Saved table's steps sit in its own Table notebook, and one call,
+  `project.run_tables()`, writes every table in this order:
+  [Add a Saved table](#add_a_saved_table).
 - The gallery's [`run`](examples.html#run), [`create_table`](examples.html#create_table) and
   [`show_hive`](examples.html#show_hive) entries.
 """

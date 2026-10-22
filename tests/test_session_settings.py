@@ -159,11 +159,11 @@ def test_show_hive_prints_each_line_ending_in_a_semicolon_under_its_names(
 def test_show_hive_lists_the_settings_first_in_a_pipeline_as_given(
         capsys: pytest.CaptureFixture[str]) -> None:
     settings = hive_settings("statistics_on_write")
-    write_day = one_day()
-    show_hive(settings, write_day)
+    read_day = one_day()
+    show_hive(settings, read_day)
     out = capsys.readouterr().out
     assert out.startswith("-- 1 of 2: settings\n-- Session settings: statistics_on_write, ")
-    assert "\n\n-- 2 of 2: write_day\nSELECT" in out
+    assert "\n\n-- 2 of 2: read_day\nSELECT" in out
 
 
 def test_run_sends_each_line_to_execute_as_a_call_of_its_own() -> None:

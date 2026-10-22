@@ -21,6 +21,7 @@ from sqlglot_composer import (
     JOIN,
     SELECT,
     WHERE,
+    Condition,
     Table,
     all_of,
     between,
@@ -125,7 +126,7 @@ def test_an_unknown_table_is_refused_naming_all_seven() -> None:
 # --- Table references -------------------------------------------------------------------------
 
 
-def reference_text(name: str, columns: list[str], date_lines: list[str], first_key: str,
+def reference_text(name: str, columns: list[str], partitioned_by: str, first_key: str,
                    descriptions: list[str], example: str) -> str:
     """The file write_table_reference writes for ops.<name>: its Table reference, then its
     Aliases heading, whose examples use the column `example`."""
@@ -138,7 +139,7 @@ def reference_text(name: str, columns: list[str], date_lines: list[str], first_k
         "    columns={",
         *[f"        {line}" for line in columns],
         "    },",
-        *date_lines,
+        f"    partitioned_by={partitioned_by},",
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
         "    descriptions={",
@@ -171,7 +172,7 @@ def test_write_table_reference_on_job_events(
         '"event_type": "string",',
         '"minutes": "int",',
         '"dt": "string",',
-    ], ['    date_partition="dt",'], "event_id", [
+    ], '["dt"]', "event_id", [
         '"event_type": "start / finish / retry / fail",',
         '"minutes": "minutes since the run started",',
     ], "event_type")
@@ -187,13 +188,13 @@ def test_write_table_reference_on_job_owners(
         '"team": "string",',
         '"owner": "string",',
         '"dt": "string",',
-    ], ['    date_partition="dt",'], "job_id", ['"owner": "NULL when nobody owns the job",'],
+    ], '["dt"]', "job_id", ['"owner": "NULL when nobody owns the job",'],
         "team")
 
 
-def test_write_table_reference_on_region_costs_points_at_dt(
+def test_write_table_reference_on_region_costs_lists_both_partition_columns(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Its first partition, region, holds no days, so the TODO names dt for you to check."""
+    """Both its partition columns, in the order DESCRIBE lists them, with no guess at a day."""
     monkeypatch.chdir(tmp_path)
     path = write_table_reference("ops.region_costs", query=example_database.query)
     assert path.read_text(encoding="utf-8") == reference_text("region_costs", [
@@ -201,48 +202,52 @@ def test_write_table_reference_on_region_costs_points_at_dt(
         '"cost_cents": "bigint",',
         '"region": "string",',
         '"dt": "string",',
-    ], ["    date_partition=None,  # TODO: partitioned by region, dt; its last region value, "
-        "'us', isn't a day the Toolbox can bound; if dt holds the days, name it in "
-        "date_partition="], "job_id", ['"cost_cents": "NULL until the bill comes in",'],
+    ], '["region", "dt"]', "job_id", ['"cost_cents": "NULL until the bill comes in",'],
         "cost_cents")
 
 
-@pytest.mark.parametrize("t", [events, owners])
+@pytest.mark.parametrize("t", [events, owners, costs])
 def test_check_table_reference_finds_each_one_matches(t: Table) -> None:
     verdict = check_table_reference(t, query=example_database.query)
     assert verdict.ok
     assert str(verdict) == f"{t._name} matches its Table reference."
 
 
-def test_check_table_reference_notes_region_costs_second_partition() -> None:
-    verdict = check_table_reference(costs, query=example_database.query)
-    assert verdict.ok
-    assert str(verdict) == "\n".join([
-        "ops.region_costs matches its Table reference.",
-        "Notes:",
-        "  - the table is also partitioned by region, which a Statement may bound too.",
-    ])
-
-
-def test_check_table_reference_gives_region_costs_date_format() -> None:
-    """Named as the TODO says, dt's days are checked, and the date_format line is given."""
-    named = Table("ops.region_costs", columns=dict(costs._columns), date_partition="dt")
+@pytest.mark.parametrize("partitioned_by", [["dt"], None])
+def test_check_table_reference_gives_region_costs_partition_line(
+        partitioned_by: list[str] | None) -> None:
+    """A reference that leaves region out of its partition columns is given the line DESCRIBE
+    says."""
+    named = Table("ops.region_costs", columns=dict(costs._columns),
+                  partitioned_by=partitioned_by)
     verdict = check_table_reference(named, query=example_database.query)
     assert not verdict.ok
-    assert ("  - the newest dt, '20260924', isn't written like date_format='%Y-%m-%d', the "
-            'usual one: change the line to date_format="%Y%m%d",') in str(verdict)
+    assert ('  - the table is partitioned by region, dt: change the line to '
+            'partitioned_by=["region", "dt"],') in str(verdict)
 
 
 @pytest.mark.needs_example_database
-@pytest.mark.parametrize(("t", "said"), [
-    (events, "ops.job_events: the key (event_id) holds on 2026-09-24."),
-    (owners, "ops.job_owners: the key (job_id, dt) holds on 2026-09-24."),
-    (costs, "ops.region_costs: the key (job_id, region, dt) holds on 20260924."),
+@pytest.mark.parametrize(("t", "where", "said"), [
+    (events, equals(events.dt, "2026-09-24"),
+     "ops.job_events: the key (event_id) holds where job_events.dt = '2026-09-24'."),
+    (owners, equals(owners.dt, "2026-09-24"),
+     "ops.job_owners: the key (job_id, dt) holds where job_owners.dt = '2026-09-24'."),
+    (costs, equals(costs.dt, "20260924"),
+     "ops.region_costs: the key (job_id, region, dt) holds where region_costs.dt = "
+     "'20260924'."),
 ])
-def test_check_key_holds_on_each(t: Table, said: str) -> None:
-    verdict = check_key(t, query=example_database.query)
+def test_check_key_holds_on_each(t: Table, where: Condition, said: str) -> None:
+    verdict = check_key(t, query=example_database.query, where=where)
     assert verdict.ok
     assert str(verdict) == said
+
+
+@pytest.mark.needs_example_database
+def test_check_key_reads_every_partition_only_when_told() -> None:
+    with pytest.raises(ValueError, match="nothing says which Partitions to check"):
+        check_key(costs, query=example_database.query)
+    verdict = check_key(costs, query=example_database.query, reads_all_partitions=True)
+    assert str(verdict) == "ops.region_costs: the key (job_id, region, dt) holds."
 
 
 # --- Queries ----------------------------------------------------------------------------------
@@ -310,38 +315,33 @@ def test_cost_per_region_over_a_week_of_compact_days() -> None:
 
 
 @pytest.mark.needs_example_database
-def test_last_n_days_writes_compact_days_and_reads_only_them() -> None:
+def test_last_n_days_writes_days_with_dashes_whatever_the_column_holds() -> None:
+    """A day is compared as it is written: last_n_days writes 2026-09-18, which none of
+    region_costs' days, written like 20260918, equals, so a read of them compares them with
+    days written the same way, as between(costs.dt, "20260918", "20260924") does."""
     s = statement(
         SELECT(costs.dt, AS(sum_of(costs.cost_cents), "cents")),
         FROM(costs),
         WHERE(last_n_days(costs.dt, 7)),
         GROUP_BY(costs.dt),
     )
-    assert "region_costs.dt BETWEEN '20260918' AND '20260924'" in to_hive(s)
-    found = run(s, query=example_database.query)
-    rows = example_rows("region_costs")
-    expected = rows[rows.dt >= "20260918"].groupby("dt").cost_cents.sum()
-    assert list(found.dt) == COMPACT_DAYS[-7:]
-    assert list(found.cents) == [int(cents) for cents in expected]
+    assert "region_costs.dt BETWEEN '2026-09-18' AND '2026-09-24'" in to_hive(s)
+    assert run(s, query=example_database.query).empty
 
 
-def test_a_datetime_date_bounds_the_compact_days_the_same_way() -> None:
+def test_a_day_is_written_as_given_whatever_the_column_holds() -> None:
     as_dates = between(costs.dt, datetime.date(2026, 9, 14), datetime.date(2026, 9, 20))
-    assert repr(as_dates) == repr(between(costs.dt, "20260914", "20260920"))
-
-
-def test_a_day_written_with_dashes_is_refused_on_the_compact_days() -> None:
-    with pytest.raises(ValueError, match=r"'2026-09-14', but its Table reference writes days "
-                       r"like '20260914'"):
-        between(costs.dt, "2026-09-14", "2026-09-20")
+    assert repr(as_dates) == "region_costs.dt BETWEEN '2026-09-14' AND '2026-09-20'"
+    assert repr(between(costs.dt, "2026-09-14", "2026-09-20")) == repr(as_dates)
 
 
 @pytest.mark.needs_example_database
-def test_one_region_bounded_too() -> None:
+def test_one_region_alone_filters_the_partitions_read() -> None:
+    """region is region_costs' first partition column, so filtering it alone is enough."""
     s = statement(
         SELECT(costs.job_id, AS(sum_of(costs.cost_cents), "cents")),
         FROM(costs),
-        WHERE(equals(costs.region, "us"), last_n_days(costs.dt, 14)),
+        WHERE(equals(costs.region, "us")),
         GROUP_BY(costs.job_id),
     )
     found = run(s, query=example_database.query)

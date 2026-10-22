@@ -29,7 +29,7 @@ notebook, pandas finishes the job.
 >>> region_costs = example_database.region_costs
 
 A Window names the rows each row looks across. `PARTITION_BY=` makes the groups, here each
-job: the word is SQL's, and has nothing to do with a table's Date partition. `ORDER_BY=` puts
+job: the word is SQL's, and has nothing to do with a table's Partitions. `ORDER_BY=` puts
 each group's rows in order, here by day. Each job finishes at most once a day in the Example
 database, so ordering by day gives each job's runs one clear order.
 
@@ -194,17 +194,17 @@ it:
 ### Write a day that looks back on earlier days
 
 To keep each run's change in a Saved table, day by day, each day's write needs the runs before
-it, which may be on earlier days. A write fills one day, so read the earlier days too in a
-Derived table that keeps the day column, and keep only the day written in the Statement that
-writes, with `WHERE(equals(week.dt, day))`: the Toolbox writes the day that Statement keeps.
-Only a write with a Window may read several days like this; any other write must read only the
-day it writes. Here a job's run before may be up to 6 days back, so read the day and the 6 before it:
+it, which may be on earlier days. So read the earlier days too in a Derived table that keeps the
+day column, and keep only the day written in the Statement that writes, with
+`WHERE(equals(week.dt, day))`, naming its Partition with `partition={"dt": day}`. Read only the
+day itself, and each job's first run that day would have no run before it. Here a job's run
+before may be up to 6 days back, so read the day and the 6 before it:
 
 >>> import datetime
->>> run_changes = Table("mart.run_changes", date_partition="dt", key=["event_id", "dt"],
+>>> run_changes = Table("mart.run_changes", partitioned_by=["dt"], key=["event_id", "dt"],
 ...                     columns={"event_id": "bigint", "job_id": "bigint", "minutes": "int",
 ...                              "minutes_before": "int", "dt": "string"},
-...                     location="/data/your_team/tables", purge=True)
+...                     location="/data/your_team/mart.db/run_changes", purge=True)
 >>> def changes_on(day: str) -> Statement:
 ...     week_before = (datetime.date.fromisoformat(day) - datetime.timedelta(days=6)).isoformat()
 ...     week = derived("week", statement(
@@ -215,7 +215,7 @@ day it writes. Here a job's run before may be up to 6 days back, so read the day
 ...               equals(job_events.event_type, "finish")),
 ...     ))
 ...     return statement(
-...         INSERT_OVERWRITE(run_changes),
+...         INSERT_OVERWRITE(run_changes, partition={"dt": day}),
 ...         SELECT(week.event_id, week.job_id, week.minutes, week.minutes_before),
 ...         FROM(week),
 ...         WHERE(equals(week.dt, day)),
@@ -232,8 +232,6 @@ one such Statement for each day, oldest first, through your own execute:
     def write_changes(days: list[str], execute: Callable[[str], None]) -> None:
         for day in days:
             run(changes_on(day), execute=execute)
-
-`by_day` can't split a Statement whose Window looks across days: see Common mistakes.
 
 ### Merge the results of several Statements
 
@@ -320,22 +318,6 @@ ValueError:
 With `ORDER_BY` and no `rows=`, Hive would add up the rows up to each row and every row tied
 with it, which is seldom what's meant. Say which rows: `rows=(None, 0)` for every row up to each
 one, `rows=(-2, 0)` for the last three, or leave `ORDER_BY` out for the whole group.
-
-### Splitting a Window that looks across days with by_day
-
-`by_day` sends one Statement per day, and each would see only its own day, so the run before
-the day's first would be lost. It refuses:
-
->>> by_day(with_before)
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  by_day can't split this Statement: it works out lag(...) over a Window whose PARTITION_BY leaves out the Date partition job_events.dt, so it looks across days.
-...
-
-Read the earlier days and keep the day written, as the step Write a day that looks back on
-earlier days does. A Window that looks only within each day, with the day among its
-`PARTITION_BY=` columns, splits by day.
 
 ### Merging a result per day into one per job
 

@@ -3,8 +3,8 @@
 Why: the project's notebooks read the table through this file, so each column they name, and the
 key each join and count relies on, is checked as the Statement is built.
 
-project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its three
-TODO lines were then filled in by hand: this docstring's first line, the key, and
+project.add_references wrote this file from the table's DESCRIBE, its partition columns among
+it. Its three TODO lines were then filled in by hand: this docstring's first line, the key, and
 does_not_add_up.
 """
 from sqlglot_composer import Table, is_in
@@ -18,7 +18,7 @@ job_events = Table(
         "minutes": "int",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id"],  # filled in by hand
     # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],

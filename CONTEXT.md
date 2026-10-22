@@ -88,14 +88,15 @@ may read all of them.
 _Avoid_: layer, tier, stage
 
 **Table reference**:
-A Level 0 script describing one table: its columns and their types, its Date partition and key,
-and the filters that concern that table alone.
+A Level 0 script describing one table: its columns and their types, its Partitions and its Key,
+where it has them, and the filters that concern that table alone.
 _Avoid_: table config, schema file, declaration, model, standard query
 
 **Key**:
-The columns whose values name exactly one row of a table on one day: the table's primary key,
-declared on its Table reference. The warehouse never checks it; the Toolbox does, before writing
-a Saved table and when joining, and Lineage shows where an output keeps or loses it. A Derived
+The columns whose values name exactly one row of a table: the table's primary key, declared on
+its Table reference. Not every table has one, and nothing is checked against a Key a table
+doesn't have. The warehouse never checks it; the Toolbox does, before writing a Saved table
+that has one and when joining, and Lineage shows where an output keeps or loses it. A Derived
 table's Key is worked out from how its Statement makes its rows. `check_key(...)` and
 `check_table_reference(...)` give back a `Verdict`, the name a type hint uses; its `ok` says
 whether the check found nothing wrong.
@@ -180,8 +181,8 @@ _Avoid_: total row, rollup row, summary row
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
 its own Table reference, like any other table. It is what Hive calls an external table: its
-files are in a folder of its own under the folder the user's Saved tables go in, which its
-Table reference names along with how it is stored; the user's own Statements are the only ones
+files are in a folder of its own, which its Table reference names along with how it is
+stored; the user's own Statements are the only ones
 that write it. Hive's other kind, a managed table, keeps its files where the warehouse chooses:
 create_table made those before 5.0, and admin.move_to_own_folder moves one to a folder of its
 own.
@@ -198,7 +199,7 @@ _Avoid_: raw SQL, passthrough, custom query
 
 **Admin statement**:
 A Statement from the Toolbox's admin module that changes a Saved table's definition or deletes its
-data, such as dropping a table or its old days, adding columns, setting its properties or moving
+data, such as dropping a table or some of its Partitions, adding columns, setting its properties or moving
 it to a folder of its own. It runs like any Statement, shows what it will change and what can't
 be undone before its Hive, and is refused for any table that isn't one of the user's Saved
 tables. The admin module is imported by name, apart from the everyday names.
@@ -218,8 +219,10 @@ The record of which table columns feed each output column of a Statement.
 _Avoid_: provenance, trace, data flow
 
 **Partition**:
-A slice of a table that a Statement should constrain rather than read whole.
-_Avoid_: shard, segment
+A slice of a table: the rows that share one value of each column the table is partitioned by.
+Each table has its own partition columns, of any kind - a date, a region, a load - or none, and
+a Statement should constrain them rather than read the table whole.
+_Avoid_: shard, segment, Date partition
 
 **Bucket**:
 One of a fixed number of files a table's rows are spread into by hashing some of its columns,
@@ -227,13 +230,8 @@ which makes joins and lookups on those columns cheaper. Unlike a Partition, a St
 bounds it.
 _Avoid_: shard, chunk, cluster
 
-**Date partition**:
-The one date column a table is partitioned by, which every Statement reading the table must bound
-at both ends.
-_Avoid_: dt, partition key, date column
-
 **Statistics**:
-What the warehouse has counted about a table's days and their columns - how many rows and
+What the warehouse has counted about a table's Partitions and their columns - how many rows and
 bytes, how many different values - from which it picks how to join the table. Counting them
 changes no row, and they can be counted again at any time.
 _Avoid_: stats, metadata, metrics
@@ -282,7 +280,7 @@ _Avoid_: sample project, demo, template, starter kit
 
 **Template**:
 The shape of one of the user's own scripts, with its specifics left out - the tables, columns,
-days and names - each marked as a placeholder, to copy into a project and fill in; a Template
+values and names - each marked as a placeholder, to copy into a project and fill in; a Template
 with a placeholder left in doesn't run. Where an Example project shows scripts filled in for the
 Example database, a Template is the empty shape of such a script, or of one a project keeps
 beside them, such as a Table notebook. The Toolbox ships its Templates inside it, and a

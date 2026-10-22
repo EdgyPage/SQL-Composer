@@ -46,4 +46,4 @@ written, so a notebook's cell 3 prints each write's Hive and runs only the previ
 `run_tables`, with no execute, prints every write in order, writers first, and sends nothing.
 
 At work, write your query and execute in `warehouse.py`, and `admin/run_tables.ipynb`'s last
-cell writes a day of every table.
+cell writes every table: each notebook's `write()`, which writes the day its `DAY` names.

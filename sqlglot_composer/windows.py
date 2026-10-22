@@ -119,8 +119,8 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
     """The rows a calculation looks across for each row, passed to it as over=.
 
     - PARTITION_BY= makes the groups: each row looks only at the rows sharing its values. The
-      word is SQL's, and has nothing to do with a table's Date partition. Left out, every row
-      is in one group.
+      word is SQL's, and has nothing to do with the Partitions a table is stored in. Left out,
+      every row is in one group.
     - ORDER_BY= puts each group's rows in order, with descending(...) for largest first.
     - rows=(start, end) keeps only the rows near each one, counted from the row itself:
       negative before it, 0 the row itself, positive after it. None means no limit: every row
@@ -156,23 +156,16 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
     WHERE
       job_runs.dt = '2026-09-24'
 
-    by_day refuses a Statement whose Window looks across days: one whose PARTITION_BY leaves
-    out the day, such as each job's run before, which may be on the day before. Split by day,
-    each day's Statement would see only that day. To write such a Window into a Saved table,
-    one day at a time:
+    A Window sees only the rows its Statement reads. To write each run of one day beside its
+    job's run before, which may be on the day before, read both days in a derived(...) table
+    that works out the Window and keeps the day column, then keep only the day to write in the
+    Statement that writes, with WHERE(equals(the_derived_table.dt, ...)). Here, each run of
+    2026-09-24 beside the minutes of its job's run before, which may be on 2026-09-23, written
+    into the Partition of its own day:
 
-    - read the day written and the days before it that it needs, in a derived(...) table that
-      keeps the day column;
-    - in the Statement that writes, keep only the day written, with
-      WHERE(equals(the_derived_table.dt, day)). The Toolbox writes that day.
-
-    Only a write with a Window may read several days this way: any other write must read only
-    the day it writes. Send one such Statement for each day. Here, each run of 2026-09-24
-    beside the minutes of its job's run before, which may be on 2026-09-23:
-
-    >>> runs_before = Table("mart.runs_before", date_partition="dt", key=["run_id", "dt"],
+    >>> runs_before = Table("mart.runs_before", partitioned_by=["dt"], key=["run_id"],
     ...     columns={"run_id": "bigint", "minutes_before": "int", "dt": "string"},
-    ...     location="/data/your_team/tables")
+    ...     location="/data/your_team/mart.db/runs_before")
     >>> two_days = derived("two_days", statement(
     ...     SELECT(job_runs.run_id, job_runs.dt,
     ...            AS(lag(job_runs.duration_mins, over=window(
@@ -183,7 +176,7 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
     ... ))
     >>> print(to_hive(statement(
     ...     INSERT_OVERWRITE(runs_before),
-    ...     SELECT(two_days.run_id, two_days.minutes_before),
+    ...     SELECT(two_days.run_id, two_days.minutes_before, two_days.dt),
     ...     FROM(two_days),
     ...     WHERE(equals(two_days.dt, "2026-09-24")),
     ... )))
@@ -196,10 +189,11 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
       WHERE
         job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     )
-    INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt = '2026-09-24')
+    INSERT OVERWRITE TABLE mart.runs_before PARTITION(dt)
     SELECT
       two_days.run_id,
-      two_days.minutes_before
+      two_days.minutes_before,
+      two_days.dt
     FROM two_days
     WHERE
       two_days.dt = '2026-09-24'

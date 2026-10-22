@@ -16,7 +16,7 @@
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -24,20 +24,20 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = "2026-09-24"  # the Example database's last day
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the day it writes, and functions only
 import datetime
 
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, JOIN, SELECT, WHERE, Clause, Statement, between,
-    by_day, count_rows, create_table, equals, statement,
+    count_rows, create_table, equals, statement,
 )
 from references.mart__alerts_per_job import alerts_per_job
 from references.ops__job_runs import job_runs
 from references.ops__run_alerts import high, run_alerts  # high: an Alias, severity is "high"
+
+DAY = "2026-09-24"  # the day write() writes, the Example database's last day
 
 
 def day_before(day: str) -> str:
@@ -51,13 +51,13 @@ def create() -> Statement:
 
 
 def rows(first_day: str, last_day: str) -> list[Clause]:
-    """The clauses every step below shares: each job's alerts per day. INSERT_OVERWRITE
-    writes the partition's day from the bound on run_alerts, the table in FROM. job_runs is
-    joined from the day before first_day too, since an alert can come the day after its run;
-    a backfill's by_day cuts only FROM's bound into days, so this one is kept as written."""
+    """The clauses every step below shares: each job's alerts per day. The day comes last in
+    SELECT, as run_alerts.dt, the day each alert was raised: INSERT_OVERWRITE writes each
+    day's rows into that day's Partition. job_runs is joined from the day before first_day
+    too, since an alert can come the day after its run."""
     return [
         SELECT(job_runs.job_id, AS(count_rows(), "alerts"),
-               AS(count_rows(where=high), "high_alerts")),
+               AS(count_rows(where=high), "high_alerts"), run_alerts.dt),
         FROM(run_alerts),
         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
         WHERE(between(run_alerts.dt, first_day, last_day),
@@ -66,28 +66,29 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
-    return statement(*rows(day, day))
+def preview() -> Statement:
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows(DAY, DAY))
 
 
-def write_day(day: str) -> Statement:
-    """Step 3, every day: save the day's rows, replacing whatever the day held."""
-    return statement(INSERT_OVERWRITE(alerts_per_job), *rows(day, day))
+def write() -> Statement:
+    """Step 3: save DAY's rows, replacing whatever DAY held."""
+    return statement(INSERT_OVERWRITE(alerts_per_job), *rows(DAY, DAY))
 
 
-def backfill(first_day: str, last_day: str) -> list[Statement]:
-    """Step 4, when needed: one write per day from first_day to last_day, oldest first."""
-    return by_day(statement(INSERT_OVERWRITE(alerts_per_job), *rows(first_day, last_day)))
+def backfill(first_day: str, last_day: str) -> Statement:
+    """Step 4, when needed: save every day from first_day to last_day in one write, replacing
+    those days."""
+    return statement(INSERT_OVERWRITE(alerts_per_job), *rows(first_day, last_day))
 
 # %%
 # 3. Try it: the Hive of each step, then the day's rows
-show_hive([create(), write_day(DAY)])
-run(preview(DAY), query=query)
+show_hive([create(), write()])
+run(preview(), query=query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-export_lineage(write_day(DAY))
+export_lineage(write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/mart__alerts_per_job.py

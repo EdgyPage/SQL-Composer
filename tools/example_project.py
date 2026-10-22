@@ -21,14 +21,14 @@ For each project, in a Python of its own, started in an empty folder, it:
   `tools/example_project_sources/<project>/`: `references/`, `tables/<db>__<table>.py`, a
   notebook as its Template is written, in `# %%` cells, and `building_blocks/`;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
-  lineage from its Table folder, as the notebook's lineage cell does.
+  lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
+  write().
 
-admin/run_tables.ipynb's DAY is set to the Example database's last day, as a user sets it. The
-time, the commit and the calling script are pinned, as if a notebook ran everything on
+The time, the commit and the calling script are pinned, as if a notebook ran everything on
 PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
 version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
-until this is run again. It runs no SELECT, only DESCRIBE and SHOW PARTITIONS, which
-add_references sends through the Example database's query.
+until this is run again. It runs no SELECT, only DESCRIBE, which add_references sends through
+the Example database's query.
 """
 
 from __future__ import annotations
@@ -47,11 +47,9 @@ from types import ModuleType
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
 SOURCES = ROOT / "tools" / "example_project_sources"
-# The time every Project action and lineage is made at, the commit it names, and the day each
-# lineage draws: the Example database's last day.
+# The time every Project action and lineage is made at, and the commit it names.
 PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
 PINNED_COMMIT = "nogit"  # what scripts_commit gives for a folder that isn't in git
-DAY = "2026-09-24"
 
 # What a user fills in by hand after add_references: each table's one-line description, its
 # key, the columns that don't add up, with what each is, and the Aliases written below it,
@@ -94,10 +92,6 @@ FILLED_IN = {
         },
         "ops.region_costs": {
             "one_row": "one row per job, region and day: its cost there, in cents.",
-            # Its first partition, region, holds no day, so write_table_reference leaves the
-            # Date partition as a TODO: dt, the second, holds the days.
-            "date_partition": {"first": "region", "column": "dt", "date_format": "%Y%m%d",
-                               "written_like": "20260911"},
             "key": ["job_id", "region", "dt"],
             "does_not_add_up": {},
         },
@@ -127,19 +121,10 @@ WHY = (
     "and the key each join and count relies on, is checked as the Statement is built."
 )
 HOW = (
-    "project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. Its "
-    "three TODO lines were then filled in by hand: this docstring's first line, the key, and "
-    "does_not_add_up."
+    "project.add_references wrote this file from the table's DESCRIBE, its partition columns "
+    "among it. Its three TODO lines were then filled in by hand: this docstring's first line, "
+    "the key, and does_not_add_up."
 )
-# The same, for a table whose first partition holds no day, so add_references left its Date
-# partition as a TODO too.
-HOW_WITH_THE_DATE_PARTITION = (
-    "project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. The "
-    "table's first partition, {first}, holds no day, so it left the Date partition as a TODO "
-    "too. Its four TODO lines were then filled in by hand: this docstring's first line, the "
-    "Date partition, {column}, with the way it writes its days, the key, and does_not_add_up."
-)
-TODO_DATE_PARTITION = "    date_partition=None,  # TODO: "
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
 
@@ -158,11 +143,9 @@ def filled_in(text: str, table: str,
               filling: dict[str, str | list[str] | dict[str, str]]) -> str:
     """A Table reference with its TODO lines replaced by what a user writes there, and the
     Aliases a user adds below it."""
-    partition = filling.get("date_partition")
-    how = HOW_WITH_THE_DATE_PARTITION.format(**partition) if partition else HOW
     replacements = [
         (f'"""{table} - TODO: say in one line what one row is."""',
-         f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(how)}\n"""'),
+         f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
         ('    key=None,  # TODO: the columns that pick out one row, such as key=',
          f"    key={_python_list(filling['key'])},  {BY_HAND}"),
         ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
@@ -172,8 +155,6 @@ def filled_in(text: str, table: str,
         calls = ", ".join(filling["calls"])
         replacements.append(("from sqlglot_composer import Table",
                              f"from sqlglot_composer import Table, {calls}"))
-    if partition:
-        replacements.append((TODO_DATE_PARTITION, _date_partition_lines(partition)))
     lines = text.split("\n")
     for todo, written in replacements:
         found = [index for index, line in enumerate(lines) if line.startswith(todo)]
@@ -208,17 +189,6 @@ def _does_not_add_up_line(columns: dict[str, str]) -> str:
     return f"    {BY_HAND}: {why}\n    does_not_add_up={_python_list(columns)},"
 
 
-def _date_partition_lines(partition: dict[str, str]) -> str:
-    """The date_partition and date_format lines, under a comment saying why they hold what they
-    hold."""
-    return (f"    {BY_HAND}: {partition['first']}, the first partition, holds no day; the Date "
-            f"partition,\n"
-            f"    # {partition['column']}, holds the days, written like "
-            f"{partition['written_like']}\n"
-            f'    date_partition="{partition["column"]}",\n'
-            f'    date_format="{partition["date_format"]}",')
-
-
 # --- In the second Python, whose folder is the new project's ----------------------------------
 
 
@@ -243,24 +213,11 @@ def write_here(name: str) -> None:
 
     pin(sqlglot_composer)
     project.start()
-    _set_the_day(folder)
     _add_references(name, folder)
     _add_saved_tables(name, folder)
     project.refresh_reference_sheet()
     _export_lineage(name, folder)
     _tidy(folder)
-
-
-def _set_the_day(folder: Path) -> None:
-    """Have admin/run_tables.ipynb write the Example database's last day, as a user sets DAY."""
-    path = folder / "admin" / "run_tables.ipynb"
-    text = path.read_text(encoding="utf-8")
-    written = '\\"2026-10-20\\"  # the day to write, as your tables write their days'
-    if text.count(written) != 1:
-        raise TodoMissing(f"admin/run_tables.ipynb has no {written!r} line to set: change "
-                          "_set_the_day in tools/example_project.py to match start's.")
-    path.write_text(text.replace(written, f'\\"{DAY}\\"  # the Example database\'s last day'),
-                    encoding="utf-8")
 
 
 def _add_references(name: str, folder: Path) -> None:
@@ -297,14 +254,14 @@ def _add_saved_tables(name: str, folder: Path) -> None:
 
 def _export_lineage(name: str, folder: Path) -> None:
     """Export each Saved table's lineage from its Table folder, as its notebook's lineage cell
-    does, drawing the tables in LINEAGE_ACROSS first."""
+    does, from each notebook's write(), drawing the tables in LINEAGE_ACROSS first."""
     from sqlglot_composer import export_lineage, project
 
     for table, _ in SAVED_TABLES[name]:
         os.chdir(folder / "tables" / project.table_stem(table))
         writes = []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
-            written = project.load(drawn).write_day(DAY)
+            written = project.load(drawn).write()
             writes += written if isinstance(written, list) else [written]
         export_lineage(*writes)
         os.chdir(folder)

@@ -231,12 +231,23 @@ def every_day(first_day: str, last_day: str) -> list[str]:
     return [(first + datetime.timedelta(days=n)).isoformat() for n in range(days + 1)]
 
 
-def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
-    """What the module's preview shows for each of the days on the Example database, with the
-    day as dt: the rows a Saved table its write fills would hold."""
+def rows_of_days(module: TableLogic, first_day: str, last_day: str) -> Statement:
+    """The SELECT the module's write would send for the days first_day to last_day: the
+    clauses its rows() gives, which its preview() and write() share for their own DAY. A
+    rows() that takes one day is given first_day."""
     toolbox = toolbox_module()
-    return pd.concat([toolbox.run(module.preview(day), query=toolbox.example_database.query)
-                      .assign(dt=day) for day in days], ignore_index=True)
+    days = (first_day, last_day)[:len(inspect.signature(module.rows).parameters)]
+    return toolbox.statement(*module.rows(*days))
+
+
+def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
+    """What the module's rows() give for each of the days on the Example database, each row
+    with its day as dt, the column it selects last: the rows a Saved table its write fills
+    would hold."""
+    toolbox = toolbox_module()
+    return pd.concat([toolbox.run(rows_of_days(module, day, day),
+                                  query=toolbox.example_database.query) for day in days],
+                     ignore_index=True)
 
 
 def import_stop(what: str, why: str, fix: str, folder: str | None = None) -> str:

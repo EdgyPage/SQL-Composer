@@ -33,7 +33,6 @@ from sqlglot_composer import (
     ORDER_BY,
     SELECT,
     WHERE,
-    LoadRefused,
     Statement,
     Table,
     all_of,
@@ -53,7 +52,6 @@ from sqlglot_composer import (
     last_n_days,
     not_equals,
     row_number,
-    set_load_limits,
     statement,
     sum_of,
     to_hive,
@@ -65,9 +63,9 @@ from sqlglot_composer import (
 job_runs = example_database.job_runs
 jobs = example_database.jobs
 
-daily_runs = Table("mart.daily_runs", date_partition="dt",
+daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
                    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-                   location="/data/your_team/tables")
+                   location="/data/your_team/mart.db/daily_runs")
 
 
 def runs_per_team() -> Statement:
@@ -83,7 +81,7 @@ def runs_per_team() -> Statement:
 def fill_daily_runs(first: str = "2026-09-24", last: str = "2026-09-24") -> Statement:
     return statement(
         INSERT_OVERWRITE(daily_runs),
-        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs),
         WHERE(between(job_runs.dt, first, last)),
         GROUP_BY(job_runs.dt, job_runs.job_id),
@@ -376,7 +374,7 @@ def test_the_hive_is_the_one_to_hive_gives(tmp_path: Path) -> None:
     team = runs_per_team()
     markdown, page = read(export_lineage(team, to=tmp_path / "lineage.html"))
     assert f"### Hive as submitted\n\n```sql\n{to_hive(team)}\n```" in markdown
-    assert "<h3>Hive as submitted</h3>\n<pre>SELECT\n  jobs.team," in page
+    assert "<h3>Hive as submitted</h3><pre>SELECT\n  jobs.team," in page
 
 
 def latest_runs() -> Statement:
@@ -436,7 +434,7 @@ def test_a_windows_partition_by_and_order_by_are_rows_that_count(tmp_path: Path)
             in page)
 
 
-def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(
+def test_a_write_that_looks_back_traces_its_partition_column_as_any_column(
         tmp_path: Path) -> None:
     events = example_database.job_events
     with_before = derived("with_before", statement(
@@ -444,15 +442,20 @@ def test_a_write_that_looks_back_draws_the_day_written_from_the_day_it_keeps(
                AS(lag(events.minutes, over=window(PARTITION_BY=events.job_id,
                                                   ORDER_BY=events.dt)), "minutes_before")),
         FROM(events), WHERE(between(events.dt, "2026-09-17", "2026-09-24"))))
-    events_before = Table("mart.events_before", date_partition="dt", key=["event_id", "dt"],
+    events_before = Table("mart.events_before", partitioned_by=["dt"],
+                          key=["event_id", "dt"],
                           columns={"event_id": "bigint", "minutes_before": "int",
-                                   "dt": "string"}, location="/data/your_team/tables")
+                                   "dt": "string"})
     write_events = statement(INSERT_OVERWRITE(events_before),
-                             SELECT(with_before.event_id, with_before.minutes_before),
+                             SELECT(with_before.event_id, with_before.minutes_before,
+                                    with_before.dt),
                              FROM(with_before), WHERE(equals(with_before.dt, "2026-09-24")))
     markdown, _ = read(export_lineage(write_events, to=tmp_path / "lineage.html"))
-    assert ("WHERE in write_events", "mart.events_before.dt", "day written") in chart(
-        markdown)["arrows"]
+    arrows = chart(markdown)["arrows"]
+    assert ("dt", "mart.events_before.dt", "value") in arrows
+    assert ("with_before.dt", "dt", "value") in arrows
+    assert ("ops.job_events.dt", "with_before.dt", "value") in arrows
+    assert not [arrow for arrow in arrows if arrow[2] not in ("value", "rows", "filters")]
 
 
 def test_having_and_limit_are_drawn_as_conditions(tmp_path: Path) -> None:
@@ -540,7 +543,8 @@ def test_writers_come_first_whatever_order_they_are_passed_in(tmp_path: Path) ->
     markdown, _ = read(export_lineage(weekly, fill, to=tmp_path / "lineage.html"))
     assert markdown.startswith("# Lineage: fill, weekly\n")
     assert markdown.index("\n## fill\n") < markdown.index("\n## weekly\n")
-    assert "It writes the Saved table mart.daily_runs, one day at a time." in markdown
+    assert ("It writes the Saved table mart.daily_runs, replacing each partition its rows "
+            "fill.") in markdown
     assert "It reads the Saved table mart.daily_runs, written by fill above." in markdown
 
 
@@ -552,7 +556,7 @@ def test_the_drawing_continues_through_a_saved_table(tmp_path: Path) -> None:
     assert ("runs", "mart.daily_runs.runs", "value") in got["arrows"]
     assert ("job_id", "mart.daily_runs.job_id", "value") in got["arrows"]
     assert ("mart.daily_runs.runs", "runs", "value") in got["arrows"]
-    assert ("WHERE in fill", "mart.daily_runs.dt", "day written") in got["arrows"]
+    assert ("dt", "mart.daily_runs.dt", "value") in got["arrows"]
     assert ("ops.job_runs.dt", "WHERE in fill", "rows") in got["arrows"]
     assert ("mart.daily_runs.dt", "WHERE in weekly", "rows") in got["arrows"]
 
@@ -568,11 +572,14 @@ def test_the_report_continues_through_a_saved_table(tmp_path: Path) -> None:
             ) in runs
 
 
-def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(
+def test_a_writes_date_bound_decides_the_rows_read_later_as_any_condition_does(
         tmp_path: Path) -> None:
+    """Partition columns are traced as any column is: the bound on the day a write reads
+    decides which rows a later Statement reads from its Saved table, as its other conditions
+    do."""
     fill = statement(
         INSERT_OVERWRITE(daily_runs),
-        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, "2026-09-24"), not_equals(job_runs.status, "TEST")),
         GROUP_BY(job_runs.dt, job_runs.job_id),
@@ -583,54 +590,69 @@ def test_a_writes_date_bound_decides_the_day_written_not_the_rows_read_later(
     assert '- WHERE in fill: `equals(job_runs.dt, "2026-09-24")`' in in_fill
     in_weekly = section(section(markdown, "## weekly"), "#### `runs`")
     assert '- WHERE in fill: `not_equals(job_runs.status, "TEST")`' in in_weekly
-    assert "equals(job_runs.dt" not in in_weekly
+    assert '- WHERE in fill: `equals(job_runs.dt, "2026-09-24")`' in in_weekly
 
 
-def test_a_write_over_more_days_than_the_dates_cap_shows_its_first_days_hive(
-        tmp_path: Path) -> None:
-    set_load_limits(dates=1)
+def test_a_write_over_several_days_shows_its_hive_whole(tmp_path: Path) -> None:
     fill = fill_daily_runs("2026-09-23", "2026-09-24")
     markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
     hive = section(markdown, "### Hive as submitted")
-    assert "This write covers 2 days" in hive
-    assert "PARTITION(dt = '2026-09-23')" in hive
+    assert "```sql\n" + to_hive(fill) + "\n```" in hive
+    assert "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)\n" in hive
+    assert "BETWEEN '2026-09-23' AND '2026-09-24'" in hive
 
 
-def test_a_one_day_write_over_the_dates_cap_is_refused_as_to_hive_refuses_it(
-        tmp_path: Path) -> None:
-    set_load_limits(dates=1)
-    alerts = statement(
-        INSERT_OVERWRITE(daily_runs),
-        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+region_runs = Table("mart.region_runs", partitioned_by=["region", "dt"],
+                    columns={"job_id": "bigint", "runs": "bigint", "region": "string",
+                             "dt": "string"})
+
+
+def test_a_static_partition_is_one_line_on_the_saved_tables_box(tmp_path: Path) -> None:
+    write_eu = statement(
+        INSERT_OVERWRITE(region_runs, partition={"region": "EU"}),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs),
-        JOIN(example_database.run_alerts,
-             ON=equals(example_database.run_alerts.run_id, job_runs.run_id), many_matches=True),
-        WHERE(equals(job_runs.dt, "2026-09-24"),
-              between(example_database.run_alerts.dt, "2026-09-23", "2026-09-24")),
-        GROUP_BY(job_runs.job_id),
+        WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
+        GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    with pytest.raises(LoadRefused, match="reads 2 days of ops.run_alerts"):
-        export_lineage(alerts, to=tmp_path / "lineage.html")
+    markdown, page = read(export_lineage(write_eu, to=tmp_path / "lineage.html"))
+    lines = {box["lines"][0]: box["lines"][1:] for box in page_data(page)["boxes"]
+             if box["group"] == "mart.region_runs"}
+    assert lines == {"mart.region_runs.job_id": ["bigint"], "mart.region_runs.runs": ["bigint"],
+                     "mart.region_runs.dt": ["string"],
+                     "mart.region_runs.region": ["string", "writes region = 'EU'"]}
+    assert ("mart.region_runs.region<br/><small>string</small><br/><small>writes region = "
+            "'EU'</small>") in markdown
+    # No arrow comes into region, which no column of the write fills; dt is copied in.
+    arrows = chart(markdown)["arrows"]
+    assert not [arrow for arrow in arrows if arrow[1] == "mart.region_runs.region"]
+    assert ("dt", "mart.region_runs.dt", "value") in arrows
+    assert "INSERT OVERWRITE TABLE mart.region_runs PARTITION(region = 'EU', dt)" in markdown
 
 
-def test_a_write_over_several_days_shows_its_first_days_hive(tmp_path: Path) -> None:
-    fill = fill_daily_runs("2026-09-23", "2026-09-24")
-    markdown, _ = read(export_lineage(fill, to=tmp_path / "lineage.html"))
-    hive = section(markdown, "### Hive as submitted")
-    assert ("This write covers 2 days, and a write fills one day at a time: send it with "
-            "`for day in by_day(fill): run(day, execute=...)`. This is the first day's Hive."
-            ) in hive
-    assert "PARTITION(dt = '2026-09-23')" in hive
+def test_no_text_arrow_or_legend_speaks_of_a_day_written(tmp_path: Path) -> None:
+    fill, weekly = fill_daily_runs("2026-09-23", "2026-09-24"), runs_by_team()
+    markdown, page = read(export_lineage(fill, weekly, to=tmp_path / "lineage.html"))
+    for text in (markdown, page):
+        for said in ("day written", "one day at a time", "Date partition", "by_day"):
+            assert said not in text, said
+    assert {kind for _, _, kind in page_data(page)["arrows"]} == {"value", "rows"}
 
 
 def test_two_writers_into_one_saved_table_both_draw_into_it(tmp_path: Path) -> None:
     yesterday = fill_daily_runs()
     before = fill_daily_runs("2026-09-23", "2026-09-23")
     weekly = runs_by_team()
-    markdown, _ = read(export_lineage(weekly, yesterday, before, to=tmp_path / "lineage.html"))
-    arrows = chart(markdown)["arrows"]
-    assert ("WHERE in yesterday", "mart.daily_runs.dt", "day written") in arrows
-    assert ("WHERE in before", "mart.daily_runs.dt", "day written") in arrows
+    markdown, page = read(export_lineage(weekly, yesterday, before,
+                                         to=tmp_path / "lineage.html"))
+    data = page_data(page)
+    named = {box["id"]: (box["group"], box["lines"][0]) for box in data["boxes"]}
+    page_arrows = {(named[a], named[b], kind) for a, b, kind in data["arrows"]}
+    # Each writer's day is copied into the Saved table's dt, as its other columns are.
+    for writer in ("yesterday", "before"):
+        for column in ("dt", "runs"):
+            assert ((writer, column), ("mart.daily_runs", f"mart.daily_runs.{column}"),
+                    "value") in page_arrows
     assert "written by yesterday and before above" in markdown
 
 
@@ -643,7 +665,7 @@ def test_a_saved_table_no_statement_writes_is_an_ordinary_table(tmp_path: Path) 
     assert "It reads the Saved table" not in markdown
 
 
-alerts_per_job = Table("mart.alerts_per_job", date_partition="dt", key=["job_id", "dt"],
+alerts_per_job = Table("mart.alerts_per_job", partitioned_by=["dt"], key=["job_id", "dt"],
                        columns={"job_id": "bigint", "alerts": "bigint", "dt": "string"})
 
 
@@ -660,12 +682,12 @@ def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
     fill = fill_daily_runs()
     alerts = statement(
         INSERT_OVERWRITE(alerts_per_job),
-        SELECT(job_runs.job_id, AS(count_rows(), "alerts")),
+        SELECT(job_runs.job_id, AS(count_rows(), "alerts"), run_alerts.dt),
         FROM(run_alerts),
         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
         WHERE(equals(run_alerts.dt, "2026-09-24"),
               between(job_runs.dt, "2026-09-23", "2026-09-24")),
-        GROUP_BY(job_runs.job_id),
+        GROUP_BY(run_alerts.dt, job_runs.job_id),
     )
     day = statement(
         SELECT(daily_runs.job_id, AS(sum_of(daily_runs.runs), "runs"),
@@ -688,16 +710,16 @@ def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
     assert ("- LEFT JOIN ON in day:" in runs) is many_matches and "- WHERE in day:" in runs
     assert ("LEFT JOIN ON in day" in html_entry(page, "runs", "day")) is many_matches
     assert "- LEFT JOIN ON in day:" in alerts_entry
-    # The alerts' own column still lists the write's conditions, its date bound aside.
+    # The alerts' own column still lists the write's conditions, its date bound among them.
     assert "- JOIN ON in alerts: `equals(job_runs.run_id, run_alerts.run_id)`" in alerts_entry
     assert '- WHERE in alerts: `between(job_runs.dt, "2026-09-23", "2026-09-24")`' in alerts_entry
-    assert "equals(run_alerts.dt" not in alerts_entry
+    assert '- WHERE in alerts: `equals(run_alerts.dt, "2026-09-24")`' in alerts_entry
     assert "JOIN ON in alerts:" in html_entry(page, "alerts", "day")
 
 
 job_events = example_database.job_events
 job_owners = example_database.job_owners
-job_day_facts = Table("mart.job_day_facts", date_partition="dt", key=["job_id", "dt"],
+job_day_facts = Table("mart.job_day_facts", partitioned_by=["dt"], key=["job_id", "dt"],
                       columns={"job_id": "bigint", "team": "string", "events": "bigint",
                                "dt": "string"})
 
@@ -707,7 +729,7 @@ def write_job_day_facts() -> Statement:
     that day's snapshot, as the intermediate Example project's example 2 does."""
     return statement(
         INSERT_OVERWRITE(job_day_facts),
-        SELECT(job_events.job_id, job_owners.team, AS(count_rows(), "events")),
+        SELECT(job_events.job_id, job_owners.team, AS(count_rows(), "events"), job_events.dt),
         FROM(job_events),
         LEFT_JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_events.job_id),
                                         equals(job_owners.dt, job_events.dt),
@@ -735,23 +757,24 @@ def test_a_writers_left_join_decides_only_the_columns_read_from_its_table_downst
     # which rows it adds up, though it decides the team each row is grouped under.
     assert "LEFT JOIN ON in facts" not in events
     assert "LEFT JOIN ON in facts" not in html_entry(page, "events", "per_team")
-    assert "- WHERE in facts: `equals(job_events.dt" not in events  # the day written
+    assert '- WHERE in facts: `equals(job_events.dt, "2026-09-24")`' in events
     assert "- WHERE in per_team:" in events
     # A column worked out from the team does depend on whether the LEFT JOIN matched.
     assert "- LEFT JOIN ON in facts:" in no_team
     assert "LEFT JOIN ON in facts" in html_entry(page, "days_with_no_team", "per_team")
 
 
-def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_in_its_section(
+def test_a_writes_bound_on_a_joined_tables_day_is_listed_by_a_later_reader(
         tmp_path: Path) -> None:
     """How-to 26's team write reads each job's team from the snapshot of the day it writes:
-    the bound on job_owners.dt follows the day written, so a later reader of many days doesn't
-    list it, as it doesn't list the day written."""
-    team_day = Table("mart.team_day", date_partition="dt", key=["team", "dt"],
+    the bound on job_owners.dt decides which rows the write saves, so a later reader of many
+    days lists it, as it lists the write's other conditions."""
+    team_day = Table("mart.team_day", partitioned_by=["dt"], key=["team", "dt"],
                      columns={"team": "string", "events": "bigint", "dt": "string"})
     team_day_step = statement(
         INSERT_OVERWRITE(team_day),
-        SELECT(job_owners.team, AS(sum_of(job_day_facts.events), "events")),
+        SELECT(job_owners.team, AS(sum_of(job_day_facts.events), "events"),
+               job_day_facts.dt),
         FROM(job_day_facts),
         JOIN(job_owners, ON=all_of(equals(job_owners.job_id, job_day_facts.job_id),
                                    equals(job_owners.dt, job_day_facts.dt))),
@@ -766,8 +789,8 @@ def test_a_writes_bound_on_a_joined_tables_day_matched_to_the_day_written_stays_
     )
     markdown, page = read(export_lineage(weekly, team_day_step, to=tmp_path / "lineage.html"))
     in_weekly = section(section(markdown, "## weekly"), "#### `events`")
-    assert "- WHERE in team_day_step:" not in in_weekly
-    assert "WHERE in team_day_step" not in html_entry(page, "events", "weekly")
+    assert '- WHERE in team_day_step: `equals(job_owners.dt, "2026-09-24")`' in in_weekly
+    assert "WHERE in team_day_step" in html_entry(page, "events", "weekly")
     assert "- JOIN ON in team_day_step:" in in_weekly and "- WHERE in weekly:" in in_weekly
     in_write = section(section(markdown, "## team_day_step"), "#### `events`")
     assert '- WHERE in team_day_step: `equals(job_owners.dt, "2026-09-24")`' in in_write
@@ -815,11 +838,12 @@ def test_a_left_join_decides_every_column_when_a_condition_reads_its_table(
 
 
 def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
-    other = Table("mart.other_runs", date_partition="dt",
+    other = Table("mart.other_runs", partitioned_by=["dt"],
                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
-    one = statement(INSERT_OVERWRITE(other), SELECT(daily_runs.job_id, daily_runs.runs),
+    one = statement(INSERT_OVERWRITE(other),
+                    SELECT(daily_runs.job_id, daily_runs.runs, daily_runs.dt),
                     FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
-    two = statement(INSERT_OVERWRITE(daily_runs), SELECT(other.job_id, other.runs),
+    two = statement(INSERT_OVERWRITE(daily_runs), SELECT(other.job_id, other.runs, other.dt),
                     FROM(other), WHERE(equals(other.dt, "2026-09-24")))
     with pytest.raises(ValueError) as refused:
         export_lineage(one, two)
@@ -830,11 +854,12 @@ def test_a_loop_of_writes_is_refused_naming_the_statements_and_tables() -> None:
 
 
 def test_the_loop_refusal_names_only_the_statements_in_the_loop() -> None:
-    other = Table("mart.other_runs", date_partition="dt",
+    other = Table("mart.other_runs", partitioned_by=["dt"],
                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
-    one = statement(INSERT_OVERWRITE(other), SELECT(daily_runs.job_id, daily_runs.runs),
+    one = statement(INSERT_OVERWRITE(other),
+                    SELECT(daily_runs.job_id, daily_runs.runs, daily_runs.dt),
                     FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
-    two = statement(INSERT_OVERWRITE(daily_runs), SELECT(other.job_id, other.runs),
+    two = statement(INSERT_OVERWRITE(daily_runs), SELECT(other.job_id, other.runs, other.dt),
                     FROM(other), WHERE(equals(other.dt, "2026-09-24")))
     three = statement(SELECT(other.job_id), FROM(other), WHERE(equals(other.dt, "2026-09-24")))
     four = statement(SELECT(other.job_id), FROM(other), WHERE(equals(other.dt, "2026-09-24")))
@@ -847,7 +872,8 @@ def test_the_loop_refusal_names_only_the_statements_in_the_loop() -> None:
 
 
 def test_a_statement_reading_the_saved_table_it_writes_is_a_loop() -> None:
-    again = statement(INSERT_OVERWRITE(daily_runs), SELECT(daily_runs.job_id, daily_runs.runs),
+    again = statement(INSERT_OVERWRITE(daily_runs),
+                      SELECT(daily_runs.job_id, daily_runs.runs, daily_runs.dt),
                       FROM(daily_runs), WHERE(equals(daily_runs.dt, "2026-09-24")))
     with pytest.raises(ValueError, match="again writes mart.daily_runs, which again reads"):
         export_lineage(again)
@@ -956,7 +982,8 @@ def test_the_page_draws_from_the_same_boxes_and_arrows(tmp_path: Path) -> None:
     data = page_data(page)
     names = {box["id"]: box["lines"][0] for box in data["boxes"]}
     arrows = {(names[a], names[b], kind) for a, b, kind in data["arrows"]}
-    assert ("WHERE in fill", "mart.daily_runs.dt", "day") in arrows
+    assert ("dt", "mart.daily_runs.dt", "value") in arrows
+    assert "day" not in {kind for _, _, kind in arrows}
     assert ("mart.daily_runs.runs", "runs", "value") in arrows
     kinds = {group["name"]: group["kind"] for group in data["groups"]}
     assert kinds == {"ops.job_runs": "table", "fill": "output", "mart.daily_runs": "table",
@@ -1031,17 +1058,20 @@ def test_the_report_says_where_a_step_lost_its_key(tmp_path: Path) -> None:
 
 
 def test_the_report_says_whether_a_writes_key_holds(tmp_path: Path) -> None:
-    daily = Table("mart.daily_runs", date_partition="dt", key=["job_id", "dt"],
+    daily = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
                   columns={"job_id": "bigint", "runs": "bigint", "dt": "string"})
-    fill = statement(INSERT_OVERWRITE(daily), SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+    fill = statement(INSERT_OVERWRITE(daily),
+                     SELECT(job_runs.job_id, AS(count_rows(), "runs"), job_runs.dt),
                      FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),
-                     GROUP_BY(job_runs.job_id))
+                     GROUP_BY(job_runs.dt, job_runs.job_id))
     markdown, _ = read(export_lineage(fill, to=tmp_path / "fill.html"))
     keys = section(markdown, "### Keys")
-    assert "- fill: Key (job_id), since GROUP_BY makes one row for each job_id." in keys
+    assert ("- fill: Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt "
+            "held to one value.") in keys
     assert "- mart.daily_runs' Key (job_id, dt) holds: each row written has its own." in keys
     unchecked = statement(INSERT_OVERWRITE(daily, unproven_key=True),
-                          SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs")),
+                          SELECT(job_runs.job_id, AS(job_runs.duration_mins, "runs"),
+                                 job_runs.dt),
                           FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")))
     markdown, _ = read(export_lineage(unchecked, to=tmp_path / "unchecked.html"))
     assert ("mart.daily_runs' Key (job_id, dt) isn't shown to hold, since job_runs' rows are "

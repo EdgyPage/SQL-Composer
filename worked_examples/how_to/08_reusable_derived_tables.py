@@ -45,7 +45,7 @@ derived('job_totals', columns: job_id, runs, minutes)
 
 Its columns are what its `SELECT` makes, checked like a Table reference's. Another Statement
 reads it with `FROM` or `JOIN`, like any table. Here, the minutes per team. `per_team` gives no
-days of its own: the days are inside `job_totals`, and `ops.jobs` has no Date partition.
+days of its own: the days are inside `job_totals`, and `ops.jobs` isn't partitioned.
 
 >>> per_team = statement(
 ...     SELECT(jobs.team, AS(sum_of(job_totals.minutes), "minutes")),

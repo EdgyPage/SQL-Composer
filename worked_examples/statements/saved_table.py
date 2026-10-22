@@ -3,10 +3,11 @@
 Why: a result that is slow to work out, or read by many notebooks, is cheaper to work out once
 a day and save than to work out again every time someone reads it.
 
-A Saved table is written one day at a time, and each function below is one step. The
-Example database can't be written to, so the steps show their Hive but no result. At work,
-send each one with run(step(), execute=execute), execute being your own function from your
-Project's warehouse.py, and loop over the ones that return a list.
+runs_to_review is partitioned by dt, and each write below fills one day's Partition, named
+with partition={"dt": day}. Each function below is one step. The Example database can't be
+written to, so the steps show their Hive but no result. At work, send each one with
+run(step(), execute=execute), execute being your own function from your Project's
+warehouse.py, and loop over the ones that return a list.
 """
 
 from sqlglot_composer import (
@@ -47,8 +48,8 @@ def failed_runs(day: str = LAST_DAY) -> Statement:
     twice as many. That makes it the safe first write of each day.
     """
     return statement(
-        INSERT_OVERWRITE(runs_to_review),
-        # dt isn't selected: PARTITION(dt = ...) in the Hive fills it with the day read.
+        INSERT_OVERWRITE(runs_to_review, partition={"dt": day}),
+        # dt isn't selected: partition= names it, and PARTITION(dt = ...) in the Hive fills it.
         SELECT(job_runs.run_id, job_runs.job_id),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, day), equals(job_runs.status, "FAILED")),
@@ -64,14 +65,14 @@ def alerted_runs(day: str = LAST_DAY) -> Statement:
     the day twice; to redo a day, send step 2 again first, which clears it.
     """
     return statement(
-        INSERT_INTO(runs_to_review),
+        INSERT_INTO(runs_to_review, partition={"dt": day}),
         # A run can raise several high alerts, so DISTINCT keeps each run once.
         SELECT_DISTINCT(job_runs.run_id, job_runs.job_id),
         FROM(run_alerts),
         JOIN(job_runs, ON=equals(job_runs.run_id, run_alerts.run_id)),
         WHERE(
             equals(run_alerts.dt, day),
-            equals(job_runs.dt, day),  # the joined table's Date partition needs a bound too
+            equals(job_runs.dt, day),  # the joined table's partition column needs a filter too
             equals(run_alerts.severity, "high"),
             equals(job_runs.status, "SUCCESS"),
         ),
@@ -84,7 +85,8 @@ def backfill(days: tuple[str, ...] = (FIRST_DAY, LAST_DAY)) -> list[Statement]:
     To backfill is to write days that have already happened: a new table's past days, every
     day again after rebuild(), or a day again after fixing a mistake in a step. Each day
     gets step 2 then step 3, in that order, so it starts clean and keeps both sources. A
-    day filled by one Statement alone can be split into days with by_day(s) instead.
+    table filled by one Statement alone can instead be written in one go: INSERT_OVERWRITE
+    without partition=, its SELECT listing dt last, fills each day's Partition from the rows.
 
         for s in backfill():
             run(s, execute=execute)
@@ -99,8 +101,8 @@ def rebuild() -> list[Statement]:
     admin.drop_table deletes every day of the table, since its Table reference had purge=True
     when create_table made it, so write them all again with backfill(). A column only added
     after the others can instead be added in place with admin.add_columns, without dropping
-    anything; on a table with a Date partition it writes CASCADE, so the days already there
-    get the column too.
+    anything; on a partitioned table it writes CASCADE, so the Partitions already there get
+    the column too.
     IF EXISTS means the drop does nothing, rather than failing, if the table isn't there.
     """
     return [admin.drop_table(runs_to_review), create_table(runs_to_review)]

@@ -17,9 +17,9 @@ def owner_on_day(job_id_column: Column, day_column: Column, first_day: str,
 
     job_id_column and day_column are the reading Statement's columns, such as events.job_id
     and events.dt; first_day and last_day are the days it reads, written like "2026-09-24".
-    Every read of a table must bound its Date partition at both ends, a joined table's too, so
-    they bound job_owners here, in ON=. by_day leaves a joined table's bound as written, and
-    the match on the day keeps each row to its own day's snapshot.
+    Every read of a partitioned table must filter one of its partition columns, a joined
+    table's too, so they filter job_owners' dt here, in ON=, and the match on the day keeps
+    each row to its own day's snapshot.
 
     It is a LEFT_JOIN, so a row whose day has no snapshot yet keeps its numbers, with a NULL
     team, rather than being dropped. ON= names job_owners' whole key, the job and the day, so

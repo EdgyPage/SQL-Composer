@@ -22,9 +22,10 @@ from references.ops__job_runs import failed, job_runs, minutes  # failed, minute
 def runs_per_job_day(first_day: str, last_day: str) -> Table:
     """One row per job and day from first_day to last_day: its runs, failed runs and minutes.
 
-    The Date partition, dt, is kept in GROUP_BY, so each day's counts stay apart when
-    first_day and last_day are days apart, and in SELECT, so a Statement that reads this over
-    several days and groups its rows again can keep the day in its own GROUP_BY too.
+    The day, dt, ops.job_runs' partition column, is kept in GROUP_BY, so each day's counts
+    stay apart when first_day and last_day are days apart, and in SELECT, so a write that reads
+    this fills each day's Partition from it, and a Statement that groups its rows again can
+    keep the day in its own GROUP_BY too.
     """
     return derived(
         "runs_per_job_day",

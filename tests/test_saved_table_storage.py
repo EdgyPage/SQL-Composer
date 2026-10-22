@@ -1,9 +1,12 @@
 """A Saved table's storage, on its Table reference: written by create_table, compared by
 check_table_reference, and refused where it would go wrong (ADR 0007).
 
-Every Saved table is external, in a folder of its own under the user's base location, which
-the Toolbox always adds; its other storage options are purge, properties, stored_as,
-compression, partitioned_by, and Buckets with bucketed_by, buckets and sorted_by.
+Every Saved table is external, in a folder of its own, its location=, which the Toolbox uses
+exactly as written; its other storage options are purge, properties, stored_as, compression,
+and Buckets with bucketed_by, buckets and sorted_by. Its partitioned_by= is any table's.
+
+Each folder here is its table's own, since the Toolbox refuses a second Saved table at one
+folder, or inside one, for as long as the tests run.
 """
 
 from __future__ import annotations
@@ -35,17 +38,18 @@ from sqlglot_composer import (
 from sqlglot_composer.clauses import Clause
 from sqlglot_composer.example_database import job_runs, jobs
 
-BASE = "/data/your_team/tables"
+DAILY_RUNS = "/data/your_team/mart.db/daily_runs"
 REGION_RUNS = Table("mart.region_runs", columns={"job_id": "bigint", "region": "string",
                                                  "runs": "bigint", "dt": "string"},
-                    date_partition="dt", location=BASE, partitioned_by=["region"])
+                    partitioned_by=["dt", "region"],
+                    location="/data/your_team/mart.db/region_runs")
 
 
 def saved(**storage: object) -> Table:
     """mart.daily_runs, one of the user's Saved tables, with the storage given."""
     return Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                              "dt": "string"},
-                 date_partition="dt", location=BASE, **storage)
+                 partitioned_by=["dt"], location=DAILY_RUNS, **storage)
 
 
 # --- create_table ---------------------------------------------------------------------------
@@ -61,16 +65,16 @@ def test_create_table_writes_an_external_table_in_a_folder_of_its_own() -> None:
         "  dt STRING\n"
         ")\n"
         "STORED AS ORC\n"
-        "LOCATION '/data/your_team/tables/mart/daily_runs'"
+        "LOCATION '/data/your_team/mart.db/daily_runs'"
     )
 
 
 def test_create_table_writes_every_storage_option() -> None:
     t = Table("mart.job_costs", columns={"job_id": "bigint", "region": "string",
                                          "cost_cents": "bigint", "dt": "string"},
-              date_partition="dt", location=BASE + "/", purge=True,
+              location="/data/your_team/mart.db/job_costs/", purge=True,
               properties={"made_by": "one row per job, region and day"}, stored_as="parquet",
-              compression="snappy", partitioned_by=["region"], bucketed_by=["job_id"],
+              compression="snappy", partitioned_by=["dt", "region"], bucketed_by=["job_id"],
               buckets=8, sorted_by=["job_id"])
     assert to_hive(create_table(t, may_exist=True)) == (
         "CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_costs (\n"
@@ -83,7 +87,7 @@ def test_create_table_writes_every_storage_option() -> None:
         ")\n"
         "CLUSTERED BY (job_id) SORTED BY (job_id) INTO 8 BUCKETS\n"
         "STORED AS PARQUET\n"
-        "LOCATION '/data/your_team/tables/mart/job_costs'\n"
+        "LOCATION '/data/your_team/mart.db/job_costs'\n"
         "TBLPROPERTIES (\n"
         "  'external.table.purge'='true',\n"
         "  'parquet.compression'='SNAPPY',\n"
@@ -103,7 +107,7 @@ def test_orc_compression_is_written_as_orc_compress() -> None:
 
 def test_create_table_refuses_a_table_with_no_location() -> None:
     t = Table("mart.daily_runs", columns={"runs": "bigint", "dt": "string"},
-              date_partition="dt")
+              partitioned_by=["dt"])
     with pytest.raises(ValueError, match="create_table.daily_runs.: its Table reference has "
                        "no location="):
         create_table(t)
@@ -113,28 +117,30 @@ def test_create_table_refuses_a_table_with_no_location() -> None:
 
 
 @pytest.mark.parametrize(("storage", "message"), [
-    ({"location": "data/tables"}, "isn't a whole path"),
     ({"location": ""}, "isn't a folder"),
+    ({"location": "  "}, "isn't a folder"),
     ({"location": 3}, "isn't a folder"),
-    ({"location": BASE + "/mart/daily_runs"}, "already ends with the table's own folder"),
-    ({"location": BASE, "bucketed_by": ["job_id", "job_id"], "buckets": 2},
+    ({"location": DAILY_RUNS, "bucketed_by": ["job_id", "job_id"], "buckets": 2},
      "bucketed_by= names 'job_id' twice."),
-    ({"location": BASE, "purge": "yes"}, "purge='yes' isn't True or False"),
-    ({"location": BASE, "stored_as": "csv"}, "stored_as='csv' isn't one"),
-    ({"location": BASE, "compression": "gzip"}, "compression='gzip' isn't one"),
-    ({"location": BASE, "stored_as": "PARQUET", "compression": "zlib"}, "compression='zlib'"),
-    ({"location": BASE, "properties": {"external.table.purge": "true"}}, "write purge=True"),
-    ({"location": BASE, "properties": {"orc.compress": "SNAPPY"}}, "write compression="),
-    ({"location": BASE, "properties": {"EXTERNAL": "TRUE"}}, "always makes a Saved table"),
-    ({"location": BASE, "properties": {"a": True}}, "properties= has 'a': True"),
-    ({"location": BASE, "properties": ["a"]}, "isn't a dict"),
-    ({"location": BASE, "partitioned_by": ["dt"]}, "names 'dt', which is already a Partition"),
-    ({"location": BASE, "partitioned_by": ["nope"]}, "partitioned_by names 'nope'"),
-    ({"location": BASE, "bucketed_by": ["job_id"]}, "but no buckets="),
-    ({"location": BASE, "buckets": 4}, "buckets= but no bucketed_by="),
-    ({"location": BASE, "bucketed_by": ["job_id"], "buckets": 0}, "buckets=0 isn't"),
-    ({"location": BASE, "bucketed_by": ["dt"], "buckets": 4}, "already a Partition"),
-    ({"location": BASE, "sorted_by": ["job_id"]}, "has sorted_by= but no bucketed_by=."),
+    ({"location": DAILY_RUNS, "purge": "yes"}, "purge='yes' isn't True or False"),
+    ({"location": DAILY_RUNS, "stored_as": "csv"}, "stored_as='csv' isn't one"),
+    ({"location": DAILY_RUNS, "compression": "gzip"}, "compression='gzip' isn't one"),
+    ({"location": DAILY_RUNS, "stored_as": "PARQUET", "compression": "zlib"},
+     "compression='zlib'"),
+    ({"location": DAILY_RUNS, "properties": {"external.table.purge": "true"}},
+     "write purge=True"),
+    ({"location": DAILY_RUNS, "properties": {"orc.compress": "SNAPPY"}}, "write compression="),
+    ({"location": DAILY_RUNS, "properties": {"EXTERNAL": "TRUE"}},
+     "always makes a Saved table"),
+    ({"location": DAILY_RUNS, "properties": {"a": True}}, "properties= has 'a': True"),
+    ({"location": DAILY_RUNS, "properties": ["a"]}, "isn't a dict"),
+    ({"location": DAILY_RUNS, "partitioned_by": ["dt", "dt"]}, "names 'dt' twice"),
+    ({"location": DAILY_RUNS, "partitioned_by": ["nope"]}, "partitioned_by names 'nope'"),
+    ({"location": DAILY_RUNS, "bucketed_by": ["job_id"]}, "but no buckets="),
+    ({"location": DAILY_RUNS, "buckets": 4}, "buckets= but no bucketed_by="),
+    ({"location": DAILY_RUNS, "bucketed_by": ["job_id"], "buckets": 0}, "buckets=0 isn't"),
+    ({"location": DAILY_RUNS, "bucketed_by": ["dt"], "buckets": 4}, "already a Partition"),
+    ({"location": DAILY_RUNS, "sorted_by": ["job_id"]}, "has sorted_by= but no bucketed_by=."),
     ({"purge": True}, "has purge= but no location="),
     ({"bucketed_by": ["job_id"], "buckets": 4}, "has bucketed_by= but no location="),
 ])
@@ -142,44 +148,60 @@ def test_a_table_reference_refuses_storage_create_table_couldnt_write(
         storage: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
-                                          "dt": "string"}, date_partition="dt", **storage)
+                                          "dt": "string"},
+              **{"partitioned_by": ["dt"], **storage})
 
 
-def test_a_base_folder_named_like_the_table_is_its_own_folders_parent() -> None:
-    t = Table("reports.tables", columns={"a": "bigint"}, date_partition=None,
-              location="/data/tables")
-    assert to_hive(create_table(t)).endswith("LOCATION '/data/tables/reports/tables'")
+@pytest.mark.parametrize("location", [
+    "/data/your_team/mart.db/as_written", "mart.db/relative_runs",
+    "${hivevar:root}/mart.db/variable_runs", "hdfs://namenode:8020/data/mart.db/full_runs",
+], ids=["absolute", "relative", "hivevar", "with_its_storage"])
+def test_location_is_the_tables_own_folder_exactly_as_written(location: str) -> None:
+    t = Table(f"mart.{location.rsplit('/', 1)[1]}", columns={"a": "bigint", "dt": "string"},
+              partitioned_by=["dt"], location=location)
+    assert to_hive(create_table(t)).endswith(
+        f"STORED AS ORC\nLOCATION '{location}'")
 
 
-def test_partitioned_by_needs_a_date_partition() -> None:
-    with pytest.raises(ValueError, match="partitioned_by= but no date_partition"):
-        Table("mart.regions", columns={"region": "string", "runs": "bigint"},
-              date_partition=None, location=BASE, partitioned_by=["region"])
+def test_partitioned_by_needs_no_location() -> None:
+    t = Table("mart.regions", columns={"region": "string", "load_id": "bigint",
+                                       "runs": "bigint"},
+              partitioned_by=["region", "load_id"])
+    assert t._partitioned_by == ["region", "load_id"] and t._location is None
+    # A table someone else owns: create_table won't make it.
+    with pytest.raises(ValueError, match="has no location="):
+        create_table(t)
 
 
 def test_two_saved_tables_at_one_folder_are_refused() -> None:
-    Table("mart.shared_a", columns={"a": "bigint"}, date_partition=None,
-          location="/refused/base")
-    # Its base is mart.shared_a's own folder, so this table would sit inside that one.
+    Table("mart.shared_a", columns={"a": "bigint"}, location="/refused/base/shared_a")
+    # Inside mart.shared_a's own folder.
     with pytest.raises(ValueError, match="inside the folder of mart.shared_a"):
-        Table("mart.shared_b", columns={"a": "bigint"}, date_partition=None,
-              location="/refused/base/mart/shared_a/more")
+        Table("mart.shared_b", columns={"a": "bigint"},
+              location="/refused/base/shared_a/more")
     # A folder written with its storage's name, hdfs://, is compared as the same folder.
-    with pytest.raises(ValueError, match="inside the folder of mart.shared_a"):
-        Table("mart.shared_c", columns={"a": "bigint"}, date_partition=None,
-              location="hdfs:///refused/base/mart/shared_a")
+    with pytest.raises(ValueError, match="the same folder as mart.shared_a"):
+        Table("mart.shared_c", columns={"a": "bigint"},
+              location="hdfs:///refused/base/shared_a/")
+    # A folder that holds mart.shared_a's is refused too.
+    with pytest.raises(ValueError, match=r"Table\('mart.shared_d'\) would be at /refused/base, "
+                       r"around the folder of mart.shared_a \(/refused/base/shared_a\)"):
+        Table("mart.shared_d", columns={"a": "bigint"}, location="/refused/base")
+    # A folder beside it, whose name only starts like it, is another folder.
+    Table("mart.shared_e", columns={"a": "bigint"}, location="/refused/base/shared_ab")
     # The same table again, as a notebook cell run twice makes it, is no second table.
-    Table("mart.shared_a", columns={"a": "bigint"}, date_partition=None,
-          location="/refused/base")
+    Table("mart.shared_a", columns={"a": "bigint"}, location="/refused/base/shared_a")
 
 
-# --- Writing a table partitioned after its day ------------------------------------------------
+# --- Writing a partitioned table ----------------------------------------------------------
 
 
 def region_runs_on(day: str,
-                   clause: Callable[[Table], Clause] = INSERT_OVERWRITE) -> Statement:
+                   clause: Callable[..., Clause] = INSERT_OVERWRITE) -> Statement:
+    """Each job's runs per region on one day, into the day named and the regions its rows
+    hold."""
     return statement(
-        clause(REGION_RUNS),
+        clause(REGION_RUNS, partition={"dt": day}),
         SELECT(jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs),
         JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
@@ -207,11 +229,25 @@ WRITTEN = (
 
 @pytest.mark.parametrize(("clause", "first"), [(INSERT_OVERWRITE, "INSERT OVERWRITE TABLE"),
                                                (INSERT_INTO, "INSERT INTO")])
-def test_a_write_fills_its_day_and_the_partitions_after_it_from_its_rows(
-        clause: Callable[[Table], Clause], first: str) -> None:
-    # The Partitions after the day go last, in their order, as Hive fills them by position.
+def test_a_write_fills_the_partition_it_names_and_the_rest_from_its_rows(
+        clause: Callable[..., Clause], first: str) -> None:
+    # The Partitions it doesn't name go last, in their order, as Hive fills them by position.
     assert to_hive(region_runs_on("2026-09-24", clause)) == (
         f"{first} mart.region_runs {WRITTEN}")
+
+
+def test_a_write_naming_no_partition_fills_them_all_from_its_rows() -> None:
+    hive = to_hive(statement(
+        INSERT_OVERWRITE(REGION_RUNS),
+        SELECT(job_runs.dt, jobs.region, job_runs.job_id, AS(count_rows(), "runs")),
+        FROM(job_runs),
+        JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+        WHERE(equals(job_runs.dt, "2026-09-24")),
+        GROUP_BY(job_runs.job_id, jobs.region, job_runs.dt),
+    ))
+    assert hive.startswith(
+        "INSERT OVERWRITE TABLE mart.region_runs PARTITION(dt, region)\n"
+        "SELECT\n  job_runs.job_id,\n  COUNT(*) AS runs,\n  job_runs.dt,\n  jobs.region\n")
 
 
 def test_show_hive_prints_the_session_setting_a_partitioned_write_needs_first(
@@ -230,11 +266,11 @@ def test_to_hive_and_run_send_the_write_alone() -> None:
     assert "SET" not in to_hive(region_runs_on("2026-09-24"))
 
 
-def test_a_write_into_a_table_with_no_partitions_after_its_day_needs_no_setting() -> None:
+def test_a_write_naming_every_partition_needs_no_setting() -> None:
     t = Table("mart.job_day_runs", columns={"job_id": "bigint", "runs": "bigint",
-                                            "dt": "string"}, date_partition="dt",
-              location=BASE)
-    text = show_hive(statement(INSERT_OVERWRITE(t),
+                                            "dt": "string"}, partitioned_by=["dt"],
+              location="/data/your_team/mart.db/job_day_runs")
+    text = show_hive(statement(INSERT_OVERWRITE(t, partition={"dt": "2026-09-24"}),
                                SELECT(job_runs.job_id, AS(count_rows(), "runs")),
                                FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),
                                GROUP_BY(job_runs.job_id)))
@@ -247,20 +283,17 @@ ORC_INPUT = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"
 PARQUET_INPUT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
 
 
-def formatted(location: str = "hdfs://namenode:8020/data/your_team/tables/mart/daily_runs",
+def formatted(location: str = "hdfs://namenode:8020/data/your_team/mart.db/daily_runs",
               kind: str = "EXTERNAL_TABLE",
               parameters: Sequence[tuple[str, str]] = (("EXTERNAL", "TRUE"),),
               input_format: str = ORC_INPUT, partitions: tuple[str, ...] = ("dt",),
               buckets: int = -1, bucket_columns: str = "[]", sort_columns: str = "[]",
               one_line: bool = False) -> Callable[[str], pd.DataFrame]:
     """A stand-in for `query` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
-    prints it, or as some warehouses do, with the table properties on one line, and SHOW
-    PARTITIONS with one day."""
+    prints it, or as some warehouses do, with the table properties on one line."""
     columns = [("job_id", "bigint"), ("runs", "bigint")]
 
     def query(hive: str) -> pd.DataFrame:
-        if hive.startswith("SHOW PARTITIONS"):
-            return pd.DataFrame({"partition": ["dt=2026-09-24"]})
         assert hive == "DESCRIBE FORMATTED mart.daily_runs", hive
         typed = [(name, "string") for name in partitions]
         if one_line:
@@ -302,8 +335,8 @@ def checked(query: Callable[[str], pd.DataFrame], **storage: object) -> str:
 
 @pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
 def test_a_saved_table_stored_as_its_reference_says_matches(one_line: bool) -> None:
-    location = ("file:/data/your_team/tables/mart/daily_runs" if one_line
-                else "hdfs://namenode:8020/data/your_team/tables/mart/daily_runs")
+    location = ("file:/data/your_team/mart.db/daily_runs" if one_line
+                else "hdfs://namenode:8020/data/your_team/mart.db/daily_runs")
     assert checked(formatted(location=location, one_line=one_line)) == (
         "mart.daily_runs matches its Table reference.")
 
@@ -318,17 +351,17 @@ def test_every_storage_option_is_compared(one_line: bool) -> None:
                      sort_columns="[`job_id`]" if one_line else "[Order(col:job_id, order:1)]")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                           "region": "string", "dt": "string"},
-              date_partition="dt", location=BASE, purge=True, properties={"made_by": "runs"},
-              stored_as="PARQUET", compression="SNAPPY", partitioned_by=["region"],
+              location=DAILY_RUNS, purge=True, properties={"made_by": "runs"},
+              stored_as="PARQUET", compression="SNAPPY", partitioned_by=["dt", "region"],
               bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"])
     assert str(check_table_reference(t, query=query)) == (
         "mart.daily_runs matches its Table reference.")
     assert checked(query) == (
         "mart.daily_runs differs from its Table reference.\n"
         "Problems:\n"
-        '  - the table is stored as PARQUET: change the line to stored_as="PARQUET",\n'
         "  - the table is partitioned by dt, region: change the line to "
-        'partitioned_by=["region"],\n'
+        'partitioned_by=["dt", "region"],\n'
+        '  - the table is stored as PARQUET: change the line to stored_as="PARQUET",\n'
         "  - the table is bucketed by job_id into 8 Buckets, sorted by job_id: change the "
         'lines to bucketed_by=["job_id"], buckets=8, sorted_by=["job_id"],\n'
         "Notes:\n"
@@ -341,40 +374,52 @@ def test_a_folder_that_isnt_its_own_is_a_problem_pointing_to_move_to_own_folder(
     assert verdict == (
         "mart.daily_runs differs from its Table reference.\n"
         "Problems:\n"
-        "  - it is at hdfs://namenode:8020/data/your_team/shared, not at its own folder "
-        "/data/your_team/tables/mart/daily_runs. A folder that isn't a table's own may hold "
-        "other tables' files: two tables in one folder read each other's files, and an "
-        "INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it "
-        "with admin.move_to_own_folder(t, query=...).")
+        "  - it is at hdfs://namenode:8020/data/your_team/shared, not at "
+        "/data/your_team/mart.db/daily_runs, the folder location= names: change the line to "
+        'location="hdfs://namenode:8020/data/your_team/shared", if that is the own folder of '
+        "the table. A folder that isn't a table's own may hold other tables' files: two tables "
+        "in one folder read each other's "
+        "files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for "
+        "that Partition. Move it with admin.move_to_own_folder(t, query=...).")
 
 
 SHARED = "hdfs://namenode:8020/data/your_team/shared"
 TEXT_INPUT = "org.apache.hadoop.mapred.TextInputFormat"
 
 
-@pytest.mark.parametrize("answer", [{"input_format": TEXT_INPUT},
-                                    {"partitions": ("region", "dt")}],
-                         ids=["a file format it doesn't write", "the day not first"])
-def test_a_layout_the_move_cant_fix_at_its_own_folder_is_written_again_there(
-        answer: dict[str, str | tuple[str, ...]]) -> None:
+def test_a_file_format_the_move_cant_fix_at_its_own_folder_is_written_again_there() -> None:
     """admin.move_to_own_folder refuses a table at its own folder, whose copy would go to the
     same folder: there the fix is to write the table again, not to move it."""
-    at_its_own = checked(formatted(**answer))
+    at_its_own = checked(formatted(input_format=TEXT_INPUT))
     assert "admin.move_to_own_folder" not in at_its_own
     assert ("it is at its own folder already, so write it again there: give its Table "
             "reference purge=True and send admin.set_properties(t), drop it with "
-            "admin.drop_table(t), create it with create_table(t), and write its days again "
+            "admin.drop_table(t), create it with create_table(t), and write its rows again "
             "from their source.") in at_its_own
-    shared = checked(formatted(location=SHARED, **answer))
+    shared = checked(formatted(location=SHARED, input_format=TEXT_INPUT))
     assert shared.count("admin.move_to_own_folder(t, query=...)") == 2
     assert "write it again there" not in shared
 
 
-def test_its_own_folder_under_another_base_says_which_location_to_write() -> None:
-    verdict = checked(formatted(location="hdfs://namenode:8020/warehouse/mart/daily_runs"))
-    assert ("  - it is at hdfs://namenode:8020/warehouse/mart/daily_runs, its own folder, but "
-            "under another folder than location= names: change the line to location=\"hdfs://namenode:8020/warehouse\","
-            in verdict)
+def test_the_folder_is_compared_as_written_with_nothing_added() -> None:
+    # Nothing is added to location=, so the table's folder with its database and name after
+    # it is another folder.
+    verdict = checked(formatted(
+        location="hdfs://namenode:8020/data/your_team/mart.db/daily_runs/mart/daily_runs"))
+    assert ('change the line to location="hdfs://namenode:8020/data/your_team/mart.db/'
+            'daily_runs/mart/daily_runs",') in verdict
+    relative = Table("mart.relative_daily", columns={"job_id": "bigint", "runs": "bigint",
+                                                     "dt": "string"},
+                     partitioned_by=["dt"], location="mart.db/relative_daily")
+
+    def at(location: str) -> Callable[[str], pd.DataFrame]:
+        answer = formatted(location=location)
+        return lambda hive: answer(hive.replace("relative_daily", "daily_runs"))
+
+    assert str(check_table_reference(relative, query=at("mart.db/relative_daily"))) == (
+        "mart.relative_daily matches its Table reference.")
+    assert "not at mart.db/relative_daily, the folder location= names" in str(
+        check_table_reference(relative, query=at("hdfs://namenode:8020/mart.db/elsewhere")))
 
 
 def test_a_managed_table_is_a_problem() -> None:
@@ -409,8 +454,6 @@ def test_buckets_the_reference_names_but_the_table_hasnt_are_a_problem() -> None
 
 def test_a_query_that_gives_no_location_leaves_the_storage_uncompared() -> None:
     def describe_only(hive: str) -> pd.DataFrame:
-        if hive.startswith("SHOW"):
-            return pd.DataFrame({"partition": ["dt=2026-09-24"]})
         return pd.DataFrame([("job_id", "bigint", ""), ("runs", "bigint", ""),
                              ("dt", "string", ""), ("# Partition Information", None, None),
                              ("dt", "string", "")],

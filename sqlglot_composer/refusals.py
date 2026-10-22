@@ -6,11 +6,10 @@ Statement through but says why a number may come out wrong.
 
 Each Guard and Load limit stops as soon as it can tell. One that sees a single call, like a
 calculation with no name or None in a comparison, stops at that call. One that needs the whole
-Statement, like a GROUP_BY that leaves a column out or a Date partition with no bound, stops
-at statement(...). The dates Load limit and a write that covers more than one day stop at
-to_hive, the row limit stops at run once the rows are back, and by_day(...) refuses any LIMIT
-and any grouping it can't split. A Warning shows at your own join's line. Every
-opt-out is a keyword on one of your own calls.
+Statement, like a GROUP_BY that leaves a column out or a read of a partitioned table that
+filters none of its partition columns, stops at statement(...). The row limit stops at run once
+the rows are back. A Warning shows at your own join's line. Every opt-out is a keyword on one of
+your own calls.
 
 Every message has four parts: what happened, why it matters, the usual fix, and the opt-out as
 code to paste, or none. `four_part_message` builds all of them, so they all read the same way,
@@ -65,9 +64,9 @@ class LoadRefused(Exception):
     Traceback (most recent call last):
     ...
     sqlglot_composer.refusals.LoadRefused:
-      What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
-      Why it matters: The warehouse would read every day the table holds, which can stall the cluster for everyone.
-      Usual fix:      Bound it in WHERE, as in WHERE(between(job_runs.dt, "2026-09-01", "2026-09-24")) or WHERE(last_n_days(job_runs.dt, 7)).
+      What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
+      Why it matters: The warehouse would read every Partition the table holds, which can stall the cluster for everyone.
+      Usual fix:      Filter one of them in WHERE, as in WHERE(equals(job_runs.dt, ...)), or with is_in, between or last_n_days.
       Opt-out:        FROM(job_runs, reads_all_partitions=True)
     """
 
@@ -149,33 +148,6 @@ def guard_time_of_day(call: str, value: object) -> NoReturn:
             "drop the time, so the comparison would not mean what you wrote.",
             fix="Pass the day only (value.date()), or type the column as \"timestamp\" in "
             "its Table reference.",
-            opt_out=None,
-        )
-    )
-
-
-def guard_date_formats_differ(call: str, first: str, first_format: str, first_day: str,
-                              second: str, second_format: str, second_day: str) -> NoReturn:
-    """Two columns of days compared, each written its own way. No opt-out.
-
-    `first` and `second` name the two columns, each with its date_format and a day written
-    that way, such as '20260925'.
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} compares {first}, whose days are written like {first_day!r} "
-            f"(date_format={first_format!r}), with {second}, whose days are written like "
-            f"{second_day!r} (date_format={second_format!r}).",
-            why="Hive compares the days as text, and one day written two ways is two "
-            "different texts, so the comparison means nothing: an equals or a join finds no "
-            "match, and a before or after compares the texts' characters, not their days, so "
-            "it keeps the wrong rows.",
-            fix="Compare days written the same way. First save one table's rows in a Saved "
-            "table whose Table reference writes its days like the other table's: each write "
-            "puts its day into the Saved table written the Saved table's way, so the days then "
-            "match. The intermediate Example project, in the Toolbox download's "
-            "example_projects folder, does this in mart.job_day_costs's Table notebook, "
-            "tables/mart__job_day_costs/mart__job_day_costs.ipynb.",
             opt_out=None,
         )
     )
@@ -301,9 +273,9 @@ def guard_full_join_then_where(joined: str, table: str, condition: str,
             "the rows of both sides that have no match.",
             why=f"A row with no match in {table} has NULL in every {table} column, so this "
             "WHERE throws it away again, and some rows FULL_JOIN kept are lost without a word.",
-            fix="Pick each side's rows, and bound its days, in a derived(...) table of its own, "
-            "then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps the rows with no "
-            "match on that side.",
+            fix="Pick each side's rows, and filter its partition columns, in a derived(...) "
+            "table of its own, then FULL_JOIN the two. In WHERE, is_null(...) of a column keeps "
+            "the rows with no match on that side.",
             opt_out=f"FULL_JOIN({joined}, ON=..., keeps_only_matches=True)",
         )
     )
@@ -349,8 +321,9 @@ def guard_write_lines_up(call: str, table: str, missing: list[str],
             what=f"{call}: " + ", and ".join(problems) + ".",
             why="The warehouse fills a table's columns by position, not by name, so a missing or extra "
             "column would put values in the wrong columns.",
-            fix=f"SELECT every column of {table}'s Table reference except its Date partition, "
-            "each under its own name. The Toolbox puts them in the right order.",
+            fix=f"SELECT every column of {table}'s Table reference, each under its own name, "
+            "except a partition column the write names in partition={...}. The Toolbox puts "
+            "them in the right order, its partition columns last.",
             opt_out=None,
         )
     )
@@ -373,164 +346,20 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
     )
 
 
-def guard_kept_day_without_window(call: str, days: int, kept_by: str,
-                                  date_column: str) -> NoReturn:
-    """A write with no Window may not read several days and keep one above. No opt-out.
-
-    `kept_by` is the column the step above holds to one day with equals(...), and
-    `date_column` the FROM table's Date partition, where the day belongs instead.
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} reads {days} days, and keeps one of them with "
-            f"equals({kept_by}, ...) in a step above.",
-            why="Only a write whose Window looks back on earlier days needs more days than "
-            "the one it writes, so only such a write may read them. Any other write needs "
-            "only that day: the others would be read and thrown away.",
-            fix=f"Keep only the day written where {date_column} is read, with "
-            f"WHERE(equals({date_column}, day)), in place of the equals({kept_by}, ...) above. "
-            "To write several days, send one Statement per day: for day in by_day(s): "
-            "run(day, execute=...).",
-            opt_out=None,
-        )
-    )
-
-
-def guard_kept_day_in_a_whole_table_write(call: str, table: str, kept_by: str) -> NoReturn:
-    """A write into a table with no days may not keep one day in a step above. No opt-out.
-
-    `kept_by` is the column that step holds to one day with equals(...).
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} writes the whole of {table}, which has no days, and keeps one day "
-            f"with equals({kept_by}, ...) in a step above.",
-            why=f"The whole of {table} would be replaced by that one day's rows. Keeping one "
-            "day above is how a write of one day reads the days before it, and a table with "
-            "no days has no day to write.",
-            fix=f"To keep each day's rows, give {table} a Date partition. To write it whole "
-            f"from several days, take out the equals({kept_by}, ...) above.",
-            opt_out=None,
-        )
-    )
-
-
-def guard_one_day_per_write(call: str, days: int, windowed: bool = False) -> NoReturn:
-    """A write fills one day. No opt-out.
-
-    `windowed` is True when the Statement works out a Window, which may read earlier days on
-    purpose: the fix then says how to keep the one day written.
-    """
-    fix = "Send one Statement per day: for day in by_day(s): run(day, execute=...)."
-    if windowed:
-        fix = (f"If its Window reads earlier days on purpose, keep only the day written in the "
-               f"Statement that writes, with WHERE(equals(the_derived_table.dt, day)) on the "
-               f"day column its derived(...) table keeps; help(window) shows how. Otherwise: "
-               f"{fix[0].lower()}{fix[1:]}")
-    raise GuardRefused(
-        four_part_message(
-            what=f"{call} covers {days} days.",
-            why="A write fills one day of the Saved table at a time, so every day's rows "
-            "would land in that one day.",
-            fix=fix,
-            opt_out=None,
-        )
-    )
-
-
-def guard_by_day_limit(step: str, limit: int) -> NoReturn:
-    """by_day can't split a Statement whose LIMIT picks rows across days. No opt-out."""
-    raise GuardRefused(
-        four_part_message(
-            what=f"by_day can't split this Statement: {step} has LIMIT {limit}.",
-            why=f"LIMIT keeps {limit} rows of the whole Statement. Split by day, each day "
-            f"would keep {limit} rows of its own, not the {limit} you asked for.",
-            fix="Run the Statement whole with run(...). If set_load_limits(dates=...) refuses "
-            "it, read fewer days.",
-            opt_out=None,
-        )
-    )
-
-
-def guard_by_day_grouping(step: str, keeping: str, add: str) -> NoReturn:
-    """by_day can't split a Statement that groups across days. No opt-out.
-
-    `keeping` names the Date partition as the step sees it, and `add` says where it goes.
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"by_day can't split this Statement: {step} groups rows without keeping "
-            f"{keeping}.",
-            why="Each day's Statement would give partial groups, and those can't always be "
-            "added back up (a distinct count, for one, can't).",
-            fix=f"{add}, or run the Statement whole with run(...).",
-            opt_out=None,
-        )
-    )
-
-
-def guard_by_day_stack(step: str, call: str) -> NoReturn:
-    """by_day can't split a UNION, INTERSECT or EXCEPT that compares rows across days.
-
-    No opt-out.
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"by_day can't split this Statement: {step} is made by {call}(...), and not "
-            "every Statement it stacks returns the day (the Date partition), under the same "
-            "name.",
-            why=f"{call} compares the rows of all the days it reads. Split into one Statement "
-            "per day, it would compare each day's rows alone, and could give other rows: a "
-            "row found on two days, say, would come back once for each day.",
-            fix=f"Add the day to the SELECT of each Statement of {call}(...), under one name, "
-            "such as job_runs.dt in one and run_alerts.dt in the other (use AS(..., \"dt\") "
-            "where a name differs), or run the Statement whole with run(...).",
-            opt_out=None,
-        )
-    )
-
-
-def guard_by_day_window(call: str, step: str, keeping: str, add: str) -> NoReturn:
-    """by_day can't split a Statement whose Window looks across days. No opt-out.
-
-    `call` is the Window's calculation, such as lag(...); `keeping` names the Date partition
-    as the step sees it, and `add` says where it goes.
-    """
-    raise GuardRefused(
-        four_part_message(
-            what=f"by_day can't split this Statement: {step} works out {call} over a Window "
-            f"whose PARTITION_BY leaves out {keeping}, so it looks across days.",
-            why="Split by day, each day's Statement would see only that day's rows, so the "
-            "Window would stop at the edge of each day: a lag would find no row before the "
-            "day's first, and a running total would start again each day.",
-            fix=f"{add} if it should look within each day. To look back across days, write "
-            "one day at a time: read the day and the days before it in a derived(...) table, "
-            "and keep only the day written with WHERE(equals(the_derived_table.dt, day)) in "
-            "the Statement that writes; help(window) shows how. Or run the Statement whole "
-            "with run(...).",
-            opt_out=None,
-        )
-    )
-
-
 # --- Warnings: each lets the Statement through ---------------------------------------------
 
 
 def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[str] | None,
                           many_matches: bool, derived: bool = False,
-                          date_partition: str | None = None,
-                          matched_with: str | None = None, lost: str | None = None) -> None:
+                          lost: str | None = None) -> None:
     """A join off the joined table's key repeats rows: warn, and still join.
 
-    `date_partition` is the joined table's Date partition, if it has one. When its key holds
-    the Date partition and ON= leaves it out, as on a table that keeps a copy of each row
-    every day, the usual fix is to match the day too, and the message says so, with the day
-    of `matched_with`, the table ON= matches it with. `lost` says where a Derived table
-    lost its Key.
+    `lost` says where a Derived table lost its Key.
     """
     if many_matches:
         return
     on = ", ".join(matched) or "nothing"
+    fix = f"Group {table} first so it has one row per value you join on, and join that."
     if key:
         what = (f"{call}({table}) matches on {on}, but a {table} row is told apart only by "
                 f"its Key ({', '.join(key)}).")
@@ -540,17 +369,9 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
                 f"{lost}.")
     else:
         what = (f"{call}({table}) matches on {on}, but {table} declares no Key, so the "
-                "Toolbox can't tell whether one row matches or several. Declare key=[...] "
-                "in its Table reference.")
-    fix = f"Group {table} first so it has one row per value you join on, and join that."
-    if key and date_partition in key and date_partition not in matched:
-        # The other table's day, guessed to have the same name, as a snapshot's usually does.
-        day = (f"{matched_with}.{date_partition}" if matched_with
-               else "the other table's day")
-        fix = (f"Match the day too, so each row meets its own day's {table} row: "
-               f"ON=all_of(equals(...), equals({table}.{date_partition}, {day})), where "
-               "equals(...) is what ON= has now. If the rows before the join have no day, "
-               f"group {table} first so it has one row per value you join on, and join that.")
+                "Toolbox can't tell whether one row matches or several.")
+        fix += (f" If you know each row matches one {table} row at most, many_matches=True "
+                "is right.")
     message = four_part_message(
         what=what,
         why=f"Each row before the join is repeated once per matching {table} row, so sums "
@@ -718,33 +539,37 @@ def refuse_what_isnt_a_dataframe(result: object) -> None:
 # --- Load limits: each protects the cluster or the notebook --------------------------------
 
 
-def load_limit_date_bound(call: str, table: str, full_name: str, date_partition: str,
-                          reads_all_partitions: bool, full_join: bool = False) -> None:
-    """Every read of a partitioned table bounds its Date partition at both ends.
+def load_limit_partition_bound(call: str, table: str, full_name: str,
+                               partitioned_by: list[str], reads_all_partitions: bool,
+                               full_join: bool = False) -> None:
+    """Every read of a partitioned table filters at least one of its partition columns.
 
-    `full_join` is True for a side of a FULL_JOIN, whose days only a Derived table can bound.
+    `partitioned_by` is the table's partition columns. `full_join` is True for a side of a
+    FULL_JOIN, whose Partitions only a Derived table can filter.
     """
     if reads_all_partitions:
         return
-    column = f"{table}.{date_partition}"
+    column = f"{table}.{partitioned_by[0]}"
     if full_join:
         # The FULL_JOIN's own table, or one read before it, such as the table in FROM.
         clause = call.split("(")[0]
         then = ("FULL_JOIN that" if clause == "FULL_JOIN"
                 else f"read that in {clause}(...) in its place")
-        fix = (f"Read {table} through a derived(...) table that bounds its days in its own "
-               f"WHERE, and {then}: FULL_JOIN keeps every row of both sides, so a bound in ON= "
-               "reads every day all the same, and one in WHERE throws away the rows it keeps.")
+        fix = (f"Read {table} through a derived(...) table that filters one of them in its own "
+               f"WHERE, and {then}: FULL_JOIN keeps every row of both sides, so a filter in ON= "
+               "reads every Partition all the same, and one in WHERE throws away the rows it "
+               "keeps.")
     elif call.startswith(("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")):
-        fix = f"Bound it inside ON=, as in ON=all_of(equals(...), last_n_days({column}, 7))."
+        fix = (f"Filter one of them inside ON=, as in "
+               f"ON=all_of(equals(...), equals({column}, ...)).")
     else:
-        fix = (f'Bound it in WHERE, as in WHERE(between({column}, "2026-09-01", "2026-09-24")) '
-               f"or WHERE(last_n_days({column}, 7)).")
+        fix = (f"Filter one of them in WHERE, as in WHERE(equals({column}, ...)), or with "
+               "is_in, between or last_n_days.")
     raise LoadRefused(
         four_part_message(
-            what=f"{call} reads {full_name}, but nothing bounds its Date partition "
-            f"{date_partition} at both ends.",
-            why="The warehouse would read every day the table holds, which can stall the "
+            what=f"{call} reads {full_name}, but filters none of its partition columns: "
+            f"{', '.join(partitioned_by)}.",
+            why="The warehouse would read every Partition the table holds, which can stall the "
             "cluster for everyone.",
             fix=fix,
             opt_out=f"{call[:-1]}, reads_all_partitions=True)",
@@ -781,33 +606,8 @@ def load_limit_rows(rows: int, limit: int) -> None:
             "set_load_limits(rows=...).",
             why="The result was probably cut short, so anything computed from it would be "
             "missing rows.",
-            fix="Narrow the Statement (fewer days, more WHERE), or loop over by_day(...).",
+            fix="Narrow the Statement with more WHERE, or read it in parts, such as a "
+            "Partition at a time.",
             opt_out="statement(..., returns_all_rows=True)",
-        )
-    )
-
-
-def load_limit_dates(call: str, full_name: str, days: int, cap: int,
-                     reads_all_partitions: bool, split_by_day: bool) -> None:
-    """With set_load_limits(dates=...), one Statement may read at most that many days of a
-    table.
-
-    `split_by_day` is whether by_day splits this table's days: only the table in FROM's.
-    """
-    if reads_all_partitions or days <= cap:
-        return
-    if split_by_day:
-        fix = "Send one day at a time: for day in by_day(s): run(day, query=...)."
-    else:
-        fix = (f"Narrow the between(...) or last_n_days(...) on {full_name}'s Date "
-               f"partition, in WHERE or ON=, to {cap} or fewer days. by_day won't help: it "
-               "splits only the days of the table in FROM.")
-    raise LoadRefused(
-        four_part_message(
-            what=f"{call} reads {days} days of {full_name}, more than the {cap} set by "
-            "set_load_limits(dates=...).",
-            why="One Statement over many days can run for a long time and stall the cluster.",
-            fix=fix,
-            opt_out=f"{call[:-1]}, reads_all_partitions=True)",
         )
     )

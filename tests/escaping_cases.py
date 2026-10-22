@@ -9,8 +9,8 @@ escape table, trees.HIVE_ESCAPES (see the research behind
 
 `sqlglot_checks/test_sqlglot_escaping_cases.py` checks them against sqlglot alone. The
 Toolbox's tests push the same cases through every way a value reaches a Statement: each
-comparison function, both ends of a range, each item of a list, a Date partition bound, and the
-PARTITION of an `INSERT_OVERWRITE`. v1's tests also proved two things these cases can't, because they are
+comparison function, both ends of a range, each item of a list, a partition column's value,
+and the PARTITION an `INSERT_OVERWRITE` names. v1's tests also proved two things these cases can't, because they are
 about the Toolbox's code rather than sqlglot's:
 
 - **One place generates SQL.** The Toolbox calls `.sql()` in exactly one function, with

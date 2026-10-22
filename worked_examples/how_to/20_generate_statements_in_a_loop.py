@@ -138,8 +138,8 @@ The three differ only in their last line, the team.
 
 ### One Statement per table
 
-How many rows does each table hold per day? The question is the same for every table whose
-Date partition is dt, so the function takes the table itself, a Table reference, as an
+How many rows does each table hold per day? The question is the same for every table
+partitioned by its day, dt, so the function takes the table itself, a Table reference, as an
 argument:
 
 >>> def rows_per_day(table: Table, first_day: str, last_day: str) -> Statement:
@@ -238,7 +238,7 @@ Traceback (most recent call last):
 ...
 AttributeError: job_runs has no column 'statsu'. Did you mean 'status'? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
 
-### A table without a Date partition in the loop
+### A table with no dt in the loop
 
 `rows_per_day` reads each table's `table.dt`, so a table with no days, such as `ops.jobs`, stops the
 loop at that table:
@@ -269,7 +269,8 @@ condition to build.
 
 - Catch a refusal inside a loop, note it and go on, and when an opt-out is right:
   [Guards, Warnings and opt-outs](#guards_warnings_and_opt_outs).
-- Write one Saved table's days in a loop: [Backfill a range of days](#backfill_a_range_of_days).
+- Write a Saved table's days, a day at a time in a loop:
+  [Backfill a range of days](#backfill_a_range_of_days).
 - Checks of your data, such as no repeated keys or no missing values, as Statements:
   [Check data quality with Statements](#check_data_quality).
 - Table references and Statements made from a file of settings:

@@ -4,30 +4,41 @@ Why: mart.job_day_costs saves these numbers, and writing them once here means a 
 day, or another table, adds them up the same way.
 
 ops.region_costs writes its days like 20260924, where the project's other tables write
-2026-09-24, and its Table reference says so with date_format="%Y%m%d". The days here are
-handed to between(...) as a datetime.date, which the Toolbox writes the table's own way:
-datetime.date(2026, 9, 24) is written '20260924'. Written "2026-09-24", the day would be
-refused, since it would match none of the table's days.
+2026-09-24. A day is compared as it is written, so the days asked for, like "2026-09-24", are
+written the table's way first, like "20260924", and the day each row holds is written back the
+project's way, like 2026-09-24, as dt.
 
-The table is partitioned by region, then by its Date partition, dt, and only the Date
-partition must be bounded: reading every region is what this needs, and a job billed in two
-regions has a row in each, which this adds up.
+The table is partitioned by region, then dt, and a read must filter one of them: this filters
+dt, since reading every region is what this needs, and a job billed in two regions has a row in
+each, which this adds up.
 """
 
-import datetime
-
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Table, between, derived, statement, sum_of,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Column, Table, between, derived, hive_function,
+    statement, sum_of,
 )
 from references.ops__region_costs import region_costs
+
+
+def as_written_here(day: str) -> str:
+    """A day written like ops.region_costs writes it: as_written_here("2026-09-24") is
+    "20260924"."""
+    return day.replace("-", "")
+
+
+def dashed(day: Column) -> Column:
+    """A day column written like 20260924, written like 2026-09-24 instead, in Hive."""
+    return hive_function("concat", hive_function("substr", day, 1, 4), "-",
+                         hive_function("substr", day, 5, 2), "-",
+                         hive_function("substr", day, 7, 2))
 
 
 def costs_per_job_day(first_day: str, last_day: str) -> Table:
     """One row per job and day it was billed from first_day to last_day: its cost in cents.
 
-    first_day and last_day are written like "2026-09-24", as everywhere else in the project.
-    The day each row holds, region_costs.dt, is written the table's way, like 20260924; a
-    Saved table writes the day in its own way, so mart.job_day_costs saves them as 2026-09-24.
+    first_day and last_day are written like "2026-09-24", as everywhere else in the project,
+    and so is dt, the day each row holds, so mart.job_day_costs saves its days like
+    2026-09-24 too.
 
     sum_of leaves out NULL, so a day whose only bill hasn't come in yet is NULL, not 0: no
     cost is known yet, which isn't the same as costing nothing.
@@ -35,11 +46,11 @@ def costs_per_job_day(first_day: str, last_day: str) -> Table:
     return derived(
         "costs_per_job_day",
         statement(
-            SELECT(region_costs.job_id, region_costs.dt,
-                   AS(sum_of(region_costs.cost_cents), "cost_cents")),
+            SELECT(region_costs.job_id, AS(sum_of(region_costs.cost_cents), "cost_cents"),
+                   AS(dashed(region_costs.dt), "dt")),
             FROM(region_costs),
-            WHERE(between(region_costs.dt, datetime.date.fromisoformat(first_day),
-                          datetime.date.fromisoformat(last_day))),
-            GROUP_BY(region_costs.job_id, region_costs.dt),
+            WHERE(between(region_costs.dt, as_written_here(first_day),
+                          as_written_here(last_day))),
+            GROUP_BY(region_costs.job_id, "dt"),  # "dt": the day as SELECT writes it
         ),
     )
