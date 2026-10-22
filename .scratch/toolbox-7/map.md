@@ -205,6 +205,12 @@ Toolbox files and 198 times in 23 test files.
   kinds.py, marked by each maker, asked by every reader.
 - [11 One notebook reader](issues/11-one-notebook-reader.md): notebooks.py; load refuses a
   broken notebook.
+- [12 Project file kinds](issues/12-project-file-kinds.md): project_files.py, the registry
+  read and written once per action; the lossy `__` stem pinned, not changed.
+- [13 A Table description](issues/13-table-description.md): describe.py reads and prints
+  DESCRIBE; a StandIn warehouse answers the Example database's and the tests'.
+- [14 Partitions named](issues/14-partitions-named.md): one partitions_named check;
+  compute_statistics refuses what a write refuses.
 
 ## Not yet specified
 

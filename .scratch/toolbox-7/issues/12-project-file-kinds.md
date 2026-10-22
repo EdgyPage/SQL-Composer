@@ -1,7 +1,7 @@
 # Project file kinds: one module for the registry and each kind of Project file
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 11
 Size: M
 
@@ -39,3 +39,30 @@ registry's rows itself, and `tests/test_project.py` parses registry.csv itself.
   (with a test that pins today's behaviour), not changed, unless the fix is a refusal at the
   one place such a name enters.
 - No public name added.
+
+## Answer
+
+Built 2026-10-22 in a worktree (d998913), merged into dev as 7df6dbd; review fixes 14364f4.
+`sqlglot_composer/project_files.py`: `FileKind` (kind, label, folder, is_folder, by_table,
+remover, named_as, writes_databases; stem, name_of, shown, path, found, archive) with
+`TABLE_FOLDER`, `REFERENCE`, `BUILDING_BLOCK` in `KINDS`; `Registry(root)` read once
+(`rows`, `in_force`, `listed`, `add`, `mark_removed`); `table_stem`, `kinds_named_by`,
+`table_notebook`, `table_references`, `is_database_module`, `start_registry`. The ten Project
+actions ask it; an action reads registry.csv once and writes it once.
+
+The lossy stem is kept and pinned by tests: a Database whose name holds `__` or ends in `_`
+reads back as another name (`my__db.jobs` as `my.db__jobs`), as before; names enter in several
+places, so a refusal at "the one place" wasn't possible.
+
+## Reviews
+
+- Spec (2026-10-22): `writes_databases` now decides register's rewrite; add_references
+  writes the registry once; references/ named through `REFERENCE.folder`; check() again lists
+  a Building block whose first line looks like a Database module's (only references/ leaves
+  those out). new_table and add_references rewrite the Database modules always, as they
+  only ever make references: answered.
+- Standards (2026-10-22): no breach. Fixed: `_now()` read once in `_remove`; `list_it` is
+  `add`. Answered: `FileKind` is a class with fields, against "plain function wins", because
+  the ticket asked for each kind as data in one place; users never meet it.
+- Beginner reader (2026-10-22): the Project actions' reports read as before.
+- Drift: 7df6dbd and 14364f4 clean.

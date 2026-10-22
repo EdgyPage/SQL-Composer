@@ -1,7 +1,7 @@
 # A Table description: reading DESCRIBE once, and printing it for stand-ins
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 11
 Size: M
 
@@ -40,3 +40,29 @@ written by hand at least six times: `example_database._describe`, `tools/hive_co
   setups of it, unless a fake needs a malformed answer on purpose (then it says so).
 - What a user sees doesn't change: the same verdicts, refusals and Example database answers.
 - No public name added.
+
+## Answer
+
+Built 2026-10-22 in a worktree (feff124), merged into dev as 0140971; drift fix 9d179fc;
+review fixes adcc673. `sqlglot_composer/describe.py`: `Description`, `ask`, `read`,
+`printed(description, formatted, way)` in `WAYS` ("hive3", "compact", "partitioning"),
+`of_table`, `StandIn`. check_table_reference, write_table_reference, admin.add_columns,
+move_to_own_folder and check_the_copy read DESCRIBE through it; admin imports no private
+name from tables (`same_folder`, `column_definition`). The Example database's DESCRIBE and
+SHOW PARTITIONS come from a StandIn, its column comments now its Table references'
+`descriptions=`; hive_corpus_cases, tools/hive_corpus and the test fakes are StandIn setups.
+Kept by hand, on purpose: a DESCRIBE listing no column, and one with a section StandIn never
+prints. Round-trip tests per way in tests/test_describe.py.
+
+## Reviews
+
+- Spec (2026-10-22): nothing missing or wrong; the Example tables' comments moving into
+  `descriptions=` is what lets the stand-in print them.
+- Standards (2026-10-22): fixed: each DESCRIBE header spelled once (Hive's), read lowered;
+  `COLUMNS` is `DESCRIBE_COLUMNS`, `_number` `_bucket_count`. Answered: "Description",
+  "stand-in" and "way" live only in a private module, not the user's glossary; `of_table`
+  reads Table's fields, and describe.py and tables.py import each other, rather than putting
+  printing back into tables.py; loose dicts and `way` as text stay plain values.
+- Beginner reader (2026-10-22): check_table_reference's and write_table_reference's verdicts
+  read as before.
+- Drift: 0140971 opened D253 (of_table's docstring), closed by 9d179fc; adcc673 clean.
