@@ -31,6 +31,7 @@ from sqlglot_composer import (
     unchecked_hive,
 )
 from sqlglot_composer import admin
+from sqlglot_composer.describe import StandIn, of_table
 from sqlglot_composer.example_database import job_runs
 
 kinds = toolbox_module("kinds")
@@ -79,15 +80,8 @@ def test_each_maker_marks_its_kind_and_the_call_that_sends_it(
 def test_each_step_of_a_move_is_an_admin_statement() -> None:
     """move_to_own_folder's first step is made by create_table, then marked as the admin
     module's."""
-    def described(hive: str) -> pd.DataFrame:
-        return pd.DataFrame([
-            ("run_id", "bigint", ""), ("# Partition Information", None, None),
-            ("dt", "string", ""), ("# Detailed Table Information", None, None),
-            ("Location:", "hdfs://namenode:8020/data/your_team/tables", None),
-            ("Table Type:", "EXTERNAL_TABLE", None),
-        ], columns=["col_name", "data_type", "comment"])
-
-    moves = admin.move_to_own_folder(daily_runs, query=described)
+    shared = StandIn(of_table(daily_runs, location="hdfs://namenode:8020/data/your_team/tables"))
+    moves = admin.move_to_own_folder(daily_runs, query=shared)
     assert [kinds.kind(step) for step in moves] == ["admin", "admin"]
 
 

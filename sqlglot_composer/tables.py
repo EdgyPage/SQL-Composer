@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, NoReturn
 import numpy as np
 import pandas as pd
 
-from . import _FOLDER, kinds
+from . import _FOLDER, describe, kinds
 from .writing import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -34,7 +34,6 @@ from .refusals import (
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
-    kind_name,
     need_warehouse_call,
     refuse,
     refuse_removed_arguments,
@@ -61,11 +60,6 @@ TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
 # The partition Hive lists for the rows whose partition column is NULL.
 ROWS_WITH_NO_VALUE = "__HIVE_DEFAULT_PARTITION__"
-# DESCRIBE's headers: the partition list and its own column header, and the partitioning a
-# newer kind of table lists, one row per column or function of a column.
-PARTITION_INFORMATION = "# partition information"
-COLUMN_HEADER = "# col_name"
-PARTITIONING = "# partitioning"
 
 NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "decimal",
                 "numeric", "real")
@@ -1019,104 +1013,6 @@ class Verdict:
     __str__ = __repr__
 
 
-def _ask(query: object, hive: str, call: str) -> pd.DataFrame:
-    """Send DESCRIBE through `query`, and refuse an answer that can't be read."""
-    need_warehouse_call(call, "query", query, "It sends DESCRIBE to the warehouse, and reads "
-                        "what the warehouse prints back.")
-    frame = query(hive)
-    if not isinstance(frame, pd.DataFrame):
-        refuse(
-            what=f"{call}: query gave back "
-            f"{'None' if frame is None else kind_name(frame)} for {hive}.",
-            why="It reads what the warehouse prints, as a pandas DataFrame.",
-            fix="Make your query return the warehouse's answer as a DataFrame, as run_query(...) needs too.",
-        )
-    if len(frame.columns) == 0:
-        refuse(
-            what=f"{call}: query gave back a DataFrame with no columns for {hive}.",
-            why="It reads what the warehouse prints, and there is nothing in it to read.",
-            fix="Make your query return the warehouse's answer as it prints it.",
-            error=ValueError,
-        )
-    return frame
-
-
-class Described:
-    """What DESCRIBE, or DESCRIBE FORMATTED, says of a table.
-
-    `details` holds DESCRIBE FORMATTED's lines about the table, such as its Location, by their
-    labels in lower case without a colon, and `properties` its table properties, which Hive
-    lists a line each, and other warehouses may list on one line, as [name=value, ...].
-    """
-
-    def __init__(self) -> None:
-        self.columns, self.comments, self.partitions = {}, {}, []
-        self.details, self.properties = {}, {}
-
-
-def _cell(row: tuple[object, ...], at: int) -> str:
-    """One cell of what the warehouse printed, as text, "" where it is empty."""
-    value = row[at] if len(row) > at else None
-    text = "" if value is None else str(value).strip()
-    return "" if text in ("None", "nan") else text
-
-
-def _describe(name: str, query: object, call: str, formatted: bool = False) -> Described:
-    """Send DESCRIBE, or DESCRIBE FORMATTED: the columns with types, their comments, the
-    partition columns, and, formatted, the table's details and properties."""
-    command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
-    frame = _ask(query, f"{command} {hive_text(table_node(name))}", call)
-    found = Described()
-    # The columns come first; each header after them, bar the partition list's own column
-    # header, starts a section, and only the partition sections name partition columns.
-    section, label = "columns", ""
-    for row in frame.itertuples(index=False):
-        column, kind, comment = _cell(row, 0), _cell(row, 1), _cell(row, 2)
-        if column.startswith("#"):
-            if column.lower() != COLUMN_HEADER:
-                section = column.lower()
-            continue
-        if section in DETAILS:
-            if column:
-                label = column.rstrip(":").strip().lower()
-            _read_detail(found, label, column, kind, comment)
-            continue
-        if not column:
-            continue
-        if section == "columns" and column not in found.columns:
-            found.columns[column] = kind
-            found.comments[column] = comment
-        elif section == PARTITION_INFORMATION:
-            found.partitions.append(column)
-            # DESCRIBE FORMATTED in Hive lists a partition column only here.
-            found.columns.setdefault(column, kind)
-            found.comments.setdefault(column, comment)
-        elif section == PARTITIONING and SIMPLE_NAME.fullmatch(kind):
-            found.partitions.append(kind)
-    return found
-
-
-# DESCRIBE FORMATTED's sections about the table itself.
-DETAILS = ("# detailed table information", "# storage information")
-
-
-def _read_detail(found: Described, label: str, column: str, kind: str, comment: str) -> None:
-    """Keep one line of DESCRIBE FORMATTED's details: a labelled value, or, under Hive's
-    "Table Parameters:", a table property on a line of its own."""
-    if column:
-        found.details[label] = kind
-        if label == "table properties":  # all on one line: [name=value, name=value]
-            pieces = []
-            for piece in kind.strip().removeprefix("[").removesuffix("]").split(", "):
-                if "=" in piece or not pieces:
-                    pieces.append(piece)
-                else:
-                    pieces[-1] += ", " + piece
-            found.properties.update(piece.split("=", 1) for piece in pieces if "=" in piece)
-    elif label == "table parameters" and kind:
-        found.properties[kind] = comment
-
-
 def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
                           folder: str | Path | None = None, **removed: object) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
@@ -1213,8 +1109,9 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             error=FileExistsError,
         )
     call = f"write_table_reference({name!r}, ...)"
-    described = _describe(name, query, call)
-    columns, comments, partitions = described.columns, described.comments, described.partitions
+    described = describe.ask(name, query, call)
+    columns, comments = described.columns, described.descriptions
+    partitions = described.partitioned_by
     if not columns:
         refuse(
             what=f"{call}: DESCRIBE {name} listed no columns.",
@@ -1463,12 +1360,12 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     saved = t._location is not None
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
     try:
-        described = _describe(t._name, query, "check_table_reference(...)", formatted=saved)
+        described = describe.ask(t._name, query, "check_table_reference(...)", formatted=saved)
     except Exception as error:  # it reports, and never raises: see the docstring
         return Verdict(False, [f"{t._name}: {command} failed, so nothing was compared. Check "
                                "the table's name, and that your query works. It said:",
                                *_said(error)])
-    columns, partitions = described.columns, described.partitions
+    columns, partitions = described.columns, described.partitioned_by
     if not columns:
         return Verdict(False, [f"{t._name}: {command} listed no columns, so nothing was "
                                "compared. Check the table's name, and that your query returns what "
@@ -1531,19 +1428,18 @@ def _said(error: Exception) -> list[str]:
 _SET_IT = "or set it with admin.set_properties(t)"
 
 
-def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[str]]:
+def _storage_problems(t: Table, described: describe.Description) -> tuple[list[str], list[str]]:
     """The problems, and the notes, from comparing a Saved table's storage with what
     DESCRIBE FORMATTED says of the table."""
-    details, properties = described.details, described.properties
-    if "location" not in details:
+    if described.location is None:
         # Not a note: nothing below was compared, so the table can't be said to match.
         return ["DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check "
                 "that your query returns everything DESCRIBE FORMATTED prints."], []
     problems, notes = [], []
-    managed = "MANAGED" in (details.get("table type") or details.get("type") or "").upper()
+    managed = described.managed
     # A table the move can take to its own folder, writing it again as its Table reference
     # says; one at its own folder already is written again there instead.
-    fix = MOVE_IT if managed or not _same_folder(details["location"], t._location) else (
+    fix = MOVE_IT if managed or not same_folder(described.location, t._location) else (
         WRITE_IT_AGAIN)
     if managed:
         # Its folder is the warehouse's choice, so this says all the folder check would.
@@ -1552,9 +1448,9 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
                         f"own: {MOVE_IT}, which copies its rows into a table create_table "
                         "makes.")
     else:
-        location_problems, notes = _location_problems(t, details["location"])
+        location_problems, notes = _location_problems(t, described.location)
         problems += location_problems
-    stored_as = _stored_as(details.get("inputformat", ""))
+    stored_as = described.stored_as
     if stored_as is not None and stored_as != t._stored_as:
         problems.append(f"the table is stored as {stored_as}: change the line to "
                         f'stored_as="{stored_as}",' if stored_as in FILE_FORMATS else
@@ -1562,7 +1458,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
                         f"or Parquet (its InputFormat is {stored_as}): {fix}"
                         + (", which writes it again as its Table reference says." if
                            fix is MOVE_IT else "."))
-    problems += _property_problems(t, properties)
+    problems += _property_problems(t, described.properties)
     problems += _buckets_problems(t, described)
     return problems, notes
 
@@ -1604,7 +1500,7 @@ def _location_problems(t: Table, location: str) -> tuple[list[str], list[str]]:
     if "${" in t._location:
         return [], [f"location= holds a Hive variable, so its folder wasn't compared; the "
                     f"table is at {location}."]
-    if _same_folder(location, t._location):
+    if same_folder(location, t._location):
         return [], []
     return [f"it is at {location}, not at {t._location}, the folder location= names: change "
             f'the line to location="{location}", if that is the own folder of the table. '
@@ -1612,7 +1508,7 @@ def _location_problems(t: Table, location: str) -> tuple[list[str], list[str]]:
             f"{MOVE_IT[0].upper()}{MOVE_IT[1:]}."], []
 
 
-def _same_folder(found: str, wanted: str) -> bool:
+def same_folder(found: str, wanted: str) -> bool:
     """Whether two folders are one: the warehouse writes a Location in full, as
     hdfs://namenode:8020/data/..., where a Table reference may write /data/... alone."""
     found_parts, wanted_parts = urllib.parse.urlsplit(found), urllib.parse.urlsplit(wanted)
@@ -1623,38 +1519,12 @@ def _same_folder(found: str, wanted: str) -> bool:
     return found_parts.path.rstrip("/") == wanted_parts.path.rstrip("/")
 
 
-def _stored_as(input_format: str) -> str | None:
-    """The file format DESCRIBE FORMATTED's InputFormat reads: ORC, PARQUET, the InputFormat
-    itself for another, or None when it lists none."""
-    if not input_format:
-        return None
-    for name in FILE_FORMATS:
-        if name.lower() in input_format.lower():
-            return name
-    return input_format
-
-
-def _listed_names(text: str) -> list[str]:
-    """The columns of DESCRIBE FORMATTED's Bucket Columns or Sort Columns: Hive's [a, b] or
-    [Order(col:a, order:1)], or [`a`, `b`]."""
-    if "col:" in text:
-        return [name.lower() for name in re.findall(r"col:\s*([^,)\s]+)", text)]
-    inner = text.strip().removeprefix("[").removesuffix("]")
-    return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
-
-
-def _buckets_problems(t: Table, described: Described) -> list[str]:
+def _buckets_problems(t: Table, described: describe.Description) -> list[str]:
     """The problems from comparing the Buckets. The Partitions are compared for every table,
     by _partition_problems."""
     problems = []
-    try:
-        number = int(described.details.get("num buckets", "-1"))
-    except ValueError:
-        number = -1
     # The warehouse lists column names in lower case, so they are compared so.
-    in_the_table = ((number, _listed_names(described.details.get("bucket columns", "")),
-                     _listed_names(described.details.get("sort columns", "")))
-                    if number > 0 else (None, [], []))
+    in_the_table = (described.buckets, described.bucketed_by, described.sorted_by)
     in_the_reference = (t._buckets, [c.lower() for c in t._bucketed_by],
                         [c.lower() for c in t._sorted_by])
     if in_the_table != in_the_reference:
@@ -1750,8 +1620,8 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
             error=ValueError,
         )
     partitions = partition_columns(t)
-    columns = [_column_definition(t, c) for c in t._columns if c not in partitions]
-    partitioned_by = [_column_definition(t, c) for c in partitions]
+    columns = [column_definition(t, c) for c in t._columns if c not in partitions]
+    partitioned_by = [column_definition(t, c) for c in partitions]
     if t._location is None:
         refuse(
             what=f"create_table({t._alias}): its Table reference has no location=.",
@@ -1791,7 +1661,7 @@ _NEAREST_TYPE = {
 _NEEDS_LENGTH = ("varchar", "char")
 
 
-def _column_definition(t: Table, column: str, call: str | None = None) -> Node:
+def column_definition(t: Table, column: str, call: str | None = None) -> Node:
     """One column of CREATE TABLE, its type checked now, so a wrong one stops create_table, or
     `call`, such as admin.add_columns(...), which adds it."""
     call = call or f"create_table({t._alias})"

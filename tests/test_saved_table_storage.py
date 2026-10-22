@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-import pandas as pd
 import pytest
 
 from sqlglot_composer import (
@@ -37,6 +36,7 @@ from sqlglot_composer import (
     to_hive,
 )
 from sqlglot_composer.clauses import Clause
+from sqlglot_composer.describe import WAYS, Description, StandIn
 from sqlglot_composer.example_database import job_runs, jobs
 
 DAILY_RUNS = "/data/your_team/mart.db/daily_runs"
@@ -280,76 +280,43 @@ def test_a_write_naming_every_partition_needs_no_setting() -> None:
 
 # --- check_table_reference compares the storage with DESCRIBE FORMATTED -----------------------
 
-ORC_INPUT = "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat"
-PARQUET_INPUT = "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat"
+
+def formatted(location: str | None = "hdfs://namenode:8020/data/your_team/mart.db/daily_runs",
+              managed: bool = False, properties: dict[str, str] | None = None,
+              stored_as: str = "ORC", partitions: tuple[str, ...] = ("dt",),
+              buckets: int | None = None, bucketed_by: Sequence[str] = (),
+              sorted_by: Sequence[str] = (), way: str = "hive3",
+              name: str = "mart.daily_runs") -> StandIn:
+    """A stand-in for `query` at work, holding mart.daily_runs, or `name`, as DESCRIBE
+    FORMATTED describes it, printed the way `way` names (by default Hive 3's), at
+    `location`, or listing none when it is None."""
+    columns = {"job_id": "bigint", "runs": "bigint", **{column: "string" for column in partitions}}
+    return StandIn(Description(
+        name, columns, partitioned_by=list(partitions), location=location, managed=managed,
+        stored_as=stored_as, buckets=buckets, bucketed_by=list(bucketed_by),
+        sorted_by=list(sorted_by),
+        properties={"EXTERNAL": "TRUE"} if properties is None else properties), way=way)
 
 
-def formatted(location: str = "hdfs://namenode:8020/data/your_team/mart.db/daily_runs",
-              kind: str = "EXTERNAL_TABLE",
-              parameters: Sequence[tuple[str, str]] = (("EXTERNAL", "TRUE"),),
-              input_format: str = ORC_INPUT, partitions: tuple[str, ...] = ("dt",),
-              buckets: int = -1, bucket_columns: str = "[]", sort_columns: str = "[]",
-              one_line: bool = False) -> Callable[[str], pd.DataFrame]:
-    """A stand-in for `query` at work, answering DESCRIBE FORMATTED for mart.daily_runs as Hive 3
-    prints it, or as some warehouses do, with the table properties on one line."""
-    columns = [("job_id", "bigint"), ("runs", "bigint")]
-
-    def query(hive: str) -> pd.DataFrame:
-        assert hive == "DESCRIBE FORMATTED mart.daily_runs", hive
-        typed = [(name, "string") for name in partitions]
-        if one_line:
-            rows = [(name, kind_, None) for name, kind_ in columns + typed]
-        else:
-            rows = [("# col_name", "data_type", "comment"), *[(n, k, "") for n, k in columns],
-                    ("", None, None)]
-        rows += [("# Partition Information", None, None), ("# col_name", "data_type", "comment"),
-                 *[(name, kind_, "") for name, kind_ in typed], ("", None, None),
-                 ("# Detailed Table Information", None, None)]
-        if one_line:
-            listed = ", ".join(f"{name}={value}" for name, value in parameters)
-            rows += [("Database", "mart", ""), ("Type", kind.replace("_TABLE", ""), ""),
-                     ("Table Properties", f"[{listed}]", ""), ("Location", location, ""),
-                     ("InputFormat", input_format, "")]
-            if buckets > 0:
-                rows += [("Num Buckets", str(buckets), ""),
-                         ("Bucket Columns", bucket_columns, ""),
-                         ("Sort Columns", sort_columns, "")]
-        else:
-            rows += [("Database:", "mart", None), ("Location:", location, None),
-                     ("Table Type:", kind, None), ("Table Parameters:", None, None),
-                     *[("", name, value) for name, value in parameters],
-                     ("", "transient_lastDdlTime", "1760000000"), ("", None, None),
-                     ("# Storage Information", None, None),
-                     ("InputFormat:", input_format, None), ("Num Buckets:", str(buckets), None),
-                     ("Bucket Columns:", bucket_columns, None),
-                     ("Sort Columns:", sort_columns, None),
-                     ("Storage Desc Params:", None, None),
-                     ("", "serialization.format", "1")]
-        return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-
-    return query
-
-
-def checked(query: Callable[[str], pd.DataFrame], **storage: object) -> str:
+def checked(query: StandIn, **storage: object) -> str:
     return str(check_table_reference(saved(**storage), query=query))
 
 
-@pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
-def test_a_saved_table_stored_as_its_reference_says_matches(one_line: bool) -> None:
-    location = ("file:/data/your_team/mart.db/daily_runs" if one_line
-                else "hdfs://namenode:8020/data/your_team/mart.db/daily_runs")
-    assert checked(formatted(location=location, one_line=one_line)) == (
+@pytest.mark.parametrize("way", WAYS)
+def test_a_saved_table_stored_as_its_reference_says_matches(way: str) -> None:
+    location = ("hdfs://namenode:8020/data/your_team/mart.db/daily_runs" if way == "hive3"
+                else "file:/data/your_team/mart.db/daily_runs")
+    assert checked(formatted(location=location, way=way)) == (
         "mart.daily_runs matches its Table reference.")
 
 
-@pytest.mark.parametrize("one_line", [False, True], ids=["hive", "one_line"])
-def test_every_storage_option_is_compared(one_line: bool) -> None:
-    query = formatted(one_line=one_line, parameters=[("external.table.purge", "true"),
-                                              ("parquet.compression", "SNAPPY"),
-                                              ("made_by", "runs")],
-                     input_format=PARQUET_INPUT, partitions=("dt", "region"), buckets=8,
-                     bucket_columns="[`job_id`]" if one_line else "[job_id]",
-                     sort_columns="[`job_id`]" if one_line else "[Order(col:job_id, order:1)]")
+@pytest.mark.parametrize("way", WAYS)
+def test_every_storage_option_is_compared(way: str) -> None:
+    query = formatted(way=way, properties={"external.table.purge": "true",
+                                                   "parquet.compression": "SNAPPY",
+                                                   "made_by": "runs"},
+                      stored_as="PARQUET", partitions=("dt", "region"), buckets=8,
+                      bucketed_by=["job_id"], sorted_by=["job_id"])
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "runs": "bigint",
                                           "region": "string", "dt": "string"},
               location=DAILY_RUNS, purge=True, properties={"made_by": "runs"},
@@ -391,13 +358,13 @@ TEXT_INPUT = "org.apache.hadoop.mapred.TextInputFormat"
 def test_a_file_format_the_move_cant_fix_at_its_own_folder_is_written_again_there() -> None:
     """admin.move_to_own_folder refuses a table at its own folder, whose copy would go to the
     same folder: there the fix is to write the table again, not to move it."""
-    at_its_own = checked(formatted(input_format=TEXT_INPUT))
+    at_its_own = checked(formatted(stored_as=TEXT_INPUT))
     assert "admin.move_to_own_folder" not in at_its_own
     assert ("it is at its own folder already, so write it again there: give its Table "
             "reference purge=True and send admin.set_properties(t), drop it with "
             "admin.drop_table(t), create it with create_table(t), and write its rows again "
             "from their source.") in at_its_own
-    shared = checked(formatted(location=SHARED, input_format=TEXT_INPUT))
+    shared = checked(formatted(location=SHARED, stored_as=TEXT_INPUT))
     assert shared.count("admin.move_to_own_folder(t, query=...)") == 2
     assert "write it again there" not in shared
 
@@ -413,9 +380,8 @@ def test_the_folder_is_compared_as_written_with_nothing_added() -> None:
                                                      "dt": "string"},
                      partitioned_by=["dt"], location="mart.db/relative_daily")
 
-    def at(location: str) -> Callable[[str], pd.DataFrame]:
-        answer = formatted(location=location)
-        return lambda hive: answer(hive.replace("relative_daily", "daily_runs"))
+    def at(location: str) -> StandIn:
+        return formatted(location=location, name="mart.relative_daily")
 
     assert str(check_table_reference(relative, query=at("mart.db/relative_daily"))) == (
         "mart.relative_daily matches its Table reference.")
@@ -429,9 +395,9 @@ def test_a_location_holding_a_hive_variable_is_noted_not_compared() -> None:
     variable = Table("mart.variable_daily", columns={"job_id": "bigint", "runs": "bigint",
                                                      "dt": "string"},
                      partitioned_by=["dt"], location="${hivevar:root}/mart.db/variable_daily")
-    answer = formatted(location="hdfs://namenode:8020/data/your_team/mart.db/variable_daily")
-    verdict = check_table_reference(
-        variable, query=lambda hive: answer(hive.replace("variable_daily", "daily_runs")))
+    query = formatted(location="hdfs://namenode:8020/data/your_team/mart.db/variable_daily",
+                      name="mart.variable_daily")
+    verdict = check_table_reference(variable, query=query)
     assert verdict.ok
     assert str(verdict) == (
         "mart.variable_daily matches its Table reference.\n"
@@ -453,27 +419,27 @@ def test_help_says_how_a_location_holding_a_hive_variable_works() -> None:
 
 def test_a_managed_table_is_a_problem() -> None:
     assert ("it is a managed table, whose files the warehouse keeps where it chooses" in
-            checked(formatted(kind="MANAGED_TABLE")))
+            checked(formatted(managed=True)))
 
 
-@pytest.mark.parametrize(("storage", "parameters", "problem"), [
-    ({"purge": True}, [], "external.table.purge isn't true in the table: change the line to "
+@pytest.mark.parametrize(("storage", "properties", "problem"), [
+    ({"purge": True}, {}, "external.table.purge isn't true in the table: change the line to "
      "purge=False, or set it with admin.set_properties(t)"),
-    ({"purge": False}, [("external.table.purge", "TRUE")], "external.table.purge is true in "
+    ({"purge": False}, {"external.table.purge": "TRUE"}, "external.table.purge is true in "
      "the table: change the line to purge=True,"),
-    ({"compression": "ZLIB"}, [("orc.compress", "SNAPPY")], "orc.compress is SNAPPY in the "
+    ({"compression": "ZLIB"}, {"orc.compress": "SNAPPY"}, "orc.compress is SNAPPY in the "
      'table: change the line to compression="SNAPPY",'),
-    ({"compression": "ZLIB"}, [], "the table sets no orc.compress: remove the line "
+    ({"compression": "ZLIB"}, {}, "the table sets no orc.compress: remove the line "
      "compression=..., or set it with admin.set_properties(t)"),
-    ({"properties": {"made_by": "runs"}}, [], "the table has no property 'made_by': remove it "
+    ({"properties": {"made_by": "runs"}}, {}, "the table has no property 'made_by': remove it "
      "from properties=, or set it with admin.set_properties(t)"),
-    ({"properties": {"made_by": "runs"}}, [("made_by", "jobs")], "its property 'made_by' is "
+    ({"properties": {"made_by": "runs"}}, {"made_by": "jobs"}, "its property 'made_by' is "
      "'jobs' in the table: change it in properties= to \"made_by\": \"jobs\","),
 ])
 def test_a_table_property_that_differs_is_a_problem(
-        storage: dict[str, bool | str | dict[str, str]], parameters: list[tuple[str, str]],
+        storage: dict[str, bool | str | dict[str, str]], properties: dict[str, str],
         problem: str) -> None:
-    assert f"  - {problem}" in checked(formatted(parameters=parameters), **storage)
+    assert f"  - {problem}" in checked(formatted(properties=properties), **storage)
 
 
 def test_buckets_the_reference_names_but_the_table_hasnt_are_a_problem() -> None:
@@ -482,13 +448,7 @@ def test_buckets_the_reference_names_but_the_table_hasnt_are_a_problem() -> None
 
 
 def test_a_query_that_gives_no_location_leaves_the_storage_uncompared() -> None:
-    def describe_only(hive: str) -> pd.DataFrame:
-        return pd.DataFrame([("job_id", "bigint", ""), ("runs", "bigint", ""),
-                             ("dt", "string", ""), ("# Partition Information", None, None),
-                             ("dt", "string", "")],
-                            columns=["col_name", "data_type", "comment"])
-
-    assert checked(describe_only) == (
+    assert checked(formatted(location=None)) == (
         "mart.daily_runs differs from its Table reference.\n"
         "Problems:\n"
         "  - DESCRIBE FORMATTED listed no Location, so its storage wasn't compared: check that "
