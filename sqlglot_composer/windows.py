@@ -14,7 +14,7 @@ from typing import NoReturn
 
 from .calculations import Ordering, need_column, ordered
 from .conditions import Condition
-from .refusals import refuse
+from .refusals import is_count, refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
@@ -286,7 +286,7 @@ def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
 
 def _whole_number(value: object, given: str, call: str, what_it_is: str, example: str) -> None:
     """Refuse `value` unless it is a whole number, 1 or more."""
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+    if not is_count(value):
         refuse(
             what=f"{call} was given {given}, which isn't a whole number, 1 or more.",
             why=f"It is {what_it_is}.",
