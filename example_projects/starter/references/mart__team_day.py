@@ -21,9 +21,9 @@ team_day = Table(
         "high_alerts": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["team", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/team_day",  # its own folder
     descriptions={
         "team": "the team that owns the jobs",
         "alerts": "0 when the team's runs raised none",

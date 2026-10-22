@@ -5,7 +5,7 @@ For: Intermediate
 ## Goal
 
 Move a Saved table that shares its folder with other tables into a folder of its own, with
-the admin module: copy its days into a new table at its own folder, compare the two, then
+the admin module: copy it whole into a new table at its own folder, compare the two, then
 drop the old table and give the new one its name. Along the way, meet the admin module, the
 changes to your own Saved tables that the Toolbox writes and checks for you.
 
@@ -14,8 +14,9 @@ changes to your own Saved tables that the Toolbox writes and checks for you.
 When `check_table_reference` says a Saved table isn't at its own folder. That is a table made
 by hand in a folder it shares with other tables, or one `create_table` made before 5.0, a
 managed table, whose files the warehouse keeps where it chooses; a Saved table now keeps its
-files in a folder of its own, under the folder you give. Two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in
-one can delete the other's files for that day, so move each one out before writing it again.
+files in a folder of its own, the one its `location=` names. Two tables in one folder read each
+other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for
+that Partition, so move each one out before writing it again.
 [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the
 folder of its own.
 
@@ -23,7 +24,8 @@ folder of its own.
 
 ### Import the Toolbox and the admin module
 
-The admin module holds the changes to your own Saved tables: dropping one or its old days,
+The admin module holds the changes to your own Saved tables: dropping one or some of its
+Partitions,
 adding columns, setting its properties, and moving it. The star import leaves it out, so you
 import it by name, and it is plain where a notebook changes a table:
 
@@ -33,24 +35,22 @@ import it by name, and it is plain where a notebook changes a table:
 ### Find the table that shares a folder
 
 mart.job_day holds each job's starts and finishes each day. Its Table reference gives it its
-own folder, /data/your_team/tables/mart/job_day:
+own folder, /data/your_team/mart.db/job_day:
 
 >>> job_day = Table(
 ...     "mart.job_day",
 ...     columns={"job_id": "bigint", "starts": "bigint", "finishes": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/job_day",
 ... )
 
 The Example database holds no Saved table, so a stand-in query plays the warehouse at work: it
-answers DESCRIBE FORMATTED and SHOW PARTITIONS for a mart.job_day that was made by hand in
-/data/your_team/tables itself, a folder other tables share:
+answers DESCRIBE FORMATTED for a mart.job_day that was made by hand in /data/your_team/tables,
+a folder other tables share:
 
 >>> import pandas as pd
 >>> def query_at_work(hive: str) -> pd.DataFrame:
-...     if hive.startswith("SHOW PARTITIONS"):
-...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([
 ...         ("job_id", "bigint", ""), ("starts", "bigint", ""), ("finishes", "bigint", ""),
 ...         ("# Partition Information", None, None), ("dt", "string", ""),
@@ -61,30 +61,33 @@ answers DESCRIBE FORMATTED and SHOW PARTITIONS for a mart.job_day that was made 
 >>> check_table_reference(job_day, query=query_at_work)
 mart.job_day differs from its Table reference.
 Problems:
-  - it is at hdfs://namenode:8020/data/your_team/tables, not at its own folder /data/your_team/tables/mart/job_day. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a day in one can delete the other's files for that day. Move it with admin.move_to_own_folder(t, query=...).
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at /data/your_team/mart.db/job_day, the folder location= names: change the line to location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the table. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
+
+Here /data/your_team/tables isn't mart.job_day's own folder, so the line to change isn't the
+Table reference's: the table is the one to move.
 
 ### Check its rows first
 
-The move copies each day as the old table reads it. Where two tables shared a day's folder,
-each read the other's files too, so a day may hold rows that aren't its own. Before you move
-it, check its Key on the newest day with `check_key(job_day, query=...)`, and look at a day you
-know. If the rows are mixed, don't copy them: drop the table with `admin.drop_table`, create it
-with `create_table`, and write its days again from their source, as
-[Backfill a range of days](#backfill_a_range_of_days) does.
+The move copies the table as it reads it. Where two tables shared a folder, each read the other's
+files too, so a day may hold rows that aren't its own. Before you move it, check its Key on the
+newest day with `check_key(job_day, query=..., where=equals(job_day.dt, ...))`, and look at a day
+you know. If the rows are mixed, don't copy them: drop the table with `admin.drop_table`, create it
+with `create_table`, and write its days again from their source, as [Backfill a range of
+days](#backfill_a_range_of_days) does.
 
 ### Build the move
 
-`admin.move_to_own_folder` sends DESCRIBE FORMATTED and SHOW PARTITIONS through your query to
-find where the table is and which days it holds, and gives back the steps that move it, as a
-list of Statements, in order. `show_hive` prints each one, after what it does:
+`admin.move_to_own_folder` sends DESCRIBE FORMATTED through your query to find where the table
+is, and gives back the steps that move it, as a list of Statements, in order. `show_hive`
+prints each one, after what it does:
 
 >>> moves = admin.move_to_own_folder(job_day, query=query_at_work)
 >>> text = show_hive(moves)
--- 1 of 7: moves[0]
+-- 1 of 6: moves[0]
 -- admin.move_to_own_folder(mart.job_day, query=...) moves mart.job_day to its own folder,
--- /data/your_team/tables/mart/job_day. This first step creates mart.job_day_moving there;
--- the steps after it copy each of its 2 days into it, compare the two, then drop
--- mart.job_day and give the copy its name. Send them in order, one at a time.
+-- /data/your_team/mart.db/job_day. This first step creates mart.job_day_moving there; the
+-- steps after it copy the table's rows into it, compare the two, then drop mart.job_day and
+-- give the copy its name. Send them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_moving (
@@ -96,112 +99,103 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/job_day';
+LOCATION '/data/your_team/mart.db/job_day';
 <BLANKLINE>
--- 2 of 7: moves[1]
--- Copies mart.job_day's rows on 2026-09-23 into mart.job_day_moving.
-INSERT OVERWRITE TABLE mart.job_day_moving PARTITION(dt = '2026-09-23')
+-- 2 of 6: moves[1]
+-- Copies all of mart.job_day's rows into mart.job_day_moving.
+-- It fills dt from the rows, which needs the Session setting "dynamic_partitions": send
+-- run(hive_settings("dynamic_partitions"), execute=...) before it.
+INSERT OVERWRITE TABLE mart.job_day_moving PARTITION(dt)
 SELECT
   job_day.job_id,
   job_day.starts,
-  job_day.finishes
-FROM mart.job_day AS job_day
-WHERE
-  job_day.dt = '2026-09-23';
+  job_day.finishes,
+  job_day.dt
+FROM mart.job_day AS job_day;
 <BLANKLINE>
--- 3 of 7: moves[2]
--- Copies mart.job_day's rows on 2026-09-24 into mart.job_day_moving.
-INSERT OVERWRITE TABLE mart.job_day_moving PARTITION(dt = '2026-09-24')
-SELECT
-  job_day.job_id,
-  job_day.starts,
-  job_day.finishes
-FROM mart.job_day AS job_day
-WHERE
-  job_day.dt = '2026-09-24';
-<BLANKLINE>
--- 4 of 7: moves[3]
--- Compares each day's rows in mart.job_day and mart.job_day_moving, and stops the move,
--- before anything is dropped, if any day differs or is missing from the copy. It gives back
--- no rows when they match.
-WITH old_days AS (
+-- 3 of 6: moves[2]
+-- Compares each Partition's rows in mart.job_day and mart.job_day_moving, and stops the
+-- move, before anything is dropped, if any Partition differs or is missing from the copy. It
+-- gives back no rows when they match.
+-- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
+-- Hive names their Partition.
+WITH old_counts AS (
   SELECT
-    job_day.dt,
+    COALESCE(CAST(job_day.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
     COUNT(*) AS row_count
   FROM mart.job_day AS job_day
-  WHERE
-    NOT job_day.dt IS NULL
   GROUP BY
-    job_day.dt
-), copied_days AS (
+    COALESCE(CAST(job_day.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
+), copied_counts AS (
   SELECT
-    job_day_moving.dt,
+    COALESCE(CAST(job_day_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
     COUNT(*) AS row_count
   FROM mart.job_day_moving AS job_day_moving
-  WHERE
-    NOT job_day_moving.dt IS NULL
   GROUP BY
-    job_day_moving.dt
+    COALESCE(CAST(job_day_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
 )
 SELECT
-  old_days.dt,
-  old_days.row_count AS old_rows,
-  copied_days.row_count AS copied_rows
-FROM old_days
-LEFT JOIN copied_days
-  ON copied_days.dt = old_days.dt
+  old_counts.dt,
+  old_counts.row_count AS old_rows,
+  copied_counts.row_count AS copied_rows
+FROM old_counts
+LEFT JOIN copied_counts
+  ON copied_counts.dt = old_counts.dt
 WHERE
-  copied_days.row_count IS NULL OR copied_days.row_count <> old_days.row_count;
+  copied_counts.row_count IS NULL
+  OR copied_counts.row_count <> old_counts.row_count;
 <BLANKLINE>
--- 5 of 7: moves[4]
+-- 4 of 6: moves[3]
 -- Sets external.table.purge to false on mart.job_day, so that dropping it next leaves the
 -- files in its folder, which other tables may read.
 ALTER TABLE mart.job_day SET TBLPROPERTIES (
   'external.table.purge'='false'
 );
 <BLANKLINE>
--- 6 of 7: moves[5]
+-- 5 of 6: moves[4]
 -- Drops the old mart.job_day: its files stay in the folder it shared. Can't be undone, so
 -- send it only after the step before it, the comparison, gave back no rows.
 DROP TABLE IF EXISTS mart.job_day;
 <BLANKLINE>
--- 7 of 7: moves[6]
+-- 6 of 6: moves[5]
 -- Gives mart.job_day_moving the name mart.job_day. Its files stay at its own folder,
--- /data/your_team/tables/mart/job_day. If this step fails, send it alone again.
+-- /data/your_team/mart.db/job_day. If this step fails, send it alone again.
 ALTER TABLE mart.job_day_moving RENAME TO mart.job_day;
 
 The new table is made at the folder the Table reference names, under a name of its own while
-the old table still has the table's name. Each day is one INSERT OVERWRITE, so a day sent twice
-is written once. The fourth step counts each day's rows in both tables. The fifth keeps the old
-files when the old table is dropped, since the folder it shared holds other tables' files too.
-Only then is the old table dropped, and the new one renamed: a renamed table keeps its folder.
+the old table still has the table's name. The copy is one INSERT OVERWRITE, which fills each
+day's Partition from the rows' own dt, so sent twice it is written once. The third step counts
+each day's rows in both tables. The fourth keeps the old files when the old table is dropped,
+since the folder it shared holds other tables' files too. Only then is the old table dropped,
+and the new one renamed: a renamed table keeps its folder.
 
 ### Send the steps at work
 
-At work, send each step in turn with `run`. A step that fails raises, so the loop stops there,
-and the steps after it aren't sent. The fourth step raises when a day's rows differ, before
-anything is dropped. `run` sends the fourth step through your query, since it reads rows, and
-every other step through your execute. Here it is a function that takes your own query and
-execute and gives back the steps, so that one can be sent again; it isn't called on this page,
-since the Example database is never written to:
+At work, send the Session setting the copy needs, then each step in turn with `run`. A step that
+fails raises, so the loop stops there, and the steps after it aren't sent. The third step raises
+when a day's rows differ, before anything is dropped. `run` sends the third step through your
+query, since it reads rows, and every other step through your execute. Here it is a function that
+takes your own query and execute and gives back the steps, so that one can be sent again; it isn't
+called on this page, since the Example database is never written to:
 
 >>> from collections.abc import Callable
 >>> def move(t: Table, query: Callable[[str], pd.DataFrame],
 ...          execute: Callable[[str], None]) -> list[Statement]:
 ...     moves = admin.move_to_own_folder(t, query=query)
+...     run(hive_settings("dynamic_partitions"), execute=execute)
 ...     for step in moves:
 ...         run(step, query=query, execute=execute)
 ...     return moves
 
 Each step that `run` sends adds an entry to the Admin log, admin/admin_log.md in your Project
 (or admin_log.md beside your notebook, outside a Project) unless `set_admin_log` moved it: when,
-the call, such as admin.move_to_own_folder(mart.job_day, query=...)[3] for the fourth step, the
+the call, such as admin.move_to_own_folder(mart.job_day, query=...)[2] for the third step, the
 Hive, the script and its git commit, and whether it worked. `show_hive` adds nothing to it.
 
 If a step before the drop fails, fix what it says and send the steps again from the first:
-creating the new table again does nothing, and each day is written again whole. If the fourth
-step says a day is missing from the copy, a day was written since the steps were made, so make
-them again with `admin.move_to_own_folder` and send them all. Once the old table is dropped,
+creating the new table again does nothing, and the copy is written again whole. If the third
+step says a day is missing from the copy, a day was written since the copy, so send the steps
+again from the first. Once the old table is dropped,
 the steps can't be made again, since the table they read is gone: if only the last step, the
 rename, fails, send it alone again with `run(moves[-1], execute=...)`, from the `moves` you made.
 
@@ -217,13 +211,11 @@ Once the steps have run, the table is at its own folder. A stand-in query plays 
 again, now describing the moved table:
 
 >>> def query_after_the_move(hive: str) -> pd.DataFrame:
-...     if hive.startswith("SHOW PARTITIONS"):
-...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
 ...     return pd.DataFrame([
 ...         ("job_id", "bigint", ""), ("starts", "bigint", ""), ("finishes", "bigint", ""),
 ...         ("# Partition Information", None, None), ("dt", "string", ""),
 ...         ("# Detailed Table Information", None, None),
-...         ("Location:", "hdfs://namenode:8020/data/your_team/tables/mart/job_day", None),
+...         ("Location:", "hdfs://namenode:8020/data/your_team/mart.db/job_day", None),
 ...         ("Table Type:", "EXTERNAL_TABLE", None),
 ...     ], columns=["col_name", "data_type", "comment"])
 >>> check_table_reference(job_day, query=query_after_the_move)
@@ -271,7 +263,7 @@ so a notebook that moves a table can't move it twice:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  admin.move_to_own_folder(mart.job_day, query=...): mart.job_day is at its own folder already, hdfs://namenode:8020/data/your_team/tables/mart/job_day.
+  What happened:  admin.move_to_own_folder(mart.job_day, query=...): mart.job_day is at its own folder already, hdfs://namenode:8020/data/your_team/mart.db/job_day.
 ...
 
 ### Sending the steps out of order
@@ -290,7 +282,7 @@ can lose days the copy doesn't hold.
   [Backfill a range of days](#backfill_a_range_of_days).
 - The admin module's other changes, each with its own entry in the gallery:
   [`admin.drop_table`](examples.html#admin.drop_table),
-  [`admin.drop_days`](examples.html#admin.drop_days),
+  [`admin.drop_partitions`](examples.html#admin.drop_partitions),
   [`admin.add_columns`](examples.html#admin.add_columns),
   [`admin.set_properties`](examples.html#admin.set_properties) and
   [`admin.move_to_own_folder`](examples.html#admin.move_to_own_folder).

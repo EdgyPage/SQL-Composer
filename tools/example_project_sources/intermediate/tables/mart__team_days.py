@@ -15,7 +15,7 @@
 # days up per week; all of its numbers add up, so a week of them means something.
 #
 # The Saved tables are in your warehouse, not in the Example database, so its preview can't
-# run here. `team_day_from_job_events(day)` can: it groups the Building blocks' rows by team
+# run here. `team_day_from_job_events(DAY)` can: it groups the Building blocks' rows by team
 # the same way, from ops.job_events and ops.job_owners themselves, without the costs. Its
 # lineage, cell 4, draws all three tables, through the other two notebooks' logic.
 #
@@ -23,7 +23,7 @@
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -31,14 +31,12 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = "2026-09-24"  # the Example database's last day
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the days it writes, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, LEFT_JOIN, SELECT, WHERE, Clause, Statement,
-    all_of, between, by_day, create_table, equals, statement, sum_of, week_start,
+    all_of, between, create_table, equals, statement, sum_of, week_start,
 )
 from building_blocks.days_rewritten import first_day_written
 from building_blocks.events_per_job_day import events_per_job_day
@@ -47,6 +45,8 @@ from references.mart__job_day_costs import job_day_costs
 from references.mart__job_day_facts import job_day_facts
 from references.mart__team_days import team_days
 from references.ops__job_owners import job_owners
+
+DAY = "2026-09-24"  # the last day write() writes, the Example database's last day
 
 
 def create() -> Statement:
@@ -58,8 +58,8 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each team's numbers per day of job_day_facts, the
     table in FROM. The costs are joined on their day as well as their job, so each day's facts
     meet only that day's costs; their days go in LEFT_JOIN's ON=, since a WHERE on
-    job_day_costs would drop the days LEFT_JOIN keeps. The day isn't selected:
-    INSERT_OVERWRITE writes it as this table's Date partition."""
+    job_day_costs would drop the days LEFT_JOIN keeps. The day comes last in SELECT:
+    INSERT_OVERWRITE writes each day's rows into that day's Partition."""
     return [
         SELECT(
             job_day_facts.team,
@@ -67,6 +67,7 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
             AS(sum_of(job_day_facts.runs), "runs"),
             AS(sum_of(job_day_facts.minutes), "minutes"),
             AS(sum_of(job_day_costs.cost_cents), "cost_cents"),
+            job_day_facts.dt,
         ),
         FROM(job_day_facts),
         LEFT_JOIN(job_day_costs,
@@ -78,20 +79,20 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the rows a write of the day would save, as a SELECT to run and check first."""
-    return statement(*rows(day, day))
+def preview() -> Statement:
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows(first_day_written(DAY), DAY))
 
 
-def write_days(first_day: str, last_day: str) -> list[Statement]:
-    """One write per day from first_day to last_day, oldest first."""
-    return by_day(statement(INSERT_OVERWRITE(team_days), *rows(first_day, last_day)))
+def write_days(first_day: str, last_day: str) -> Statement:
+    """Every day from first_day to last_day, in one write."""
+    return statement(INSERT_OVERWRITE(team_days), *rows(first_day, last_day))
 
 
-def write_day(day: str) -> list[Statement]:
-    """Step 3, every run, once the two tables it reads have written the same days: the writes
-    of the last 3 days, ending on the day, as a list, oldest first."""
-    return write_days(first_day_written(day), day)
+def write() -> Statement:
+    """Step 3, every run, once the two tables it reads have written the same days: the last 3
+    days, ending on DAY, in one write."""
+    return write_days(first_day_written(DAY), DAY)
 
 
 def week_totals(first_day: str, last_day: str) -> Statement:
@@ -134,7 +135,7 @@ def team_day_from_job_events(day: str) -> Statement:
 
 # %%
 # 3. Try it: the Hive of each step, then each team's day from ops.job_events
-show_hive([create(), *write_day(DAY), week_totals("2026-09-21", DAY)])
+show_hive([create(), write(), week_totals("2026-09-21", DAY)])
 run(team_day_from_job_events(DAY), query=query)
 
 # %%
@@ -142,7 +143,7 @@ run(team_day_from_job_events(DAY), query=query)
 # in lineage/ named by the time and this table
 costs = project.load("mart.job_day_costs")
 facts = project.load("mart.job_day_facts")
-export_lineage(*costs.write_day(DAY), *facts.write_day(DAY), *write_day(DAY))
+export_lineage(costs.write(), facts.write(), write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/mart__team_days.py

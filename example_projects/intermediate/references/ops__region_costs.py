@@ -3,10 +3,9 @@
 Why: the project's notebooks read the table through this file, so each column they name, and the
 key each join and count relies on, is checked as the Statement is built.
 
-project.add_references wrote this file from the table's DESCRIBE and SHOW PARTITIONS. The
-table's first partition, region, holds no day, so it left the Date partition as a TODO too. Its
-four TODO lines were then filled in by hand: this docstring's first line, the Date partition,
-dt, with the way it writes its days, the key, and does_not_add_up.
+project.add_references wrote this file from the table's DESCRIBE, its partition columns among
+it. Its three TODO lines were then filled in by hand: this docstring's first line, the key, and
+does_not_add_up.
 """
 from sqlglot_composer import Table
 
@@ -18,10 +17,7 @@ region_costs = Table(
         "region": "string",
         "dt": "string",
     },
-    # filled in by hand: region, the first partition, holds no day; the Date partition,
-    # dt, holds the days, written like 20260911
-    date_partition="dt",
-    date_format="%Y%m%d",
+    partitioned_by=["region", "dt"],
     key=["job_id", "region", "dt"],  # filled in by hand
     # filled in by hand: none of the columns is an average, a ratio or a distinct count
     does_not_add_up=[],

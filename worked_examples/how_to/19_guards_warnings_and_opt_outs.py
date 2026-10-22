@@ -132,10 +132,10 @@ GROUP BY
 
 ### A Warning whose opt-out is right
 
-How many runs failed per job, keeping the jobs that had none? `LEFT_JOIN` keeps every job,
-with or without a matching run. With `LEFT_JOIN`, the conditions on the joined table, its days
-and the status too, go in `ON=`: in WHERE they would undo the `LEFT_JOIN`, as the Guard below
-shows. Each job matches many runs, so the Toolbox warns again:
+How many runs failed per job, keeping the jobs that had none? `LEFT_JOIN` keeps every job, with
+or without a matching run. With `LEFT_JOIN`, the conditions on the joined table, its partition
+filter and the status too, go in `ON=`: in WHERE they would undo the `LEFT_JOIN`, as the Guard
+below shows. Each job matches many runs, so the Toolbox warns again:
 
 >>> failed_per_job = statement(
 ...     SELECT(jobs.job_name,
@@ -213,8 +213,8 @@ doesn't apply to what you want:
 
 - `many_matches=True` on a `JOIN` or `LEFT_JOIN`: when one row per match is the point, such as
   counting matches, or listing each alert beside its run.
-- `reads_all_partitions=True` on `FROM` or a join: for a small table you truly need every day
-  of, such as a calendar table.
+- `reads_all_partitions=True` on `FROM` or a join: for a small partitioned table you truly
+  need every Partition of, such as a calendar table.
 - `returns_all_rows=True` on `statement(...)`: when you know the result fits in your notebook.
 - `adds_up=True` on a sum: when what the Toolbox takes for a column that doesn't add up, such
   as an average or a column the Table reference lists in `does_not_add_up=[...]`, really does.
@@ -238,7 +238,7 @@ message's first line is blank, so its second, `str(refused).splitlines()[1]`, is
 ...     statement(SELECT(job_runs.run_id), FROM(job_runs))
 ... except LoadRefused as refused:
 ...     print("Not built:", str(refused).splitlines()[1].strip())
-Not built: What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
+Not built: What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
 
 ## Check it worked
 

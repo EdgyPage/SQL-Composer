@@ -1,8 +1,8 @@
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
-types, its Date partition, its key, and the columns that don't add up. Its columns are its
-attributes (`job_runs.status`), so a typo fails at once, with the column list.
+types, the columns it is partitioned by, its key, and the columns that don't add up. Its
+columns are its attributes (`job_runs.status`), so a typo fails at once, with the column list.
 
 This file also holds the column object those attributes return, and `literal(...)`, the one
 place a Python value, such as "FAILED" or 42, enters a Statement.
@@ -10,7 +10,6 @@ place a Python value, such as "FAILED" or 42, enters a Statement.
 
 from __future__ import annotations
 
-import contextlib
 import copy
 import datetime
 import decimal
@@ -31,7 +30,6 @@ from .writing import check_writable_type, hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     guard_control_character,
-    guard_date_formats_differ,
     guard_none_in_condition,
     guard_not_a_number,
     guard_time_of_day,
@@ -50,19 +48,18 @@ from .trees import (
     string,
 )
 
-if TYPE_CHECKING:  # clauses.py imports this file
+if TYPE_CHECKING:  # clauses.py and conditions.py import this file
     from .clauses import Statement
+    from .conditions import Condition
 
 TOOLBOX_VERSION = "7.0"
 
-DEFAULT_DATE_FORMAT = "%Y-%m-%d"
-# The day a message writes when it needs an example of one: the day after the Example
-# database's last day.
-EXAMPLE_DAY = datetime.date(2026, 9, 25)
+# How a date is written in Hive text, as Hive writes one: 2026-09-25.
+DATE_FORMAT = "%Y-%m-%d"
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
-# The partition Hive lists for the rows with no day: their partition column is NULL.
-ROWS_WITH_NO_DAY = "__HIVE_DEFAULT_PARTITION__"
+# The partition Hive lists for the rows whose partition column is NULL.
+ROWS_WITH_NO_VALUE = "__HIVE_DEFAULT_PARTITION__"
 # DESCRIBE's headers: the partition list and its own column header, and the partitioning a
 # newer kind of table lists, one row per column or function of a column.
 PARTITION_INFORMATION = "# partition information"
@@ -329,104 +326,9 @@ def _example_of(family: str) -> str:
     }[family]
 
 
-def date_format_of(column: Column | None) -> str:
-    """The date pattern for values compared with this column."""
-    if is_date_partition(column):
-        return column._table._date_format
-    return DEFAULT_DATE_FORMAT
-
-
-def is_date_partition(column: Column | None) -> bool:
-    """Whether the column is its table's Date partition."""
-    table = column._table if column is not None else None
-    return table is not None and table._date_partition is not None and (
-        table._date_partition == column._name)
-
-
-def _days_from(column: Column) -> Column | None:
-    """The Date partition a column's days come from: the column itself, or, for a Derived
-    table's column that is a Date partition passed on unchanged, that Date partition."""
-    if is_date_partition(column):
-        return column
-    table = column._table
-    if table is None or table._statement is None:
-        return None
-    for output, name in table._statement._outputs:
-        if name == column._name and output._tree.kind == "Column":
-            return _days_from(output)
-    return None
-
-
-def _guard_days_written_alike(column: Column, other: Column, call: str) -> None:
-    """Refuse a comparison of two columns of days written different ways, which matches no
-    rows. A column that isn't a Date partition, or doesn't come from one, isn't checked."""
-    sides = [(side, _days_from(side)) for side in (column, other)]
-    if any(days is None for _, days in sides):
-        return
-    patterns = [days._table._date_format for _, days in sides]
-    if patterns[0] == patterns[1]:
-        return
-    named = [repr(side) if side is days else f"{side!r}, from {days!r}" for side, days in sides]
-    guard_date_formats_differ(call, named[0], patterns[0], day_text(EXAMPLE_DAY, patterns[0]),
-                              named[1], patterns[1], day_text(EXAMPLE_DAY, patterns[1]))
-
-
-def day_text(day: datetime.date, pattern: str) -> str:
-    """A day written in a date_format, its year always in four digits."""
-    return day.strftime(pattern.replace("%Y", f"{day.year:04d}"))
-
-
-def as_date(value: object, column: Column, call: str, compared: bool = True) -> datetime.date:
-    """A value compared with a Date partition, as a Python date. Refuses what isn't a day.
-
-    compared=False is for a day given on its own, such as compute_statistics's, which the
-    refusal says was given rather than compared."""
-    if isinstance(value, datetime.datetime):
-        return value.date()
-    if isinstance(value, datetime.date):
-        return value
-    pattern = column._table._date_format
-    try:
-        day = datetime.datetime.strptime(str(value), pattern).date()
-    except ValueError:
-        day = None
-    # Python also reads "2026-9-24", but Hive compares the text, which matches no day.
-    if day is not None and day_text(day, pattern) == str(value):
-        return day
-    # The day written another table's way, such as "20260918" where "2026-09-18" goes.
-    other = _day_format_of(str(value))
-    for each in (pattern, DEFAULT_DATE_FORMAT, "%Y%m%d", "%Y/%m/%d"):
-        if day is None:
-            with contextlib.suppress(ValueError):
-                day = datetime.datetime.strptime(str(value), each).date()
-    _refuse_day(value, column, call, day, other, compared)
-
-
-def _refuse_day(value: object, column: Column, call: str, day: datetime.date | None,
-                other: str | None, compared: bool) -> NoReturn:
-    """Refuse a day not written as the Date partition's days are: `day` is the day it seems
-    to mean, or None, and `other` the date_format it is written in, or None."""
-    pattern = column._table._date_format
-    if day is not None:  # your own day, written as the table writes days
-        written = f"like {day_text(day, pattern)!r}"
-        fix = f"Write the day as {day_text(day, pattern)!r}, or pass a datetime.date."
-    else:  # no day to show, so an example of one
-        written = f"like {day_text(EXAMPLE_DAY, pattern)!r} (an example day)"
-        fix = f"Write the day like {day_text(EXAMPLE_DAY, pattern)!r}, or pass a datetime.date."
-        if compared:
-            fix += f" For the days before today, use last_n_days({column!r}, n)."
-    if other is not None and other != pattern:
-        fix += (f" If the table's days really are written like {value!r}, add "
-                f'date_format="{other}" to its Table reference instead.')
-    given = (f"compares the Date partition {column!r} with {value!r}" if compared
-             else f"was given the day {value!r}")
-    refuse(
-        what=f"{call} {given}, but its Table reference writes days {written}.",
-        why="Hive compares Date partition values as text, so a differently written day "
-        "would match no days, or the wrong ones.",
-        fix=fix,
-        error=ValueError,
-    )
+def day_text(day: datetime.date) -> str:
+    """A day as Hive text, such as 2026-09-25, its year always in four digits."""
+    return f"{day.year:04d}-{day.month:02d}-{day.day:02d}"
 
 
 def _number_text(value: int | float | decimal.Decimal) -> str | None:
@@ -461,8 +363,6 @@ def literal(value: object, *, call: str, column: Column | None = None,
             position: str = "the value", in_condition: bool = True) -> Node:
     """Turn a Python value into a Hive literal. The only way a value enters a Statement."""
     if isinstance(value, Column):
-        if column is not None:
-            _guard_days_written_alike(column, value, call)
         return value._tree.copy()
     value = _python_value(value)
     if value is None:
@@ -500,70 +400,15 @@ def _string_literal(value: str, call: str, position: str) -> Node:
 def _date_text(value: datetime.date, column: Column | None, call: str) -> str:
     """A date as its day, or a timestamp in full when the column is typed as a timestamp."""
     if not isinstance(value, datetime.datetime):
-        return day_text(value, date_format_of(column))
+        return day_text(value)
     if type_family(column._type if column is not None else None) == "timestamp":
         return value.isoformat(sep=" ")
     if value.time() != datetime.time(0, 0):
         guard_time_of_day(call, value)
-    return day_text(value.date(), date_format_of(column))
+    return day_text(value.date())
 
 
 # --- Table ---------------------------------------------------------------------------------
-
-
-def _check_date_format(date_format: str) -> None:
-    rest = date_format
-    for directive in ("%Y", "%m", "%d"):
-        if rest.count(directive) != 1:
-            refuse(
-                what=f"date_format={date_format!r} doesn't have {directive} exactly once.",
-                why="A Date partition's pattern needs the year, the month and the day.",
-                fix='Use Python\'s strptime pattern for the partition\'s days, such as "%Y%m%d".',
-                error=ValueError,
-            )
-        rest = rest.replace(directive, "")
-    without_a_date_partition = ("If the table's days really are written another way, leave its Date "
-                  "partition out with date_partition=None, and filter that column with "
-                  "equals(...) or is_in(...), not at_least(...) or between(...), which compare "
-                  "text.")
-    if not date_format.index("%Y") < date_format.index("%m") < date_format.index("%d"):
-        refuse(
-            what=f"date_format={date_format!r} doesn't write the year first, then the month, "
-            "then the day.",
-            why="Hive compares a Date partition's days as text, and only days written year "
-            "first sort in date order, so BETWEEN, last_n_days and check_key's newest day "
-            "would read the wrong days.",
-            fix=f'Use a pattern such as "%Y-%m-%d" or "%Y%m%d". {without_a_date_partition}',
-            error=ValueError,
-        )
-    if any(character in rest for character in CONTROL_CHARACTERS):
-        refuse(
-            what=f"date_format={date_format!r} holds a character that isn't printed, such as "
-            "the bell \\a gives in a Python string.",
-            why="Hive would read it back as a plain letter, so the days would be "
-            "written wrong.",
-            fix='Use only %Y, %m, %d and printed separators such as - or /, as in "%Y/%m/%d". '
-            "If you typed \\a, \\f or \\v, put r before the quotes or double the backslash.",
-            error=ValueError,
-        )
-    # A letter means a part of a date in Hive's pattern too, and % or ' would end it.
-    odd = [c for c in rest if c.isalpha() or c in "%'" or not c.isprintable()]
-    if odd:
-        refuse(
-            what=f"date_format={date_format!r} has something besides %Y, %m, %d and "
-            f"separators: {', '.join(repr(character) for character in odd)}.",
-            why="The Toolbox turns the pattern into Hive's own, where only the year, month "
-            "and day can go, and a letter means a part of a date (H is the hour), so the "
-            "days would be read wrong.",
-            fix='Use only %Y, %m, %d and separators such as - or /, as in "%Y/%m/%d". '
-            f"{without_a_date_partition}",
-            error=ValueError,
-        )
-
-
-def hive_date_pattern(date_format: str) -> str:
-    """Python's "%Y-%m-%d" as Hive's "yyyy-MM-dd"."""
-    return date_format.replace("%Y", "yyyy").replace("%m", "MM").replace("%d", "dd")
 
 
 def _names(value: object, argument: str) -> list[str]:
@@ -596,7 +441,7 @@ def _descriptions(name: str, value: object) -> dict[str, str]:
 
 
 class Table:
-    """A Table reference: a table's columns, the day column it's split by, and its key.
+    """A Table reference: a table's columns, its partition columns and its key.
 
     Its columns become attributes, so `job_runs.status` is checked when your script runs:
     a typo stops with the list of real columns. Write one per table, generated once by
@@ -605,21 +450,19 @@ class Table:
     - `columns` maps each column to its Hive type as DESCRIBE, the command that lists a
       table's columns, prints it ("bigint",
       "decimal(10,2)"), or None when you don't know it. A typed column gets its values checked.
-    - `date_partition` is required: the one date column the table is partitioned by, which
-      every Statement must bound at both ends, or None for a table that has none. It has no
-      default, so a table with days is never read whole by mistake. A Saved table with
-      date_partition=None has no days: a write fills it whole (help(INSERT_OVERWRITE)).
-    - `key` lists the columns that pick out one row, the table's Key. JOIN warns when a join
-      doesn't use all of them; a write into a Saved table with a Key is refused unless the
-      Toolbox can see each row it writes has a Key of its own (help(INSERT_OVERWRITE) says
-      how); and create_table writes it into the table (help(create_table)). Hive never
-      checks it.
+    - `partitioned_by` lists the columns the table is partitioned by, in the order Hive
+      partitions it, such as ["dt"] or ["region", "load_id"], each a column in `columns`
+      too; leave it out for a table that isn't partitioned. Each value of them is a folder
+      of the table's files, a Partition, and a Statement reading the table must filter at
+      least one of them (help(FROM)). A write fills the Partitions its rows hold, or the ones
+      it names (help(INSERT_OVERWRITE)).
+    - `key` lists the columns that pick out one row, the table's Key, for a table that has
+      one; leave it out for one that hasn't. JOIN warns when a join doesn't use all of them;
+      a write into a Saved table with a Key is refused unless the Toolbox can see each row it
+      writes has a Key of its own (help(INSERT_OVERWRITE) says how); and create_table writes
+      it into the table (help(create_table)). Hive never checks it.
     - `does_not_add_up` lists columns that are averages, ratios or distinct counts, which
       sum_of(...) and average_of(...) refuse to add up.
-    - `date_format` is needed only when the Date partition's days aren't written like
-      "2026-09-25", for example date_format="%Y%m%d". It must put the year first, then the
-      month, then the day: Hive compares the days as text, and only year-first text sorts in
-      date order. The time zone is whatever the table uses; the Toolbox doesn't convert it.
     - `descriptions` says in words what a column holds, such as {"status": "SUCCESS or
       FAILED"}, for the columns you want to describe. write_table_reference fills it from the
       comments DESCRIBE prints; it never changes the Hive.
@@ -628,24 +471,20 @@ class Table:
     create_table writes and check_table_reference compares with the table. Of these, a Saved
     table needs only `location`; a table someone else owns has none of them:
 
-    - `location` is the folder your Saved tables go in, such as "/data/your_team/tables".
-      The Toolbox adds the table's own folder, its database and its name, so mart.daily_runs
-      is at /data/your_team/tables/mart/daily_runs. Every Saved table is an external table:
-      its files are yours, in that folder, and the warehouse only keeps a record of where.
-      Two tables in one folder would read each other's files, so a Saved table whose folder
-      would be another's, or inside another's, is refused.
+    - `location` is the table's own folder, exactly as create_table writes it, such as
+      "/data/your_team/mart.db/daily_runs": the Toolbox adds nothing to it. Every Saved table
+      is an external table: its files are yours, in that folder, and the warehouse only keeps
+      a record of where. Two tables in one folder would read each other's files, so a Saved
+      table whose folder is another's, or inside another's, is refused.
     - `purge=True` makes dropping the table delete its files too. purge=False keeps them in
-      its folder, where a table created again reads them back: at once, or, for a table
-      with a Date partition, its days once repair_partitions(t) lists them; left out, the
+      its folder, where a table created again reads them back: at once, or, for a
+      partitioned table, its Partitions once repair_partitions(t) lists them; left out, the
       warehouse's own choice, which keeps them, is neither written nor checked.
     - `properties` holds any other table properties, the notes on a table the warehouse
       keeps by name, such as {"made_by": "daily_pipeline"}.
     - `stored_as` is the file format, "ORC" (the usual one) or "PARQUET", and `compression`
       how its files are packed: "SNAPPY", or ORC's "ZLIB" or Parquet's "GZIP", among others.
-    - `partitioned_by` lists Partitions after the Date partition, such as ["region"], each a
-      column in `columns` too: each day's folder then holds a folder per region. A write
-      still fills one day, and the regions inside it from its rows' values.
-    - `bucketed_by` with `buckets` spreads each day's rows into that many files by the
+    - `bucketed_by` with `buckets` spreads each Partition's rows into that many files by the
       values of those columns, and `sorted_by` sorts the rows in each, so a join on them can
       pair file with file. Leave them out unless the table is big and joined on those
       columns: changing them means writing the table again.
@@ -664,16 +503,16 @@ class Table:
     AttributeError: job_runs has no column 'stauts'. Did you mean 'status'? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
     """
 
-    def __init__(self, name: str, columns: dict[str, str | None], date_partition: str | None,
-                 key: list[str] | None = None,
+    def __init__(self, name: str, columns: dict[str, str | None], *,
+                 partitioned_by: list[str] | None = None, key: list[str] | None = None,
                  does_not_add_up: list[str] | tuple[str, ...] = (),
-                 date_format: str | None = None, location: str | None = None,
+                 location: str | None = None,
                  purge: bool | None = None, properties: dict[str, str] | None = None,
                  stored_as: str | None = None, compression: str | None = None,
-                 partitioned_by: list[str] | None = None,
                  bucketed_by: list[str] | None = None, buckets: int | None = None,
                  sorted_by: list[str] | None = None,
-                 descriptions: dict[str, str] | None = None) -> None:
+                 descriptions: dict[str, str] | None = None, **removed: object) -> None:
+        _refuse_a_day_argument(name, removed)
         if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
             refuse(
                 what=f"Table({name!r}, ...) isn't a table name.",
@@ -698,22 +537,11 @@ class Table:
                     fix='Write it as text, such as "bigint" for whole numbers or "string" for '
                     "text, or None if you don't know it.",
                 )
-        for argument, value in (("date_partition", date_partition),
-                                ("date_format", date_format)):
-            if value is not None and not isinstance(value, str):
-                refuse(
-                    what=f"Table({name!r}): {argument}={value!r} isn't text.",
-                    why="date_partition names the table's Date partition, and date_format "
-                    "says how its days are written.",
-                    fix='Write it as text, such as date_partition="dt", or None.',
-                )
         self._name = name
         self._alias = name.split(".")[-1]
         self._columns = {str(column): kind for column, kind in columns.items()}
-        self._date_partition = date_partition
         self._key = _names(key, "key") or None
         self._does_not_add_up = _names(does_not_add_up, "does_not_add_up")
-        self._date_format = date_format or DEFAULT_DATE_FORMAT
         self._statement = None
         self._not_adding_up_because = {
             column: "listed in does_not_add_up in its Table reference"
@@ -723,13 +551,12 @@ class Table:
         self._bucketed_by = _names(bucketed_by, "bucketed_by")
         self._sorted_by = _names(sorted_by, "sorted_by")
         self._descriptions = _descriptions(name, descriptions)
-        self._check_own_columns(date_format)
+        self._check_own_columns()
+        _check_partitions(self)
         _set_storage(self, location, purge, properties, stored_as, compression, buckets)
 
-    def _check_own_columns(self, date_format: str | None) -> None:
-        named = {"date_partition": [] if self._date_partition is None else [
-            self._date_partition]}
-        named["key"] = self._key or []
+    def _check_own_columns(self) -> None:
+        named = {"key": self._key or []}
         named["does_not_add_up"] = self._does_not_add_up
         named["partitioned_by"] = self._partitioned_by
         named["bucketed_by"] = self._bucketed_by
@@ -745,15 +572,6 @@ class Table:
                         fix=f"Use one of: {', '.join(self._columns)}.",
                         error=ValueError,
                     )
-        if date_format is not None:
-            if self._date_partition is None:
-                refuse(
-                    what=f"Table({self._name!r}) has a date_format but no date_partition.",
-                    why="date_format says how the Date partition's days are written.",
-                    fix="Remove date_format, or name the date_partition.",
-                    error=ValueError,
-                )
-            _check_date_format(date_format)
 
     def __getattr__(self, attribute: str) -> Column:
         """A column of the table, by its name, such as job_runs.status."""
@@ -793,6 +611,24 @@ class Table:
         return f"{kind}({self._name!r}, columns: {', '.join(self._columns)})"
 
 
+def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
+    """Refuse date_partition= and date_format=, which 7.0 replaced, and any other name Table
+    doesn't take."""
+    gone = [argument for argument in ("date_partition", "date_format") if argument in removed]
+    if gone:
+        refuse(
+            what=f"Table({name!r}) was given {gone[0]}=, which Toolbox 7.0 replaced.",
+            why="Since 7.0 a table is partitioned by any columns, or none, and no column is a "
+            "day to the Toolbox: partitioned_by= lists them, and a date is compared as it is "
+            "written.",
+            fix='Write partitioned_by=["dt"] where it said date_partition="dt", leave it out '
+            "where it said date_partition=None, and remove date_format=. CHANGES.md, under "
+            "7.0, says more.",
+        )
+    refuse_removed_arguments(f"Table({name!r})", removed, "columns= and the names help(Table) "
+                             "lists")
+
+
 # --- A Saved table's storage -----------------------------------------------------------------
 
 # The file formats create_table writes, each with the table property that names its
@@ -806,28 +642,20 @@ FILE_FORMATS = {
 PURGE = "external.table.purge"
 # Why a Saved table needs a folder of its own, as the refusals and reports say it.
 SHARING = ("two tables in one folder read each other's files, and an INSERT OVERWRITE of a "
-           "day in one can delete the other's files for that day.")
-# The fix for a table that isn't at its own folder: ticket 04's admin module moves it.
+           "Partition in one can delete the other's files for that Partition.")
+# The fix for a table that isn't at its own folder: the admin module moves it.
 MOVE_IT = "move it with admin.move_to_own_folder(t, query=...)"
 # The fix for a table at its own folder whose layout the Toolbox doesn't write: the move's copy
 # would go to that same folder, so the table is written again there.
 WRITE_IT_AGAIN = ("it is at its own folder already, so write it again there: give its Table "
                   "reference purge=True and send admin.set_properties(t), drop it with "
-                  "admin.drop_table(t), create it with create_table(t), and write its days "
+                  "admin.drop_table(t), create it with create_table(t), and write its rows "
                   "again from their source")
-# An absolute location: one starting with /, or with a scheme such as hdfs:// or s3a://.
-_ABSOLUTE = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*:)?/")
 # Each Saved table's own folder, by its name in lower case, so that two can't share one.
 _FOLDERS: dict[str, str] = {}
 # The storage options, which only one of the user's Saved tables has, in the order Table takes.
-STORAGE = ("purge", "properties", "stored_as", "compression", "partitioned_by", "bucketed_by",
-           "buckets", "sorted_by")
-
-
-def own_folder(name: str) -> str:
-    """The folder a Saved table gets under its location=: its database, then its name, as
-    mart/daily_runs, in lower case as Hive names them."""
-    return "/".join(part.lower() for part in name.split("."))
+STORAGE = ("purge", "properties", "stored_as", "compression", "bucketed_by", "buckets",
+           "sorted_by")
 
 
 def _set_storage(t: Table, location: object, purge: object, properties: object,
@@ -840,18 +668,17 @@ def _set_storage(t: Table, location: object, purge: object, properties: object,
     t._buckets = buckets
     t._location = None
     values = {"purge": purge, "properties": properties, "stored_as": stored_as,
-              "compression": compression, "partitioned_by": t._partitioned_by,
-              "bucketed_by": t._bucketed_by, "buckets": buckets, "sorted_by": t._sorted_by}
+              "compression": compression, "bucketed_by": t._bucketed_by, "buckets": buckets,
+              "sorted_by": t._sorted_by}
     given = [option for option in STORAGE if values[option] not in (None, [])]
     if location is None:
         if given:
             refuse(
                 what=f"Table({t._name!r}) has {given[0]}= but no location=.",
                 why=f"{given[0]}= is part of how one of your own Saved tables is stored, and "
-                "each of those is in a folder of its own under location=, the folder your "
-                "Saved tables go in.",
-                fix=f'Add location=..., such as location="/data/your_team/tables", or remove '
-                f"{given[0]}=: a table someone else owns needs none of it.",
+                "each of those is in a folder of its own, its location=.",
+                fix=f'Add location=..., such as location="/data/your_team/mart.db/daily_runs", '
+                f"or remove {given[0]}=: a table someone else owns needs none of it.",
                 error=ValueError,
             )
         return
@@ -871,7 +698,7 @@ def _set_storage(t: Table, location: object, purge: object, properties: object,
         t._compression = _one_of(t._name, "compression", compression, list(compressions),
                                  f" for stored_as={t._stored_as!r}")
     t._properties = _checked_properties(t._name, properties, property_name)
-    _check_partitions_and_buckets(t)
+    _check_buckets(t)
 
 
 def _one_of(name: str, option: str, value: object, allowed: list[str],
@@ -888,41 +715,19 @@ def _one_of(name: str, option: str, value: object, allowed: list[str],
 
 
 def _checked_folder(name: str, location: object) -> str:
-    """The Saved table's own folder: its location, then its database and name, refused where
-    it is not a folder or would share one with another Saved table."""
+    """The Saved table's own folder, as written, refused where it is not a folder or would
+    share one with another Saved table."""
     if not isinstance(location, str) or not location.strip() or any(
             character in location for character in CONTROL_CHARACTERS):
         refuse(
             what=f"Table({name!r}): location={location!r} isn't a folder.",
-            why="location= is the folder your Saved tables go in, written as text, such as "
-            '"/data/your_team/tables" or "hdfs:///data/your_team/tables".',
+            why="location= is the table's own folder, written as text, such as "
+            '"/data/your_team/mart.db/daily_runs".',
             fix="Write the folder as text, as your warehouse's DESCRIBE FORMATTED writes a "
             "Location.",
             error=ValueError,
         )
-    if not _ABSOLUTE.match(location):
-        refuse(
-            what=f"Table({name!r}): location={location!r} isn't a whole path, from the top "
-            "of the storage.",
-            why="Hive reads a table's location from the top of its storage, so a folder "
-            "written from where you are can't be found.",
-            fix='Start it with / or with its storage\'s name, such as "/data/your_team/tables" '
-            'or "hdfs:///data/your_team/tables".',
-            error=ValueError,
-        )
-    base = location.rstrip("/")
-    own = own_folder(name)
-    if base.lower().endswith("/" + own):
-        refuse(
-            what=f"Table({name!r}): location={location!r} already ends with the table's own "
-            f"folder, {own}.",
-            why=f"location= is the folder all your Saved tables go in, and the Toolbox adds "
-            f"each table's own folder to it, here {own}, so this one would be at "
-            f"{base}/{own}.",
-            fix=f'Write the folder above it, such as location="{base[: -len(own) - 1] or "/"}".',
-            error=ValueError,
-        )
-    folder = f"{base}/{own}"
+    folder = location.rstrip("/") or location
     # Compared without the storage's name, as hdfs:///data/... and /data/... are one folder.
     path = urllib.parse.urlsplit(folder).path
     for other, theirs in _FOLDERS.items():
@@ -930,12 +735,13 @@ def _checked_folder(name: str, location: object) -> str:
         if other == name.lower() or not (path == their_path or path.startswith(
                 their_path + "/") or their_path.startswith(path + "/")):
             continue
-        where = "the same folder as" if path == their_path else "inside the folder of"
+        where = ("the same folder as" if path == their_path else "inside the folder of"
+                 if path.startswith(their_path + "/") else "around the folder of")
         refuse(
             what=f"Table({name!r}) would be at {folder}, {where} {other} ({theirs}).",
             why=f"Every Saved table needs a folder of its own: {SHARING}",
-            fix="Give both the same location=, the folder your Saved tables go in: the "
-            "Toolbox adds each table's own folder to it.",
+            fix="Give each its own folder in location=, such as "
+            '"/data/your_team/mart.db/daily_runs" for mart.daily_runs.',
             error=ValueError,
         )
     _FOLDERS[name.lower()] = folder
@@ -979,18 +785,31 @@ def _checked_properties(name: str, properties: object,
     return dict(properties)
 
 
-def _check_partitions_and_buckets(t: Table) -> None:
-    """Refuse Partitions after the day, and Buckets, that create_table couldn't write."""
-    if t._partitioned_by and t._date_partition is None:
+def _check_partitions(t: Table) -> None:
+    """Refuse a partitioned_by= that names a column twice, or one that holds no plain value."""
+    twice = sorted({column for column in t._partitioned_by
+                    if t._partitioned_by.count(column) > 1})
+    if twice:
         refuse(
-            what=f"Table({t._name!r}) has partitioned_by= but no date_partition.",
-            why="partitioned_by= lists the Partitions after the Date partition: each write "
-            "fills one day, and the Partitions inside it from its rows.",
-            fix="Name the Date partition with date_partition=..., or remove partitioned_by=.",
+            what=f"Table({t._name!r}): partitioned_by= names {twice[0]!r} twice.",
+            why="Each column goes in it once.",
+            fix=f"Name {twice[0]!r} once in partitioned_by=.",
             error=ValueError,
         )
-    for argument, names in (("partitioned_by", t._partitioned_by),
-                            ("bucketed_by", t._bucketed_by), ("sorted_by", t._sorted_by)):
+    for column in t._partitioned_by:
+        if (t._columns[column] or "").strip().lower().startswith(("array", "map", "struct")):
+            refuse(
+                what=f"Table({t._name!r}): partitioned_by= names {column!r}, whose type is "
+                f"{t._columns[column]}.",
+                why="A Partition is a folder named by one plain value, such as region=eu.",
+                fix="Partition by a column holding one plain value, such as a string.",
+                error=ValueError,
+            )
+
+
+def _check_buckets(t: Table) -> None:
+    """Refuse Buckets that create_table couldn't write."""
+    for argument, names in (("bucketed_by", t._bucketed_by), ("sorted_by", t._sorted_by)):
         twice = sorted({column for column in names if names.count(column) > 1})
         if twice:
             refuse(
@@ -999,26 +818,14 @@ def _check_partitions_and_buckets(t: Table) -> None:
                 fix=f"Name {twice[0]!r} once in {argument}=.",
                 error=ValueError,
             )
-        # A Bucket holds the columns inside the files; partitioned_by lists the other
-        # Partitions itself, so only the Date partition is already one there.
-        partitions = [t._date_partition] + (
-            [] if argument == "partitioned_by" else t._partitioned_by)
-        inside = [column for column in names if column in partitions]
+        # A Bucket holds the columns inside the files, so a Partition can't be one.
+        inside = [column for column in names if column in t._partitioned_by]
         if inside:
             refuse(
                 what=f"Table({t._name!r}): {argument}= names {inside[0]!r}, which is already "
                 "a Partition.",
                 why="A Partition is a folder of its own, not a column inside the files.",
                 fix=f"Remove {inside[0]!r} from {argument}=.",
-                error=ValueError,
-            )
-    for column in t._partitioned_by:
-        if (t._columns[column] or "").strip().lower().startswith(("array", "map", "struct")):
-            refuse(
-                what=f"Table({t._name!r}): partitioned_by= names {column!r}, whose type is "
-                f"{t._columns[column]}.",
-                why="A Partition is a folder named by one plain value, such as region=eu.",
-                fix="Partition by a column holding one plain value, such as a string.",
                 error=ValueError,
             )
     has_buckets = t._buckets is not None
@@ -1029,7 +836,8 @@ def _check_partitions_and_buckets(t: Table) -> None:
         missing = "buckets=" if t._bucketed_by else "bucketed_by="
         refuse(
             what=f"Table({t._name!r}) has {' and '.join(given)} but no {missing}.",
-            why="Buckets spread each day's rows into a fixed number of files by some columns: "
+            why="Buckets spread each Partition's rows into a fixed number of files by some "
+            "columns: "
             "bucketed_by= names the columns and buckets= the number, and sorted_by= sorts "
             "the rows inside each Bucket.",
             fix=f"Give both bucketed_by= and buckets=, such as bucketed_by=[\"{column_example(t)}"
@@ -1040,7 +848,7 @@ def _check_partitions_and_buckets(t: Table) -> None:
                         or t._buckets < 1):
         refuse(
             what=f"Table({t._name!r}): buckets={t._buckets!r} isn't a whole number, 1 or more.",
-            why="buckets= is how many files each day's rows are spread into.",
+            why="buckets= is how many files each Partition's rows are spread into.",
             fix="Write it like buckets=8.",
             error=ValueError,
         )
@@ -1048,7 +856,7 @@ def _check_partitions_and_buckets(t: Table) -> None:
 
 def column_example(t: Table) -> str:
     """A column of the table to show in a fix: its first that isn't a Partition."""
-    return next(c for c in t._columns if c not in (t._date_partition, *t._partitioned_by))
+    return next((c for c in t._columns if c not in t._partitioned_by), next(iter(t._columns)))
 
 
 def aliased(table: Table, name: object) -> Table:
@@ -1108,10 +916,11 @@ def _columns_of(t: object, call: str) -> list[Column]:
 
 
 def first_look(t: Table) -> Statement:
-    """A first look at a table: all its columns, and 20 of yesterday's rows.
+    """A first look at a table: all its columns, and 20 of its rows.
 
-    It is an ordinary Statement, bounded to the day before today like any other, so it is
-    safe to run on a big table. Send it with run(first_look(t), query=...).
+    It is an ordinary Statement, with LIMIT 20. A partitioned table is read with
+    reads_all_partitions=True: Hive stops reading once it has 20 rows, so it is safe on a big
+    table too. Send it with run(first_look(t), query=...).
 
     >>> print(to_hive(first_look(job_runs)))
     SELECT
@@ -1122,17 +931,12 @@ def first_look(t: Table) -> Statement:
       job_runs.avg_retry_secs,
       job_runs.dt
     FROM ops.job_runs AS job_runs
-    WHERE
-      job_runs.dt = '2026-09-24'
     LIMIT 20
     """
-    from .clauses import FROM, LIMIT, SELECT, WHERE, statement
-    from .conditions import last_n_days
+    from .clauses import FROM, LIMIT, SELECT, statement
 
-    clauses = [SELECT(_columns_of(t, "first_look(...)")), FROM(t)]
-    if t._date_partition is not None:
-        clauses.append(WHERE(last_n_days(t._column(t._date_partition), 1)))
-    return statement(*clauses, LIMIT(20))
+    return statement(SELECT(_columns_of(t, "first_look(...)")),
+                     FROM(t, reads_all_partitions=bool(t._partitioned_by)), LIMIT(20))
 
 
 # --- Reading a table's description from the warehouse ---------------------------------------
@@ -1166,10 +970,9 @@ class Verdict:
 
 
 def _ask(query: object, hive: str, call: str) -> pd.DataFrame:
-    """Send DESCRIBE or SHOW PARTITIONS through `query`, and refuse an answer that can't be
-    read."""
-    need_warehouse_call(call, "query", query, "It sends DESCRIBE and SHOW PARTITIONS to the "
-                        "warehouse, and reads what the warehouse prints back.")
+    """Send DESCRIBE through `query`, and refuse an answer that can't be read."""
+    need_warehouse_call(call, "query", query, "It sends DESCRIBE to the warehouse, and reads "
+                        "what the warehouse prints back.")
     frame = query(hive)
     if not isinstance(frame, pd.DataFrame):
         refuse(
@@ -1264,51 +1067,20 @@ def _read_detail(found: Described, label: str, column: str, kind: str, comment: 
         found.properties[kind] = comment
 
 
-def _newest_partition_value(name: str, column: str, query: object, call: str) -> str | None:
-    """Send SHOW PARTITIONS and return the newest value of one partition column."""
-    frame = _ask(query, f"SHOW PARTITIONS {hive_text(table_node(name))}", call)
-    values = []
-    for text in frame.iloc[:, 0]:
-        for part in str(text).split("/"):
-            key, _, value = part.partition("=")
-            # The warehouse escapes a partition value: 2026/09/24 is listed as 2026%2F09%2F24.
-            if key == column and value != ROWS_WITH_NO_DAY:
-                values.append(urllib.parse.unquote(value))
-    return max(values) if values else None
-
-
-def _day_format_of(value: str | None) -> str | None:
-    """The date_format a partition value is written in, or None when it isn't a day written
-    exactly as one of them writes it."""
-    for pattern in (DEFAULT_DATE_FORMAT, "%Y%m%d", "%Y/%m/%d"):
-        try:
-            day = datetime.datetime.strptime(value or "", pattern).date()
-        except ValueError:
-            continue
-        # Python also reads "2026-9-24", which Hive, comparing text, wouldn't match.
-        if day_text(day, pattern) == value:
-            return pattern
-    return None
-
-
 def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
                           folder: str | Path | None = None, **removed: object) -> Path:
     '''Write a table's Table reference as a file, such as ops__run_alerts.py.
 
-    It sends DESCRIBE and SHOW PARTITIONS through your `query` (they read the table's
-    description, never its rows) and writes the file in `folder`, such as "references", or in
+    It sends DESCRIBE through your `query` (it reads the table's description, never its
+    rows) and writes the file in `folder`, such as "references", or in
     the folder you're working in when folder is left out. The file is imported as
     `from ops__run_alerts import run_alerts`, or `from references.ops__run_alerts import
     run_alerts` from a folder "references": two underscores join the database and the table,
     since a dot or a dash can't be in a name Python imports. The Table reference in
     it is named for the table alone, or t_<table> for a table named like a Python word, such
-    as t_class. Each column's comment, which DESCRIBE prints, becomes its description. The
-    newest day SHOW PARTITIONS lists gives the Date partition's date_format. The Date partition
-    is looked for in the first partition column only: a table partitioned first by something
-    else, such as a region, gets date_partition=None and a TODO naming its partition columns.
-    Name the one that holds the days, and check_table_reference(t, query=...) then gives the
-    line its date_format needs, if any. It never guesses
-    the key or which columns don't add up: those are TODOs for you. Below the Table reference,
+    as t_class. Each column's comment, which DESCRIBE prints, becomes its description, and
+    the columns DESCRIBE lists the table as partitioned by become its partitioned_by=. It
+    never guesses the key or which columns don't add up: those are TODOs for you. Below the Table reference,
     under its Aliases heading, you can add your own names for its columns and conditions, as
     its examples show. The file is yours from then on, and this refuses to overwrite it.
 
@@ -1327,7 +1099,7 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             "severity": "string",
             "dt": "string",
         },
-        date_partition="dt",
+        partitioned_by=["dt"],
         key=None,  # TODO: the columns that pick out one row, such as key=["alert_id"]
         does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
         descriptions={
@@ -1348,8 +1120,8 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     <BLANKLINE>
     '''
     refuse_removed_arguments("write_table_reference", removed, "query=")
-    need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE and SHOW "
-                        "PARTITIONS through your query, and reads what comes back.")
+    need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE through "
+                        "your query, and reads what comes back.")
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         refuse(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
@@ -1398,9 +1170,8 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             fix="Check the table's name, and that your query returns what DESCRIBE prints.",
             error=ValueError,
         )
-    date_lines = _date_partition_lines(name, partitions, query, call)
     module = path.stem if folder is None else f"{Path(folder).name}.{path.stem}"
-    path.write_text(_reference_text(name, variable, columns, comments, date_lines, module),
+    path.write_text(_reference_text(name, variable, columns, comments, partitions, module),
                     encoding="utf-8")
     return path
 
@@ -1410,35 +1181,12 @@ def _folder_name(folder: str | Path | None) -> str:
     return "the folder you're working in" if folder is None else f"the folder {str(folder)!r}"
 
 
-def _date_partition_lines(name: str, partitions: list[str], query: Callable[[str], object],
-                          call: str) -> list[str]:
-    if not partitions:
-        return ["    date_partition=None,"]
-    first = partitions[0]
-    also = f"  # TODO check: also partitioned by {', '.join(partitions[1:])}" if len(
-        partitions) > 1 else ""
-    newest = _newest_partition_value(name, first, query, call)
-    if newest is None:
-        return [f'    date_partition="{first}",  # TODO check: no days yet; once it has one, '
-                "run check_table_reference"]
-    pattern = _day_format_of(newest)
-    if pattern is None:
-        others = f"; if {', '.join(partitions[1:])} holds the days, name it in date_partition=" if len(
-            partitions) > 1 else ""
-        return [f"    date_partition=None,  # TODO: partitioned by {', '.join(partitions)}; its "
-                f"last {first} value, {newest!r}, isn't a day the Toolbox can bound{others}"]
-    lines = [f'    date_partition="{first}",{also}']
-    if pattern != DEFAULT_DATE_FORMAT:
-        lines.append(f'    date_format="{pattern}",')
-    return lines
-
-
 # The heading a Table reference's Aliases go under, ruled to the width of the file.
 ALIASES_HEADING = "# --- Aliases " + "-" * 78
 
 
 def _reference_text(name: str, variable: str, columns: dict[str, str],
-                    comments: dict[str, str], date_lines: list[str], module: str) -> str:
+                    comments: dict[str, str], partitions: list[str], module: str) -> str:
     """A Table reference file's text. `module` is the name the file is imported by, such as
     references.ops__job_runs, which its Aliases heading shows."""
     lines = [
@@ -1454,7 +1202,7 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
     first_key = next(iter(columns))
     lines += [
         "    },",
-        *date_lines,
+        *([f"    partitioned_by={json.dumps(partitions)},"] if partitions else []),
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
     ]
@@ -1465,10 +1213,9 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
                   *[f"        {json.dumps(column)}: {json.dumps(text)}," for column, text
                     in described.items()],
                   "    },"]
-    # The examples' column: the first that is neither an id nor a Date partition's day, if any.
-    days = [line.split('"')[1] for line in date_lines if line.startswith('    date_partition="')]
+    # The examples' column: the first that is neither an id nor a partition column, if any.
     example = next((column for column in columns
-                    if not column.endswith("_id") and column not in days), first_key)
+                    if not column.endswith("_id") and column not in partitions), first_key)
     lines += [
         ")",
         "",
@@ -1491,12 +1238,6 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
 # --- Checking a Table reference against the warehouse ----------------------------------------
 
 
-def _date_format_text(t: Table) -> str:
-    """How a Table reference's date_format is named in a report."""
-    usual = ", the usual one" if t._date_format == DEFAULT_DATE_FORMAT else ""
-    return f"date_format={t._date_format!r}{usual}"
-
-
 def _real_table(t: object, call: str) -> Table:
     if not isinstance(t, Table) or t._statement is not None:
         refuse(
@@ -1511,7 +1252,7 @@ def _real_table(t: object, call: str) -> Table:
 
 def need_saved_table(t: object, what: str) -> Table:
     """The Table reference of one of the user's own Saved tables, which a call that changes a
-    table takes; refused otherwise. `what` is the call, as in "admin.drop_days(...)" or
+    table takes; refused otherwise. `what` is the call, as in "admin.drop_partitions(...)" or
     "repair_partitions(...)".
 
     A Saved table is a Table reference with location=: one with none is a table someone else
@@ -1523,11 +1264,11 @@ def need_saved_table(t: object, what: str) -> Table:
             what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
             "reference has no location=.",
             why="It changes a table, or what the warehouse keeps about it, so it takes only your "
-            "own Saved tables, each in a folder "
-            "of its own under location=. A Table reference with no location= is a table "
-            "someone else owns, and changing it could break their work.",
-            fix=f'If {t._name} is yours, add location=... to its Table(...) call, such as '
-            'location="/data/your_team/tables", the folder your Saved tables go in. If it '
+            "own Saved tables, each in a folder of its own, its location=. A Table reference "
+            "with no location= is a table someone else owns, and changing it could break their "
+            "work.",
+            fix=f"If {t._name} is yours, add location=... to its Table(...) call, its own "
+            'folder, such as location="/data/your_team/mart.db/daily_runs". If it '
             "isn't yours, ask whoever owns it.",
             error=ValueError,
         )
@@ -1535,23 +1276,27 @@ def need_saved_table(t: object, what: str) -> Table:
 
 
 def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
+              where: Condition | None = None, reads_all_partitions: bool = False,
               **removed: object) -> Verdict:
-    """Check on the newest day that no two rows share the Table reference's key.
+    """Check that no two rows share a table's key, on the rows where= picks.
 
     JOIN relies on a declared Key to warn about repeated rows, and a write into a Saved table
-    to check its rows, and the warehouse never enforces one.
-    This counts rows per key over one day, the newest SHOW PARTITIONS lists (never the rows
-    with no day), and shows at most 20 keys that repeat.
+    to check its rows, and the warehouse never enforces one. This counts the rows per key and
+    shows at most 20 keys that repeat. A partitioned table is checked on the rows `where`
+    picks, such as where=equals(job_runs.dt, "2026-09-24"), since every Partition at once may
+    be more than you want to read; reads_all_partitions=True checks them all. A table that
+    isn't partitioned is checked whole.
 
-    >>> check_key(job_runs, query=example_database.query)
-    ops.job_runs: the key (run_id) holds on 2026-09-24.
+    >>> check_key(job_runs, query=example_database.query,
+    ...           where=equals(job_runs.dt, "2026-09-24"))
+    ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
     A wrong key shows the keys that repeat:
 
     >>> alerts = Table("ops.run_alerts", columns={"alert_id": "bigint", "run_id": "bigint",
-    ...     "severity": "string", "dt": "string"}, date_partition="dt", key=["run_id"])
-    >>> check_key(alerts, query=example_database.query)
-    ops.run_alerts: the key (run_id) repeats on 2026-09-24. Keys with more than one row:
+    ...     "severity": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"])
+    >>> check_key(alerts, query=example_database.query, where=equals(alerts.dt, "2026-09-24"))
+    ops.run_alerts: the key (run_id) repeats where run_alerts.dt = '2026-09-24'. Keys with more than one row:
      run_id  copies
         101       3
         103       2
@@ -1561,7 +1306,7 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                         "which gives back rows.")
     from .calculations import count_rows
     from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
-    from .conditions import equals, more_than
+    from .conditions import Condition, more_than
     from .running import run
 
     t = _real_table(t, "check_key(...)")
@@ -1572,25 +1317,42 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
             fix='Add key=[...] to its Table(...) call, such as key=["run_id"].',
             error=ValueError,
         )
+    if where is not None and not isinstance(where, Condition):
+        refuse(
+            what=f"check_key({t._alias}, where={where!r}): where= isn't a condition.",
+            why="where= picks the rows the key is checked on.",
+            fix=f"Pass a condition, such as where=equals({t._alias}.<column>, <value>).",
+            given=where, call="check_key",
+        )
+    if t._partitioned_by and where is None and not reads_all_partitions:
+        column = f"{t._alias}.{t._partitioned_by[0]}"
+        refuse(
+            what=f"check_key({t._alias}): {t._name} is partitioned, and nothing says which "
+            "Partitions to check.",
+            why="Checking every Partition reads the whole table, which may be more than the "
+            "cluster should read at once.",
+            fix=f"Pass where=..., such as where=equals({column}, <value>), or "
+            "reads_all_partitions=True to check them all.",
+            error=ValueError,
+        )
     key = [t._column(column) for column in t._key]
-    clauses = [SELECT(key, AS(count_rows(), "copies")), FROM(t)]
+    clauses = [SELECT(key, AS(count_rows(), "copies")),
+               FROM(t, reads_all_partitions=reads_all_partitions)]
     when = ""
-    if t._date_partition is not None:
-        newest = _newest_partition_value(t._name, t._date_partition, query, "check_key(...)")
-        if newest is None:
-            return Verdict(False, [f"{t._name}: SHOW PARTITIONS found no days to check."])
-        day = t._column(t._date_partition)
-        try:
-            as_date(newest, day, "check_key(...)")
-        except ValueError:
-            return Verdict(False, [
-                f"{t._name}: the newest {t._date_partition}, {newest!r}, isn't written like "
-                f"{_date_format_text(t)}, so the key wasn't checked. "
-                "check_table_reference(t, query=...) gives the line to change."])
-        clauses.append(WHERE(equals(day, newest)))
-        when = f" on {newest}"
+    if where is not None:
+        clauses.append(WHERE(where))
+        when = f" where {where!r}"
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
     repeats = run(statement(*clauses), query=query)
+    if len(repeats.columns) == 0:
+        refuse(
+            what=f"check_key({t._alias}): your query gave back a DataFrame with no columns.",
+            why="It reads the keys that repeat from the columns of what comes back, so with no "
+            "columns it can't tell a key that holds from one that doesn't.",
+            fix="Make your query return the warehouse's answer as it prints it, each column "
+            "named.",
+            error=ValueError,
+        )
     listed = ", ".join(t._key)
     if len(repeats) == 0:
         return Verdict(True, [f"{t._name}: the key ({listed}) holds{when}."])
@@ -1608,19 +1370,19 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
                           **removed: object) -> Verdict:
     """Compare a Table reference with its table as it is now, and list what differs.
 
-    It sends DESCRIBE and SHOW PARTITIONS through your `query`, and lists problems (which make
-    Statements wrong) and notes (which may not matter), each with the line to change in the
-    Table reference file. The columns and their types come from DESCRIBE, and the Date
-    partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never
-    edits the file, and refuses nothing but a missing query: a table the warehouse can't
-    describe, or a query that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
+    It sends DESCRIBE through your `query`, and lists problems (which make Statements wrong)
+    and notes (which may not matter), each with the line to change in the Table reference
+    file. The columns, their types and the columns the table is partitioned by come from
+    DESCRIBE. It never edits the file, and refuses nothing but a missing query: a table the warehouse can't
+    describe, or a query that fails, is reported too. Comments, the key and does_not_add_up
+    aren't compared.
 
     For one of your Saved tables, one with location=, it sends DESCRIBE FORMATTED instead, and
-    compares its storage too: that it is external, its folder, its file format, its Partitions
-    after the day and its Buckets, and purge, compression and properties where the Table
-    reference gives them. A table that isn't in its own folder under location= is a problem,
-    as a table made by hand in a folder it shares with others is: two tables in one folder
-    read each other's files, and an overwrite of a day in one can delete the other's.
+    compares its storage too: that it is external, its folder, its file format and its
+    Buckets, and purge, compression and properties where the Table reference gives them. A
+    table that isn't at the folder location= names is a problem, as a table made by hand in a
+    folder it shares with others is: two tables in one folder read each other's files, and an
+    overwrite of a Partition in one can delete the other's.
     admin.move_to_own_folder(t, query=...) moves it. DESCRIBE FORMATTED describes one
     table at a time, so another table that put its files in this table's own folder is
     reported when that other table is checked: check each of your Saved tables.
@@ -1628,7 +1390,7 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     >>> check_table_reference(job_runs, query=example_database.query)
     ops.job_runs matches its Table reference.
     >>> old_jobs = Table("ops.jobs", columns={"job_id": "int", "job_name": "string",
-    ...     "owner": "string", "team": "string"}, date_partition=None, key=["job_id"])
+    ...     "owner": "string", "team": "string"}, key=["job_id"])
     >>> check_table_reference(old_jobs, query=example_database.query)
     ops.jobs differs from its Table reference.
     Problems:
@@ -1638,8 +1400,8 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
     refuse_removed_arguments("check_table_reference", removed, "query=")
-    need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE and SHOW "
-                        "PARTITIONS through your query, and reads what comes back.")
+    need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE through "
+                        "your query, and reads what comes back.")
     t = _real_table(t, "check_table_reference(...)")
     saved = t._location is not None
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
@@ -1655,17 +1417,13 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
                                "compared. Check the table's name, and that your query returns what "
                                f"{command} prints."])
     problems, notes = _column_differences(t, columns)
-    date_problems, date_notes = _date_partition_problems(t, partitions, query)
-    problems += date_problems
-    notes += date_notes
+    problems += _partition_problems(t, partitions)
     if saved:
         storage_problems, storage_notes = _storage_problems(t, described)
         problems += storage_problems
         notes += storage_notes
-    else:
-        notes += _partition_notes(t, partitions)
     shared = [column for column in columns if column in t._columns]
-    # The table lists its columns, then its Date partition, then the Partitions after it.
+    # The table lists its columns, then the ones it is partitioned by.
     in_order = [column for column in t._columns if column not in t._partitioned_by]
     if shared != [column for column in in_order + t._partitioned_by if column in columns]:
         notes.append("The columns are in a different order from the table's, which matters "
@@ -1697,55 +1455,20 @@ def _column_differences(t: Table, columns: dict[str, str]) -> tuple[list[str], l
     return problems, notes
 
 
-def _date_partition_problems(t: Table, partitions: list[str],
-                             query: Callable[[str], object]) -> tuple[list[str], list[str]]:
-    """The problems, and the notes, from checking the Date partition and its newest day."""
-    if t._date_partition is None:
-        return [], []
-    if t._date_partition not in partitions:
-        now = f'"{partitions[0]}"' if partitions else "None"
-        return [f"{t._date_partition} is no longer a partition column: change the line to "
-                f"date_partition={now},"], []
-    try:
-        newest = _newest_partition_value(t._name, t._date_partition, query,
-                                         "check_table_reference(...)")
-    except Exception as error:  # check_table_reference reports, and never raises
-        said = " ".join(" ".join(_said(error)).split())
-        return [f"SHOW PARTITIONS failed, so {t._date_partition}'s days weren't checked. It "
-                f"said: {said}"], []
-    if newest is None:
-        return [], [f"{t._date_partition} has no days yet, so its date_format can be checked "
-                    "only once it has one."]
-    try:
-        as_date(newest, t._column(t._date_partition), "check_table_reference(...)")
-    except ValueError:
-        pattern = _day_format_of(newest)
-        if pattern == DEFAULT_DATE_FORMAT:
-            fix = "remove the date_format line, since that is the usual way to write a day."
-        elif pattern:
-            fix = f'change the line to date_format="{pattern}",'
-        else:
-            fix = "change the line to date_partition=None,"
-        return [f"the newest {t._date_partition}, {newest!r}, isn't written like "
-                f"{_date_format_text(t)}: {fix}"], []
-    return [], []
+def _partition_problems(t: Table, partitions: list[str]) -> list[str]:
+    """A problem when the table is partitioned by other columns than partitioned_by= says."""
+    if partitions == t._partitioned_by:
+        return []
+    if not partitions:
+        return ["the table isn't partitioned: remove the line partitioned_by=."]
+    return [f"the table is partitioned by {', '.join(partitions)}: change the line to "
+            f"partitioned_by={json.dumps(partitions)},"]
 
 
 def _said(error: Exception) -> list[str]:
     """What an error said, as indented lines for a Verdict."""
     text = str(error).strip() or "(no message)"
     return [f"    {type(error).__name__}:"] + [f"    {line.strip()}" for line in text.splitlines()]
-
-
-def _partition_notes(t: Table, partitions: list[str]) -> list[str]:
-    if t._date_partition is None and partitions:
-        return [f"the table is partitioned by {', '.join(partitions)}: if one holds days, "
-                "name it in date_partition=..."]
-    others = [column for column in partitions if column != t._date_partition]
-    if others:
-        return [f"the table is also partitioned by {', '.join(others)}, which a Statement "
-                "may bound too."]
-    return []
 
 
 _SET_IT = "or set it with admin.set_properties(t)"
@@ -1769,7 +1492,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
         # Its folder is the warehouse's choice, so this says all the folder check would.
         problems.append("it is a managed table, whose files the warehouse keeps where it "
                         "chooses, where your Saved tables are external, each in a folder of its "
-                        f"own: {MOVE_IT}, which copies its days into a table create_table "
+                        f"own: {MOVE_IT}, which copies its rows into a table create_table "
                         "makes.")
     else:
         problems += _location_problems(t, details["location"])
@@ -1782,7 +1505,7 @@ def _storage_problems(t: Table, described: Described) -> tuple[list[str], list[s
                         + (", which writes it again as its Table reference says." if
                            fix is MOVE_IT else "."))
     problems += _property_problems(t, properties)
-    problems += _partitions_and_buckets_problems(t, described, fix)
+    problems += _buckets_problems(t, described)
     return problems, []
 
 
@@ -1817,19 +1540,14 @@ def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
 
 
 def _location_problems(t: Table, location: str) -> list[str]:
-    """A problem when the table isn't at its own folder under the Table reference's
-    location=: none when it is."""
+    """A problem when the table isn't at the folder its Table reference's location= names:
+    none when it is."""
     if _same_folder(location, t._location):
         return []
-    own = own_folder(t._name)
-    folder = location.rstrip("/")
-    if folder.lower().endswith("/" + own):
-        return [f"it is at {location}, its own folder, but under another folder than "
-                f'location= names: change the line to location="{folder[: -len(own) - 1]}", '
-                "if that is the folder your Saved tables go in."]
-    return [f"it is at {location}, not at its own folder {t._location}. A folder that isn't a "
-            f"table's own may hold other tables' files: {SHARING} {MOVE_IT[0].upper()}"
-            f"{MOVE_IT[1:]}."]
+    return [f"it is at {location}, not at {t._location}, the folder location= names: change "
+            f'the line to location="{location}", if that is the own folder of the table. '
+            f"A folder that isn't a table's own may hold other tables' files: {SHARING} "
+            f"{MOVE_IT[0].upper()}{MOVE_IT[1:]}."]
 
 
 def _same_folder(found: str, wanted: str) -> bool:
@@ -1863,21 +1581,10 @@ def _listed_names(text: str) -> list[str]:
     return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
 
 
-def _partitions_and_buckets_problems(t: Table, described: Described, fix: str) -> list[str]:
-    """The problems from comparing the Partitions after the day, and the Buckets. `fix` is
-    what makes a table whose Partitions are in another order right: MOVE_IT or
-    WRITE_IT_AGAIN."""
+def _buckets_problems(t: Table, described: Described) -> list[str]:
+    """The problems from comparing the Buckets. The Partitions are compared for every table,
+    by _partition_problems."""
     problems = []
-    partitions = described.partitions
-    if t._date_partition in partitions and partitions != partition_columns(t):
-        after = [column for column in partitions if column != t._date_partition]
-        if partitions[0] == t._date_partition:
-            problems.append(f"the table is partitioned by {', '.join(partitions)}: change the "
-                            f"line to partitioned_by={json.dumps(after)},")
-        else:
-            problems.append(f"the table is partitioned by {', '.join(partitions)}, with "
-                            f"{t._date_partition} not first, where a Saved table's other "
-                            f"Partitions come after its Date partition: {fix}.")
     try:
         number = int(described.details.get("num buckets", "-1"))
     except ValueError:
@@ -1907,7 +1614,7 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
 
     A Saved table is one your Statements write into. Send it once with
     run(create_table(t), execute=...). The table is external: its files are yours, in its own
-    folder under the Table reference's location=, and the warehouse only keeps a record of
+    folder, the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. Every column needs a type Hive has, spelled as
     DESCRIBE prints it, such as int, string, double or decimal(10,2); it refuses any other,
@@ -1922,15 +1629,15 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     alone, so it is safe to send again, as at the top of a pipeline that runs every day. It
     doesn't check that the table there matches its Table reference: check_table_reference
     does. Where a table is made again at a folder whose files stayed, repair_partitions(t)
-    finds their days.
+    finds its Partitions.
 
     A Table reference with a Key, such as key=["job_id", "dt"], gets
     PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE after its columns, which Hive keeps for whoever
     reads the table and never checks: the Toolbox checks the Key itself, before each write.
 
-    >>> daily_runs = Table("mart.daily_runs", date_partition="dt",
+    >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
     ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/tables")
+    ...     location="/data/your_team/mart.db/daily_runs")
     >>> print(to_hive(create_table(daily_runs)))
     CREATE EXTERNAL TABLE mart.daily_runs (
       job_id BIGINT,
@@ -1940,26 +1647,26 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
       dt STRING
     )
     STORED AS ORC
-    LOCATION '/data/your_team/tables/mart/daily_runs'
+    LOCATION '/data/your_team/mart.db/daily_runs'
 
-    A table partitioned by region inside each day, in Parquet files, whose files go when it
-    is dropped:
+    A table partitioned by region, then by day, in Parquet files, whose files go when it is
+    dropped:
 
-    >>> region_runs = Table("mart.region_runs", date_partition="dt",
+    >>> region_runs = Table("mart.region_runs", partitioned_by=["region", "dt"],
     ...     columns={"job_id": "bigint", "region": "string", "runs": "bigint", "dt": "string"},
-    ...     location="/data/your_team/tables", purge=True, stored_as="PARQUET",
-    ...     compression="SNAPPY", partitioned_by=["region"])
+    ...     location="/data/your_team/mart.db/region_runs", purge=True, stored_as="PARQUET",
+    ...     compression="SNAPPY")
     >>> print(to_hive(create_table(region_runs)))
     CREATE EXTERNAL TABLE mart.region_runs (
       job_id BIGINT,
       runs BIGINT
     )
     PARTITIONED BY (
-      dt STRING,
-      region STRING
+      region STRING,
+      dt STRING
     )
     STORED AS PARQUET
-    LOCATION '/data/your_team/tables/mart/region_runs'
+    LOCATION '/data/your_team/mart.db/region_runs'
     TBLPROPERTIES (
       'external.table.purge'='true',
       'parquet.compression'='SNAPPY'
@@ -1982,12 +1689,10 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     if t._location is None:
         refuse(
             what=f"create_table({t._alias}): its Table reference has no location=.",
-            why="Each of your Saved tables is an external table, in a folder of its own under "
-            "the folder your Saved tables go in. The Toolbox adds the table's own folder to "
-            "location=, so no two Saved tables share one.",
-            fix='Add location=... to its Table(...) call, such as '
-            f'location="/data/your_team/tables", which puts it at '
-            f"/data/your_team/tables/{own_folder(t._name)}.",
+            why="Each of your Saved tables is an external table, in a folder of its own: its "
+            "location=.",
+            fix="Add location=... to its Table(...) call, its own folder, such as "
+            'location="/data/your_team/mart.db/daily_runs".',
             error=ValueError,
         )
     properties = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
@@ -2004,8 +1709,8 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
 
 
 def partition_columns(t: Table) -> list[str]:
-    """A table's Partitions, in order: its Date partition, then its partitioned_by=."""
-    return [] if t._date_partition is None else [t._date_partition, *t._partitioned_by]
+    """The columns a table is partitioned by, in order: its partitioned_by=."""
+    return list(t._partitioned_by)
 
 
 # Types people often write for one create_table takes, and the one to write instead.

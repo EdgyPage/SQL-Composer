@@ -1,19 +1,20 @@
 """The Example projects in `example_projects/`: Projects that are current, whose Table
-notebooks' logic loads and writes each table's day, and whose previews give the numbers pandas
-gives for the same rows.
+notebooks' logic loads and writes each table, and whose rows give the numbers pandas gives for
+the same rows, day by day.
 
 Each project is written again by `tools/example_project.py` into a temporary folder and
 compared with the committed one, file by file, line endings aside. The rest runs on a copy of
 each project, as a notebook in it runs: `project.load` reads each Table notebook's logic cell,
 and `project.run_tables` orders and prints the writes. A preview that reads a Saved table,
 which only a warehouse holds, runs with the Saved table stood in for by the rows the notebook
-that writes it previews.
+that writes it gives for the day.
 """
 
 from __future__ import annotations
 
 import csv
 import datetime
+import re
 import shutil
 import subprocess
 import sys
@@ -24,7 +25,14 @@ import pandas as pd
 import pytest
 
 import example_project
-from conftest import ROOT, example_rows, previewed_days, standing_in, without_the_write
+from conftest import (
+    ROOT,
+    example_rows,
+    previewed_days,
+    rows_of_days,
+    standing_in,
+    without_the_write,
+)
 from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
 from sqlglot_composer.project import TableLogic
 
@@ -63,6 +71,14 @@ def inside(projects: dict[str, Path], monkeypatch: pytest.MonkeyPatch) -> Callab
 def logic(inside: Callable[..., Path], name: str, table: str) -> TableLogic:
     inside(name)
     return project.load(table)
+
+
+def day_rows(logic_of: TableLogic, day: str) -> pd.DataFrame:
+    """The rows the table's write would save for the day, on the Example database, without
+    their day, dt, the column each selects last, which holds the day alone."""
+    rows = run(rows_of_days(logic_of, day, day), query=example_database.query)
+    assert set(rows.pop("dt")) <= {day, day.replace("-", "")}
+    return rows
 
 
 # --- The committed projects -------------------------------------------------------------------
@@ -131,6 +147,10 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
     assert sorted({row["table"] for row in rows}) == [
         "mart.alerts_per_job", "mart.daily_job_runs", "mart.team_day", "ops.job_runs",
         "ops.jobs", "ops.run_alerts"]
+    # Each Saved table is partitioned by its day, dt, and nothing else.
+    assert {(row["table"], row["column"]) for row in rows if row["partition"] == "yes"
+            and row["table"].startswith("mart.")} == {
+        ("mart.alerts_per_job", "dt"), ("mart.daily_job_runs", "dt"), ("mart.team_day", "dt")}
     aliases = {(row["table"], row["column"]): row["aliases"] for row in rows if row["aliases"]}
     assert aliases == {("ops.job_runs", "duration_mins"): "minutes",
                        ("ops.job_runs", "status"): "failed (a condition)",
@@ -143,35 +163,34 @@ def test_the_reference_sheet_lists_every_column_and_its_aliases() -> None:
 @pytest.mark.parametrize(("name", "table"), [
     (name, table) for name in example_project.PROJECTS
     for table, _ in example_project.SAVED_TABLES[name]])
-def test_each_notebooks_logic_writes_its_tables_day(
+def test_each_notebooks_logic_writes_its_table(
         inside: Callable[..., Path], name: str, table: str) -> None:
     logic_of = logic(inside, name, table)
-    written = logic_of.write_day(DAY)
-    writes = written if isinstance(written, list) else [written]
-    assert f"INSERT OVERWRITE TABLE {table} PARTITION(dt = '{DAY}')\n" in to_hive(writes[-1])
-    if not isinstance(written, list):
-        # The preview is the SELECT the day's write sends. An incremental load's writes come
-        # from by_day, which writes each day's bound as one day, = rather than BETWEEN.
-        assert without_the_write(to_hive(written)) == to_hive(logic_of.preview(DAY))
+    written = to_hive(logic_of.write())
+    # Each day's rows go into that day's partition, dt filled from the rows.
+    assert f"INSERT OVERWRITE TABLE {table} PARTITION(dt)\n" in written
+    # The preview is the SELECT the write sends.
+    assert without_the_write(written) == to_hive(logic_of.preview())
 
 
 def test_an_incremental_table_writes_its_last_3_days(inside: Callable[..., Path]) -> None:
-    writes = logic(inside, "intermediate", "mart.job_day_costs").write_day(DAY)
-    inserts = [next(line for line in to_hive(write).splitlines() if line.startswith("INSERT"))
-               for write in writes]
-    assert [line[-13:] for line in inserts] == [
-        "'2026-09-22')", "'2026-09-23')", "'2026-09-24')"]
+    hive = to_hive(logic(inside, "intermediate", "mart.job_day_costs").write())
+    # One write, its rows the last 3 days, each written into its own partition.
+    assert hive.count("INSERT OVERWRITE TABLE") == 1
+    assert re.search(r"BETWEEN '2026-?09-?22' AND '2026-?09-?24'", hive), hive
 
 
 @pytest.mark.needs_example_database
-def test_a_backfill_writes_each_day_what_write_day_writes(inside: Callable[..., Path]) -> None:
-    """by_day bounds each day's write with =, where write_day says BETWEEN the day and itself:
-    the same rows, which the Example database shows."""
+def test_a_backfill_writes_each_day_what_a_write_of_the_day_writes(
+        inside: Callable[..., Path]) -> None:
+    """A backfill is one write of every day it names: the rows a write of each day alone
+    saves, put together, which the Example database shows."""
     logic_of = logic(inside, "starter", "mart.daily_job_runs")
-    for day, write in zip(DAYS, logic_of.backfill(*DAYS), strict=True):
-        assert f"PARTITION(dt = '{day}')" in to_hive(write)
-        same(example_database.query(without_the_write(to_hive(write))),
-             example_database.query(without_the_write(to_hive(logic_of.write_day(day)))))
+    write = to_hive(logic_of.backfill(*DAYS))
+    assert "INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)\n" in write
+    order = ["dt", "job_id"]
+    same(example_database.query(without_the_write(write)).sort_values(order),
+         previewed_days(logic_of, list(DAYS)).sort_values(order))
 
 
 @pytest.mark.parametrize(("name", "reader", "read"), [
@@ -182,9 +201,9 @@ def test_run_tables_prints_each_write_writers_first(
         inside: Callable[..., Path], capsys: pytest.CaptureFixture[str], name: str, reader: str,
         read: list[str]) -> None:
     inside(name)
-    report = project.run_tables(DAY)
+    report = project.run_tables()
     headings = [line.split(": ", 1)[1] for line in capsys.readouterr().out.splitlines()
-                if line.startswith("-- ")]
+                if re.match(r"-- \d+ of \d+: ", line)]
     tables = [table for table, _ in example_project.SAVED_TABLES[name]]
     assert sorted(set(headings)) == sorted(tables)
     assert headings.index(reader) > max(len(headings) - 1 - headings[::-1].index(table)
@@ -273,16 +292,14 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day: str) -> None:
-    preview = logic(inside, "starter", "mart.daily_job_runs").preview(day)
-    same(run(preview, query=example_database.query), runs_on(day))
+    same(day_rows(logic(inside, "starter", "mart.daily_job_runs"), day), runs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_alerts_per_job_previews_each_jobs_alerts(
         inside: Callable[..., Path], day: str) -> None:
-    preview = logic(inside, "starter", "mart.alerts_per_job").preview(day)
-    same(run(preview, query=example_database.query), alerts_on(day))
+    same(day_rows(logic(inside, "starter", "mart.alerts_per_job"), day), alerts_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -296,24 +313,22 @@ def test_team_day_groups_each_teams_runs_from_job_runs(
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_job_day_costs_previews_each_jobs_cost(inside: Callable[..., Path], day: str) -> None:
-    preview = logic(inside, "intermediate", "mart.job_day_costs").preview(day)
-    same(run(preview, query=example_database.query), costs_on(day))
+    same(day_rows(logic(inside, "intermediate", "mart.job_day_costs"), day), costs_on(day))
 
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_job_day_facts_previews_each_jobs_day_with_its_team_then(
         inside: Callable[..., Path], day: str) -> None:
-    preview = logic(inside, "intermediate", "mart.job_day_facts").preview(day)
-    same(run(preview, query=example_database.query), facts_on(day))
+    same(day_rows(logic(inside, "intermediate", "mart.job_day_facts"), day), facts_on(day))
 
 
 @pytest.mark.needs_example_database
 def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
         inside: Callable[..., Path]) -> None:
     logic_of = logic(inside, "intermediate", "mart.job_day_facts")
-    teams = {day: run(logic_of.preview(day), query=example_database.query).set_index("job_id")
-             .team.get(3) for day in ("2026-09-14", "2026-09-18")}
+    teams = {day: day_rows(logic_of, day).set_index("job_id").team.get(3)
+             for day in ("2026-09-14", "2026-09-18")}
     assert teams == {"2026-09-14": "data", "2026-09-18": "finance"}
 
 
@@ -330,14 +345,15 @@ def test_team_days_groups_each_teams_day_from_job_events(
 def test_team_days_previews_each_teams_day_from_both_saved_tables(
         inside: Callable[..., Path], day: str) -> None:
     """The Saved tables only a warehouse holds are stood in for by the rows their notebooks
-    preview for the day."""
+    give for the day."""
     saved = {"job_day_facts": previewed_days(logic(inside, "intermediate",
                                                    "mart.job_day_facts"), [day]),
              "job_day_costs": previewed_days(logic(inside, "intermediate",
                                                    "mart.job_day_costs"), [day])}
-    preview = logic(inside, "intermediate", "mart.team_days").preview(day)
-    hive = standing_in(to_hive(preview), saved)
-    same(example_database.query(hive), team_day_on(day))
+    rows = rows_of_days(logic(inside, "intermediate", "mart.team_days"), day, day)
+    got = example_database.query(standing_in(to_hive(rows), saved))
+    assert set(got.pop("dt")) == {day}
+    same(got, team_day_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -345,5 +361,5 @@ def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) 
     checks = logic(inside, "intermediate", "mart.job_events_checks")
     assert len(run(checks.repeated_keys("2026-09-11", DAY), query=example_database.query)) == 0
     events = example_rows("job_events")
-    counted = run(checks.preview(DAY), query=example_database.query)
+    counted = run(checks.preview(), query=example_database.query)
     assert list(counted.row_count) == [len(events[events.dt == DAY])]

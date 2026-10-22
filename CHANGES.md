@@ -57,6 +57,43 @@ built a day at a time, so some of your files change: each change below says how.
   and SHOW PARTITIONS as `send` did; a `SET` goes to `example_database.execute`, which stands
   in for your execute, printing the first line of the Hive it is given and changing nothing,
   since the Example database is never written to.
+- **A table's Partitions are its own: no column is a day to the Toolbox.** In each Table
+  reference, `date_partition="dt"` becomes `partitioned_by=["dt"]`, a table partitioned by more
+  columns lists them all in Hive's order, such as `partitioned_by=["region", "dt"]`, and
+  `date_partition=None` goes. `date_format=` goes too: a date is compared as it is written, and
+  a date the Toolbox writes is yyyy-MM-dd. `partitioned_by=` no longer needs `location=`, so a
+  table someone else owns lists its Partitions too. `Table(...)` refuses `date_partition=` and
+  `date_format=`, saying what to write. Its arguments after `columns` are named only.
+- **A read of a partitioned table filters at least one of its partition columns**, with
+  `equals`, `between`, `is_in`, `last_n_days` or a comparison, or says
+  `FROM(t, reads_all_partitions=True)`. It needn't bound a date at both ends any more, and a
+  table that isn't partitioned is never limited. `set_load_limits(dates=...)` is gone.
+- **A write fills the Partitions its rows hold.** `INSERT_OVERWRITE(t)` and `INSERT_INTO(t)`
+  into a partitioned table write `PARTITION(<its columns>)`, filled from each row's values,
+  so its SELECT lists them; `partition={"region": "EU"}` names the first ones as values, which
+  the SELECT then leaves out. A write may read from any table. `by_day` is gone, and so are the
+  Guards that kept a write to one day: to write some Partitions at a time, loop over the
+  values yourself, with `partition={...}` or a WHERE that picks them.
+- **Not every table has a Key.** A Key no longer drops its day: it names one row of the table.
+  A table with no Key is written unchecked. `check_key(t, query=query, where=...)` checks the
+  rows `where=` picks, or, with `reads_all_partitions=True`, every Partition; it no longer reads
+  the newest day by itself.
+- **`write_day(day)` becomes `write()`, and `project.run_tables()` takes no day.** In each Table
+  notebook's logic cell, rename `write_day(day)` to `write()`, with the value it needs, if
+  any, as a constant in that cell. `run_tables(query=query, execute=execute)` runs each table's
+  `write()`.
+- **`location=` is the table's own folder, as written.** The Toolbox adds nothing to it, so a
+  reference that said `location="/data/your_team/tables"` for `mart.daily_runs` now says
+  `location="/data/your_team/tables/mart/daily_runs"`, where 6.x put it, or the folder you
+  choose. It needn't start with `/`, so `${hivevar:root}/mart.db/daily_runs` is fine. Two
+  Saved tables still can't share a folder.
+- **Upkeep and the admin module.** `admin.drop_days(t, before=...)` becomes
+  `admin.drop_partitions(t, where=less_than(t.dt, "2025-10-01"))`, from conditions on its
+  partition columns. `compute_statistics(t, day)` becomes `compute_statistics(t, partition={...})`,
+  or every Partition when it is left out. `repair_partitions` works on any partitioned table,
+  and `admin.move_to_own_folder` copies a table whole.
+- **The Reference sheet's `date_partition` column is now `partition`**, "yes" for each column
+  the table is partitioned by.
 
 ## 6.1
 

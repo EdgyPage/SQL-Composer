@@ -29,18 +29,19 @@ mart.daily_runs, each job's runs per day, is one of your Saved tables:
 >>> daily_runs = Table(
 ...     "mart.daily_runs",
 ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-...     date_partition="dt",
-...     key=["job_id"],
-...     location="/data/your_team/tables",
+...     partitioned_by=["dt"],
+...     key=["job_id", "dt"],
+...     location="/data/your_team/mart.db/daily_runs",
 ... )
 
 ### Read only the days you need
 
-A table's Partitions are folders, one per day, and a Statement that bounds the Date partition
-opens only those days' folders. Every Statement already bounds it, as the Load limits insist,
-so the first rule of a fast read is one you keep anyway: bound it as tightly as the job
-allows, a day rather than a week. A Statement that bounds a Partition inside the day, such as
-region, opens fewer folders still.
+A table's Partitions are folders, here one per day, and a Statement that filters a partition
+column opens only the folders it picks. Every Statement on a partitioned table already filters
+one, as the Load limits insist, so the first rule of a fast read is one you keep anyway:
+filter as tightly as the job allows, a day rather than a week. On a table partitioned inside
+each day too, such as by region, a Statement that filters that column as well opens fewer
+folders still.
 
 ### Keep files few and large
 
@@ -76,21 +77,26 @@ one would do. A day written with "statistics_on_write" is counted as it is writt
 written without that setting with `compute_statistics`, and add `columns=True` to count each
 column's values too, which Hive reads to order several joins:
 
->>> print(to_hive(compute_statistics(daily_runs, "2026-09-24")))
+>>> print(to_hive(compute_statistics(daily_runs, partition={"dt": "2026-09-24"})))
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
->>> print(to_hive(compute_statistics(daily_runs, "2026-09-24", columns=True)))
+>>> print(to_hive(compute_statistics(daily_runs, partition={"dt": "2026-09-24"}, columns=True)))
 ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
 
-It counts one day, as each write fills one. At work, a function counts the days you wrote
-before, one by one, through your own execute; sending a day again counts it again, which does no
-harm:
+`partition=` names the day to count. Left out, it counts every Partition the table holds, which
+reads the whole table:
+
+>>> print(to_hive(compute_statistics(daily_runs)))
+ANALYZE TABLE mart.daily_runs PARTITION(dt) COMPUTE STATISTICS
+
+At work, a function counts the days you wrote before, one by one, through your own execute;
+sending a day again counts it again, which does no harm:
 
     from collections.abc import Callable
     import pandas as pd
 
     def count_days(execute: Callable[[str], None]) -> None:
         for day in ["2026-09-22", "2026-09-23", "2026-09-24"]:
-            run(compute_statistics(daily_runs, day), execute=execute)
+            run(compute_statistics(daily_runs, partition={"dt": day}), execute=execute)
 
 `columns=[daily_runs.job_id]` counts only the columns you name, such as those you join or filter
 on, which reads less.
@@ -209,7 +215,7 @@ Statement itself.
 they take only your own Saved tables, Table references with `location=`. A table another team
 owns is refused:
 
->>> compute_statistics(job_runs, "2026-09-24")
+>>> compute_statistics(job_runs, partition={"dt": "2026-09-24"})
 Traceback (most recent call last):
 ...
 ValueError:
@@ -218,19 +224,19 @@ ValueError:
 
 Ask the team that owns it to keep its statistics.
 
-### Counting every day at once
+### Naming the day without partition=
 
-`compute_statistics` counts one day of a table with a Date partition: leaving the day out
-would read the whole table, so it is refused:
+`compute_statistics` names the Partitions to count by their partition columns, so the day alone
+is refused:
 
->>> compute_statistics(daily_runs)
+>>> compute_statistics(daily_runs, "2026-09-24")
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  compute_statistics(daily_runs) needs the day to count.
+  What happened:  compute_statistics(daily_runs, "2026-09-24") wasn't given a dict for partition=.
 ...
 
-Pass the day, or loop over the days, as above.
+Write `partition={"dt": "2026-09-24"}`, as the steps do.
 
 ### Sending Session settings to an execute that forgets them
 
@@ -245,7 +251,7 @@ its session for every call.
   [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored).
 - Ask for a map join on one join, with `broadcast=True`:
   [Semi-, anti- and full joins](#semi_anti_and_full_joins).
-- Keep each Statement's reads bounded:
+- Keep each Statement's reads small:
   [Keep queries small with load limits](#keep_queries_small_with_load_limits).
 - Every option in one place: the gallery's [`explain`](examples.html#explain),
   [`compute_statistics`](examples.html#compute_statistics) and

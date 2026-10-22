@@ -13,29 +13,30 @@
 # <NAME>. Run the cells top to bottom, once you have filled in two things.
 #
 # First, this table's Table reference, `references/<NAME>.py`: its `<...>` and TODO lines.
-# It lists the columns write_day saves, as its SELECT names them: here <GROUP_COLUMN>, typed as
+# It lists the columns write() saves, as its SELECT names them: here <GROUP_COLUMN>, typed as
 # the table read types it, and <TOTAL>, a sum: "bigint" for whole numbers, "double" for
-# others; then "dt", the day. Its key is [<GROUP_COLUMN>, "dt"].
+# others; then "dt", the day, the partition column. Give it key=[<GROUP_COLUMN>, "dt"].
 #
 # Then every `<...>` left in this notebook: the notebook won't run with one left. They are:
 #
 #   - `<SOURCE_NAME>` and `<SOURCE_TABLE>`: the table it reads, by its file in
 #     references/ and its name there, such as `ops__job_runs` and `job_runs`;
-#   - `<DATE_PARTITION>`: that table's Date partition, its day column, such as `dt`;
+#   - `<DATE_PARTITION>`: that table's partition column holding the day, such as `dt`;
 #   - `<GROUP_COLUMN>`: the column each row is for, such as `job_id`;
 #   - `<NUMBER_COLUMN>`: the column of numbers to add up, such as `duration_mins`;
 #   - `<TOTAL>` and `<TOTAL_NAME>`: one name for the total, twice: without quotes,
 #     `<TOTAL>` reads the saved column back in week_totals, such as `minutes`; in quotes,
-#     `<TOTAL_NAME>` names it as write_day saves it, such as `"minutes"`;
-#   - `<DAY>`: a day the table it reads has, in quotes, such as `"2026-09-24"`.
+#     `<TOTAL_NAME>` names it as write() saves it, such as `"minutes"`;
+#   - `<DAY>`: the day write() writes, one the table it reads has, in quotes, such as
+#     `"2026-09-24"`.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
 # `project.load("<DB>.<TABLE>")` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`.
+# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -43,11 +44,9 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = <DAY>  # a day to try the cells on, in quotes, such as "2026-09-24"
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the day it writes, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, between,
     create_table, statement, sum_of, week_start,
@@ -56,6 +55,8 @@ from references.<NAME> import <TABLE>  # this table's own Table reference
 # each table it reads, such as: from references.ops__job_runs import job_runs
 from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
+DAY = <DAY>  # the day write() writes: change it to write another
+
 
 def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
@@ -63,31 +64,33 @@ def create() -> Statement:
 
 
 def rows(day: str) -> list[Clause]:
-    """The day's totals per group: the clauses preview and write_day share. The day stays in GROUP_BY, so the days stay apart, and out of SELECT: INSERT_OVERWRITE
-    writes it as this table's Date partition, the day the table read is bounded to."""
+    """The day's totals per group: the clauses preview and write share. The day stays in GROUP_BY, so the days stay apart, and comes last in SELECT, as "dt":
+    INSERT_OVERWRITE writes each day's rows into that day's partition of this table,
+    replacing only the days the rows hold."""
     return [
         SELECT(<SOURCE_TABLE>.<GROUP_COLUMN>,
-               AS(sum_of(<SOURCE_TABLE>.<NUMBER_COLUMN>), <TOTAL_NAME>)),
+               AS(sum_of(<SOURCE_TABLE>.<NUMBER_COLUMN>), <TOTAL_NAME>),
+               AS(<SOURCE_TABLE>.<DATE_PARTITION>, "dt")),
         FROM(<SOURCE_TABLE>),
         WHERE(between(<SOURCE_TABLE>.<DATE_PARTITION>, day, day)),
         GROUP_BY(<SOURCE_TABLE>.<DATE_PARTITION>, <SOURCE_TABLE>.<GROUP_COLUMN>),
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the rows write_day(day) would save, as a SELECT to run and check first."""
-    return statement(*rows(day))
+def preview() -> Statement:
+    """Step 2: the rows write() would save, as a SELECT to run and check first."""
+    return statement(*rows(DAY))
 
 
-def write_day(day: str) -> Statement:
-    """Step 3, every day: save the day's totals, replacing whatever the day held."""
-    return statement(INSERT_OVERWRITE(<TABLE>), *rows(day))
+def write() -> Statement:
+    """Step 3: save DAY's totals, replacing whatever DAY held."""
+    return statement(INSERT_OVERWRITE(<TABLE>), *rows(DAY))
 
 
 def week_totals(first_day: str, last_day: str) -> Statement:
     """Each group's totals per week, read from the days this table saved, first_day to
-    last_day: the week is the Monday it starts on. dt is this table's Date partition, as its
-    Table reference names it."""
+    last_day: the week is the Monday it starts on. dt is this table's partition column, the
+    day, as its Table reference names it."""
     return statement(
         SELECT(AS(week_start(<TABLE>.dt), "week"), <TABLE>.<GROUP_COLUMN>,
                AS(sum_of(<TABLE>.<TOTAL>), <TOTAL_NAME>)),
@@ -100,12 +103,12 @@ def week_totals(first_day: str, last_day: str) -> Statement:
 
 # %%
 # 3. Try it: the Hive of each step, then the rows
-show_hive([create(), write_day(DAY), week_totals(DAY, DAY)])
-run(preview(DAY), query=query)
+show_hive([create(), write(), week_totals(DAY, DAY)])
+run(preview(), query=query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-export_lineage(write_day(DAY))
+export_lineage(write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/<NAME>.py

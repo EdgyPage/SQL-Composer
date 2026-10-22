@@ -23,21 +23,9 @@ from typing import NoReturn
 
 from .clauses import Statement, derived_tables
 from .conditions import Condition
-from .keys import Keys, possessive, statement_keys, unproven, wanted_key, writes_one_day
-from .refusals import (
-    GuardRefused,
-    LoadRefused,
-    refuse,
-)
-from .running import (
-    bottom_read,
-    bottom_steps,
-    by_day,
-    kept_day,
-    name_in,
-    statements_within,
-    to_hive,
-)
+from .keys import Keys, possessive, statement_keys, unproven, wanted_key
+from .refusals import refuse
+from .running import name_in, statements_within, to_hive
 from .stacking import STACK_HOW, nth
 from .tables import Table, readable
 from .trees import Node, rows_text
@@ -62,9 +50,12 @@ def formula_line(box: dict[str, object]) -> str:
 
 def box_lines(box: dict[str, object]) -> list[str]:
     """The lines of text a box shows: its name, then its formula line unless that is empty,
-    then "in the Key" for a column that is part of its table's or its step's Key."""
+    then "in the Key" for a column that is part of its table's or its step's Key, then, for a
+    partition column a write fills with one value, what it writes, such as
+    "writes region = 'EU'"."""
     key = KEY_LINE if box.get("in_key") else ""
-    return [line for line in (box["name"], formula_line(box), key) if line]
+    return [line for line in (box["name"], formula_line(box), key, box.get("static", ""))
+            if line]
 
 
 # The line a column that is part of a Key shows under its name and formula.
@@ -79,8 +70,8 @@ KEYS_ABOUT = ("The columns that tell each step's rows apart, as the Toolbox work
 
 class Graph:
     """Boxes and arrows. A box is a table column, a Derived table column, an output or a
-    condition. An arrow is "value" (the value flows along it), "rows" (it decides which rows
-    count) or "day" (a write's date bound decides the day a Saved table is written)."""
+    condition. An arrow is "value" (the value flows along it) or "rows" (it decides which
+    rows count)."""
 
     def __init__(self) -> None:
         self.boxes = {}
@@ -181,7 +172,7 @@ def _condition_text(tree: Node, then: str) -> tuple[str, str]:
 
 
 def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
-              conditions: dict[tuple[int, int], str], table: str | None = None) -> None:
+              table: str | None = None) -> None:
     """The boxes one step makes (a Derived table, or the Statement): outputs, then conditions.
 
     `index` is the Statement's place in the order, and `kind` is "derived" or "output".
@@ -189,7 +180,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     that group. `table` is the Derived table's own name, given only when kind is "derived".
     """
     if step._stack is not None:
-        _add_stack(graph, step, index, kind, group, conditions, table)
+        _add_stack(graph, step, index, kind, group, table)
         return
     resolve = _resolver(graph, step, index)
     made = []
@@ -210,7 +201,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
-    for number, (clause, condition, tree, then, kept) in enumerate(_conditions_of(step)):
+    for number, (clause, _, tree, then, kept) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
         # `joined`: the boxes of the LEFT JOIN's table this condition reads, where the rows
         # that count stop; `kept`: that table's alias (see _deciding).
@@ -219,9 +210,6 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
                         group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
                         type=None, sql=sql, formula=formula, calculated=False, statement=index,
                         joined=joined, kept=kept, reads=_aliases_read(tree))
-        # `conditions` is filled in here for the caller, which passes it on to _add_write so
-        # a write's date bound can find its condition's box.
-        conditions[(id(step), id(condition))] = key
         for used in tree.find_all("Column"):
             graph.arrow(resolve(used), key, "rows")
             if kept is not None and used.table == kept:
@@ -231,7 +219,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
 
 
 def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
-               conditions: dict[tuple[int, int], str], table: str | None) -> None:
+               table: str | None) -> None:
     """A Stack's boxes: each Statement it stacks as a step of its own, then its columns.
 
     UNION_ALL and UNION feed each column from that column of every Statement. INTERSECT and
@@ -242,7 +230,7 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
     prefix = table or ""
     for number, branch in enumerate(branches, start=1):
         _add_step(graph, branch, index, "derived", f"{group}, {nth(number)} Statement",
-                  conditions, table=f"{prefix}[{number}]")
+                  table=f"{prefix}[{number}]")
     in_key = _step_key(s)
     feeding = branches if call in ("UNION_ALL", "UNION") else branches[:1]
     made = []
@@ -298,10 +286,9 @@ def _window_rows(tree: Node) -> list[dict[str, str]]:
 
 
 def _step_keys(step: Statement) -> Keys:
-    """A step's Keys. A write's are worked out as its write check does (one day at a time
-    for a table with days, over every day it reads for one without), the ones that show its
+    """A step's Keys, worked out as a write's check does; for a write, the ones that show its
     Saved table's Key first."""
-    keys = statement_keys(step, one_day=writes_one_day(step))
+    keys = statement_keys(step)
     table = step._write
     if table is None or not table._key:
         return keys
@@ -356,49 +343,6 @@ def _aliases_read(tree: Node) -> set[str]:
     return {used.table for used in tree.find_all("Column") if used.table}
 
 
-def _date_bounds(step: Statement) -> list[Condition]:
-    """The date-bound conditions of a step that reads a write's real table through FROM."""
-    table = step._reads[0].table
-    inner = [read.on for read in step._reads if read._name == "JOIN"]
-    key = (table._alias, table._date_partition)
-    return [c for c in step._where + inner if key in c._spans]
-
-
-def _bounds_that_follow_the_day_written(step: Statement) -> list[Condition]:
-    """The conditions in the WHERE of a step that reads a write's real table through FROM that
-    do nothing but bound a joined table's Date partition, where that table's JOIN sets its Date
-    partition equal to the FROM table's, the day written: as how-to 26's team write reads each
-    job's team from that day's snapshot."""
-    table = step._reads[0].table
-    written = (table._alias, table._date_partition)
-    tied = []
-    for read in step._reads:
-        joined = (read.table._alias, read.table._date_partition)
-        if read._name == "JOIN" and read.table._date_partition and _sets_equal(
-                read.on, joined, written):
-            tied.append(joined)
-    return [c for c in step._where if c._only_bounds in tied]
-
-
-def _sets_equal(on: Condition, one: tuple[str, str], other: tuple[str, str]) -> bool:
-    """Whether an ON= condition sets two columns, each (table alias, column), equal: with an
-    equals(...) between them, alone or in all_of(...)."""
-    parts, todo = [], [on._tree]
-    while todo:
-        tree = todo.pop()
-        if tree.kind == "And":
-            todo += tree.flatten()
-        else:
-            parts.append(tree)
-    for part in parts:
-        if part.kind == "EQ":
-            sides = (part.parts["this"], part.parts["expression"])
-            if {(side.table, side.name) for side in sides if side.kind == "Column"} == {
-                    one, other}:
-                return True
-    return False
-
-
 # The badge an Unchecked statement's step and section are marked with.
 UNCHECKED = "\u26a0"
 
@@ -440,30 +384,18 @@ def _link_whole_tables(graph: Graph) -> None:
                 graph.arrow(*((whole, key) if written else (key, whole)), "value")
 
 
-def _add_write(graph: Graph, s: Statement, index: int,
-               conditions: dict[tuple[int, int], str]) -> list[str]:
-    """Arrows from a write's outputs into its Saved table, and the "day written" arrow."""
+def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
+    """Arrows from a write's outputs into its Saved table, and a box for each partition column
+    it fills with one value, which says what it writes, such as "writes region = 'EU'"."""
     table, written = s._write, []
     for _, name in s._outputs:
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
-    if not writes_one_day(s):
-        return written  # written whole: no day written
-    day = _table_box(graph, table, table._date_partition)
-    written.append(day)
-    _, span = bottom_read(s)
-    kept = (kept_day(s) if span is not None and span.is_bounded() and len(span.dates()) > 1
-            else None)
-    if kept is not None:
-        # A write that reads earlier days keeps the day it writes in a step above, as a
-        # window that looks back does: that step's condition is the day written.
-        graph.arrow(conditions.get((id(kept.step), id(kept.condition))), day, "day")
-    for step in bottom_steps(s):
-        for condition in [] if kept is not None else _date_bounds(step):
-            graph.arrow(conditions.get((id(step), id(condition))), day, "day")
-        for condition in _bounds_that_follow_the_day_written(step):
-            graph.boxes[conditions[(id(step), id(condition))]]["follows_the_day_written"] = True
+    for column, value in s._static_partitions.items():
+        target = _table_box(graph, table, column)
+        graph.boxes[target]["static"] = f"writes {column} = {value}"
+        written.append(target)
     return written
 
 
@@ -475,15 +407,13 @@ def build_graph(ordered: list[tuple[Statement | UncheckedStatement, str]]) -> Gr
         if isinstance(s, UncheckedStatement):
             ends += _add_unchecked(graph, s, index, name)
             continue
-        conditions = {}  # each condition's box key, filled in by _add_step
         for table in derived_tables(s):
             _add_step(graph, table._statement, index=index, kind="derived",
-                      group=groups[(index, table._name)], conditions=conditions,
-                      table=table._name)
-        _add_step(graph, s, index=index, kind="output", group=name, conditions=conditions)
+                      group=groups[(index, table._name)], table=table._name)
+        _add_step(graph, s, index=index, kind="output", group=name)
         ends += [_box_key("output", index, output) for _, output in s._outputs]
         if s._write is not None:
-            ends += _add_write(graph, s, index, conditions)
+            ends += _add_write(graph, s, index)
     _link_whole_tables(graph)
     keep = set(ends)
     for key in ends:
@@ -683,23 +613,11 @@ def _decides(graph: Graph, parent: str, at: str) -> bool:
 
 def _rows_that_count(graph: Graph, key: str
                      ) -> list[tuple[dict[str, object], list[str]]]:
-    """Each condition upstream of a box that decides its rows, with the table columns it reads.
-
-    A write's date bound decides which day of its Saved table is written, not which of
-    those days a later Statement reads, so it counts only in the write's own section. So does a
-    bound on a joined table's Date partition that follows the day written
-    (see _bounds_that_follow_the_day_written).
-    """
-    found, upstream = [], _deciding(graph, key)
-    day_bounds = {a for a, _, kind in graph.arrows if kind == "day"}
-    for condition in [k for k in graph.boxes if k in upstream]:
-        box = graph.boxes[condition]
-        day = condition in day_bounds or box.get("follows_the_day_written", False)
-        if box["kind"] != "condition" or (
-                day and box["statement"] != graph.boxes[key]["statement"]):
-            continue
-        found.append((box, _tables_read_by(graph, condition)))
-    return found
+    """Each condition upstream of a box that decides its rows, with the table columns it reads."""
+    upstream = _deciding(graph, key)
+    return [(graph.boxes[condition], _tables_read_by(graph, condition))
+            for condition in graph.boxes
+            if condition in upstream and graph.boxes[condition]["kind"] == "condition"]
 
 
 def _tables_read_by(graph: Graph, condition: str) -> list[str]:
@@ -737,7 +655,7 @@ def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement, str
     for index, (s, name) in enumerate(ordered):
         if isinstance(s, UncheckedStatement):
             sections.append({"name": name, "about": _about_unchecked(s), "calculated": [],
-                             "copied": [], "sql": s._text, "note": "", "unchecked": True})
+                             "copied": [], "sql": s._text, "unchecked": True})
             continue
         mine = [k for k, box in graph.boxes.items() if box.get("statement") == index
                 and box["kind"] in ("derived", "output")]
@@ -749,10 +667,9 @@ def report(graph: Graph, ordered: list[tuple[Statement | UncheckedStatement, str
         ]
         copied = [(graph.boxes[k]["name"], _copied_from(graph, k)) for k in mine
                   if graph.boxes[k]["kind"] == "output" and not graph.boxes[k]["calculated"]]
-        sql, note = _submitted(s, name)
         sections.append({"name": name, "about": _about(s, index, ordered),
                          "calculated": calculated, "copied": copied,
-                         "keys": keys_report(s, name), "sql": sql, "note": note})
+                         "keys": keys_report(s, name), "sql": to_hive(s)})
     return sections
 
 
@@ -765,13 +682,16 @@ def _about(s: Statement, index: int,
         if writers:
             parts.append(f"It reads the Saved table {table}, written by "
                          f"{' and '.join(writers)} above.")
-    if s._write is not None:
-        verb = "writes" if s._replaces_day else "adds to"
-        if not writes_one_day(s):
-            parts.append(f"It {verb} the whole Saved table {s._write._name}, which has no "
-                         "days.")
+    table = s._write
+    if table is not None:
+        if not s._replaces_rows:
+            written = f"It adds to the Saved table {table._name}."
+        elif table._partitioned_by:
+            written = (f"It writes the Saved table {table._name}, replacing each partition its "
+                       "rows fill.")
         else:
-            parts.append(f"It {verb} the Saved table {s._write._name}, one day at a time.")
+            written = f"It writes the whole Saved table {table._name}."
+        parts.append(written)
     return " ".join(parts)
 
 
@@ -788,23 +708,6 @@ def _about_unchecked(s: UncheckedStatement) -> str:
     elif written:
         text += f" It writes or changes {' and '.join(written)}."
     return text
-
-
-def _submitted(s: Statement, name: str) -> tuple[str, str]:
-    """The Hive as submitted; for a write over several days, the first day's, even when
-    set_load_limits(dates=...) refuses the whole write."""
-    try:
-        return to_hive(s), ""
-    except (GuardRefused, LoadRefused):
-        _, span = bottom_read(s)
-        if (not writes_one_day(s) or span is None or not span.is_bounded()
-                or len(span.dates()) < 2):
-            raise
-    days = by_day(s)
-    return to_hive(days[0]), (
-        f"This write covers {len(days)} days, and a write fills one day at a time: send "
-        f"it with `for day in by_day({name}): run(day, execute=...)`. This is the first day's "
-        "Hive.")
 
 
 # --- The Markdown twin -----------------------------------------------------------------------
@@ -847,9 +750,7 @@ def mermaid_chart(graph: Graph) -> list[str]:
         lines.append("  end")
     filters = []
     for source, target, kind in graph.arrows:
-        if kind == "day":
-            lines.append(f"  {ids[source]} -.->|day written| {ids[target]}")
-        elif graph.boxes[source]["kind"] == "condition":
+        if graph.boxes[source]["kind"] == "condition":
             line = f"  {ids[source]} -.->|filters| {group_ids[graph.boxes[target]['group']]}"
             if line not in filters:
                 filters.append(line)
@@ -889,8 +790,6 @@ def _section_markdown(section: dict[str, object]) -> list[str]:
         lines.append("")
     lines += ["### Keys", "", KEYS_ABOUT, ""] + [f"- {line}" for line in section["keys"]] + [""]
     lines += ["### Hive as submitted", ""]
-    if section["note"]:
-        lines += [section["note"], ""]
     return lines + ["```sql", section["sql"], "```", ""]
 
 
@@ -900,9 +799,8 @@ def to_markdown(graph: Graph, sections: list[dict[str, object]], title: str,
              "Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab "
              "draws. Arrows run from where a value comes from to where it goes. A solid "
              "arrow carries a value. A dotted arrow carries a column into a condition, or "
-             "runs from a condition to the step whose rows it decides (labelled \"filters\")."
-             " A dotted arrow labelled \"day written\" runs from a write's date bound to the "
-             "day of the Saved table it writes.", "", "## Graph", ""]
+             "runs from a condition to the step whose rows it decides (labelled \"filters\").",
+             "", "## Graph", ""]
     lines += mermaid_chart(graph) + [""]
     for section in sections:
         lines += _section_markdown(section)
@@ -962,10 +860,7 @@ def report_html(sections: list[dict[str, object]]) -> str:
                          f"</tr>{rows}</table>")
         keys = "".join(f"<li>{e(line)}</li>" for line in section["keys"])
         parts.append(f"<h3>Keys</h3><p>{e(KEYS_ABOUT)}</p><ul>{keys}</ul>")
-        parts.append("<h3>Hive as submitted</h3>")
-        if section["note"]:
-            parts.append(f"<p>{e(section['note'])}</p>")
-        parts.append(f"<pre>{e(section['sql'])}</pre>")
+        parts.append(f"<h3>Hive as submitted</h3><pre>{e(section['sql'])}</pre>")
     return "\n".join(parts)
 
 
@@ -1147,7 +1042,7 @@ def _check_statements(statements: tuple[object, ...]
             what="export_lineage was given only Admin statements, and no Statement that reads "
             "a table.",
             why="It draws where each column of a Statement comes from, and an Admin statement, "
-            "from the admin module, changes a table's definition or its days, or, in the "
+            "from the admin module, changes a table's definition or its partitions, or, in the "
             "move, copies a table's rows whole into a copy of it, column for column, so it "
             "is left out: it makes no column from another.",
             fix="Pass the Statements that read and write your tables, such as a pipeline's "
@@ -1280,7 +1175,7 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
 .n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
 .dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
 .n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
 summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
@@ -1292,7 +1187,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -1436,14 +1331,10 @@ function drawnAs(box) {
 }
 
 // The kind of the one arrow drawn for two arrows in a row, when the box between them is
-// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
-// otherwise 'rows'.
+// hidden: 'value' if both carry a value, otherwise 'rows'.
 function joinedArrowKind(first, second) {
   if (first === 'value' && second === 'value') {
     return 'value';
-  }
-  if (first === 'day' || second === 'day') {
-    return 'day';
   }
   return 'rows';
 }
@@ -1795,20 +1686,11 @@ function curve(startX, startY, endX, endY) {
   return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
 }
 
-// The "day written" label, just above the middle of its arrow.
-function dayWrittenLabel(startX, startY, endX, endY) {
-  // 28 pixels is about half the label's width, so the label is centred on the arrow.
-  const x = (startX + endX) / 2 - 28;
-  const y = (startY + endY) / 2 - 4;
-  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
-}
-
-// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
-// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+// The SVG for one arrow between two boxes. data-a and data-b hold the ids of the boxes at its
+// two ends, for lighting up a path.
 function arrowSvg(source, target, kind, startX, startY, endX, endY) {
-  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+  return `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
     + `d="${curve(startX, startY, endX, endY)}"/>`;
-  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
 }
 
 // The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
@@ -1849,7 +1731,7 @@ function renderFlowchart(visible) {
     const [sourceX, sourceY] = layout.positions[source];
     const startX = sourceX + BOX_WIDTH;
     const startY = sourceY + layout.heights[source] / 2;
-    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+    if (visibleBoxById[source].kind === 'condition') {
       const frame = frameByName[visibleBoxById[target].group];
       const drawnKey = source + '>' + frame.name;
       if (!filterArrowsDrawn.has(drawnKey)) {

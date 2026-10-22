@@ -4,8 +4,8 @@ A window names the rows a calculation looks across for each row: those sharing i
 values, in ORDER_BY's order, and with rows= only those near it. sum_of, average_of, count_rows,
 min_of and max_of take one as over=; rank, dense_rank, ntile, lag, lead, first_value and
 last_value always take one; row_number takes one too, its 4.x keywords still working. A window's
-result is filtered only in the Statement that reads its Derived table, and by_day refuses a
-window that looks across days.
+result is filtered only in the Statement that reads its Derived table, and a window sees only the
+rows its Statement reads, so one that looks back across days reads them all in a Derived table.
 """
 
 from __future__ import annotations
@@ -27,7 +27,6 @@ from sqlglot_composer import (
     Table,
     average_of,
     between,
-    by_day,
     count_rows,
     dense_rank,
     derived,
@@ -52,7 +51,7 @@ from sqlglot_composer import (
 from sqlglot_composer.example_database import job_events, job_runs
 
 DAY = "2026-09-24"
-BASE = "/data/your_team/tables"
+BASE = "/data/your_team/mart.db"
 ONE_DAY = equals(job_runs.dt, DAY)
 by_job = window(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id)
 
@@ -223,11 +222,11 @@ def test_hive_function_points_a_window_function_at_its_toolbox_name() -> None:
 # --- Keys ------------------------------------------------------------------------------------
 
 newest_per_job = Table("mart.newest_per_job_w", columns={
-    "job_id": "bigint", "run_id": "bigint", "dt": "string"}, date_partition="dt",
-    key=["job_id", "dt"], location=BASE)
+    "job_id": "bigint", "run_id": "bigint", "dt": "string"}, partitioned_by=["dt"],
+    key=["job_id", "dt"], location=f"{BASE}/newest_per_job_w")
 runs_with_before = Table("mart.runs_with_before", columns={
-    "run_id": "bigint", "before": "int", "dt": "string"}, date_partition="dt",
-    key=["run_id", "dt"], location=BASE)
+    "run_id": "bigint", "before": "int", "dt": "string"}, partitioned_by=["dt"],
+    key=["run_id", "dt"], location=f"{BASE}/runs_with_before")
 
 
 def test_a_row_number_over_a_window_kept_at_1_shows_the_key() -> None:
@@ -235,7 +234,8 @@ def test_a_row_number_over_a_window_kept_at_1_shows_the_key() -> None:
         SELECT(job_runs.job_id, job_runs.run_id, AS(row_number(over=window(
             PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id))), "newest")),
         FROM(job_runs), WHERE(ONE_DAY)))
-    s = statement(INSERT_OVERWRITE(newest_per_job), SELECT(numbered.job_id, numbered.run_id),
+    s = statement(INSERT_OVERWRITE(newest_per_job, partition={"dt": DAY}),
+                  SELECT(numbered.job_id, numbered.run_id),
                   FROM(numbered), WHERE(equals(numbered.newest, 1)))
     assert "PARTITION(dt = '2026-09-24')" in to_hive(s)
 
@@ -247,22 +247,24 @@ def test_a_rank_kept_at_1_doesnt_show_the_key() -> None:
             "longest")),
         FROM(job_runs), WHERE(ONE_DAY)))
     with pytest.raises(GuardRefused, match="Key"):
-        statement(INSERT_OVERWRITE(newest_per_job), SELECT(ranked.job_id, ranked.run_id),
+        statement(INSERT_OVERWRITE(newest_per_job, partition={"dt": DAY}),
+                  SELECT(ranked.job_id, ranked.run_id),
                   FROM(ranked), WHERE(equals(ranked.longest, 1)))
 
 
 def test_a_lag_keeps_the_rows_and_so_the_from_tables_key() -> None:
     s = statement(INSERT_OVERWRITE(runs_with_before),
-                  SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=by_job), "before")),
+                  SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=by_job), "before"),
+                         job_runs.dt),
                   FROM(job_runs), WHERE(ONE_DAY))
     assert "LAG(job_runs.duration_mins, 1) OVER" in to_hive(s)
 
 
-# --- by_day ----------------------------------------------------------------------------------
+# --- Windows across days -------------------------------------------------------------------
 
 events_before = Table("mart.events_before", columns={
     "event_id": "bigint", "minutes": "int", "minutes_before": "int", "dt": "string"},
-    date_partition="dt", key=["event_id", "dt"], location=BASE)
+    partitioned_by=["dt"], key=["event_id", "dt"], location=f"{BASE}/events_before")
 
 
 def finished_with_the_run_before(first: str, last: str) -> Table:
@@ -277,90 +279,24 @@ def finished_with_the_run_before(first: str, last: str) -> Table:
         WHERE(between(job_events.dt, first, last), equals(job_events.event_type, "finish"))))
 
 
-def test_by_day_refuses_a_window_that_looks_across_days() -> None:
-    with_before = finished_with_the_run_before("2026-09-18", "2026-09-24")
-    s = statement(SELECT(all_of_with_before(with_before)), FROM(with_before))
-    with pytest.raises(GuardRefused, match=r"lag\(.*looks across days") as refused:
-        by_day(s)
-    message = str(refused.value)
-    assert "PARTITION_BY" in message and "the days before it" in message
-
-
-def all_of_with_before(t: Table) -> list[Column]:
-    return [t.event_id, t.dt, t.minutes, t.minutes_before]
-
-
-@pytest.mark.parametrize("numbering", [
-    pytest.param(lambda: row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id),
-                 id="its_4x_keywords"),
-    pytest.param(lambda: row_number(over=by_job), id="over_a_window"),
-])
-def test_by_day_says_where_the_day_goes_in_either_form_of_row_number(
-        numbering: Callable[[], Column]) -> None:
-    s = statement(SELECT(job_runs.run_id, AS(numbering(), "rn")), FROM(job_runs),
-                  WHERE(between(job_runs.dt, "2026-09-23", DAY)))
-    with pytest.raises(GuardRefused) as refused:
-        by_day(s)
-    fix = str(refused.value).split("Usual fix:", 1)[1]
-    assert "Add job_runs.dt to PARTITION_BY= of row_number(...)" in fix
-    assert "window(...) of" not in fix
-
-
-def test_by_day_splits_a_window_within_each_day() -> None:
-    per_day = statement(
-        SELECT(job_events.event_id, AS(sum_of(job_events.minutes, over=window(
-            PARTITION_BY=[job_events.dt, job_events.job_id])), "job_minutes")),
-        FROM(job_events), WHERE(between(job_events.dt, "2026-09-23", DAY)))
-    assert len(by_day(per_day)) == 2
-
-
 def test_a_write_reads_the_earlier_days_and_writes_one() -> None:
     with_before = finished_with_the_run_before("2026-09-17", DAY)
     s = statement(INSERT_OVERWRITE(events_before),
-                  SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before),
+                  SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before,
+                         with_before.dt),
                   FROM(with_before), WHERE(equals(with_before.dt, DAY)))
     hive = to_hive(s)
-    assert "INSERT OVERWRITE TABLE mart.events_before PARTITION(dt = '2026-09-24')" in hive
+    assert "INSERT OVERWRITE TABLE mart.events_before PARTITION(dt)" in hive
     assert "job_events.dt BETWEEN '2026-09-17' AND '2026-09-24'" in hive
     assert "with_before.dt = '2026-09-24'" in hive
 
 
-def test_a_write_still_refuses_several_days_when_nothing_keeps_one() -> None:
+def test_a_write_of_every_day_a_window_reads_fills_each_days_partition() -> None:
     with_before = finished_with_the_run_before("2026-09-17", DAY)
     s = statement(INSERT_OVERWRITE(events_before),
-                  SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before),
+                  SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before,
+                         with_before.dt),
                   FROM(with_before))
-    with pytest.raises(GuardRefused, match="covers 8 days") as refused:
-        to_hive(s)
-    assert "WHERE(equals(the_derived_table.dt, day))" in str(refused.value)
-
-
-def test_a_write_with_no_window_still_refuses_several_days_a_step_above_keeps_one_of() -> None:
-    # Keeping one day in a step above is the fix for a Window that looks back, and for
-    # nothing else: a write with no Window reads the one day it writes, as in 4.x.
-    finishes = derived("finishes", statement(
-        SELECT(job_events.event_id, job_events.dt, job_events.minutes),
-        FROM(job_events),
-        WHERE(between(job_events.dt, "2026-09-17", DAY), equals(job_events.event_type, "finish"))))
-    s = statement(INSERT_OVERWRITE(events_before),
-                  SELECT(finishes.event_id, finishes.minutes,
-                         AS(finishes.minutes, "minutes_before")),
-                  FROM(finishes), WHERE(equals(finishes.dt, DAY)))
-    with pytest.raises(GuardRefused, match="reads 8 days") as refused:
-        to_hive(s)
-    message = str(refused.value)
-    # Its reason is the Window rule, not "every day's rows would land in that one day", which
-    # isn't so here: the step above keeps one day.
-    assert "keeps one of them with equals(finishes.dt, ...)" in message
-    assert "Only a write whose Window looks back" in message
-    assert "every day's rows would land" not in message
-    assert "WHERE(equals(job_events.dt, day))" in message
-
-
-def test_a_write_refuses_a_kept_day_its_from_table_doesnt_read() -> None:
-    with_before = finished_with_the_run_before("2026-09-17", "2026-09-20")
-    s = statement(INSERT_OVERWRITE(events_before),
-                  SELECT(with_before.event_id, with_before.minutes, with_before.minutes_before),
-                  FROM(with_before), WHERE(equals(with_before.dt, DAY)))
-    with pytest.raises(ValueError, match="2026-09-24"):
-        to_hive(s)
+    hive = to_hive(s)
+    assert "INSERT OVERWRITE TABLE mart.events_before PARTITION(dt)" in hive
+    assert "with_before.dt =" not in hive

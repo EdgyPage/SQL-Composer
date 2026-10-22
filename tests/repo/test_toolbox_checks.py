@@ -44,7 +44,7 @@ PUBLIC_NAMES = [
     "any_of", "all_of",
     "count_rows", "count_distinct", "sum_of", "average_of", "min_of", "max_of", "if_else",
     "fill_null", "week_start", "month_start", "row_number", "descending", "hive_function",
-    "to_hive", "show_hive", "run", "by_day", "set_load_limits",
+    "to_hive", "show_hive", "run", "set_load_limits",
     "GuardRefused", "LoadRefused",
     "export_lineage",
     # Toolbox 5.0, ticket 03: Session settings, the Unchecked statement and the Admin log.
@@ -66,8 +66,10 @@ PUBLIC_NAMES = [
     "Named", "Ordering", "Subtotals", "Verdict",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
-# ticket 04: drop_table moved here from the names above.
-ADMIN_NAMES = ["drop_table", "drop_days", "add_columns", "set_properties", "move_to_own_folder"]
+# ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
+# days, so drop_partitions replaced drop_days and by_day left the names above.
+ADMIN_NAMES = ["drop_table", "drop_partitions", "add_columns", "set_properties",
+               "move_to_own_folder"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER
@@ -84,8 +86,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 100
-    assert len(set(PUBLIC_NAMES)) == 100
+    assert len(PUBLIC_NAMES) == 99
+    assert len(set(PUBLIC_NAMES)) == 99
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

@@ -17,9 +17,9 @@ job_day_costs = Table(
         "cost_cents": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/job_day_costs",  # its own folder
     descriptions={
         "cost_cents": "every region's cost added up; NULL until the bill comes in",
         "dt": "the day the cost is for, as yyyy-MM-dd",

@@ -58,7 +58,6 @@ TOOLBOX_VERSION = "7.0"
 jobs = Table(
     "ops.jobs",
     columns={"job_id": "bigint", "job_name": "string", "team": "string", "region": "string"},
-    date_partition=None,
     key=["job_id"],
 )
 
@@ -72,7 +71,7 @@ job_runs = Table(
         "avg_retry_secs": "double",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],
     does_not_add_up=["avg_retry_secs"],
 )
@@ -85,14 +84,14 @@ run_alerts = Table(
         "severity": "string",  # low / high
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["alert_id"],
 )
 
 scheduler_runs = Table(
     "ops.scheduler_runs",
     columns={"run_id": "bigint", "job_id": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],
 )
 
@@ -107,7 +106,7 @@ job_events = Table(
         "minutes": "int",  # minutes since the run started
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id"],
 )
 
@@ -119,7 +118,7 @@ job_owners = Table(
         "owner": "string",  # NULL when nobody owns the job
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
 )
 
@@ -131,8 +130,7 @@ region_costs = Table(
         "region": "string",
         "dt": "string",
     },
-    date_partition="dt",
-    date_format="%Y%m%d",
+    partitioned_by=["region", "dt"],
     key=["job_id", "region", "dt"],
 )
 
@@ -146,8 +144,6 @@ _COMMENTS = {
     ("region_costs", "cost_cents"): "NULL until the bill comes in",
 }
 
-# The partition columns, in order, of a table partitioned by more than its Date partition.
-_PARTITIONS = {"region_costs": ["region", "dt"]}
 
 # --- The rows: small enough to read by eye, so every wrong number is visibly wrong ----------
 
@@ -373,10 +369,8 @@ def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
 
 
 def _partition_columns(table: Table) -> list[str]:
-    """The table's partition columns, in order: its Date partition, and any before it."""
-    if table._date_partition is None:
-        return []
-    return _PARTITIONS.get(table._alias, [table._date_partition])
+    """The table's partition columns, in order."""
+    return list(table._partitioned_by)
 
 
 def _describe(name: str) -> pd.DataFrame:
@@ -384,7 +378,7 @@ def _describe(name: str) -> pd.DataFrame:
     table, _ = _table(name)
     rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
             for column, kind in table._columns.items()]
-    if table._date_partition is not None:
+    if table._partitioned_by:
         rows += [
             ("", None, None),
             ("# Partition Information", None, None),
@@ -398,7 +392,7 @@ def _show_partitions(name: str) -> pd.DataFrame:
     """What SHOW PARTITIONS prints: one row per partition, like dt=2026-09-23, or
     region=eu/dt=20260911 for a table partitioned by two columns."""
     table, rows = _table(name)
-    if table._date_partition is None:
+    if not table._partitioned_by:
         raise ValueError(f"Table {table._name} is not a partitioned table.")
     columns = _partition_columns(table)
     positions = [list(table._columns).index(column) for column in columns]

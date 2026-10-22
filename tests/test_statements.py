@@ -31,7 +31,6 @@ from sqlglot_composer import (
     all_columns,
     any_of,
     between,
-    by_day,
     count_distinct,
     count_rows,
     create_table,
@@ -130,21 +129,23 @@ def test_a_missing_pandas_value_counts_as_none() -> None:
 
 def test_a_timestamp_column_keeps_the_time_of_day() -> None:
     events = Table("ops.events", columns={"at": "timestamp", "dt": "string"},
-                   date_partition="dt")
+                   partitioned_by=["dt"])
     at = datetime.datetime(2026, 9, 24, 13, 5)
     assert repr(equals(events.at, at)) == "events.at = '2026-09-24 13:05:00'"
     assert repr(last_n_days(events.at, 2)) == (
         "events.at >= '2026-09-23' AND events.at < '2026-09-25'")
 
 
-def test_a_date_partition_in_another_format_is_written_in_that_format() -> None:
+def test_a_partition_column_of_dates_is_compared_as_written() -> None:
+    """No column is a day to the Toolbox: a value is written into the Hive as it is given, and
+    the day helpers read the column as it is."""
     compact = Table("ops.compact", columns={"n": "int", "day": "string"},
-                    date_partition="day", date_format="%Y%m%d")
-    assert repr(equals(compact.day, datetime.date(2026, 9, 24))) == "compact.day = '20260924'"
-    assert repr(last_n_days(compact.day, 2)) == "compact.day BETWEEN '20260923' AND '20260924'"
+                    partitioned_by=["day"])
+    assert repr(equals(compact.day, "20260924")) == "compact.day = '20260924'"
+    assert repr(equals(compact.day, datetime.date(2026, 9, 24))) == "compact.day = '2026-09-24'"
+    assert repr(last_n_days(compact.day, 2)) == "compact.day BETWEEN '2026-09-23' AND '2026-09-24'"
     assert repr(week_start(compact.day)) == (
-        "CAST(NEXT_DAY(DATE_ADD(FROM_UNIXTIME(UNIX_TIMESTAMP(compact.day, 'yyyyMMdd'), "
-        "'yyyy-MM-dd'), 7 * -1), 'MO') AS STRING)")
+        "CAST(NEXT_DAY(DATE_ADD(compact.day, 7 * -1), 'MO') AS STRING)")
 
 
 def test_between_refuses_days_in_the_wrong_order() -> None:
@@ -300,12 +301,19 @@ def test_all_columns_expands_to_the_explicit_list() -> None:
     assert "jobs.region" in hive
 
 
-def test_first_look_on_a_table_with_no_date_partition() -> None:
+def test_first_look_on_an_unpartitioned_table() -> None:
     assert to_hive(first_look(jobs)).endswith("FROM ops.jobs AS jobs\nLIMIT 20")
 
 
+def test_first_look_reads_every_partition_of_a_partitioned_table() -> None:
+    hive = to_hive(first_look(job_runs))
+    assert hive.endswith("  job_runs.dt\nFROM ops.job_runs AS job_runs\nLIMIT 20")
+    assert "WHERE" not in hive
+    assert hive.count("job_runs.") == len(job_runs._columns)
+
+
 def test_a_reserved_word_as_a_name_is_quoted() -> None:
-    odd = Table("ops.odd", columns={"user": "string", "select": "int"}, date_partition=None)
+    odd = Table("ops.odd", columns={"user": "string", "select": "int"})
     hive = to_hive(statement(SELECT(odd.user, AS(getattr(odd, "select"), "order")), FROM(odd)))
     assert "odd.`user`" in hive and "AS `order`" in hive
 
@@ -373,8 +381,8 @@ def test_a_derived_table_keeps_its_sources_key_when_it_only_filters() -> None:
 
 def test_a_write_cant_be_a_derived_table() -> None:
     daily = Table("mart.daily", columns={"runs": "bigint", "dt": "string"},
-                  date_partition="dt")
-    write = statement(INSERT_OVERWRITE(daily), SELECT(AS(count_rows(), "runs")),
+                  partitioned_by=["dt"])
+    write = statement(INSERT_OVERWRITE(daily), SELECT(AS(count_rows(), "runs"), job_runs.dt),
                       FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")),
                       GROUP_BY(job_runs.dt))
     with pytest.raises(ValueError, match="write"):
@@ -400,14 +408,14 @@ def test_latest_row_per_key_with_row_number() -> None:
 daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "minutes": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
 )
 
 
 def backfill() -> Statement:
     return statement(
         INSERT_OVERWRITE(daily_runs),
-        SELECT(AS(sum_of(job_runs.duration_mins), "minutes"), job_runs.job_id,
+        SELECT(job_runs.dt, AS(sum_of(job_runs.duration_mins), "minutes"), job_runs.job_id,
                AS(count_rows(), "runs")),
         FROM(job_runs),
         WHERE(DAYS),
@@ -415,44 +423,43 @@ def backfill() -> Statement:
     )
 
 
-def test_a_write_selects_in_the_saved_tables_order() -> None:
-    (first, _) = by_day(backfill())
-    lines = to_hive(first).splitlines()
-    assert lines[0] == "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-23')"
-    assert lines[1:5] == ["SELECT", "  job_runs.job_id,", "  COUNT(*) AS runs,",
-                          "  SUM(job_runs.duration_mins) AS minutes"]
+def test_a_write_selects_in_the_saved_tables_order_its_partition_columns_last() -> None:
+    lines = to_hive(backfill()).splitlines()
+    assert lines[0] == "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)"
+    assert lines[1:6] == ["SELECT", "  job_runs.job_id,", "  COUNT(*) AS runs,",
+                          "  SUM(job_runs.duration_mins) AS minutes,", "  job_runs.dt"]
 
 
 def test_a_write_never_gets_the_automatic_limit() -> None:
     set_load_limits(rows=10)
-    (first, _) = by_day(backfill())
-    assert "LIMIT" not in to_hive(first)
+    assert "LIMIT" not in to_hive(backfill())
 
 
-def test_a_write_with_no_bound_on_its_day_is_refused() -> None:
-    unbounded = statement(
+def test_a_write_may_read_every_partition_when_it_says_so() -> None:
+    everything = statement(
         INSERT_OVERWRITE(daily_runs),
         SELECT(AS(sum_of(job_runs.duration_mins), "minutes"), job_runs.job_id,
-               AS(count_rows(), "runs")),
+               AS(count_rows(), "runs"), job_runs.dt),
         FROM(job_runs, reads_all_partitions=True),
         GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    with pytest.raises(ValueError, match="can't tell which day to write"):
-        to_hive(unbounded)
+    hive = to_hive(everything)
+    assert hive.startswith("INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)\n")
+    assert "WHERE" not in hive
 
 
 def adding_a_day(day: str = "2026-09-24") -> Statement:
     return statement(
-        INSERT_INTO(daily_runs),
+        INSERT_INTO(daily_runs, partition={"dt": day}),
         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
                AS(sum_of(job_runs.duration_mins), "minutes")),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, day)),
-        GROUP_BY(job_runs.dt, job_runs.job_id),
+        GROUP_BY(job_runs.job_id),
     )
 
 
-def test_insert_into_adds_to_the_day_it_reads() -> None:
+def test_insert_into_adds_to_the_partition_it_names() -> None:
     lines = to_hive(adding_a_day()).splitlines()
     assert lines[0] == "INSERT INTO mart.daily_runs PARTITION(dt = '2026-09-24')"
     assert lines[1:3] == ["SELECT", "  job_runs.job_id,"]
@@ -465,15 +472,12 @@ def test_insert_into_keeps_every_rule_of_a_write() -> None:
     two_days = statement(
         INSERT_INTO(daily_runs),
         SELECT(job_runs.job_id, AS(count_rows(), "runs"),
-               AS(sum_of(job_runs.duration_mins), "minutes")),
+               AS(sum_of(job_runs.duration_mins), "minutes"), job_runs.dt),
         FROM(job_runs), WHERE(DAYS), GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    with pytest.raises(GuardRefused, match=r"INSERT_INTO\(daily_runs\) covers 2 days"):
-        to_hive(two_days)
-    assert [to_hive(day).splitlines()[0][-13:] for day in by_day(two_days)] == [
-        "'2026-09-23')", "'2026-09-24')"]
-    # ops.jobs has no days and no location=: written whole, someone else's table would lose
-    # every row, so it is refused.
+    assert to_hive(two_days).splitlines()[0] == "INSERT INTO mart.daily_runs PARTITION(dt)"
+    # ops.jobs is unpartitioned and has no location=: written whole, someone else's table
+    # would lose every row, so it is refused.
     with pytest.raises(ValueError, match="isn't one of your Saved tables"):
         INSERT_INTO(jobs)
     with pytest.raises(ValueError, match="write"):
@@ -486,56 +490,29 @@ def test_a_statement_has_one_write_at_most() -> None:
                   SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS))
 
 
-def test_a_write_from_a_table_with_no_date_partition_says_so() -> None:
-    per_team = Table("mart.per_team", columns={"jobs": "bigint", "dt": "string"},
-                     date_partition="dt")
-    s = statement(INSERT_OVERWRITE(per_team), SELECT(AS(count_rows(), "jobs")), FROM(jobs))
-    with pytest.raises(ValueError, match="its FROM table ops.jobs has no Date partition") as refused:
-        to_hive(s)
-    assert "None" not in str(refused.value)
-
-
-# --- by_day -------------------------------------------------------------------------------
-
-
-def test_by_day_follows_from_down_through_derived_tables() -> None:
-    ranked = derived("per_day", statement(
-        SELECT(job_runs.dt, job_runs.job_id, AS(count_rows(), "runs")),
-        FROM(job_runs),
-        WHERE(last_n_days(job_runs.dt, 2), equals(job_runs.status, "SUCCESS")),
-        GROUP_BY(job_runs.dt, job_runs.job_id),
-    ))
-    s = statement(SELECT(ranked.dt, ranked.runs), FROM(ranked), WHERE(equals(ranked.runs, 1)))
-    days = by_day(s)
-    assert len(days) == 2
-    second = to_hive(days[1])
-    assert "job_runs.dt = '2026-09-24'" in second
-    assert "BETWEEN" not in second
-    assert "job_runs.status = 'SUCCESS'" in second
-
-
-def test_by_day_refuses_a_derived_table_that_picks_rows_across_days() -> None:
-    ranked = derived("ranked", statement(
-        SELECT(job_runs.job_id, AS(row_number(PARTITION_BY=job_runs.job_id,
-                                              ORDER_BY=descending(job_runs.run_id)), "rn")),
-        FROM(job_runs),
-        WHERE(DAYS),
-    ))
-    s = statement(SELECT(ranked.job_id), FROM(ranked), WHERE(equals(ranked.rn, 1)))
-    with pytest.raises(GuardRefused, match=r"derived\('ranked', \.\.\.\)"):
-        by_day(s)
-
-
-def test_by_day_needs_a_bounded_date_partition() -> None:
-    with pytest.raises(ValueError, match="ops.jobs has no Date partition"):
-        by_day(statement(SELECT(jobs.team), FROM(jobs)))
-
-
-def test_by_day_splits_a_list_of_days() -> None:
-    s = statement(SELECT(job_runs.run_id), FROM(job_runs),
-                  WHERE(is_in(job_runs.dt, ["2026-09-24", "2026-09-20"])))
-    assert [to_hive(d).splitlines()[-1].strip() for d in by_day(s)] == [
-        "job_runs.dt = '2026-09-20'", "job_runs.dt = '2026-09-24'"]
+def test_a_write_from_an_unpartitioned_table_names_its_partition_or_fills_it_from_the_rows(
+) -> None:
+    per_day = Table("mart.per_day", columns={"jobs": "bigint", "dt": "string"},
+                    partitioned_by=["dt"])
+    named = statement(INSERT_OVERWRITE(per_day, partition={"dt": "2026-09-24"}),
+                      SELECT(AS(count_rows(), "jobs")), FROM(jobs))
+    assert to_hive(named) == (
+        "INSERT OVERWRITE TABLE mart.per_day PARTITION(dt = '2026-09-24')\n"
+        "SELECT\n"
+        "  COUNT(*) AS jobs\n"
+        "FROM ops.jobs AS jobs")
+    per_team = Table("mart.per_team", columns={"jobs": "bigint", "team": "string"},
+                     partitioned_by=["team"], key=["team"])
+    filled = statement(INSERT_OVERWRITE(per_team), SELECT(jobs.team, AS(count_rows(), "jobs")),
+                       FROM(jobs), GROUP_BY(jobs.team))
+    assert to_hive(filled) == (
+        "INSERT OVERWRITE TABLE mart.per_team PARTITION(team)\n"
+        "SELECT\n"
+        "  COUNT(*) AS jobs,\n"
+        "  jobs.team\n"
+        "FROM ops.jobs AS jobs\n"
+        "GROUP BY\n"
+        "  jobs.team")
 
 
 # --- to_hive and the load limits ----------------------------------------------------------
@@ -552,10 +529,11 @@ def test_to_hive_stops_on_hive_that_doesnt_read_back_the_same(
 def test_set_load_limits_refuses_nonsense_and_returns_what_is_in_force() -> None:
     with pytest.raises(ValueError):
         set_load_limits(rows=-1)
-    with pytest.raises(ValueError):
-        set_load_limits(dates=True)
-    assert set_load_limits(rows=5) == {"rows": 5, "dates": None}
-    assert set_load_limits() == {"rows": None, "dates": None}
+    with pytest.raises(TypeError, match="set_load_limits was given dates=, which Toolbox 7.0 "
+                       "took out."):
+        set_load_limits(dates=1)
+    assert set_load_limits(rows=5) == {"rows": 5}
+    assert set_load_limits() == {"rows": None}
 
 
 def test_the_automatic_limit_never_goes_inside_a_derived_table() -> None:
@@ -580,7 +558,7 @@ def test_order_by_an_output_name_with_a_limit() -> None:
 # --- run: which of your two calls each Statement goes to --------------------------------------
 
 saved_runs = Table("mart.saved_runs", columns={"job_id": "bigint", "dt": "string"},
-                   date_partition="dt", location="/data/your_team/tables")
+                   partitioned_by=["dt"], location="/data/your_team/mart.db/saved_runs")
 
 
 def recording() -> tuple[Callable[[str], pd.DataFrame], Callable[[str], None],
@@ -618,7 +596,7 @@ def test_run_sends_explain_to_query_and_gives_back_the_plan() -> None:
 
 
 @pytest.mark.parametrize("make", [
-    pytest.param(lambda: by_day(backfill())[0], id="write"),
+    pytest.param(backfill, id="write"),
     pytest.param(lambda: create_table(saved_runs), id="create_table"),
     pytest.param(lambda: admin.drop_table(saved_runs), id="admin_drop_table"),
 ])
@@ -639,7 +617,7 @@ def test_run_sends_each_session_setting_to_execute() -> None:
 @pytest.mark.parametrize("make, needed", [
     pytest.param(one_day_read, "query", id="read"),
     pytest.param(lambda: explain(one_day_read()), "query", id="explain"),
-    pytest.param(lambda: by_day(backfill())[0], "execute", id="write"),
+    pytest.param(backfill, "execute", id="write"),
     pytest.param(lambda: create_table(saved_runs), "execute", id="create_table"),
     pytest.param(lambda: hive_settings("map_joins"), "execute", id="session_settings"),
 ])

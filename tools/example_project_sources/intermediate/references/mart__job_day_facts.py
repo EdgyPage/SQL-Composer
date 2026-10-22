@@ -19,9 +19,9 @@ job_day_facts = Table(
         "minutes": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/job_day_facts",  # its own folder
     descriptions={
         "team": "the team that owned the job that day; NULL if no snapshot says",
         "minutes": "the minutes of the runs that ended that day",

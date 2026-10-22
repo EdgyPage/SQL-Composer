@@ -1,4 +1,4 @@
-table,column,type,date_partition,in_key,aliases,description,exported_at
+table,column,type,partition,in_key,aliases,description,exported_at
 mart.alerts_per_job,job_id,bigint,,yes,,,2026-09-25 06:00:00
 mart.alerts_per_job,alerts,bigint,,,,every alert the job's runs raised that day,2026-09-25 06:00:00
 mart.alerts_per_job,high_alerts,bigint,,,,those whose severity is high,2026-09-25 06:00:00

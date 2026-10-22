@@ -1,9 +1,10 @@
 """The escaping matrix, pushed through every way a value reaches a Statement.
 
 `escaping_cases.py` holds the cases. Here each case goes in through the Toolbox: each comparison
-function, both ends of a range, each item of a list, a calculation and a Date partition bound,
-and a number's text is written by the Toolbox, not by its own str(). The last checks read a whole
-Statement's Hive back by its characters, with `hive_literals.py`, so they hold whatever sqlglot writes.
+function, both ends of a range, each item of a list, a calculation, a partition column's value
+and the PARTITION a write names, and a number's text is written by the Toolbox, not by its own
+str(). The last checks read a whole Statement's Hive back by its characters, with
+`hive_literals.py`, so they hold whatever sqlglot writes.
 """
 
 from __future__ import annotations
@@ -117,31 +118,51 @@ def test_a_control_character_hive_reads_as_a_letter_is_refused_everywhere(
             make()
 
 
-def test_a_date_format_holding_a_control_character_is_refused() -> None:
-    with pytest.raises(ValueError, match="isn't printed"):
-        Table("ops.t", columns={"dt": "string"}, date_partition="dt", date_format="%Y\x07%m%d")
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
+def test_a_partition_column_compares_any_value_as_written(_label: str, value: str,
+                                                          expected: str) -> None:
+    """No column is a day to the Toolbox: a value compared with job_runs.dt is written as it
+    is, escaped like any other."""
+    assert repr(equals(job_runs.dt, value)) == f"job_runs.dt = {expected}"
+    assert repr(between(job_runs.dt, value, value)) == (
+        f"job_runs.dt BETWEEN {expected} AND {expected}")
 
 
-@pytest.mark.parametrize(("_label", "value", "_expected"), WRITTEN, ids=WRITTEN_IDS)
-def test_a_date_partition_bound_refuses_anything_but_a_day(_label: str, value: str,
-                                                           _expected: str) -> None:
-    with pytest.raises(ValueError, match="its Table reference writes days like"):
-        equals(job_runs.dt, value)
-    with pytest.raises(ValueError, match="its Table reference writes days like"):
-        between(job_runs.dt, "2026-09-23", value)
+# A Saved table partitioned by a region, then a day, which a write may name.
+by_region = Table("mart.by_region", columns={"job_id": "bigint", "region": "string",
+                                             "dt": "string"}, partitioned_by=["region", "dt"])
 
 
-@pytest.mark.parametrize("pattern", ["%Y%m%d'", "%Y-%m-%d %H", "%Y%m"])
-def test_a_date_format_that_could_carry_sql_is_refused(pattern: str) -> None:
-    with pytest.raises(ValueError):
-        Table("mart.odd", columns={"dt": "string"}, date_partition="dt", date_format=pattern)
+def _write_into(region: object) -> str:
+    """The Hive of a write naming its region's Partition, and filling dt from its rows."""
+    return to_hive(statement(
+        INSERT_OVERWRITE(by_region, partition={"region": region}),
+        SELECT(job_runs.job_id, job_runs.dt),
+        FROM(job_runs),
+        WHERE(equals(job_runs.dt, "2026-09-24")),
+    ))
+
+
+@pytest.mark.parametrize(("_label", "value", "expected"), WRITTEN, ids=WRITTEN_IDS)
+def test_the_partition_a_write_names_writes_the_literal_exactly(_label: str, value: str,
+                                                                expected: str) -> None:
+    assert _write_into(value).startswith(
+        f"INSERT OVERWRITE TABLE mart.by_region PARTITION(region = {expected}, dt)\n")
+
+
+@pytest.mark.parametrize(("_label", "value", "_expected"), REFUSED,
+                         ids=[label for label, _value, _expected in REFUSED])
+def test_a_control_character_in_the_partition_a_write_names_is_refused(
+        _label: str, value: str, _expected: str) -> None:
+    with pytest.raises(GuardRefused, match="reads back as the plain letter"):
+        _write_into(value)
 
 
 @pytest.mark.parametrize(("label", "name", "expected"), IDENTIFIER_CASES,
                          ids=[label for label, _n, _e in IDENTIFIER_CASES])
 def test_a_column_name_is_quoted_exactly_like_this(
         label: str, name: str, expected: str) -> None:
-    odd = Table("ops.odd", columns={name: "string"}, date_partition=None)
+    odd = Table("ops.odd", columns={name: "string"})
     assert repr(getattr(odd, name)) == f"odd.{expected}"
 
 
@@ -150,7 +171,6 @@ def test_a_column_name_is_quoted_exactly_like_this(
 numbers = Table(
     "ops.numbers",
     columns={"b": "bigint", "d": "decimal(18,2)", "x": "double"},
-    date_partition=None,
 )
 COLUMN_OF = {"BIGINT": numbers.b, "DECIMAL(18,2)": numbers.d, "DOUBLE": numbers.x}
 
@@ -205,6 +225,14 @@ def test_a_like_pattern_keeps_the_value_whole(function: Callable[..., Condition]
 
 
 @pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+def test_an_injection_payload_stays_one_value_in_the_partition_a_write_names(
+        payload: str) -> None:
+    hive = _write_into(payload)
+    assert hive_literals.values(hive) == [payload, "2026-09-24"]
+    assert " OR " not in hive_literals.outside_values(hive), "the payload became an OR"
+
+
+@pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
 @pytest.mark.parametrize(("function", "_operator"), COMPARISONS,
                          ids=[f.__name__ for f, _ in COMPARISONS])
 def test_an_injection_payload_stays_one_value_in_a_whole_statement(
@@ -214,15 +242,15 @@ def test_an_injection_payload_stays_one_value_in_a_whole_statement(
     assert " OR " not in hive_literals.outside_values(hive), "the payload became an OR"
 
 
-def test_the_partition_of_a_write_is_the_day_the_toolbox_formats() -> None:
+def test_a_date_in_the_partition_of_a_write_is_written_as_its_day() -> None:
     saved = Table("mart.odd", columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-                  date_partition="dt")
+                  partitioned_by=["dt"])
     hive = to_hive(statement(
-        INSERT_OVERWRITE(saved),
+        INSERT_OVERWRITE(saved, partition={"dt": datetime.date(2026, 9, 24)}),
         SELECT(job_runs.job_id, AS(count_rows(), "runs")),
         FROM(job_runs),
         WHERE(equals(job_runs.dt, datetime.date(2026, 9, 24))),
-        GROUP_BY(job_runs.dt, job_runs.job_id),
+        GROUP_BY(job_runs.job_id),
     ))
     assert "PARTITION(dt = '2026-09-24')" in hive
     assert hive_literals.values(hive) == ["2026-09-24", "2026-09-24"]

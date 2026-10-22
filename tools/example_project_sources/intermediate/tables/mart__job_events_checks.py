@@ -15,7 +15,7 @@
 # 4 its lineage; 5 its rows in the Reference sheet.
 
 # %%
-# 1. The Project, your query, and a day to try things on
+# 1. The Project and your query
 import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
@@ -23,17 +23,17 @@ sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: tw
 from sqlglot_composer import export_lineage, project, run, show_hive
 from warehouse import query
 
-DAY = "2026-09-24"  # the Example database's last day
-
 # %%
 # logic
-# 2. The logic: imports and functions only
+# 2. The logic: imports, the day it writes, and functions only
 from sqlglot_composer import (
     AS, FROM, GROUP_BY, HAVING, INSERT_OVERWRITE, SELECT, WHERE, Clause, Column,
     Statement, all_columns, between, count_rows, create_table, is_null, more_than, statement,
 )
 from references.mart__job_events_checks import job_events_checks
 from references.ops__job_events import job_events
+
+DAY = "2026-09-24"  # the day write() writes, the Example database's last day
 
 
 def create() -> Statement:
@@ -42,24 +42,24 @@ def create() -> Statement:
 
 
 def rows(day: str) -> list[Clause]:
-    """The day's row count: the clauses preview and write_day share. The day isn't selected:
-    INSERT_OVERWRITE writes it as this table's Date partition."""
+    """The day's row count: the clauses preview and write share. The day comes last in
+    SELECT: INSERT_OVERWRITE writes the day's row into that day's Partition."""
     return [
-        SELECT(AS(count_rows(), "row_count")),
+        SELECT(AS(count_rows(), "row_count"), job_events.dt),
         FROM(job_events),
         WHERE(between(job_events.dt, day, day)),
         GROUP_BY(job_events.dt),
     ]
 
 
-def preview(day: str) -> Statement:
-    """Step 2: the row write_day(day) would save, as a SELECT to run and check first."""
-    return statement(*rows(day))
+def preview() -> Statement:
+    """Step 2: the row write() would save, as a SELECT to run and check first."""
+    return statement(*rows(DAY))
 
 
-def write_day(day: str) -> Statement:
-    """Step 3, every day: save the day's row count, replacing whatever the day held."""
-    return statement(INSERT_OVERWRITE(job_events_checks), *rows(day))
+def write() -> Statement:
+    """Step 3: save DAY's row count, replacing whatever DAY held."""
+    return statement(INSERT_OVERWRITE(job_events_checks), *rows(DAY))
 
 
 def repeated_keys(first_day: str, last_day: str) -> Statement:
@@ -92,14 +92,14 @@ def null_counts(first_day: str, last_day: str) -> Statement:
 
 # %%
 # 3. Try it: the Hive of each step, then the rows
-show_hive([create(), write_day(DAY)])
-run(preview(DAY), query=query)
+show_hive([create(), write()])
+run(preview(), query=query)
 run(repeated_keys("2026-09-11", DAY), query=query)  # should have no rows
 run(null_counts("2026-09-11", DAY), query=query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-export_lineage(write_day(DAY))
+export_lineage(write())
 
 # %%
 # 5. The Reference sheet: this table's rows, from references/mart__job_events_checks.py

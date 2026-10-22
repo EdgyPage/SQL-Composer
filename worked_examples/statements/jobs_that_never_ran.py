@@ -20,7 +20,7 @@ def jobs_that_never_ran() -> Statement:
     """Every job with no run on these days (in SQL, an anti-join).
 
     LEFT_JOIN keeps every job, and a job with no run gets NULL in job_runs' columns, so
-    is_null(job_runs.run_id) keeps just those. The day bound goes in ON=, not in WHERE: in
+    is_null(job_runs.run_id) keeps just those. The days' filter goes in ON=, not in WHERE: in
     WHERE it would throw away the very jobs with no runs, whose dt is NULL too.
     """
     return statement(

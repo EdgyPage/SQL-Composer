@@ -58,7 +58,7 @@ def test_its_hive_is_the_text_as_written_without_a_last_semicolon() -> None:
 
 
 def test_no_load_limit_looks_inside_it() -> None:
-    set_load_limits(rows=10, dates=1)
+    set_load_limits(rows=10)
     text = "SELECT * FROM ops.job_runs"
     assert to_hive(no_note(text, returns_rows=True)) == text
 
@@ -177,18 +177,18 @@ def test_it_runs_on_the_example_database() -> None:
 
 
 @pytest.mark.parametrize("text, function", [
-    ("TRUNCATE TABLE mart.daily_runs", "admin.drop_days"),
-    ("truncate table mart.daily_runs partition (dt='2026-09-24')", "admin.drop_days"),
+    ("TRUNCATE TABLE mart.daily_runs", "admin.drop_partitions"),
+    ("truncate table mart.daily_runs partition (dt='2026-09-24')", "admin.drop_partitions"),
     ("DROP TABLE IF EXISTS mart.daily_runs", "admin.drop_table"),
     ("ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')",
-     "admin.drop_days"),
+     "admin.drop_partitions"),
     ("ALTER TABLE mart.daily_runs ADD COLUMNS (late bigint)", "admin.add_columns"),
     ("ALTER TABLE mart.daily_runs SET TBLPROPERTIES ('external.table.purge'='true')",
      "admin.set_properties"),
     ("ALTER TABLE mart.daily_runs SET LOCATION '/data/mart/daily_runs'",
      "admin.move_to_own_folder"),
     ("-- tidy up\n  Drop table mart.daily_runs", "admin.drop_table"),
-], ids=["truncate", "truncate a day", "drop table", "drop partition", "add columns",
+], ids=["truncate", "truncate a partition", "drop table", "drop partition", "add columns",
         "tblproperties", "location", "after a comment"])
 def test_text_that_changes_a_table_gets_a_note_naming_the_admin_function(text: str,
                                                                          function: str) -> None:

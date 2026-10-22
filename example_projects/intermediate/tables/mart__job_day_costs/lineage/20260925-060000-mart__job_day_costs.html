@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Lineage: statement_1, statement_2, statement_3</title><style>
+<html><head><meta charset="utf-8"><title>Lineage: written</title><style>
 body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
 header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
 .key span{display:inline-block;margin-right:14px}
@@ -17,19 +17,19 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
 .n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
 .dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
 .n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
 summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
 #report details{margin:0 0 12px} #report summary{font-size:15px} footer{padding:8px 16px 24px;color:#777;font-size:12px}
 </style></head><body>
-<header><h1>Lineage: statement_1, statement_2, statement_3</h1><div class="key">
+<header><h1>Lineage: written</h1><div class="key">
 <span><i class="sw" style="background:#eef4ff"></i>table column</span>
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -44,80 +44,44 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <noscript><p><b>Scripts are off, so the graph can't be drawn.</b> The report below and
 <code>20260925-060000-mart__job_day_costs.md</code>, written beside this file, show the same lineage.</p></noscript>
 <div class="wrap" id="graph"></div>
-<section id="report"><h2>statement_1</h2>
-<p>It writes the Saved table mart.job_day_costs, one day at a time.</p>
+<section id="report"><h2>written</h2>
+<p>It writes the Saved table mart.job_day_costs, replacing each partition its rows fill.</p>
 <h3>Calculated columns</h3>
-<details open><summary><code>costs_per_job_day in statement_1.cost_cents</code> <span class="muted">in costs_per_job_day in statement_1</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day in statement_1.cost_cents = sum_of(region_costs.cost_cents)
-└─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day in statement_1: <code>equals(region_costs.dt, datetime.date(2026, 9, 22))</code>, which is <code>region_costs.dt = &#x27;20260922&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>region_costs.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day in statement_1.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day in statement_1.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;costs_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_1: Key (job_id), since costs_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH costs_per_job_day AS (
+<details open><summary><code>costs_per_job_day.cost_cents</code> <span class="muted">in costs_per_job_day</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day.cost_cents = sum_of(region_costs.cost_cents)
+└─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day: <code>between(region_costs.dt, &quot;20260922&quot;, &quot;20260924&quot;)</code>, which is <code>region_costs.dt BETWEEN &#x27;20260922&#x27; AND &#x27;20260924&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>hive_function(&quot;concat&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 1, 4), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 5, 2), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 7, 2))</code>.</p></details>
+<details open><summary><code>costs_per_job_day.dt</code> <span class="muted">in costs_per_job_day</span></summary><p>Calculated as <code>hive_function(&quot;concat&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 1, 4), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 5, 2), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 7, 2))</code>, which is <code>CONCAT(SUBSTRING(region_costs.dt, 1, 4), &#x27;-&#x27;, SUBSTRING(region_costs.dt, 5, 2), &#x27;-&#x27;, SUBSTRING(region_costs.dt, 7, 2))</code>.</p><pre>costs_per_job_day.dt = hive_function(&quot;concat&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 1, 4), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 5, 2), &quot;-&quot;, hive_function(&quot;substr&quot;, region_costs.dt, 7, 2))
+└─ ops.region_costs.dt  (string)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day: <code>between(region_costs.dt, &quot;20260922&quot;, &quot;20260924&quot;)</code>, which is <code>region_costs.dt BETWEEN &#x27;20260922&#x27; AND &#x27;20260924&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul></details>
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr><tr><td><code>dt</code></td><td>costs_per_job_day.dt (calculated) ← ops.region_costs.dt</td></tr></table>
+<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;costs_per_job_day&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.</li><li>written: Key (job_id, dt), since costs_per_job_day&#x27;s rows are told apart by job_id, dt.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
+<h3>Hive as submitted</h3><pre>WITH costs_per_job_day AS (
   SELECT
     region_costs.job_id,
-    region_costs.dt,
-    SUM(region_costs.cost_cents) AS cost_cents
+    SUM(region_costs.cost_cents) AS cost_cents,
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 5, 2),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 7, 2)
+    ) AS dt
   FROM ops.region_costs AS region_costs
   WHERE
-    region_costs.dt = &#x27;20260922&#x27;
+    region_costs.dt BETWEEN &#x27;20260922&#x27; AND &#x27;20260924&#x27;
   GROUP BY
     region_costs.job_id,
-    region_costs.dt
+    CONCAT(
+      SUBSTRING(region_costs.dt, 1, 4),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 5, 2),
+      &#x27;-&#x27;,
+      SUBSTRING(region_costs.dt, 7, 2)
+    )
 )
-INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt = &#x27;2026-09-22&#x27;)
+INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt)
 SELECT
   costs_per_job_day.job_id,
-  costs_per_job_day.cost_cents
-FROM costs_per_job_day</pre>
-<h2>statement_2</h2>
-<p>It writes the Saved table mart.job_day_costs, one day at a time.</p>
-<h3>Calculated columns</h3>
-<details open><summary><code>costs_per_job_day in statement_2.cost_cents</code> <span class="muted">in costs_per_job_day in statement_2</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day in statement_2.cost_cents = sum_of(region_costs.cost_cents)
-└─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day in statement_2: <code>equals(region_costs.dt, datetime.date(2026, 9, 23))</code>, which is <code>region_costs.dt = &#x27;20260923&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>region_costs.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day in statement_2.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day in statement_2.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;costs_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_2: Key (job_id), since costs_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH costs_per_job_day AS (
-  SELECT
-    region_costs.job_id,
-    region_costs.dt,
-    SUM(region_costs.cost_cents) AS cost_cents
-  FROM ops.region_costs AS region_costs
-  WHERE
-    region_costs.dt = &#x27;20260923&#x27;
-  GROUP BY
-    region_costs.job_id,
-    region_costs.dt
-)
-INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt = &#x27;2026-09-23&#x27;)
-SELECT
-  costs_per_job_day.job_id,
-  costs_per_job_day.cost_cents
-FROM costs_per_job_day</pre>
-<h2>statement_3</h2>
-<p>It writes the Saved table mart.job_day_costs, one day at a time.</p>
-<h3>Calculated columns</h3>
-<details open><summary><code>costs_per_job_day in statement_3.cost_cents</code> <span class="muted">in costs_per_job_day in statement_3</span></summary><p>Calculated as <code>sum_of(region_costs.cost_cents)</code>, which is <code>SUM(region_costs.cost_cents)</code>.</p><pre>costs_per_job_day in statement_3.cost_cents = sum_of(region_costs.cost_cents)
-└─ ops.region_costs.cost_cents  (bigint)</pre><p>Rows that count:</p><ul><li>WHERE in costs_per_job_day in statement_3: <code>equals(region_costs.dt, datetime.date(2026, 9, 24))</code>, which is <code>region_costs.dt = &#x27;20260924&#x27;</code> <span class="muted">reads ops.region_costs.dt</span></li></ul><p>One value for each different <code>region_costs.job_id</code> and <code>region_costs.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>costs_per_job_day in statement_3.job_id ← ops.region_costs.job_id</td></tr><tr><td><code>cost_cents</code></td><td>costs_per_job_day in statement_3.cost_cents (calculated) ← ops.region_costs.cost_cents</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;costs_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_3: Key (job_id), since costs_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_costs&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH costs_per_job_day AS (
-  SELECT
-    region_costs.job_id,
-    region_costs.dt,
-    SUM(region_costs.cost_cents) AS cost_cents
-  FROM ops.region_costs AS region_costs
-  WHERE
-    region_costs.dt = &#x27;20260924&#x27;
-  GROUP BY
-    region_costs.job_id,
-    region_costs.dt
-)
-INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt = &#x27;2026-09-24&#x27;)
-SELECT
-  costs_per_job_day.job_id,
-  costs_per_job_day.cost_cents
+  costs_per_job_day.cost_cents,
+  costs_per_job_day.dt
 FROM costs_per_job_day</pre></section>
 </main>
 <footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 7.0.</footer>
@@ -127,7 +91,7 @@ FROM costs_per_job_day</pre></section>
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.job_id", "bigint", "in the Key"], "title": "ops.region_costs.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "costs_per_job_day in statement_1", "lines": ["costs_per_job_day in statement_1.job_id", "region_costs.job_id", "in the Key"], "title": "costs_per_job_day in statement_1.job_id\nregion_costs.job_id"}, {"id": "n2", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.dt", "string", "in the Key"], "title": "ops.region_costs.dt\nstring"}, {"id": "n3", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.cost_cents", "bigint"], "title": "ops.region_costs.cost_cents\nbigint"}, {"id": "n4", "kind": "derived", "group": "costs_per_job_day in statement_1", "lines": ["costs_per_job_day in statement_1.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day in statement_1.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n5", "kind": "condition", "group": "costs_per_job_day in statement_1", "lines": ["WHERE in costs_per_job_day in statement_1", "equals(region_costs.dt, datetime.date(2026, 9, 22))"], "title": "WHERE in costs_per_job_day in statement_1\nregion_costs.dt = '20260922'"}, {"id": "n6", "kind": "output", "group": "statement_1", "lines": ["job_id", "costs_per_job_day.job_id", "in the Key"], "title": "statement_1.job_id\ncosts_per_job_day.job_id"}, {"id": "n7", "kind": "output", "group": "statement_1", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "statement_1.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n8", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.job_id", "bigint", "in the Key"], "title": "mart.job_day_costs.job_id\nbigint"}, {"id": "n9", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.cost_cents", "bigint"], "title": "mart.job_day_costs.cost_cents\nbigint"}, {"id": "n10", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.dt", "string", "in the Key"], "title": "mart.job_day_costs.dt\nstring"}, {"id": "n11", "kind": "derived", "group": "costs_per_job_day in statement_2", "lines": ["costs_per_job_day in statement_2.job_id", "region_costs.job_id", "in the Key"], "title": "costs_per_job_day in statement_2.job_id\nregion_costs.job_id"}, {"id": "n12", "kind": "derived", "group": "costs_per_job_day in statement_2", "lines": ["costs_per_job_day in statement_2.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day in statement_2.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n13", "kind": "condition", "group": "costs_per_job_day in statement_2", "lines": ["WHERE in costs_per_job_day in statement_2", "equals(region_costs.dt, datetime.date(2026, 9, 23))"], "title": "WHERE in costs_per_job_day in statement_2\nregion_costs.dt = '20260923'"}, {"id": "n14", "kind": "output", "group": "statement_2", "lines": ["job_id", "costs_per_job_day.job_id", "in the Key"], "title": "statement_2.job_id\ncosts_per_job_day.job_id"}, {"id": "n15", "kind": "output", "group": "statement_2", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "statement_2.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n16", "kind": "derived", "group": "costs_per_job_day in statement_3", "lines": ["costs_per_job_day in statement_3.job_id", "region_costs.job_id", "in the Key"], "title": "costs_per_job_day in statement_3.job_id\nregion_costs.job_id"}, {"id": "n17", "kind": "derived", "group": "costs_per_job_day in statement_3", "lines": ["costs_per_job_day in statement_3.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day in statement_3.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n18", "kind": "condition", "group": "costs_per_job_day in statement_3", "lines": ["WHERE in costs_per_job_day in statement_3", "equals(region_costs.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in costs_per_job_day in statement_3\nregion_costs.dt = '20260924'"}, {"id": "n19", "kind": "output", "group": "statement_3", "lines": ["job_id", "costs_per_job_day.job_id", "in the Key"], "title": "statement_3.job_id\ncosts_per_job_day.job_id"}, {"id": "n20", "kind": "output", "group": "statement_3", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "statement_3.cost_cents\ncosts_per_job_day.cost_cents"}], "arrows": [["n0", "n1", "value"], ["n3", "n4", "value"], ["n2", "n5", "rows"], ["n5", "n1", "rows"], ["n5", "n4", "rows"], ["n1", "n6", "value"], ["n4", "n7", "value"], ["n6", "n8", "value"], ["n7", "n9", "value"], ["n5", "n10", "day"], ["n0", "n11", "value"], ["n3", "n12", "value"], ["n2", "n13", "rows"], ["n13", "n11", "rows"], ["n13", "n12", "rows"], ["n11", "n14", "value"], ["n12", "n15", "value"], ["n14", "n8", "value"], ["n15", "n9", "value"], ["n13", "n10", "day"], ["n0", "n16", "value"], ["n3", "n17", "value"], ["n2", "n18", "rows"], ["n18", "n16", "rows"], ["n18", "n17", "rows"], ["n16", "n19", "value"], ["n17", "n20", "value"], ["n19", "n8", "value"], ["n20", "n9", "value"], ["n18", "n10", "day"]], "groups": [{"name": "ops.region_costs", "kind": "table"}, {"name": "costs_per_job_day in statement_1", "kind": "derived"}, {"name": "statement_1", "kind": "output"}, {"name": "mart.job_day_costs", "kind": "table"}, {"name": "costs_per_job_day in statement_2", "kind": "derived"}, {"name": "statement_2", "kind": "output"}, {"name": "costs_per_job_day in statement_3", "kind": "derived"}, {"name": "statement_3", "kind": "output"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.job_id", "bigint", "in the Key"], "title": "ops.region_costs.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.job_id", "region_costs.job_id", "in the Key"], "title": "costs_per_job_day.job_id\nregion_costs.job_id"}, {"id": "n2", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.cost_cents", "bigint"], "title": "ops.region_costs.cost_cents\nbigint"}, {"id": "n3", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.cost_cents", "sum_of(region_costs.cost_cents)"], "title": "costs_per_job_day.cost_cents\nSUM(region_costs.cost_cents)"}, {"id": "n4", "kind": "table", "group": "ops.region_costs", "lines": ["ops.region_costs.dt", "string", "in the Key"], "title": "ops.region_costs.dt\nstring"}, {"id": "n5", "kind": "derived", "group": "costs_per_job_day", "lines": ["costs_per_job_day.dt", "hive_function(\"concat\", hive_function(\"substr\", region_costs.dt, 1, 4), \"-\", hive_function(\"substr\", region_costs.dt, 5, 2), \"-\", hive_function(\"substr\", region_costs.dt, 7, 2))", "in the Key"], "title": "costs_per_job_day.dt\nCONCAT(SUBSTRING(region_costs.dt, 1, 4), '-', SUBSTRING(region_costs.dt, 5, 2), '-', SUBSTRING(region_costs.dt, 7, 2))"}, {"id": "n6", "kind": "condition", "group": "costs_per_job_day", "lines": ["WHERE in costs_per_job_day", "between(region_costs.dt, \"20260922\", \"20260924\")"], "title": "WHERE in costs_per_job_day\nregion_costs.dt BETWEEN '20260922' AND '20260924'"}, {"id": "n7", "kind": "output", "group": "written", "lines": ["job_id", "costs_per_job_day.job_id", "in the Key"], "title": "written.job_id\ncosts_per_job_day.job_id"}, {"id": "n8", "kind": "output", "group": "written", "lines": ["cost_cents", "costs_per_job_day.cost_cents"], "title": "written.cost_cents\ncosts_per_job_day.cost_cents"}, {"id": "n9", "kind": "output", "group": "written", "lines": ["dt", "costs_per_job_day.dt", "in the Key"], "title": "written.dt\ncosts_per_job_day.dt"}, {"id": "n10", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.job_id", "bigint", "in the Key"], "title": "mart.job_day_costs.job_id\nbigint"}, {"id": "n11", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.cost_cents", "bigint"], "title": "mart.job_day_costs.cost_cents\nbigint"}, {"id": "n12", "kind": "table", "group": "mart.job_day_costs", "lines": ["mart.job_day_costs.dt", "string", "in the Key"], "title": "mart.job_day_costs.dt\nstring"}], "arrows": [["n0", "n1", "value"], ["n2", "n3", "value"], ["n4", "n5", "value"], ["n4", "n6", "rows"], ["n6", "n1", "rows"], ["n6", "n3", "rows"], ["n6", "n5", "rows"], ["n1", "n7", "value"], ["n3", "n8", "value"], ["n5", "n9", "value"], ["n7", "n10", "value"], ["n8", "n11", "value"], ["n9", "n12", "value"]], "groups": [{"name": "ops.region_costs", "kind": "table"}, {"name": "costs_per_job_day", "kind": "derived"}, {"name": "written", "kind": "output"}, {"name": "mart.job_day_costs", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;
@@ -247,14 +211,10 @@ function drawnAs(box) {
 }
 
 // The kind of the one arrow drawn for two arrows in a row, when the box between them is
-// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
-// otherwise 'rows'.
+// hidden: 'value' if both carry a value, otherwise 'rows'.
 function joinedArrowKind(first, second) {
   if (first === 'value' && second === 'value') {
     return 'value';
-  }
-  if (first === 'day' || second === 'day') {
-    return 'day';
   }
   return 'rows';
 }
@@ -606,20 +566,11 @@ function curve(startX, startY, endX, endY) {
   return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
 }
 
-// The "day written" label, just above the middle of its arrow.
-function dayWrittenLabel(startX, startY, endX, endY) {
-  // 28 pixels is about half the label's width, so the label is centred on the arrow.
-  const x = (startX + endX) / 2 - 28;
-  const y = (startY + endY) / 2 - 4;
-  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
-}
-
-// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
-// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+// The SVG for one arrow between two boxes. data-a and data-b hold the ids of the boxes at its
+// two ends, for lighting up a path.
 function arrowSvg(source, target, kind, startX, startY, endX, endY) {
-  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+  return `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
     + `d="${curve(startX, startY, endX, endY)}"/>`;
-  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
 }
 
 // The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
@@ -660,7 +611,7 @@ function renderFlowchart(visible) {
     const [sourceX, sourceY] = layout.positions[source];
     const startX = sourceX + BOX_WIDTH;
     const startY = sourceY + layout.heights[source] / 2;
-    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+    if (visibleBoxById[source].kind === 'condition') {
       const frame = frameByName[visibleBoxById[target].group];
       const drawnKey = source + '>' + frame.name;
       if (!filterArrowsDrawn.has(drawnKey)) {

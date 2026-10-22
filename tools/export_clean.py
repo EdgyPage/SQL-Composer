@@ -239,7 +239,7 @@ def check_imports_alone(into: Path) -> None:
 # folder, three up.
 TOOLBOX_FROM_ADMIN = os.path.join(os.pardir, os.pardir, os.pardir)
 # What each Example project's dry run runs, as admin/run_tables.ipynb's first cells do.
-DRY_RUN = 'from sqlglot_composer import project; project.run_tables("2026-09-24")'
+DRY_RUN = 'from sqlglot_composer import project; project.run_tables()'
 
 
 def check_dry_runs(into: Path) -> None:

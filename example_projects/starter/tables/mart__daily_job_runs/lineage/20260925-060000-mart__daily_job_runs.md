@@ -1,6 +1,6 @@
 # Lineage: written
 
-Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters"). A dotted arrow labelled "day written" runs from a write's date bound to the day of the Saved table it writes.
+Made by `export_lineage`. The chart is written in Mermaid, which JupyterLab draws. Arrows run from where a value comes from to where it goes. A solid arrow carries a value. A dotted arrow carries a column into a condition, or runs from a condition to the step whose rows it decides (labelled "filters").
 
 ## Graph
 
@@ -9,50 +9,54 @@ flowchart LR
   subgraph g0["ops.job_runs"]
     n0["ops.job_runs.job_id<br/><small>bigint</small>"]
     n2["ops.job_runs.dt<br/><small>string</small>"]
-    n4["ops.job_runs.status<br/><small>string</small>"]
-    n6["ops.job_runs.duration_mins<br/><small>int</small>"]
+    n5["ops.job_runs.status<br/><small>string</small>"]
+    n7["ops.job_runs.duration_mins<br/><small>int</small>"]
   end
   subgraph g1["runs_per_job_day"]
     n1["runs_per_job_day.job_id<br/><small>job_runs.job_id</small><br/><small>in the Key</small>"]
-    n3["runs_per_job_day.runs<br/><small>count_rows()</small>"]
-    n5["runs_per_job_day.failed_runs<br/><small>count_rows(where=equals(job_runs.status, #quot;F…</small>"]
-    n7["runs_per_job_day.minutes<br/><small>sum_of(job_runs.duration_mins)</small>"]
+    n3["runs_per_job_day.dt<br/><small>job_runs.dt</small><br/><small>in the Key</small>"]
+    n4["runs_per_job_day.runs<br/><small>count_rows()</small>"]
+    n6["runs_per_job_day.failed_runs<br/><small>count_rows(where=equals(job_runs.status, #quot;F…</small>"]
+    n8["runs_per_job_day.minutes<br/><small>sum_of(job_runs.duration_mins)</small>"]
   end
   subgraph g2["filters on runs_per_job_day"]
-    n8{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
+    n9{{"WHERE in runs_per_job_day<br/><small>between(job_runs.dt, #quot;2026-09-24#quot;, #quot;2026-09…</small>"}}
   end
   subgraph g3["written"]
-    n9["job_id<br/><small>runs_per_job_day.job_id</small><br/><small>in the Key</small>"]
-    n10["runs<br/><small>runs_per_job_day.runs</small>"]
-    n11["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
-    n12["minutes<br/><small>runs_per_job_day.minutes</small>"]
+    n10["job_id<br/><small>runs_per_job_day.job_id</small><br/><small>in the Key</small>"]
+    n11["runs<br/><small>runs_per_job_day.runs</small>"]
+    n12["failed_runs<br/><small>runs_per_job_day.failed_runs</small>"]
+    n13["minutes<br/><small>runs_per_job_day.minutes</small>"]
+    n14["dt<br/><small>runs_per_job_day.dt</small><br/><small>in the Key</small>"]
   end
   subgraph g4["mart.daily_job_runs"]
-    n13["mart.daily_job_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
-    n14["mart.daily_job_runs.runs<br/><small>bigint</small>"]
-    n15["mart.daily_job_runs.failed_runs<br/><small>bigint</small>"]
-    n16["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
-    n17["mart.daily_job_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
+    n15["mart.daily_job_runs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
+    n16["mart.daily_job_runs.runs<br/><small>bigint</small>"]
+    n17["mart.daily_job_runs.failed_runs<br/><small>bigint</small>"]
+    n18["mart.daily_job_runs.minutes<br/><small>bigint</small>"]
+    n19["mart.daily_job_runs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
   n0 --> n1
-  n4 --> n5
-  n6 --> n7
-  n2 -.-> n8
-  n1 --> n9
-  n3 --> n10
-  n5 --> n11
-  n7 --> n12
-  n9 --> n13
-  n10 --> n14
-  n11 --> n15
-  n12 --> n16
-  n8 -.->|day written| n17
-  n8 -.->|filters| g1
+  n2 --> n3
+  n5 --> n6
+  n7 --> n8
+  n2 -.-> n9
+  n1 --> n10
+  n4 --> n11
+  n6 --> n12
+  n8 --> n13
+  n3 --> n14
+  n10 --> n15
+  n11 --> n16
+  n12 --> n17
+  n13 --> n18
+  n14 --> n19
+  n9 -.->|filters| g1
 ```
 
 ## written
 
-It writes the Saved table mart.daily_job_runs, one day at a time.
+It writes the Saved table mart.daily_job_runs, replacing each partition its rows fill.
 
 ### Calculated columns
 
@@ -108,13 +112,14 @@ One value for each different `job_runs.job_id` and `job_runs.dt`.
 | `runs` | runs_per_job_day.runs (calculated) |
 | `failed_runs` | runs_per_job_day.failed_runs (calculated) ← ops.job_runs.status |
 | `minutes` | runs_per_job_day.minutes (calculated) ← ops.job_runs.duration_mins |
+| `dt` | runs_per_job_day.dt ← ops.job_runs.dt |
 
 ### Keys
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- derived('runs_per_job_day', ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.
-- written: Key (job_id), since runs_per_job_day's rows are told apart by job_id.
+- derived('runs_per_job_day', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- written: Key (job_id, dt), since runs_per_job_day's rows are told apart by job_id, dt.
 - mart.daily_job_runs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
@@ -134,12 +139,13 @@ WITH runs_per_job_day AS (
     job_runs.job_id,
     job_runs.dt
 )
-INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt = '2026-09-24')
+INSERT OVERWRITE TABLE mart.daily_job_runs PARTITION(dt)
 SELECT
   runs_per_job_day.job_id,
   runs_per_job_day.runs,
   runs_per_job_day.failed_runs,
-  runs_per_job_day.minutes
+  runs_per_job_day.minutes,
+  runs_per_job_day.dt
 FROM runs_per_job_day
 ```
 

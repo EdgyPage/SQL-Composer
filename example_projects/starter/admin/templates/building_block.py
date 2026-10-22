@@ -10,8 +10,8 @@ notebook's logic cell, import it and read it like a table:
     from building_blocks.<BLOCK> import <BLOCK>
 
 
-    def preview(day: str) -> Statement:
-        per_group = <BLOCK>(day, day)
+    def preview() -> Statement:
+        per_group = <BLOCK>(DAY, DAY)
         return statement(SELECT(per_group.<GROUP_COLUMN>, per_group.row_count),
                          FROM(per_group))
 
@@ -21,7 +21,7 @@ Fill in every <...>:
     <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
         name there, such as ops__job_runs and job_runs.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
-    <DATE_PARTITION>: the table's Date partition, its day column, such as dt.
+    <DATE_PARTITION>: the table's partition column holding the day, such as dt.
     <NUMBER_COLUMN>: a column of numbers to add up, such as duration_mins.
     <TOTAL_NAME>: the name of what it adds up to, in quotes, such as "minutes".
 """

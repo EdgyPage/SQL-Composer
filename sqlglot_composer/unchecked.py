@@ -313,7 +313,7 @@ def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
     Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
     function that does the same job with its checks, where one does. For example, Hive refuses
     TRUNCATE on an external table (one whose files stay where you put them), and every Saved
-    table of yours is one; admin.drop_days does that job.
+    table of yours is one; admin.drop_partitions does that job.
 
     Write one command in each: send several as several unchecked_hive(...), one after the
     other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
@@ -390,7 +390,7 @@ def _what_it_does(text: str) -> str:
 # The admin function that does each job, as the note writes its call, and what the text that
 # does it by hand starts with, after ALTER TABLE <name>.
 _ALTERED_BY = (
-    (r"\bDROP\s+(IF\s+EXISTS\s+)?PARTITION\b", "admin.drop_days(t, before=...)"),
+    (r"\bDROP\s+(IF\s+EXISTS\s+)?PARTITION\b", "admin.drop_partitions(t, where=...)"),
     (r"\bADD\s+COLUMNS\b", "admin.add_columns(t, query=...)"),
     (r"\bSET\s+TBLPROPERTIES\b", "admin.set_properties(t)"),
     (r"\bSET\s+LOCATION\b", "admin.move_to_own_folder(t, query=...)"),
@@ -406,8 +406,9 @@ def _note_a_change(text: str) -> None:
     if command == "TRUNCATE":
         note = ("This Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
                 "external table (one whose files stay where you put them), and every Saved "
-                "table of yours is one. admin.drop_days(t, before=...) drops a Saved table's "
-                "old days with its checks, and writing a day again with INSERT_OVERWRITE "
+                "table of yours is one. admin.drop_partitions(t, where=...) drops a Saved "
+                "table's Partitions with its checks, and writing a Partition again with "
+                "INSERT_OVERWRITE "
                 "replaces it.")
     elif command in ("DROP", "ALTER"):
         function = None

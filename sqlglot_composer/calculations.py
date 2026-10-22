@@ -18,8 +18,6 @@ from .refusals import (
 )
 from .tables import (
     Column,
-    hive_date_pattern,
-    is_date_partition,
     literal,
     made_by,
     python_text,
@@ -43,9 +41,6 @@ if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
 
 TOOLBOX_VERSION = "7.0"
-
-DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
-
 
 def _need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
@@ -283,17 +278,6 @@ def fill_null(column: Column, value: Column | str | int | float | datetime.date)
     )
 
 
-def _as_day(column: Column) -> Node:
-    """A date column as a day Hive's date functions read ("2026-09-25")."""
-    if not is_date_partition(column):
-        return column._tree.copy()
-    pattern = hive_date_pattern(column._table._date_format)
-    if pattern == DEFAULT_HIVE_PATTERN:
-        return column._tree.copy()
-    unix = _call("unix_timestamp", column._tree.copy(), string(pattern))
-    return _call("from_unixtime", unix, string(DEFAULT_HIVE_PATTERN))
-
-
 def _call(name: str, *args: Node) -> Node:
     """A call to one of Hive's date functions, such as next_day."""
     return Node("Call", name=name, args=list(args))
@@ -306,13 +290,15 @@ def week_start(column: Column) -> Column:
     day a week earlier: in the example below, DATE_ADD(job_runs.dt, 7 * -1) is the day seven
     days before. The result is text, a day like "2026-09-21": CAST(... AS STRING) makes it
     text wherever the query runs, even on a warehouse whose NEXT_DAY gives a date, so a Saved
-    table's column for it is always typed "string".
+    table's column for it is always typed "string". It works on any column of dates, a
+    partition column or not, whose days are written as Hive's date functions read them, like
+    "2026-09-25".
 
     >>> week_start(job_runs.dt)
     CAST(NEXT_DAY(DATE_ADD(job_runs.dt, 7 * -1), 'MO') AS STRING)
     """
     column = _need_column(column, "week_start(...)")
-    week_ago = _call("date_sub", _as_day(column), number("7"))
+    week_ago = _call("date_sub", column._tree.copy(), number("7"))
     tree = Node("Cast", this=_call("next_day", week_ago, string("MO")), to="STRING")
     return Column(made_by(tree, "week_start", column), type="string")
 
@@ -322,13 +308,14 @@ def month_start(column: Column) -> Column:
 
     The result is text, a day like "2026-09-01": CAST(... AS STRING) makes it text wherever
     the query runs, even on a warehouse whose TRUNC gives a date, so a Saved table's column for
-    it is always typed "string".
+    it is always typed "string". Like week_start, it works on any column of dates written like
+    "2026-09-25".
 
     >>> month_start(job_runs.dt)
     CAST(TRUNC(job_runs.dt, 'MM') AS STRING)
     """
     column = _need_column(column, "month_start(...)")
-    tree = Node("Cast", this=_call("trunc", _as_day(column), string("MM")), to="STRING")
+    tree = Node("Cast", this=_call("trunc", column._tree.copy(), string("MM")), to="STRING")
     return Column(made_by(tree, "month_start", column), type="string")
 
 

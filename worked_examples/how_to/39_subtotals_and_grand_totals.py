@@ -193,12 +193,12 @@ over the table would count each run twice. A write from subtotals is refused:
 >>> team_runs = Table(
 ...     "mart.team_runs",
 ...     columns={"team": "string", "runs": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["team", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/team_runs",
 ... )
 >>> statement(
-...     INSERT_OVERWRITE(team_runs),
+...     INSERT_OVERWRITE(team_runs, partition={"dt": "2026-09-24"}),
 ...     SELECT(jobs.team, AS(count_rows(), "runs")),
 ...     FROM(job_runs),
 ...     JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),

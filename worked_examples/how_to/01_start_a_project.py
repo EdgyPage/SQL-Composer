@@ -207,9 +207,9 @@ A Statement is one query, built from clause functions written in SQL's order: `S
 columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` keeps a row
 only if every condition in it holds. This Statement finds the runs that failed.
 
-`job_runs.dt` is the table's Date partition: the day each row belongs to. The warehouse stores
-such a table a day at a time, so every Statement must give the first and the last day it
-reads, here with `between`: a Load limit refuses one that doesn't.
+`job_runs` is partitioned by `job_runs.dt`, the day each row belongs to: the warehouse stores
+the table a Partition, here a day, at a time, so every Statement that reads it must filter
+`job_runs.dt`, here with `between`: a Load limit refuses one that doesn't.
 
 >>> failed = statement(
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -351,10 +351,10 @@ The fix is the message's: end your query with `return pd.DataFrame(rows)`, with 
 names when each row is a tuple, as the step Write your query and execute shows. Your execute
 needs no such care: `run` never reads what it gives back.
 
-### A Statement that doesn't give the days it reads
+### A Statement that doesn't filter a partition column
 
-A table with a Date partition is stored a day at a time, and a Statement that doesn't give the
-first and last day to read would read every day the table holds. The Toolbox refuses it as you
+A partitioned table is stored a Partition at a time, and a Statement that filters none of its
+partition columns would read every Partition the table holds. The Toolbox refuses it as you
 build it, before anything runs:
 
 >>> every_failed_run = statement(
@@ -365,13 +365,13 @@ build it, before anything runs:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(job_runs) reads ops.job_runs, but nothing bounds its Date partition dt at both ends.
+  What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
 ...
   Opt-out:        FROM(job_runs, reads_all_partitions=True)
 
-Give the days as the message says, with `between` or `last_n_days` in `WHERE`, as `failed`
-does. The message's Opt-out, `reads_all_partitions=True`, reads every day: use it only for a
-small table you truly need whole.
+Filter the partition column as the message says, such as with `between` or `last_n_days` in
+`WHERE`, as `failed` does. The message's Opt-out, `reads_all_partitions=True`, reads every
+Partition: use it only for a small table you truly need whole.
 
 ## Next
 

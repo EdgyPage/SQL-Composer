@@ -25,8 +25,8 @@ start() makes it, once. new_table makes a Table folder and remove_table archives
 add_references writes Table references in bulk, remove_reference archives one, register adopts
 one made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
-a Table notebook's logic from anywhere in the Project, and run_tables writes a day of every
-table, each before the tables that read it.
+a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
+before the tables that read it.
 
 None of them deletes a file: what they remove moves into admin/removed/. add_references sends
 DESCRIBE through your query, and run_tables, given your execute, writes your tables; the rest
@@ -43,6 +43,7 @@ from __future__ import annotations
 import ast
 import csv
 import datetime
+import inspect
 import json
 import keyword
 import re
@@ -59,7 +60,7 @@ from .clauses import Statement
 from .project_templates import TEMPLATES
 from .refusals import callers_frame, need_warehouse_call, refuse, refuse_removed_arguments
 from .tables import TABLE_NAME, write_table_reference
-from .unchecked import UncheckedStatement, _code, _script_line, _write_entry
+from .unchecked import UncheckedStatement, _code, _script_line, _write_entry, hive_settings
 
 TOOLBOX_VERSION = "7.0"
 
@@ -82,10 +83,10 @@ REFERENCE = "reference"
 # The Template a Saved table's Table reference is made from.
 REFERENCE_TEMPLATE = "saved_table_reference"
 # The Reference sheet, and its columns: one row per column of every Table reference, "yes" in
-# date_partition and in_key for the Date partition and the Key's columns, and the column's
+# partition and in_key for its partition columns and the Key's columns, and the column's
 # Aliases and description.
 REFERENCE_SHEET = Path("references") / "reference_sheet.csv"
-SHEET_COLUMNS = ["table", "column", "type", "date_partition", "in_key", "aliases",
+SHEET_COLUMNS = ["table", "column", "type", "partition", "in_key", "aliases",
                  "description", "exported_at"]
 
 WAREHOUSE_TEXT = '''"""warehouse - your two calls to the warehouse, query and execute.
@@ -156,22 +157,20 @@ ADMIN_NOTEBOOKS = {
     ),
     "refresh_reference_sheet": (
         "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
-        "every file in `references/`: one row per column, with its type, whether it is the "
-        "Date partition or in the Key, its Aliases and its description. A Table notebook's "
+        "every file in `references/`: one row per column, with its type, whether it is a "
+        "partition column or in the Key, its Aliases and its description. A Table notebook's "
         "last cell refreshes only its own table's rows.",
         ["project.refresh_reference_sheet()"],
     ),
     "run_tables": (
-        "# Run the tables\n\nWrites a day of every table: each Table notebook's "
-        "`write_day(day)`, read from its logic cell with `project.load`, each before the "
-        "tables that read it. First, with no `execute`, it prints each Hive in that order "
-        "and sends nothing; then, with your query and execute, it sends them. `tables=` "
-        "picks some; leave it "
-        "out for every Table folder the registry lists.",
-        ['DAY = "2026-10-20"  # the day to write, as your tables write their days',
-         "project.run_tables(DAY)  # first, with no execute: prints each Hive, sends nothing",
+        "# Run the tables\n\nWrites every table: each Table notebook's `write()`, read from "
+        "its logic cell with `project.load`, each before the tables that read it. First, with "
+        "no `execute`, it prints each Hive in that order and sends nothing; then, with your "
+        "query and execute, it sends them. `tables=` picks some; leave it out for every Table "
+        "folder the registry lists.",
+        ["project.run_tables()  # first, with no execute: prints each Hive, sends nothing",
          "# from warehouse import query, execute\n"
-         "# project.run_tables(DAY, query=query, execute=execute)"],
+         "# project.run_tables(query=query, execute=execute)"],
     ),
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "
@@ -189,8 +188,11 @@ ADMIN_NOTEBOOKS = {
          "# your table's file and its name, as in references/:\n"
          "# from references.mart__your_table import your_table\n"
          "# drop = admin.drop_table(your_table)\n# show_hive(drop)\n# run(drop, execute=execute)",
-         '# old_days = admin.drop_days(your_table, before="2025-10-01")\n'
-         "# show_hive(old_days)\n# run(old_days, execute=execute)",
+         "# from sqlglot_composer import less_than\n"
+         "# your table's partitions before a day, by its partition column, such as dt:\n"
+         "# old = admin.drop_partitions(your_table, where=less_than(your_table.dt, "
+         '"2025-10-01"))\n'
+         "# show_hive(old)\n# run(old, execute=execute)",
          "# new_columns = admin.add_columns(your_table, query=query)  # once its Table "
          "reference lists them\n# show_hive(new_columns)\n# run(new_columns, execute=execute)"],
     ),
@@ -657,7 +659,7 @@ def check() -> ProjectReport:
 def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
-    Each row gives the table, the column, its type, "yes" when it is the Date partition or in
+    Each row gives the table, the column, its type, "yes" when it is a partition column or in
     the Key, its Aliases (each line below the Table(...) call that reads that column alone,
     such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, "FAILED"),
     shown as "failed (a condition)"), its description, and when the sheet was written. The
@@ -737,8 +739,8 @@ def _sheet(root: Path) -> list[dict[str, str]]:
 
 def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     """The Reference sheet's rows for one Table reference file, read without running it: its
-    Table(...) call's name, columns, Date partition, Key and descriptions, and the Aliases below
-    it that read one column. None for a file that doesn't parse or has no Table(...)."""
+    Table(...) call's name, columns, partition columns, Key and descriptions, and the Aliases
+    below it that read one column. None for a file that doesn't parse or has no Table(...)."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (SyntaxError, ValueError):
@@ -749,11 +751,11 @@ def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     if found is None:
         return None
     variable, table_call = found
-    arguments = dict(zip(("name", "columns", "date_partition"), table_call.args))
+    arguments = dict(zip(("name", "columns"), table_call.args))
     arguments |= {given.arg: given.value for given in table_call.keywords}
     try:
         values = {argument: ast.literal_eval(node) for argument, node in arguments.items()
-                  if argument in ("name", "columns", "date_partition", "key", "descriptions")}
+                  if argument in ("name", "columns", "partitioned_by", "key", "descriptions")}
     except ValueError:
         return None
     if not isinstance(values.get("name"), str) or not isinstance(values.get("columns"), dict):
@@ -767,9 +769,11 @@ def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
             aliases.setdefault(read.pop(), []).append(shown)
     key = values.get("key") or []
     key = [key] if isinstance(key, str) else list(key)
+    partitions = values.get("partitioned_by") or []
+    partitions = [partitions] if isinstance(partitions, str) else list(partitions)
     descriptions = values.get("descriptions") or {}
     return [{"table": values["name"], "column": column, "type": kind or "",
-             "date_partition": "yes" if column == values.get("date_partition") else "",
+             "partition": "yes" if column in partitions else "",
              "in_key": "yes" if column in key else "",
              "aliases": "; ".join(aliases.get(column, [])),
              "description": descriptions.get(column, ""), "exported_at": now}
@@ -799,7 +803,7 @@ OWN_MODULES = ("references", "building_blocks")
 
 class TableLogic:
     """A Table notebook's logic, as load gives it: each function its logic cell defines, by
-    its name, such as write_day."""
+    its name, such as write."""
 
     def __init__(self, name: str, functions: dict[str, Callable[..., object]]) -> None:
         self._name = name
@@ -815,15 +819,16 @@ def load(name: str) -> TableLogic:
     r"""A Table notebook's logic, its functions by name, from anywhere in the Project.
 
     It reads tables/<db>__<table>/<db>__<table>.ipynb and runs only its logic cell, the cell
-    whose first line is # logic. That cell only imports and defines; in a notebook made from
-    the daily_table Template, it defines create, rows, preview, write_day and backfill, and
-    load gives each of them (the functions and classes only, not other names the cell
-    sets). So another
-    table's notebook can use this table's write_day, for lineage across your tables, and
-    run_tables can write every table in order. It reads the notebook file as last saved, and
-    your references/ and building_blocks/ as they are on disk now. It refuses a notebook with
-    no logic cell, a logic cell that calls run, which would send Hive just by loading, and one
-    with a <...> still to fill in.
+    whose first line is # logic. That cell only imports and defines, and it defines write(),
+    which takes nothing and gives what writes the table: a Statement, an Unchecked statement,
+    or a list of them. In a notebook made from the daily_table Template, it defines create,
+    rows, preview, write and backfill, and load gives each of them (the functions and classes
+    only, not other names the cell sets). So another table's notebook can use this table's
+    write, for lineage across your tables, and run_tables can write every table in order. It
+    reads the notebook file as last saved, and your references/ and building_blocks/ as they
+    are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run,
+    which would send Hive just by loading, one with a <...> still to fill in, and one that
+    defines no write() taking nothing.
 
     In the example, a one-line Template stands in for a notebook of yours:
 
@@ -833,13 +838,13 @@ def load(name: str) -> TableLogic:
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
     >>> from pathlib import Path
     >>> _ = Path("admin/templates/plain.py").write_text(
-    ...     "# %%\n# logic\ndef write_day(day: str) -> str:\n    return day\n")
+    ...     "# %%\n# logic\ndef write() -> str:\n    return 'what writes it'\n")
     >>> _ = project.new_table("mart.daily_job_runs", template="plain")
     >>> logic = project.load("mart.daily_job_runs")
     >>> logic
-    The logic of mart.daily_job_runs: write_day.
-    >>> logic.write_day("2026-10-20")
-    '2026-10-20'
+    The logic of mart.daily_job_runs: write.
+    >>> logic.write()
+    'what writes it'
     """
     call = f"project.load({_quoted(name)})"
     root = _project(call)
@@ -853,9 +858,43 @@ def load(name: str) -> TableLogic:
     module_name = f"logic of {name}"
     namespace = {"__name__": module_name}
     exec(source, namespace)
+    _check_write(namespace, f"tables/{stem}/{stem}.ipynb", call)
     functions = {key: value for key, value in namespace.items()
                  if callable(value) and getattr(value, "__module__", None) == module_name}
+    functions["write"] = namespace["write"]  # also when it is imported from elsewhere
     return TableLogic(name, functions)
+
+
+def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:
+    """Refuse a logic cell that defines no write(), or one that needs something given to it."""
+    write = namespace.get("write")
+    if not callable(write):
+        since = (" It defines write_day(day), from before 7.0, when run_tables gave each "
+                 "notebook a day: since 7.0 its write() takes nothing, and a value it needs, "
+                 "such as a day, is a constant in its logic cell."
+                 if callable(namespace.get("write_day")) else "")
+        refuse(
+            what=f"{call}: the logic cell of {shown} defines no write().{since}",
+            why="write() is what writes the table: run_tables sends it, and another table's "
+            "notebook reads it for lineage across your tables.",
+            fix="Define write() in the logic cell, taking nothing and giving the Statement "
+            "that writes the table, as the daily_table Template does. CHANGES.md, under 7.0, "
+            "says how to turn a write_day(day) into it.",
+            error=ValueError,
+        )
+    needed = [parameter.name for parameter in inspect.signature(write).parameters.values()
+              if parameter.default is parameter.empty
+              and parameter.kind not in (parameter.VAR_POSITIONAL, parameter.VAR_KEYWORD)]
+    if needed:
+        refuse(
+            what=f"{call}: the write() in the logic cell of {shown} needs "
+            f"{_as_a_sentence(needed)} given to it.",
+            why="run_tables calls each table's write() with nothing, so a write that needs a "
+            "value can't be sent.",
+            fix="Make write() take nothing: put a value it needs, such as a day, in a "
+            "constant at the top of the logic cell, such as DAY = \"2026-09-24\".",
+            error=ValueError,
+        )
 
 
 def _checked_logic(root: Path, stem: str, call: str) -> str:
@@ -877,7 +916,7 @@ def _checked_logic(root: Path, stem: str, call: str) -> str:
             what=f"{call}: {shown} has no cell whose first line is {LOGIC}.",
             why="load runs only the logic cell, the one that imports and defines the "
             "table's functions, so it never runs the cells that send Hive.",
-            fix=f"Put {LOGIC} as the first line of the cell that defines write_day and the "
+            fix=f"Put {LOGIC} as the first line of the cell that defines write() and the "
             "others, as the daily_table Template does.",
             error=ValueError,
         )
@@ -918,39 +957,39 @@ def _logic_cell(notebook: Path) -> str | None:
     return None
 
 
-def run_tables(day: str, *, query: Callable[[str], pd.DataFrame] | None = None,
+def run_tables(*, query: Callable[[str], pd.DataFrame] | None = None,
                execute: Callable[[str], None] | None = None,
                tables: list[str] | str | None = None, **removed: object) -> ProjectReport:
-    """Write a day of every table, each before the tables that read it.
+    """Write every table, each before the tables that read it.
 
-    Each table's write_day(day) comes from its notebook's logic cell, through load; one that
-    gives a list, as an incremental load's does, sends each in turn. Each write_day gives
-    Statements, an Admin statement among them, or Unchecked statements: anything else, such
-    as Session settings, is refused before anything is sent. They run in the order lineage
-    draws them: a table is written before any table that reads it, and a loop, two tables
-    each reading the other, is refused. `tables` names some, such as ["mart.team_day"]; left
-    out, it is every Table folder the registry lists. With no `execute` it prints each one's
-    Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and
-    sends nothing: a dry run, to read before you send. With your execute, and your query for
-    a step that reads rows, it sends each in turn,
-    printing a line as each one works, and stops at the first that fails: the tables after
-    it aren't written. It adds no entry of its own to the Admin log, since what it writes is
-    in the warehouse, not your files; a write_day that gives an Admin or Unchecked statement is
-    logged by run, as anywhere else.
+    Each table's write() comes from its notebook's logic cell, through load; one that gives a
+    list, such as a write per region, sends each in turn. Each write() gives Statements, an
+    Admin statement among them, or Unchecked statements: anything else, such as Session
+    settings, is refused before anything is sent. They run in the order lineage draws them: a
+    table is written before any table that reads it, and a loop, two tables each reading the
+    other, is refused. `tables` names some, such as ["mart.team_day"]; left out, it is every
+    Table folder the registry lists. With no `execute` it prints each one's Hive in that
+    order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read
+    before you send. With your execute, and your query for a step that reads rows, it sends
+    the Session setting "dynamic_partitions" first when a write fills Partitions from its rows,
+    then each in turn, printing a line as each one works, and stops at the first that fails: the
+    tables after it aren't written. It adds no entry of its own to the Admin log, since what it
+    writes is in the warehouse, not your files; a write() that gives an Admin or Unchecked
+    statement is logged by run, as anywhere else.
 
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
-    >>> project.run_tables("2026-10-20")
+    >>> project.run_tables()
     No Table folder to run: make one with project.new_table(...).
     """
     refuse_removed_arguments("run_tables", removed, "query= and execute=")
     from .lineage import in_order  # lineage imports what imports this
-    from .running import run, show_hive
+    from .running import run, settings_needed, show_hive
 
-    sent = ", query=..., execute=..." if execute is not None else ""
-    call = f"project.run_tables({_quoted(day)}{sent})"
+    call = ("project.run_tables(query=..., execute=...)" if execute is not None
+            else "project.run_tables()")
     root = _project(call)
     if tables is None:
         tables = [row["table"] for row in _registry(root)
@@ -961,7 +1000,7 @@ def run_tables(day: str, *, query: Callable[[str], pd.DataFrame] | None = None,
         return ProjectReport(["No Table folder to run: make one with project.new_table(...)."])
     named = []
     for name in tables:
-        named += [(write, name) for write in _writes_of(name, day, call)]
+        named += [(write, name) for write in _writes_of(name, call)]
     ordered = in_order(named, call=call)
     if execute is None:
         for position, (write, name) in enumerate(ordered, start=1):
@@ -970,6 +1009,9 @@ def run_tables(day: str, *, query: Callable[[str], pd.DataFrame] | None = None,
         return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
                               "order, and sent nothing. Pass execute= to run them."])
     width = max(len(name) for _, name in ordered)
+    # A write filling Partitions from its rows needs Hive's dynamic partitioning: sent once.
+    if any(isinstance(write, Statement) and settings_needed(write) for write, _ in ordered):
+        run(hive_settings("dynamic_partitions"), execute=execute)
     for position, (write, name) in enumerate(ordered, start=1):
         try:
             run(write, query=query, execute=execute)
@@ -979,45 +1021,35 @@ def run_tables(day: str, *, query: Callable[[str], pd.DataFrame] | None = None,
             raise
         print(f"{position} of {len(ordered)}: {name:<{width}}  worked")
     tables = len({name for _, name in ordered})
-    return ProjectReport([f"Wrote {day} of {tables} table{'s' * (tables != 1)}, in order."])
+    return ProjectReport([f"Wrote {tables} table{'s' * (tables != 1)}, in order."])
 
 
-def _writes_of(name: str, day: str, call: str) -> list[Statement | UncheckedStatement]:
-    """What the write_day of `name`'s Table notebook gives for `day`, each one checked."""
-    logic = load(name)
-    if not hasattr(logic, "write_day"):
-        refuse(
-            what=f"{call}: the logic cell of {name}'s notebook defines no write_day.",
-            why="run_tables writes each table's day with its write_day(day).",
-            fix="Define write_day(day) in the logic cell, as the daily_table Template "
-            "does, or leave the table out with tables=[...].",
-            error=ValueError,
-        )
-    written = logic.write_day(day)
-    # An incremental load's write_day gives several days' writes, oldest first.
+def _writes_of(name: str, call: str) -> list[Statement | UncheckedStatement]:
+    """What the write() of `name`'s Table notebook gives, each one checked. load has checked
+    that its logic cell defines a write() taking nothing."""
+    written = load(name).write()
+    # A write() may give several writes, sent in the order it gives them.
     several = isinstance(written, (list, tuple))
     writes = list(written) if several else [written]
     kind = type(written).__name__
     if not writes:
-        _refuse_a_write(call, name, day, f"an empty {kind}, with no write in it", written)
+        _refuse_a_write(call, name, f"an empty {kind}, with no write in it", written)
     for write in writes:
         if not isinstance(write, (Statement, UncheckedStatement)):
             gave = (f"a {kind}, and {write!r} in it isn't" if several
                     else f"{write!r}, which isn't")
-            _refuse_a_write(call, name, day,
-                            f"{gave} a Statement or an Unchecked statement", write)
+            _refuse_a_write(call, name, f"{gave} a Statement or an Unchecked statement", write)
     return writes
 
 
-def _refuse_a_write(call: str, name: str, day: str, gave: str, given: object) -> NoReturn:
-    """Refuse what `name`'s write_day gave for `day`, which run_tables can't send."""
+def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
+    """Refuse what `name`'s write() gave, which run_tables can't send."""
     refuse(
-        what=f"{call}: write_day({_quoted(day)}), in the logic cell of {name}'s Table "
-        f"notebook, gave {gave}.",
+        what=f"{call}: write(), in the logic cell of {name}'s Table notebook, gave {gave}.",
         why="run_tables puts the tables in order by the tables each Statement reads and "
-        "writes, so each write_day gives a Statement, an Unchecked statement, or a list of "
+        "writes, so each write() gives a Statement, an Unchecked statement, or a list of "
         "them.",
-        fix="Make write_day return the Statement that writes the day, as the daily_table "
+        fix="Make write() return the Statement that writes the table, as the daily_table "
         "Template's does; one that gives None has lost its return. For Hive you wrote by "
         "hand, return unchecked_hive(...). Session settings aren't a write: send them before "
         "project.run_tables, with run(hive_settings(...), execute=execute). They hold only "

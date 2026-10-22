@@ -17,7 +17,7 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
 .n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
 .dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
 .n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
 summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
@@ -29,7 +29,7 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -45,15 +45,16 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <code>20260925-060000-mart__job_events_checks.md</code>, written beside this file, show the same lineage.</p></noscript>
 <div class="wrap" id="graph"></div>
 <section id="report"><h2>written</h2>
-<p>It writes the Saved table mart.job_events_checks, one day at a time.</p>
+<p>It writes the Saved table mart.job_events_checks, replacing each partition its rows fill.</p>
 <h3>Calculated columns</h3>
 <details open><summary><code>row_count</code> <span class="muted">in written</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>written.row_count = count_rows()
 └─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in written: <code>between(job_events.dt, &quot;2026-09-24&quot;, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.dt</code>.</p></details>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>written: one row, so it needs no Key: GROUP_BY makes one row for each dt, with dt held to one value.</li><li>mart.job_events_checks&#x27; Key (dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt = &#x27;2026-09-24&#x27;)
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>dt</code></td><td>ops.job_events.dt</td></tr></table>
+<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>written: Key (dt), since GROUP_BY makes one row for each dt.</li><li>mart.job_events_checks&#x27; Key (dt) holds: each row written has its own.</li></ul>
+<h3>Hive as submitted</h3><pre>INSERT OVERWRITE TABLE mart.job_events_checks PARTITION(dt)
 SELECT
-  COUNT(*) AS row_count
+  COUNT(*) AS row_count,
+  job_events.dt
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN &#x27;2026-09-24&#x27; AND &#x27;2026-09-24&#x27;
@@ -67,7 +68,7 @@ GROUP BY
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "output", "group": "written", "lines": ["row_count", "count_rows()"], "title": "written.row_count\nCOUNT(*)"}, {"id": "n1", "kind": "condition", "group": "written", "lines": ["WHERE in written", "between(job_events.dt, \"2026-09-24\", \"2026-09-24\")"], "title": "WHERE in written\njob_events.dt BETWEEN '2026-09-24' AND '2026-09-24'"}, {"id": "n2", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n3", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.row_count", "bigint"], "title": "mart.job_events_checks.row_count\nbigint"}, {"id": "n4", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.dt", "string", "in the Key"], "title": "mart.job_events_checks.dt\nstring"}], "arrows": [["n2", "n1", "rows"], ["n1", "n0", "rows"], ["n0", "n3", "value"], ["n1", "n4", "day"]], "groups": [{"name": "written", "kind": "output"}, {"name": "ops.job_events", "kind": "table"}, {"name": "mart.job_events_checks", "kind": "table"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "output", "group": "written", "lines": ["row_count", "count_rows()"], "title": "written.row_count\nCOUNT(*)"}, {"id": "n1", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n2", "kind": "output", "group": "written", "lines": ["dt", "job_events.dt", "in the Key"], "title": "written.dt\njob_events.dt"}, {"id": "n3", "kind": "condition", "group": "written", "lines": ["WHERE in written", "between(job_events.dt, \"2026-09-24\", \"2026-09-24\")"], "title": "WHERE in written\njob_events.dt BETWEEN '2026-09-24' AND '2026-09-24'"}, {"id": "n4", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.row_count", "bigint"], "title": "mart.job_events_checks.row_count\nbigint"}, {"id": "n5", "kind": "table", "group": "mart.job_events_checks", "lines": ["mart.job_events_checks.dt", "string", "in the Key"], "title": "mart.job_events_checks.dt\nstring"}], "arrows": [["n1", "n2", "value"], ["n1", "n3", "rows"], ["n3", "n0", "rows"], ["n3", "n2", "rows"], ["n0", "n4", "value"], ["n2", "n5", "value"]], "groups": [{"name": "written", "kind": "output"}, {"name": "ops.job_events", "kind": "table"}, {"name": "mart.job_events_checks", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;
@@ -187,14 +188,10 @@ function drawnAs(box) {
 }
 
 // The kind of the one arrow drawn for two arrows in a row, when the box between them is
-// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
-// otherwise 'rows'.
+// hidden: 'value' if both carry a value, otherwise 'rows'.
 function joinedArrowKind(first, second) {
   if (first === 'value' && second === 'value') {
     return 'value';
-  }
-  if (first === 'day' || second === 'day') {
-    return 'day';
   }
   return 'rows';
 }
@@ -546,20 +543,11 @@ function curve(startX, startY, endX, endY) {
   return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
 }
 
-// The "day written" label, just above the middle of its arrow.
-function dayWrittenLabel(startX, startY, endX, endY) {
-  // 28 pixels is about half the label's width, so the label is centred on the arrow.
-  const x = (startX + endX) / 2 - 28;
-  const y = (startY + endY) / 2 - 4;
-  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
-}
-
-// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
-// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+// The SVG for one arrow between two boxes. data-a and data-b hold the ids of the boxes at its
+// two ends, for lighting up a path.
 function arrowSvg(source, target, kind, startX, startY, endX, endY) {
-  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+  return `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
     + `d="${curve(startX, startY, endX, endY)}"/>`;
-  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
 }
 
 // The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
@@ -600,7 +588,7 @@ function renderFlowchart(visible) {
     const [sourceX, sourceY] = layout.positions[source];
     const startX = sourceX + BOX_WIDTH;
     const startY = sourceY + layout.heights[source] / 2;
-    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+    if (visibleBoxById[source].kind === 'condition') {
       const frame = frameByName[visibleBoxById[target].group];
       const drawnKey = source + '>' + frame.name;
       if (!filterArrowsDrawn.has(drawnKey)) {

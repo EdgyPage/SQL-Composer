@@ -34,7 +34,6 @@ from sqlglot_composer import (
     Statement,
     Table,
     between,
-    by_day,
     count_rows,
     cube,
     derived,
@@ -56,10 +55,11 @@ from sqlglot_composer.example_database import job_owners, job_runs, jobs, run_al
 from sqlglot_composer.stacking import Subtotals
 
 DAY = "2026-09-24"
-BASE = "/data/your_team/tables"
+BASE = "/data/your_team/mart.db"
 
 flagged_runs = Table("mart.flagged_runs", columns={"run_id": "bigint", "dt": "string"},
-                     date_partition="dt", key=["run_id", "dt"], location=BASE)
+                     partitioned_by=["dt"], key=["run_id", "dt"],
+                     location=f"{BASE}/flagged_runs")
 
 
 def failed_runs(day: str = DAY) -> Statement:
@@ -144,11 +144,11 @@ def test_the_automatic_limit_is_one_for_the_whole_stack() -> None:
                                             returns_all_rows=True))
 
 
-def test_the_dates_cap_counts_each_statements_days() -> None:
-    set_load_limits(dates=1)
-    two_days = statement(SELECT(job_runs.run_id), FROM(job_runs), both_days(job_runs))
-    with pytest.raises(LoadRefused, match="2 days"):
-        to_hive(UNION_ALL(alerted_runs(), two_days))
+def test_each_statement_of_a_stack_filters_its_own_partitions() -> None:
+    every_day = statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True))
+    assert "WHERE" not in to_hive(UNION_ALL(alerted_runs(), every_day)).split("UNION ALL")[1]
+    with pytest.raises(LoadRefused, match="FROM\\(job_runs\\) reads ops.job_runs"):
+        UNION_ALL(alerted_runs(), statement(SELECT(job_runs.run_id), FROM(job_runs)))
 
 
 def test_a_stack_shows_what_it_stacks() -> None:
@@ -193,8 +193,9 @@ def test_a_number_stacks_with_a_number_of_another_size() -> None:
                        ORDER_BY(job_runs.run_id), LIMIT(2)), "2nd Statement has ORDER_BY"),
     (lambda: statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, DAY)),
                        LIMIT(2)), "2nd Statement has LIMIT"),
-    (lambda: statement(INSERT_OVERWRITE(flagged_runs), SELECT(job_runs.run_id), FROM(job_runs),
-                       WHERE(equals(job_runs.dt, DAY))), "2nd Statement writes mart.flagged_runs"),
+    (lambda: statement(INSERT_OVERWRITE(flagged_runs, partition={"dt": DAY}),
+                       SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, DAY))),
+     "2nd Statement writes mart.flagged_runs"),
     (lambda: UNION_ALL(failed_runs(), alerted_runs()), "2nd Statement is itself a Stack"),
 ])
 def test_a_statement_that_cant_be_stacked_is_refused(bad: Callable[[], Statement],
@@ -249,11 +250,13 @@ def test_union_all_loses_the_key_and_a_join_on_it_says_so() -> None:
 
 
 def write_from(stack: Statement) -> Statement:
+    """A write of the stack's runs into the Partition of DAY."""
     flagged = derived("flagged", stack)
-    return statement(INSERT_OVERWRITE(flagged_runs), SELECT(flagged.run_id), FROM(flagged))
+    return statement(INSERT_OVERWRITE(flagged_runs, partition={"dt": DAY}),
+                     SELECT(flagged.run_id), FROM(flagged))
 
 
-def test_a_union_writes_the_day_its_statements_read() -> None:
+def test_a_union_writes_the_partition_it_names() -> None:
     hive = to_hive(write_from(UNION(failed_runs(), alerted_runs())))
     assert "INSERT OVERWRITE TABLE mart.flagged_runs PARTITION(dt = '2026-09-24')\n" in hive
 
@@ -263,39 +266,14 @@ def test_a_union_all_is_refused_by_the_key_check() -> None:
         write_from(UNION_ALL(failed_runs(), alerted_runs()))
 
 
-def test_statements_reading_different_days_are_refused_for_a_write() -> None:
-    with pytest.raises(ValueError, match="2026-09-23"):
-        to_hive(write_from(UNION(failed_runs(), alerted_runs("2026-09-23"))))
-
-
-# --- Stacks: by_day --------------------------------------------------------------------------
-
-
-def test_by_day_splits_each_statement_of_a_stack() -> None:
-    every = derived("every_flag", UNION_ALL(
-        statement(SELECT(job_runs.run_id), FROM(job_runs), both_days(job_runs)),
-        statement(SELECT(run_alerts.run_id), FROM(run_alerts), both_days(run_alerts))))
-    days = by_day(statement(SELECT(every.run_id), FROM(every)))
-    assert len(days) == 2
-    first = to_hive(days[0])
-    assert "job_runs.dt = '2026-09-23'" in first and "run_alerts.dt = '2026-09-23'" in first
-    assert "2026-09-24" not in first
-
-
-def test_by_day_refuses_a_union_that_drops_the_day() -> None:
-    every = derived("every_flag", UNION(
-        statement(SELECT(job_runs.run_id), FROM(job_runs), both_days(job_runs)),
-        statement(SELECT(run_alerts.run_id), FROM(run_alerts), both_days(run_alerts))))
-    with pytest.raises(GuardRefused, match="UNION"):
-        by_day(statement(SELECT(every.run_id), FROM(every)))
-
-
-def test_by_day_splits_a_union_that_keeps_the_day() -> None:
-    every = derived("every_flag", UNION(
+def test_a_union_of_statements_reading_different_days_fills_each_days_partition() -> None:
+    flagged = derived("flagged", UNION(
         statement(SELECT(job_runs.run_id, job_runs.dt), FROM(job_runs), both_days(job_runs)),
         statement(SELECT(run_alerts.run_id, run_alerts.dt), FROM(run_alerts),
-                  both_days(run_alerts))))
-    assert len(by_day(statement(SELECT(every.run_id, every.dt), FROM(every)))) == 2
+                  WHERE(equals(run_alerts.dt, "2026-09-23")))))
+    hive = to_hive(statement(INSERT_OVERWRITE(flagged_runs), SELECT(flagged.run_id, flagged.dt),
+                             FROM(flagged)))
+    assert "INSERT OVERWRITE TABLE mart.flagged_runs PARTITION(dt)\n" in hive
 
 
 # --- Stacks: on the Example database ---------------------------------------------------------
@@ -475,14 +453,14 @@ def test_a_set_listed_twice_is_refused() -> None:
 def test_a_saved_table_written_from_subtotals_is_refused() -> None:
     per_team = Table("mart.per_team", columns={"team": "string", "runs": "bigint",
                                                "dt": "string"},
-                     date_partition="dt", key=["team", "dt"], location=BASE)
+                     partitioned_by=["dt"], key=["team", "dt"], location=f"{BASE}/per_team")
     with pytest.raises(ValueError, match=r"writes rows made by GROUP_BY\(rollup\(jobs.team\)\)"):
-        statement(INSERT_OVERWRITE(per_team), SELECT(jobs.team, AS(count_rows(), "runs")),
+        statement(INSERT_OVERWRITE(per_team, partition={"dt": DAY}), SELECT(jobs.team, AS(count_rows(), "runs")),
                   FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                   WHERE(equals(job_runs.dt, DAY)), GROUP_BY(rollup(jobs.team)))
     totals = derived("totals", runs_by(rollup(jobs.team), select=(jobs.team,)))
     with pytest.raises(ValueError, match=r"in derived\('totals', \.\.\.\)"):
-        statement(INSERT_OVERWRITE(per_team, unproven_key=True),
+        statement(INSERT_OVERWRITE(per_team, unproven_key=True, partition={"dt": DAY}),
                   SELECT(totals.team, totals.runs), FROM(totals))
 
 
@@ -490,19 +468,6 @@ def test_subtotals_lose_the_key() -> None:
     totals = derived("totals", runs_by(rollup(jobs.team), select=(jobs.team,)))
     assert totals._key is None
     assert "subtotal" in totals._keys.lost
-
-
-def test_by_day_refuses_subtotals_over_the_days_and_splits_them_within_a_day() -> None:
-    over_days = statement(SELECT(job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
-                          both_days(job_runs), GROUP_BY(rollup(job_runs.dt)))
-    with pytest.raises(GuardRefused, match=r"Add job_runs.dt to GROUP_BY\(\.\.\.\) as a plain "
-                                           r"column before rollup\(job_runs.dt\), taking it out "
-                                           r"of the subtotals"):
-        by_day(over_days)
-    within = statement(SELECT(job_runs.dt, job_runs.status, AS(count_rows(), "runs")),
-                       FROM(job_runs), both_days(job_runs),
-                       GROUP_BY(job_runs.dt, rollup(job_runs.status)))
-    assert len(by_day(within)) == 2
 
 
 # --- Subtotals: on the Example database ------------------------------------------------------

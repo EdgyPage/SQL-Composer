@@ -26,7 +26,6 @@ generated Statements in `tests/hive_corpus_cases.py`; and the Table references o
 from __future__ import annotations
 
 import contextlib
-import datetime
 import doctest
 import io
 import re
@@ -59,8 +58,6 @@ PIN = re.search(r"^sqlglot==(\S+)$",
 # The exception types a Toolbox refusal comes as; is_refusal tells a refusal from a bug.
 REFUSAL_TYPES = (sqlglot_composer.GuardRefused, sqlglot_composer.LoadRefused, TypeError,
                  ValueError)
-# The warehouse's newest day, as the recording query lists it.
-NEWEST_DAY = datetime.date(2026, 9, 24)
 # The lines that start a case and a part of a case in the file.
 CASE_MARK = "== "
 PART_MARK = "-- "
@@ -116,7 +113,7 @@ def _opted_out(function: Callable[..., Statement | list[Statement]],
 def _listed(
     function: Callable[..., Statement | list[Statement]],
 ) -> Callable[..., list[Statement]]:
-    """`function`'s Statements as a list: it returns one, or a list of them as by_day does."""
+    """`function`'s Statements as a list: it returns one, or a list of them."""
     def build() -> list[Statement]:
         built = function()
         return list(built) if isinstance(built, list) else [built]
@@ -255,9 +252,8 @@ def _undated(line: str) -> str | None:
 class Recording:
     """A query that notes each command and answers like the warehouse, without running one.
 
-    DESCRIBE and SHOW PARTITIONS are answered from the Table reference itself, as Hive lists
-    them, with NEWEST_DAY written in the table's date_format; any other command gets an empty
-    frame, so check_key finds no repeats.
+    DESCRIBE is answered from the Table reference itself, as Hive lists it; any other command
+    gets an empty frame, so check_key finds no repeats.
     """
 
     def __init__(self, t: Table) -> None:
@@ -268,19 +264,17 @@ class Recording:
         self.sent.append(text)
         if text.startswith("DESCRIBE"):
             return describe_frame(self.table)
-        if text.startswith("SHOW PARTITIONS"):
-            day = NEWEST_DAY.strftime(self.table._date_format)
-            return pd.DataFrame({"partition": [f"{self.table._date_partition}={day}"]})
         return pd.DataFrame()
 
 
 def describe_frame(t: Table) -> pd.DataFrame:
-    """What Hive's DESCRIBE lists for a Table reference: its columns, then its partition."""
+    """What Hive's DESCRIBE lists for a Table reference: its columns, then its partition
+    columns, in order."""
     rows = [(name, kind, "") for name, kind in t._columns.items()]
-    if t._date_partition is not None:
+    if t._partitioned_by:
         rows += [("", None, None), ("# Partition Information", None, None),
                  ("# col_name", "data_type", "comment"),
-                 (t._date_partition, t._columns[t._date_partition], "")]
+                 *[(column, t._columns[column], "") for column in t._partitioned_by]]
     return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
 
 
@@ -289,7 +283,7 @@ def warehouse_text(t: Table) -> str:
     lines = [CASE_MARK + f"warehouse:{t._name}"]
     helpers = [("write_table_reference", _write_table_reference),
                ("check_table_reference", sqlglot_composer.check_table_reference),
-               ("check_key", sqlglot_composer.check_key)]
+               ("check_key", _check_key)]
     with gallery.example_setting():
         for name, helper in helpers:
             query = Recording(t)
@@ -299,6 +293,11 @@ def warehouse_text(t: Table) -> str:
                 query.sent.append(refusal_or_raise(error))
             lines += [PART_MARK + name, *query.sent]
     return "\n".join(lines + [""])
+
+
+def _check_key(t: Table, *, query: Recording) -> None:
+    """check_key, reading every Partition of a partitioned table, which picks none itself."""
+    sqlglot_composer.check_key(t, query=query, reads_all_partitions=bool(t._partitioned_by))
 
 
 def _write_table_reference(t: Table, *, query: Recording) -> None:

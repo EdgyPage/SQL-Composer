@@ -5,7 +5,7 @@ For: Getting started
 ## Goal
 
 Notice when a table at work changes under its Table reference, a column added, removed or
-given a new type, or its days written another way, and bring the Table reference back in line
+given a new type, or its partitions changed, and bring the Table reference back in line
 before a Statement gives a wrong answer or fails at the warehouse. `check_table_reference`
 compares the two and says which line of the Table reference to change.
 
@@ -30,10 +30,9 @@ reads a column as the wrong type.
 
 ### Check a Table reference against its table
 
-`check_table_reference` takes a Table reference and your query. It sends two queries that read
-the table's description, never its rows: DESCRIBE, which lists the columns and their types,
-and SHOW PARTITIONS, which lists the days the table holds. Then it compares them with the
-Table reference:
+`check_table_reference` takes a Table reference and your query. It sends one query that reads
+the table's description, never its rows: DESCRIBE, which lists the columns, their types and the
+columns the table is partitioned by. Then it compares them with the Table reference:
 
 >>> check_table_reference(example_database.job_runs, query=example_database.query)
 ops.job_runs matches its Table reference.
@@ -70,7 +69,7 @@ At work, a Table reference lives in its own file, written months ago, perhaps by
 ...         "avg_retry_secs": "double",
 ...         "dt": "string",
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
 ...     does_not_add_up=["avg_retry_secs"],
 ... )
@@ -142,7 +141,7 @@ Make each change it lists. `"avg_retry_secs"` goes from `columns={...}`, and fro
 ...         "retries": "int",  # times the run was retried
 ...         "dt": "string",
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
 ... )
 >>> check_table_reference(job_runs, query=query_after_the_change)
@@ -167,26 +166,44 @@ Run your notebooks and scripts once after the update, and each stop shows a Stat
 change. Without the update, the same Statement would be sent, and the warehouse would refuse
 it, in the middle of a run.
 
-### When the days are written another way
+### When the table is partitioned another way
 
-A Table reference can say how its days are written with `date_format=...`; left out, as in
-every Table reference so far, it is `"%Y-%m-%d"`, as in 2026-09-25. The check also reads the
-newest day SHOW PARTITIONS lists, and checks it is written that way. Say the team starts
-writing new days as 20260925 rather than 2026-09-25. Another stand-in query plays that, answering SHOW PARTITIONS with the new day:
+The Table reference's `partitioned_by=[...]` lists the columns the table is partitioned by, as
+DESCRIBE lists them under `# Partition Information`, and the check compares those too. Say the
+team adds a `"region"` column and splits each region's rows into folders of their own, before
+the days. Another stand-in query plays that, answering DESCRIBE with the new column and the new
+partitions:
 
->>> def query_with_a_new_day(hive: str) -> pd.DataFrame:
-...     if hive.startswith("SHOW PARTITIONS"):
-...         return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24", "dt=20260925"]})
+>>> partitioned_by_region = pd.DataFrame(
+...     [("run_id", "bigint", ""),
+...      ("job_id", "bigint", ""),
+...      ("status", "string", "SUCCESS / FAILED / TEST, NULL while running"),
+...      ("duration_mins", "int", ""),
+...      ("avg_retry_secs", "double", ""),
+...      ("region", "string", ""),
+...      ("dt", "string", ""),
+...      ("", None, None),
+...      ("# Partition Information", None, None),
+...      ("# col_name", "data_type", "comment"),
+...      ("region", "string", ""),
+...      ("dt", "string", "")],
+...     columns=["col_name", "data_type", "comment"],
+... )
+>>> def query_with_a_new_partition(hive: str) -> pd.DataFrame:
+...     if hive.startswith("DESCRIBE"):
+...         return partitioned_by_region
 ...     return example_database.query(hive)
->>> check_table_reference(example_database.job_runs, query=query_with_a_new_day)
+>>> check_table_reference(example_database.job_runs, query=query_with_a_new_partition)
 ops.job_runs differs from its Table reference.
 Problems:
-  - the newest dt, '20260925', isn't written like date_format='%Y-%m-%d', the usual one: change the line to date_format="%Y%m%d",
+  - the table is partitioned by region, dt: change the line to partitioned_by=["region", "dt"],
+Notes:
+  - region is in the table but not in the Table reference: add "region": "string", if you want it.
 
-That is a Problem: a Statement bounding the days as 2026-09-25 would find none of the new
-days. The fix is the line it gives. If the older days stay written the old way, one
-`date_format=...` can't bound both, so ask the table's owners whether they will write the
-older days again the new way.
+That is a Problem: the Toolbox checks that each read filters one of the partition columns the Table
+reference lists, so the list must be the table's own. Make both changes: the line it gives, and
+`"region": "string",` in `columns={...}`, since a partition column is one of the table's columns
+too.
 
 ### Check every Table reference at once
 
@@ -221,12 +238,12 @@ finds a Problem, change the file, then refresh the table's rows in the Reference
 
 The updated Table reference matches the changed table, and its key still holds: no two rows
 of the newest day share a `"run_id"`. `check_table_reference` doesn't look at the key, so check
-it with `check_key`, which counts rows per key on the newest day:
+it with `check_key`, which counts rows per key on the rows `where=` picks, here the newest day:
 
 >>> check_table_reference(job_runs, query=query_after_the_change)
 ops.job_runs matches its Table reference.
->>> check_key(job_runs, query=query_after_the_change)
-ops.job_runs: the key (run_id) holds on 2026-09-24.
+>>> check_key(job_runs, query=query_after_the_change, where=equals(job_runs.dt, "2026-09-24"))
+ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 
 ## Common mistakes
 
@@ -254,7 +271,7 @@ from `columns={...}` only, and the Table reference itself stops, naming the line
 ...     "ops.job_runs",
 ...     columns={"run_id": "bigint", "job_id": "bigint", "status": "string",
 ...              "duration_mins": "bigint", "retries": "int", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["run_id"],
 ...     does_not_add_up=["avg_retry_secs"],
 ... )

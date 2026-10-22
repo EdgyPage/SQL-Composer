@@ -140,9 +140,9 @@ comparing tables, row by row.
 
 ### Reading every day of a big table
 
-Each Statement passed to `EXCEPT` is checked like any other: its Date partition must be bounded
-at both ends, as `teams_on` bounds `ops.job_owners` to one day. Reconcile a day at a time,
-or a few days, and loop over the days in Python.
+Each Statement passed to `EXCEPT` is checked like any other: a read of a partitioned table must
+filter at least one of its partition columns, as `teams_on` filters `ops.job_owners` to one day.
+Reconcile a day at a time, or a few days, and loop over the days in Python.
 
 ## Next
 

@@ -25,20 +25,29 @@ table; this how-to loops over tables.
 
 ### Write one setting per table
 
-Each setting is a dict: the table's name, its key, and under `"add_up"` the columns a daily
-total adds up. `ops.job_events` has no column worth adding up, so its `"add_up"` is an empty
-list and its total is the number of rows. `ops.region_costs` writes its days like 20260924,
-which its setting says in `"date_format"`, as a Table reference does. The avg_retry_secs column
-of `ops.job_runs` is an average, which must never be added up, so its setting lists it in
-`"does_not_add_up"`.
+Each setting is a dict: the table's name, the columns it is partitioned by, its key, and under
+`"add_up"` the columns a daily total adds up. `ops.job_events` has no column worth adding up, so
+its `"add_up"` is an empty list and its total is the number of rows. `ops.region_costs` is
+partitioned by region, then by day, and writes its days like 20260924, which its setting says in
+`"day_format"`, in the codes Python's dates use: `%Y` is the year, `%m` the month and `%d` the
+day. The avg_retry_secs column of `ops.job_runs` is an average, which must never be added up, so
+its setting lists it in `"does_not_add_up"`.
 
 >>> settings = [
-...     {"table": "ops.job_runs", "key": ["run_id"], "add_up": ["duration_mins"],
-...      "does_not_add_up": ["avg_retry_secs"]},
-...     {"table": "ops.job_events", "key": ["event_id"], "add_up": []},
-...     {"table": "ops.region_costs", "key": ["job_id", "region", "dt"],
-...      "add_up": ["cost_cents"], "date_format": "%Y%m%d"},
+...     {"table": "ops.job_runs", "partitioned_by": ["dt"], "key": ["run_id"],
+...      "add_up": ["duration_mins"], "does_not_add_up": ["avg_retry_secs"]},
+...     {"table": "ops.job_events", "partitioned_by": ["dt"], "key": ["event_id"], "add_up": []},
+...     {"table": "ops.region_costs", "partitioned_by": ["region", "dt"],
+...      "key": ["job_id", "region", "dt"], "add_up": ["cost_cents"], "day_format": "%Y%m%d"},
 ... ]
+
+The Toolbox compares a day exactly as it is written, so `day_text` writes a day the way a
+setting's table writes it, the usual way, like 2026-09-24, unless the setting says otherwise:
+
+>>> def day_text(setting: dict[str, str | list[str]], day: datetime.date) -> str:
+...     return day.strftime(setting.get("day_format", "%Y-%m-%d"))
+>>> day_text(settings[2], datetime.date(2026, 9, 24))
+'20260924'
 
 ### Generate a Table reference for each table
 
@@ -74,28 +83,29 @@ too:
 ...         if not name or name.startswith("#"):
 ...             break
 ...         columns[name] = data_type
-...     return Table(setting["table"], columns=columns, date_partition="dt",
-...                  key=setting["key"], does_not_add_up=setting.get("does_not_add_up", []),
-...                  date_format=setting.get("date_format"))
+...     return Table(setting["table"], columns=columns,
+...                  partitioned_by=setting["partitioned_by"], key=setting["key"],
+...                  does_not_add_up=setting.get("does_not_add_up", []))
 >>> tables = {setting["table"]: table_reference(setting, example_database.query)
 ...           for setting in settings}
 >>> tables["ops.region_costs"]
 Table('ops.region_costs', columns: job_id, cost_cents, region, dt)
 
 Check what you generated, as you would a Table reference you wrote: each still matches its
-table, and each key holds.
+table, and each key holds on the newest day, written the table's way:
 
->>> for t in tables.values():
+>>> newest = datetime.date(2026, 9, 24)
+>>> for setting in settings:
+...     t = tables[setting["table"]]
 ...     print(check_table_reference(t, query=example_database.query))
-...     print(check_key(t, query=example_database.query))
+...     print(check_key(t, query=example_database.query,
+...                     where=equals(t.dt, day_text(setting, newest))))
 ops.job_runs matches its Table reference.
-ops.job_runs: the key (run_id) holds on 2026-09-24.
+ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 ops.job_events matches its Table reference.
-ops.job_events: the key (event_id) holds on 2026-09-24.
+ops.job_events: the key (event_id) holds where job_events.dt = '2026-09-24'.
 ops.region_costs matches its Table reference.
-Notes:
-  - the table is also partitioned by region, which a Statement may bound too.
-ops.region_costs: the key (job_id, region, dt) holds on 20260924.
+ops.region_costs: the key (job_id, region, dt) holds where region_costs.dt = '20260924'.
 
 A Table reference generated like this lasts as long as the notebook. For a table you build on
 for months, write its Table reference to a file once with
@@ -116,13 +126,13 @@ real ones.
 ...     return statement(
 ...         SELECT(t.dt, AS(count_rows(), "row_count"), totals),
 ...         FROM(t),
-...         WHERE(between(t.dt, first_day, last_day)),
+...         WHERE(between(t.dt, day_text(setting, first_day), day_text(setting, last_day))),
 ...         GROUP_BY(t.dt),
 ...     )
 
 The days are given as `datetime.date`, not as text: each table writes them in its own way, and
-`between` writes a `datetime.date` as the table's Table reference says. Generate one
-Statement per setting, and see their Hive:
+`day_text` writes each day as the table's setting says. Generate one Statement per setting, and
+see their Hive:
 
 >>> first_day, last_day = datetime.date(2026, 9, 23), datetime.date(2026, 9, 24)
 >>> daily = {setting["table"]: daily_totals(tables[setting["table"]], setting,
@@ -228,21 +238,22 @@ sqlglot_composer.refusals.GuardRefused:
 Leave a setting's `"does_not_add_up"` out and nothing would refuse it: the total would come out,
 and be wrong. Fill it in for every table.
 
-### The same days, written as text, for every table
+### Leaving out a table's day_format
 
-Text days are written one way, and `ops.region_costs` writes its days another, so the Toolbox
-refuses them rather than read no day, or the wrong ones:
+No message stops you here. Without `"day_format"`, `day_text` writes the days the usual way,
+like 2026-09-23. `ops.region_costs` writes its days like 20260923, and the Toolbox compares a
+day exactly as it is written, so its total reads no day at all:
 
->>> daily_totals(tables["ops.region_costs"], settings[2], "2026-09-23", "2026-09-24")
-Traceback (most recent call last):
-...
-ValueError:
-  What happened:  between(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-23', but its Table reference writes days like '20260923'.
-...
+>>> no_format = {"table": "ops.region_costs", "partitioned_by": ["region", "dt"],
+...              "key": ["job_id", "region", "dt"], "add_up": ["cost_cents"]}
+>>> run(daily_totals(tables["ops.region_costs"], no_format, first_day, last_day),
+...     query=example_database.query)
+Empty DataFrame
+Columns: [dt, row_count, total_cost_cents]
+Index: []
 
-Pass `datetime.date` days, as the steps do, and each table gets them in its own way. Text
-written the table's own way, `"20260923"`, works too, as in [Check data quality with
-Statements](#check_data_quality), but then each table needs its days written its own way.
+Give every table whose days are written another way its `"day_format"`, as the steps do. An
+empty result from a table that has rows is the sign to look for.
 
 ## Next
 

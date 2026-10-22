@@ -23,7 +23,6 @@ from sqlglot_composer import (
     WHERE,
     Statement,
     all_columns,
-    by_day,
     check_key,
     count_rows,
     derived,
@@ -80,13 +79,12 @@ def _one_day(*clauses: Clause) -> Statement:
     (lambda: statement(OTHERS_STATEMENT), "statement", "a Statement"),
     (lambda: derived("d", OTHERS_STATEMENT), "derived", "a Statement"),
     (lambda: to_hive(OTHERS_STATEMENT), "to_hive", "a Statement"),
-    (lambda: by_day(OTHERS_STATEMENT), "by_day", "a Statement"),
     (lambda: export_lineage(OTHERS_STATEMENT), "export_lineage", "a Statement"),
     (lambda: check_key(OTHERS_TABLE, query=example_database.query), "check_key",
      "a Table reference"),
 ], ids=["FROM", "JOIN", "JOIN ON", "FROM a Derived table", "all_columns", "SELECT", "AS", "WHERE", "GROUP_BY",
         "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",
-        "count_rows where", "if_else", "statement", "derived", "to_hive", "by_day",
+        "count_rows where", "if_else", "statement", "derived", "to_hive",
         "export_lineage", "check_key"])
 def test_an_object_another_folder_made_is_named_so(call: Callable[[], object], given: str,
                                                               called: str) -> None:

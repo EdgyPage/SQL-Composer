@@ -37,17 +37,20 @@ its own in your Project's references/ folder.
 >>> job_day = Table(
 ...     "mart.job_day",
 ...     columns={"job_id": "bigint", "starts": "bigint", "finishes": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/job_day",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "starts": "bigint", "finishes": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["team", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/team_day",
 ... )
+
+Each is partitioned by dt, one Partition per day, and `location=` is its own folder, written
+exactly as the Hive should name it.
 
 Create each once. `show_hive` prints both, ready to paste:
 
@@ -63,7 +66,7 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/job_day';
+LOCATION '/data/your_team/mart.db/job_day';
 <BLANKLINE>
 -- 2 of 2
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.team_day (
@@ -75,15 +78,17 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/team_day';
+LOCATION '/data/your_team/mart.db/team_day';
 
 ### Write each Saved table's day
 
-Each write is a function of the day it writes. mart.job_day is written from the raw events:
+Each write is a function of the day it writes, and names that day's Partition with
+`partition={"dt": day}`, so its `SELECT` leaves dt out. mart.job_day is written from the raw
+events:
 
 >>> def write_job_day(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(job_day),
+...         INSERT_OVERWRITE(job_day, partition={"dt": day}),
 ...         SELECT(job_events.job_id,
 ...                AS(count_rows(where=equals(job_events.event_type, "start")), "starts"),
 ...                AS(count_rows(where=equals(job_events.event_type, "finish")), "finishes")),
@@ -99,7 +104,7 @@ safe: a sum of counts is still the right count.
 
 >>> def write_team_day(day: str) -> Statement:
 ...     return statement(
-...         INSERT_OVERWRITE(team_day),
+...         INSERT_OVERWRITE(team_day, partition={"dt": day}),
 ...         SELECT(job_owners.team,
 ...                AS(sum_of(job_day.starts), "starts"),
 ...                AS(sum_of(job_day.finishes), "finishes")),
@@ -112,8 +117,7 @@ safe: a sum of counts is still the right count.
 
 ### Read the weekly rollup from mart.team_day
 
-A write fills one day of its Saved table, so Saved tables hold days, not weeks. The weekly
-rollup isn't saved: it is a Statement that adds up mart.team_day's saved days into weeks
+The weekly rollup isn't saved: it is a Statement that adds up mart.team_day's saved days into weeks
 whenever you read it, which is quick, since each day holds a row per team.
 Read whole weeks, from a Monday to a Sunday; here the week holding 2026-09-24, the day the
 pipeline below writes:
@@ -179,7 +183,7 @@ sends them, in order:
 
 To fill several days, call it once per day, oldest first, so each day's Saved tables are written
 in order. In a Project, where each Saved table's Statements sit in its own Table notebook,
-`project.run_tables(day, query=..., execute=...)` is this runner for every table at once, each
+`project.run_tables(query=..., execute=...)` is this runner for every table at once, each
 written after the tables it reads, as [Add a Saved table](#add_a_saved_table) shows. Then read
 the week with `run(weekly, query=...)`, your own query in place of the Example database's.
 
@@ -237,9 +241,9 @@ write no longer fills every column, so the Toolbox refuses it:
 ...     "mart.job_day",
 ...     columns={"job_id": "bigint", "starts": "bigint", "finishes": "bigint",
 ...              "fails": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/job_day",
 ... )
 >>> write_job_day("2026-09-24")
 Traceback (most recent call last):
@@ -260,43 +264,13 @@ reference lists and the table lacks, here the column `"fails"`, and the days alr
 read NULL in it until they are written again. It takes both your calls: `admin.add_columns`
 sends DESCRIBE through your query as it is made, to find the new columns, and `run` sends the
 change through your execute. It writes CASCADE, since
-`job_day` has a Date partition, so the days already there get the column too. To start the
+`job_day` is partitioned, so the days already there get the column too. To start the
 table again instead, give `job_day`'s Table reference `purge=True`, set it in the table with
 `admin.set_properties(job_day)`, then drop it with `admin.drop_table(job_day)`, create it
 again and write its days again, as the gallery's
 [Saved table Worked example](examples.html#saved_table) shows in its rebuild step. Without
 purge, the old days' files stay, and the table created again gets them back once
 `repair_partitions` lists their days.
-
-### Saving the weekly rollup
-
-A Saved table of weeks looks tidy, but a write fills one day, and a week is seven. Written over
-a week, the write is refused when it becomes Hive, before anything is sent:
-
->>> team_week = Table(
-...     "mart.team_week",
-...     columns={"team": "string", "starts": "bigint", "finishes": "bigint", "dt": "string"},
-...     date_partition="dt",
-...     key=["team", "dt"],
-...     location="/data/your_team/tables",
-... )
->>> to_hive(statement(
-...     INSERT_OVERWRITE(team_week),
-...     SELECT(team_day.team,
-...            AS(sum_of(team_day.starts), "starts"),
-...            AS(sum_of(team_day.finishes), "finishes")),
-...     FROM(team_day),
-...     WHERE(between(team_day.dt, "2026-09-21", "2026-09-27")),
-...     GROUP_BY(team_day.team),
-... ))
-Traceback (most recent call last):
-...
-sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(team_week) covers 7 days.
-...
-
-Save the days, in mart.team_day, and add them up into weeks when you read them, with
-`weekly_rollup`, as the steps do.
 
 ### A step that rewrites the table it reads
 
@@ -305,7 +279,7 @@ reads its own output. Run twice, it works on rows it has already changed. `expor
 can't draw it either, since its Lineage would lead back into itself:
 
 >>> without_web = statement(
-...     INSERT_OVERWRITE(team_day),
+...     INSERT_OVERWRITE(team_day, partition={"dt": "2026-09-24"}),
 ...     SELECT(team_day.team, team_day.starts, team_day.finishes),
 ...     FROM(team_day),
 ...     WHERE(equals(team_day.dt, "2026-09-24"), not_equals(team_day.team, "web")),

@@ -174,9 +174,9 @@ def test_the_pitfall_now_stops_at_select() -> None:
 
 def test_the_prototypes_own_columns() -> None:
     """The prototype's boolean is_active and timestamp started_at, on its own Table references."""
-    jobs_then = Table("ops.jobs", date_partition=None, key=["job_id"], columns={
+    jobs_then = Table("ops.jobs", key=["job_id"], columns={
         "job_id": "bigint", "job_name": "string", "owner_team": "string", "is_active": "boolean"})
-    runs_then = Table("ops.job_runs", date_partition="dt", key=["run_id"], columns={
+    runs_then = Table("ops.job_runs", partitioned_by=["dt"], key=["run_id"], columns={
         "run_id": "bigint", "job_id": "bigint", "dt": "string", "status": "string",
         "region": "string", "started_at": "timestamp"})
     ranked = derived("ranked", statement(

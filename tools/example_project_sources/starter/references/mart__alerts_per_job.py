@@ -19,9 +19,9 @@ alerts_per_job = Table(
         "high_alerts": "bigint",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location="/data/your_team/tables",  # the folder your Saved tables go in
+    location="/data/your_team/mart.db/alerts_per_job",  # its own folder
     descriptions={
         "alerts": "every alert the job's runs raised that day",
         "high_alerts": "those whose severity is high",

@@ -7,8 +7,8 @@ For: Getting started
 Write a Table reference yourself, one argument at a time, for a table `write_table_reference`
 can't ask about. Here it is mart.job_day, a Saved table you are about to create (a table of
 your own, which your Statements write into), with one row per job per day. Along the way you see what each argument of `Table` is for: the columns and
-their types, `date_partition=`, `key=`, `does_not_add_up=`, and `date_format=` for a table whose
-days are written another way.
+their types, `partitioned_by=`, `key=`, `does_not_add_up=` and `location=`, and how a table
+partitioned by two columns, whose days are written another way, is described.
 
 ## When you'd use it
 
@@ -45,10 +45,10 @@ A Table reference is one call to `Table`:
 ...         "avg_minutes": "double",  # minutes / runs: the average run that day
 ...         "dt": "string",  # the day of the runs, as 2026-09-24
 ...     },
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
 ...     does_not_add_up=["avg_minutes"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/job_day",
 ... )
 >>> job_day
 Table('mart.job_day', columns: job_id, runs, failed_runs, minutes, avg_minutes, dt)
@@ -61,22 +61,21 @@ What each argument says:
   for whole numbers, `"string"` for text, `"double"` for numbers with a decimal point,
   `"decimal(10,2)"` for exact amounts such as money. The Toolbox checks the values you compare a
   typed column with, so `equals(job_day.runs, "3")` stops, since `"3"` is text.
-- `date_partition="dt"` names the one column the table is split into days by. The warehouse
-  stores a day at a time, and every Statement that reads the table must give its first and last
-  day. A table with no days, such as `ops.jobs`, says `date_partition=None`. Unlike `key=`,
-  `does_not_add_up=` and `date_format=`, it has no default, so you can't leave it out.
-- `key=["job_id", "dt"]` lists the columns that pick out one row. A job has a row on every day,
+- `partitioned_by=["dt"]` lists the columns the table is split into Partitions by, in the
+  order Hive partitions by them: here one, the day. Each is a column in `columns=` too. The
+  warehouse stores a Partition at a time, and every Statement that reads the table must filter
+  at least one of them. A table that isn't partitioned, such as `ops.jobs`, leaves it out.
+- `key=["job_id", "dt"]` lists the columns that pick out one row. A table with no Key leaves it
+  out, and nothing is checked against one. A job has a row on every day,
   so `job_day.job_id` alone repeats; the job and the day together pick out one row. JOIN reads
   the key to warn you when a join could repeat rows.
 - `does_not_add_up=["avg_minutes"]` lists the columns that are averages, ratios or counts of
   different values. Adding up two days' averages gives a number that means nothing, so the
   Toolbox refuses to add these up.
-- There is no `date_format=`: its days are written like 2026-09-24, the usual way. The step
-  A table whose days are written another way, below, shows one that needs it.
-- `location="/data/your_team/tables"` is the folder your Saved tables go in. Only a table you
-  create yourself has one: the Toolbox adds the table's own folder, mart/job_day, so each of
-  your tables has a folder of its own. A table someone else owns, such as `ops.jobs`, leaves
-  it out.
+- `location="/data/your_team/mart.db/job_day"` is the table's own folder, used exactly as you
+  write it: the Toolbox adds nothing to it. Only a table you create yourself has one, and no
+  two of your Saved tables may share a folder or nest one inside the other. A table someone
+  else owns, such as `ops.jobs`, leaves it out.
 
 ### Keep it in a file
 
@@ -97,10 +96,10 @@ reads the table imports the same one:
             "avg_minutes": "double",  # minutes / runs: the average run that day
             "dt": "string",  # the day of the runs, as 2026-09-24
         },
-        date_partition="dt",
+        partitioned_by=["dt"],
         key=["job_id", "dt"],
         does_not_add_up=["avg_minutes"],
-        location="/data/your_team/tables",
+        location="/data/your_team/mart.db/job_day",
     )
 
 Then, in a notebook of the Project:
@@ -134,28 +133,22 @@ WHERE
 The table mart.job_day isn't on the Example database, so this how-to shows its Hive but can't
 run it. At work, once the table exists and holds some days, `run` runs it with your own query.
 
-### A table whose days are written another way
+### A table partitioned by two columns, its days written another way
 
-The Toolbox expects a Date partition's days written like 2026-09-24. Some tables write them
-like 20260924 instead. The Example database's `ops.region_costs`, each job's cost in cents per
-region per day, is one, so its key is the job, the region and the day. Its Table reference
-says how its days are written, with `date_format=`:
+The Example database's `ops.region_costs`, each job's cost in cents per region per day, is
+partitioned by two columns: the region, then the day. Its key is the job, the region and the
+day. It writes its days like 20260924 rather than 2026-09-24:
 
 >>> region_costs = Table(
 ...     "ops.region_costs",
 ...     columns={"job_id": "bigint", "cost_cents": "bigint", "region": "string",
 ...              "dt": "string"},
-...     date_partition="dt",
-...     date_format="%Y%m%d",
+...     partitioned_by=["region", "dt"],
 ...     key=["job_id", "region", "dt"],
 ... )
 
-`"%Y%m%d"` uses the codes of Python's own `datetime.strftime`: `"%Y"` is the year, `"%m"` the
-month and `"%d"` the day, with nothing between them. The pattern must put the year first, then
-the month, then the day: Hive compares the days as text, and only days written year first sort
-in date order.
-
-You then write each day the table's way:
+The Toolbox compares a value with a column exactly as you write it, so write each day the
+table's way:
 
 >>> costs = statement(
 ...     SELECT(region_costs.job_id, region_costs.cost_cents),
@@ -167,15 +160,16 @@ You then write each day the table's way:
 0       1         120
 1       2         180
 
-Or pass a `datetime.date`, which the Toolbox writes the table's way for you, so the same
-Python works on tables that write their days differently:
+Filtering either partition column is enough for the Load limit: the step above filters the
+day alone, and one that filters the region alone, or both, is let through too.
 
->>> import datetime
+Days written year first, as both 20260924 and 2026-09-24 are, sort in date order as text, so
+`between` works on them as on dates:
+
 >>> two_days = statement(
 ...     SELECT(region_costs.job_id, region_costs.cost_cents),
 ...     FROM(region_costs),
-...     WHERE(between(region_costs.dt, datetime.date(2026, 9, 23),
-...                   datetime.date(2026, 9, 24))),
+...     WHERE(between(region_costs.dt, "20260923", "20260924")),
 ... )
 >>> text = show_hive(two_days)
 SELECT
@@ -191,12 +185,10 @@ A table that already exists can be compared with your Table reference:
 
 >>> check_table_reference(region_costs, query=example_database.query)
 ops.region_costs matches its Table reference.
-Notes:
-  - the table is also partitioned by region, which a Statement may bound too.
 
-It matches. The note is about a second partition, `region_costs.region`: a Statement may give
-the regions it reads too, but doesn't have to.
-[A day written another way, and a second partition](#a_day_written_another_way) covers it.
+It matches, both partition columns in their order included.
+[A day written another way, and a second partition](#a_day_written_another_way) covers such a
+table further.
 
 The table mart.job_day doesn't exist yet. `create_table` writes the Hive that makes it from your
 Table reference: read it to check the columns, their types and the partition are what you meant.
@@ -213,41 +205,42 @@ PARTITIONED BY (
   dt STRING
 )
 STORED AS ORC
-LOCATION '/data/your_team/tables/mart/job_day';
+LOCATION '/data/your_team/mart.db/job_day';
 
-The Date partition, dt, goes under PARTITIONED BY rather than among the other columns: that is
-how Hive splits a table into days. STORED AS ORC says how Hive keeps the table's files: ORC, a
-compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the
-table's own folder.
+The partition column, dt, goes under PARTITIONED BY rather than among the other columns: that is
+how Hive splits a table into Partitions. LOCATION is the folder you wrote, as you wrote it.
+STORED AS ORC says how Hive keeps the table's files: ORC, a compact format Hive reads quickly.
+EXTERNAL and LOCATION say the files are yours, in the table's own folder.
 
 At work, once `run` has sent `create_table(job_day)` through your own execute and made the table,
 `check_table_reference` compares it with your file, as above.
 
 ## Common mistakes
 
-### Leaving out date_partition
+### A partition column left out of columns
 
-`date_partition=` has no default, so that a table you forgot to describe the days of can't
-quietly be read whole. Leaving it out stops with Python's own message:
+A partition column is a column of the table too, so it goes in `columns=` as well as in
+`partitioned_by=`. One that is only in `partitioned_by=` stops:
 
->>> jobs = Table(
-...     "ops.jobs",
-...     columns={"job_id": "bigint", "job_name": "string", "team": "string",
-...              "region": "string"},
-...     key=["job_id"],
+>>> job_day_no_dt = Table(
+...     "mart.job_day",
+...     columns={"job_id": "bigint", "runs": "bigint"},
+...     partitioned_by=["dt"],
 ... )
 Traceback (most recent call last):
 ...
-TypeError: Table.__init__() missing 1 required positional argument: 'date_partition'
+ValueError:
+  What happened:  Table('mart.job_day'): partitioned_by names 'dt', which isn't one of its columns.
+...
 
-For a table with no days, write `date_partition=None`.
+Add `"dt": "string"` to `columns=`.
 
 ### A key that names a column the table doesn't have
 
 >>> job_day_typo = Table(
 ...     "mart.job_day",
 ...     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "day"],
 ... )
 Traceback (most recent call last):
@@ -256,7 +249,7 @@ ValueError:
   What happened:  Table('mart.job_day'): key names 'day', which isn't one of its columns.
 ...
 
-`key=`, `date_partition=` and `does_not_add_up=` each name columns from `columns=`, spelled
+`key=`, `partitioned_by=` and `does_not_add_up=` each name columns from `columns=`, spelled
 the same way.
 
 ### Adding up a column that doesn't add up
@@ -281,36 +274,41 @@ totals. The Opt-out is for the rare call where a total really is what you mean.
 
 ### A day written the other way
 
-With `date_format="%Y%m%d"`, a day written like 2026-09-23 would match no day of the table, so
-it stops:
+The Toolbox doesn't know how a table writes its days: it compares the value as you wrote it. A
+day written like 2026-09-23, on a table that writes 20260923, matches no row, and nothing
+stops it:
 
 >>> wrong_day = statement(
 ...     SELECT(region_costs.job_id),
 ...     FROM(region_costs),
 ...     WHERE(equals(region_costs.dt, "2026-09-23")),
 ... )
-Traceback (most recent call last):
-...
-ValueError:
-  What happened:  equals(region_costs.dt, ...) compares the Date partition region_costs.dt with '2026-09-23', but its Table reference writes days like '20260923'.
-...
+>>> run(wrong_day, query=example_database.query)
+Empty DataFrame
+Columns: [job_id]
+Index: []
 
-### A date_format that doesn't put the year first
+When a result comes back empty, look at how the table writes the column: `first_look` shows a
+few of its rows.
 
->>> costs_by_hand = Table(
+### date_partition= from an older Toolbox
+
+A Table reference written for Toolbox 6 said `date_partition=` and, for days written another
+way, `date_format=`. Both stop, saying what to write instead:
+
+>>> old_reference = Table(
 ...     "ops.region_costs",
 ...     columns={"job_id": "bigint", "cost_cents": "bigint", "region": "string",
 ...              "dt": "string"},
 ...     date_partition="dt",
-...     date_format="%d%m%Y",
 ... )
 Traceback (most recent call last):
 ...
-ValueError:
-  What happened:  date_format='%d%m%Y' doesn't write the year first, then the month, then the day.
+TypeError:
+  What happened:  Table('ops.region_costs') was given date_partition=, which Toolbox 7.0 replaced.
 ...
-
-If a table's days really are written day first, its message says what to do instead.
+  Usual fix:      Write partitioned_by=["dt"] where it said date_partition="dt", leave it out where it said date_partition=None, and remove date_format=. CHANGES.md, under 7.0, says more.
+...
 
 ## Next
 
@@ -318,7 +316,7 @@ If a table's days really are written day first, its message says what to do inst
   [Build a first Statement and paste its Hive](#build_a_first_statement).
 - Join your table to another without repeating rows, which is what `key=` is for:
   [Join tables safely](#join_tables_safely).
-- Create a Saved table and write a day's rows into it: [Save a table](#save_a_table).
+- Create a Saved table and write rows into it: [Save a table](#save_a_table).
 - The gallery's Worked examples of [`Table`](examples.html#Table) and
   [`create_table`](examples.html#create_table), and a Saved table built and written step by
   step: [Worked example of a Saved table](examples.html#saved_table).

@@ -90,6 +90,16 @@ def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started: Pa
                 ast.parse(text)
 
 
+def test_the_admin_notebooks_speak_of_no_day(started: Path) -> None:
+    run_tables = "\n".join(text for _, text in cells(started / "admin" / "run_tables.ipynb"))
+    assert "DAY" not in run_tables and "write_day" not in run_tables
+    assert "project.run_tables()" in run_tables
+    change = "\n".join(text for _, text in
+                       cells(started / "admin" / "change_a_saved_table.ipynb"))
+    assert "drop_days" not in change
+    assert "admin.drop_partitions(your_table, where=" in change
+
+
 def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: Path) -> None:
     text = (started / "warehouse.py").read_text(encoding="utf-8")
     assert text == project.WAREHOUSE_TEXT
@@ -470,9 +480,10 @@ def test_the_reference_sheet_has_a_row_per_column_with_its_aliases(started: Path
     rows = {row["column"]: row for row in sheet(started)}
     assert list(rows) == ["run_id", "job_id", "status", "duration_mins", "avg_retry_secs", "dt"]
     assert rows["run_id"] | {"exported_at": ""} == {
-        "table": "ops.job_runs", "column": "run_id", "type": "bigint", "date_partition": "",
+        "table": "ops.job_runs", "column": "run_id", "type": "bigint", "partition": "",
         "in_key": "yes", "aliases": "", "description": "", "exported_at": ""}
-    assert rows["dt"]["date_partition"] == "yes"
+    assert rows["dt"]["partition"] == "yes"
+    assert rows["job_id"]["partition"] == ""
     assert rows["duration_mins"]["aliases"] == "minutes"
     assert rows["status"]["aliases"] == "failed (a condition)"
     assert rows["avg_retry_secs"]["aliases"] == ""  # slow reads two columns
@@ -543,9 +554,9 @@ DAILY_RUNS = """from sqlglot_composer import Table
 daily_runs = Table(
     "mart.daily_runs",
     columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
-    location="/data/your_team/tables",
+    location="/data/your_team/mart.db/daily_runs",
 )
 """
 TEAM_RUNS = """from sqlglot_composer import Table
@@ -553,9 +564,9 @@ TEAM_RUNS = """from sqlglot_composer import Table
 team_runs = Table(
     "mart.team_runs",
     columns={"runs": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["dt"],
-    location="/data/your_team/tables",
+    location="/data/your_team/mart.db/team_runs",
 )
 """
 # Each table's notebook Template: a text cell and its logic cell. team_runs reads daily_runs.
@@ -570,18 +581,20 @@ from sqlglot_composer import (
 from references.ops__job_runs import job_runs
 from references.<NAME> import <TABLE>
 
+DAY = "2026-09-24"
 
-def write_day(day):
+
+def write():
     return statement(
         INSERT_OVERWRITE(<TABLE>),
-        SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+        SELECT(job_runs.job_id, AS(count_rows(), "runs"), AS(job_runs.dt, "dt")),
         FROM(job_runs),
-        WHERE(between(job_runs.dt, day, day)),
+        WHERE(between(job_runs.dt, DAY, DAY)),
         GROUP_BY(job_runs.dt, job_runs.job_id),
     )
 
 # %%
-run(write_day("2026-09-24"), execute=execute)
+run(write(), execute=execute)
 """
 TEAM_LOGIC = """# %%
 # logic
@@ -591,13 +604,15 @@ from sqlglot_composer import (
 from references.mart__daily_runs import daily_runs
 from references.<NAME> import <TABLE>
 
+DAY = "2026-09-24"
 
-def write_day(day):
+
+def write():
     return statement(
         INSERT_OVERWRITE(<TABLE>),
-        SELECT(AS(sum_of(daily_runs.runs), "runs")),
+        SELECT(AS(sum_of(daily_runs.runs), "runs"), AS(daily_runs.dt, "dt")),
         FROM(daily_runs),
-        WHERE(between(daily_runs.dt, day, day)),
+        WHERE(between(daily_runs.dt, DAY, DAY)),
         GROUP_BY(daily_runs.dt),
     )
 """
@@ -624,17 +639,17 @@ def notebook_of(root: Path, stem: str) -> Path:
 
 def test_load_gives_the_logic_cells_functions(two_tables: Path) -> None:
     logic = project.load("mart.daily_runs")
-    assert repr(logic) == "The logic of mart.daily_runs: write_day."
-    assert to_hive(logic.write_day("2026-09-24")).startswith(
-        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')")
+    assert repr(logic) == "The logic of mart.daily_runs: write."
+    assert to_hive(logic.write()).startswith(
+        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)")
 
 
 def test_load_reads_the_references_as_they_are_now(two_tables: Path) -> None:
     project.load("mart.daily_runs")
     reference = two_tables / "references" / "mart__daily_runs.py"
-    reference.write_text(DAILY_RUNS.replace('"mart.daily_runs"', '"mart.daily_runs_v2"'),
+    reference.write_text(DAILY_RUNS.replace("daily_runs\"", "daily_runs_v2\""),
                          encoding="utf-8")
-    write = project.load("mart.daily_runs").write_day("2026-09-24")
+    write = project.load("mart.daily_runs").write()
     assert "mart.daily_runs_v2" in to_hive(write)
 
 
@@ -660,32 +675,89 @@ def test_load_refuses_a_logic_cell_it_cant_run_safely(
         project.load("mart.odd")
 
 
+def odd_logic(root: Path, logic: str) -> None:
+    """A Table folder mart.odd whose notebook's logic cell is `logic`."""
+    (root / "admin" / "templates" / "odd.py").write_text(f"# %%\n# logic\n{logic}",
+                                                         encoding="utf-8")
+    project.new_table("mart.odd", template="odd")
+
+
+def test_load_refuses_a_logic_cell_with_write_day_and_no_write(two_tables: Path) -> None:
+    odd_logic(two_tables, "def write_day(day: str) -> str:\n    return day\n")
+    with pytest.raises(ValueError) as refused:
+        project.load("mart.odd")
+    message = " ".join(str(refused.value).split())
+    assert ('What happened: project.load("mart.odd"): the logic cell of '
+            "tables/mart__odd/mart__odd.ipynb defines no write(). It defines write_day(day), "
+            "from before 7.0, when run_tables gave each notebook a day: since 7.0 its write() "
+            "takes nothing, and a value it needs, such as a day, is a constant in its logic "
+            "cell.") in message
+    assert "CHANGES.md, under 7.0, says how to turn a write_day(day) into it." in message
+
+
+def test_load_refuses_a_logic_cell_with_no_write(two_tables: Path) -> None:
+    odd_logic(two_tables, "def preview() -> int:\n    return 1\n")
+    with pytest.raises(ValueError) as refused:
+        project.load("mart.odd")
+    message = " ".join(str(refused.value).split())
+    assert "ipynb defines no write()." in message
+    assert "write_day" not in message.split("Why it matters:")[0]
+
+
+def test_load_refuses_a_write_that_needs_a_value_given(two_tables: Path) -> None:
+    odd_logic(two_tables, "def write(day: str) -> str:\n    return day\n")
+    with pytest.raises(ValueError) as refused:
+        project.load("mart.odd")
+    message = " ".join(str(refused.value).split())
+    assert ('What happened: project.load("mart.odd"): the write() in the logic cell of '
+            "tables/mart__odd/mart__odd.ipynb needs day given to it.") in message
+    assert 'such as DAY = "2026-09-24"' in message
+
+
+def test_load_takes_a_write_whose_arguments_all_have_defaults(two_tables: Path) -> None:
+    odd_logic(two_tables, 'DAY = "2026-09-24"\n\n\ndef write(day: str = DAY) -> str:\n'
+              "    return day\n")
+    assert project.load("mart.odd").write() == "2026-09-24"
+
+
+def test_run_tables_takes_no_day(two_tables: Path) -> None:
+    with pytest.raises(TypeError, match="positional"):
+        project.run_tables("2026-09-24")
+
+
 def test_run_tables_with_no_execute_prints_each_write_writers_first(
         two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    report = project.run_tables("2026-09-24", tables=["mart.team_runs", "mart.daily_runs"])
+    report = project.run_tables(tables=["mart.team_runs", "mart.daily_runs"])
     printed = capsys.readouterr().out
-    daily = printed.index("-- 1 of 2: mart.daily_runs\nINSERT OVERWRITE TABLE mart.daily_runs")
-    team = printed.index("-- 2 of 2: mart.team_runs\nINSERT OVERWRITE TABLE mart.team_runs")
-    assert daily < team
+    in_order = [printed.index(text) for text in (
+        "-- 1 of 2: mart.daily_runs\n", "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)",
+        "-- 2 of 2: mart.team_runs\n", "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt)")]
+    assert in_order == sorted(in_order)
+    # Each write fills dt from its rows, so each is printed after the setting it needs.
+    assert printed.count('-- The Session setting "dynamic_partitions": this write fills dt '
+                         "from its rows.") == 2
     assert repr(report) == ("Printed 2 writes in order, and sent nothing. Pass execute= to "
                             "run them.")
 
 
 def test_run_tables_sends_every_registered_table_to_execute_in_order(two_tables: Path) -> None:
     sent = []
-    report = project.run_tables("2026-09-24", query=lambda hive: sent.append(hive) or "rows",
+    report = project.run_tables(query=lambda hive: sent.append(hive) or "rows",
                                 execute=sent.append)
+    # Both fill dt from their rows, so dynamic partitioning is sent once, before either.
     assert [hive.split("\n")[0] for hive in sent] == [
-        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')",
-        "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt = '2026-09-24')"]
-    assert repr(report) == "Wrote 2026-09-24 of 2 tables, in order."
+        "SET hive.exec.dynamic.partition=true",
+        "SET hive.exec.dynamic.partition.mode=nonstrict",
+        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)",
+        "INSERT OVERWRITE TABLE mart.team_runs PARTITION(dt)"]
+    assert repr(report) == "Wrote 2 tables, in order."
 
 
 def test_run_tables_refuses_send_naming_query_and_execute(
         two_tables: Path, capsys: pytest.CaptureFixture[str]) -> None:
     sent = []
     with pytest.raises(TypeError) as refused:
-        project.run_tables("2026-09-24", send=sent.append)
+        project.run_tables(send=sent.append)
     message = str(refused.value)
     assert "run_tables was given send=, which Toolbox 7.0 replaced." in message
     assert "Pass query= and execute= instead" in message
@@ -695,7 +767,7 @@ def test_run_tables_refuses_send_naming_query_and_execute(
 
 def test_run_tables_refuses_a_keyword_it_doesnt_take(two_tables: Path) -> None:
     with pytest.raises(TypeError, match="run_tables was given excute=, which it doesn't take"):
-        project.run_tables("2026-09-24", excute=print)
+        project.run_tables(excute=print)
 
 
 def test_run_tables_stops_at_the_first_that_fails(
@@ -705,7 +777,7 @@ def test_run_tables_stops_at_the_first_that_fails(
             raise RuntimeError("the warehouse said no")
 
     with pytest.raises(RuntimeError, match="the warehouse said no"):
-        project.run_tables("2026-09-24", execute=execute)
+        project.run_tables(execute=execute)
     assert capsys.readouterr().out == (
         "1 of 2: mart.daily_runs  worked\n"
         "2 of 2: mart.team_runs   failed: see below. The tables after it weren't written.\n")
@@ -716,9 +788,9 @@ LOOP_REFERENCE = """from sqlglot_composer import Table
 <TABLE> = Table(
     "<DB>.<TABLE>",
     columns={"n": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["dt"],
-    location="/data/your_team/tables",
+    location="/data/your_team/<DB>.db/<TABLE>",
 )
 """
 # A table that sums the other one's n: two of them, each reading the other, are a loop.
@@ -730,12 +802,12 @@ from references.mart__<OTHER> import <OTHER>
 from references.<NAME> import <TABLE>
 
 
-def write_day(day):
+def write():
     return statement(
         INSERT_OVERWRITE(<TABLE>),
-        SELECT(AS(sum_of(<OTHER>.n), "n")),
+        SELECT(AS(sum_of(<OTHER>.n), "n"), AS(<OTHER>.dt, "dt")),
         FROM(<OTHER>),
-        WHERE(between(<OTHER>.dt, day, day)),
+        WHERE(between(<OTHER>.dt, "2026-09-24", "2026-09-24")),
         GROUP_BY(<OTHER>.dt),
     )
 """
@@ -751,7 +823,7 @@ def test_run_tables_refuses_a_loop(started: Path) -> None:
             LOOP_REFERENCE.replace("<DB>", "mart").replace("<TABLE>", table), encoding="utf-8")
     with pytest.raises(ValueError, match="project.run_tables.*can't order these tables, "
                        "because they go round in a loop"):
-        project.run_tables("2026-09-24")
+        project.run_tables()
 
 
 SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
@@ -765,31 +837,31 @@ SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
     ("(1, 2)", "a tuple, and 1 in it isn't a Statement or an Unchecked statement"),
     ("[]", "an empty list, with no write in it"),
 ])
-def test_run_tables_refuses_what_write_day_gives_that_it_cant_send(
+def test_run_tables_refuses_what_write_gives_that_it_cant_send(
         started: Path, capsys: pytest.CaptureFixture[str], gives: str, said: str) -> None:
     (started / "admin" / "templates" / "odd.py").write_text(
         "# %%\n# logic\nfrom sqlglot_composer import hive_settings\n\n\n"
-        f"def write_day(day):\n    return {gives}\n", encoding="utf-8")
+        f"def write():\n    return {gives}\n", encoding="utf-8")
     project.new_table("mart.odd", template="odd")
     with pytest.raises(TypeError) as refused:
-        project.run_tables("2026-09-24")
+        project.run_tables()
     message = " ".join(str(refused.value).split())
     assert message.count("What happened:") == 1
-    assert ('What happened: project.run_tables("2026-09-24"): write_day("2026-09-24"), in the '
+    assert ("What happened: project.run_tables(): write(), in the "
             f"logic cell of mart.odd's Table notebook, gave {said}.") in message
     assert capsys.readouterr().out == ""
 
 
 def test_run_tables_with_no_table_folder_says_so(started: Path) -> None:
-    assert repr(project.run_tables("2026-09-24")) == (
+    assert repr(project.run_tables()) == (
         "No Table folder to run: make one with project.new_table(...).")
 
 
 def test_lineage_crosses_table_folders_through_load(
         two_tables: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(two_tables / "tables" / "mart__team_runs")
-    daily = project.load("mart.daily_runs").write_day("2026-09-24")
-    team = project.load("mart.team_runs").write_day("2026-09-24")
+    daily = project.load("mart.daily_runs").write()
+    team = project.load("mart.team_runs").write()
     # to= names the files: from a test, rather than a notebook, they would go beside this file.
     _, markdown_file = export_lineage(daily, team, to=two_tables / "both.html")
     text = markdown_file.read_text(encoding="utf-8")
@@ -802,8 +874,7 @@ def test_one_write_s_lineage_goes_in_its_table_folder_named_by_the_time(
         two_tables: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(toolbox_module("lineage"), "_now", lambda: NOW)
     monkeypatch.chdir(two_tables / "admin")
-    html_file, markdown_file = export_lineage(project.load("mart.daily_runs").write_day(
-        "2026-09-24"))
+    html_file, markdown_file = export_lineage(project.load("mart.daily_runs").write())
     folder = two_tables / "tables" / "mart__daily_runs" / "lineage"
     assert (html_file, markdown_file) == (folder / "20261021-093000-mart__daily_runs.html",
                                           folder / "20261021-093000-mart__daily_runs.md")
@@ -817,7 +888,7 @@ def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(
         started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(started / "tables")
     t = Table("mart.daily_runs", columns={"job_id": "bigint", "dt": "string"},
-              date_partition="dt", location="/data/your_team/tables")
+              partitioned_by=["dt"], location="/data/your_team/mart.db/daily_runs")
     run(admin.drop_table(t), execute=lambda hive: None)
     assert "## 2026-10-21 09:30:00, Admin statement\n" in log_text(started)
     assert not (started / "tables" / "admin_log.md").exists()

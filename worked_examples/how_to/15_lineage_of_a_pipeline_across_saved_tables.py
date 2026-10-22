@@ -30,16 +30,16 @@ counts each job's runs per day, and mart.team_day adds those counts up per team.
 ...     "mart.daily_job_runs",
 ...     columns={"job_id": "bigint", "runs": "bigint", "failed_runs": "bigint",
 ...              "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["job_id", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/daily_job_runs",
 ... )
 >>> team_day = Table(
 ...     "mart.team_day",
 ...     columns={"team": "string", "runs": "bigint", "failed_runs": "bigint", "dt": "string"},
-...     date_partition="dt",
+...     partitioned_by=["dt"],
 ...     key=["team", "dt"],
-...     location="/data/your_team/tables",
+...     location="/data/your_team/mart.db/team_day",
 ... )
 
 ### Put each write in a variable of its own
@@ -48,7 +48,7 @@ The Lineage names each Statement after the variable that holds it, so give each 
 variable with a meaningful name. These are one day's two writes:
 
 >>> write_daily_job_runs = statement(
-...     INSERT_OVERWRITE(daily_job_runs),
+...     INSERT_OVERWRITE(daily_job_runs, partition={"dt": "2026-09-24"}),
 ...     SELECT(
 ...         job_runs.job_id,
 ...         AS(count_rows(), "runs"),
@@ -59,7 +59,7 @@ variable with a meaningful name. These are one day's two writes:
 ...     GROUP_BY(job_runs.job_id),
 ... )
 >>> write_team_day = statement(
-...     INSERT_OVERWRITE(team_day),
+...     INSERT_OVERWRITE(team_day, partition={"dt": "2026-09-24"}),
 ...     SELECT(
 ...         jobs.team,
 ...         AS(sum_of(daily_job_runs.runs), "runs"),
@@ -121,8 +121,8 @@ Graph is the whole pipeline as one Mermaid chart, shown here as text. Drawn in J
 GitHub, it runs from the columns of `ops.job_runs` the job write uses, through the Saved table
 mart.daily_job_runs, which the job write's outputs flow into and the team write reads from,
 with `ops.jobs` joined, to mart.team_day. In the text, each table is a subgraph of its own,
-and an arrow labelled `|day written|` runs from each write's WHERE to the Date partition of the
-table it writes: the day in WHERE is the day written.
+and the partition column of each table written, dt, says `writes dt = '2026-09-24'`: the day
+each write's `partition=` names.
 
 write_daily_job_runs is the first write's section. It says which Saved table it writes, then
 its Calculated columns, `"runs"` and `"failed_runs"`, each with its tree, its Rows that count
@@ -138,12 +138,12 @@ Saved table: the team's `"failed_runs"` is a sum of the Saved table's column
 the file answers "what counts as a failed run here?" in one place: a run whose status is
 FAILED.
 
-Rows that count, under each of the team write's columns, lists the conditions that decide
-which rows of the Saved table count: the team write's day, and its match on job_id with
-`ops.jobs`. The job write's day isn't listed again: it is the day it writes, which the chart
-shows as day written. Had the job write kept only some runs, say with a condition on their
-status, that condition would be listed here too, since it decides which runs the team counts
-add up.
+Rows that count, under each of the team write's columns, lists the conditions that decide which
+rows of the Saved table count: the team write's day, and its match on job_id with `ops.jobs`.
+The job write's day isn't listed again: it is the day it writes, which the chart shows on
+mart.daily_job_runs.dt. Had the job write kept only some runs, say with a condition on their
+status, that condition would be listed here too, since it decides which runs the team counts add
+up.
 
 Hive as submitted, in each section, is the Hive `run` sends for that write.
 
