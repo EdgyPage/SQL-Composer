@@ -31,6 +31,7 @@ from sqlglot_composer import (
     export_lineage,
     notebooks,
     project,
+    project_files,
     run_execute,
     set_admin_log,
     to_hive,
@@ -54,8 +55,7 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def registry(root: Path) -> list[dict[str, str]]:
-    with open(root / "admin" / "registry.csv", encoding="utf-8", newline="") as rows:
-        return list(csv.DictReader(rows))
+    return project_files.Registry(root).rows
 
 
 def cells(path: Path) -> list[tuple[str, str]]:
@@ -389,6 +389,61 @@ def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
         '  tables/mart__by_hand/: project.register("mart.by_hand")\n'
         "Registered, but not there. Put each back, or mark it removed with the call beside it:\n"
         '  references/mart__daily_job_runs.py: project.remove_reference("mart.daily_job_runs")')
+
+
+def test_check_reads_a_database_holding_two_underscores_back_at_its_first(
+        started: Path) -> None:
+    """Pins today's behaviour: a file's stem is read back as a table's name at its first __,
+    so my__db.jobs's file is offered to register as my.db__jobs, which names the same file."""
+    (started / "references" / "my__db__jobs.py").write_text("# by hand", encoding="utf-8")
+    assert repr(project.check()).splitlines()[1] == (
+        '  references/my__db__jobs.py: project.register("my.db__jobs")')
+    project.register("my.db__jobs")
+    assert [(row["kind"], row["table"]) for row in registry(started)] == [
+        ("reference", "my.db__jobs")]
+    assert repr(project.check()).startswith("Every Table folder")
+
+
+@contextlib.contextmanager
+def registry_reads() -> Iterator[list[str]]:
+    """Each time registry.csv is opened to be read, while inside."""
+    reads: list[str] = []
+    real_open = open
+
+    def counting(file: object, mode: str = "r", *args: object, **kwargs: object) -> object:
+        if str(file).endswith("registry.csv") and "w" not in mode:
+            reads.append(str(file))
+        return real_open(file, mode, *args, **kwargs)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("builtins.open", counting)
+        yield reads
+
+
+def test_an_action_on_several_names_reads_the_registry_once(started: Path) -> None:
+    with registry_reads() as reads:
+        project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"],
+                               query=example_database.query)
+    assert len(reads) == 1
+    (started / "references" / "ops__jobs.py").unlink()
+    (started / "tables" / "mart__by_hand").mkdir()
+    with registry_reads() as reads:
+        project.check()
+    assert len(reads) == 1
+    project.new_table("mart.daily_job_runs")
+    project.remove_table("mart.daily_job_runs")
+    with registry_reads() as reads:
+        project.new_table("mart.daily_job_runs")
+        project.register("mart.by_hand")
+        project.new_block("runs_per_job")
+        project.remove_block("runs_per_job")
+        project.remove_table("mart.daily_job_runs")
+        project.remove_reference("mart.daily_job_runs")
+    assert len(reads) == 6
+    project.remove_table("mart.by_hand")
+    with registry_reads() as reads:
+        project.run_tables()
+    assert len(reads) == 1
 
 
 def test_check_reports_a_send_py_with_no_warehouse_py(started: Path) -> None:
