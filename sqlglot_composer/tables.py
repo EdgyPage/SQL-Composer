@@ -1691,7 +1691,16 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
     """partitions_named's checks of a partition= that was given: each column it names, in
     partitioned_by order, with its value as a Hive literal."""
     columns = t._partitioned_by
-    example = f'{call}({t._alias}, partition={{"{columns[0] if columns else "dt"}": ...}})'
+    if not columns:
+        refuse(
+            what=f"{call}({t._alias}, partition=...): {t._name} isn't partitioned.",
+            why="partition= names values of a table's partition columns, and its Table "
+            "reference has no partitioned_by=.",
+            fix=f"Leave partition= out, as in {call}({t._alias}): the table is one whole, with "
+            "no Partitions to name.",
+            error=ValueError,
+        )
+    example = f'{call}({t._alias}, partition={{"{columns[0]}": ...}})'
     if not isinstance(partition, dict):
         refuse(
             what=f"{call}({t._alias}, partition={python_text(partition)}): partition= is a dict "
@@ -1707,15 +1716,6 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
             why="partition= names Partitions by their partition columns, each with one value, "
             "and an empty dict gives none.",
             fix=f"Name one, as in {example}, or leave partition= out: {left_out}.",
-            error=ValueError,
-        )
-    if not columns:
-        refuse(
-            what=f"{call}({t._alias}, partition=...): {t._name} isn't partitioned.",
-            why="partition= names values of a table's partition columns, and its Table "
-            "reference has no partitioned_by=.",
-            fix=f"Leave partition= out, as in {call}({t._alias}): the table is one whole, with "
-            "no Partitions to name.",
             error=ValueError,
         )
     unknown = [name for name in partition if name not in columns]
