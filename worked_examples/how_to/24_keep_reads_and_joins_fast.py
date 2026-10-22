@@ -248,7 +248,7 @@ alone is refused:
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  compute_statistics(job_day_facts, "2026-09-24") wasn't given a dict for partition=.
+  What happened:  compute_statistics(job_day_facts, partition="2026-09-24"): partition= is a dict of partition columns and their values.
 ...
 
 Write `partition={"dt": "2026-09-24"}`, as the steps do.

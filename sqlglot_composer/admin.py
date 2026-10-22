@@ -45,6 +45,7 @@ from .tables import (
     create_table,
     need_saved_table,
     partition_columns,
+    partitions_named,
     python_text,
     readable,
     table_node,
@@ -753,10 +754,8 @@ def _copy_step(t: Table, copy_of: Table) -> Statement:
     rows, so the partition columns come last, in partitioned_by order."""
     partitions = partition_columns(t)
     columns = [column for column in t._columns if column not in partitions] + partitions
-    partition = None
-    if partitions:
-        partition = Node("Partition", expressions=[Node("Column", name=column)
-                                                   for column in partitions])
+    # PARTITION(region, dt): none named, so each is filled from the rows.
+    partition = partitions_named(t).tree
     select = Node("Select", outputs=[_column(t, column) for column in columns],
                   source=table_node(t._name, alias=t._alias))
     tree = Node("Insert", target=table_node(copy_of._name, partition=partition), select=select,

@@ -17096,8 +17096,8 @@ GROUP BY
 -- refused
 ValueError:
   What happened:  INSERT_OVERWRITE(region_runs, partition=...) names region, but not dt, which comes before it in mart.region_runs's partitioned_by (dt, region).
-  Why it matters: Hive takes the partition columns in order: the ones the write names first, then the ones it fills from the rows. A column named after one left out can't be.
-  Usual fix:      Name dt too, or leave out the ones after it, to fill them from the rows.
+  Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can't be.
+  Usual fix:      Name dt too, or leave out the ones after it: the write fills each partition column it doesn't name from the rows' own values.
   Opt-out:        none - this one can't be switched off.
 
 == edge:write:partitioned_by:refused:names_another_column
@@ -22748,25 +22748,25 @@ TypeError:
 == edge:upkeep:compute_statistics:refused:a_day_as_text
 -- refused
 TypeError:
-  What happened:  compute_statistics(daily_runs, "2026-09-24") wasn't given a dict for partition=.
-  Why it matters: partition= names the Partitions to count, from each partition column to its value.
-  Usual fix:      Write it as a dict, such as partition={"dt": "2026-09-24"}, or leave it out to count every Partition.
+  What happened:  compute_statistics(daily_runs, partition="2026-09-24"): partition= is a dict of partition columns and their values.
+  Why it matters: It names Partitions by their partition columns: each column it names, with one value of it.
+  Usual fix:      Write it like compute_statistics(daily_runs, partition={"dt": ...}), or leave partition= out: compute_statistics counts every value of each partition column it doesn't name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:upkeep:compute_statistics:refused:names_a_later_column
 -- refused
 ValueError:
-  What happened:  compute_statistics(region_runs, partition=...) names region, but not the partition columns before it: mart.region_runs is partitioned by dt, region.
-  Why it matters: Hive takes the values of a table's first partition columns, then the rest by name, so a value can't follow a column given by its name alone.
-  Usual fix:      Name dt too, or only the first of them: partition={"dt": ...}.
+  What happened:  compute_statistics(region_runs, partition=...) names region, but not dt, which comes before it in mart.region_runs's partitioned_by (dt, region).
+  Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can't be.
+  Usual fix:      Name dt too, or leave out the ones after it: compute_statistics counts every value of each partition column it doesn't name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:upkeep:compute_statistics:refused:unpartitioned_given_a_partition
 -- refused
 ValueError:
-  What happened:  compute_statistics(job_teams, partition=...): mart.job_teams has no partitioned_by=, and was given partition=["team"].
-  Why it matters: A table with no Partitions is counted whole, with none to pick.
-  Usual fix:      Leave partition= out: compute_statistics(job_teams).
+  What happened:  compute_statistics(job_teams, partition=...): mart.job_teams isn't partitioned.
+  Why it matters: partition= names values of a table's partition columns, and its Table reference has no partitioned_by=.
+  Usual fix:      Leave partition= out, as in compute_statistics(job_teams): the table is one whole, with no Partitions to name.
   Opt-out:        none - this one can't be switched off.
 
 == edge:upkeep:explain:a_read
