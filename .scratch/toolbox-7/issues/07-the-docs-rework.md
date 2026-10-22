@@ -1,7 +1,7 @@
 # The docs rework
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 06
 Size: XL
 
@@ -91,4 +91,50 @@ then the Intermediate how-tos.
 - How-to 41 / a Python step in a Table notebook: show the notebook (write() giving the step,
   the cell that pulls, changes and saves), and that tables written after it read what it held.
 - The README's description of the intermediate project.
+
+## Answer
+
+Built 2026-10-22 on dev (45a687f; review fixes c748de7 and the polish after it), by parallel
+helpers: the how-to machinery first, then four writers, a docstring pass and the README.
+
+- 26 how-tos where there were 41. Getting started 1-8 are the README's eight steps, same
+  titles and order, one story through the Starter Example project (each opens with where the
+  last left the Project); Intermediate 9-26 are a menu, each starting from the Intermediate
+  Example project and naming the Getting started how-tos it needs. Groups come from each
+  how-to's `For:` line; numbering is checked to be 1..n with Getting started first.
+- The file map is in README step 1, Start a Project, beside how-to 1's list (the ticket said
+  step 2, written when step 2 was Start a Project): every file, the Project action that makes it,
+  what you fill in. By hand: the Project folder, the copied sqlglot_composer, and the notebook you
+  run start() from (three, not two: the notebook is real).
+- The chain of types in README step 3 and atop the how-to page; every how-to labels each value's
+  type in the hints' public names (`# -> Statement`; `# -> the notebook's functions` for
+  project.load, whose class isn't public).
+- File blocks: "The file `p`, after you ...:" is written by the tool and the test at that point;
+  "The file `p`, as project.new_table wrote it:" is checked against the file. No
+  Path.write_text or notebook JSON on a page. The tool imports a Project's own modules as a
+  notebook in its folder does (project_on_the_path) and clears Python's import caches after
+  writing a file.
+- Links by name only; every public docstring opens with an example call (116 names); a
+  refusal of an argument the Toolbox catches lists the arguments, read from the signature
+  (elsewhere Python's TypeError names the unexpected one, as CHANGES says).
+- Also carried here: ticket 06's beginner fixes, with project.start() run again completing a
+  Project (writing over nothing, leaving a 6.x send.py for check() to report).
+
+## Reviews
+
+- Spec (2026-10-22): the file map's step (answered above); three things by hand (answered);
+  how-to 10's slug against its title (file renamed 10_latest_row_of_each_group.py); the
+  narrower refusal rule (CHANGES says what the code does).
+- Standards (2026-10-22): the send= refusal for a function taking neither call ("Pass 
+  instead": now "Leave send= out", drift D242); a bare dict hint; non-public names in type
+  labels (relabelled); a patched Toolbox function in the Example project tool (now mock.patch,
+  restored).
+- Beginner reader (2026-10-22): the four complaints answered (selecting a column, what query
+  and execute are; files from Project actions; the story mostly carrying through). Costliest
+  stops fixed: query changing name from how-to 5 on, the Starter project's differences unsaid,
+  the Template never shown before it is filled, when a Saved table joins `from references import
+  mart`, type labels. A second read confirmed those six, and its remaining stops (Lineage file
+  names and folders, the notebook's first cell in how-to 1, the Table reference as written)
+  went into a final polish.
+- Drift: 45a687f opened D241-D245, closed by c748de7.
 

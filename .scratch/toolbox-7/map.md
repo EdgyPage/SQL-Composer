@@ -142,6 +142,9 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
 - [06 new_block and check_references](issues/06-new-block-and-check-references.md): new_block and
   remove_block; register adopts a hand-made block; start() run again adds what a Project lacks;
   check_references.ipynb reads the Reference sheet.
+- [07 The docs rework](issues/07-the-docs-rework.md): 26 how-tos, README step N is Getting started
+  how-to N through the Starter project; the file map and the chain of types; file blocks; every
+  public docstring opens with an example.
 - [08 Python steps](issues/08-python-steps.md)
 
 The order is the user's (2026-10-21): one at a time, each blocked by the one before, since 02 to
