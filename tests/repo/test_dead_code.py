@@ -3,7 +3,8 @@ but the few listed, and every keyword of a public function passed somewhere.
 
 A use is read with ast, never by running anything: a name or attribute in code, a string that
 is exactly the name (getattr, mock.patch.object, __all__), a name in a doctest example, in a
-docstring or in docs/clean-branch-readme.md, and a name in any other string of several lines,
+docstring or in docs/clean-branch-readme.md, a name in the README's `code`, and a name in any
+other string of several lines,
 which is how the Templates and the admin notebooks hold their code. A file's own uses count
 only from its code and its exact strings, so a name its own docstring mentions isn't kept
 alive by that.

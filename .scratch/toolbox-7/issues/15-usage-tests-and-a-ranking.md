@@ -1,7 +1,7 @@
 # Usage tests and a ranking of what to simplify
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 14
 Size: M
 
@@ -28,3 +28,17 @@ C:/Users/myfir/.claude/plans/hazy-dancing-spindle.md. Toolbox 7.1, not exported.
 - `.scratch/toolbox-7/cleanup-ranking.md`: each candidate from the explorations with its usage
   (calls in the suite, public paths reaching it) and simplification (copies, branches, lines),
   ordered by both; risk noted.
+
+## Answer
+
+Built 2026-10-22 (829c30e). `tests/repo/test_dead_code.py` reads every file with ast in ~2 s
+and holds three lists: `KNOWN_DEAD` (DATE_FORMAT, cases_in), `PRIVATE_SEAMS` (26, each with
+its reason, ten marked for ticket 16), `UNTESTED_KEYWORDS` (ten opt-outs). A planted unused
+function fails it. `tools/usage_report.py` ran the whole suite in-process (it passed): 935
+Toolbox functions called, counts by `sys.monitoring`, unreached lines by coverage 7.17.0
+(requirements-dev.txt only). Its output is `usage-report.md`; the ranking is
+`cleanup-ranking.md`, beside the map.
+
+## Reviews
+
+- Drift: 829c30e clean (its two notes on the docstrings fixed with the ranking).
