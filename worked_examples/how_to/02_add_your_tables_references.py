@@ -292,7 +292,7 @@ The three Table reference files are in references/, and the registry lists each 
 >>> sorted(path.name for path in Path("references").glob("ops__*.py"))
 ['ops__job_runs.py', 'ops__jobs.py', 'ops__run_alerts.py']
 >>> project.check()
-Every Table folder and Table reference is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is there.
 
 Once you've filled in a file's TODOs, both checks pass for its table:
 

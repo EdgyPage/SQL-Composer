@@ -269,8 +269,8 @@ writes a table goes to your execute instead, and `run` gives back nothing for it
 ## Check it worked
 
 The Project's folders are there, and `project.check()` finds nothing wrong with them: every
-Table folder and Table reference the registry lists is there, and none is there that it doesn't
-list.
+Table folder, Table reference and Building block the registry lists is there, and none is there
+that it doesn't list.
 
 >>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
 ['admin', 'building_blocks', 'references', 'tables']
@@ -279,7 +279,7 @@ In your own Project the list holds `sqlglot_composer` too, the Toolbox you copie
 page's folder has none.
 
 >>> project.check()
-Every Table folder and Table reference is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is there.
 
 Keep what `run` gives back, and check that it is a pandas DataFrame holding the two failed
 runs:

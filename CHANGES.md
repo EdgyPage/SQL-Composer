@@ -145,8 +145,40 @@ built a day at a time, so some of your files change: each change below says how.
   Saved tables, among them one partitioned by region and one with no partitions and no Key.
   Three of their Building blocks are renamed: `runs_per_job_day`, `costs_per_job_day` and
   `events_per_job_day` are now `runs_per_job`, `costs_per_job` and `events_per_job`.
+  Their Building blocks are made by `project.new_block`, as their Admin logs show:
+  `runs_per_job` in the starter one, and `costs_per_job`, `days_rewritten`, `events_per_job`
+  and `owner_on_day` in the intermediate one.
+- **Your Building blocks join the registry.** `project.check()` now reports each file in
+  `building_blocks/` that the registry doesn't list, so each one you wrote by hand before 7.0
+  is reported: adopt it with `project.register("runs_per_job")`, given its name, as
+  `admin/check_project.ipynb`'s last cell shows. `register` leaves the file as it is.
+  `project.new_block` can't adopt one: it refuses a name already taken, so as never to write
+  over your file. `check()` now gives the call that mends each thing it reports, one to a line,
+  such as `references/ops__jobs.py: project.register("ops.jobs")`.
+- **Two new admin notebooks, `new_block.ipynb` and `check_references.ipynb`.** `project.start()`
+  writes them into a new Project's `admin/`. For yours, run `project.start()` in an empty
+  folder beside a copy of `sqlglot_composer`, and copy the two from its `admin/` into yours.
+  `new_block` makes a Building block from your own `admin/templates/building_block.py`, 6.x's
+  among them, filling in its `<BLOCK>` and `<BLOCK_NAME>`.
 
 ### New
+
+- **`project.new_block("runs_per_job")` makes a Building block**: it writes
+  `building_blocks/runs_per_job.py` from your Project's `admin/templates/building_block.py`,
+  with its name filled in, registers it and logs it, as `new_table` does for a Table folder.
+  It refuses a name already taken, by a file or by the registry, and a name Python can't
+  import. `project.remove_block("runs_per_job")` archives one into `admin/removed/`, as
+  `remove_table` does, and refuses while a Table notebook or another Building block imports
+  it. Both run from `admin/new_block.ipynb`. Nothing in a Project is made by hand now but its
+  folder and the copy of `sqlglot_composer` in it: a Project action makes every other file,
+  for you to fill in.
+- **`admin/check_references.ipynb` checks every Table reference against its table**: it
+  refreshes the Reference sheet, then, for each table it lists, prints what
+  `check_table_reference(..., query=query)` found and, for a table with a Key that isn't
+  partitioned, what `check_key` found. A partitioned table's Key isn't checked there, since
+  that reads every Partition: it prints the `check_key(..., where=...)` call to run in the
+  notebook's last cell, which also checks a Saved table's storage, its folder and file format,
+  on its own Table reference.
 
 - **A Python step declares a change you make in pandas**, so Lineage shows where it lives:
   pull the rows with a Statement, change them with a function of yours, save them with your

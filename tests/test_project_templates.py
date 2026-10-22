@@ -31,8 +31,8 @@ from sqlglot_composer.project_templates import (
 ROOT = Path(__file__).resolve().parent.parent
 
 PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
-# What new_table fills in itself; every other placeholder is the user's.
-FILLED_BY_NEW_TABLE = {"DB", "TABLE", "NAME"}
+# What new_table and new_block fill in themselves; every other placeholder is the user's.
+FILLED_BY_PROJECT_ACTIONS = {"DB", "TABLE", "NAME", "BLOCK"}
 DAY = "2026-09-24"
 # Each Table notebook Template's placeholders, filled in for the Example database, the columns
 # its Saved table holds, its partition columns and its Key.
@@ -121,19 +121,19 @@ def listed(text: str) -> set[str]:
         if line.strip() in ("", "#"):
             break
         listing.append(line)
-    return set(PLACEHOLDER.findall("\n".join(listing))) - FILLED_BY_NEW_TABLE
+    return set(PLACEHOLDER.findall("\n".join(listing))) - FILLED_BY_PROJECT_ACTIONS
 
 
 @pytest.mark.parametrize("template", TEMPLATES)
 def test_a_templates_first_lines_list_every_placeholder_it_holds(template: str) -> None:
     text = TEMPLATES[template]
-    held = set(PLACEHOLDER.findall(text)) - FILLED_BY_NEW_TABLE
+    held = set(PLACEHOLDER.findall(text)) - FILLED_BY_PROJECT_ACTIONS
     assert listed(text) == held
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
 def test_the_fills_fill_every_placeholder(template: str) -> None:
-    held = set(PLACEHOLDER.findall(NOTEBOOK_TEMPLATES[template])) - FILLED_BY_NEW_TABLE
+    held = set(PLACEHOLDER.findall(NOTEBOOK_TEMPLATES[template])) - FILLED_BY_PROJECT_ACTIONS
     for fills in (FILLS, REGION_FILLS):
         assert {placeholder[1:-1] for placeholder in fills[template][0]} == held
 
@@ -275,14 +275,16 @@ def test_the_saved_table_reference_template_takes_any_partition_column(started: 
 
 
 def test_the_building_block_template_filled_in_is_a_derived_table(started: Path) -> None:
-    text = BUILDING_BLOCK
-    for placeholder, value in {"<BLOCK>": "minutes_per_job",
-                               "<BLOCK_NAME>": '"minutes_per_job"',
-                               "<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
+    """new_block makes the file, filling in <BLOCK>; the user fills in the rest."""
+    project.new_block("minutes_per_job")
+    block = started / "building_blocks" / "minutes_per_job.py"
+    text = block.read_text(encoding="utf-8")
+    assert text == BUILDING_BLOCK.replace("<BLOCK>", "minutes_per_job")
+    for placeholder, value in {"<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
                                "<GROUP_COLUMN>": "job_id", "<NUMBER_COLUMN>": "duration_mins",
                                "<TOTAL_NAME>": '"minutes"'}.items():
         text = text.replace(placeholder, value)
-    (started / "building_blocks" / "minutes_per_job.py").write_text(text, encoding="utf-8")
+    block.write_text(text, encoding="utf-8")
     logic = logic_reading(started, "mart.reader", "from building_blocks.minutes_per_job "
                           "import minutes_per_job\nfrom references.ops__job_runs import "
                           "job_runs\nfrom sqlglot_composer import equals\n\n\ndef block(day):\n"

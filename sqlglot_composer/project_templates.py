@@ -2,7 +2,8 @@
 
 A Template is a file with placeholders written <LIKE_THIS>. project.new_table fills in <DB>,
 <TABLE> and <NAME> (the database, the table, and the two joined by two underscores, such as
-mart__daily_job_runs); every other placeholder is yours to fill in, and Python stops at the
+mart__daily_job_runs), and project.new_block fills in <BLOCK>, the Building block's name, such
+as runs_per_job; every other placeholder is yours to fill in, and Python stops at the
 first one left in, so a half-filled file can't run. Each Template's first lines list its
 placeholders, with an example of each.
 
@@ -320,8 +321,6 @@ from sqlglot_composer import Table
 BUILDING_BLOCK = '''"""<BLOCK> - TODO: say in one line what one row of it is.
 
 Fill in every <...> below, brackets and all: Python stops at one left in. They are:
-    <BLOCK> and <BLOCK_NAME>: its name, as a name and in quotes, such as runs_per_job and
-        "runs_per_job": its file is building_blocks/<BLOCK>.py, named the same.
     <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
         name there, such as ops__job_runs and job_runs.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
@@ -330,7 +329,7 @@ Fill in every <...> below, brackets and all: Python stops at one left in. They a
 
 Why: TODO: which tables' notebooks read it, so they can never work it out two ways.
 
-Copied by hand from admin/templates/building_block.py into building_blocks/<BLOCK>.py. A
+project.new_block("<BLOCK>") wrote this file from admin/templates/building_block.py. A
 Building block is a piece several notebooks share; this one is a Derived table, a Statement
 given a name, which each Statement reading it writes at its top, as WITH <BLOCK> AS (...). In a
 notebook's logic cell, import it, and read it like a table, given the rows it reads:
@@ -358,7 +357,7 @@ def <BLOCK>(reads: Condition) -> Table:  # named as its file is
     On a partitioned table, it must filter one of its partition columns.
     """
     return derived(
-        <BLOCK_NAME>,  # the name the Hive gives it
+        "<BLOCK>",  # the name the Hive gives it, the same as its file's
         statement(
             SELECT(
                 <SOURCE_TABLE>.<GROUP_COLUMN>,  # what each row is for
@@ -376,7 +375,8 @@ def <BLOCK>(reads: Condition) -> Table:  # named as its file is
 '''
 
 # Each Template by its name, as start() writes it into admin/templates/<name>.py. The Table
-# notebook Templates are the ones new_table's template= takes.
+# notebook Templates are the ones new_table's template= takes; new_block makes a Building
+# block from building_block.
 NOTEBOOK_TEMPLATES = {
     "saved_table": SAVED_TABLE,
     "quality_checks": QUALITY_CHECKS,

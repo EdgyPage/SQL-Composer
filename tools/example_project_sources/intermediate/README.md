@@ -38,7 +38,7 @@ then.
 ```
 intermediate/
 ├── warehouse.py             your query and execute: here, the Example database's
-├── admin/                   one notebook per Project action, and the Templates
+├── admin/                   a notebook per Project action or check, and the Templates
 ├── references/              a Table reference per table, and the Reference sheet
 │   ├── ops__job_events.py, ops__job_owners.py, ops__region_costs.py,
 │   │   ops__region_budgets.py, ops__team_notes.py
@@ -58,8 +58,12 @@ intermediate/
   file's TODO lines were then filled in by hand, and an Alias written below one.
 - `project.new_table(...)` made each Table folder, its notebook and its Table reference,
   `references/mart__*.py`; each notebook and Table reference was then filled in by hand.
-- The files in `building_blocks/` and this README were written by hand: no Project action
-  makes them.
+- `project.new_block(...)` made each file in `building_blocks/` from the `building_block`
+  Template, one Building block to a file; each was then filled in by hand. `days_rewritten.py`
+  and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code
+  was written over.
+- This README was written by hand, as an Example project's own note: a Project of yours needs
+  none.
 - Each notebook's lineage cell exported its `lineage/` pair, and
   `project.refresh_reference_sheet()` wrote `references/reference_sheet.csv`.
 - `admin/admin_log.md` and `admin/registry.csv` hold what each Project action did, as it ran.

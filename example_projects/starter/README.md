@@ -18,7 +18,7 @@ are:
 ```
 starter/
 ├── warehouse.py             your query and execute: here, the Example database's
-├── admin/                   one notebook per Project action, and the Templates
+├── admin/                   a notebook per Project action or check, and the Templates
 │   ├── admin_log.md         every Project action, in the order it ran
 │   ├── registry.csv         every Table folder and Table reference made, and when
 │   └── templates/           the Templates new_table makes notebooks from
@@ -42,8 +42,10 @@ starter/
   file's TODO lines were then filled in by hand, and Aliases written below the Table reference.
 - `project.new_table(...)` made each Table folder, its notebook and its Table reference,
   `references/mart__*.py`; each notebook and Table reference was then filled in by hand.
-- `building_blocks/runs_per_job.py` and this README were written by hand: no Project action
-  makes them.
+- `project.new_block("runs_per_job")` made `building_blocks/runs_per_job.py` from the
+  `building_block` Template, which was then filled in by hand.
+- This README was written by hand, as an Example project's own note: a Project of yours needs
+  none.
 - Each notebook's lineage cell exported its `lineage/` pair, and
   `project.refresh_reference_sheet()` wrote `references/reference_sheet.csv`.
 - `admin/admin_log.md` and `admin/registry.csv` hold what each Project action did, as it ran.
@@ -59,6 +61,8 @@ notebook in Jupyter and run its cells top to bottom: each Table notebook in `tab
 admin notebook such as `admin/run_tables.ipynb`. The Example database can be read but not
 written, so a notebook's cell 3 prints each write's Hive and runs only the preview, and
 `run_tables`, with no execute, prints every write in order, writers first, and sends nothing.
+`admin/check_references.ipynb` compares each Table reference with its table: the Saved
+tables, which only a warehouse holds, are reported as not found.
 
 At work, write your query and execute in `warehouse.py`, and `admin/run_tables.ipynb`'s last
 cell writes every table: each notebook's `write()`, which writes the dt its `DAY` names.

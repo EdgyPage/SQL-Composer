@@ -1,8 +1,6 @@
 """<BLOCK> - TODO: say in one line what one row of it is.
 
 Fill in every <...> below, brackets and all: Python stops at one left in. They are:
-    <BLOCK> and <BLOCK_NAME>: its name, as a name and in quotes, such as runs_per_job and
-        "runs_per_job": its file is building_blocks/<BLOCK>.py, named the same.
     <SOURCE_NAME> and <SOURCE_TABLE>: the table it reads, by its file in references/ and its
         name there, such as ops__job_runs and job_runs.
     <GROUP_COLUMN>: the column each row is for, such as job_id.
@@ -11,7 +9,7 @@ Fill in every <...> below, brackets and all: Python stops at one left in. They a
 
 Why: TODO: which tables' notebooks read it, so they can never work it out two ways.
 
-Copied by hand from admin/templates/building_block.py into building_blocks/<BLOCK>.py. A
+project.new_block("<BLOCK>") wrote this file from admin/templates/building_block.py. A
 Building block is a piece several notebooks share; this one is a Derived table, a Statement
 given a name, which each Statement reading it writes at its top, as WITH <BLOCK> AS (...). In a
 notebook's logic cell, import it, and read it like a table, given the rows it reads:
@@ -39,7 +37,7 @@ def <BLOCK>(reads: Condition) -> Table:  # named as its file is
     On a partitioned table, it must filter one of its partition columns.
     """
     return derived(
-        <BLOCK_NAME>,  # the name the Hive gives it
+        "<BLOCK>",  # the name the Hive gives it, the same as its file's
         statement(
             SELECT(
                 <SOURCE_TABLE>.<GROUP_COLUMN>,  # what each row is for

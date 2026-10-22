@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import csv
 import datetime
+import json
 import re
 import shutil
 import subprocess
@@ -29,6 +30,7 @@ from conftest import (
     ROOT,
     example_rows,
     previewed_days,
+    run_admin_notebook,
     rows_of_days,
     standing_in,
     without_the_write,
@@ -128,8 +130,67 @@ def test_a_project_has_no_todo_left_and_nothing_unregistered(
     root = inside(name)
     for path in (root / "references").glob("ops__*.py"):
         assert "# TODO" not in path.read_text(encoding="utf-8"), path.name
-    assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
-                                     "and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
+                                     "registered, and each one registered is there.")
+
+
+@pytest.mark.parametrize("name", example_project.PROJECTS)
+def test_each_building_block_was_made_by_new_block(name: str) -> None:
+    """The Admin log shows new_block making each one, and the registry lists it."""
+    root = ROOT / "example_projects" / name
+    blocks = sorted(path.stem for path in (root / "building_blocks").glob("*.py"))
+    assert blocks
+    log = (root / "admin" / "admin_log.md").read_text(encoding="utf-8")
+    for block in blocks:
+        assert (f'- Call: `project.new_block("{block}")`\n'
+                f"- Files: created building_blocks/{block}.py\n") in log
+    with open(root / "admin" / "registry.csv", encoding="utf-8", newline="") as rows:
+        assert sorted(row["table"] for row in csv.DictReader(rows)
+                      if row["kind"] == "building_block") == blocks
+    readme = " ".join((root / "README.md").read_text(encoding="utf-8").split())
+    assert "project.new_block(" in readme
+    assert "written by hand: no Project action" not in readme
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("name", example_project.PROJECTS)
+def test_the_check_references_notebook_checks_each_table(
+        projects: dict[str, Path], capsys: pytest.CaptureFixture[str], name: str) -> None:
+    """Each ops table matches its Table reference, and the Saved tables, which only a warehouse
+    holds, are reported as not found, as the starter README says."""
+    set_admin_log()
+    root = projects[name]
+    capsys.readouterr()
+    said = run_admin_notebook(root / "admin" / "check_references.ipynb", capsys=capsys)
+    for table in example_project.FILLED_IN[name]:
+        assert f"{table} matches its Table reference.\n" in said
+    for table, _ in example_project.SAVED_TABLES[name]:
+        assert f"{table}: DESCRIBE failed, so nothing was compared." in said
+    if name == "starter":
+        assert "ops.jobs: the key (job_id) holds.\n" in said
+    else:
+        assert "ops.team_notes has no Key, so there is no Key to check.\n" in said
+        assert "ops.region_costs is partitioned by region and dt, so its Key" in said
+
+
+@pytest.mark.needs_example_database
+def test_the_check_references_notebooks_last_cell_checks_a_partitioned_tables_key(
+        projects: dict[str, Path], capsys: pytest.CaptureFixture[str]) -> None:
+    set_admin_log()
+    notebook = projects["starter"] / "admin" / "check_references.ipynb"
+    code = [text for kind, text in notebook_cells(notebook) if kind == "code"]
+    last = "\n".join(line.removeprefix("# ") for line in code[-1].splitlines()
+                     if line.startswith("# from") or line.startswith("# print"))
+    capsys.readouterr()
+    said = run_admin_notebook(notebook, [code[0], code[1].split("\n# The Reference")[0], last],
+                              capsys=capsys)
+    assert said == ("ops.job_runs matches its Table reference.\n"
+                    "ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.\n")
+
+
+def notebook_cells(path: Path) -> list[tuple[str, str]]:
+    return [(cell["cell_type"], "".join(cell["source"]))
+            for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]]
 
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)
