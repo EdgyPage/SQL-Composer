@@ -674,7 +674,7 @@ def _copy_of(t: Table) -> Table:
 def _numbered(call: str, steps: list[Statement]) -> list[Statement]:
     """The steps, each an Admin statement the Admin log names by `call` and its place."""
     for number, step in enumerate(steps):
-        step._kind = kinds.ADMIN  # the move's first step is create_table's, marked a create
+        step._kind = kinds.ADMIN  # the first step, made by create_table, was marked a create
         step._admin_call = f"{call}[{number}]"
     return steps
 
