@@ -1,12 +1,30 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
-"""The Example database: seven made-up tables, and a send to run Statements on.
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
+"""The Example database: nine made-up tables, and a query and execute to try them.
 
-Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: `jobs`,
-`job_runs`, `run_alerts`, and `scheduler_runs`, the scheduler's own record of the runs it
-started on those days, to compare with job_runs. It should match job_runs run for run, but
-lacks run 99, a TEST run started by hand, and holds run 100, which never reached job_runs.
+>>> runs = example_database.job_runs
+>>> run_query(statement(
+...     SELECT(runs.run_id, runs.status, runs.duration_mins),
+...     FROM(runs),
+...     WHERE(equals(runs.dt, "2026-09-23")),
+... ), example_database.query)
+   run_id   status  duration_mins
+0      95  SUCCESS             12
+1      96  SUCCESS             18
+2      97   FAILED             30
+3      98      NaN             15
+4      99     TEST              5
 
-The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
+Its tables are of the three kinds you meet at work: `jobs` and `team_notes` aren't
+partitioned, `region_budgets` is partitioned by region alone, and the other six are
+partitioned by a day, `region_costs` by region and then a day. Every table but `team_notes`
+has a Key.
+
+`jobs`, `job_runs`, `run_alerts` and `scheduler_runs` have rows on two days, 2026-09-23 and
+2026-09-24. `scheduler_runs` is the scheduler's own record of the runs it started on those
+days, to compare with job_runs. It should match job_runs run for run, but lacks run 99, a TEST
+run started by hand, and holds run 100, which never reached job_runs.
+
+Three have rows on 14 days, 2026-09-11 to 2026-09-24:
 
 - `job_events`: each run's events, start, finish, retry and fail;
 - `job_owners`: one row per job per day, with its team and owner, so you can see report_build
@@ -15,29 +33,49 @@ The other three have rows on 14 days, 2026-09-11 to 2026-09-24:
   the job is billed, not the jobs table's LON, PAR or NYC), then by day, with days written like
   20260911 rather than 2026-09-11.
 
-These three 14-day tables keep a record of their own: they have no run_id, and don't match job_runs run for
-run.
+These three 14-day tables keep a record of their own: they have no run_id, and don't match
+job_runs run for run.
 
-`send` runs a Statement's Hive on a small database of the Toolbox's own and returns a
-DataFrame, just like your own send at work. It never reaches your warehouse, so it is safe to
-try anything here. Where it can't run a query, it says why.
+The last two aren't partitioned by a day:
+
+- `region_budgets`: each job's budget in cents for a day's cost, in the region it is billed
+  in, partitioned by that region, so a read names the region it wants;
+- `team_notes`: the notes each team wrote about its jobs, with no Key: nothing names one note,
+  so a join onto it is warned about, since each row may match several notes.
+
+`query` runs a Statement's Hive on a small database of the Toolbox's own and gives back a
+DataFrame, just like your own query at work. `execute` stands in for your execute: the Example
+database is never written to, so it prints the first line of the Hive and changes nothing.
+Neither reaches your warehouse, so it is safe to try anything here. Where query can't run a
+Statement, it says why.
 
 Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no
 ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first.
 At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.
 
->>> runs = example_database.job_runs
->>> run(statement(
-...     SELECT(runs.run_id, runs.status, runs.duration_mins),
-...     FROM(runs),
-...     WHERE(equals(runs.dt, "2026-09-23")),
-... ), send=example_database.send)
-   run_id   status  duration_mins
-0      95  SUCCESS             12
-1      96  SUCCESS             18
-2      97   FAILED             30
-3      98      NaN             15
-4      99     TEST              5
+`region_budgets` is partitioned by region, so a read names the regions it reads; `team_notes`
+isn't partitioned, so a read of it is never limited:
+
+>>> budgets = example_database.region_budgets
+>>> run_query(statement(
+...     SELECT(budgets.job_id, budgets.budget_cents),
+...     FROM(budgets),
+...     WHERE(equals(budgets.region, "eu")),
+... ), example_database.query)
+   job_id  budget_cents
+0       1           150
+1       2           200
+2       4            50
+>>> notes = example_database.team_notes
+>>> run_query(statement(
+...     SELECT(notes.team, AS(count_rows(), "notes")),
+...     FROM(notes),
+...     GROUP_BY(notes.team),
+... ), example_database.query)
+      team  notes
+0     data      2
+1  finance      2
+2      web      1
 """
 
 from __future__ import annotations
@@ -46,18 +84,20 @@ import re
 
 import pandas as pd
 
+from .describe import StandIn
 from .engine import run_query
-from .refusals import refuse
+from .refusals import in_words, refuse
 from .tables import Table
+from .unchecked import SAID
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 # --- The Table references -----------------------------------------------------------------
+# Each column's description is the comment DESCRIBE prints for it.
 
 jobs = Table(
     "ops.jobs",
     columns={"job_id": "bigint", "job_name": "string", "team": "string", "region": "string"},
-    date_partition=None,
     key=["job_id"],
 )
 
@@ -66,14 +106,15 @@ job_runs = Table(
     columns={
         "run_id": "bigint",
         "job_id": "bigint",
-        "status": "string",  # SUCCESS / FAILED / TEST, NULL while running
+        "status": "string",
         "duration_mins": "int",
         "avg_retry_secs": "double",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],
     does_not_add_up=["avg_retry_secs"],
+    descriptions={"status": "SUCCESS / FAILED / TEST, NULL while running"},
 )
 
 run_alerts = Table(
@@ -81,17 +122,18 @@ run_alerts = Table(
     columns={
         "alert_id": "bigint",
         "run_id": "bigint",
-        "severity": "string",  # low / high
+        "severity": "string",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["alert_id"],
+    descriptions={"severity": "low / high"},
 )
 
 scheduler_runs = Table(
     "ops.scheduler_runs",
     columns={"run_id": "bigint", "job_id": "bigint", "dt": "string"},
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["run_id"],
 )
 
@@ -102,12 +144,14 @@ job_events = Table(
     columns={
         "event_id": "bigint",
         "job_id": "bigint",
-        "event_type": "string",  # start / finish / retry / fail
-        "minutes": "int",  # minutes since the run started
+        "event_type": "string",
+        "minutes": "int",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["event_id"],
+    descriptions={"event_type": "start / finish / retry / fail",
+                  "minutes": "minutes since the run started"},
 )
 
 job_owners = Table(
@@ -115,38 +159,51 @@ job_owners = Table(
     columns={
         "job_id": "bigint",
         "team": "string",
-        "owner": "string",  # NULL when nobody owns the job
+        "owner": "string",
         "dt": "string",
     },
-    date_partition="dt",
+    partitioned_by=["dt"],
     key=["job_id", "dt"],
+    descriptions={"owner": "NULL when nobody owns the job"},
 )
 
 region_costs = Table(
     "ops.region_costs",
     columns={
         "job_id": "bigint",
-        "cost_cents": "bigint",  # NULL until the bill comes in
+        "cost_cents": "bigint",
         "region": "string",
         "dt": "string",
     },
-    date_partition="dt",
-    date_format="%Y%m%d",
+    partitioned_by=["region", "dt"],
     key=["job_id", "region", "dt"],
+    descriptions={"cost_cents": "NULL until the bill comes in"},
 )
 
-# The column comments DESCRIBE returns.
-_COMMENTS = {
-    ("job_runs", "status"): "SUCCESS / FAILED / TEST, NULL while running",
-    ("run_alerts", "severity"): "low / high",
-    ("job_events", "event_type"): "start / finish / retry / fail",
-    ("job_events", "minutes"): "minutes since the run started",
-    ("job_owners", "owner"): "NULL when nobody owns the job",
-    ("region_costs", "cost_cents"): "NULL until the bill comes in",
-}
+# Two more, not partitioned by a day: one partitioned by region alone, one not at all.
 
-# The partition columns, in order, of a table partitioned by more than its Date partition.
-_PARTITIONS = {"region_costs": ["region", "dt"]}
+region_budgets = Table(
+    "ops.region_budgets",
+    columns={
+        "job_id": "bigint",
+        "budget_cents": "bigint",
+        "region": "string",
+    },
+    partitioned_by=["region"],
+    key=["job_id", "region"],
+    descriptions={"budget_cents": "the most a day of the job should cost there"},
+)
+
+team_notes = Table(
+    "ops.team_notes",
+    columns={
+        "team": "string",
+        "note": "string",
+        "written_on": "string",
+    },
+    descriptions={"written_on": "the day the note was written, as yyyy-MM-dd"},
+)
+
 
 # --- The rows: small enough to read by eye, so every wrong number is visibly wrong ----------
 
@@ -350,67 +407,61 @@ _REGION_COSTS = [
     (3, 330, "us", "20260921"),
 ]
 
+_REGION_BUDGETS = [
+    # job_id, budget_cents, region: each job is billed in one region, as region_costs bills it
+    (1, 150, "eu"),
+    (2, 200, "eu"),
+    (4, 50, "eu"),  # cache_warm never runs, so it never costs anything
+    (3, 350, "us"),
+]
+
+_TEAM_NOTES = [
+    # team, note, written_on: no Key, since nothing names one note
+    ("web", "cache_warm is paused until October", "2026-09-11"),
+    ("data", "nightly_load runs long at the end of a month", "2026-09-15"),
+    ("data", "ask ana before changing nightly_load", "2026-09-18"),
+    ("finance", "report_build came over from data today", "2026-09-18"),
+    ("finance", "invoice_sync's bill comes in a day late", "2026-09-21"),
+]
+
 _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "run_alerts": (run_alerts, _RUN_ALERTS),
           "scheduler_runs": (scheduler_runs, _SCHEDULER_RUNS),
           "job_events": (job_events, _JOB_EVENTS),
           "job_owners": (job_owners, _JOB_OWNERS),
-          "region_costs": (region_costs, _REGION_COSTS)}
+          "region_costs": (region_costs, _REGION_COSTS),
+          "region_budgets": (region_budgets, _REGION_BUDGETS),
+          "team_notes": (team_notes, _TEAM_NOTES)}
 
-def _table(name: str) -> tuple[Table, list]:
+def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
     # Hive reads a table's name whatever its case.
     *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
         names = [f"ops.{table}" for table in _TABLES]
         refuse(
             what=f"The Example database has no table {name!r}.",
-            why="It holds seven made-up tables, all in the database ops.",
-            fix=f"Use {', '.join(names[:-1])} or {names[-1]}.",
+            why="It holds nine made-up tables, all in the database ops.",
+            fix=f"Use {in_words(names, last='or')}.",
             error=ValueError,
         )
     return _TABLES[short]
 
 
-def _partition_columns(table: Table) -> list[str]:
-    """The table's partition columns, in order: its Date partition, and any before it."""
-    if table._date_partition is None:
-        return []
-    return _PARTITIONS.get(table._alias, [table._date_partition])
-
-
-def _describe(name: str) -> pd.DataFrame:
-    """What DESCRIBE prints: the columns, then the partition columns again."""
-    table, _ = _table(name)
-    rows = [(column, kind, _COMMENTS.get((table._alias, column), ""))
-            for column, kind in table._columns.items()]
-    if table._date_partition is not None:
-        rows += [
-            ("", None, None),
-            ("# Partition Information", None, None),
-            ("# col_name", "data_type", "comment"),
-        ]
-        rows += [(column, table._columns[column], "") for column in _partition_columns(table)]
-    return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-
-
-def _show_partitions(name: str) -> pd.DataFrame:
-    """What SHOW PARTITIONS prints: one row per partition, like dt=2026-09-23, or
-    region=eu/dt=20260911 for a table partitioned by two columns."""
-    table, rows = _table(name)
-    if table._date_partition is None:
-        raise ValueError(f"Table {table._name} is not a partitioned table.")
-    columns = _partition_columns(table)
+def _partitions(table: Table, rows: list[tuple[object, ...]]) -> list[str]:
+    """The table's Partitions as SHOW PARTITIONS lists them: one per value its rows hold, like
+    dt=2026-09-23, or region=eu/dt=20260911 for a table partitioned by two columns."""
+    columns = table._partitioned_by
     positions = [list(table._columns).index(column) for column in columns]
     values = sorted({tuple(row[position] for position in positions) for row in rows})
-    return pd.DataFrame({"partition": [
-        "/".join(f"{column}={value}" for column, value in zip(columns, partition))
-        for partition in values]})
+    return ["/".join(f"{column}={value}" for column, value in zip(columns, partition))
+            for partition in values]
 
 
-# A string in single or double quotes, a name in backticks, or a comment to the end of its
-# line: what a query says, as opposed to what it is. Whichever starts first wins, as when Hive
-# reads it, so a -- inside a string is part of the string.
-_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
+# A stand-in warehouse holding the nine tables, which answers DESCRIBE and SHOW PARTITIONS as
+# Hive does, from their Table references and the Partitions their rows hold.
+_DESCRIBED = StandIn(*[table for table, _ in _TABLES.values()], partitions={
+    table._name: _partitions(table, rows) for table, rows in _TABLES.values()
+    if table._partitioned_by})
 
 
 def _outside_brackets(text: str) -> str:
@@ -419,7 +470,7 @@ def _outside_brackets(text: str) -> str:
     What is left is the query itself: a window's OVER (...) and a Derived table's
     WITH ... AS (...) are inside brackets, and a string can say anything.
     """
-    said = _SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
+    said = SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
     depth, outside = 0, []
     for character in said:
         depth += {"(": 1, ")": -1}.get(character, 0)
@@ -461,24 +512,20 @@ def _sorts_itself(text: str) -> bool:
     return re.search(r"\bORDER\s+BY\b", _outside_brackets(text), re.IGNORECASE) is not None
 
 
-def _in_order(row: tuple) -> tuple:
+def _in_order(row: tuple[object, ...]) -> tuple[tuple[bool, object], ...]:
     """A row's place when the rows are sorted by every column, with NULL first."""
     return tuple((value is not None, value) for value in row)
 
 
-def _set(text: str) -> pd.DataFrame:
-    """A Session setting's SET line, answered with the setting and its value.
+def query(hive: str) -> pd.DataFrame:
+    """Run Hive that gives back rows on the Example database, as a DataFrame, like your query
+    at work.
 
-    The Example database keeps no setting: its answers are the same whatever is set.
-    """
-    setting, value = text[3:].split("=", 1)
-    return pd.DataFrame({"key": [setting.strip()], "value": [value.strip()]})
+    It answers SELECT, DESCRIBE and SHOW PARTITIONS. It refuses an EXPLAIN, since its executor
+    makes no plan, and other reads it doesn't know, such as SHOW TABLES; the rest, which change
+    something, go through execute, with run_execute(...).
 
-
-def send(hive):
-    """Run Hive on the Example database and return a DataFrame, like your send at work.
-
-    >>> example_database.send("DESCRIBE ops.jobs")
+    >>> example_database.query("DESCRIBE ops.jobs")
        col_name data_type comment
     0    job_id    bigint
     1  job_name    string
@@ -487,31 +534,33 @@ def send(hive):
     """
     if not isinstance(hive, str):
         refuse(
-            what=f"example_database.send was given {hive!r}, which isn't Hive text.",
-            why="Like your send at work, it takes Hive text to run.",
-            fix="To run a Statement, pass it to run(s, send=example_database.send), which "
+            what=f"example_database.query was given {hive!r}, which isn't Hive text.",
+            why="Like your query at work, it takes Hive text to run.",
+            fix="To run a Statement, pass it to run_query(s, example_database.query), which "
             "turns it into Hive; to_hive(s) shows that Hive.",
-            given=hive, call="example_database.send",
+            given=hive, call="example_database.query",
         )
     text = hive.strip()
     words = text.split()
     if words[:1] and words[0].upper() == "DESCRIBE":
-        return _describe(words[-1])
+        # Its tables are stored nowhere, so DESCRIBE FORMATTED is answered as DESCRIBE is.
+        return _DESCRIBED.answer(f"DESCRIBE {_table(words[-1])[0]._name}")
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
-        return _show_partitions(words[-1])
-    if words[:1] and words[0].upper() == "SET" and "=" in text:
-        return _set(text)
+        return _DESCRIBED.answer(f"SHOW PARTITIONS {_table(words[-1])[0]._name}")
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
         # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
         columns, rows = run_query(text, _TABLES)
         return pd.DataFrame(rows, columns=columns)
     if not _is_query(text):
         refuse(
-            what="The Example database only reads, and can't be written to: it answers "
-            "SELECT, DESCRIBE, SHOW PARTITIONS and SET.",
+            what="example_database.query only reads: it answers SELECT, DESCRIBE and SHOW "
+            "PARTITIONS.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
-            fix="to_hive(...) shows the Hive of any Statement without sending it, as in "
+            fix="A Statement that changes something goes to execute instead: "
+            "run_execute(s, example_database.execute) prints its first line. A read it doesn't "
+            "answer, such as SHOW TABLES, runs only at work. to_hive(...) shows the Hive of any "
+            "Statement without sending it, as in "
             "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
             "write. It takes a Statement, such as one create_table, statement(...) or the "
             "admin module builds, not text.",
@@ -521,3 +570,21 @@ def send(hive):
     if not _sorts_itself(text):
         rows = sorted(rows, key=_in_order)
     return pd.DataFrame(rows, columns=columns)
+
+
+def execute(hive: str) -> None:
+    """Take Hive that changes something, as your execute at work does, and print its first
+    line: the Example database is never written to, so nothing changes.
+
+    >>> example_database.execute("SET hive.exec.dynamic.partition=true")
+    execute: SET hive.exec.dynamic.partition=true
+    """
+    if not isinstance(hive, str) or not hive.strip():
+        refuse(
+            what=f"example_database.execute was given {hive!r}, which isn't Hive text.",
+            why="Like your execute at work, it takes Hive text to send.",
+            fix="To run a Statement, pass it to run_execute(s, example_database.execute), "
+            "which turns it into Hive; to_hive(s) shows that Hive.",
+            given=hive, call="example_database.execute",
+        )
+    print(f"execute: {hive.strip().splitlines()[0]}")

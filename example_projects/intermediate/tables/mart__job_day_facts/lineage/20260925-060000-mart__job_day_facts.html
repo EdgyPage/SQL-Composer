@@ -1,6 +1,6 @@
-<!-- sqlglot Composer 6.0, exported 2026-10-21 07:24 - copy it, then edit your copy -->
+<!-- sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy -->
 <!doctype html>
-<html><head><meta charset="utf-8"><title>Lineage: statement_1, statement_2, statement_3</title><style>
+<html><head><meta charset="utf-8"><title>Lineage: write_job_day_facts</title><style>
 body{margin:0;font:14px system-ui,sans-serif;color:#222;background:#fff}
 header{padding:12px 16px;border-bottom:1px solid #ddd} h1{font-size:18px;margin:0 0 6px}
 .key span{display:inline-block;margin-right:14px}
@@ -14,23 +14,25 @@ svg{width:100%;height:auto;cursor:grab;display:block}
 .n rect{fill:#fff;stroke:#888} .table rect{fill:#eef4ff} .derived rect{fill:#fff8e6} .output rect{fill:#effaf0}
 .condition rect{fill:#f4f4f4;stroke-dasharray:4 3} .collapsed rect{stroke-width:2}
 .unchecked rect{fill:#fff1e0;stroke:#d9822b;stroke-width:2}
+.python rect{fill:#eaf6f6;stroke:#2b8a8a;stroke-width:2}
 .grp rect{fill:#fafafa;stroke:#c8c8c8} .grp.table rect{fill:#f5f8ff} .grp.derived rect{fill:#fffcf3} .grp.output rect{fill:#f6fcf6}
 .grp.condition rect{fill:#fbfbfb;stroke-dasharray:5 4} .grp text{font:600 12px system-ui,sans-serif;fill:#555}
 .e.filters{stroke:#b5b5b5} .flabel{font-size:10px;fill:#999}
 .n text{font-size:11px;fill:#666;font-family:ui-monospace,monospace} .n text.l{font:600 13px system-ui,sans-serif;fill:#222}
-.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows,.e.day{stroke-dasharray:3 3;stroke:#c9c9c9} .e.day{stroke:#999}
+.e{fill:none;stroke:#aaa;stroke-width:1.3} .e.rows{stroke-dasharray:3 3;stroke:#c9c9c9}
 .dim{opacity:.15} .hit rect{stroke:#d33;stroke-width:2} .e.hit{stroke:#d33;stroke-width:2;opacity:1}
 .n{cursor:pointer} pre{background:#f7f7f7;padding:8px;overflow:auto} .muted{color:#777}
 summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #ddd;padding:4px 8px;text-align:left}
 #report details{margin:0 0 12px} #report summary{font-size:15px} footer{padding:8px 16px 24px;color:#777;font-size:12px}
 </style></head><body>
-<header><h1>Lineage: statement_1, statement_2, statement_3</h1><div class="key">
+<header><h1>Lineage: write_job_day_facts</h1><div class="key">
 <span><i class="sw" style="background:#eef4ff"></i>table column</span>
 <span><i class="sw" style="background:#fff8e6"></i>Derived table column</span>
 <span><i class="sw" style="background:#effaf0"></i>output column</span>
 <span><i class="sw" style="background:#f4f4f4;border-style:dashed"></i>condition</span>
 <span><i class="sw" style="background:#fff1e0;border-color:#d9822b"></i>&#9888; Unchecked statement: Hive written by hand, not checked</span>
-<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · "day written": the date bound that decides which day of a Saved table is written · click a box to light up its path · scroll zooms, drag pans</span>
+<span><i class="sw" style="background:#eaf6f6;border-color:#2b8a8a"></i>Python step: changed in Python, saved by your own call</span>
+<span>solid arrow: carries a value · dotted: a column read by a condition, or a condition deciding which rows count ("filters") · click a box to light up its path · scroll zooms, drag pans</span>
 </div></header>
 <div id="controls">
   <label>View <select id="view"><option value="graph">Graph</option><option value="flow">Grouped flowchart</option></select></label>
@@ -45,20 +47,19 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
 <noscript><p><b>Scripts are off, so the graph can't be drawn.</b> The report below and
 <code>20260925-060000-mart__job_day_facts.md</code>, written beside this file, show the same lineage.</p></noscript>
 <div class="wrap" id="graph"></div>
-<section id="report"><h2>statement_1</h2>
-<p>It writes the Saved table mart.job_day_facts, one day at a time.</p>
+<section id="report"><h2>write_job_day_facts</h2>
+<p>It writes the Saved table mart.job_day_facts, replacing each partition its rows fill.</p>
 <h3>Calculated columns</h3>
-<details open><summary><code>events_per_job_day in statement_1.events</code> <span class="muted">in events_per_job_day in statement_1</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>events_per_job_day in statement_1.events = count_rows()
-└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_1: <code>equals(job_events.dt, datetime.date(2026, 9, 22))</code>, which is <code>job_events.dt = &#x27;2026-09-22&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_1.runs</code> <span class="muted">in events_per_job_day in statement_1</span></summary><p>Calculated as <code>count_rows(where=equals(job_events.event_type, &quot;start&quot;))</code>, which is <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>.</p><pre>events_per_job_day in statement_1.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_1: <code>equals(job_events.dt, datetime.date(2026, 9, 22))</code>, which is <code>job_events.dt = &#x27;2026-09-22&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_1.minutes</code> <span class="muted">in events_per_job_day in statement_1</span></summary><p>Calculated as <code>fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)</code>, which is <code>COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)</code>.</p><pre>events_per_job_day in statement_1.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
+<details open><summary><code>events_per_job.events</code> <span class="muted">in events_per_job</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>events_per_job.events = count_rows()
+└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job: <code>between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<details open><summary><code>events_per_job.runs</code> <span class="muted">in events_per_job</span></summary><p>Calculated as <code>count_rows(where=equals(job_events.event_type, &quot;start&quot;))</code>, which is <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>.</p><pre>events_per_job.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
+└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job: <code>between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<details open><summary><code>events_per_job.minutes</code> <span class="muted">in events_per_job</span></summary><p>Calculated as <code>fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)</code>, which is <code>COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)</code>.</p><pre>events_per_job.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
 ├─ ops.job_events.minutes  (int)
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_1: <code>equals(job_events.dt, datetime.date(2026, 9, 22))</code>, which is <code>job_events.dt = &#x27;2026-09-22&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>events_per_job_day in statement_1.job_id ← ops.job_events.job_id</td></tr><tr><td><code>team</code></td><td>ops.job_owners.team</td></tr><tr><td><code>events</code></td><td>events_per_job_day in statement_1.events (calculated)</td></tr><tr><td><code>runs</code></td><td>events_per_job_day in statement_1.runs (calculated) ← ops.job_events.event_type</td></tr><tr><td><code>minutes</code></td><td>events_per_job_day in statement_1.minutes (calculated) ← ops.job_events.minutes</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;events_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_1: Key (job_id), since events_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH events_per_job_day AS (
+└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job: <code>between(job_events.dt, &quot;2026-09-22&quot;, &quot;2026-09-24&quot;)</code>, which is <code>job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
+<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>events_per_job.job_id ← ops.job_events.job_id</td></tr><tr><td><code>team</code></td><td>ops.job_owners.team</td></tr><tr><td><code>events</code></td><td>events_per_job.events (calculated)</td></tr><tr><td><code>runs</code></td><td>events_per_job.runs (calculated) ← ops.job_events.event_type</td></tr><tr><td><code>minutes</code></td><td>events_per_job.minutes (calculated) ← ops.job_events.minutes</td></tr><tr><td><code>dt</code></td><td>events_per_job.dt ← ops.job_events.dt</td></tr></table>
+<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;events_per_job&#x27;, ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.</li><li>write_job_day_facts: Key (job_id, dt), since events_per_job&#x27;s rows are told apart by job_id, dt.</li><li>mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
+<h3>Hive as submitted</h3><pre>WITH events_per_job AS (
   SELECT
     job_events.job_id,
     job_events.dt,
@@ -72,120 +73,33 @@ summary{cursor:pointer} table{border-collapse:collapse} td,th{border:1px solid #
     ) AS minutes
   FROM ops.job_events AS job_events
   WHERE
-    job_events.dt = &#x27;2026-09-22&#x27;
+    job_events.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;
   GROUP BY
     job_events.job_id,
     job_events.dt
 )
-INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = &#x27;2026-09-22&#x27;)
+INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)
 SELECT
-  events_per_job_day.job_id,
+  events_per_job.job_id,
   job_owners.team,
-  events_per_job_day.events,
-  events_per_job_day.runs,
-  events_per_job_day.minutes
-FROM events_per_job_day
+  events_per_job.events,
+  events_per_job.runs,
+  events_per_job.minutes,
+  events_per_job.dt
+FROM events_per_job
 LEFT JOIN ops.job_owners AS job_owners
-  ON job_owners.job_id = events_per_job_day.job_id
-  AND job_owners.dt = events_per_job_day.dt
-  AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<h2>statement_2</h2>
-<p>It writes the Saved table mart.job_day_facts, one day at a time.</p>
-<h3>Calculated columns</h3>
-<details open><summary><code>events_per_job_day in statement_2.events</code> <span class="muted">in events_per_job_day in statement_2</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>events_per_job_day in statement_2.events = count_rows()
-└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_2: <code>equals(job_events.dt, datetime.date(2026, 9, 23))</code>, which is <code>job_events.dt = &#x27;2026-09-23&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_2.runs</code> <span class="muted">in events_per_job_day in statement_2</span></summary><p>Calculated as <code>count_rows(where=equals(job_events.event_type, &quot;start&quot;))</code>, which is <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>.</p><pre>events_per_job_day in statement_2.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_2: <code>equals(job_events.dt, datetime.date(2026, 9, 23))</code>, which is <code>job_events.dt = &#x27;2026-09-23&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_2.minutes</code> <span class="muted">in events_per_job_day in statement_2</span></summary><p>Calculated as <code>fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)</code>, which is <code>COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)</code>.</p><pre>events_per_job_day in statement_2.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
-├─ ops.job_events.minutes  (int)
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_2: <code>equals(job_events.dt, datetime.date(2026, 9, 23))</code>, which is <code>job_events.dt = &#x27;2026-09-23&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>events_per_job_day in statement_2.job_id ← ops.job_events.job_id</td></tr><tr><td><code>team</code></td><td>ops.job_owners.team</td></tr><tr><td><code>events</code></td><td>events_per_job_day in statement_2.events (calculated)</td></tr><tr><td><code>runs</code></td><td>events_per_job_day in statement_2.runs (calculated) ← ops.job_events.event_type</td></tr><tr><td><code>minutes</code></td><td>events_per_job_day in statement_2.minutes (calculated) ← ops.job_events.minutes</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;events_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_2: Key (job_id), since events_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH events_per_job_day AS (
-  SELECT
-    job_events.job_id,
-    job_events.dt,
-    COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
-    COALESCE(
-      SUM(
-        CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
-      ),
-      0
-    ) AS minutes
-  FROM ops.job_events AS job_events
-  WHERE
-    job_events.dt = &#x27;2026-09-23&#x27;
-  GROUP BY
-    job_events.job_id,
-    job_events.dt
-)
-INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = &#x27;2026-09-23&#x27;)
-SELECT
-  events_per_job_day.job_id,
-  job_owners.team,
-  events_per_job_day.events,
-  events_per_job_day.runs,
-  events_per_job_day.minutes
-FROM events_per_job_day
-LEFT JOIN ops.job_owners AS job_owners
-  ON job_owners.job_id = events_per_job_day.job_id
-  AND job_owners.dt = events_per_job_day.dt
-  AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</pre>
-<h2>statement_3</h2>
-<p>It writes the Saved table mart.job_day_facts, one day at a time.</p>
-<h3>Calculated columns</h3>
-<details open><summary><code>events_per_job_day in statement_3.events</code> <span class="muted">in events_per_job_day in statement_3</span></summary><p>Calculated as <code>count_rows()</code>, which is <code>COUNT(*)</code>.</p><pre>events_per_job_day in statement_3.events = count_rows()
-└─ (no columns: it counts rows)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_3: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_3.runs</code> <span class="muted">in events_per_job_day in statement_3</span></summary><p>Calculated as <code>count_rows(where=equals(job_events.event_type, &quot;start&quot;))</code>, which is <code>COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END)</code>.</p><pre>events_per_job_day in statement_3.runs = count_rows(where=equals(job_events.event_type, &quot;start&quot;))
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_3: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<details open><summary><code>events_per_job_day in statement_3.minutes</code> <span class="muted">in events_per_job_day in statement_3</span></summary><p>Calculated as <code>fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)</code>, which is <code>COALESCE(SUM(CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END), 0)</code>.</p><pre>events_per_job_day in statement_3.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [&quot;finish&quot;, &quot;fail&quot;])), 0)
-├─ ops.job_events.minutes  (int)
-└─ ops.job_events.event_type  (string)</pre><p>Rows that count:</p><ul><li>WHERE in events_per_job_day in statement_3: <code>equals(job_events.dt, datetime.date(2026, 9, 24))</code>, which is <code>job_events.dt = &#x27;2026-09-24&#x27;</code> <span class="muted">reads ops.job_events.dt</span></li></ul><p>One value for each different <code>job_events.job_id</code> and <code>job_events.dt</code>.</p></details>
-<h3>Copied columns</h3><table><tr><th>Output</th><th>Comes from</th></tr><tr><td><code>job_id</code></td><td>events_per_job_day in statement_3.job_id ← ops.job_events.job_id</td></tr><tr><td><code>team</code></td><td>ops.job_owners.team</td></tr><tr><td><code>events</code></td><td>events_per_job_day in statement_3.events (calculated)</td></tr><tr><td><code>runs</code></td><td>events_per_job_day in statement_3.runs (calculated) ← ops.job_events.event_type</td></tr><tr><td><code>minutes</code></td><td>events_per_job_day in statement_3.minutes (calculated) ← ops.job_events.minutes</td></tr></table>
-<h3>Keys</h3><p>The columns that tell each step&#x27;s rows apart, as the Toolbox works them out. A column in one is marked &quot;in the Key&quot; in the chart.</p><ul><li>derived(&#x27;events_per_job_day&#x27;, ...): Key (job_id), since GROUP_BY makes one row for each job_id, dt, with dt held to one value.</li><li>statement_3: Key (job_id), since events_per_job_day&#x27;s rows are told apart by job_id.</li><li>mart.job_day_facts&#x27; Key (job_id, dt) holds: each row written has its own.</li></ul>
-<h3>Hive as submitted</h3>
-<pre>WITH events_per_job_day AS (
-  SELECT
-    job_events.job_id,
-    job_events.dt,
-    COUNT(*) AS events,
-    COUNT(CASE WHEN job_events.event_type = &#x27;start&#x27; THEN 1 END) AS runs,
-    COALESCE(
-      SUM(
-        CASE WHEN job_events.event_type IN (&#x27;finish&#x27;, &#x27;fail&#x27;) THEN job_events.minutes END
-      ),
-      0
-    ) AS minutes
-  FROM ops.job_events AS job_events
-  WHERE
-    job_events.dt = &#x27;2026-09-24&#x27;
-  GROUP BY
-    job_events.job_id,
-    job_events.dt
-)
-INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = &#x27;2026-09-24&#x27;)
-SELECT
-  events_per_job_day.job_id,
-  job_owners.team,
-  events_per_job_day.events,
-  events_per_job_day.runs,
-  events_per_job_day.minutes
-FROM events_per_job_day
-LEFT JOIN ops.job_owners AS job_owners
-  ON job_owners.job_id = events_per_job_day.job_id
-  AND job_owners.dt = events_per_job_day.dt
+  ON job_owners.job_id = events_per_job.job_id
+  AND job_owners.dt = events_per_job.dt
   AND job_owners.dt BETWEEN &#x27;2026-09-22&#x27; AND &#x27;2026-09-24&#x27;</pre></section>
 </main>
-<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 6.0.</footer>
+<footer>Made by export_lineage on 2026-09-25 06:00, from your scripts at commit nogit, with sqlglot Composer 7.1.</footer>
 <script>
 // This script draws the lineage as an SVG picture, and makes the controls and the mouse work.
 // It is plain JavaScript that any browser runs, with nothing to install or download.
 
 // Everything to draw, filled in by Python: the boxes, the arrows between them, and the groups
 // the boxes sit in (a table, a Derived table or a Statement's outputs).
-const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.job_id", "bigint"], "title": "ops.job_events.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "events_per_job_day in statement_1", "lines": ["events_per_job_day in statement_1.job_id", "job_events.job_id", "in the Key"], "title": "events_per_job_day in statement_1.job_id\njob_events.job_id"}, {"id": "n2", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n3", "kind": "derived", "group": "events_per_job_day in statement_1", "lines": ["events_per_job_day in statement_1.dt", "job_events.dt"], "title": "events_per_job_day in statement_1.dt\njob_events.dt"}, {"id": "n4", "kind": "derived", "group": "events_per_job_day in statement_1", "lines": ["events_per_job_day in statement_1.events", "count_rows()"], "title": "events_per_job_day in statement_1.events\nCOUNT(*)"}, {"id": "n5", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.event_type", "string"], "title": "ops.job_events.event_type\nstring"}, {"id": "n6", "kind": "derived", "group": "events_per_job_day in statement_1", "lines": ["events_per_job_day in statement_1.runs", "count_rows(where=equals(job_events.event_type, \"start\"))"], "title": "events_per_job_day in statement_1.runs\nCOUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)"}, {"id": "n7", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.minutes", "int"], "title": "ops.job_events.minutes\nint"}, {"id": "n8", "kind": "derived", "group": "events_per_job_day in statement_1", "lines": ["events_per_job_day in statement_1.minutes", "fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [\"finish\", \"fail\"])), 0)"], "title": "events_per_job_day in statement_1.minutes\nCOALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)"}, {"id": "n9", "kind": "condition", "group": "events_per_job_day in statement_1", "lines": ["WHERE in events_per_job_day in statement_1", "equals(job_events.dt, datetime.date(2026, 9, 22))"], "title": "WHERE in events_per_job_day in statement_1\njob_events.dt = '2026-09-22'"}, {"id": "n10", "kind": "output", "group": "statement_1", "lines": ["job_id", "events_per_job_day.job_id", "in the Key"], "title": "statement_1.job_id\nevents_per_job_day.job_id"}, {"id": "n11", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.team", "string"], "title": "ops.job_owners.team\nstring"}, {"id": "n12", "kind": "output", "group": "statement_1", "lines": ["team", "job_owners.team"], "title": "statement_1.team\njob_owners.team"}, {"id": "n13", "kind": "output", "group": "statement_1", "lines": ["events", "events_per_job_day.events"], "title": "statement_1.events\nevents_per_job_day.events"}, {"id": "n14", "kind": "output", "group": "statement_1", "lines": ["runs", "events_per_job_day.runs"], "title": "statement_1.runs\nevents_per_job_day.runs"}, {"id": "n15", "kind": "output", "group": "statement_1", "lines": ["minutes", "events_per_job_day.minutes"], "title": "statement_1.minutes\nevents_per_job_day.minutes"}, {"id": "n16", "kind": "condition", "group": "statement_1", "lines": ["LEFT JOIN ON in statement_1", "all_of(equals(job_owners.job_id, events_per_job_day.job_id), equals(job_owners.dt, events_per_job_day.dt), between(job_owners.dt, \"2026-09-22\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in statement_1\njob_owners.job_id = events_per_job_day.job_id AND job_owners.dt = events_per_job_day.dt AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24'"}, {"id": "n17", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.dt", "string", "in the Key"], "title": "ops.job_owners.dt\nstring"}, {"id": "n18", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.job_id", "bigint", "in the Key"], "title": "ops.job_owners.job_id\nbigint"}, {"id": "n19", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.job_id", "bigint", "in the Key"], "title": "mart.job_day_facts.job_id\nbigint"}, {"id": "n20", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.team", "string"], "title": "mart.job_day_facts.team\nstring"}, {"id": "n21", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.events", "bigint"], "title": "mart.job_day_facts.events\nbigint"}, {"id": "n22", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.runs", "bigint"], "title": "mart.job_day_facts.runs\nbigint"}, {"id": "n23", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.minutes", "bigint"], "title": "mart.job_day_facts.minutes\nbigint"}, {"id": "n24", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.dt", "string", "in the Key"], "title": "mart.job_day_facts.dt\nstring"}, {"id": "n25", "kind": "derived", "group": "events_per_job_day in statement_2", "lines": ["events_per_job_day in statement_2.job_id", "job_events.job_id", "in the Key"], "title": "events_per_job_day in statement_2.job_id\njob_events.job_id"}, {"id": "n26", "kind": "derived", "group": "events_per_job_day in statement_2", "lines": ["events_per_job_day in statement_2.dt", "job_events.dt"], "title": "events_per_job_day in statement_2.dt\njob_events.dt"}, {"id": "n27", "kind": "derived", "group": "events_per_job_day in statement_2", "lines": ["events_per_job_day in statement_2.events", "count_rows()"], "title": "events_per_job_day in statement_2.events\nCOUNT(*)"}, {"id": "n28", "kind": "derived", "group": "events_per_job_day in statement_2", "lines": ["events_per_job_day in statement_2.runs", "count_rows(where=equals(job_events.event_type, \"start\"))"], "title": "events_per_job_day in statement_2.runs\nCOUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)"}, {"id": "n29", "kind": "derived", "group": "events_per_job_day in statement_2", "lines": ["events_per_job_day in statement_2.minutes", "fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [\"finish\", \"fail\"])), 0)"], "title": "events_per_job_day in statement_2.minutes\nCOALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)"}, {"id": "n30", "kind": "condition", "group": "events_per_job_day in statement_2", "lines": ["WHERE in events_per_job_day in statement_2", "equals(job_events.dt, datetime.date(2026, 9, 23))"], "title": "WHERE in events_per_job_day in statement_2\njob_events.dt = '2026-09-23'"}, {"id": "n31", "kind": "output", "group": "statement_2", "lines": ["job_id", "events_per_job_day.job_id", "in the Key"], "title": "statement_2.job_id\nevents_per_job_day.job_id"}, {"id": "n32", "kind": "output", "group": "statement_2", "lines": ["team", "job_owners.team"], "title": "statement_2.team\njob_owners.team"}, {"id": "n33", "kind": "output", "group": "statement_2", "lines": ["events", "events_per_job_day.events"], "title": "statement_2.events\nevents_per_job_day.events"}, {"id": "n34", "kind": "output", "group": "statement_2", "lines": ["runs", "events_per_job_day.runs"], "title": "statement_2.runs\nevents_per_job_day.runs"}, {"id": "n35", "kind": "output", "group": "statement_2", "lines": ["minutes", "events_per_job_day.minutes"], "title": "statement_2.minutes\nevents_per_job_day.minutes"}, {"id": "n36", "kind": "condition", "group": "statement_2", "lines": ["LEFT JOIN ON in statement_2", "all_of(equals(job_owners.job_id, events_per_job_day.job_id), equals(job_owners.dt, events_per_job_day.dt), between(job_owners.dt, \"2026-09-22\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in statement_2\njob_owners.job_id = events_per_job_day.job_id AND job_owners.dt = events_per_job_day.dt AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24'"}, {"id": "n37", "kind": "derived", "group": "events_per_job_day in statement_3", "lines": ["events_per_job_day in statement_3.job_id", "job_events.job_id", "in the Key"], "title": "events_per_job_day in statement_3.job_id\njob_events.job_id"}, {"id": "n38", "kind": "derived", "group": "events_per_job_day in statement_3", "lines": ["events_per_job_day in statement_3.dt", "job_events.dt"], "title": "events_per_job_day in statement_3.dt\njob_events.dt"}, {"id": "n39", "kind": "derived", "group": "events_per_job_day in statement_3", "lines": ["events_per_job_day in statement_3.events", "count_rows()"], "title": "events_per_job_day in statement_3.events\nCOUNT(*)"}, {"id": "n40", "kind": "derived", "group": "events_per_job_day in statement_3", "lines": ["events_per_job_day in statement_3.runs", "count_rows(where=equals(job_events.event_type, \"start\"))"], "title": "events_per_job_day in statement_3.runs\nCOUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)"}, {"id": "n41", "kind": "derived", "group": "events_per_job_day in statement_3", "lines": ["events_per_job_day in statement_3.minutes", "fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [\"finish\", \"fail\"])), 0)"], "title": "events_per_job_day in statement_3.minutes\nCOALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)"}, {"id": "n42", "kind": "condition", "group": "events_per_job_day in statement_3", "lines": ["WHERE in events_per_job_day in statement_3", "equals(job_events.dt, datetime.date(2026, 9, 24))"], "title": "WHERE in events_per_job_day in statement_3\njob_events.dt = '2026-09-24'"}, {"id": "n43", "kind": "output", "group": "statement_3", "lines": ["job_id", "events_per_job_day.job_id", "in the Key"], "title": "statement_3.job_id\nevents_per_job_day.job_id"}, {"id": "n44", "kind": "output", "group": "statement_3", "lines": ["team", "job_owners.team"], "title": "statement_3.team\njob_owners.team"}, {"id": "n45", "kind": "output", "group": "statement_3", "lines": ["events", "events_per_job_day.events"], "title": "statement_3.events\nevents_per_job_day.events"}, {"id": "n46", "kind": "output", "group": "statement_3", "lines": ["runs", "events_per_job_day.runs"], "title": "statement_3.runs\nevents_per_job_day.runs"}, {"id": "n47", "kind": "output", "group": "statement_3", "lines": ["minutes", "events_per_job_day.minutes"], "title": "statement_3.minutes\nevents_per_job_day.minutes"}, {"id": "n48", "kind": "condition", "group": "statement_3", "lines": ["LEFT JOIN ON in statement_3", "all_of(equals(job_owners.job_id, events_per_job_day.job_id), equals(job_owners.dt, events_per_job_day.dt), between(job_owners.dt, \"2026-09-22\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in statement_3\njob_owners.job_id = events_per_job_day.job_id AND job_owners.dt = events_per_job_day.dt AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24'"}], "arrows": [["n0", "n1", "value"], ["n2", "n3", "value"], ["n5", "n6", "value"], ["n7", "n8", "value"], ["n5", "n8", "value"], ["n2", "n9", "rows"], ["n9", "n1", "rows"], ["n9", "n3", "rows"], ["n9", "n4", "rows"], ["n9", "n6", "rows"], ["n9", "n8", "rows"], ["n1", "n10", "value"], ["n11", "n12", "value"], ["n4", "n13", "value"], ["n6", "n14", "value"], ["n8", "n15", "value"], ["n17", "n16", "rows"], ["n18", "n16", "rows"], ["n1", "n16", "rows"], ["n3", "n16", "rows"], ["n16", "n10", "rows"], ["n16", "n12", "rows"], ["n16", "n13", "rows"], ["n16", "n14", "rows"], ["n16", "n15", "rows"], ["n10", "n19", "value"], ["n12", "n20", "value"], ["n13", "n21", "value"], ["n14", "n22", "value"], ["n15", "n23", "value"], ["n9", "n24", "day"], ["n0", "n25", "value"], ["n2", "n26", "value"], ["n5", "n28", "value"], ["n7", "n29", "value"], ["n5", "n29", "value"], ["n2", "n30", "rows"], ["n30", "n25", "rows"], ["n30", "n26", "rows"], ["n30", "n27", "rows"], ["n30", "n28", "rows"], ["n30", "n29", "rows"], ["n25", "n31", "value"], ["n11", "n32", "value"], ["n27", "n33", "value"], ["n28", "n34", "value"], ["n29", "n35", "value"], ["n17", "n36", "rows"], ["n18", "n36", "rows"], ["n25", "n36", "rows"], ["n26", "n36", "rows"], ["n36", "n31", "rows"], ["n36", "n32", "rows"], ["n36", "n33", "rows"], ["n36", "n34", "rows"], ["n36", "n35", "rows"], ["n31", "n19", "value"], ["n32", "n20", "value"], ["n33", "n21", "value"], ["n34", "n22", "value"], ["n35", "n23", "value"], ["n30", "n24", "day"], ["n0", "n37", "value"], ["n2", "n38", "value"], ["n5", "n40", "value"], ["n7", "n41", "value"], ["n5", "n41", "value"], ["n2", "n42", "rows"], ["n42", "n37", "rows"], ["n42", "n38", "rows"], ["n42", "n39", "rows"], ["n42", "n40", "rows"], ["n42", "n41", "rows"], ["n37", "n43", "value"], ["n11", "n44", "value"], ["n39", "n45", "value"], ["n40", "n46", "value"], ["n41", "n47", "value"], ["n17", "n48", "rows"], ["n18", "n48", "rows"], ["n37", "n48", "rows"], ["n38", "n48", "rows"], ["n48", "n43", "rows"], ["n48", "n44", "rows"], ["n48", "n45", "rows"], ["n48", "n46", "rows"], ["n48", "n47", "rows"], ["n43", "n19", "value"], ["n44", "n20", "value"], ["n45", "n21", "value"], ["n46", "n22", "value"], ["n47", "n23", "value"], ["n42", "n24", "day"]], "groups": [{"name": "ops.job_events", "kind": "table"}, {"name": "events_per_job_day in statement_1", "kind": "derived"}, {"name": "statement_1", "kind": "output"}, {"name": "ops.job_owners", "kind": "table"}, {"name": "mart.job_day_facts", "kind": "table"}, {"name": "events_per_job_day in statement_2", "kind": "derived"}, {"name": "statement_2", "kind": "output"}, {"name": "events_per_job_day in statement_3", "kind": "derived"}, {"name": "statement_3", "kind": "output"}]};
+const graph = {"boxes": [{"id": "n0", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.job_id", "bigint"], "title": "ops.job_events.job_id\nbigint"}, {"id": "n1", "kind": "derived", "group": "events_per_job", "lines": ["events_per_job.job_id", "job_events.job_id", "in the Key"], "title": "events_per_job.job_id\njob_events.job_id"}, {"id": "n2", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.dt", "string"], "title": "ops.job_events.dt\nstring"}, {"id": "n3", "kind": "derived", "group": "events_per_job", "lines": ["events_per_job.dt", "job_events.dt", "in the Key"], "title": "events_per_job.dt\njob_events.dt"}, {"id": "n4", "kind": "derived", "group": "events_per_job", "lines": ["events_per_job.events", "count_rows()"], "title": "events_per_job.events\nCOUNT(*)"}, {"id": "n5", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.event_type", "string"], "title": "ops.job_events.event_type\nstring"}, {"id": "n6", "kind": "derived", "group": "events_per_job", "lines": ["events_per_job.runs", "count_rows(where=equals(job_events.event_type, \"start\"))"], "title": "events_per_job.runs\nCOUNT(CASE WHEN job_events.event_type = 'start' THEN 1 END)"}, {"id": "n7", "kind": "table", "group": "ops.job_events", "lines": ["ops.job_events.minutes", "int"], "title": "ops.job_events.minutes\nint"}, {"id": "n8", "kind": "derived", "group": "events_per_job", "lines": ["events_per_job.minutes", "fill_null(sum_of(job_events.minutes, where=is_in(job_events.event_type, [\"finish\", \"fail\"])), 0)"], "title": "events_per_job.minutes\nCOALESCE(SUM(CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END), 0)"}, {"id": "n9", "kind": "condition", "group": "events_per_job", "lines": ["WHERE in events_per_job", "between(job_events.dt, \"2026-09-22\", \"2026-09-24\")"], "title": "WHERE in events_per_job\njob_events.dt BETWEEN '2026-09-22' AND '2026-09-24'"}, {"id": "n10", "kind": "output", "group": "write_job_day_facts", "lines": ["job_id", "events_per_job.job_id", "in the Key"], "title": "write_job_day_facts.job_id\nevents_per_job.job_id"}, {"id": "n11", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.team", "string"], "title": "ops.job_owners.team\nstring"}, {"id": "n12", "kind": "output", "group": "write_job_day_facts", "lines": ["team", "job_owners.team"], "title": "write_job_day_facts.team\njob_owners.team"}, {"id": "n13", "kind": "output", "group": "write_job_day_facts", "lines": ["events", "events_per_job.events"], "title": "write_job_day_facts.events\nevents_per_job.events"}, {"id": "n14", "kind": "output", "group": "write_job_day_facts", "lines": ["runs", "events_per_job.runs"], "title": "write_job_day_facts.runs\nevents_per_job.runs"}, {"id": "n15", "kind": "output", "group": "write_job_day_facts", "lines": ["minutes", "events_per_job.minutes"], "title": "write_job_day_facts.minutes\nevents_per_job.minutes"}, {"id": "n16", "kind": "output", "group": "write_job_day_facts", "lines": ["dt", "events_per_job.dt", "in the Key"], "title": "write_job_day_facts.dt\nevents_per_job.dt"}, {"id": "n17", "kind": "condition", "group": "write_job_day_facts", "lines": ["LEFT JOIN ON in write_job_day_facts", "all_of(equals(job_owners.job_id, events_per_job.job_id), equals(job_owners.dt, events_per_job.dt), between(job_owners.dt, \"2026-09-22\", \"2026-09-24\"))"], "title": "LEFT JOIN ON in write_job_day_facts\njob_owners.job_id = events_per_job.job_id AND job_owners.dt = events_per_job.dt AND job_owners.dt BETWEEN '2026-09-22' AND '2026-09-24'"}, {"id": "n18", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.dt", "string", "in the Key"], "title": "ops.job_owners.dt\nstring"}, {"id": "n19", "kind": "table", "group": "ops.job_owners", "lines": ["ops.job_owners.job_id", "bigint", "in the Key"], "title": "ops.job_owners.job_id\nbigint"}, {"id": "n20", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.job_id", "bigint", "in the Key"], "title": "mart.job_day_facts.job_id\nbigint"}, {"id": "n21", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.team", "string"], "title": "mart.job_day_facts.team\nstring"}, {"id": "n22", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.events", "bigint"], "title": "mart.job_day_facts.events\nbigint"}, {"id": "n23", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.runs", "bigint"], "title": "mart.job_day_facts.runs\nbigint"}, {"id": "n24", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.minutes", "bigint"], "title": "mart.job_day_facts.minutes\nbigint"}, {"id": "n25", "kind": "table", "group": "mart.job_day_facts", "lines": ["mart.job_day_facts.dt", "string", "in the Key"], "title": "mart.job_day_facts.dt\nstring"}], "arrows": [["n0", "n1", "value"], ["n2", "n3", "value"], ["n5", "n6", "value"], ["n7", "n8", "value"], ["n5", "n8", "value"], ["n2", "n9", "rows"], ["n9", "n1", "rows"], ["n9", "n3", "rows"], ["n9", "n4", "rows"], ["n9", "n6", "rows"], ["n9", "n8", "rows"], ["n1", "n10", "value"], ["n11", "n12", "value"], ["n4", "n13", "value"], ["n6", "n14", "value"], ["n8", "n15", "value"], ["n3", "n16", "value"], ["n18", "n17", "rows"], ["n19", "n17", "rows"], ["n1", "n17", "rows"], ["n3", "n17", "rows"], ["n17", "n10", "rows"], ["n17", "n12", "rows"], ["n17", "n13", "rows"], ["n17", "n14", "rows"], ["n17", "n15", "rows"], ["n17", "n16", "rows"], ["n10", "n20", "value"], ["n12", "n21", "value"], ["n13", "n22", "value"], ["n14", "n23", "value"], ["n15", "n24", "value"], ["n16", "n25", "value"]], "groups": [{"name": "ops.job_events", "kind": "table"}, {"name": "events_per_job", "kind": "derived"}, {"name": "write_job_day_facts", "kind": "output"}, {"name": "ops.job_owners", "kind": "table"}, {"name": "mart.job_day_facts", "kind": "table"}]};
 
 // Sizes in the drawing, in pixels.
 const BOX_WIDTH = 250;
@@ -305,14 +219,10 @@ function drawnAs(box) {
 }
 
 // The kind of the one arrow drawn for two arrows in a row, when the box between them is
-// hidden: 'value' if both carry a value, 'day' if either is a "day written" arrow, and
-// otherwise 'rows'.
+// hidden: 'value' if both carry a value, otherwise 'rows'.
 function joinedArrowKind(first, second) {
   if (first === 'value' && second === 'value') {
     return 'value';
-  }
-  if (first === 'day' || second === 'day') {
-    return 'day';
   }
   return 'rows';
 }
@@ -664,20 +574,11 @@ function curve(startX, startY, endX, endY) {
   return `M${startX},${startY} C${middleX},${startY} ${middleX},${endY} ${endX},${endY}`;
 }
 
-// The "day written" label, just above the middle of its arrow.
-function dayWrittenLabel(startX, startY, endX, endY) {
-  // 28 pixels is about half the label's width, so the label is centred on the arrow.
-  const x = (startX + endX) / 2 - 28;
-  const y = (startY + endY) / 2 - 4;
-  return `<text class="flabel" x="${x}" y="${y}">day written</text>`;
-}
-
-// The SVG for one arrow between two boxes, and its label if it is a "day written" arrow.
-// data-a and data-b hold the ids of the boxes at its two ends, for lighting up a path.
+// The SVG for one arrow between two boxes. data-a and data-b hold the ids of the boxes at its
+// two ends, for lighting up a path.
 function arrowSvg(source, target, kind, startX, startY, endX, endY) {
-  const path = `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
+  return `<path class="e ${kind}" data-a="${source}" data-b="${target}" `
     + `d="${curve(startX, startY, endX, endY)}"/>`;
-  return path + (kind === 'day' ? dayWrittenLabel(startX, startY, endX, endY) : '');
 }
 
 // The SVG pieces of the Graph, and its size. An arrow leaves the middle of a box's right side
@@ -718,7 +619,7 @@ function renderFlowchart(visible) {
     const [sourceX, sourceY] = layout.positions[source];
     const startX = sourceX + BOX_WIDTH;
     const startY = sourceY + layout.heights[source] / 2;
-    if (visibleBoxById[source].kind === 'condition' && kind !== 'day') {
+    if (visibleBoxById[source].kind === 'condition') {
       const frame = frameByName[visibleBoxById[target].group];
       const drawnKey = source + '>' + frame.name;
       if (!filterArrowsDrawn.has(drawnKey)) {

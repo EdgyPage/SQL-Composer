@@ -1,4 +1,4 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """How sqlglot Composer writes a Statement as Hive text, with the sqlglot package.
 
 The other files build a Statement's parts. This file writes them out as Hive through sqlglot,
@@ -10,6 +10,7 @@ what it writes as a tree of its own objects, a "sqlglot tree".
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
 import sqlglot
 from sqlglot import exp
@@ -18,14 +19,14 @@ from sqlglot.errors import ErrorLevel
 from .refusals import four_part_message
 from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
-from .engine import _INSTALL_NEWER
+from .engine import INSTALL_NEWER
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
 
 _DIALECT = "hive"
 
 
-def _hive_with_hints():
+def _hive_with_hints() -> sqlglot.Dialect:
     """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
     reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed.
 
@@ -165,7 +166,7 @@ def check_writable_type(text: str, subject: str) -> None:
             f"{sqlglot.__version__}, writes a struct without the colons Hive needs: "
             "STRUCT<name STRING> where Hive reads STRUCT<name: STRING>.",
             why="Hive would refuse the CREATE TABLE.",
-            fix=_INSTALL_NEWER,
+            fix=INSTALL_NEWER,
             opt_out=None,
         )
     )
@@ -177,7 +178,7 @@ def _writes_struct_colons() -> bool:
     return sql_text(built) == "STRUCT<a: INT>"
 
 
-def _hive_call(name: str, arguments: list) -> exp.Expression:
+def _hive_call(name: str, arguments: list[exp.Expression]) -> exp.Expression:
     """A call to a Hive function, as sqlglot builds it.
 
     sqlglot writes DATE_SUB(day, n) as DATE_ADD(day, n * -1), and before version 30 it left a
@@ -194,7 +195,7 @@ def _hive_call(name: str, arguments: list) -> exp.Expression:
 _READ_BACK = {}
 
 
-def _read_back_call(name: str, arguments: list) -> exp.Expression:
+def _read_back_call(name: str, arguments: list[exp.Expression]) -> exp.Expression:
     """hive_function's call as sqlglot builds it, then read back as to_hive's self-check will.
 
     A few functions come back in sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot),
@@ -212,7 +213,7 @@ def _hive_type(text: str) -> exp.DataType:
     return exp.DataType.build(text, dialect=_DIALECT)
 
 
-def _set_part(tree: exp.Expression, part: str, value) -> None:
+def _set_part(tree: exp.Expression, part: str, value: exp.Expression) -> None:
     """Set a part of a sqlglot tree, under the name this sqlglot gives it.
 
     sqlglot version 30 renamed `from` and `with` to `from_` and `with_`.
@@ -232,7 +233,8 @@ def _identifier(name: str) -> exp.Identifier:
     return exp.to_identifier(name, quoted=not plain_name(name))
 
 
-def _hive_table(name: str, database: str | None = None, partition=None) -> exp.Table:
+def _hive_table(name: str, database: str | None = None,
+                partition: exp.Expression | None = None) -> exp.Table:
     """A table's name as sqlglot holds it: the table job_runs in the database ops.
 
     A write passes the PARTITION(...) it fills, which Hive writes after the name.
@@ -456,11 +458,11 @@ def _explain(node: Node) -> exp.Command:
     return exp.Command(this="EXPLAIN", expression=hive_statement(node.parts["this"]))
 
 
-def _two_sided(kind):
+def _two_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:
     return lambda node: kind(this=_built(node, "this"), expression=_built(node, "expression"))
 
 
-def _one_sided(kind):
+def _one_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:
     return lambda node: kind(this=_built(node, "this"))
 
 

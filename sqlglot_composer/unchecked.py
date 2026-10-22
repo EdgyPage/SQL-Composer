@@ -1,11 +1,12 @@
-# sqlglot Composer 6.0, exported 2026-10-21 07:24 - generated from dev, do not edit
+# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Session settings, Unchecked statements and the Admin log: Hive sent as you chose it.
 
 hive_settings(...) gives the SET lines of a named set of Session settings, and
 unchecked_hive(...) wraps Hive you wrote by hand. Neither is a Statement, but to_hive,
-show_hive, run and export_lineage accept them too. Each run of an Unchecked statement, and of
-an Admin statement, adds an entry to the Admin log, a Markdown file set_admin_log can move;
-inside a Project, it is the Project's admin/admin_log.md, which logs its Project actions too.
+show_hive, run_execute and export_lineage accept them too, and run_query an Unchecked statement.
+Each run of an Unchecked statement, and of an Admin statement, adds an entry to the Admin log, a
+Markdown file set_admin_log can move; inside a Project, it is the Project's admin/admin_log.md,
+which logs its Project actions too.
 """
 
 from __future__ import annotations
@@ -13,11 +14,19 @@ from __future__ import annotations
 import datetime
 import os
 import re
+from collections.abc import Callable
 from pathlib import Path
+from types import FrameType
 
+from . import kinds
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "6.0"
+TOOLBOX_VERSION = "7.1"
+
+# A time as the logs and a Project's files show it, such as 2026-10-22 09:30:00, and as a
+# file's name holds it, such as 20261022-093000.
+TIME_SHOWN = "%Y-%m-%d %H:%M:%S"
+TIME_IN_A_NAME = "%Y%m%d-%H%M%S"
 
 
 # --- Session settings ------------------------------------------------------------------------
@@ -52,10 +61,22 @@ _SETTING_NAME = re.compile(r"[A-Za-z0-9_.:\-]+")
 class SessionSettings:
     """The SET lines of one or more named sets, made by hive_settings(...).
 
-    It isn't a Statement, but run sends it, one line at a time, and show_hive shows it.
+    >>> hive_settings("map_joins")
+    <Session settings map_joins - show_hive(...) shows their SET lines>
+
+    It isn't a Statement, but run_execute sends it, one line at a time, and show_hive shows it. Make
+    one with hive_settings(...). Write the name in a type hint, to say that a function of
+    yours gives back Session settings:
+
+    >>> def settings_for_joins() -> SessionSettings:
+    ...     return hive_settings("map_joins")
+    >>> settings_for_joins()
+    <Session settings map_joins - show_hive(...) shows their SET lines>
     """
 
-    def __init__(self, names: list[str], lines: list[str]):
+    _kind = kinds.SETTINGS  # what it is, as kinds.py names it
+
+    def __init__(self, names: list[str], lines: list[str]) -> None:
         self._names = names  # the sets' names, in the order given
         self._lines = lines  # each "SET name=value", without a ;
 
@@ -64,22 +85,28 @@ class SessionSettings:
                 "SET lines>")
 
 
-def hive_settings(*names, sets=None):
+def hive_settings(*names: str,
+                  sets: dict[str, dict[str, str | int | float | bool]] | None = None
+                  ) -> SessionSettings:
     """The SET lines of Session settings, by name, to send before your Statements.
 
+    >>> print(to_hive(hive_settings("dynamic_partitions")))
+    SET hive.exec.dynamic.partition=true
+    SET hive.exec.dynamic.partition.mode=nonstrict
+
     Hive keeps a Session setting for the rest of the session, so send them first, then your
-    Statements: run(hive_settings(...), send=...) sends each SET line as a call of its own, and
-    gives back None. They hold only while your send keeps one session across its calls: if
-    each call of your send opens a new session, each SET is
+    Statements: run_execute(hive_settings(...), execute) sends each SET line through your execute,
+    as a call of its own, and gives back None. They hold only while your query and execute
+    share one session across their calls: if each call opens a new session, each SET is
     gone before your Statement runs. show_hive prints them, and export_lineage, passed them
     with the Statements, writes them at the foot of both its files.
 
     Name one or more sets. The Toolbox ships four:
 
     - "dynamic_partitions": hive.exec.dynamic.partition=true and
-      hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its
-      day, such as by region too: a write gives the day, and Hive fills the other Partitions
-      from each row's own values only with these on.
+      hive.exec.dynamic.partition.mode=nonstrict. A write that fills a partition column from
+      its rows' own values, as INSERT_OVERWRITE(t) does for each one partition= doesn't name,
+      runs only with these on; show_hive prints them ahead of such a write.
     - "map_joins": hive.auto.convert.join=true,
       hive.auto.convert.join.noconditionaltask=true and hive.ignore.mapjoin.hint=false. Hive
       then joins a small table by copying it to every worker, which skips sorting the big one,
@@ -87,20 +114,19 @@ def hive_settings(*names, sets=None):
       JOIN(..., broadcast=True) writes, which it ignores otherwise. explain(s) shows whether
       it made one: a Map Join in the plan.
     - "statistics_on_write": hive.stats.autogather=true and hive.stats.column.autogather=true.
-      Each write then gathers the statistics of the day it writes, which Hive picks its join
-      plans from, so they are never out of date. compute_statistics(t, day) counts a day
-      written without them.
+      Each write then gathers the statistics of the Partitions it writes, which Hive picks
+      its join plans from, so they are never out of date. compute_statistics(t, partition=...)
+      counts a Partition written without them.
     - "merge_small_files": hive.merge.mapfiles=true, hive.merge.mapredfiles=true and
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.
 
-    Keep your own sets in a settings.py of your own, beside your notebook, each a name and its
-    settings, such as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass them
-    as sets=. True and False are written true and false.
+    Keep your own sets in a dict, each a name and its settings, such as
+    HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass them as sets=: at the
+    top of a notebook, or, for several notebooks of a Project to share, in a Building block
+    that project.new_block("hive_sets") makes, written over its Template's code. True and
+    False are written true and false.
 
-    >>> print(to_hive(hive_settings("dynamic_partitions")))
-    SET hive.exec.dynamic.partition=true
-    SET hive.exec.dynamic.partition.mode=nonstrict
     >>> HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True, "mapreduce.job.reduces": 8}}
     >>> text = show_hive(hive_settings("map_joins", "nightly", sets=HIVE_SETTINGS))
     -- Session settings: map_joins, nightly, sent one line at a time
@@ -137,18 +163,18 @@ def hive_settings(*names, sets=None):
     return SessionSettings(list(names), lines)
 
 
-def _call(names) -> str:
+def _call(names: tuple[object, ...]) -> str:
     """How hive_settings was called, for a message: ("a", "b") is ("a", "b")."""
     return "(" + ", ".join(_quoted(name) for name in names) + ")"
 
 
-def _quoted(name) -> str:
+def _quoted(name: object) -> str:
     """A set's name as a message writes it: text in double quotes, anything else as Python
     shows it."""
     return f'"{name}"' if isinstance(name, str) else repr(name)
 
 
-def _own_sets(sets) -> dict:
+def _own_sets(sets: object) -> dict[object, dict[object, object]]:
     """The user's own sets, as given to sets=, each checked to be a dict of settings."""
     if sets is None:
         return {}
@@ -158,8 +184,7 @@ def _own_sets(sets) -> dict:
             what=f"hive_settings(..., sets={sets!r}): sets= takes a dict, each set's name and "
             "its settings.",
             why="It names your own sets, so hive_settings can find one by its name.",
-            fix=f"Keep them in a settings.py of your own as {example}, and pass "
-            "sets=HIVE_SETTINGS.",
+            fix=f"Keep them in a dict, as {example}, and pass sets=HIVE_SETTINGS.",
         )
     for name, settings in sets.items():
         if name in SHIPPED:
@@ -188,7 +213,8 @@ def _own_sets(sets) -> dict:
     return sets
 
 
-def _named_set(name, names, own: dict) -> dict:
+def _named_set(name: object, names: tuple[object, ...],
+               own: dict[object, dict[object, object]]) -> dict[object, object]:
     """The settings of one set, the user's own or the Toolbox's, or a refusal naming them all."""
     if isinstance(name, str) and name in own:
         return own[name]
@@ -208,13 +234,13 @@ def _named_set(name, names, own: dict) -> dict:
         f"ships {', '.join(SHIPPED)}, {yours}.",
         why="It writes the SET lines of the sets it is given, by name.",
         fix="Check the spelling against the sets above. For a set of your own, keep it in a "
-        'settings.py of your own, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": '
-        'True}}, and pass it: hive_settings("nightly", sets=HIVE_SETTINGS).',
+        'dict, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass it: '
+        'hive_settings("nightly", sets=HIVE_SETTINGS).',
         error=ValueError,
     )
 
 
-def _value(name: str, setting, value) -> str:
+def _value(name: str, setting: object, value: object) -> str:
     """A setting's value as a SET line writes it, or a refusal of what can't be one."""
     where = f'hive_settings(...): the set "{name}"'
     if not isinstance(setting, str) or not _SETTING_NAME.fullmatch(setting):
@@ -261,10 +287,23 @@ def settings_text(settings: SessionSettings) -> str:
 class UncheckedStatement:
     """Hive written by hand, made by unchecked_hive(...).
 
-    It isn't a Statement, but run sends it and show_hive shows it, marked as unchecked.
+    >>> unchecked_hive("SELECT COUNT(*) AS runs FROM ops.job_runs")
+    <Unchecked statement - show_hive(...) shows its Hive>
+
+    It isn't a Statement, but run_query or run_execute sends it, and show_hive shows it, marked
+    as unchecked. Make
+    one with unchecked_hive(...). Write the name in a type hint, to say that a function of
+    yours gives back an Unchecked statement:
+
+    >>> def count_all_runs() -> UncheckedStatement:
+    ...     return unchecked_hive("SELECT COUNT(*) AS runs FROM ops.job_runs")
+    >>> count_all_runs()
+    <Unchecked statement - show_hive(...) shows its Hive>
     """
 
-    def __init__(self, text: str):
+    _kind = kinds.UNCHECKED  # what it is, as kinds.py names it
+
+    def __init__(self, text: str) -> None:
         self._text = text  # the Hive as written, without a last ;
 
     def __repr__(self) -> str:
@@ -275,37 +314,61 @@ class UncheckedNote(UserWarning):
     """An Unchecked statement changes a table: the note says which admin function does it."""
 
 
-def unchecked_hive(text):
-    """Hive you write by hand, for run to send when no clause function writes it yet.
-
-    No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
-    it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for
-    the one statement you need now, and keep using the clause functions for the rest. show_hive
-    marks it, export_lineage draws it as one step it can't see inside, and each run of it adds
-    an entry to the Admin log (see set_admin_log), whose Unchecked statements are the list of
-    what the Toolbox should learn to write next.
-
-    Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
-    function that does the same job with its checks, where one does. For example, Hive refuses
-    TRUNCATE on an external table (one whose files stay where you put them), and every Saved
-    table of yours is one; admin.drop_days does that job.
-
-    Write one command in each: send several as several unchecked_hive(...), one after the
-    other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
-    since after the comment it would be part of it.
+def unchecked_hive(text: str) -> UncheckedStatement:
+    """Hive you write by hand, to send when no clause function writes it yet.
 
     >>> by_hand = unchecked_hive(
     ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'")
     >>> text = show_hive(by_hand)
     -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
     SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24';
+
+    You send it with the call that suits it: run_query(by_hand, query) for Hive that gives back
+    rows, such as SELECT or SHOW, which come back as a DataFrame; run_execute(by_hand, execute)
+    for Hive that changes something, such as ALTER or INSERT, which gives back nothing.
+
+    No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
+    it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for
+    the one statement you need now, and keep using the clause functions for the rest. show_hive
+    marks it, export_lineage draws it as one step it can't see inside, and each run of it adds
+    an entry to the Admin log (help(set_admin_log) says where), whose Unchecked statements are
+    the list of what the Toolbox should learn to write next.
+
+    Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
+    function that does the same job with its checks, where one does. For example, Hive refuses
+    TRUNCATE on an external table (one whose files stay where you put them), and every Saved
+    table of yours is one; admin.drop_partitions does that job.
+
+    Write one command in each: send several as several unchecked_hive(...), one after the
+    other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
+    since after the comment it would be part of it.
+
+    A Table reference's text drops into the Hive you write, in an f-string, so the names are
+    spelt as the Table reference spells them. A table's text is its name as FROM writes it,
+    ops.jobs AS jobs, for after FROM or JOIN; DESCRIBE and SHOW PARTITIONS take the name
+    alone, ops.jobs, which you write yourself. A column's is jobs.job_id, not ops.jobs.job_id:
+    Hive names a column by its table's name after AS, and refuses a three-part name in a
+    SELECT. In a Project, from references import ops gives the table as ops.jobs and the
+    column as ops.jobs.job_id, whose texts are the same. A table alone on a cell's last line
+    shows its repr instead, its name and its columns. Below, jobs is the Example database's:
+
+    >>> by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs}")
+    >>> text = show_hive(by_hand)
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;
+    >>> run_query(by_hand, example_database.query)
+       job_id      job_name
+    0       1  nightly_load
+    1       2  invoice_sync
+    2       3  report_build
+    3       4    cache_warm
     """
     if not isinstance(text, str):
         refuse(
             what=f"unchecked_hive was given {text!r}, which isn't Hive text.",
             why="It sends the Hive you write by hand, as you wrote it.",
-            fix='Write the Hive as a string: unchecked_hive("ALTER TABLE ..."). To run a '
-            "Statement, pass it to run(...) itself.",
+            fix='Write the Hive as a string: unchecked_hive("ALTER TABLE ..."). To send a '
+            "Statement, pass it to run_query(...) or run_execute(...) itself.",
             given=text, call="unchecked_hive",
         )
     written = text.strip().rstrip(";").rstrip()
@@ -322,7 +385,7 @@ def unchecked_hive(text):
 
 def unchecked_text(unchecked: UncheckedStatement) -> str:
     """What show_hive prints for an Unchecked statement: a comment marking it, then its Hive."""
-    said = _SAID.sub(lambda found: found.group() if found.group().startswith("--") else "''",
+    said = SAID.sub(lambda found: found.group() if found.group().startswith("--") else "''",
                      unchecked._text)
     # After a comment on the last line, a ; would be part of the comment.
     end = "\n;" if "--" in said.splitlines()[-1] else ";"
@@ -336,27 +399,27 @@ UNCHECKED_MARK = ("-- Unchecked statement, written by hand: no Guard, Warning or
 
 # A string in quotes, a name in backticks, or a comment: what Hive text says, as opposed to
 # what it does. Whichever starts first wins, as when Hive reads it.
-_SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
+SAID = re.compile(r"""'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`]|``)*`|--[^\n]*""")
 
 
 def _what_it_does(text: str) -> str:
     """The text in capitals with its strings and comments blanked out, and names in backticks
     kept without them, so a keyword is found only where it is one."""
-    def blank(found):
+    def blank(found: re.Match[str]) -> str:
         said = found.group()
         if said.startswith("`"):
             return said[1:-1].replace("``", "`")
         return "" if said.startswith("--") else "''"
-    return _SAID.sub(blank, text).upper()
+    return SAID.sub(blank, text).upper()
 
 
 # The admin function that does each job, as the note writes its call, and what the text that
 # does it by hand starts with, after ALTER TABLE <name>.
 _ALTERED_BY = (
-    (r"\bDROP\s+(IF\s+EXISTS\s+)?PARTITION\b", "admin.drop_days(t, before=...)"),
-    (r"\bADD\s+COLUMNS\b", "admin.add_columns(t, send=...)"),
+    (r"\bDROP\s+(IF\s+EXISTS\s+)?PARTITION\b", "admin.drop_partitions(t, where=...)"),
+    (r"\bADD\s+COLUMNS\b", "admin.add_columns(t, query=...)"),
     (r"\bSET\s+TBLPROPERTIES\b", "admin.set_properties(t)"),
-    (r"\bSET\s+LOCATION\b", "admin.move_to_own_folder(t, send=...)"),
+    (r"\bSET\s+LOCATION\b", "admin.move_to_own_folder(t, query=...)"),
 )
 
 
@@ -369,8 +432,9 @@ def _note_a_change(text: str) -> None:
     if command == "TRUNCATE":
         note = ("This Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
                 "external table (one whose files stay where you put them), and every Saved "
-                "table of yours is one. admin.drop_days(t, before=...) drops a Saved table's "
-                "old days with its checks, and writing a day again with INSERT_OVERWRITE "
+                "table of yours is one. admin.drop_partitions(t, where=...) drops a Saved "
+                "table's Partitions with its checks, and writing a Partition again with "
+                "INSERT_OVERWRITE "
                 "replaces it.")
     elif command in ("DROP", "ALTER"):
         function = None
@@ -400,23 +464,23 @@ def _note_a_change(text: str) -> None:
 _admin_log = {"path": None}
 
 
-def set_admin_log(path=None):
-    """Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.
+def set_admin_log(path: str | Path | None = None) -> Path | None:
+    """Set where the Admin log is written, such as "logs/admin_log.md".
 
-    The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an
-    Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and
-    its git commit, and whether it worked. It only ever adds to the file.
+    >>> set_admin_log("logs/admin_log.md").name
+    'admin_log.md'
+    >>> set_admin_log()  # back to the usual place
 
-    Left unset, the log is admin_log.md beside the script or notebook that calls run, or
+    The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or
+    run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive
+    sent, the script and its git commit, and whether it worked. It only ever adds to the file.
+
+    Left unset, the log is admin_log.md beside the script or notebook that sends it, or
     inside a Project the Project's admin/admin_log.md (help(project)). A path you give that
     isn't absolute, such as "logs/admin_log.md", starts from the folder of the
     script or notebook that calls set_admin_log. Call it at the top of each notebook or
     pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the
     default.
-
-    >>> set_admin_log("logs/admin_log.md").name
-    'admin_log.md'
-    >>> set_admin_log()  # back to the usual place
     """
     if path is None:
         _admin_log["path"] = None
@@ -468,13 +532,14 @@ def unchecked_call(unchecked: UncheckedStatement) -> str:
     return f"unchecked_hive({quoted}{' ...' if first != whole else ''})"
 
 
-def logged_run(kind: str, call: str, hive: str, send):
+def logged_run(kind: str, call: str, hive: str,
+               warehouse_call: Callable[[str], object]) -> object:
     """Send `hive`, then add its entry to the Admin log: worked, or failed with its error,
     which is raised again once the entry is written. `kind` is "Unchecked statement" or
     "Admin statement"."""
     frame = callers_frame()
     try:
-        result = send(hive)
+        result = warehouse_call(hive)
     except Exception as error:
         _append(kind, call, hive, frame,
                 f"failed, with {type(error).__name__}: {' '.join(str(error).split())}")
@@ -483,7 +548,7 @@ def logged_run(kind: str, call: str, hive: str, send):
     return result
 
 
-def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
+def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> None:
     """Add one entry to the end of the Admin log, writing its heading first if it is new."""
     from .lineage import caller_folder, calling_file  # it imports this file
     from .project import project_folder, project_log  # it imports this file
@@ -495,14 +560,14 @@ def _append(kind: str, call: str, hive: str, frame, result: str) -> None:
                                   else caller_folder(caller) / "admin_log.md")
     tables = tables_named(hive)
     fence = "`" * max(3, _longest_backticks(hive) + 1)
-    lines = ["", f"## {_now():%Y-%m-%d %H:%M:%S}, {kind}", "", f"- Call: {_code(call)}"]
+    lines = ["", f"## {now().strftime(TIME_SHOWN)}, {kind}", "", f"- Call: {inline_code(call)}"]
     if tables:
         lines.append(f"- Tables named: {', '.join(tables)}")
-    lines += [_script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
-    _write_entry(path, lines)
+    lines += [script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
+    write_entry(path, lines)
 
 
-def _script_line(caller: Path | None) -> str:
+def script_line(caller: Path | None) -> str:
     """An entry's Script line: the script or notebook that ran, and its git commit."""
     from .lineage import caller_folder, scripts_commit  # it imports this file
 
@@ -510,7 +575,7 @@ def _script_line(caller: Path | None) -> str:
     return f"- Script: {script}, at commit {scripts_commit(caller_folder(caller))}"
 
 
-def _write_entry(path: Path, lines: list[str]) -> None:
+def write_entry(path: Path, lines: list[str]) -> None:
     """Add an entry's lines to the end of the Admin log at `path`, its heading first if new."""
     path.parent.mkdir(parents=True, exist_ok=True)
     new = not path.exists()
@@ -525,15 +590,16 @@ def _longest_backticks(text: str) -> int:
     return max((len(run) for run in re.findall(r"`+", text)), default=0)
 
 
-def _code(text: str) -> str:
+def inline_code(text: str) -> str:
     """Markdown inline code, with a fence that survives backticks inside it."""
     fence = "`" * (_longest_backticks(text) + 1)
     pad = " " if text.startswith("`") or text.endswith("`") else ""
     return f"{fence}{pad}{text}{pad}{fence}"
 
 
-def _now() -> datetime.datetime:
-    """The time an entry is made."""
+def now() -> datetime.datetime:
+    """The time now: an Admin log entry's, a Project action's and an exported lineage's, from
+    this one clock, which the page tools and tests pin by patching unchecked.now."""
     return datetime.datetime.now()
 
 
@@ -561,4 +627,5 @@ def tables_read_and_written(hive: str) -> list[tuple[str, str]]:
     return [(name.lower(), how) for _, name, how in sorted(found) if name not in derived]
 
 
-__all__ = ["hive_settings", "unchecked_hive", "set_admin_log"]
+__all__ = ["hive_settings", "unchecked_hive", "set_admin_log", "SessionSettings",
+           "UncheckedStatement"]
