@@ -27,8 +27,8 @@ _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=marg
 class PythonStep:
     """A change made in Python and saved by your own call, made by python_step(...).
 
-    It isn't a Statement, and has no Hive: run refuses it, show_hive prints a line saying what
-    it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
+    It isn't a Statement, and has no Hive: run refuses it, show_hive prints comment lines
+    saying what it is, and export_lineage draws it as one step. Make one with python_step(...). Write the
     name in a type hint, to say that a function of yours gives back a Python step:
 
     >>> import pandas as pd
@@ -76,9 +76,9 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
 
     It sends nothing. export_lineage draws it as one step it can't see inside, from the
     columns it read to the table it wrote, with a section of the report naming the function,
-    such as "changed in Python by `building_blocks/margins.py:add_margin`, line 12". show_hive
-    prints a line saying what it is, run refuses it, and a Table notebook's write() may give
-    it beside its Statements: project.run_tables passes over it, but still puts it in order.
+    such as "changed in Python by `building_blocks/margins.py:add_margin`, line 12".
+    show_hive prints comment lines saying what it is, run refuses it, and a Table notebook's
+    write() may give it beside its Statements: project.run_tables passes over it, but still puts it in order.
 
     >>> import pandas as pd
     >>> def add_hours(runs: pd.DataFrame) -> pd.DataFrame:
