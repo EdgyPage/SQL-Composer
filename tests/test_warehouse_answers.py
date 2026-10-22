@@ -72,7 +72,7 @@ def test_an_answer_that_isnt_a_frame_is_refused(tool: Callable[..., object],
 def test_a_query_that_isnt_a_function_is_refused(tmp_path: Path,
                                                  monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(TypeError, match="query=5 isn't a function"):
+    with pytest.raises(TypeError, match="query= is an int, not a function"):
         write_table_reference("ops.runs", query=5)
     with pytest.raises(TypeError, match=r"needs query=, and wasn't given it\."):
         write_table_reference("ops.runs", query=None)

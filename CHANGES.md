@@ -31,12 +31,16 @@ built a day at a time, so some of your files change: each change below says how.
   then change each `from send import send` to `from warehouse import query, execute` (only the
   ones the notebook uses), and delete `send.py`. `project.check()` reports a `send.py` left with
   no `warehouse.py` beside it.
+- **`query` and `execute` raise when the warehouse reports a failure**, as your send did: the
+  Toolbox knows a step failed only when your function raises.
 - **Each `send=send` becomes the calls that function takes.** The Toolbox picks which one each
   step goes to, so you never choose:
   - `run(s, query=query, execute=execute)`: a read and `explain(s)` go to `query`; a write,
     `create_table`, `repair_partitions`, `compute_statistics`, `hive_settings(...)` and the
     Admin statements go to `execute`, and `run` gives back None for them, where it gave back
-    what your send did. Pass only the one a Statement needs, if you like: `run` refuses one it
+    what your send did. The one Admin statement that reads rows is the step of
+    `admin.move_to_own_folder` that compares the counts, which goes to `query`: send that
+    list's steps with `run(step, query=query, execute=execute)`. Pass only the one a Statement needs, if you like: `run` refuses one it
     needs and wasn't given, naming it.
   - `query=query` alone: `check_key`, `check_table_reference`, `write_table_reference`,
     `project.add_references`, `admin.add_columns` and `admin.move_to_own_folder`.
@@ -49,9 +53,10 @@ built a day at a time, so some of your files change: each change below says how.
   sends it through `query` and gives back the DataFrame, as for a `SELECT` or `SHOW`; `False`
   sends it through `execute`, as for an `ALTER` or `INSERT`. It has no default: the Toolbox
   doesn't read the text, so it can't tell.
-- **`example_database.send` is now `example_database.query`**, which answers what it did but
-  `SET`; `example_database.execute` stands in for your execute, printing the first line of the
-  Hive it is given and changing nothing, since the Example database is never written to.
+- **`example_database.send` is now `example_database.query`**, which answers SELECT, DESCRIBE
+  and SHOW PARTITIONS as `send` did; a `SET` goes to `example_database.execute`, which stands
+  in for your execute, printing the first line of the Hive it is given and changing nothing,
+  since the Example database is never written to.
 
 ## 6.1
 

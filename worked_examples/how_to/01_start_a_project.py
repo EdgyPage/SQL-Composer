@@ -158,6 +158,12 @@ names on; don't type them yourself, since each Statement has its own columns:
     def execute(hive: str) -> None:
         cursor.execute(hive)  # the same cursor: nothing comes back to read
 
+Both use one cursor, so they share one session: a Session setting sent through `execute` holds
+for what is sent after it on that session, through either function. And let each raise when
+the warehouse reports a failure. If your API gives back an error rather than raising one,
+raise it yourself, such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed
+only when your function raises, and otherwise logs it as one that worked.
+
 Every notebook of the Project then imports them with `from warehouse import query, execute`,
 or only the one it uses. There is no warehouse on this page, so the next steps use the Example
 database's own two: `example_database.query`, which runs Hive on the Example database's seven
@@ -197,7 +203,7 @@ a short name:
 
 >>> job_runs = example_database.job_runs
 
-A Statement is one query, built from clause functions written in SQL's order: `SELECT` the
+A Statement is one read of the tables, built from clause functions written in SQL's order: `SELECT` the
 columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` keeps a row
 only if every condition in it holds. This Statement finds the runs that failed.
 
@@ -247,8 +253,8 @@ call `show_hive` on it to read what will run.
 
 ### Run it
 
-`run` turns the Statement into Hive, hands it to a query, since it reads rows, and gives back
-the DataFrame the query returns. Here the Example database's query runs it:
+`run` turns the Statement into Hive, hands it to your `query` function, since it reads rows,
+and gives back the DataFrame `query` returns. Here the Example database's query runs it:
 
 >>> run(failed, query=example_database.query)
    run_id  job_id          dt

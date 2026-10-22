@@ -1348,7 +1348,8 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     <BLANKLINE>
     '''
     refuse_removed_arguments("write_table_reference", removed, "query=")
-    need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE and SHOW PARTITIONS through your query, and reads what comes back.")
+    need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE and SHOW "
+                        "PARTITIONS through your query, and reads what comes back.")
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         refuse(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
@@ -1556,7 +1557,8 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
         103       2
     """
     refuse_removed_arguments("check_key", removed, "query=")
-    need_warehouse_call("check_key", "query", query, "It counts repeated keys with a query, which gives back rows.")
+    need_warehouse_call("check_key", "query", query, "It counts repeated keys with a query, "
+                        "which gives back rows.")
     from .calculations import count_rows
     from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
     from .conditions import equals, more_than
@@ -1610,15 +1612,16 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     Statements wrong) and notes (which may not matter), each with the line to change in the
     Table reference file. The columns and their types come from DESCRIBE, and the Date
     partition's date_format is checked against the newest day SHOW PARTITIONS lists. It never
-    edits the file and never refuses anything: a table the warehouse can't describe, or a query
-    that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
+    edits the file, and refuses nothing but a missing query: a table the warehouse can't
+    describe, or a query that fails, is reported too. Comments, the key and does_not_add_up aren't compared.
 
     For one of your Saved tables, one with location=, it sends DESCRIBE FORMATTED instead, and
     compares its storage too: that it is external, its folder, its file format, its Partitions
     after the day and its Buckets, and purge, compression and properties where the Table
     reference gives them. A table that isn't in its own folder under location= is a problem,
     as a table made by hand in a folder it shares with others is: two tables in one folder
-    read each other's files, and an overwrite of a day in one can delete the other's. admin.move_to_own_folder(t, query=...) moves it. DESCRIBE FORMATTED describes one
+    read each other's files, and an overwrite of a day in one can delete the other's.
+    admin.move_to_own_folder(t, query=...) moves it. DESCRIBE FORMATTED describes one
     table at a time, so another table that put its files in this table's own folder is
     reported when that other table is checked: check each of your Saved tables.
 
@@ -1635,7 +1638,8 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
     """
     refuse_removed_arguments("check_table_reference", removed, "query=")
-    need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE and SHOW PARTITIONS through your query, and reads what comes back.")
+    need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE and SHOW "
+                        "PARTITIONS through your query, and reads what comes back.")
     t = _real_table(t, "check_table_reference(...)")
     saved = t._location is not None
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"

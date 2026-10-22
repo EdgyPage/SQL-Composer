@@ -300,8 +300,8 @@ def unchecked_hive(text: str, *, returns_rows: bool) -> UncheckedStatement:
 
     Say whether it gives back rows: returns_rows=True sends it through your query, which gives
     them back as a DataFrame, as a SELECT or SHOW does; returns_rows=False sends it through
-    your execute, which gives back nothing, as an ALTER or INSERT does. The Toolbox can't tell
-    from text it doesn't read, so there is no default.
+    your execute, which gives back nothing, as an ALTER or INSERT does. You say which: there is
+    no default.
 
     No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
     it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for

@@ -647,14 +647,14 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
     `query` and `execute` are your own functions, in your Project's warehouse.py: `query`
     sends Hive whose rows you want back and gives them back as a pandas DataFrame; `execute`
     sends Hive that changes something, and gives back nothing. run picks which one each
-    Statement goes to, so pass the ones it needs: a read, explain(s) and an Admin statement
-    that checks what it did go to `query`; a write, create_table, hive_settings(...) and the
-    other Admin statements go to `execute`; an Unchecked statement goes to the one its
-    returns_rows= names. At work they call your query API; example_database.query and
+    Statement goes to, so pass the ones it needs: a read and explain(s) go to `query`; a write,
+    create_table, hive_settings(...) and the Admin statements go to `execute`, but for the step
+    of admin.move_to_own_folder that compares the counts, which reads rows through `query`; an
+    Unchecked statement goes to the one its returns_rows= names. At work they call your query API; example_database.query and
     example_database.execute stand in for them.
 
-    A read gives back its rows, explain(s) gives back Hive's plan as text, and the rest give
-    back None. A write into a table with partitioned_by= needs the Session setting
+    A read, and an Unchecked statement with returns_rows=True, give back their rows; explain(s)
+    gives back Hive's plan as text; the rest give back None. A write into a table with partitioned_by= needs the Session setting
     "dynamic_partitions" sent first, with run(hive_settings("dynamic_partitions"),
     execute=...), as show_hive prints and help(INSERT_OVERWRITE) explains: run sends the
     write alone. hive_settings(...) sends each SET line as a call of its own.
@@ -679,7 +679,9 @@ def run(s: Statement | SessionSettings | UncheckedStatement, *,
         if s._returns_rows:
             need_warehouse_call("run", "query", query, "This Unchecked statement says "
                                 "returns_rows=True: its rows come back through your query.")
-            return logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+            rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+            refuse_what_isnt_a_dataframe(rows)
+            return rows
         need_warehouse_call("run", "execute", execute, "This Unchecked statement says "
                             "returns_rows=False: it goes through your execute.")
         logged_run("Unchecked statement", unchecked_call(s), s._text, execute)

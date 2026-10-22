@@ -4,10 +4,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 The Toolbox picks which one each Statement goes to: query for what gives back rows, as a
-SELECT does, and execute for what changes something, as a write does. Replace each example_database call with your warehouse's own: how-to 1, Start a Project, shows
-how to write them. Let the two share one connection, so a Session setting execute sends holds
-for the Statements query sends after it. It imports none of your own files, so any notebook or
-script of yours can import it.
+SELECT does, and execute for what changes something, as a write does. Replace each
+example_database call with your warehouse's own: how-to 1, Start a Project, shows how to write
+them. Let the two share one session, so a Session setting sent through execute holds for what
+is sent after it, through either function; and let each raise when the warehouse reports a
+failure, since the Toolbox knows a step failed only when your function raises. It imports none
+of your own files, so any notebook or script of yours can import it.
 """
 
 import pandas as pd

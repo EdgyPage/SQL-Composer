@@ -167,10 +167,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 The Toolbox picks which one each Statement goes to: query for what gives back rows, as a
-SELECT does, and execute for what changes something, as a write does. Replace each example_database call with your warehouse&#x27;s own: how-to 1, Start a Project, shows
-how to write them. Let the two share one connection, so a Session setting execute sends holds
-for the Statements query sends after it. It imports none of your own files, so any notebook or
-script of yours can import it.
+SELECT does, and execute for what changes something, as a write does. Replace each
+example_database call with your warehouse&#x27;s own: how-to 1, Start a Project, shows how to write
+them. Let the two share one session, so a Session setting sent through execute holds for what
+is sent after it, through either function; and let each raise when the warehouse reports a
+failure, since the Toolbox knows a step failed only when your function raises. It imports none
+of your own files, so any notebook or script of yours can import it.
 &quot;&quot;&quot;
 
 import pandas as pd
@@ -209,6 +211,7 @@ def run_today(query: Callable[[str], pd.DataFrame],
 
 def execute(hive: str) -&gt; None:
     cursor.execute(hive)  # the same cursor: nothing comes back to read</pre>
+<p>Both use one cursor, so they share one session: a Session setting sent through <code>execute</code> holds for what is sent after it on that session, through either function. And let each raise when the warehouse reports a failure. If your API gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your function raises, and otherwise logs it as one that worked.</p>
 <p>Every notebook of the Project then imports them with <code>from warehouse import query, execute</code>, or only the one it uses. There is no warehouse on this page, so the next steps use the Example database&#x27;s own two: <code>example_database.query</code>, which runs Hive on the Example database&#x27;s seven made-up tables, and <code>example_database.execute</code>, which prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to. At work you give <code>run</code> your own <code>query</code> and <code>execute</code> in their place.</p>
 <h5>See how a notebook deeper in the Project finds the Toolbox</h5>
 <p>Python looks for what a notebook imports in the folder the notebook runs in. A notebook in the Project&#x27;s folder finds <code>sqlglot_composer</code> and warehouse.py there. A Table notebook sits two folders down, in <code>tables/&lt;db&gt;__&lt;table&gt;/</code>, so its first cell starts with three lines: two imports, and one that puts the Project&#x27;s folder on Python&#x27;s list of places to look:</p>
@@ -222,7 +225,7 @@ from warehouse import query, execute</pre>
 <h5>Build a first Statement on the Example database</h5>
 <p>The Example database&#x27;s first three tables are <code>ops.jobs</code>, one row per job; <code>ops.job_runs</code>, one row per run of a job, on two days, 2026-09-23 and 2026-09-24; and <code>ops.run_alerts</code>, the alerts a run raised. A fourth, <code>ops.scheduler_runs</code>, is the scheduler&#x27;s own record of the two days&#x27; runs, and three more, which the Intermediate how-tos use, hold 14 days each. Each table&#x27;s Table reference, which says what columns it has, comes with the Toolbox. Give the one you need a short name:</p>
 <pre class="python">job_runs = example_database.job_runs</pre>
-<p>A Statement is one query, built from clause functions written in SQL&#x27;s order: <code>SELECT</code> the columns you want, <code>FROM</code> a table, and keep only some rows with <code>WHERE</code>. <code>WHERE</code> keeps a row only if every condition in it holds. This Statement finds the runs that failed.</p>
+<p>A Statement is one read of the tables, built from clause functions written in SQL&#x27;s order: <code>SELECT</code> the columns you want, <code>FROM</code> a table, and keep only some rows with <code>WHERE</code>. <code>WHERE</code> keeps a row only if every condition in it holds. This Statement finds the runs that failed.</p>
 <p><code>job_runs.dt</code> is the table&#x27;s Date partition: the day each row belongs to. The warehouse stores such a table a day at a time, so every Statement must give the first and the last day it reads, here with <code>between</code>: a Load limit refuses one that doesn&#x27;t.</p>
 <pre class="python">failed = statement(
     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -252,7 +255,7 @@ WHERE
   job_runs.status = &#x27;FAILED&#x27; AND job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27;;</pre>
 <p>In a notebook you can also write <code>show_hive(failed)</code> on a line of its own: it prints the Hive once, and the text it gives back isn&#x27;t shown a second time. After you build each Statement, call <code>show_hive</code> on it to read what will run.</p>
 <h5>Run it</h5>
-<p><code>run</code> turns the Statement into Hive, hands it to a query, since it reads rows, and gives back the DataFrame the query returns. Here the Example database&#x27;s query runs it:</p>
+<p><code>run</code> turns the Statement into Hive, hands it to your <code>query</code> function, since it reads rows, and gives back the DataFrame <code>query</code> returns. Here the Example database&#x27;s query runs it:</p>
 <pre class="python">run(failed, query=example_database.query)</pre>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>job_id</th><th>dt</th></tr>

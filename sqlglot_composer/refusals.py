@@ -676,7 +676,7 @@ def need_warehouse_call(call: str, name: str, given: object, why: str) -> None:
         )
     if not callable(given):
         refuse(
-            what=f"{call}: {name}={given!r} isn't a function.",
+            what=f"{call}: {name}= is {kind_name(given)}, not a function.",
             why=f"{call} hands the Hive text to your own {name} function, which sends it.",
             fix=f"Pass the function itself, without calling it: {name}={name}, not "
             f"{name}={name}(...).",

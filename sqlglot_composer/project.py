@@ -94,10 +94,12 @@ Why: every notebook in the Project reaches the warehouse through these two funct
 change to how you reach it is made here, once.
 
 The Toolbox picks which one each Statement goes to: query for what gives back rows, as a
-SELECT does, and execute for what changes something, as a write does. Replace each example_database call with your warehouse's own: how-to 1, Start a Project, shows
-how to write them. Let the two share one connection, so a Session setting execute sends holds
-for the Statements query sends after it. It imports none of your own files, so any notebook or
-script of yours can import it.
+SELECT does, and execute for what changes something, as a write does. Replace each
+example_database call with your warehouse's own: how-to 1, Start a Project, shows how to write
+them. Let the two share one session, so a Session setting sent through execute holds for what
+is sent after it, through either function; and let each raise when the warehouse reports a
+failure, since the Toolbox knows a step failed only when your function raises. It imports none
+of your own files, so any notebook or script of yours can import it.
 """
 
 import pandas as pd
@@ -163,7 +165,8 @@ ADMIN_NOTEBOOKS = {
         "# Run the tables\n\nWrites a day of every table: each Table notebook's "
         "`write_day(day)`, read from its logic cell with `project.load`, each before the "
         "tables that read it. First, with no `execute`, it prints each Hive in that order "
-        "and sends nothing; then, with your query and execute, it sends them. `tables=` picks some; leave it "
+        "and sends nothing; then, with your query and execute, it sends them. `tables=` "
+        "picks some; leave it "
         "out for every Table folder the registry lists.",
         ['DAY = "2026-10-20"  # the day to write, as your tables write their days',
          "project.run_tables(DAY)  # first, with no execute: prints each Hive, sends nothing",
@@ -495,7 +498,8 @@ def add_references(names: list[str],
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
     """
     refuse_removed_arguments("add_references", removed, "query=")
-    need_warehouse_call("project.add_references", "query", query, "It sends each table's DESCRIBE through your query.")
+    need_warehouse_call("project.add_references", "query", query, "It sends each table's "
+                        "DESCRIBE through your query.")
     frame = callers_frame()
     call = f"project.add_references({_quoted_list(names)}, query=...)"
     root = _project(call)
