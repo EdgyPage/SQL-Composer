@@ -19,11 +19,14 @@ can open that function and see what it does.
 
 ## Steps
 
-### Start a Project and write the change in a file of building_blocks/
+### Start a Project and write the change in a Building block
 
-Keep the function in a file of the Project's building_blocks/ folder, where its line stays put
-and any notebook can import it. This page writes the file for you; in your own Project, which
-is started already, leave out `project.start()` and make the file in your editor.
+Keep the function in a Building block, a file of the Project's building_blocks/ folder, where
+its line stays put and any notebook can import it. `project.new_block` makes the file, from
+the Project's building_block Template, and registers it; then write your function over the
+Template's code. This page writes the function for you; in your own Project, which is started
+already, leave out `project.start()`, run `project.new_block` from admin/new_block.ipynb, and
+write the function in the file it made, in your editor.
 
 >>> import sys
 >>> from pathlib import Path
@@ -32,6 +35,9 @@ is started already, leave out `project.start()` and make the file in your editor
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+>>> project.new_block("run_speed")
+Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
+fill in its <...> and TODO lines.
 >>> run_speed_py = '''# How each run's minutes compare with its job's usual run.
 ...
 ... import pandas as pd
@@ -203,7 +209,7 @@ ValueError:
   What happened:  python_step was given a lambda.
 ...
 
-Write the change with `def` and a name, in a file of building_blocks/.
+Write the change with `def` and a name, in a Building block that `project.new_block` made.
 
 ## Next
 

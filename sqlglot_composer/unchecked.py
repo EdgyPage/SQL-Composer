@@ -104,9 +104,11 @@ def hive_settings(*names: str,
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.
 
-    Keep your own sets in a settings.py of your own, beside your notebook, each a name and its
-    settings, such as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass them
-    as sets=. True and False are written true and false.
+    Keep your own sets in a dict, each a name and its settings, such as
+    HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass them as sets=: at the
+    top of a notebook, or, for several notebooks of a Project to share, in a Building block
+    that project.new_block("hive_sets") makes, written over its Template's code. True and
+    False are written true and false.
 
     >>> print(to_hive(hive_settings("dynamic_partitions")))
     SET hive.exec.dynamic.partition=true
@@ -168,8 +170,7 @@ def _own_sets(sets: object) -> dict[object, dict[object, object]]:
             what=f"hive_settings(..., sets={sets!r}): sets= takes a dict, each set's name and "
             "its settings.",
             why="It names your own sets, so hive_settings can find one by its name.",
-            fix=f"Keep them in a settings.py of your own as {example}, and pass "
-            "sets=HIVE_SETTINGS.",
+            fix=f"Keep them in a dict, as {example}, and pass sets=HIVE_SETTINGS.",
         )
     for name, settings in sets.items():
         if name in SHIPPED:
@@ -219,8 +220,8 @@ def _named_set(name: object, names: tuple[object, ...],
         f"ships {', '.join(SHIPPED)}, {yours}.",
         why="It writes the SET lines of the sets it is given, by name.",
         fix="Check the spelling against the sets above. For a set of your own, keep it in a "
-        'settings.py of your own, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": '
-        'True}}, and pass it: hive_settings("nightly", sets=HIVE_SETTINGS).',
+        'dict, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass it: '
+        'hive_settings("nightly", sets=HIVE_SETTINGS).',
         error=ValueError,
     )
 
@@ -460,7 +461,7 @@ _admin_log = {"path": None}
 
 
 def set_admin_log(path: str | Path | None = None) -> Path | None:
-    """Set where the Admin log is written, such as ADMIN_LOG from your own settings.py.
+    """Set where the Admin log is written, such as "logs/admin_log.md".
 
     The Admin log is a Markdown file the Toolbox adds an entry to each time run sends an
     Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and

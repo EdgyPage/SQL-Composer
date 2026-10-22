@@ -71,8 +71,9 @@ def execute(hive: str) -> None:
 
 A notebook imports the ones it uses, as in `from warehouse import query, execute`.
 
-Make and remove Table folders and Table references with the `project` module's Project
-actions, such as `project.new_table(...)`, never by hand in your file explorer: each is
+Make and remove Table folders, Table references and Building blocks with the `project`
+module's Project actions, such as `project.new_table(...)` and `project.new_block(...)`, never
+by hand in your file explorer: each is
 logged in `admin/admin_log.md`, and listed in the registry, `admin/registry.csv`. `admin/`
 holds a notebook per Project action, such as `new_table.ipynb`, ready to fill in; calling one
 from any notebook of the Project does just the same.
@@ -192,10 +193,10 @@ How-tos: [Lineage of one Statement](../sqlglot_composer/how_to.html#lineage_of_o
 
 Your files sit in three Levels, each importing only from those below it: the Table references
 and `warehouse.py`, then the Building blocks, then each Table notebook's logic.
-`project.check()` reports any Table folder or Table reference the registry doesn't list, or
-lists but isn't there; `project.remove_table(...)` archives a Table folder in
-admin/removed/ rather than deleting it; and a notebook you run every week checks each Table
-reference against its table, as how-to 21 shows. The [Example projects](#example-projects) show a Project filled
+`project.check()` reports any Table folder, Table reference or Building block the registry
+doesn't list, or lists but isn't there; `project.remove_table(...)` archives a Table folder in
+admin/removed/ rather than deleting it; and `admin/check_references.ipynb`, which you can run
+every week, checks each Table reference against its table. The [Example projects](#example-projects) show a Project filled
 in, and the [Templates](#templates) are the shapes a new Table notebook is made from.
 
 How-tos: [Keep a Table reference true over time](../sqlglot_composer/how_to.html#keep_a_table_reference_true_over_time)
@@ -227,8 +228,8 @@ Each result comes from the Example database or, where that can't run it, is comp
 ## Example projects
 
 An Example project is a Project made for the Example database's tables, laid out as yours is:
-made by the `project` module's Project actions, then filled in by hand, with its Building
-blocks written by hand. `example_projects/` holds two:
+made by the `project` module's Project actions, its Building blocks among them, then filled
+in by hand. `example_projects/` holds two:
 
 - `starter/`, on `ops.jobs`, `ops.job_runs` and `ops.run_alerts`: two Saved tables
   partitioned by day, and a third, each team's day, read from both, through a Building block
@@ -271,8 +272,8 @@ And two more, for files beside the notebooks:
 
 - `saved_table_reference`: the Table reference `new_table` writes for the table, in
   `references`, to fill in.
-- `building_block`: a Derived table several notebooks read, copied by hand into
-  `building_blocks`.
+- `building_block`: a Derived table several notebooks read, which `new_block` writes into
+  `building_blocks`, to fill in.
 
 ## Update
 

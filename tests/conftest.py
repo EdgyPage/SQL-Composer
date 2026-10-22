@@ -26,6 +26,7 @@ import datetime
 import html
 import importlib
 import inspect
+import json
 import re
 import sys
 from collections.abc import Iterator
@@ -140,6 +141,36 @@ def project_on_the_path(folder: Path, top_names: tuple[str, ...]) -> Iterator[No
         for name in [name for name in sys.modules if is_the_projects(name)]:
             del sys.modules[name]
         sys.modules.update(put_away)
+
+
+# The module an admin notebook's code cells are written into, to be run as Jupyter runs them.
+NOTEBOOK_CELLS = "admin_notebook_cells"
+
+
+def run_admin_notebook(notebook: Path, cells: list[str] | None = None,
+                       capsys: pytest.CaptureFixture[str] | None = None) -> str:
+    """Run an admin notebook's code cells, top to bottom, from its folder, admin/, as Jupyter
+    runs them, and give back what they printed: `cells`, in their place, if given.
+
+    The cells are written as one module beside the notebook's Project, in admin/, and
+    imported: its first cell puts the Project on Python's path. Afterwards the path is as it
+    was, and the Project's modules are put away, so another test can import its own.
+    """
+    if cells is None:
+        found = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+        cells = ["".join(cell["source"]) for cell in found if cell["cell_type"] == "code"]
+    folder = notebook.parent
+    (folder / f"{NOTEBOOK_CELLS}.py").write_text("\n\n".join(cells) + "\n", encoding="utf-8")
+    with project_on_the_path(folder, ("references", "building_blocks", "warehouse",
+                                      NOTEBOOK_CELLS)), contextlib.chdir(folder):
+        path = list(sys.path)
+        try:
+            importlib.invalidate_caches()
+            import admin_notebook_cells  # noqa: F401  runs the cells, in order
+        finally:
+            sys.path[:] = path
+            (folder / f"{NOTEBOOK_CELLS}.py").unlink()
+    return capsys.readouterr().out if capsys is not None else ""
 
 
 # The line a write's Hive starts with, before the SELECT it saves.
