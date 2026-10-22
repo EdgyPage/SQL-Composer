@@ -20,7 +20,14 @@ from __future__ import annotations
 from itertools import combinations
 
 from . import kinds
-from .clauses import Statement, flattened, resolve_group_by, derived_tables
+from .clauses import (
+    Statement,
+    check_derived_names,
+    derived_tables,
+    flattened,
+    resolve_group_by,
+    stack_steps,
+)
 from .conditions import Condition
 from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
@@ -197,7 +204,9 @@ def stacked(call: str, statements: list[object] | tuple[object, ...],
     branches = _branches(call, statements)
     _check_names(call, branches)
     _check_types(call, branches)
-    _check_derived_names(call, branches)
+    check_derived_names(call, [table for s in branches for table in derived_tables(s)],
+                        why="The Stack's Hive names each Derived table once, at its top, so "
+                        "two different ones can't share a name.")
     s = Statement()
     s._stack = (call, branches)
     s._returns_all_rows = returns_all_rows
@@ -317,24 +326,6 @@ def _check_types(call: str, branches: list[Statement]) -> None:
                 )
 
 
-def _check_derived_names(call: str, branches: list[Statement]) -> None:
-    """Refuse two different Derived tables of one name in two Statements: the Stack's Hive
-    names each once, at its top."""
-    seen = {}
-    for s in branches:
-        for table in derived_tables(s):
-            if seen.get(table._name, table._statement) is not table._statement:
-                refuse(
-                    what=f"{call}(...) reads two different Derived tables called "
-                    f"{table._name!r}.",
-                    why="The Stack's Hive names each Derived table once, at its top, so two "
-                    "different ones can't share a name.",
-                    fix="Give one of them another name in derived(...).",
-                    error=ValueError,
-                )
-            seen[table._name] = table._statement
-
-
 def _stacked_column(name: str, branches: list[Statement]) -> Column:
     """A Stack's output column: its type the first one known, and it adds up only if it adds
     up in every Statement."""
@@ -345,11 +336,6 @@ def _stacked_column(name: str, branches: list[Statement]) -> Column:
     return Column(Node("Column", name=name), name=name, type=known,
                   adds_up=all(column._adds_up for column in columns),
                   not_adding_up_because=because)
-
-
-def stack_steps(s: Statement) -> list[Statement]:
-    """The Statements a Stack stacks, or the Statement itself when it isn't a Stack."""
-    return list(s._stack[1]) if s._stack is not None else [s]
 
 
 # --- Subtotals -------------------------------------------------------------------------------
