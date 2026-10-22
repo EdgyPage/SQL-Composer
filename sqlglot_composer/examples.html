@@ -3383,11 +3383,14 @@ WHERE
 </section>
 <section class="entry" id="example_database">
 <h3><code>example_database</code></h3>
-<p class="why">The Example database: seven made-up tables, and a query and execute to try them.</p>
-<p>Four of its Table references have rows on two days, 2026-09-23 and 2026-09-24: <code>jobs</code>, <code>job_runs</code>, <code>run_alerts</code>, and <code>scheduler_runs</code>, the scheduler&#x27;s own record of the runs it started on those days, to compare with job_runs. It should match job_runs run for run, but lacks run 99, a TEST run started by hand, and holds run 100, which never reached job_runs.</p>
-<p>The other three have rows on 14 days, 2026-09-11 to 2026-09-24:</p>
+<p class="why">The Example database: nine made-up tables, and a query and execute to try them.</p>
+<p>Its tables are of the three kinds you meet at work: <code>jobs</code> and <code>team_notes</code> aren&#x27;t partitioned, <code>region_budgets</code> is partitioned by region alone, and the other six are partitioned by a day, <code>region_costs</code> by region and then a day. Every table but <code>team_notes</code> has a Key.</p>
+<p><code>jobs</code>, <code>job_runs</code>, <code>run_alerts</code> and <code>scheduler_runs</code> have rows on two days, 2026-09-23 and 2026-09-24. <code>scheduler_runs</code> is the scheduler&#x27;s own record of the runs it started on those days, to compare with job_runs. It should match job_runs run for run, but lacks run 99, a TEST run started by hand, and holds run 100, which never reached job_runs.</p>
+<p>Three have rows on 14 days, 2026-09-11 to 2026-09-24:</p>
 <ul><li><code>job_events</code>: each run&#x27;s events, start, finish, retry and fail;</li><li><code>job_owners</code>: one row per job per day, with its team and owner, so you can see report_build move from data to finance on 2026-09-18;</li><li><code>region_costs</code>: each run&#x27;s cost in cents, partitioned by region (&quot;eu&quot; or &quot;us&quot;, where the job is billed, not the jobs table&#x27;s LON, PAR or NYC), then by day, with days written like 20260911 rather than 2026-09-11.</li></ul>
 <p>These three 14-day tables keep a record of their own: they have no run_id, and don&#x27;t match job_runs run for run.</p>
+<p>The last two aren&#x27;t partitioned by a day:</p>
+<ul><li><code>region_budgets</code>: each job&#x27;s budget in cents for a day&#x27;s cost, in the region it is billed in, partitioned by that region, so a read names the region it wants;</li><li><code>team_notes</code>: the notes each team wrote about its jobs, with no Key: nothing names one note, so a join onto it is warned about, since each row may match several notes.</li></ul>
 <p><code>query</code> runs a Statement&#x27;s Hive on a small database of the Toolbox&#x27;s own and gives back a DataFrame, just like your own query at work. <code>execute</code> stands in for your execute: the Example database is never written to, so it prints the first line of the Hive and changes nothing. Neither reaches your warehouse, so it is safe to try anything here. Where query can&#x27;t run a Statement, it says why.</p>
 <p>Unlike the warehouse, it gives the rows in the same order every time. When a Statement has no ORDER_BY, its rows are sorted by its first column, then its second, and so on, with NULL first. At work, rows come back in no fixed order: sort the DataFrame in pandas when the order matters.</p>
 <pre class="python">runs = example_database.job_runs</pre>
@@ -3403,6 +3406,29 @@ WHERE
 2      97   FAILED             30
 3      98      NaN             15
 4      99     TEST              5</pre>
+<p><code>region_budgets</code> is partitioned by region, so a read names the regions it reads; <code>team_notes</code> isn&#x27;t partitioned, so a read of it is never limited:</p>
+<pre class="python">budgets = example_database.region_budgets</pre>
+<pre class="python">run(statement(
+    SELECT(budgets.job_id, budgets.budget_cents),
+    FROM(budgets),
+    WHERE(equals(budgets.region, &quot;eu&quot;)),
+), query=example_database.query)</pre>
+<p class="label">Python shows</p>
+<pre class="output">   job_id  budget_cents
+0       1           150
+1       2           200
+2       4            50</pre>
+<pre class="python">notes = example_database.team_notes</pre>
+<pre class="python">run(statement(
+    SELECT(notes.team, AS(count_rows(), &quot;notes&quot;)),
+    FROM(notes),
+    GROUP_BY(notes.team),
+), query=example_database.query)</pre>
+<p class="label">Python shows</p>
+<pre class="output">      team  notes
+0     data      2
+1  finance      2
+2      web      1</pre>
 <p class="label">The Hive of the Statement given to run(...)</p>
 <pre class="hive">SELECT
   job_runs.run_id,
@@ -3411,7 +3437,7 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-23&#x27;</pre>
-<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<p class="label">Result of Statement 1 of 3 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>status</th><th>duration_mins</th></tr>
 <tr><td>95</td><td>SUCCESS</td><td>12</td></tr>
 <tr><td>96</td><td>SUCCESS</td><td>18</td></tr>
@@ -3419,7 +3445,33 @@ WHERE
 <tr><td>98</td><td><i>NULL</i></td><td>15</td></tr>
 <tr><td>99</td><td>TEST</td><td>5</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>example_database</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>run</code></p>
+<p class="label">The Hive of the Statement given to run(...)</p>
+<pre class="hive">SELECT
+  region_budgets.job_id,
+  region_budgets.budget_cents
+FROM ops.region_budgets AS region_budgets
+WHERE
+  region_budgets.region = &#x27;eu&#x27;</pre>
+<p class="label">Result of Statement 2 of 3 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>job_id</th><th>budget_cents</th></tr>
+<tr><td>1</td><td>150</td></tr>
+<tr><td>2</td><td>200</td></tr>
+<tr><td>4</td><td>50</td></tr>
+</table></div>
+<p class="label">The Hive of the Statement given to run(...)</p>
+<pre class="hive">SELECT
+  team_notes.team,
+  COUNT(*) AS notes
+FROM ops.team_notes AS team_notes
+GROUP BY
+  team_notes.team</pre>
+<p class="label">Result of Statement 3 of 3 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>notes</th></tr>
+<tr><td>data</td><td>2</td></tr>
+<tr><td>finance</td><td>2</td></tr>
+<tr><td>web</td><td>1</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>run</code></p>
 </section>
 <section class="entry" id="admin.add_columns">
 <h3><code>admin.add_columns</code></h3>
@@ -3613,7 +3665,7 @@ project.register(...).</pre>
 <section class="entry" id="project.load">
 <h3><code>project.load</code></h3>
 <p class="why">A Table notebook&#x27;s logic, its functions by name, from anywhere in the Project.</p>
-<p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines, and it defines write(), which takes nothing and gives what writes the table: a Statement, an Unchecked statement, or a list of them. In a notebook made from the daily_table Template, it defines create, rows, preview, write and backfill, and load gives each of them (the functions and classes only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run, which would send Hive just by loading, one with a &lt;...&gt; still to fill in, and one that defines no write() taking nothing.</p>
+<p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines, and it defines write(), which takes nothing and gives what writes the table: a Statement, an Unchecked statement, or a list of them. In a notebook made from the saved_table Template, it defines create, rows, preview and write, and load gives each of them (the functions and classes only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run, which would send Hive just by loading, one with a &lt;...&gt; still to fill in, and one that defines no write() taking nothing.</p>
 <p>In the example, a one-line Template stands in for a notebook of yours:</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
@@ -3636,7 +3688,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <section class="entry" id="project.new_table">
 <h3><code>project.new_table</code></h3>
 <p class="why">Make a Table folder for a Saved table: its notebook, lineage/ and reference.</p>
-<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/daily_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/saved_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3645,7 +3697,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -3695,7 +3747,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
@@ -3717,7 +3769,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py.</p
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="python">project.remove_table(&quot;mart.daily_job_runs&quot;)  # the time it ran, as yyyymmdd-hhmmss</pre>
 <p class="label">Python shows</p>

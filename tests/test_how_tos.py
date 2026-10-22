@@ -480,7 +480,7 @@ tables/ and warehouse.py. Next: write your query and execute in warehouse.py."""
                       "</pre>", shown, re.DOTALL)
     assert int(files.group(1)) > how_to_page.LIST_AFTER
     assert page_text(files.group(2)).split()[-1] == "warehouse.py"
-    assert "admin/templates/daily_table.py" in page_text(files.group(2))
+    assert "admin/templates/saved_table.py" in page_text(files.group(2))
     assert "It writes warehouse.py" not in shown
 
 

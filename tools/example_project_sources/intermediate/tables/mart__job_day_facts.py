@@ -7,9 +7,10 @@
 # Why: a job can change teams, so counting a team's day means looking each job up as of that
 # day, which is worth doing once and saving.
 #
-# Made by `project.new_table("mart.job_day_facts", template="as_of_lookup")`, then filled in,
-# writing its last 3 days on each run, as mart.job_day_costs does. Its rows come from the
-# Building block `building_blocks/events_per_job_day.py`, joined to the day's team by
+# Made by `project.new_table("mart.job_day_facts")` from `admin/templates/saved_table.py`,
+# then filled in, writing its last 3 days on each run, as mart.job_day_costs does: an as-of
+# lookup, each row joined to the snapshot of its own day. Its rows come from the
+# Building block `building_blocks/events_per_job.py`, joined to the day's team by
 # `building_blocks/owner_on_day.py`. A day with no snapshot in ops.job_owners keeps its numbers
 # with a NULL team.
 #
@@ -32,7 +33,7 @@ from sqlglot_composer import (
     FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, create_table, statement,
 )
 from building_blocks.days_rewritten import first_day_written
-from building_blocks.events_per_job_day import events_per_job_day
+from building_blocks.events_per_job import events_per_job
 from building_blocks.owner_on_day import owner_on_day
 from references.mart__job_day_facts import job_day_facts
 from references.ops__job_owners import job_owners
@@ -48,7 +49,7 @@ def create() -> Statement:
 def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's day beside its team that day. The day
     comes last in SELECT: INSERT_OVERWRITE writes each day's rows into that day's Partition."""
-    events = events_per_job_day(first_day, last_day)
+    events = events_per_job(first_day, last_day)
     return [
         SELECT(events.job_id, job_owners.team, events.events, events.runs, events.minutes,
                events.dt),

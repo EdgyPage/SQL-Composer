@@ -52,8 +52,8 @@ PINNED_TIME = datetime.datetime(2026, 9, 25, 6, 0)
 PINNED_COMMIT = "nogit"  # what scripts_commit gives for a folder that isn't in git
 
 # What a user fills in by hand after add_references: each table's one-line description, its
-# key, the columns that don't add up, with what each is, and the Aliases written below it,
-# with what they call, for each Example project.
+# key, or None for a table with none, the columns that don't add up, with what each is, and
+# the Aliases written below it, with what they call, for each Example project.
 FILLED_IN = {
     "starter": {
         "ops.jobs": {
@@ -95,18 +95,30 @@ FILLED_IN = {
             "key": ["job_id", "region", "dt"],
             "does_not_add_up": {},
         },
+        "ops.region_budgets": {
+            "one_row": "one row per job and region: its budget for a day's cost.",
+            "key": ["job_id", "region"],
+            "does_not_add_up": {},
+        },
+        "ops.team_notes": {
+            "one_row": "one row per note a team wrote about its jobs.",
+            "key": None,
+            "does_not_add_up": {},
+        },
     },
 }
 # The Example projects, by the name of their folder in example_projects/.
 PROJECTS = tuple(FILLED_IN)
 # Each project's Saved tables, in the order a user makes them, each with its Template.
 SAVED_TABLES = {
-    "starter": [("mart.daily_job_runs", "daily_table"), ("mart.alerts_per_job", "daily_table"),
-                ("mart.team_day", "daily_table")],
-    "intermediate": [("mart.job_day_costs", "incremental_load"),
-                     ("mart.job_day_facts", "as_of_lookup"),
-                     ("mart.team_days", "weekly_rollup"),
-                     ("mart.job_events_checks", "quality_checks")],
+    "starter": [("mart.daily_job_runs", "saved_table"), ("mart.alerts_per_job", "saved_table"),
+                ("mart.team_day", "saved_table")],
+    "intermediate": [("mart.job_day_costs", "saved_table"),
+                     ("mart.job_day_facts", "saved_table"),
+                     ("mart.team_days", "saved_table"),
+                     ("mart.job_events_checks", "quality_checks"),
+                     ("mart.budget_overruns", "saved_table"),
+                     ("mart.job_notes", "saved_table")],
 }
 # The tables whose lineage cell draws other tables too, through their notebooks' logic: each
 # table's lineage reads these tables' writes, then its own.
@@ -118,12 +130,13 @@ LINEAGE_ACROSS = {
 # The docstring every generated Table reference is given, after its first line.
 WHY = (
     "Why: the project's notebooks read the table through this file, so each column they name, "
-    "and the key each join and count relies on, is checked as the Statement is built."
+    "and the key each join and count relies on, where it has one, is checked as the Statement "
+    "is built."
 )
 HOW = (
-    "project.add_references wrote this file from the table's DESCRIBE, its partition columns "
-    "among it. Its three TODO lines were then filled in by hand: this docstring's first line, "
-    "the key, and does_not_add_up."
+    "project.add_references wrote this file from the table's DESCRIBE, its partition columns, "
+    "if any, among it. Its three TODO lines were then filled in by hand: this docstring's "
+    "first line, the key, and does_not_add_up."
 )
 # The comment on each line filled in where write_table_reference left a TODO.
 BY_HAND = "# filled in by hand"
@@ -140,14 +153,14 @@ def project_files(folder: Path) -> list[str]:
 
 
 def filled_in(text: str, table: str,
-              filling: dict[str, str | list[str] | dict[str, str]]) -> str:
+              filling: dict[str, str | list[str] | dict[str, str] | None]) -> str:
     """A Table reference with its TODO lines replaced by what a user writes there, and the
     Aliases a user adds below it."""
     replacements = [
         (f'"""{table} - TODO: say in one line what one row is."""',
          f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
         ('    key=None,  # TODO: the columns that pick out one row, such as key=',
-         f"    key={_python_list(filling['key'])},  {BY_HAND}"),
+         _key_line(filling["key"])),
         ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
@@ -169,6 +182,13 @@ def filled_in(text: str, table: str,
     if filling.get("aliases"):
         text += "\n" + "\n".join(filling["aliases"]) + "\n"
     return text
+
+
+def _key_line(key: list[str] | None) -> str:
+    """The key line: the Key's columns, or None for a table with no Key."""
+    if key is None:
+        return f"    key=None,  {BY_HAND}: nothing names one row"
+    return f"    key={_python_list(key)},  {BY_HAND}"
 
 
 def _wrapped(text: str) -> str:

@@ -11,18 +11,18 @@ flowchart LR
     n2["ops.region_costs.cost_cents<br/><small>bigint</small>"]
     n4["ops.region_costs.dt<br/><small>string</small><br/><small>in the Key</small>"]
   end
-  subgraph g1["costs_per_job_day"]
-    n1["costs_per_job_day.job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
-    n3["costs_per_job_day.cost_cents<br/><small>sum_of(region_costs.cost_cents)</small>"]
-    n5["costs_per_job_day.dt<br/><small>hive_function(#quot;concat#quot;, hive_function(#quot;subs…</small><br/><small>in the Key</small>"]
+  subgraph g1["costs_per_job"]
+    n1["costs_per_job.job_id<br/><small>region_costs.job_id</small><br/><small>in the Key</small>"]
+    n3["costs_per_job.cost_cents<br/><small>sum_of(region_costs.cost_cents)</small>"]
+    n5["costs_per_job.dt<br/><small>hive_function(#quot;concat#quot;, hive_function(#quot;subs…</small><br/><small>in the Key</small>"]
   end
-  subgraph g2["filters on costs_per_job_day"]
-    n6{{"WHERE in costs_per_job_day<br/><small>between(region_costs.dt, #quot;20260922#quot;, #quot;20260…</small>"}}
+  subgraph g2["filters on costs_per_job"]
+    n6{{"WHERE in costs_per_job<br/><small>between(region_costs.dt, #quot;20260922#quot;, #quot;20260…</small>"}}
   end
   subgraph g3["written"]
-    n7["job_id<br/><small>costs_per_job_day.job_id</small><br/><small>in the Key</small>"]
-    n8["cost_cents<br/><small>costs_per_job_day.cost_cents</small>"]
-    n9["dt<br/><small>costs_per_job_day.dt</small><br/><small>in the Key</small>"]
+    n7["job_id<br/><small>costs_per_job.job_id</small><br/><small>in the Key</small>"]
+    n8["cost_cents<br/><small>costs_per_job.cost_cents</small>"]
+    n9["dt<br/><small>costs_per_job.dt</small><br/><small>in the Key</small>"]
   end
   subgraph g4["mart.job_day_costs"]
     n10["mart.job_day_costs.job_id<br/><small>bigint</small><br/><small>in the Key</small>"]
@@ -50,52 +50,52 @@ It writes the Saved table mart.job_day_costs, replacing each partition its rows 
 
 Every column that is calculated rather than copied, in the order it is calculated.
 
-#### `costs_per_job_day.cost_cents`
+#### `costs_per_job.cost_cents`
 
-Calculated in **costs_per_job_day** as `sum_of(region_costs.cost_cents)`, which is `SUM(region_costs.cost_cents)`.
+Calculated in **costs_per_job** as `sum_of(region_costs.cost_cents)`, which is `SUM(region_costs.cost_cents)`.
 
 ```text
-costs_per_job_day.cost_cents = sum_of(region_costs.cost_cents)
+costs_per_job.cost_cents = sum_of(region_costs.cost_cents)
 └─ ops.region_costs.cost_cents  (bigint)
 ```
 
 Rows that count:
-- WHERE in costs_per_job_day: `between(region_costs.dt, "20260922", "20260924")`, which is `region_costs.dt BETWEEN '20260922' AND '20260924'` (reads ops.region_costs.dt)
+- WHERE in costs_per_job: `between(region_costs.dt, "20260922", "20260924")`, which is `region_costs.dt BETWEEN '20260922' AND '20260924'` (reads ops.region_costs.dt)
 
 One value for each different `region_costs.job_id` and `hive_function("concat", hive_function("substr", region_costs.dt, 1, 4), "-", hive_function("substr", region_costs.dt, 5, 2), "-", hive_function("substr", region_costs.dt, 7, 2))`.
 
-#### `costs_per_job_day.dt`
+#### `costs_per_job.dt`
 
-Calculated in **costs_per_job_day** as `hive_function("concat", hive_function("substr", region_costs.dt, 1, 4), "-", hive_function("substr", region_costs.dt, 5, 2), "-", hive_function("substr", region_costs.dt, 7, 2))`, which is `CONCAT(SUBSTRING(region_costs.dt, 1, 4), '-', SUBSTRING(region_costs.dt, 5, 2), '-', SUBSTRING(region_costs.dt, 7, 2))`.
+Calculated in **costs_per_job** as `hive_function("concat", hive_function("substr", region_costs.dt, 1, 4), "-", hive_function("substr", region_costs.dt, 5, 2), "-", hive_function("substr", region_costs.dt, 7, 2))`, which is `CONCAT(SUBSTRING(region_costs.dt, 1, 4), '-', SUBSTRING(region_costs.dt, 5, 2), '-', SUBSTRING(region_costs.dt, 7, 2))`.
 
 ```text
-costs_per_job_day.dt = hive_function("concat", hive_function("substr", region_costs.dt, 1, 4), "-", hive_function("substr", region_costs.dt, 5, 2), "-", hive_function("substr", region_costs.dt, 7, 2))
+costs_per_job.dt = hive_function("concat", hive_function("substr", region_costs.dt, 1, 4), "-", hive_function("substr", region_costs.dt, 5, 2), "-", hive_function("substr", region_costs.dt, 7, 2))
 └─ ops.region_costs.dt  (string)
 ```
 
 Rows that count:
-- WHERE in costs_per_job_day: `between(region_costs.dt, "20260922", "20260924")`, which is `region_costs.dt BETWEEN '20260922' AND '20260924'` (reads ops.region_costs.dt)
+- WHERE in costs_per_job: `between(region_costs.dt, "20260922", "20260924")`, which is `region_costs.dt BETWEEN '20260922' AND '20260924'` (reads ops.region_costs.dt)
 
 ### Copied columns
 
 | Output | Comes from |
 | --- | --- |
-| `job_id` | costs_per_job_day.job_id ← ops.region_costs.job_id |
-| `cost_cents` | costs_per_job_day.cost_cents (calculated) ← ops.region_costs.cost_cents |
-| `dt` | costs_per_job_day.dt (calculated) ← ops.region_costs.dt |
+| `job_id` | costs_per_job.job_id ← ops.region_costs.job_id |
+| `cost_cents` | costs_per_job.cost_cents (calculated) ← ops.region_costs.cost_cents |
+| `dt` | costs_per_job.dt (calculated) ← ops.region_costs.dt |
 
 ### Keys
 
 The columns that tell each step's rows apart, as the Toolbox works them out. A column in one is marked "in the Key" in the chart.
 
-- derived('costs_per_job_day', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
-- written: Key (job_id, dt), since costs_per_job_day's rows are told apart by job_id, dt.
+- derived('costs_per_job', ...): Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
+- written: Key (job_id, dt), since costs_per_job's rows are told apart by job_id, dt.
 - mart.job_day_costs' Key (job_id, dt) holds: each row written has its own.
 
 ### Hive as submitted
 
 ```sql
-WITH costs_per_job_day AS (
+WITH costs_per_job AS (
   SELECT
     region_costs.job_id,
     SUM(region_costs.cost_cents) AS cost_cents,
@@ -121,10 +121,10 @@ WITH costs_per_job_day AS (
 )
 INSERT OVERWRITE TABLE mart.job_day_costs PARTITION(dt)
 SELECT
-  costs_per_job_day.job_id,
-  costs_per_job_day.cost_cents,
-  costs_per_job_day.dt
-FROM costs_per_job_day
+  costs_per_job.job_id,
+  costs_per_job.cost_cents,
+  costs_per_job.dt
+FROM costs_per_job
 ```
 
 ---

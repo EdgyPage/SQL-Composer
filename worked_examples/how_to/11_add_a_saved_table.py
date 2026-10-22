@@ -42,7 +42,7 @@ holds this call, ready to fill in; calling it from any notebook of the Project d
 
 >>> project.new_table("mart.daily_job_runs")
 Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
 
 It made four things, and listed two of them, the Table folder and the Table reference, in the
@@ -50,10 +50,10 @@ registry:
 
 - tables/mart__daily_job_runs/, the table's Table folder, named after the database and the
   table joined by two underscores, as its Table reference is;
-- mart__daily_job_runs.ipynb in it, the Table notebook, from the Template daily_table, a table
-  written a day at a time. `template=` picks another: `"incremental_load"`, which writes its
-  last few days again on each run, `"weekly_rollup"`, `"as_of_lookup"` or `"quality_checks"`.
-  The notebook's text cell says what each `<...>` in it is for;
+- mart__daily_job_runs.ipynb in it, the Table notebook, from the Template saved_table, a
+  Saved table worked out from a table it reads. `template=` picks another:
+  `"quality_checks"`, which saves a table's row counts and checks its rows. The notebook's
+  text cell starts with what each `<...>` in it is for;
 - lineage/ beside it, empty until you export the table's Lineage;
 - references/mart__daily_job_runs.py, its Table reference, shown above, with `<...>` and TODO
   lines to fill in: a Saved table doesn't exist until you create it, so nothing can be asked of
@@ -62,10 +62,8 @@ registry:
 The notebook has five code cells, run top to bottom:
 
 1. the path lines and imports from [Start a Project](#start_a_project), and your query;
-2. the logic, whose first line is `# logic`: imports, `DAY`, the day `write()` writes, and
-   functions, each giving a Statement and running nothing: create, preview, write, and
-   backfill, which writes a range of past days, as
-   [Backfill a range of days](#backfill_a_range_of_days) shows;
+2. the logic, whose first line is `# logic`: imports, `READS`, the rows `write()` reads, and
+   functions, each giving a Statement and running nothing: create, rows, preview and write;
 3. try it: each step's Hive, then the day's rows;
 4. its Lineage, as [Lineage across your tables](#lineage_across_your_tables) shows;
 5. its rows in the Reference sheet, as [The Reference sheet](#the_reference_sheet) shows.
@@ -99,18 +97,18 @@ the day. This page has no editor, so this step writes the file filled in:
 ### Fill in its notebook
 
 Open the notebook in Jupyter and type over each `<...>` in its code cells: the table it reads,
-by its file in references/ and its variable, its partition column holding the day, the column
-each row is for, the name of the count, and the day `write()` writes. A name Python reads, such
-as the table's variable, goes in bare; a value, such as the count's name or the day, goes in
-quotes, as the notebook's text cell says. This page has no Jupyter, so these lines do the same.
+by its file in references/ and its variable, the rows `write()` reads, as a condition on its
+partition column, the column each row is for, the name of the count, and the partition column
+that fills this table's own. A name Python reads, such as the table's variable, goes in bare; a
+value, such as the count's name, goes in quotes, as the notebook's text cell says. This page has no Jupyter, so these lines do the same.
 A notebook is a JSON file, and each cell keeps its lines in its `"source"`:
 
 >>> import json
 >>> path = Path("tables/mart__daily_job_runs/mart__daily_job_runs.ipynb")
 >>> notebook = json.loads(path.read_text(encoding="utf-8"))
 >>> filled_in = {"<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
-...              "<DATE_PARTITION>": "dt", "<KEY_COLUMN>": "job_id",
-...              "<COUNT_NAME>": '"runs"', "<DAY>": '"2026-09-24"'}
+...              "<READS>": 'equals(job_runs.dt, "2026-09-24")', "<GROUP_COLUMN>": "job_id",
+...              "<COUNT_NAME>": '"runs"', "<PARTITION_COLUMN>": "dt"}
 >>> for cell in notebook["cells"]:
 ...     if cell["cell_type"] == "code":
 ...         for placeholder, value in filled_in.items():
@@ -124,24 +122,31 @@ runs a day:
     from references.ops__job_runs import job_runs
 
 
-    DAY = "2026-09-24"  # the day write() writes: change it to write another
+    READS = equals(job_runs.dt, "2026-09-24")
 
 
-    def rows(first_day: str, last_day: str) -> list[Clause]:
-        \"\"\"The clauses every step below shares. The day stays in GROUP_BY, so the days
-        stay apart, and comes last in SELECT, as "dt": INSERT_OVERWRITE writes each day's rows
-        into that day's partition of this table, replacing only the days the rows hold.\"\"\"
+    def rows() -> list[Clause]:
         return [
-            SELECT(job_runs.job_id, AS(count_rows(), "runs"), AS(job_runs.dt, "dt")),
+            SELECT(
+                job_runs.job_id,  # what each row is for
+                AS(count_rows(), "runs"),
+                job_runs.dt,  # this table's partition column, last
+            ),
             FROM(job_runs),
-            WHERE(between(job_runs.dt, first_day, last_day)),
-            GROUP_BY(job_runs.dt, job_runs.job_id),
+            WHERE(READS),
+            GROUP_BY(
+                job_runs.job_id,
+                job_runs.dt,  # kept, so each Partition's rows stay apart
+            ),
         ]
 
 
     def write() -> Statement:
-        \"\"\"Step 3: save DAY's rows, replacing whatever DAY held.\"\"\"
-        return statement(INSERT_OVERWRITE(daily_job_runs), *rows(DAY, DAY))
+        return statement(INSERT_OVERWRITE(daily_job_runs), *rows())
+
+`READS` picks the rows `write()` reads: here one day's Partition of `ops.job_runs`. The table
+is partitioned by dt, so a read must filter it; one that isn't partitioned can be read whole,
+as the notebook's text cell says.
 
 ### Try its steps
 
@@ -150,10 +155,10 @@ and gives back what it defines, as any notebook or admin notebook of the Project
 
 >>> logic = project.load("mart.daily_job_runs")
 >>> logic
-The logic of mart.daily_job_runs: create, rows, preview, write, backfill.
+The logic of mart.daily_job_runs: create, rows, preview, write.
 
-Cell 3 prints the Hive of the steps that create the table and write `DAY`, then runs the
-preview, the rows the write would save:
+Cell 3 prints the Hive of the steps that create the table and write the rows `READS` picks,
+then runs the preview, the rows the write would save:
 
 >>> text = show_hive([logic.create(), logic.write()])
 -- 1 of 2
@@ -179,10 +184,10 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+  job_runs.dt = '2026-09-24'
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id;
+  job_runs.job_id,
+  job_runs.dt;
 >>> run(logic.preview(), query=example_database.query)
    job_id  runs          dt
 0       1     2  2026-09-24
@@ -220,16 +225,16 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 WHERE
-  job_runs.dt BETWEEN '2026-09-24' AND '2026-09-24'
+  job_runs.dt = '2026-09-24'
 GROUP BY
-  job_runs.dt,
-  job_runs.job_id;
+  job_runs.job_id,
+  job_runs.dt;
 Printed 1 write in order, and sent nothing. Pass execute= to run them.
 
 At work, you run the admin notebook admin/run_tables.ipynb, or your team's scheduler does: it
 does this, then sends them with your query and execute,
 `project.run_tables(query=query, execute=execute)`, printing a line as each table is written.
-Each `write()` writes the day its notebook's `DAY` names: change `DAY` to write another.
+Each `write()` writes the rows its notebook's `READS` picks: change `READS` to write others.
 
 ## Check it worked
 
@@ -256,7 +261,7 @@ fill in:
 
 >>> project.new_table("mart.alerts_per_job")
 Made tables/mart__alerts_per_job/: mart__alerts_per_job.ipynb and lineage/, from
-admin/templates/daily_table.py.
+admin/templates/saved_table.py.
 Wrote references/mart__alerts_per_job.py: fill in its <...> and TODO lines.
 >>> project.load("mart.alerts_per_job")
 Traceback (most recent call last):
@@ -287,7 +292,7 @@ folder that isn't there.
 
 ## Next
 
-- Write a range of past days of the table:
+- Write a range of past days of a table:
   [Backfill a range of days](#backfill_a_range_of_days).
 - Follow each of its columns back to the tables it reads, across the Project's notebooks:
   [Lineage across your tables](#lineage_across_your_tables).

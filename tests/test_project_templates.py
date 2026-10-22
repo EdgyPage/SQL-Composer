@@ -1,10 +1,12 @@
 """The Templates the Toolbox ships, which project.start() copies into admin/templates/.
 
-Toolbox 6.0's ticket 09. Each Table notebook Template is made into a Table folder's notebook by
-project.new_table, filled in with the Example database's tables as a user fills it in, and its
-logic cell loaded: each code cell parses, write() writes the table's day into its partition,
-and preview() runs on the Example database. Each lists every placeholder it holds in its text
-cell, with an example. The Saved table's Table reference and the Building block Templates, filled in, run.
+Toolbox 6.0's ticket 09, and 7.0's ticket 04, which left two Table notebook Templates, with no
+day in either. Each is made into a Table folder's notebook by project.new_table, filled in with
+the Example database's tables as a user fills it in, and its logic cell loaded: each code cell
+parses, write() writes the table into the Partitions its rows fill, or the whole table when it
+isn't partitioned, and preview() runs on the Example database. Every Template lists every
+placeholder it holds in its first lines, with an example. The Saved table's Table reference and
+the Building block Templates, filled in, run.
 """
 
 from __future__ import annotations
@@ -32,28 +34,31 @@ PLACEHOLDER = re.compile(r"<([A-Z][A-Z0-9_]*)>")
 # What new_table fills in itself; every other placeholder is the user's.
 FILLED_BY_NEW_TABLE = {"DB", "TABLE", "NAME"}
 DAY = "2026-09-24"
-SOURCE = {"<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
-          "<DATE_PARTITION>": "dt", "<DAY>": f'"{DAY}"'}
-# Each Table notebook Template's placeholders, filled in for the Example database, and the
-# columns its Saved table holds besides the day, with its Key.
+# Each Table notebook Template's placeholders, filled in for the Example database, the columns
+# its Saved table holds, its partition columns and its Key.
 FILLS = {
-    "daily_table": ({**SOURCE, "<KEY_COLUMN>": "job_id", "<COUNT_NAME>": '"runs"'},
-                    {"job_id": "bigint", "runs": "bigint"}, ["job_id", "dt"]),
-    "incremental_load": ({**SOURCE, "<KEY_COLUMN>": "job_id", "<COUNT_NAME>": '"runs"',
-                          "<DAYS_REWRITTEN>": "3"},
-                         {"job_id": "bigint", "runs": "bigint"}, ["job_id", "dt"]),
-    "weekly_rollup": ({**SOURCE, "<GROUP_COLUMN>": "job_id", "<NUMBER_COLUMN>": "duration_mins",
-                       "<TOTAL>": "minutes", "<TOTAL_NAME>": '"minutes"'},
-                      {"job_id": "bigint", "minutes": "bigint"}, ["job_id", "dt"]),
-    "as_of_lookup": ({**SOURCE, "<MATCH_COLUMN>": "job_id",
-                      "<SNAPSHOT_NAME>": "ops__job_owners", "<SNAPSHOT>": "job_owners",
-                      "<SNAPSHOT_MATCH_COLUMN>": "job_id",
-                      "<SNAPSHOT_DATE_PARTITION>": "dt", "<LOOKED_UP_COLUMN>": "team"},
-                     {"team": "string", "row_count": "bigint"}, ["team", "dt"]),
+    "saved_table": ({"<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
+                     "<READS>": f'equals(job_runs.dt, "{DAY}")', "<GROUP_COLUMN>": "job_id",
+                     "<COUNT_NAME>": '"runs"', "<PARTITION_COLUMN>": "dt"},
+                    {"job_id": "bigint", "runs": "bigint", "dt": "string"}, ["dt"],
+                    ["job_id", "dt"]),
     "quality_checks": ({"<CHECKED_NAME>": "ops__job_events", "<CHECKED>": "job_events",
-                        "<DATE_PARTITION>": "dt", "<KEY_COLUMN>": "event_id",
-                        "<DAY>": f'"{DAY}"'},
-                       {"row_count": "bigint"}, ["dt"]),
+                        "<READS>": f'equals(job_events.dt, "{DAY}")',
+                        "<PARTITION_COLUMN>": "dt", "<KEY_COLUMN>": "event_id"},
+                       {"row_count": "bigint", "dt": "string"}, ["dt"], ["dt"]),
+}
+# The same Templates filled in for a table partitioned by region alone, ops.region_budgets.
+REGION_FILLS = {
+    "saved_table": ({"<SOURCE_NAME>": "ops__region_budgets", "<SOURCE_TABLE>": "region_budgets",
+                     "<READS>": 'equals(region_budgets.region, "eu")',
+                     "<GROUP_COLUMN>": "job_id", "<COUNT_NAME>": '"budgets"',
+                     "<PARTITION_COLUMN>": "region"},
+                    {"job_id": "bigint", "budgets": "bigint", "region": "string"}, ["region"],
+                    ["job_id", "region"]),
+    "quality_checks": ({"<CHECKED_NAME>": "ops__region_budgets", "<CHECKED>": "region_budgets",
+                        "<READS>": 'equals(region_budgets.region, "eu")',
+                        "<PARTITION_COLUMN>": "region", "<KEY_COLUMN>": "job_id"},
+                       {"row_count": "bigint", "region": "string"}, ["region"], ["region"]),
 }
 
 
@@ -63,56 +68,86 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
-    project.add_references(["ops.job_runs", "ops.job_events", "ops.job_owners"],
-                           query=example_database.query)
-    # The Key a user fills in: as_of_lookup's join to ops.job_owners names it.
-    owners = tmp_path / "references" / "ops__job_owners.py"
-    owners.write_text(owners.read_text(encoding="utf-8").replace(
-        "key=None,", 'key=["job_id", "dt"],'), encoding="utf-8")
+    project.add_references(["ops.job_runs", "ops.job_events", "ops.region_budgets",
+                            "ops.team_notes"], query=example_database.query)
     return tmp_path
 
 
-def saved_reference(name: str, columns: dict[str, str], key: list[str]) -> str:
+def saved_reference(name: str, columns: dict[str, str], partitioned_by: list[str],
+                    key: list[str] | None) -> str:
     """A Saved table's Table reference, as a user fills in the one new_table wrote."""
     table = name.split(".")[1]
     return (f"from sqlglot_composer import Table\n\n{table} = Table(\n    {name!r},\n"
-            f"    columns={ {**columns, 'dt': 'string'} !r},\n    partitioned_by=['dt'],\n"
+            f"    columns={columns!r},\n    partitioned_by={partitioned_by!r},\n"
             f"    key={key!r},\n    location='/data/your_team/mart.db/{table}',\n)\n")
 
 
-def filled_notebook(root: Path, template: str) -> tuple[str, list[str]]:
-    """The table new_table makes from the Template, its notebook's placeholders filled in as
-    FILLS says and its Table reference written: its name, and each code cell's text."""
-    fills, columns, key = FILLS[template]
-    name = f"mart.made_from_{template}"
+def filled_notebook(root: Path, template: str, name: str,
+                    fill: tuple[dict[str, str], dict[str, str], list[str], list[str] | None],
+                    unpartitioned: bool = False) -> list[str]:
+    """Make the table from the Template with new_table, fill in its notebook's placeholders as
+    `fill` says and write its Table reference: each code cell's text. `unpartitioned` deletes
+    the lines that name the partition column, as a table with none does, and READS and WHERE,
+    to read the whole of a table that isn't partitioned."""
+    fills, columns, partitioned_by, key = fill
     project.new_table(name, template=template)
     stem = name.replace(".", "__")
-    (root / "references" / f"{stem}.py").write_text(saved_reference(name, columns, key),
-                                                    encoding="utf-8")
+    (root / "references" / f"{stem}.py").write_text(
+        saved_reference(name, columns, partitioned_by, key), encoding="utf-8")
     path = root / "tables" / stem / f"{stem}.ipynb"
     notebook = json.loads(path.read_text(encoding="utf-8"))
     for cell in notebook["cells"]:
-        text = "".join(cell["source"])
+        lines = cell["source"]
+        if unpartitioned and cell["cell_type"] == "code":
+            lines = [line for line in lines if "<PARTITION_COLUMN>" not in line
+                     and line.strip() not in ("READS = <READS>", "WHERE(READS),")]
+        text = "".join(lines)
         for placeholder, value in fills.items():
             text = text.replace(placeholder, value)
         cell["source"] = text.splitlines(keepends=True)
     path.write_text(json.dumps(notebook), encoding="utf-8")
-    return name, ["".join(cell["source"]) for cell in notebook["cells"]
-                  if cell["cell_type"] == "code"]
+    return ["".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code"]
+
+
+def listed(text: str) -> set[str]:
+    """The placeholders a Template's first lines list: the lines after "They are:", up to the
+    first empty one, which come in its first six lines."""
+    lines = text.splitlines()
+    start = next(index for index, line in enumerate(lines) if line.endswith("They are:"))
+    assert start < 6, lines[:start + 1]
+    listing = []
+    for line in lines[start + 1:]:
+        if line.strip() in ("", "#"):
+            break
+        listing.append(line)
+    return set(PLACEHOLDER.findall("\n".join(listing))) - FILLED_BY_NEW_TABLE
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_a_templates_first_lines_list_every_placeholder_it_holds(template: str) -> None:
+    text = TEMPLATES[template]
+    held = set(PLACEHOLDER.findall(text)) - FILLED_BY_NEW_TABLE
+    assert listed(text) == held
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_template_lists_every_placeholder_it_holds(template: str) -> None:
-    text = NOTEBOOK_TEMPLATES[template]
-    held = set(PLACEHOLDER.findall(text)) - FILLED_BY_NEW_TABLE
-    fill_in = text.split("They are:")[1].split("The code cells:")[0]
-    assert set(PLACEHOLDER.findall(fill_in)) == held
-    assert {placeholder[1:-1] for placeholder in FILLS[template][0]} == held
+def test_the_fills_fill_every_placeholder(template: str) -> None:
+    held = set(PLACEHOLDER.findall(NOTEBOOK_TEMPLATES[template])) - FILLED_BY_NEW_TABLE
+    for fills in (FILLS, REGION_FILLS):
+        assert {placeholder[1:-1] for placeholder in fills[template][0]} == held
+
+
+@pytest.mark.parametrize("template", TEMPLATES)
+def test_no_template_speaks_of_a_day(template: str) -> None:
+    text = TEMPLATES[template]
+    assert "<DAY>" not in text and "DAY =" not in text and "first_day" not in text
+    assert '"dt"' not in text and "Date partition" not in text and "DATE_PARTITION" not in text
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
 def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, template: str) -> None:
-    _, code = filled_notebook(started, template)
+    code = filled_notebook(started, template, f"mart.made_from_{template}", FILLS[template])
     assert len(code) == 5
     assert code[1].startswith("# logic\n")
     for text in code:
@@ -121,54 +156,76 @@ def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, templat
 
 
 @pytest.mark.needs_example_database
-@pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_filled_notebooks_logic_writes_its_day(started: Path, template: str) -> None:
-    name, _ = filled_notebook(started, template)
+@pytest.mark.parametrize(("template", "fills", "partition"), [
+    (template, fills, partition) for template in NOTEBOOK_TEMPLATES
+    for fills, partition in ((FILLS, "dt"), (REGION_FILLS, "region"))])
+def test_a_filled_notebooks_logic_writes_the_partitions_its_rows_fill(
+        started: Path, template: str,
+        fills: dict[str, tuple[dict[str, str], dict[str, str], list[str], list[str] | None]],
+        partition: str) -> None:
+    name = f"mart.{template}_by_{partition}"
+    filled_notebook(started, template, name, fills[template])
     logic = project.load(name)
     hive = to_hive(logic.write())
-    # The day comes from the rows, dt last in the SELECT, into its partition of the table.
-    assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name} PARTITION(dt)"
-    assert re.search(r"\.dt\nFROM ", hive), hive
+    # The partition comes from the rows, last in the SELECT, into its Partition of the table.
+    assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name} PARTITION({partition})"
+    assert re.search(rf"\.{partition}\nFROM ", hive), hive
     preview = run(logic.preview(), query=example_database.query)
     assert isinstance(preview, pd.DataFrame) and len(preview) > 0
-    assert list(preview.columns)[-1] == "dt"
-    assert set(preview["dt"]) <= {"2026-09-22", "2026-09-23", DAY}
+    assert list(preview.columns)[-1] == partition
+    assert set(preview[partition]) == {DAY if partition == "dt" else "eu"}
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
+def test_a_notebook_for_a_table_with_no_partitions_writes_it_whole(
+        started: Path, template: str) -> None:
+    """Its partition column's lines and READS deleted, a Template writes a table that isn't
+    partitioned, read from a table that isn't either, ops.team_notes, whole."""
+    fills = {"saved_table": ({"<SOURCE_NAME>": "ops__team_notes", "<SOURCE_TABLE>": "team_notes",
+                              "<GROUP_COLUMN>": "team", "<COUNT_NAME>": '"notes"'},
+                             {"team": "string", "notes": "bigint"}, [], None),
+             "quality_checks": ({"<CHECKED_NAME>": "ops__team_notes",
+                                 "<CHECKED>": "team_notes", "<KEY_COLUMN>": "team"},
+                                {"row_count": "bigint"}, [], None)}[template]
+    name = f"mart.{template}_whole"
+    for text in filled_notebook(started, template, name, fills, unpartitioned=True):
+        assert not PLACEHOLDER.search(text), text
+    logic = project.load(name)
+    hive = to_hive(logic.write())
+    assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name}"
+    assert "WHERE" not in hive
+    preview = run(logic.preview(), query=example_database.query)
+    expected = ({"data": 2, "finance": 2, "web": 1} if template == "saved_table"
+                else {"row_count": 5})
+    assert (preview.set_index("team").notes.to_dict() if template == "saved_table"
+            else {"row_count": int(preview.row_count.iloc[0])}) == expected
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_templates_write_and_preview_take_nothing(template: str) -> None:
+def test_a_templates_functions_take_nothing(template: str) -> None:
     cell = next(cell for cell in NOTEBOOK_TEMPLATES[template].split("# %%\n")
                 if cell.startswith("# logic\n"))
     # Each placeholder made a name, so the cell parses before it is filled in.
     logic = ast.parse(PLACEHOLDER.sub(r"_\1", cell))
     defined = {node.name: node for node in logic.body if isinstance(node, ast.FunctionDef)}
-    for name in ("write", "preview"):
-        assert not defined[name].args.args, (template, name)
+    assert {"create", "rows", "preview", "write"} <= set(defined)
+    for name, function in defined.items():
+        if name != "column_name":
+            assert not function.args.args, (template, name)
     assert "write_day" not in defined and "by_day" not in NOTEBOOK_TEMPLATES[template]
-    # The day it writes is a constant in the logic cell, filled in from <DAY>.
-    assert any(isinstance(node, ast.Assign) and node.targets[0].id == "DAY"
+    # The rows it reads are a constant in the logic cell, filled in from <READS>.
+    assert any(isinstance(node, ast.Assign) and node.targets[0].id == "READS"
                for node in logic.body)
-
-
-def test_an_incremental_load_writes_its_last_days(started: Path) -> None:
-    name, _ = filled_notebook(started, "incremental_load")
-    hive = to_hive(project.load(name).write())
-    # One write of the last 3 days, each into its own partition.
-    assert "job_runs.dt BETWEEN '2026-09-22' AND '2026-09-24'" in hive
-
-
-def test_a_weekly_rollup_reads_its_saved_days_a_week_at_a_time(started: Path) -> None:
-    name, _ = filled_notebook(started, "weekly_rollup")
-    hive = to_hive(project.load(name).week_totals("2026-09-21", DAY))
-    assert "AS week" in hive and "FROM mart.made_from_weekly_rollup" in hive
 
 
 @pytest.mark.needs_example_database
 def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: Path) -> None:
-    name, _ = filled_notebook(started, "quality_checks")
+    name = "mart.made_from_quality_checks"
+    filled_notebook(started, "quality_checks", name, FILLS["quality_checks"])
     logic = project.load(name)
-    assert len(run(logic.repeated_keys(DAY, DAY), query=example_database.query)) == 0
-    nulls = run(logic.null_counts(DAY, DAY), query=example_database.query)
+    assert len(run(logic.repeated_keys(), query=example_database.query)) == 0
+    nulls = run(logic.null_counts(), query=example_database.query)
     assert list(nulls.columns)[0] == "null_event_id"
 
 
@@ -183,32 +240,55 @@ def logic_reading(root: Path, name: str, lines: str) -> TableLogic:
     return project.load(name)
 
 
-def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) -> None:
+def filled_reference(**more: str) -> str:
+    """The Saved table's Table reference Template, filled in for mart.daily_runs."""
     text = SAVED_TABLE_REFERENCE
     for placeholder, value in {"<DB>": "mart", "<TABLE>": "daily_runs",
                                "<NAME>": "mart__daily_runs", "<COLUMN>": '"job_id"',
                                "<COLUMN_TYPE>": '"bigint"',
-                               "<LOCATION>": '"/data/your_team/mart.db/daily_runs"'}.items():
+                               "<LOCATION>": '"/data/your_team/mart.db/daily_runs"',
+                               **more}.items():
         text = text.replace(placeholder, value)
+    return text
+
+
+def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) -> None:
+    (started / "references" / "mart__daily_runs.py").write_text(filled_reference(),
+                                                                 encoding="utf-8")
+    logic = logic_reading(started, "mart.reader", "from references.mart__daily_runs import "
+                          "daily_runs\n\n\ndef table():\n    return daily_runs\n")
+    table = logic.table()
+    assert repr(table) == "Table('mart.daily_runs', columns: job_id)"
+    # Neither partitioned nor keyed until you say so.
+    assert table._partitioned_by == [] and table._key is None
+
+
+def test_the_saved_table_reference_template_takes_any_partition_column(started: Path) -> None:
+    text = filled_reference().replace(
+        '        "job_id": "bigint",', '        "job_id": "bigint",\n        "region": "string",'
+    ).replace("partitioned_by=[],", 'partitioned_by=["region"],').replace(
+        "key=None,", 'key=["job_id", "region"],')
     (started / "references" / "mart__daily_runs.py").write_text(text, encoding="utf-8")
     logic = logic_reading(started, "mart.reader", "from references.mart__daily_runs import "
                           "daily_runs\n\n\ndef table():\n    return daily_runs\n")
-    assert repr(logic.table()) == "Table('mart.daily_runs', columns: job_id, dt)"
+    assert logic.table()._partitioned_by == ["region"]
 
 
 def test_the_building_block_template_filled_in_is_a_derived_table(started: Path) -> None:
     text = BUILDING_BLOCK
-    for placeholder, value in {"<BLOCK>": "minutes_per_job_day",
-                               "<BLOCK_NAME>": '"minutes_per_job_day"', **SOURCE,
+    for placeholder, value in {"<BLOCK>": "minutes_per_job",
+                               "<BLOCK_NAME>": '"minutes_per_job"',
+                               "<SOURCE_NAME>": "ops__job_runs", "<SOURCE_TABLE>": "job_runs",
                                "<GROUP_COLUMN>": "job_id", "<NUMBER_COLUMN>": "duration_mins",
                                "<TOTAL_NAME>": '"minutes"'}.items():
         text = text.replace(placeholder, value)
-    (started / "building_blocks" / "minutes_per_job_day.py").write_text(text, encoding="utf-8")
-    logic = logic_reading(started, "mart.reader", "from building_blocks.minutes_per_job_day "
-                          "import minutes_per_job_day\n\n\ndef block(day):\n"
-                          "    return minutes_per_job_day(day, day)\n")
+    (started / "building_blocks" / "minutes_per_job.py").write_text(text, encoding="utf-8")
+    logic = logic_reading(started, "mart.reader", "from building_blocks.minutes_per_job "
+                          "import minutes_per_job\nfrom references.ops__job_runs import "
+                          "job_runs\nfrom sqlglot_composer import equals\n\n\ndef block(day):\n"
+                          "    return minutes_per_job(equals(job_runs.dt, day))\n")
     assert repr(logic.block(DAY)) == (
-        "derived('minutes_per_job_day', columns: job_id, dt, row_count, minutes)")
+        "derived('minutes_per_job', columns: job_id, row_count, minutes)")
 
 
 def test_the_readme_names_each_template_the_toolbox_ships() -> None:

@@ -6,8 +6,9 @@
 # Why: a day's bill can come in after the day was saved, so each run saves the last few days
 # again, and a day saved twice must hold the same rows, not twice as many.
 #
-# Made by `project.new_table("mart.job_day_costs", template="incremental_load")`, then filled
-# in. Its rows come from the Building block `building_blocks/costs_per_job_day.py`, and the days
+# Made by `project.new_table("mart.job_day_costs")` from `admin/templates/saved_table.py`, then
+# filled in, its rows() taking the days it writes, since it writes several: an incremental
+# load, each run writing its last 3 days again. Its rows come from the Building block `building_blocks/costs_per_job.py`, and the days
 # each run writes from `building_blocks/days_rewritten.py`, which each counting table of the
 # project shares. A bill lands in the partition of the day it is for, but can come in later:
 # invoice_sync's (job 2's) for 2026-09-24 is still NULL in ops.region_costs, and the next run
@@ -35,7 +36,7 @@ from warehouse import query
 from sqlglot_composer import (
     FROM, INSERT_OVERWRITE, SELECT, Clause, Statement, create_table, statement,
 )
-from building_blocks.costs_per_job_day import costs_per_job_day
+from building_blocks.costs_per_job import costs_per_job
 from building_blocks.days_rewritten import first_day_written
 from references.mart__job_day_costs import job_day_costs
 
@@ -51,7 +52,7 @@ def rows(first_day: str, last_day: str) -> list[Clause]:
     """The clauses every step below shares: each job's cost per day. The day comes last in
     SELECT: INSERT_OVERWRITE writes each day's rows into that day's Partition, and replaces
     only the days the rows hold."""
-    costs = costs_per_job_day(first_day, last_day)
+    costs = costs_per_job(first_day, last_day)
     return [SELECT(costs.job_id, costs.cost_cents, costs.dt), FROM(costs)]
 
 

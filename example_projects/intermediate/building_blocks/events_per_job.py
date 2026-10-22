@@ -1,4 +1,4 @@
-"""events_per_job_day - one row per job and day: its events, runs and minutes.
+"""events_per_job - each job's events, runs and minutes for each dt it reads.
 
 Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks a day from
 them too, and writing them once here means the two always count them the same way.
@@ -15,8 +15,8 @@ from sqlglot_composer import (
 from references.ops__job_events import ends_a_run, job_events  # ends_a_run: an Alias
 
 
-def events_per_job_day(first_day: str, last_day: str) -> Table:
-    """One row per job and day from first_day to last_day: its events, runs and minutes.
+def events_per_job(first_day: str, last_day: str) -> Table:
+    """One row per job and dt from first_day to last_day: its events, runs and minutes.
 
     The day, dt, ops.job_events' partition column, is kept in GROUP_BY, so each day's numbers
     stay apart when first_day and last_day are days apart, and in SELECT, so a Statement that
@@ -24,7 +24,7 @@ def events_per_job_day(first_day: str, last_day: str) -> Table:
     each day's Partition from it.
     """
     return derived(
-        "events_per_job_day",
+        "events_per_job",
         statement(
             SELECT(
                 job_events.job_id,
