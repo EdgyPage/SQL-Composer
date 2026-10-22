@@ -1,6 +1,6 @@
 # The Toolbox reaches nothing but send
 
-Status: accepted
+Status: accepted; amended by ADR 0012 (7.0), whose `query` and `execute` replace `send` as the one way out
 
 The Toolbox builds Hive text and hands it to the user's own `send`, which sends it to their
 warehouse. On 2026-10-06 the user asked for the repo and its libraries to be audited for anything

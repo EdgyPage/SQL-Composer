@@ -18,7 +18,7 @@ from types import FrameType
 
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 # --- Session settings ------------------------------------------------------------------------

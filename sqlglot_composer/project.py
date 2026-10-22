@@ -61,7 +61,7 @@ from .refusals import callers_frame, refuse
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, _code, _script_line, _write_entry
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 __all__ = ["start", "new_table", "remove_table", "add_references", "remove_reference",
            "register", "check", "refresh_reference_sheet", "load", "run_tables"]

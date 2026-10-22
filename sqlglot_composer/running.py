@@ -57,7 +57,7 @@ from .unchecked import (
 )
 from .windows import call_of
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 # The two seams that ship switched off. set_load_limits(...) switches them on.
 _limits = {"rows": None, "dates": None}

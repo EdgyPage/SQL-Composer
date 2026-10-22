@@ -15,7 +15,7 @@ Template changes only the notebooks made after.
 
 from __future__ import annotations
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str,

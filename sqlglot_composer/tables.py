@@ -51,7 +51,7 @@ from .trees import (
 if TYPE_CHECKING:  # clauses.py imports this file
     from .clauses import Statement
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 # The day a message writes when it needs an example of one: the day after the Example

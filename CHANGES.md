@@ -2,6 +2,15 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 7.0
+
+7.0 changes how the Toolbox reaches your warehouse and drops its assumption that tables are
+built a day at a time, so some of your files change: each change below says how.
+
+### To update from 6.x
+
+- **Copy the `sqlglot_composer` folder in over 6.1's**, and restart the kernel.
+
 ## 6.1
 
 Nothing to change in your notebooks or files: copy the `sqlglot_composer` folder in over 6.0's.

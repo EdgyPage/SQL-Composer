@@ -15,7 +15,7 @@ folders, a shared core and an Edition's own.
 _Avoid_: library, package, framework, SQL module, Edition, Composer core
 
 **Toolbox version**:
-The feature number of the Toolbox (`6.1`), raised only when a big feature lands. Two copies of
+The feature number of the Toolbox (`7.0`), raised only when a big feature lands. Two copies of
 the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
