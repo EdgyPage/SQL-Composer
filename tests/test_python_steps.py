@@ -383,7 +383,7 @@ def write() -> Statement:
 @pytest.fixture
 def python_table(a_project: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A Project with mart.run_margins, written in Python, and mart.slow_runs, which reads it."""
-    monkeypatch.setattr(toolbox_module("project"), "_now",
+    monkeypatch.setattr(toolbox_module("unchecked"), "now",
                         lambda: datetime.datetime(2026, 10, 21, 9, 30))
     templates = a_project / "admin" / "templates"
     (templates / "margins.py").write_text(MARGINS_LOGIC, encoding="utf-8")

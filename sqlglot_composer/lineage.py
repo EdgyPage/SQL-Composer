@@ -22,7 +22,7 @@ from pathlib import Path
 from types import FrameType
 from typing import NoReturn
 
-from . import kinds
+from . import kinds, unchecked
 from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, possessive, statement_keys, unproven, wanted_key
@@ -32,7 +32,7 @@ from .running import name_in, statements_within, to_hive
 from .stacking import STACK_HOW, nth
 from .tables import Table, readable
 from .trees import Node, rows_text
-from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_written
+from .unchecked import SessionSettings, UncheckedStatement, inline_code, tables_read_and_written
 from .windows import call_of
 from .writing import hive_text
 
@@ -95,11 +95,11 @@ class Graph:
         """The boxes with an arrow into `key`: only arrows of `kind`, unless it is None."""
         return [a for a, b, k in self.arrows if b == key and kind in (None, k)]
 
-    def upstream(self, key: str, kind: str | None = None) -> list[str]:
-        """Every box with a path of arrows into `key`: only arrows of `kind`, unless it is None."""
+    def upstream(self, key: str) -> list[str]:
+        """Every box with a path of arrows into `key`."""
         seen, todo = [], [key]
         while todo:
-            for parent in self.parents(todo.pop(), kind):
+            for parent in self.parents(todo.pop()):
                 if parent not in seen:
                     seen.append(parent)
                     todo.append(parent)
@@ -563,18 +563,11 @@ def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, 
 # --- The report ------------------------------------------------------------------------------
 
 
-def _code(text: str) -> str:
-    """Markdown inline code, with a fence that survives backticks inside it."""
-    fence = "`" * (max((len(run) for run in re.findall(r"`+", text)), default=0) + 1)
-    pad = " " if text.startswith("`") or text.endswith("`") else ""
-    return f"{fence}{pad}{text}{pad}{fence}"
-
-
 def _how(box: dict[str, object]) -> str:
     """How the report names a calculation: as written, then the Hive it became."""
     if box["formula"] != box["sql"]:
-        return f"{_code(box['formula'])}, which is {_code(box['sql'])}"
-    return _code(box["sql"])
+        return f"{inline_code(box['formula'])}, which is {inline_code(box['sql'])}"
+    return inline_code(box["sql"])
 
 
 def tree_lines(graph: Graph, key: str, prefix: str = "", last: bool = True,
@@ -829,7 +822,7 @@ def _section_markdown(section: dict[str, object]) -> list[str]:
               "calculated.", ""]
     for entry in section["calculated"]:
         box = entry["box"]
-        lines += [f"#### {_code(box['name'])}", "",
+        lines += [f"#### {inline_code(box['name'])}", "",
                   f"Calculated in **{box['group']}** as {_how(box)}.", "",
                   "```text", entry["tree"], "```", ""]
         if entry["conditions"]:
@@ -840,12 +833,12 @@ def _section_markdown(section: dict[str, object]) -> list[str]:
             lines.append("")
         if box["group_by"]:
             lines += ["One value for each different "
-                      + " and ".join(_code(g) for g in box["group_by"]) + ".", ""]
+                      + " and ".join(inline_code(g) for g in box["group_by"]) + ".", ""]
     if not section["calculated"]:
         lines += ["None: every column is copied.", ""]
     if section["copied"]:
         lines += ["### Copied columns", "", "| Output | Comes from |", "| --- | --- |"]
-        lines += [f"| {_code(name)} | {' ← '.join(chain)} |" for name, chain in section["copied"]]
+        lines += [f"| {inline_code(name)} | {' ← '.join(chain)} |" for name, chain in section["copied"]]
         lines.append("")
     lines += ["### Keys", "", KEYS_ABOUT, ""] + [f"- {line}" for line in section["keys"]] + [""]
     lines += ["### Hive as submitted", ""]
@@ -1185,7 +1178,7 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     """
     statements, settings = _check_statements(statements)
     frame = inspect.currentframe().f_back
-    when = _now()
+    when = unchecked.now()
     names = statement_names(statements, frame)
     caller = calling_file(frame)
     commit = scripts_commit(caller_folder(caller))
@@ -1204,11 +1197,6 @@ def export_lineage(*statements: Statement | SessionSettings | UncheckedStatement
     markdown_path.write_text(markdown, encoding="utf-8")
     html_path.write_text(page, encoding="utf-8")
     return html_path, markdown_path
-
-
-def _now() -> datetime.datetime:
-    """The time a lineage is exported, which names its files and is in their footer."""
-    return datetime.datetime.now()
 
 
 def _version() -> str:

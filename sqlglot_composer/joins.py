@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, NoReturn
 from .conditions import Condition
 from .refusals import guard_full_join_then_where, refuse
 from .tables import Table
-from .trees import Node
+from .trees import Node, and_parts
 
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
@@ -56,19 +56,13 @@ def need_broadcast_true_or_false(call: str, table: Table, broadcast: object) -> 
         )
 
 
-def _and_parts(tree: Node) -> list[Node]:
-    if tree.kind != "And":
-        return [tree]
-    return [part for side in tree.flatten() for part in _and_parts(side)]
-
-
 def tested_column(table: Table, on: Condition) -> str | None:
     """The column of `table` an ANTI_JOIN tests for NULL: one ON= sets equal to another
     table's column, else to anything that doesn't read `table`, such as a value, with
     equals(...) joined by AND at its top. A matched row has a value there, so a row with NULL
     there matched none. None when ON= has no such equals."""
     fallback = None
-    for part in _and_parts(on._tree):
+    for part in and_parts(on._tree):
         if part.kind != "EQ":
             continue
         sides = (part.parts["this"], part.parts["expression"])

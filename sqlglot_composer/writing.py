@@ -18,7 +18,7 @@ from sqlglot.errors import ErrorLevel
 from .refusals import four_part_message
 from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
-from .engine import _INSTALL_NEWER
+from .engine import INSTALL_NEWER
 
 TOOLBOX_VERSION = "7.1"
 
@@ -165,7 +165,7 @@ def check_writable_type(text: str, subject: str) -> None:
             f"{sqlglot.__version__}, writes a struct without the colons Hive needs: "
             "STRUCT<name STRING> where Hive reads STRUCT<name: STRING>.",
             why="Hive would refuse the CREATE TABLE.",
-            fix=_INSTALL_NEWER,
+            fix=INSTALL_NEWER,
             opt_out=None,
         )
     )

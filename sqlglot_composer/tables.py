@@ -54,8 +54,6 @@ if TYPE_CHECKING:  # clauses.py and conditions.py import this file
 
 TOOLBOX_VERSION = "7.1"
 
-# How a date is written in Hive text, as Hive writes one: 2026-09-25.
-DATE_FORMAT = "%Y-%m-%d"
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
 # The partition Hive lists for the rows whose partition column is NULL.

@@ -474,8 +474,6 @@ def arguments_of(function: Callable[..., object]) -> str:
     parameters = [parameter for parameter in inspect.signature(function).parameters.values()
                   if parameter.kind is not parameter.VAR_KEYWORD]
     names = [f"{parameter.name}=" for parameter in parameters]
-    if not names:
-        return "nothing"
     first = parameters[0]
     if first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
         names[0] = first.name

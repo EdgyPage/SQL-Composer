@@ -178,7 +178,7 @@ def _write_tree(s: Statement) -> Node:
     return Node("Insert", target=target, select=_select_tree(s), overwrite=s._replaces_rows)
 
 
-def _statement_tree(s: Statement) -> Node:
+def statement_tree(s: Statement) -> Node:
     """The whole tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
     if not kinds.is_a_query(s):
         return s._ddl.copy()
@@ -231,18 +231,18 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) ->
     if kinds.kind(s) == kinds.PYTHON:
         _refuse_a_python_step("to_hive", "It writes the Hive a Statement sends, and a "
                               "Python step has none")
-    _need_statement(s, "to_hive", inspect.currentframe().f_back,
+    need_statement(s, "to_hive", inspect.currentframe().f_back,
                     why="to_hive writes the Hive of one Statement made by statement(...).")
     if s._admin_hive is not None:
         # An ALTER TABLE, which the admin module writes from pieces writing.py wrote and
         # checked: not a tree writing.py reads back.
         return s._admin_hive
-    text = writing.hive_statement(_statement_tree(s))
+    text = writing.hive_statement(statement_tree(s))
     _self_check(text)
     return text
 
 
-def _need_statement(s: object, call: str, frame: FrameType | None, why: str,
+def need_statement(s: object, call: str, frame: FrameType | None, why: str,
                     more: str = "") -> None:
     """Refuse what isn't a Statement, in the name of `call`, the function it was given to.
 
@@ -454,7 +454,7 @@ def _shown(s: object, frame: FrameType) -> str:
         return unchecked_text(s)
     if kinds.kind(s) == kinds.PYTHON:
         return python_step_text(s)
-    _need_statement(s, "show_hive", frame,
+    need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
     return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
 
@@ -595,7 +595,7 @@ def _need_its_call(s: object, call: str, through: str, frame: FrameType | None) 
         _refuse_a_python_step(call, "It sends Hive through your query or execute, and a "
                               "Python step has none")
     if marked is None:
-        _need_statement(s, call, frame, why=f"{call} writes the Hive of one Statement made by "
+        need_statement(s, call, frame, why=f"{call} writes the Hive of one Statement made by "
                         "statement(...) and sends it.",
                         more=", query" if through == kinds.QUERY else ", execute")
     if kinds.sent_by(s) in (through, kinds.EITHER):

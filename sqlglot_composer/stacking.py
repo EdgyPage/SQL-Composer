@@ -20,7 +20,7 @@ from __future__ import annotations
 from itertools import combinations
 
 from . import kinds
-from .clauses import Statement, _flatten, _resolve_group_by, derived_tables
+from .clauses import Statement, flattened, resolve_group_by, derived_tables
 from .conditions import Condition
 from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
@@ -206,7 +206,7 @@ def stacked(call: str, statements: list[object] | tuple[object, ...],
 
 
 def _branches(call: str, statements: list[object] | tuple[object, ...]) -> list[Statement]:
-    found = _flatten(statements)
+    found = flattened(statements)
     for position, s in enumerate(found, start=1):
         _check_branch(call, position, s)
     if len(found) < 2:
@@ -449,7 +449,7 @@ def rollup(*columns: Column | str | list[Column | str]) -> Subtotals:
     this form rather than ROLLUP, so the Hive names each set of rows it makes.
     """
     call = f"rollup({', '.join(python_text(column) for column in columns)})"
-    items = _once(_subtotal_columns(call, _flatten(columns)))
+    items = _once(_subtotal_columns(call, flattened(columns)))
     _need_some(call, items, "rollup(jobs.team, jobs.job_name)")
     sets = [list(range(size)) for size in range(len(items), -1, -1)]
     return Subtotals(call, items, sets)
@@ -484,7 +484,7 @@ def cube(*columns: Column | str | list[Column | str]) -> Subtotals:
     works as rollup(...) does in every other way.
     """
     call = f"cube({', '.join(python_text(column) for column in columns)})"
-    items = _once(_subtotal_columns(call, _flatten(columns)))
+    items = _once(_subtotal_columns(call, flattened(columns)))
     _need_some(call, items, "cube(jobs.team, jobs.region)")
     sets = [list(chosen) for size in range(len(items), -1, -1)
             for chosen in combinations(range(len(items)), size)]
@@ -520,7 +520,7 @@ def grouping_sets(*sets: list[Column | str] | Column | str) -> Subtotals:
     """
     call = f"grouping_sets({', '.join(python_text(each) for each in sets)})"
     _need_some(call, sets, "grouping_sets([jobs.team], [jobs.region], [])")
-    listed = [_once(_subtotal_columns(call, _flatten([each]))) for each in sets]
+    listed = [_once(_subtotal_columns(call, flattened([each]))) for each in sets]
     items = _once([item for each in listed for item in each])
     found = []
     for each in listed:
@@ -581,7 +581,7 @@ def grouped(s: Statement, items: list[Column | str | Subtotals]
     when it has no subtotals."""
     found = [item for item in items if isinstance(item, Subtotals)]
     if not found:
-        return _resolve_group_by(s, items), None, None
+        return resolve_group_by(s, items), None, None
     if len(found) > 1:
         refuse(
             what=f"GROUP_BY has {found[0]._call} and {found[1]._call}.",
@@ -591,8 +591,8 @@ def grouped(s: Statement, items: list[Column | str | Subtotals]
             error=ValueError,
         )
     subtotals = found[0]
-    plain = _resolve_group_by(s, [item for item in items if item is not subtotals])
-    columns = _resolve_group_by(s, subtotals._columns)
+    plain = resolve_group_by(s, [item for item in items if item is not subtotals])
+    columns = resolve_group_by(s, subtotals._columns)
     every = _once(plain + columns)
     sets = [_once(plain + [columns[place] for place in places]) for places in subtotals._sets]
     return every, sets, subtotals._call

@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 TOOLBOX_VERSION = "7.1"
 
-def _need_column(column: object, call: str) -> Column:
+def need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
         return column
     refuse(
@@ -92,7 +92,7 @@ def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: 
                because: str | None = None, distinct: bool = False,
                over: object = None) -> Column:
     call = f"{name}({python_text(column)})"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     _not_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
@@ -172,7 +172,7 @@ def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False
     SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
     """
     call = f"sum_of({python_text(column)})"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("sum_of", "Sum", column, where, over=over)
 
@@ -197,7 +197,7 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
     AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
     """
     call = f"average_of({python_text(column)})"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because, adds_up)
     return _aggregate("average_of", "Avg", column, where, adds_up=False,
                       because="an average", over=over)
@@ -269,7 +269,7 @@ def fill_null(column: Column, value: Column | str | int | float | datetime.date)
     COALESCE(job_runs.status, 'RUNNING')
     """
     call = f"fill_null({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = need_column(column, call)
     other = _as_column(value, call)
     return Column(
         made_by(Node("Coalesce", this=column._tree.copy(), expressions=[other._tree.copy()]),
@@ -299,7 +299,7 @@ def week_start(column: Column) -> Column:
     partition column or not, whose days are written as Hive's date functions read them, like
     "2026-09-25".
     """
-    column = _need_column(column, "week_start(...)")
+    column = need_column(column, "week_start(...)")
     week_ago = _call("date_sub", column._tree.copy(), number("7"))
     tree = Node("Cast", this=_call("next_day", week_ago, string("MO")), to="STRING")
     return Column(made_by(tree, "week_start", column), type="string")
@@ -316,7 +316,7 @@ def month_start(column: Column) -> Column:
     it is always typed "string". Like week_start, it works on any column of dates written like
     "2026-09-25".
     """
-    column = _need_column(column, "month_start(...)")
+    column = need_column(column, "month_start(...)")
     tree = Node("Cast", this=_call("trunc", column._tree.copy(), string("MM")), to="STRING")
     return Column(made_by(tree, "month_start", column), type="string")
 
@@ -363,7 +363,7 @@ def descending(column: Column | str) -> Ordering:
     ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
     """
     if not isinstance(column, (Column, str)):
-        _need_column(column, "descending(...)")
+        need_column(column, "descending(...)")
     return Ordering(column)
 
 
@@ -374,7 +374,7 @@ def ordered(item: object, call: str) -> Node:
     if isinstance(target, str):
         tree = Node("Column", name=target)
     else:
-        tree = _need_column(target, call)._tree.copy()
+        tree = need_column(target, call)._tree.copy()
     return Node("Ordered", this=tree, desc=descending_order)
 
 
