@@ -1,7 +1,7 @@
 # One reader and writer for a Project's notebooks
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 08
 Size: S
 
@@ -29,3 +29,23 @@ JSONDecodeError instead of the Toolbox's refusal.
   `tools/code_audit.py` keep their own readers: they read the repo without importing the
   Toolbox.
 - No public name added; `tools/toolbox_registry.py` lists the new file.
+
+## Answer
+
+Built 2026-10-22 in a worktree (e5e43a0), merged into dev as 98b3723; drift fixes 2f27ee6; review fixes efcb9d6.
+`sqlglot_composer/notebooks.py`: `read_cells`, `logic_cell`, `template_cells`,
+`write_notebook`, `LOGIC`. project.load refuses a notebook that isn't JSON or has no list of
+cells Jupyter can read, naming it; `_importers` still passes over a broken notebook, so
+remove_block isn't stopped by one that imports nothing. The tools and tests use it;
+offline_policy, code_audit and the offline hook keep their own readers.
+
+## Reviews
+
+- Spec (2026-10-22): nothing missing. Answered: test_levels now checks the first logic cell,
+  as load does; an empty list of cells is read as no cells (a Template may write one);
+  `_importers` catches the refusal's ValueError.
+- Standards (2026-10-22): no breach. `found` renamed `listed`. Answered: `shown`/`call`
+  travel together for the refusal, and a cell stays a plain (kind, text) pair, as the
+  standards prefer plain functions and values to machinery.
+- Beginner reader: see ticket 09's.
+- Drift: 98b3723 opened D248 and D249, closed by 2f27ee6.
