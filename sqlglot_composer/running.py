@@ -1,8 +1,8 @@
 """Running: turn a Statement into Hive, send it, and set the load limit on rows.
 
-run(s, query=..., execute=...) is the only way the Toolbox reaches the warehouse, through your
-own two functions: `query` takes a Hive string and gives back a DataFrame, `execute` takes one
-and gives back nothing. Connection, retries and saving CSVs stay in them. The Toolbox never
+run_query(s, query) and run_execute(s, execute) are how a Statement reaches the warehouse,
+through your own two functions: `query` takes a Hive string and gives back a DataFrame,
+`execute` takes one and gives back nothing. You choose which by the one you call. Connection, retries and saving CSVs stay in them. The Toolbox never
 imports them.
 """
 
@@ -16,7 +16,7 @@ from typing import NoReturn
 
 import pandas as pd
 
-from . import _FOLDER, writing
+from . import _FOLDER, kinds, writing
 from .clauses import Clause, Statement, derived_tables
 from .conditions import Condition
 from .joins import HOW, anti_join_tests, broadcast
@@ -42,7 +42,7 @@ from .unchecked import (
     unchecked_text,
 )
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # The seam that ships switched off. set_load_limits(...) switches it on.
 _limits = {"rows": None}
@@ -57,7 +57,7 @@ def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int
     {'rows': None}
 
     Call it from your own notebook, since the Toolbox folder is replaced on each update.
-    `rows` adds LIMIT rows to every Statement that has no LIMIT of its own, and run(...)
+    `rows` adds LIMIT rows to every Statement that has no LIMIT of its own, and run_query(...)
     refuses a result that fills it, since it was probably cut short. Left out, there is no
     limit, so set_load_limits() switches it off. It returns the limits now in force.
     """
@@ -109,7 +109,7 @@ def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
     """A Statement's SELECT, from FROM to LIMIT, without WITH. `order` puts its outputs in the
     order of those names, as a Stack puts each Statement's in its first one's order."""
     outputs = s._outputs
-    if s._write is not None:
+    if kinds.kind(s) == kinds.WRITE:
         # The table's columns in its order, then the partition columns its rows fill, which
         # Hive fills from the last columns; partition={...} gives the others their values.
         partitioned_by = s._write._partitioned_by
@@ -157,7 +157,7 @@ def _with(tree: Node, s: Statement) -> Node:
 
 def automatic_limit(s: Statement) -> int | None:
     """The automatic LIMIT this Statement gets when sent, if any."""
-    if s._write is not None or s._limit is not None or s._returns_all_rows:
+    if kinds.kind(s) == kinds.WRITE or s._limit is not None or s._returns_all_rows:
         return None
     return _limits["rows"]
 
@@ -198,9 +198,9 @@ def _write_tree(s: Statement) -> Node:
 
 def _statement_tree(s: Statement) -> Node:
     """The whole tree to_hive writes: CREATE or DROP, a write, or a SELECT."""
-    if s._ddl is not None:
+    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
         return s._ddl.copy()
-    if s._write is not None:
+    if kinds.kind(s) == kinds.WRITE:
         return _with(_write_tree(s), s)
     tree = _query_tree(s)
     limit = automatic_limit(s)
@@ -242,11 +242,11 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) ->
     lines, one to a line; given an Unchecked statement, its text as you wrote it. A Python
     step has no Hive, so it is refused: show_hive prints comment lines saying what it is.
     """
-    if isinstance(s, SessionSettings):
+    if kinds.kind(s) == kinds.SETTINGS:
         return "\n".join(s._lines)
-    if isinstance(s, UncheckedStatement):
+    if kinds.kind(s) == kinds.UNCHECKED:
         return s._text
-    if isinstance(s, PythonStep):
+    if kinds.kind(s) == kinds.PYTHON:
         _refuse_a_python_step("to_hive", "It writes the Hive a Statement sends, and a "
                               "Python step has none")
     _need_statement(s, "to_hive", inspect.currentframe().f_back,
@@ -311,9 +311,10 @@ def settings_needed(s: Statement) -> list[str]:
     """The lines show_hive prints ahead of a Statement: a note and the SET lines of the
     Session setting it needs, or none. A write that fills a partition column from its rows,
     one partition={...} doesn't name, needs Hive's dynamic partitioning, the shipped set
-    "dynamic_partitions", which the user sends with run(hive_settings("dynamic_partitions"),
-    execute=...). run sends the Statement alone."""
-    if s._ddl is not None or s._write is None:
+    "dynamic_partitions", which the user sends with
+    run_execute(hive_settings("dynamic_partitions"), execute). run_execute sends the Statement
+    alone."""
+    if kinds.kind(s) != kinds.WRITE:
         return []
     filled = ", ".join(column for column in s._write._partitioned_by
                        if column not in s._static_partitions)
@@ -344,7 +345,7 @@ class HiveText(str):
 
 
 class HivePlan(str):
-    """The plan run(explain(s), query=...) gives back, as text. In a notebook it is printed,
+    """The plan run_query(explain(s), query) gives back, as text. In a notebook it is printed,
     line by line, rather than shown as one string."""
 
     def _ipython_display_(self) -> None:
@@ -375,15 +376,15 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     WHERE
       job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED';
 
-    Each Statement's Hive is exactly what to_hive gives and run sends, with a ; added at the
-    end, which a program such as Hue, Beeline or DBeaver needs between Statements; run sends
-    it without one. Pass several Statements, or a list of them, and each is headed by a
+    Each Statement's Hive is exactly what to_hive gives and run_query or run_execute sends,
+    with a ; added at the end, which a program such as Hue, Beeline or DBeaver needs between
+    Statements; they send it without one. Pass several Statements, or a list of them, and each is headed by a
     comment: its number, and the name of the variable it is in, such as -- 1 of 2: failed_runs,
     or, for one in a list, steps[0]. It refuses whatever to_hive would. A write that fills
     Partitions from its rows, into a table with partitioned_by=, is printed after the Session
-    setting it needs: a line saying so, then its SET lines, which run
-    doesn't send with it: send them first with run(hive_settings("dynamic_partitions"),
-    execute=...). An Admin statement, from the admin module, is printed after comment lines
+    setting it needs: a line saying so, then its SET lines, which run_execute
+    doesn't send with it: send them first with run_execute(hive_settings("dynamic_partitions"),
+    execute). An Admin statement, from the admin module, is printed after comment lines
     saying what it changes, what can't be undone, and what to check first. A Python step has
     no Hive: it is printed as comment lines saying where its function lives, what it read and
     wrote, and that nothing is sent for it.
@@ -450,87 +451,56 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
 def _shown(s: object, frame: FrameType) -> str:
     """What show_hive prints for one of the things it is given, or the refusal of what isn't
     one: `frame` is its caller's."""
-    if isinstance(s, SessionSettings):
+    if kinds.kind(s) == kinds.SETTINGS:
         return settings_text(s)
-    if isinstance(s, UncheckedStatement):
+    if kinds.kind(s) == kinds.UNCHECKED:
         return unchecked_text(s)
-    if isinstance(s, PythonStep):
+    if kinds.kind(s) == kinds.PYTHON:
         return python_step_text(s)
     _need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
     return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
 
 
-def run(s: Statement | SessionSettings | UncheckedStatement | PythonStep, *,
-        query: Callable[[str], pd.DataFrame] | None = None,
-        execute: Callable[[str], None] | None = None,
-        **removed: object) -> pd.DataFrame | str | None:
-    """Send a Statement's Hive through your query or execute; a read gives back rows.
+def run_query(s: Statement | UncheckedStatement,
+              query: Callable[[str], pd.DataFrame] | None = None,
+              **removed: object) -> pd.DataFrame | HivePlan:
+    """Send a Statement's Hive through your query, and give back the rows it reads.
 
-    >>> run(statement(
+    >>> run_query(statement(
     ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
     ...     FROM(job_runs),
     ...     WHERE(equals(job_runs.status, "FAILED"), last_n_days(job_runs.dt, 2)),
-    ... ), query=example_database.query)
+    ... ), example_database.query)
        run_id  job_id          dt
     0      97       3  2026-09-23
     1     102       2  2026-09-24
 
-    `query` and `execute` are your own functions, in your Project's warehouse.py: `query`
-    sends Hive whose rows you want back and gives them back as a pandas DataFrame; `execute`
-    sends Hive that changes something, and gives back nothing. run picks which one each
-    Statement goes to, so pass the ones it needs: a read and explain(s) go to `query`; a write,
-    create_table, hive_settings(...) and the Admin statements go to `execute`, but for the step
-    of admin.move_to_own_folder that compares the counts, which reads rows through `query`; an
-    Unchecked statement goes to the one its returns_rows= names. At work they call your query API; example_database.query and
-    example_database.execute stand in for them.
+    `query` is your own function, in your Project's warehouse.py: it sends Hive whose rows you
+    want back and gives them back as a pandas DataFrame. At work it calls your query API;
+    example_database.query stands in for it. You choose the call: run_query for a Statement
+    that reads rows, run_execute(s, execute) for one that changes something.
 
-    A read, and an Unchecked statement with returns_rows=True, give back their rows; explain(s)
-    gives back Hive's plan as text; the rest give back None. A write that fills Partitions from
-    its rows needs the Session setting "dynamic_partitions" sent first, with
-    run(hive_settings("dynamic_partitions"), execute=...), as show_hive prints and
-    help(INSERT_OVERWRITE) explains: run sends the write alone. hive_settings(...) sends each SET line as a call of its own.
-    A Python step is refused, since it sends nothing: you save its rows yourself.
+    It takes a read, made by statement(...) with no write, and gives back its rows, refusing a
+    result that isn't a DataFrame, or that fills the row limit set_load_limits(rows=...) set,
+    since it was probably cut short. Given explain(s), it gives back Hive's plan as text. Given
+    an Unchecked statement, it sends your text as written, gives back its rows, and adds an
+    entry to the Admin log. It refuses what changes something, a write, create_table(t), an
+    upkeep or Admin statement and hive_settings(...), saying to send it with run_execute; and a
+    Python step, which sends nothing.
     """
-    refuse_removed_arguments("run", removed, run)
-    if isinstance(s, PythonStep):
-        _refuse_a_python_step("run", "It sends Hive through your query or execute, and a "
-                              "Python step has none")
-    if isinstance(s, SessionSettings):
-        need_warehouse_call("run", "execute", execute,
-                            "Session settings change the session, and give back no rows.")
-        for line in s._lines:  # Hive takes one SET per call
-            execute(line)
-        return None
-    if isinstance(s, UncheckedStatement):
-        return _run_unchecked(s, query, execute)
-    _need_statement(s, "run", inspect.currentframe().f_back,
-                    why="run writes the Hive of one Statement made by statement(...) and "
-                    "sends it.", more=", execute=..." if query is None and execute is not None
-                    else ", query=...")
+    _refuse_the_other_call("run_query", "execute", "run_execute", removed)
+    refuse_removed_arguments("run_query", removed, run_query)
+    _need_its_call(s, "run_query", kinds.QUERY, inspect.currentframe().f_back)
+    need_warehouse_call("run_query", "query", query,
+                        "run_query sends the Hive through your query, which gives back rows.")
+    if kinds.kind(s) == kinds.UNCHECKED:
+        rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
+        refuse_what_isnt_a_dataframe(rows)
+        return rows
     text = to_hive(s)
-    if s._admin_call is not None:
-        check = s._admin_check
-        if check is None:
-            need_warehouse_call("run", "execute", execute,
-                                "This Admin statement changes a table, and gives back no rows.")
-            logged_run("Admin statement", s._admin_call, text, execute)
-            return None
-        need_warehouse_call("run", "query", query, "This Admin statement checks what the "
-                            "steps before it did, by reading rows through your query.")
-        return logged_run("Admin statement", s._admin_call, text,
-                          lambda hive: check(query(hive)))
-    if s._ddl is not None and s._ddl.kind == "Explain":
-        need_warehouse_call("run", "query", query,
-                            "explain(...) reads Hive's plan, which comes back as rows.")
+    if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
-    if s._ddl is not None or s._write is not None:
-        need_warehouse_call("run", "execute", execute,
-                            "This Statement changes a table, and gives back no rows.")
-        execute(text)
-        return None
-    need_warehouse_call("run", "query", query,
-                        "This Statement reads rows, which come back through your query.")
     result = query(text)
     refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s)
@@ -539,19 +509,85 @@ def run(s: Statement | SessionSettings | UncheckedStatement | PythonStep, *,
     return result
 
 
-def _run_unchecked(s: UncheckedStatement, query: Callable[[str], pd.DataFrame] | None,
-                   execute: Callable[[str], None] | None) -> pd.DataFrame | None:
-    """Send an Unchecked statement through the call its returns_rows= names, and log it."""
-    if s._returns_rows:
-        need_warehouse_call("run", "query", query, "This Unchecked statement says "
-                            "returns_rows=True: its rows come back through your query.")
-        rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
-        refuse_what_isnt_a_dataframe(rows)
-        return rows
-    need_warehouse_call("run", "execute", execute, "This Unchecked statement says "
-                        "returns_rows=False: it goes through your execute.")
-    logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
+def run_execute(s: Statement | SessionSettings | UncheckedStatement,
+                execute: Callable[[str], None] | None = None, **removed: object) -> None:
+    """Send a Statement's Hive through your execute, which gives back nothing.
+
+    >>> run_execute(hive_settings("dynamic_partitions"), example_database.execute)
+    execute: SET hive.exec.dynamic.partition=true
+    execute: SET hive.exec.dynamic.partition.mode=nonstrict
+
+    `execute` is your own function, in your Project's warehouse.py: it sends Hive that changes
+    something, and gives back nothing. At work it calls your API; example_database.execute
+    stands in for it, printing the first line it is given and changing nothing. You choose the
+    call: run_execute for a Statement that changes something, run_query(s, query) for one that
+    reads rows.
+
+    It takes a write, create_table(t), repair_partitions(t), compute_statistics(t), an Admin
+    statement, hive_settings(...), whose SET lines it sends one call each, and an Unchecked
+    statement, sent as you wrote it. An Admin or Unchecked statement adds an entry to the Admin
+    log. It gives back None. A write that fills Partitions from its rows needs the Session
+    setting "dynamic_partitions" sent first, as above, as show_hive prints and
+    help(INSERT_OVERWRITE) explains: run_execute sends the write alone. It refuses a read and
+    explain(s), whose rows come back only through run_query, and a Python step, which sends
+    nothing.
+    """
+    _refuse_the_other_call("run_execute", "query", "run_query", removed)
+    refuse_removed_arguments("run_execute", removed, run_execute)
+    _need_its_call(s, "run_execute", kinds.EXECUTE, inspect.currentframe().f_back)
+    need_warehouse_call("run_execute", "execute", execute, "run_execute sends the Hive "
+                        "through your execute, which changes something and gives back nothing.")
+    marked = kinds.kind(s)
+    if marked == kinds.SETTINGS:
+        for line in s._lines:  # Hive takes one SET per call
+            execute(line)
+    elif marked == kinds.UNCHECKED:
+        logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
+    elif marked == kinds.ADMIN:
+        logged_run("Admin statement", s._admin_call, to_hive(s), execute)
+    else:
+        execute(to_hive(s))
     return None
 
 
-__all__ = ["to_hive", "run", "set_load_limits"]
+def _refuse_the_other_call(call: str, other: str, instead: str,
+                           removed: dict[str, object]) -> None:
+    """Refuse `call` given the other of your two functions, `other`=, which `instead` takes."""
+    if other in removed:
+        own = "query" if other == "execute" else "execute"
+        refuse(
+            what=f"{call} was given {other}=, your other call.",
+            why=f"{call} sends through your {own} only: you choose which of your two "
+            "functions sends a Statement by the function you call.",
+            fix=f"To send through your {other}, call {instead}(s, {other}) instead.",
+        )
+
+
+def _need_its_call(s: object, call: str, sent_by: str, frame: FrameType | None) -> None:
+    """Refuse what `call` can't send: anything no maker made, a Python step, and the plain
+    mix-up, a step that goes through your other call. `sent_by` is the call it sends
+    through."""
+    marked = kinds.kind(s)
+    if marked == kinds.PYTHON:
+        _refuse_a_python_step(call, "It sends Hive through your query or execute, and a "
+                              "Python step has none")
+    if marked is None:
+        _need_statement(s, call, frame, why=f"{call} writes the Hive of one Statement made by "
+                        "statement(...) and sends it.",
+                        more=", query" if sent_by == kinds.QUERY else ", execute")
+    if kinds.SENT_BY[marked] in (sent_by, kinds.EITHER):
+        return
+    name = name_in(frame, s) if frame is not None else None
+    if sent_by == kinds.QUERY:
+        why = ("run_query sends through your query, which gives back rows, and this changes "
+               "something and gives back none, so it goes through your execute.")
+        fix = f"Send it with run_execute({name or 's'}, execute)."
+    else:
+        why = ("run_execute sends through your execute, which gives back nothing, and this "
+               "reads rows, which come back only through your query.")
+        fix = f"Send it with run_query({name or 's'}, query), which gives back its rows."
+    refuse(what=f"{call} was given {kinds.WORDS[marked]}.", why=why, fix=fix,
+           error=ValueError)
+
+
+__all__ = ["to_hive", "run_query", "run_execute", "set_load_limits"]

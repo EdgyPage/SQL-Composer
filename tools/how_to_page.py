@@ -784,7 +784,7 @@ CHAIN = (
      "one part of a query"),
     ("`statement(...)`", "Statement", "its Clauses, checked together as one query"),
     ("`to_hive(...)`", "str", "the Hive: the query's text, ready to paste"),
-    ("`run(..., query=query)`", "DataFrame", "the rows your query gives back, in pandas"),
+    ("`run_query(..., query)`", "DataFrame", "the rows your query gives back, in pandas"),
 )
 
 

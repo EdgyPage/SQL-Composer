@@ -41,7 +41,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     project,
-    run,
+    run_query,
     set_admin_log,
     statement,
     to_hive,
@@ -102,7 +102,7 @@ def reading_the_day(inside: Callable[..., Path], table: str, day: str) -> TableL
 def day_rows(logic_of: TableLogic, day: str) -> pd.DataFrame:
     """The rows the table's write would save for the day, on the Example database, without
     their day, dt, the column each selects last, which holds the day alone."""
-    rows = run(rows_of_days(logic_of, day, day), query=example_database.query)
+    rows = run_query(rows_of_days(logic_of, day, day), example_database.query)
     assert set(rows.pop("dt")) <= {day, day.replace("-", "")}
     return rows
 
@@ -422,7 +422,7 @@ def test_team_day_groups_each_teams_runs_from_job_runs(
         inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "starter", "mart.team_day").team_runs_from_job_runs(
         equals(example_database.job_runs.dt, day))
-    same(run(check, query=example_database.query), team_runs_on(day))
+    same(run_query(check, example_database.query), team_runs_on(day))
 
 
 @pytest.mark.needs_example_database
@@ -452,7 +452,7 @@ def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
 def test_team_days_groups_each_teams_day_from_job_events(
         inside: Callable[..., Path], day: str) -> None:
     check = logic(inside, "intermediate", "mart.team_days").team_day_from_job_events(day)
-    same(run(check, query=example_database.query), team_day_on(day, with_costs=False))
+    same(run_query(check, example_database.query), team_day_on(day, with_costs=False))
 
 
 @pytest.mark.needs_example_database
@@ -474,9 +474,9 @@ def test_team_days_previews_each_teams_day_from_both_saved_tables(
 @pytest.mark.needs_example_database
 def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) -> None:
     checks = logic(inside, "intermediate", "mart.job_events_checks")
-    assert len(run(checks.repeated_keys(), query=example_database.query)) == 0
+    assert len(run_query(checks.repeated_keys(), example_database.query)) == 0
     events = example_rows("job_events")
-    counted = run(checks.preview(), query=example_database.query)
+    counted = run_query(checks.preview(), example_database.query)
     assert list(counted.row_count) == [len(events[events.dt == DAY])]
 
 
@@ -497,15 +497,15 @@ def overruns_in(region: str) -> pd.DataFrame:
 def test_budget_overruns_counts_each_jobs_days_over_budget(
         inside: Callable[..., Path], region: str) -> None:
     logic_of = logic(inside, "intermediate", "mart.budget_overruns")
-    same(run(statement(*logic_of.rows(region)), query=example_database.query),
+    same(run_query(statement(*logic_of.rows(region)), example_database.query),
          overruns_in(region))
 
 
 @pytest.mark.needs_example_database
 def test_job_notes_puts_each_note_beside_each_job_its_team_owned_that_day(
         inside: Callable[..., Path]) -> None:
-    got = run(logic(inside, "intermediate", "mart.job_notes").preview(),
-              query=example_database.query)
+    got = run_query(logic(inside, "intermediate", "mart.job_notes").preview(),
+                          example_database.query)
     owners = example_rows("job_owners")
     expected = example_rows("team_notes").merge(
         owners, left_on=["team", "written_on"], right_on=["team", "dt"])

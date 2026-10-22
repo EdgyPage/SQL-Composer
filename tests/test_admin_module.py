@@ -37,7 +37,7 @@ from sqlglot_composer import (
     example_database,
     export_lineage,
     less_than,
-    run,
+    run_query, run_execute,
     set_admin_log,
     show_hive,
     statement,
@@ -76,7 +76,7 @@ def test_admin_is_imported_by_name_and_the_star_import_leaves_it_out() -> None:
     assert "drop_table" not in sqlglot_composer.__all__
     assert not hasattr(sqlglot_composer, "drop_table")
     assert admin.__all__ == ["drop_table", "drop_partitions", "add_columns", "set_properties",
-                             "move_to_own_folder"]
+                             "move_to_own_folder", "check_the_copy"]
 
 
 def test_drop_days_is_gone() -> None:
@@ -94,6 +94,7 @@ def _refusing(call: str) -> Callable[[object], Statement | list[Statement]]:
         "add_columns": lambda t: admin.add_columns(t, query=at_work(saved())),
         "set_properties": lambda t: admin.set_properties(t),
         "move_to_own_folder": lambda t: admin.move_to_own_folder(t, query=at_work(saved())),
+        "check_the_copy": lambda t: admin.check_the_copy(t, query=at_work(saved())),
     }[call]
 
 
@@ -280,22 +281,59 @@ def test_set_properties_refuses_a_table_reference_that_gives_none() -> None:
         admin.set_properties(saved())
 
 
-# --- move_to_own_folder ------------------------------------------------------------------------
+# --- move_to_own_folder and check_the_copy -------------------------------------------------------
 
 
-def test_the_move_creates_copies_compares_keeps_files_drops_and_renames() -> None:
+# The comparison's answer when every Partition matches: its columns, and no row.
+MATCHING = pd.DataFrame({"dt": [], "old_rows": [], "copied_rows": []})
+
+
+def comparing(t: Table, compared: pd.DataFrame = MATCHING, **answer: object
+              ) -> Callable[[str], pd.DataFrame]:
+    """The warehouse's answers for check_the_copy: DESCRIBE FORMATTED as at_work gives it,
+    then `compared` for the comparison of the counts; each comparison's Hive is kept in
+    .compared."""
+    described = at_work(t, **answer)
+
+    def query(hive: str) -> pd.DataFrame:
+        if hive.startswith("WITH old_counts AS ("):
+            query.compared.append(hive)
+            return compared
+        return described(hive)
+
+    query.compared = []
+    return query
+
+
+def test_the_move_creates_and_copies_then_the_check_keeps_files_drops_and_renames() -> None:
     t = saved(key=["job_id", "dt"])
     moves = admin.move_to_own_folder(t, query=at_work(t))
     hives = [to_hive(step) for step in moves]
+    assert len(hives) == 2
     assert hives[0].startswith("CREATE EXTERNAL TABLE IF NOT EXISTS mart.daily_runs_moving (")
     assert "LOCATION '/data/your_team/mart.db/daily_runs'" in hives[0]
-    assert hives[2].startswith("WITH old_counts AS (")
-    assert hives[3] == ("ALTER TABLE mart.daily_runs SET TBLPROPERTIES (\n"
-                        "  'external.table.purge'='false'\n)")
-    assert hives[4] == "DROP TABLE IF EXISTS mart.daily_runs"
-    assert hives[5] == "ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs"
+    assert hives[1].startswith("INSERT OVERWRITE TABLE mart.daily_runs_moving PARTITION(dt)")
     assert [step._admin_call for step in moves] == [
-        f"admin.move_to_own_folder(mart.daily_runs, query=...)[{n}]" for n in range(6)]
+        f"admin.move_to_own_folder(mart.daily_runs, query=...)[{n}]" for n in range(2)]
+    finish = admin.check_the_copy(t, query=comparing(t))
+    assert [to_hive(step) for step in finish] == [
+        "ALTER TABLE mart.daily_runs SET TBLPROPERTIES (\n  'external.table.purge'='false'\n)",
+        "DROP TABLE IF EXISTS mart.daily_runs",
+        "ALTER TABLE mart.daily_runs_moving RENAME TO mart.daily_runs"]
+    assert [step._admin_call for step in finish] == [
+        f"admin.check_the_copy(mart.daily_runs, query=...)[{n}]" for n in range(3)]
+
+
+def test_every_step_of_the_move_goes_to_execute() -> None:
+    t = saved()
+    sent = []
+    for step in admin.move_to_own_folder(t, query=at_work(t)):
+        run_execute(step, sent.append)
+    for step in admin.check_the_copy(t, query=comparing(t)):
+        run_execute(step, sent.append)
+    assert len(sent) == 5
+    with pytest.raises(ValueError, match="run_query was given an Admin statement"):
+        run_query(admin.move_to_own_folder(t, query=at_work(t))[0], at_work(t))
 
 
 def test_the_move_copies_the_whole_table_in_one_write() -> None:
@@ -306,13 +344,15 @@ def test_the_move_copies_the_whole_table_in_one_write() -> None:
         "  region_runs.job_id,\n  region_runs.runs,\n  region_runs.region,\n  region_runs.dt\n"
         "FROM mart.region_runs AS region_runs")
     # Each Partition is filled from the rows, which needs dynamic partitioning sent first.
-    assert any('run(hive_settings("dynamic_partitions"), execute=...) before it' in item
+    assert any('run_execute(hive_settings("dynamic_partitions"), execute) before it' in item
                for item in copy._admin_about)
 
 
-def test_the_moves_count_check_compares_each_partition_rows_with_no_value_too() -> None:
+def test_the_check_compares_each_partition_rows_with_no_value_too() -> None:
     t = REGION_RUNS
-    compare = to_hive(admin.move_to_own_folder(t, query=at_work(t))[2])
+    query = comparing(t)
+    admin.check_the_copy(t, query=query)
+    compare, = query.compared
     for counts, alias in (("old_counts", "region_runs"),
                           ("copied_counts", "region_runs_moving")):
         assert (f"{counts} AS (\n  SELECT\n"
@@ -326,20 +366,25 @@ def test_the_moves_count_check_compares_each_partition_rows_with_no_value_too() 
             "  OR copied_counts.row_count <> old_counts.row_count") in compare
 
 
-def test_the_moves_count_check_of_an_unpartitioned_table_compares_its_rows_whole() -> None:
+def test_the_check_of_an_unpartitioned_table_compares_its_rows_whole() -> None:
     whole = saved(columns={"job_id": "bigint"})
-    compare = to_hive(admin.move_to_own_folder(
-        whole, query=at_work(whole, location="/data/elsewhere"))[2])
+    query = comparing(whole, pd.DataFrame({"old_rows": [], "copied_rows": []}),
+                      location="/data/elsewhere")
+    admin.check_the_copy(whole, query=query)
+    compare, = query.compared
     assert "GROUP BY" not in compare
     assert "FROM old_counts\nCROSS JOIN copied_counts\n" in compare
 
 
 def test_a_managed_table_is_moved_without_setting_purge() -> None:
     t = saved()
-    moves = admin.move_to_own_folder(t, query=at_work(
-        t, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs", kind="MANAGED_TABLE"))
-    assert not any("TBLPROPERTIES" in to_hive(step) for step in moves)
-    assert "its files go too, since it is managed" in moves[-2]._admin_about[0]
+    managed = {"location": "hdfs://namenode:8020/warehouse/mart.db/daily_runs",
+               "kind": "MANAGED_TABLE"}
+    moves = admin.move_to_own_folder(t, query=at_work(t, **managed))
+    finish = admin.check_the_copy(t, query=comparing(t, **managed))
+    assert not any("TBLPROPERTIES" in to_hive(step) for step in moves + finish)
+    assert len(finish) == 2
+    assert "its files go too, since it is managed" in finish[0]._admin_about[0]
 
 
 @pytest.mark.parametrize("answer, refusal", [
@@ -347,57 +392,36 @@ def test_a_managed_table_is_moved_without_setting_purge() -> None:
      "is at its own folder already"),
     ({"lacking": ("runs",)}, "has no column runs, which its Table reference lists"),
 ])
+@pytest.mark.parametrize("call", [admin.move_to_own_folder, admin.check_the_copy])
 def test_the_move_refuses_a_table_it_cant_or_neednt_move(
-        answer: dict[str, str | tuple[str, ...]], refusal: str) -> None:
+        call: Callable[..., list[Statement]], answer: dict[str, str | tuple[str, ...]],
+        refusal: str) -> None:
     t = saved()
     with pytest.raises(ValueError, match=refusal):
-        admin.move_to_own_folder(t, query=at_work(t, **answer))
+        call(t, query=comparing(t, **answer))
 
 
-def test_the_comparison_stops_the_move_and_logs_it_when_a_partition_differs(
+def test_the_check_stops_the_move_and_logs_it_when_a_partition_differs(
         tmp_path: Path) -> None:
     log = set_admin_log(tmp_path / "admin_log.md")
     t = saved()
-    moves = admin.move_to_own_folder(t, query=at_work(t))
-    compare = moves[2]
     differ = pd.DataFrame({"dt": ["2026-09-24"], "old_rows": [3], "copied_rows": [2]})
-    with pytest.raises(ValueError, match="The move of mart.daily_runs stopped"):
-        run(compare, query=lambda hive: differ)
-    assert run(compare, query=lambda hive: differ.iloc[0:0]).empty
+    with pytest.raises(ValueError, match="The move of mart.daily_runs stopped") as refused:
+        admin.check_the_copy(t, query=comparing(t, differ))
+    assert "then call admin.check_the_copy again." in str(refused.value)
+    assert len(admin.check_the_copy(t, query=comparing(t))) == 3
     text = log.read_text(encoding="utf-8")
-    assert "- Call: `admin.move_to_own_folder(mart.daily_runs, query=...)[2]`" in text
+    assert "- Call: `admin.check_the_copy(mart.daily_runs, query=...)`" in text
     assert "- Result: failed, with ValueError:" in text
     assert text.count("- Result: worked") == 1
 
 
-# --- Which of the user's calls each step goes to ------------------------------------------------
-
-
-def recording() -> tuple[Callable[[str], pd.DataFrame], Callable[[str], None],
-                         list[tuple[str, str]]]:
-    """A query and an execute that keep each Hive they are given, with which of them it went
-    to: the query gives back the comparison's columns with no row: no Partition differs."""
-    sent = []
-
-    def query(hive: str) -> pd.DataFrame:
-        sent.append(("query", hive))
-        return pd.DataFrame({"dt": [], "old_rows": [], "copied_rows": []})
-
-    def execute(hive: str) -> None:
-        sent.append(("execute", hive))
-
-    return query, execute, sent
-
-
-def test_the_moves_comparison_reads_through_query_and_the_rest_go_to_execute() -> None:
+def test_the_drop_comes_only_from_the_check() -> None:
+    """A loop over move_to_own_folder's steps can't drop the old table before the
+    comparison: none of them drops anything."""
     t = saved()
-    query, execute, sent = recording()
     moves = admin.move_to_own_folder(t, query=at_work(t))
-    for step in moves:
-        run(step, query=query, execute=execute)
-    assert [call for call, _ in sent] == ["execute", "execute", "query", "execute", "execute",
-                                          "execute"]
-    assert [hive for _, hive in sent] == [to_hive(step) for step in moves]
+    assert not any("DROP" in to_hive(step) for step in moves)
 
 
 @pytest.mark.parametrize("make", [
@@ -409,18 +433,15 @@ def test_the_moves_comparison_reads_through_query_and_the_rest_go_to_execute() -
 ])
 def test_an_admin_statement_goes_to_execute_and_gives_back_none(
         make: Callable[[], Statement]) -> None:
-    query, execute, sent = recording()
-    assert run(make(), query=query, execute=execute) is None
-    assert sent == [("execute", to_hive(make()))]
+    sent = []
+    assert run_execute(make(), sent.append) is None
+    assert sent == [to_hive(make())]
 
 
-def test_an_admin_statement_without_the_call_it_needs_is_refused_naming_it() -> None:
-    query, execute, sent = recording()
-    with pytest.raises(TypeError, match=r"run needs execute=, and wasn't given it\."):
-        run(admin.drop_table(saved()), query=query)
-    compare = admin.move_to_own_folder(saved(), query=at_work(saved()))[2]
-    with pytest.raises(TypeError, match=r"run needs query=, and wasn't given it\."):
-        run(compare, execute=execute)
+def test_an_admin_statement_given_to_run_query_is_refused_naming_run_execute() -> None:
+    sent = []
+    with pytest.raises(ValueError, match=r"Send it with run_execute\(s, execute\)\."):
+        run_query(admin.drop_table(saved()), sent.append)
     assert sent == []
 
 
@@ -429,6 +450,8 @@ def test_an_admin_statement_without_the_call_it_needs_is_refused_naming_it() -> 
                  id="add_columns"),
     pytest.param(lambda **given: admin.move_to_own_folder(saved(), **given),
                  id="move_to_own_folder"),
+    pytest.param(lambda **given: admin.check_the_copy(saved(), **given),
+                 id="check_the_copy"),
 ])
 def test_send_is_refused_naming_query(make: Callable[..., object]) -> None:
     with pytest.raises(TypeError) as refused:
@@ -447,7 +470,7 @@ def test_each_run_is_logged_in_the_admin_log_and_show_hive_logs_nothing(tmp_path
     show_hive(admin.drop_partitions(t, where=less_than(t.dt, "2025-01-01")))
     assert not log.exists()
     sent = []
-    run(admin.drop_partitions(t, where=less_than(t.dt, "2025-01-01")), execute=sent.append)
+    run_execute(admin.drop_partitions(t, where=less_than(t.dt, "2025-01-01")), sent.append)
     assert sent == ["ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt < '2025-01-01')"]
     assert ('- Call: `admin.drop_partitions(mart.daily_runs, where=less_than(daily_runs.dt, '
             '"2025-01-01"))`' in log.read_text(encoding="utf-8"))

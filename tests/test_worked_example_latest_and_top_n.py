@@ -11,7 +11,7 @@ import pandas as pd
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run
+from sqlglot_composer import example_database, run_query
 from statements import latest_and_top_n as example
 
 
@@ -50,7 +50,7 @@ def test_the_checks_hold_the_numbers_the_docstrings_give() -> None:
 
 @pytest.mark.needs_example_database
 def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
-    careless = run(example.careless(), query=example_database.query).to_dict("records")
+    careless = run_query(example.careless(), example_database.query).to_dict("records")
     right = latest_check()
     assert [row["run_id"] for row in careless] == [row["run_id"] for row in right]
     assert [row["status"] for row in careless] == largest_per_column_check()

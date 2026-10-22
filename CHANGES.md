@@ -2,6 +2,40 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 7.1
+
+7.1 stops choosing between your two calls: you send each Statement through `query` or
+`execute` yourself, by the function you call. From 6.x, update as 7.0 says below, then as here.
+
+### To update from 7.0
+
+- **Copy the `sqlglot_composer` folder in over 7.0's**, and restart the kernel.
+- **`run(s, query=..., execute=...)` becomes `run_query(s, query)` or `run_execute(s, execute)`:
+  you pick the call.** `run_query` sends a Statement through your `query` and gives back its
+  rows: a read, `explain(s)`, whose plan comes back as text, and an Unchecked statement.
+  `run_execute` sends one through your `execute` and gives back None: a write, `create_table`,
+  `repair_partitions`, `compute_statistics`, an Admin statement, `hive_settings(...)`, one SET
+  line a call, and an Unchecked statement. Each refuses the plain mix-up, a write handed to
+  `run_query` or a read to `run_execute`, saying which to call, and neither sends anything to
+  the other call. `run` is gone. Each takes your call second, by name or not:
+  `run_query(s, query)` and `run_query(s, query=query)` are the same.
+- **`unchecked_hive(text)` takes no `returns_rows=`**: your text goes through whichever you
+  call, `run_query` for Hive that gives back rows, as a `SELECT` or `SHOW` does,
+  `run_execute` for the rest, as an `ALTER` or `INSERT` does. The Toolbox doesn't read the text
+  to choose, so a `SELECT` sent with `run_execute` goes to your execute.
+- **`project.run_tables(execute=execute)` takes no `query=`.** Everything a `write()` gives is
+  sent through your execute, so a read there is refused, naming the notebook, before anything
+  is sent. With no `execute` it is the dry run, as before.
+- **`admin.move_to_own_folder` gives the move's first two steps**: create the copy, and copy the
+  rows into it. `admin.check_the_copy(t, query=query)` then compares the rows of the two,
+  Partition by Partition, through your query, and stops the move if any differs; once they
+  match, it gives the steps that finish it, keep the old files, drop and rename, so the drop
+  can't be sent before the comparison. Send each list's steps with `run_execute(step,
+  execute)`, the check between them.
+- **The Templates and admin notebooks** that `project.start()` writes import `run_query` or
+  `run_execute`. For a Project made with 7.0, change each `run` in your own notebooks, and in
+  your copies of the Templates in `admin/templates/`, as above.
+
 ## 7.0
 
 7.0 changes how the Toolbox reaches your warehouse and drops its assumption that tables are

@@ -5,7 +5,7 @@ For: Intermediate
 ## Goal
 
 Move a Saved table that shares its folder with other tables into a folder of its own, with
-the admin module: copy it whole into a new table at its own folder, compare the two, then
+the admin module: copy it whole into a new table at its own folder, check the copy, then
 drop the old table and give the new one its name. Along the way, meet the admin module, the
 changes to your own Saved tables that the Toolbox writes and checks for you.
 
@@ -89,18 +89,19 @@ partitions](#rewrite_some_partitions) does.
 
 ### Build the move
 
-`admin.move_to_own_folder` sends DESCRIBE FORMATTED through your query to find where the table
-is, and gives back the steps that move it, as a list of Statements, in order. `show_hive`
+The move comes in two calls, so that the old table can't be dropped before its copy is
+checked. `admin.move_to_own_folder` sends DESCRIBE FORMATTED through your query to find where
+the table is, and gives back the first two steps, as a list of Statements, in order. `show_hive`
 prints each one, after what it does:
 
 >>> moves = admin.move_to_own_folder(job_day_facts, query=query_at_work)  # -> list[Statement]
 >>> text = show_hive(moves)
--- 1 of 6: moves[0]
+-- 1 of 2: moves[0]
 -- admin.move_to_own_folder(mart.job_day_facts, query=...) moves mart.job_day_facts to its
 -- own folder, /data/your_team/mart.db/job_day_facts. This first step creates
--- mart.job_day_facts_moving there; the steps after it copy the table's rows into it, compare
--- the two, then drop mart.job_day_facts and give the copy its name. Send them in order, one
--- at a time.
+-- mart.job_day_facts_moving there, and the next copies the table's rows into it. Then
+-- admin.check_the_copy compares the two and gives the steps that drop mart.job_day_facts and
+-- give the copy its name. Send them in order, one at a time.
 -- The old table's files stay where they are, since its folder may hold other tables' files
 -- too: ask whoever looks after the folder before deleting any.
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_day_facts_moving (
@@ -117,10 +118,10 @@ PARTITIONED BY (
 STORED AS ORC
 LOCATION '/data/your_team/mart.db/job_day_facts';
 <BLANKLINE>
--- 2 of 6: moves[1]
+-- 2 of 2: moves[1]
 -- Copies all of mart.job_day_facts's rows into mart.job_day_facts_moving.
 -- It fills dt from the rows, which needs the Session setting "dynamic_partitions": send
--- run(hive_settings("dynamic_partitions"), execute=...) before it.
+-- run_execute(hive_settings("dynamic_partitions"), execute) before it.
 INSERT OVERWRITE TABLE mart.job_day_facts_moving PARTITION(dt)
 SELECT
   job_day_facts.job_id,
@@ -130,92 +131,75 @@ SELECT
   job_day_facts.minutes,
   job_day_facts.dt
 FROM mart.job_day_facts AS job_day_facts;
-<BLANKLINE>
--- 3 of 6: moves[2]
--- Compares each Partition's rows in mart.job_day_facts and mart.job_day_facts_moving, and
--- stops the move, before anything is dropped, if any Partition differs or is missing from
--- the copy. It gives back no rows when they match.
--- Rows with no value in a partition column are counted under __HIVE_DEFAULT_PARTITION__, as
--- Hive names their Partition.
-WITH old_counts AS (
-  SELECT
-    COALESCE(CAST(job_day_facts.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.job_day_facts AS job_day_facts
-  GROUP BY
-    COALESCE(CAST(job_day_facts.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-), copied_counts AS (
-  SELECT
-    COALESCE(CAST(job_day_facts_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,
-    COUNT(*) AS row_count
-  FROM mart.job_day_facts_moving AS job_day_facts_moving
-  GROUP BY
-    COALESCE(CAST(job_day_facts_moving.dt AS STRING), '__HIVE_DEFAULT_PARTITION__')
-)
-SELECT
-  old_counts.dt,
-  old_counts.row_count AS old_rows,
-  copied_counts.row_count AS copied_rows
-FROM old_counts
-LEFT JOIN copied_counts
-  ON copied_counts.dt = old_counts.dt
-WHERE
-  copied_counts.row_count IS NULL
-  OR copied_counts.row_count <> old_counts.row_count;
-<BLANKLINE>
--- 4 of 6: moves[3]
+
+The new table is made at the folder the Table reference names, under a name of its own while
+the old table still has the table's name. The copy is one INSERT OVERWRITE, which fills each
+Partition from the rows' own dt, so sent twice it is written once.
+
+### Check the copy, then finish
+
+Once both steps have run, `admin.check_the_copy` counts each Partition's rows in both tables,
+through your query, and stops the move with a message, before anything is dropped, if any
+Partition differs or is missing from the copy. When they match, it gives back the steps that
+finish the move. The stand-in query answers the count with no row, as the warehouse does when
+every Partition matches:
+
+>>> def query_after_the_copy(hive: str) -> pd.DataFrame:
+...     if hive.startswith("WITH old_counts"):  # the count of each Partition's rows
+...         return pd.DataFrame(columns=["dt", "old_rows", "copied_rows"])
+...     return query_at_work(hive)
+>>> finish = admin.check_the_copy(job_day_facts, query=query_after_the_copy)  # -> list[Statement]
+>>> text = show_hive(finish)
+-- 1 of 3: finish[0]
 -- Sets external.table.purge to false on mart.job_day_facts, so that dropping it next leaves
 -- the files in its folder, which other tables may read.
 ALTER TABLE mart.job_day_facts SET TBLPROPERTIES (
   'external.table.purge'='false'
 );
 <BLANKLINE>
--- 5 of 6: moves[4]
--- Drops the old mart.job_day_facts: its files stay in the folder it shared. Can't be undone,
--- so send it only after the step before it, the comparison, gave back no rows.
+-- 2 of 3: finish[1]
+-- Drops the old mart.job_day_facts: its files stay in the folder it shared. Can't be undone:
+-- admin.check_the_copy gives it only once the copy holds every row.
 DROP TABLE IF EXISTS mart.job_day_facts;
 <BLANKLINE>
--- 6 of 6: moves[5]
+-- 3 of 3: finish[2]
 -- Gives mart.job_day_facts_moving the name mart.job_day_facts. Its files stay at its own
 -- folder, /data/your_team/mart.db/job_day_facts. If this step fails, send it alone again.
 ALTER TABLE mart.job_day_facts_moving RENAME TO mart.job_day_facts;
 
-The new table is made at the folder the Table reference names, under a name of its own while
-the old table still has the table's name. The copy is one INSERT OVERWRITE, which fills each
-Partition from the rows' own dt, so sent twice it is written once. The third step counts each
-Partition's rows in both tables. The fourth keeps the old files when the old table is dropped,
-since the folder it shared holds other tables' files too. Only then is the old table dropped,
-and the new one renamed: a renamed table keeps its folder.
+The first keeps the old files when the old table is dropped, since the folder it shared holds
+other tables' files too. Only then is the old table dropped, and the new one renamed: a renamed
+table keeps its folder.
 
 ### Send the steps at work
 
-At work, send the Session setting the copy needs, then each step in turn with `run`. A step
-that fails raises, so the loop stops there, and the steps after it aren't sent. The third step
-raises when a Partition's rows differ, before anything is dropped. `run` sends the third step
-through your query, since it reads rows, and every other step through your execute. Here it is
-a function that takes your own query and execute and gives back the steps, so that one can be
-sent again; it isn't called on this page, since the Example database is never written to:
+At work, send the Session setting the copy needs, then each step in turn with `run_execute`,
+then the check, then the steps it gives. A step that fails raises, so the function stops there,
+and the steps after it aren't sent; the check raises when a Partition's rows differ, before
+anything is dropped. Here it is a function that takes your own query and execute, so that the
+move can be sent again; it isn't called on this page, since the Example database is never
+written to:
 
 >>> from collections.abc import Callable
 >>> def move(t: Table, query: Callable[[str], pd.DataFrame],
-...          execute: Callable[[str], None]) -> list[Statement]:
-...     moves = admin.move_to_own_folder(t, query=query)
-...     run(hive_settings("dynamic_partitions"), execute=execute)
-...     for step in moves:
-...         run(step, query=query, execute=execute)
-...     return moves
+...          execute: Callable[[str], None]) -> None:
+...     run_execute(hive_settings("dynamic_partitions"), execute)
+...     for step in admin.move_to_own_folder(t, query=query):
+...         run_execute(step, execute)
+...     for step in admin.check_the_copy(t, query=query):
+...         run_execute(step, execute)
 
-Each step that `run` sends adds an entry to the Admin log, the Project's admin/admin_log.md:
-when, the call, such as admin.move_to_own_folder(mart.job_day_facts, query=...)[2] for the
-third step, the Hive, the script and its git commit, and whether it worked. `show_hive` adds
-nothing to it.
+Each step `run_execute` sends, and each check, adds an entry to the Admin log, the Project's
+admin/admin_log.md: when, the call, such as admin.move_to_own_folder(mart.job_day_facts,
+query=...)[1] for the copy, the Hive, the script and its git commit, and whether it worked.
+`show_hive` adds nothing to it.
 
-If a step before the drop fails, fix what it says and send the steps again from the first:
-creating the new table again does nothing, and the copy is written again whole. If the third
-step says a Partition is missing from the copy, one was written since the copy, so send the
-steps again from the first. Once the old table is dropped, the steps can't be made again, since
-the table they read is gone: if only the last step, the rename, fails, send it alone again
-with `run(moves[-1], execute=execute)`, from the `moves` you made.
+If a step before the drop fails, fix what it says and send the move again from the first:
+creating the new table again does nothing, and the copy is written again whole. If the check
+says a Partition is missing from the copy, one was written since the copy, so send the move
+again. Once the old table is dropped, the check can't be made again, since the table it reads
+is gone: if only the last step, the rename, fails, send it alone again with
+`run_execute(finish[-1], execute)`, from the `finish` the check gave.
 
 ### Move the other tables
 
@@ -240,8 +224,7 @@ again, now describing the moved table:
 >>> check_table_reference(job_day_facts, query=query_after_the_move)
 mart.job_day_facts matches its Table reference.
 
-The compare step checked that each Partition holds as many rows in the new table as in the
-old. You can also check a Partition against where its rows come from. The Example database
+The check made sure each Partition holds as many rows in the new table as in the old. You can also check a Partition against where its rows come from. The Example database
 doesn't hold mart.job_day_facts, but its notebook's preview() gives the rows its write()
 saves, from the tables the Example database does hold. `project.load` gives a Table notebook's
 logic, its functions, as [Save a table](#save_a_table) shows:
@@ -249,7 +232,7 @@ logic, its functions, as [Save a table](#save_a_table) shows:
 >>> logic = project.load("mart.job_day_facts")  # -> the notebook's functions
 >>> logic
 The logic of mart.job_day_facts: create, rows, preview, write_days, write.
->>> run(logic.preview(), query=query)  # -> DataFrame
+>>> run_query(logic.preview(), query)  # -> DataFrame
    job_id     team  events  runs  minutes          dt
 0       1     data       2     1       10  2026-09-22
 1       1     data       2     1       10  2026-09-24
@@ -287,11 +270,11 @@ ValueError:
   What happened:  admin.move_to_own_folder(mart.job_day_facts, query=...): mart.job_day_facts is at its own folder already, hdfs://namenode:8020/data/your_team/mart.db/job_day_facts.
 ...
 
-### Sending the steps out of order
+### Dropping the table without the check
 
-Send the steps in their order, each once the one before has worked: the drop is sent only
-after the compare step gave back no rows. Running only some of them, or the drop on its own,
-can lose Partitions the copy doesn't hold.
+`admin.move_to_own_folder` gives no step that drops anything: the drop comes only from
+`admin.check_the_copy`, once the copy holds every row. A DROP written by hand, or
+`admin.drop_table`, sent before the check, can lose Partitions the copy doesn't hold.
 
 ## Next
 
@@ -305,6 +288,7 @@ can lose Partitions the copy doesn't hold.
   [`admin.drop_table`](examples.html#admin.drop_table),
   [`admin.drop_partitions`](examples.html#admin.drop_partitions),
   [`admin.add_columns`](examples.html#admin.add_columns),
-  [`admin.set_properties`](examples.html#admin.set_properties) and
-  [`admin.move_to_own_folder`](examples.html#admin.move_to_own_folder).
+  [`admin.set_properties`](examples.html#admin.set_properties),
+  [`admin.move_to_own_folder`](examples.html#admin.move_to_own_folder) and
+  [`admin.check_the_copy`](examples.html#admin.check_the_copy).
 """

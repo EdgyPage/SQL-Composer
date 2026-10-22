@@ -27,7 +27,7 @@ from sqlglot_composer import (
     count_rows,
     equals,
     example_database,
-    run,
+    run_query,
     statement,
     write_table_reference,
 )
@@ -145,8 +145,8 @@ def test_a_read_of_region_budgets_names_its_regions() -> None:
 
 @pytest.mark.needs_example_database
 def test_a_read_of_team_notes_is_never_limited() -> None:
-    found = run(statement(SELECT(notes.team, AS(count_rows(), "notes")), FROM(notes),
-                          GROUP_BY(notes.team)), query=example_database.query)
+    found = run_query(statement(SELECT(notes.team, AS(count_rows(), "notes")), FROM(notes),
+                                GROUP_BY(notes.team)), example_database.query)
     expected = example_rows("team_notes").groupby("team").size()
     assert found.set_index("team").notes.to_dict() == expected.to_dict()
 
@@ -158,7 +158,7 @@ def test_a_join_onto_team_notes_is_warned_and_counts_each_job_once_per_note() ->
     with pytest.warns(RepeatedRowsWarning, match="team_notes declares no Key"):
         s = statement(SELECT(jobs.team, AS(count_rows(), "jobs")), FROM(jobs),
                       JOIN(notes, ON=equals(notes.team, jobs.team)), GROUP_BY(jobs.team))
-    found = run(s, query=example_database.query).set_index("team").jobs.to_dict()
+    found = run_query(s, example_database.query).set_index("team").jobs.to_dict()
     jobs_per_team = example_rows("jobs").groupby("team").size()
     notes_per_team = example_rows("team_notes").groupby("team").size()
     assert found == (jobs_per_team * notes_per_team).to_dict()

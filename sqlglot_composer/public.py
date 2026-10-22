@@ -68,7 +68,7 @@ from .conditions import (
 from .lineage import export_lineage
 from .python_steps import PythonStep, python_step
 from .refusals import GuardRefused, LoadRefused
-from .running import run, set_load_limits, show_hive, to_hive
+from .running import run_execute, run_query, set_load_limits, show_hive, to_hive
 from .stacking import (
     EXCEPT,
     INTERSECT,
@@ -112,7 +112,7 @@ from .windows import (
     window,
 )
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [
@@ -206,7 +206,8 @@ __all__ = [
     # running.py
     "to_hive",
     "show_hive",
-    "run",
+    "run_query",
+    "run_execute",
     "set_load_limits",
     # refusals.py
     "GuardRefused",

@@ -19,7 +19,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sqlglot_composer import example_database, project, run, set_admin_log, to_hive
+from sqlglot_composer import example_database, project, run_query, set_admin_log, to_hive
 from sqlglot_composer.project import TableLogic
 from sqlglot_composer.project_templates import (
     BUILDING_BLOCK,
@@ -170,7 +170,7 @@ def test_a_filled_notebooks_logic_writes_the_partitions_its_rows_fill(
     # The partition comes from the rows, last in the SELECT, into its Partition of the table.
     assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name} PARTITION({partition})"
     assert re.search(rf"\.{partition}\nFROM ", hive), hive
-    preview = run(logic.preview(), query=example_database.query)
+    preview = run_query(logic.preview(), example_database.query)
     assert isinstance(preview, pd.DataFrame) and len(preview) > 0
     assert list(preview.columns)[-1] == partition
     assert set(preview[partition]) == {DAY if partition == "dt" else "eu"}
@@ -195,7 +195,7 @@ def test_a_notebook_for_a_table_with_no_partitions_writes_it_whole(
     hive = to_hive(logic.write())
     assert hive.split("\n")[0] == f"INSERT OVERWRITE TABLE {name}"
     assert "WHERE" not in hive
-    preview = run(logic.preview(), query=example_database.query)
+    preview = run_query(logic.preview(), example_database.query)
     expected = ({"data": 2, "finance": 2, "web": 1} if template == "saved_table"
                 else {"row_count": 5})
     assert (preview.set_index("team").notes.to_dict() if template == "saved_table"
@@ -224,8 +224,8 @@ def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: P
     name = "mart.made_from_quality_checks"
     filled_notebook(started, "quality_checks", name, FILLS["quality_checks"])
     logic = project.load(name)
-    assert len(run(logic.repeated_keys(), query=example_database.query)) == 0
-    nulls = run(logic.null_counts(), query=example_database.query)
+    assert len(run_query(logic.repeated_keys(), example_database.query)) == 0
+    nulls = run_query(logic.null_counts(), example_database.query)
     assert list(nulls.columns)[0] == "null_event_id"
 
 

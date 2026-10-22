@@ -33,7 +33,7 @@ import pandas as pd
 from . import _FOLDER
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 
 class GuardRefused(Exception):
@@ -558,7 +558,7 @@ def refuse_what_isnt_a_dataframe(result: object) -> None:
         start = "Turn the rows into a DataFrame at the end of your query"
     raise TypeError(four_part_message(
         what=f"Your query gave back {given}, where a pandas DataFrame goes.",
-        why="run hands you back what your query gives back, and you read the rows from it as "
+        why="run_query hands you back what your query gives back, and you read the rows from it as "
         "from a pandas DataFrame, each column by its name.",
         fix=f"{start}. From a query API, it is pd.DataFrame(rows), which takes the column "
         "names from each row's keys when the API gives each row as a dict; when it gives each "
@@ -619,7 +619,7 @@ def load_limit_order_by(sorts_everything: bool) -> None:
             why="Sorting the whole result makes the warehouse put every row in order before "
             "any comes back, which is slow on a big result; pandas can sort the rows once you "
             "have them.",
-            fix="Sort in pandas after run(...), with df.sort_values(...). For a top N, add "
+            fix="Sort in pandas after run_query(...), with df.sort_values(...). For a top N, add "
             "LIMIT(n).",
             opt_out="ORDER_BY(..., sorts_everything=True), but not in a Statement you pass "
             "to derived(...), where the order of rows may not be kept anyway, so this "
@@ -634,7 +634,7 @@ def load_limit_rows(rows: int, limit: int) -> None:
         return
     raise LoadRefused(
         four_part_message(
-            what=f"run(...) got back {rows} rows, exactly the automatic LIMIT set by "
+            what=f"run_query(...) got back {rows} rows, exactly the automatic LIMIT set by "
             "set_load_limits(rows=...).",
             why="The result was probably cut short, so anything computed from it would be "
             "missing rows.",

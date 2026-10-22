@@ -7,7 +7,7 @@ import warnings
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import example_database, run
+from sqlglot_composer import example_database, run_query
 from sqlglot_composer.refusals import RepeatedRowsWarning
 from statements import repeated_rows as example
 
@@ -43,7 +43,7 @@ def test_the_fixed_statement_raises_no_warning() -> None:
 @pytest.mark.needs_example_database
 def test_the_careless_statement_gives_the_inflated_minutes() -> None:
     careless_minutes, _, alerts = pandas_check()
-    result = run(example.careless(many_matches=True), query=example_database.query)
+    result = run_query(example.careless(many_matches=True), example_database.query)
     assert (result.minutes[0], result.alerts[0]) == (careless_minutes, alerts) == (150, 7)
 
 
@@ -52,12 +52,12 @@ def test_the_fixed_statement_keeps_runs_that_raised_no_alert(
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(example, "DAY", "2026-09-23")  # runs 95, 96, 98 and 99 raised none
     _, right_minutes, alerts = pandas_check()
-    result = run(example.fixed(), query=example_database.query)
+    result = run_query(example.fixed(), example_database.query)
     assert (result.minutes[0], result.alerts[0]) == (right_minutes, alerts) == (80, 2)
 
 
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_each_run_once() -> None:
     _, right_minutes, alerts = pandas_check()
-    result = run(example.fixed(), query=example_database.query)
+    result = run_query(example.fixed(), example_database.query)
     assert (result.minutes[0], result.alerts[0]) == (right_minutes, alerts) == (100, 7)

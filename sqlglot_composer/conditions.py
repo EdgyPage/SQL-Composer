@@ -25,7 +25,7 @@ from .tables import (
 from .trees import Node, combined, has_aggregate
 from .writing import hive_text
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 
 def today() -> datetime.date:

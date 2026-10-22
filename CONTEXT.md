@@ -15,7 +15,7 @@ folders, a shared core and an Edition's own.
 _Avoid_: library, package, framework, SQL module, Edition, Composer core
 
 **Toolbox version**:
-The feature number of the Toolbox (`7.0`), raised only when a big feature lands. Two copies of
+The feature number of the Toolbox (`7.1`), raised only when a big feature lands. Two copies of
 the same Toolbox version are told apart by when they were exported.
 _Avoid_: release, build, hash
 
@@ -33,7 +33,8 @@ _Avoid_: develop, internal branch, testing branch
 Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them.
 Each Toolbox user has one; the Example database stands in for it. The Toolbox reaches it only
 through the user's two calls: `query`, which gives back rows as a DataFrame, and `execute`, which
-gives back nothing, as the user's own API does.
+gives back nothing, as the user's own API does. The user chooses which call sends each
+Statement; the Toolbox never chooses for them.
 _Avoid_: backend, engine, server, platform, send
 
 ### The user's own scripts

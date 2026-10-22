@@ -20,7 +20,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run, show_hive
+from sqlglot_composer import export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -95,9 +95,9 @@ def null_counts() -> Statement:
 # %%
 # 3. Try it: the Hive of each step, then the rows
 show_hive([create(), write()])
-run(preview(), query=query)
-run(repeated_keys(), query=query)  # should have no rows
-run(null_counts(), query=query)
+run_query(preview(), query)
+run_query(repeated_keys(), query)  # should have no rows
+run_query(null_counts(), query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before

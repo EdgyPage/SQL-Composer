@@ -53,7 +53,7 @@ A Statement is built along a chain of types, each made by a call on the one befo
   one part of a query;
 - `statement(...)` gives a Statement: its Clauses, checked together as one query;
 - `to_hive(...)` gives a `str`: the Hive, the query's text;
-- `run(..., query=query)` gives a DataFrame: the rows your query gives back, in pandas.
+- `run_query(..., query)` gives a DataFrame: the rows your query gives back, in pandas.
 
 Each step below makes one, and its comment, such as `# -> Table`, says which. The question
 is: which runs failed on 2026-09-23 and 2026-09-24? Give the table a short name first:
@@ -94,7 +94,7 @@ same Statement.
 
 ### Read its Hive
 
-`to_hive` gives the Hive as text, a `str`, exactly what `run` sends. `print` shows it as it
+`to_hive` gives the Hive as text, a `str`, exactly what `run_query` sends. `print` shows it as it
 is, one clause to a line:
 
 >>> hive = to_hive(failed)  # -> str
@@ -134,18 +134,18 @@ as `-- 1 of 2`, then the name of the variable it is in, when it is in one, such 
 
 ### Run it
 
-`run` turns the Statement into Hive, hands it to your `query`, since it reads rows, and gives
-back the DataFrame `query` returns:
+`run_query` turns the Statement into Hive, hands it to your `query`, and gives back the
+DataFrame `query` returns. You call `run_query` for a Statement that reads rows:
 
->>> result = run(failed, query=query)  # -> DataFrame
+>>> result = run_query(failed, query)  # -> DataFrame
 >>> result
    run_id  job_id          dt
 0      97       3  2026-09-23
 1     102       2  2026-09-24
 
 The column names are the Statement's. From here it is pandas, such as `result["run_id"]`. A
-Statement that writes a table goes to your execute instead, and `run` gives back nothing for
-it, as [Save a table](#save_a_table) shows.
+Statement that writes a table goes to your execute instead, with `run_execute`, which gives
+back nothing, as [Save a table](#save_a_table) shows.
 
 ### Keep only the rows you want
 
@@ -179,7 +179,7 @@ WHERE
   job_runs.dt = '2026-09-24'
   AND job_runs.job_id IN (1, 3)
   AND job_runs.duration_mins >= 20;
->>> run(long_runs, query=query)
+>>> run_query(long_runs, query)
    run_id  job_id  duration_mins
 0     103       3             30
 1     104       1             40
@@ -204,7 +204,7 @@ WHERE
   AND (
     job_runs.status = 'FAILED' OR job_runs.duration_mins >= 30
   );
->>> run(to_check, query=query)
+>>> run_query(to_check, query)
    run_id   status  duration_mins
 0      97   FAILED             30
 1     102   FAILED             20
@@ -219,7 +219,7 @@ as None in a column that holds nothing else. `is_null` finds it:
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24"), is_null(job_runs.status)),
 ... )
->>> run(still_running, query=query)
+>>> run_query(still_running, query)
    run_id status
 0      98   None
 
@@ -238,7 +238,7 @@ SELECT
 FROM ops.jobs AS jobs
 WHERE
   jobs.job_name LIKE '%sync%';
->>> run(sync_jobs, query=query)
+>>> run_query(sync_jobs, query)
    job_id      job_name
 0       2  invoice_sync
 
@@ -253,7 +253,7 @@ and `WHERE` reads the table.
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-24"), at_least(job_runs.duration_mins, 30)),
 ... )
->>> run(minutes_named, query=query)
+>>> run_query(minutes_named, query)
    run_id  minutes
 0     103       30
 1     104       40
@@ -279,7 +279,7 @@ Python's own `getattr` takes each Column by its name:
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-23")),
 ... )
->>> run(chosen_runs, query=query)
+>>> run_query(chosen_runs, query)
    run_id   status  duration_mins
 0      95  SUCCESS             12
 1      96  SUCCESS             18
@@ -307,13 +307,13 @@ LIMIT 20;
 Check a Statement's rows against the same Conditions worked out in pandas, on every row of the
 Partitions it reads. Here, `to_check`: the runs that failed or took 30 minutes or more.
 
->>> every_run = run(statement(  # -> DataFrame
+>>> every_run = run_query(statement(  # -> DataFrame
 ...     SELECT(all_columns(job_runs)),
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
-... ), query=query)
+... ), query)
 >>> in_pandas = every_run[(every_run["status"] == "FAILED") | (every_run["duration_mins"] >= 30)]
->>> sorted(in_pandas["run_id"]) == sorted(run(to_check, query=query)["run_id"])
+>>> sorted(in_pandas["run_id"]) == sorted(run_query(to_check, query)["run_id"])
 True
 
 Both lists are sorted first: without `ORDER_BY`, the warehouse may give the rows in any order.
@@ -344,19 +344,19 @@ the message says, as `failed` does. The Opt-out, `reads_all_partitions=True`, re
 Partition: use it only for a small table you truly need whole.
 [Count, join and stay safe](#count_join_and_stay_safe) shows the other Load limits.
 
-### Giving run the Hive text
+### Giving run_query the Hive text
 
-`run` takes the Statement and makes the Hive itself, so it can check it first. Given the text,
+`run_query` takes the Statement and makes the Hive itself, so it can check it first. Given the text,
 it stops:
 
->>> run(hive, query=query)
+>>> run_query(hive, query)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  run was given "SELECT...", which isn't a Statement.
+  What happened:  run_query was given "SELECT...", which isn't a Statement.
 ...
 
-Pass the Statement itself: `run(failed, query=query)`. Your query works the other way round:
+Pass the Statement itself: `run_query(failed, query)`. Your query works the other way round:
 it takes Hive text, a `str`, not a Statement.
 
 ### Comparing with None
@@ -384,7 +384,7 @@ it. Leaving out the TEST runs on 2026-09-23 also leaves out run 98, still runnin
 ...     FROM(job_runs),
 ...     WHERE(equals(job_runs.dt, "2026-09-23"), not_equals(job_runs.status, "TEST")),
 ... )
->>> run(not_test, query=query)
+>>> run_query(not_test, query)
    run_id   status
 0      95  SUCCESS
 1      96  SUCCESS
@@ -415,7 +415,7 @@ Write `equals(job_runs.job_id, 3)`.
   [Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references).
 - The gallery's Worked examples of [`statement`](examples.html#statement),
   [`to_hive`](examples.html#to_hive), [`show_hive`](examples.html#show_hive),
-  [`run`](examples.html#run) and each Condition, such as [`between`](examples.html#between),
+  [`run_query`](examples.html#run_query) and each Condition, such as [`between`](examples.html#between),
   [`is_in`](examples.html#is_in) and [`any_of`](examples.html#any_of), and the traps beside
   their fixes: [`not_equals` drops NULL](examples.html#not_equals_drops_null) and
   [None in `equals`](examples.html#none_in_equals).

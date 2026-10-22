@@ -178,9 +178,9 @@ def test_a_statement_the_example_database_cannot_run_says_why() -> None:
     assert "No result here. The Example database is never written to" in text
 
 
-def test_a_statement_given_to_run_shows_its_hive() -> None:
-    _, text = gallery_entries()["run"]
-    assert "The Hive of the Statement given to run(...) SELECT job_runs.run_id," in text
+def test_a_statement_given_to_run_query_shows_its_hive() -> None:
+    _, text = gallery_entries()["run_query"]
+    assert "The Hive of the Statement given to run_query(...) SELECT job_runs.run_id," in text
 
 
 @pytest.mark.parametrize(
@@ -248,9 +248,9 @@ def test_a_pandas_result_does_not_claim_to_come_from_the_example_database() -> N
         encoding="utf-8")
 
 
-def test_a_statement_given_to_run_also_shows_its_result_as_a_table() -> None:
-    # The two FAILED runs, as run's own docstring shows them, without pandas' index.
-    assert cells(entry_section("run")) == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
+def test_a_statement_given_to_run_query_also_shows_its_result_as_a_table() -> None:
+    # The two FAILED runs, as run_query's own docstring shows them, without pandas' index.
+    assert cells(entry_section("run_query")) == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
 
 
 def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days() -> None:

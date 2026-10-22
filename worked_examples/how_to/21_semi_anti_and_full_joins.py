@@ -102,7 +102,7 @@ and a job comes out once for each event:
 ...          many_matches=True),
 ...     WHERE(equals(job_owners.dt, "2026-09-24")),
 ... )
->>> run(repeated, query=query)  # -> DataFrame
+>>> run_query(repeated, query)  # -> DataFrame
    job_id     team
 0       1     data
 1       1     data
@@ -130,12 +130,12 @@ LEFT SEMI JOIN ops.job_events AS job_events
   ON job_events.job_id = job_owners.job_id AND job_events.dt = '2026-09-24'
 WHERE
   job_owners.dt = '2026-09-24';
->>> run(with_an_event, query=query)
+>>> run_query(with_an_event, query)
    job_id     team
 0       1     data
 1       2  finance
 
-Pasted into your own notebook, this `run`, and the one of `with_an_event` under Check it
+Pasted into your own notebook, this `run_query`, and the one of `with_an_event` under Check it
 worked, stops with a RuntimeError saying the Example database can't run a `LEFT SEMI JOIN`:
 sqlglot's own small executor doesn't know it. The result above is worked out in pandas
 instead. Hive at work runs it.
@@ -166,7 +166,7 @@ LEFT JOIN ops.job_events AS job_events
   ON job_events.job_id = job_owners.job_id AND job_events.dt = '2026-09-24'
 WHERE
   job_owners.dt = '2026-09-24' AND job_events.job_id IS NULL;
->>> run(no_event, query=query)
+>>> run_query(no_event, query)
    job_id     team
 0       3  finance
 1       4      web
@@ -226,7 +226,7 @@ SELECT
 FROM recorded
 FULL JOIN started
   ON started.run_id = recorded.run_id;
->>> run(both_records, query=query)
+>>> run_query(both_records, query)
    run_id                   found
 0      95                 in both
 1      96                 in both
@@ -254,7 +254,7 @@ the runs only one side holds:
 ...     FULL_JOIN(started, ON=equals(started.run_id, recorded.run_id)),
 ...     WHERE(any_of(is_null(recorded.run_id), is_null(started.run_id))),
 ... )
->>> run(differences, query=query)
+>>> run_query(differences, query)
    in_job_runs  in_scheduler_runs
 0          NaN              100.0
 1         99.0                NaN
@@ -275,7 +275,7 @@ that Hive reads as a request. Hive ignores the hint unless the Session setting "
 sent first, since one of its lines sets hive.ignore.mapjoin.hint to false, so send it before
 the Statement:
 
->>> run(hive_settings("map_joins"), execute=execute)
+>>> run_execute(hive_settings("map_joins"), execute)
 execute: SET hive.auto.convert.join=true
 execute: SET hive.auto.convert.join.noconditionaltask=true
 execute: SET hive.ignore.mapjoin.hint=false
@@ -302,7 +302,7 @@ WHERE
   job_events.dt = '2026-09-24'
 GROUP BY
   job_owners.team;
->>> run(per_team, query=query)
+>>> run_query(per_team, query)
       team  events
 0     data       2
 1  finance       1
@@ -322,10 +322,10 @@ Every job ops.job_owners lists on the day either had an event or hadn't, so the 
 ...     FROM(job_owners),
 ...     WHERE(equals(job_owners.dt, "2026-09-24")),
 ... )
->>> len(run(every_job, query=query))
+>>> len(run_query(every_job, query))
 4
->>> with_one = len(run(with_an_event, query=query))
->>> without = len(run(no_event, query=query))
+>>> with_one = len(run_query(with_an_event, query))
+>>> without = len(run_query(no_event, query))
 >>> with_one + without
 4
 
@@ -411,7 +411,7 @@ ValueError:
 
 import pandas as pd
 
-from sqlglot_composer import FROM, SELECT, WHERE, equals, example_database, run, statement
+from sqlglot_composer import FROM, SELECT, WHERE, equals, example_database, run_query, statement
 
 
 # The Example database can't run a LEFT SEMI JOIN, so the page and the doctest get
@@ -420,11 +420,11 @@ from sqlglot_composer import FROM, SELECT, WHERE, equals, example_database, run,
 
 def with_an_event_in_pandas() -> pd.DataFrame:
     job_owners, job_events = example_database.job_owners, example_database.job_events
-    owners = run(statement(SELECT(job_owners.job_id, job_owners.team), FROM(job_owners),
-                           WHERE(equals(job_owners.dt, "2026-09-24"))),
-                 query=example_database.query)
-    events = run(statement(SELECT(job_events.job_id), FROM(job_events),
-                           WHERE(equals(job_events.dt, "2026-09-24"))),
-                 query=example_database.query)
+    owners = run_query(statement(SELECT(job_owners.job_id, job_owners.team), FROM(job_owners),
+                                 WHERE(equals(job_owners.dt, "2026-09-24"))),
+                       example_database.query)
+    events = run_query(statement(SELECT(job_events.job_id), FROM(job_events),
+                                 WHERE(equals(job_events.dt, "2026-09-24"))),
+                       example_database.query)
     kept = owners[owners["job_id"].isin(events["job_id"])]
     return kept.sort_values("job_id").reset_index(drop=True)

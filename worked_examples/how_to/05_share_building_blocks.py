@@ -134,7 +134,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = job_totals.job_id
 GROUP BY
   jobs.team;
->>> run(per_team, query=query)  # -> DataFrame
+>>> run_query(per_team, query)  # -> DataFrame
       team  minutes
 0     data       50
 1  finance       50
@@ -222,12 +222,12 @@ A notebook imports it by its file's name:
 >>> from building_blocks.runs_per_job import runs_per_job
 >>> last_day = runs_per_job(equals(ops.job_runs.dt, "2026-09-24"))  # -> Table
 
-`run` runs a Statement, and a Derived table is a step inside one, so check a block alone in
+`run_query` runs a Statement, and a Derived table is a step inside one, so check a block alone in
 the smallest Statement that reads it: every column, with `all_columns`. Check a block like this
 before you build on it:
 
 >>> check_last_day = statement(SELECT(all_columns(last_day)), FROM(last_day))  # -> Statement
->>> run(check_last_day, query=query)  # -> DataFrame
+>>> run_query(check_last_day, query)  # -> DataFrame
    job_id          dt  runs  failed_runs  minutes
 0       1  2026-09-24     2            0       50
 1       2  2026-09-24     1            1       20
@@ -268,7 +268,7 @@ JOIN ops.jobs AS jobs
   ON jobs.job_id = runs_per_job.job_id
 GROUP BY
   jobs.team;
->>> run(failed_per_team, query=query)  # -> DataFrame
+>>> run_query(failed_per_team, query)  # -> DataFrame
       team  failed_runs
 0     data            0
 1  finance            2
@@ -295,8 +295,8 @@ Every Table folder, Table reference and Building block is registered, and each o
 
 The block, checked alone over the two days, gives the failed runs the team Statement adds up:
 
->>> by_job = run(statement(SELECT(all_columns(two_days)), FROM(two_days)), query=query)
->>> by_team = run(failed_per_team, query=query)
+>>> by_job = run_query(statement(SELECT(all_columns(two_days)), FROM(two_days)), query)
+>>> by_team = run_query(failed_per_team, query)
 >>> print(by_job["failed_runs"].sum(), by_team["failed_runs"].sum())
 2 2
 
@@ -304,13 +304,13 @@ The block, checked alone over the two days, gives the failed runs the team State
 
 ### Running a Derived table itself
 
-`run` takes a Statement. A Derived table is a step to read, so on its own it stops:
+`run_query` takes a Statement. A Derived table is a step to read, so on its own it stops:
 
->>> run(last_day, query=query)
+>>> run_query(last_day, query)
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  run was given derived('runs_per_job', columns: job_id, dt, runs, failed_runs, minutes), which isn't a Statement.
+  What happened:  run_query was given derived('runs_per_job', columns: job_id, dt, runs, failed_runs, minutes), which isn't a Statement.
 ...
 
 Wrap it in the smallest Statement that reads it, as Import it, and check it alone does.

@@ -18,7 +18,7 @@ notebooks made after.
 
 from __future__ import annotations
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str,
@@ -60,7 +60,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run, show_hive
+from sqlglot_composer import export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -180,7 +180,7 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(<TABLE>), *rows())
 ''',
     try_it='''show_hive([create(), write()])
-run(preview(), query=query)''',
+run_query(preview(), query)''',
 )
 
 QUALITY_CHECKS = _notebook(
@@ -274,9 +274,9 @@ def null_counts() -> Statement:
     )
 ''',
     try_it='''show_hive([create(), write()])
-run(preview(), query=query)
-run(repeated_keys(), query=query)  # should have no rows
-run(null_counts(), query=query)''',
+run_query(preview(), query)
+run_query(repeated_keys(), query)  # should have no rows
+run_query(null_counts(), query)''',
 )
 
 SAVED_TABLE_REFERENCE = '''"""<DB>.<TABLE> - TODO: say in one line what one row is.
@@ -313,8 +313,8 @@ from sqlglot_composer import Table
 # Your own names for this table's columns and conditions, written by hand below.
 # Import one beside the table: from references.<NAME> import <TABLE>, <alias>
 #
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-# gives back, still call the column by its own name. To rename an output, use AS(...).
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
 #     <alias> = <TABLE>.<column>
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.

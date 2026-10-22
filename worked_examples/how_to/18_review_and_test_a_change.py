@@ -63,7 +63,7 @@ that moment:
 ...     team_days = project.load("mart.team_days")
 ...     return facts.write(), team_days.team_day_from_job_events(day)
 >>> facts_write, team_day = build_statements("2026-09-18")  # -> Statement, Statement
->>> run(team_day, query=query)  # -> DataFrame
+>>> run_query(team_day, query)  # -> DataFrame
       team  events  runs  minutes
 0     data       2     1       14
 1  finance       4     2       34
@@ -76,16 +76,16 @@ the answer out in pandas, which counts in a way of its own. This is an oracle, a
 trust because you can read each step of it:
 
 >>> def rows_of(day: str) -> pd.DataFrame:
-...     events = run(statement(
+...     events = run_query(statement(
 ...         SELECT(all_columns(job_events)),
 ...         FROM(job_events),
 ...         WHERE(equals(job_events.dt, day)),
-...     ), query=query)
-...     teams = run(statement(
+...     ), query)
+...     teams = run_query(statement(
 ...         SELECT(job_owners.job_id, job_owners.team),
 ...         FROM(job_owners),
 ...         WHERE(equals(job_owners.dt, day)),
-...     ), query=query)
+...     ), query)
 ...     return events.merge(teams, on="job_id", how="left")
 >>> def oracle(rows: pd.DataFrame, ending: list[str]) -> pd.DataFrame:
 ...     counted = rows.assign(
@@ -111,7 +111,7 @@ a list of plain dicts, which compare with `==` as Python lists do:
 ...     return (result.sort_values("team").to_dict("records")
 ...             == expected.sort_values("team").to_dict("records"))
 >>> def test_team_day(s: Statement, day: str, ending: list[str]) -> None:
-...     result = run(s, query=query)
+...     result = run_query(s, query)
 ...     expected = oracle(rows_of(day), ending)
 ...     assert same_rows(result, expected), f"{day}:\\n{result}\\n{expected}"
 >>> test_team_day(team_day, "2026-09-18", ending=["finish", "fail"])
@@ -253,7 +253,7 @@ Run the test's comparison again. It fails on 2026-09-18, the day report_build fa
 oracle still counts a failed run's minutes, and the changed Building block doesn't. The
 finance team's minutes fell by 12, the minutes report_build ran before it failed:
 
->>> result = run(team_day, query=query)
+>>> result = run_query(team_day, query)
 >>> expected = oracle(rows_of("2026-09-18"), ending=["finish", "fail"])
 >>> assert same_rows(result, expected), f"2026-09-18:\\n{result}\\n{expected}"
 Traceback (most recent call last):
@@ -307,7 +307,7 @@ your own doesn't.
 True and False. `assert` can't say whether a whole DataFrame is true, so it stops:
 
 >>> facts_write, team_day = build_statements("2026-09-18")
->>> result = run(team_day, query=query)
+>>> result = run_query(team_day, query)
 >>> expected = oracle(rows_of("2026-09-18"), ending=["finish"])
 >>> assert result == expected
 Traceback (most recent call last):

@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from conftest import example_rows
-from sqlglot_composer import GuardRefused, example_database, run, to_hive
+from sqlglot_composer import GuardRefused, example_database, run_query, to_hive
 from statements import none_in_equals as example
 
 
@@ -41,4 +41,4 @@ def test_the_careless_hive_would_count_no_rows() -> None:
 @pytest.mark.needs_example_database
 def test_the_fixed_statement_finds_the_run_still_going() -> None:
     _, missing = pandas_check()
-    assert run(example.fixed(), query=example_database.query).running[0] == missing == 1
+    assert run_query(example.fixed(), example_database.query).running[0] == missing == 1

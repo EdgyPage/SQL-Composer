@@ -5,7 +5,7 @@ A Stack puts the rows of whole Statements together, one Statement after another:
     UNION_ALL(failed, alerted)
 
 Each Statement must return the same columns, matched by name, and the Stack is a Statement
-itself: to_hive, run and show_hive take it, and derived(name, stack) names it for another
+itself: to_hive, run_query and show_hive take it, and derived(name, stack) names it for another
 Statement to read, filter, group or write. Subtotals go in GROUP_BY:
 
     GROUP_BY(rollup(jobs.team, jobs.job_name))
@@ -19,13 +19,14 @@ from __future__ import annotations
 
 from itertools import combinations
 
+from . import kinds
 from .clauses import Statement, _flatten, _resolve_group_by, derived_tables
 from .conditions import Condition
 from .refusals import refuse
 from .tables import Column, Table, made_by, python_text, readable, type_family
 from .trees import Node, number
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # How each Stack is written in Hive.
 STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",
@@ -70,7 +71,7 @@ def UNION_ALL(*statements: Statement | list[Statement],
     FROM ops.run_alerts AS run_alerts
     WHERE
       run_alerts.dt = '2026-09-24' AND run_alerts.severity = 'high'
-    >>> run(UNION_ALL(failed, alerted), query=example_database.query)
+    >>> run_query(UNION_ALL(failed, alerted), example_database.query)
        run_id
     0     101
     1     102
@@ -104,7 +105,7 @@ def UNION(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run(UNION(failed, alerted), query=example_database.query)
+    >>> run_query(UNION(failed, alerted), example_database.query)
        run_id
     0     101
     1     102
@@ -131,7 +132,7 @@ def INTERSECT(*statements: Statement | list[Statement],
     ...     FROM(run_alerts),
     ...     WHERE(equals(run_alerts.dt, "2026-09-24"), equals(run_alerts.severity, "high")),
     ... )
-    >>> run(INTERSECT(failed, alerted), query=example_database.query)
+    >>> run_query(INTERSECT(failed, alerted), example_database.query)
        run_id
     0     102
 
@@ -173,7 +174,7 @@ def EXCEPT(*statements: Statement | list[Statement],
     FROM ops.job_runs AS job_runs
     WHERE
       job_runs.dt = '2026-09-24' AND job_runs.status = 'FAILED'
-    >>> run(EXCEPT(alerted, failed), query=example_database.query)
+    >>> run_query(EXCEPT(alerted, failed), example_database.query)
        run_id
     0     101
 
@@ -228,14 +229,14 @@ def _check_branch(call: str, position: int, s: object) -> None:
             f"FROM({s._alias})).",
             given=s, call=call,
         )
-    if not isinstance(s, Statement) or s._ddl is not None:
+    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
         refuse(
             what=f"{which} is {s!r}, which isn't a Statement that reads a table.",
             why=f"{call} stacks the rows of Statements made by statement(...).",
             fix=f"Pass Statements, such as {call}(failed, alerted).",
             given=s, call=call,
         )
-    if s._write is not None:
+    if kinds.kind(s) == kinds.WRITE:
         refuse(
             what=f"{which} writes {s._write._name}.",
             why="A write returns no rows to stack.",
@@ -611,7 +612,7 @@ def check_subtotals(s: Statement) -> None:
     for place, tree in places:
         for grouping in tree.find_all("Grouping"):
             _check_is_total(s, place, grouping)
-    if s._write is not None:
+    if kinds.kind(s) == kinds.WRITE:
         _refuse_writing_subtotals(s)
 
 

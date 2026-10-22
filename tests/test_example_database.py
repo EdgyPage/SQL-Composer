@@ -26,7 +26,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     last_n_days,
-    run,
+    run_query,
     starts_with,
     statement,
     sum_of,
@@ -59,7 +59,7 @@ def test_show_partitions_lists_the_days() -> None:
     "CREATE TABLE ops.more (a INT)",
 ])
 def test_its_query_only_reads(hive: str) -> None:
-    with pytest.raises(ValueError, match=r"(?s)only reads.*run\(s, execute=example_database"
+    with pytest.raises(ValueError, match=r"(?s)only reads.*run_execute\(s, example_database"
                        r"\.execute\)"):
         example_database.query(hive)
 
@@ -83,7 +83,7 @@ def test_its_execute_prints_the_first_line_and_changes_nothing(
 @pytest.mark.parametrize("given", [5, None, "", "   "])
 def test_its_execute_takes_only_hive_text(given: object) -> None:
     with pytest.raises(TypeError,
-                       match=r"(?s)isn't Hive text.*run\(s, execute=example_database.execute\)"):
+                       match=r"(?s)isn't Hive text.*run_execute\(s, example_database.execute\)"):
         example_database.execute(given)
 
 
@@ -133,12 +133,12 @@ def test_a_query_sorts_itself_only_with_an_order_by_outside_every_bracket() -> N
 
 @pytest.mark.needs_example_database
 def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
-    frame = run(statement(
+    frame = run_query(statement(
         SELECT(job_runs.status, AS(count_rows(), "runs")),
         FROM(job_runs),
         WHERE(last_n_days(job_runs.dt, 2)),
         GROUP_BY(job_runs.status),
-    ), query=example_database.query)
+    ), example_database.query)
     # A missing status read as None: pandas 3 shows missing text as NaN, which equals nothing.
     records = [{name: None if pd.isna(value) else value for name, value in record.items()}
                for record in frame.to_dict("records")]
@@ -162,8 +162,8 @@ def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
         )
     fixed = statement(SELECT(AS(sum_of(job_runs.duration_mins), "minutes")), FROM(job_runs),
                       WHERE(day))
-    assert run(careless, query=example_database.query).minutes[0] == 150
-    assert run(fixed, query=example_database.query).minutes[0] == 100
+    assert run_query(careless, example_database.query).minutes[0] == 150
+    assert run_query(fixed, example_database.query).minutes[0] == 100
 
 
 @pytest.mark.needs_example_database
@@ -175,7 +175,7 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
                                       last_n_days(job_runs.dt, 2)), many_matches=True),
         GROUP_BY(jobs.job_name),
     )
-    result = run(s, query=example_database.query).set_index("job_name").ok.to_dict()
+    result = run_query(s, example_database.query).set_index("job_name").ok.to_dict()
     assert result == {"nightly_load": 3, "invoice_sync": 1, "report_build": 1, "cache_warm": 0}
 
 
@@ -183,7 +183,7 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
 def test_count_distinct_is_right_on_the_executor() -> None:
     s = statement(SELECT(AS(count_distinct(job_runs.status), "statuses")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
-    assert run(s, query=example_database.query).statuses[0] == 3
+    assert run_query(s, example_database.query).statuses[0] == 3
     assert "COUNT(DISTINCT job_runs.status)" in to_hive(s)
 
 
@@ -202,7 +202,7 @@ def test_count_distinct_is_right_on_the_executor() -> None:
 def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
                                                        names: list[str]) -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs), WHERE(condition))
-    assert list(run(s, query=example_database.query).job_name) == names
+    assert list(run_query(s, example_database.query).job_name) == names
 
 
 # --- What it refuses ---------------------------------------------------------------------------
@@ -235,7 +235,7 @@ def test_a_table_in_another_database_isnt_described(hive: str) -> None:
 @pytest.mark.parametrize("given", [5, None, statement(SELECT(jobs.team), FROM(jobs))])
 def test_its_query_takes_only_hive_text(given: int | Statement | None) -> None:
     with pytest.raises(TypeError,
-                       match=r"(?s)isn't Hive text.*run\(s, query=example_database.query\)"):
+                       match=r"(?s)isn't Hive text.*run_query\(s, example_database.query\)"):
         example_database.query(given)
 
 

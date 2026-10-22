@@ -26,7 +26,8 @@ day; the user said yes to all six answers below. ADR 0012, amended, records it.
    `write()` gives must be something that writes.
 5. `admin.move_to_own_folder` gives only steps for `execute`. The count comparison becomes
    `admin.check_the_copy(t, query=query)`, called between the copy and the drop.
-6. ADR 0012 amended; this ticket in the 7.0 map before any export.
+6. ADR 0012 amended; this ticket in the 7.0 map before any export. Then (2026-10-22): "Make
+   sure this is version 7.1": 09 to 11 are Toolbox 7.1, and 7.0 stays as it was.
 
 ## Done when
 
@@ -46,7 +47,8 @@ day; the user said yes to all six answers below. ADR 0012, amended, records it.
 - `project.run_tables(*, execute=None, tables=None)`: the dry run with no `execute`; a read in a
   `write()` is refused, naming the notebook.
 - Converted: every how-to, Worked example, test, tool, Template, admin notebook, Example
-  project, the README template, the docstrings and CHANGES.md's 7.0 (`run` and `returns_rows=`
-  gone from "To update from 6.x"'s target).
+  project, the README template and the docstrings.
 - CONTEXT.md: any entry naming `run` or `returns_rows` says `run_query` / `run_execute`.
+- The version is 7.1 wherever the current version is named, and CHANGES.md has a `## 7.1` with
+  "To update from 7.0"; its `## 7.0` stays as 7.0 was.
 - CLAUDE.md's Definition of done, the beginner reader included.

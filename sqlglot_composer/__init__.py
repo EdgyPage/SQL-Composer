@@ -2,7 +2,7 @@
 
 Import everything from here, never from a file inside the folder:
 
-    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run
+    from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run_query
 
 The Toolbox is this one folder. To update, delete it, copy it in again from the download and
 restart the kernel. It checks itself when imported. If a file is missing, extra, from another
@@ -13,9 +13,9 @@ TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VER
 full text, which also says when this copy was exported.
 
 >>> TOOLBOX_VERSION
-'7.0'
+'7.1'
 >>> VERSION
-'sqlglot Composer 7.0, ...'
+'sqlglot Composer 7.1, ...'
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from __future__ import annotations
 import os
 from typing import NoReturn
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # The folder this file belongs in, and the name its export stamps on each of the folder's
 # files.

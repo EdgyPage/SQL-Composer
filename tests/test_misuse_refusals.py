@@ -38,7 +38,7 @@ from sqlglot_composer import (
     is_in,
     is_null,
     last_n_days,
-    run,
+    run_query, run_execute,
     set_load_limits,
     statement,
     sum_of,
@@ -96,10 +96,10 @@ MISUSES = [
     pytest.param(lambda: hive_function("drop table", jobs.team), ValueError,
                  "isn't a function name", id="hive_function_name"),
     pytest.param(lambda: to_hive(42), TypeError, "isn't a Statement", id="to_hive_42"),
-    pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs))), TypeError,
-                 "run needs query=, and wasn't given it", id="run_no_query"),
-    pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs)), query=5), TypeError,
-                 "run: query= is an int, not a function", id="run_query_5"),
+    pytest.param(lambda: run_query(statement(SELECT(jobs.team), FROM(jobs))), TypeError,
+                 "run_query needs query=, and wasn't given it", id="run_query_no_query"),
+    pytest.param(lambda: run_query(statement(SELECT(jobs.team), FROM(jobs)), 5), TypeError,
+                 "run_query: query= is an int, not a function", id="run_query_5"),
     pytest.param(lambda: job_runs.duration_mins + "a", TypeError, "+ was used with 'a'",
                  id="plus_text"),
     pytest.param(lambda: export_lineage(), TypeError, "was given no Statement",
@@ -136,11 +136,11 @@ MISUSES = [
                  id="contains_5"),
     pytest.param(lambda: equals(jobs.team, ["a", "b"]), TypeError, "isn't a single value",
                  id="equals_a_list"),
-    pytest.param(lambda: run(teams(), query=lambda hive: [("data",), ("finance",)]), TypeError,
+    pytest.param(lambda: run_query(teams(), lambda hive: [("data",), ("finance",)]), TypeError,
                  "Your query gave back a list, where a pandas DataFrame goes",
                  id="run_query_list"),
-    pytest.param(lambda: run(to_hive(teams()), query=example_database.query), TypeError,
-                 "run was given 'SELECT", id="run_hive_text"),
+    pytest.param(lambda: run_query(to_hive(teams()), example_database.query), TypeError,
+                 "run_query was given 'SELECT", id="run_hive_text"),
 ]
 
 
@@ -194,32 +194,32 @@ def usual_fix(refused: pytest.ExceptionInfo) -> str:
     return str(refused.value).split("Usual fix:")[1].split("\n")[0].strip()
 
 
-def test_run_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
+def test_run_query_given_a_derived_table_says_to_wrap_it_in_a_statement() -> None:
     per_team = derived("per_team", teams())
     with pytest.raises(TypeError) as refused:
-        run(per_team, query=example_database.query)
-    assert "run was given derived('per_team'" in str(refused.value)
+        run_query(per_team, example_database.query)
+    assert "run_query was given derived('per_team'" in str(refused.value)
     assert "statement(SELECT(all_columns(per_team)), FROM(per_team))" in usual_fix(refused)
     # The fix it gives is a Statement that reads the Derived table.
     sent = []
-    run(statement(SELECT(all_columns(per_team)), FROM(per_team)),
-        query=lambda hive: sent.append(hive) or pd.DataFrame({"team": []}))
+    run_query(statement(SELECT(all_columns(per_team)), FROM(per_team)),
+              lambda hive: sent.append(hive) or pd.DataFrame({"team": []}))
     assert sent[0].endswith("FROM per_team")
 
 
 def test_a_derived_table_with_no_variable_name_is_called_d_in_the_fix() -> None:
     """Its name in the Hive isn't a Python name, so the fix doesn't paste it as one."""
     with pytest.raises(TypeError) as refused:
-        run(derived("per_team", teams()), query=example_database.query)
+        run_query(derived("per_team", teams()), example_database.query)
     assert usual_fix(refused).endswith(
-        "run(statement(SELECT(all_columns(d)), FROM(d)), query=...), where d is the Derived "
+        "run_query(statement(SELECT(all_columns(d)), FROM(d)), query), where d is the Derived "
         "table.")
 
 
-def test_run_given_a_list_says_to_send_each_in_turn() -> None:
+def test_run_query_given_a_list_says_to_send_each_in_turn() -> None:
     steps = [teams(), teams()]
-    with pytest.raises(TypeError, match=r"run was given \[") as refused:
-        run(steps, query=example_database.query)
+    with pytest.raises(TypeError, match=r"run_query was given \[") as refused:
+        run_query(steps, example_database.query)
     assert "for step in steps:" in usual_fix(refused)
 
 
@@ -242,7 +242,7 @@ _OtherLibrarysDataFrame.__module__ = "polars.dataframe.frame"
 ])
 def test_a_query_that_doesnt_give_back_a_dataframe_is_refused(answer: object, said: str) -> None:
     with pytest.raises(TypeError) as refused:
-        run(teams(), query=lambda hive: answer)
+        run_query(teams(), lambda hive: answer)
     message = str(refused.value)
     assert f"Your query gave back {said}, where a pandas DataFrame goes." in message
     assert "pd.DataFrame(rows)" in usual_fix(refused)
@@ -254,7 +254,7 @@ def test_a_write_isnt_refused_for_what_its_execute_gives_back() -> None:
     gave."""
     owners = Table("mart.job_owners", columns=dict(job_owners._columns), partitioned_by=["dt"],
                    location="/data/your_team/mart.db/job_owners")
-    assert run(create_table(owners, may_exist=True), execute=lambda hive: "anything") is None
+    assert run_execute(create_table(owners, may_exist=True), lambda hive: "anything") is None
 
 
 # --- a calculation's name where a column goes ------------------------------------------------

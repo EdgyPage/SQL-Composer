@@ -58,7 +58,7 @@ from the data team to finance on 2026-09-18:
 ...     WHERE(equals(job_owners.job_id, 3),
 ...           between(job_owners.dt, "2026-09-16", "2026-09-19")),
 ... )
->>> run(report_build_owners, query=query)  # -> DataFrame
+>>> run_query(report_build_owners, query)  # -> DataFrame
            dt     team  owner
 0  2026-09-16     data    ana
 1  2026-09-17     data    ana
@@ -97,7 +97,7 @@ WHERE
   AND job_events.event_type = 'start'
   AND job_events.dt BETWEEN '2026-09-11' AND '2026-09-24'
   AND job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24';
->>> run(report_build_runs, query=query)  # -> DataFrame
+>>> run_query(report_build_runs, query)  # -> DataFrame
            dt     team
 0  2026-09-11     data
 1  2026-09-14     data
@@ -120,7 +120,7 @@ The same join, for every job, grouped by team:
 ...           between(job_owners.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team, query=query)  # -> DataFrame
+>>> run_query(runs_per_team, query)  # -> DataFrame
       team  runs
 0     data    16
 1  finance    12
@@ -160,7 +160,7 @@ where a JOIN goes:
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team_then, query=query)  # -> DataFrame
+>>> run_query(runs_per_team_then, query)  # -> DataFrame
       team  runs
 0     data    16
 1  finance    12
@@ -210,14 +210,14 @@ SELECT
 FROM numbered
 WHERE
   numbered.newest_first = 1;
->>> run(newest_owner, query=query)  # -> DataFrame
+>>> run_query(newest_owner, query)  # -> DataFrame
    job_id     team  owner          dt
 0       1     data    ana  2026-09-24
 1       2  finance    ben  2026-09-24
 2       3  finance  chloe  2026-09-24
 3       4      web    NaN  2026-09-24
 
-Pasted into your own notebook, this `run` stops with a RuntimeError saying the Example database
+Pasted into your own notebook, this `run_query` stops with a RuntimeError saying the Example database
 can't run this Hive: the Example database runs Hive with sqlglot, which has no `row_number`.
 The result above was worked out in pandas from the same rows, to show what the Hive gives.
 Your warehouse runs the Hive above as it is.
@@ -238,10 +238,10 @@ over the 14 days:
 ...     WHERE(equals(job_events.event_type, "start"),
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ... )
->>> run(every_run, query=query)  # -> DataFrame
+>>> run_query(every_run, query)  # -> DataFrame
    runs
 0    28
->>> int(run(runs_per_team, query=query)["runs"].sum())
+>>> int(run_query(runs_per_team, query)["runs"].sum())
 28
 
 ## Common mistakes
@@ -260,7 +260,7 @@ Toolbox warns at the `JOIN`, since a job_owners row is told apart only by the jo
 ...           between(job_owners.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team_repeated, query=query)  # -> DataFrame
+>>> run_query(runs_per_team_repeated, query)  # -> DataFrame
       team  runs
 0     data   224
 1  finance   168
@@ -283,7 +283,7 @@ every run the team its job has now:
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team_now, query=query)  # -> DataFrame
+>>> run_query(runs_per_team_now, query)  # -> DataFrame
       team  runs
 0     data    14
 1  finance    14
@@ -329,7 +329,7 @@ Filter it with the same days as the table it is joined to, in `WHERE` as the ste
 import pandas as pd
 
 from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, run, statement,
+    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
 )
 
 job_owners = example_database.job_owners
@@ -337,10 +337,10 @@ job_owners = example_database.job_owners
 
 def newest_owner_in_pandas() -> pd.DataFrame:
     """newest_owner's result, computed in pandas, not by running this Hive."""
-    every_day = run(
+    every_day = run_query(
         statement(SELECT(all_columns(job_owners)), FROM(job_owners),
                   WHERE(between(job_owners.dt, "2026-09-11", "2026-09-24"))),
-        query=example_database.query,
+        example_database.query,
     )
     newest_first = every_day.sort_values("dt", ascending=False, kind="stable")
     newest = newest_first.groupby("job_id").head(1)

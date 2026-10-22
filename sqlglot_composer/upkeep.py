@@ -1,6 +1,6 @@
 """Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 
-Each gives a Statement, run like any other, and each is safe to send again. repair_partitions
+Each gives a Statement, sent with run_execute like any other change, and each is safe to send again. repair_partitions
 and compute_statistics change only what the warehouse keeps about one of your Saved tables,
 never a row of it; explain only reads. create_table(t, may_exist=True), in tables.py, is the
 fourth Statement of this kind.
@@ -11,6 +11,7 @@ from __future__ import annotations
 import inspect
 from types import FrameType
 
+from . import kinds
 from .clauses import Statement
 from .refusals import arguments_of, refuse, refuse_removed_arguments
 from .running import _need_statement, _statement_tree
@@ -24,13 +25,13 @@ from .tables import (
     table_node,
 )
 from .trees import Node
-from .unchecked import SessionSettings, UncheckedStatement
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 
-def _upkeep(tree: Node) -> Statement:
+def _upkeep(tree: Node, kind: str = kinds.UPKEEP) -> Statement:
     s = Statement()
+    s._kind = kind
     s._ddl = tree
     return s
 
@@ -48,8 +49,8 @@ def repair_partitions(t: Table) -> Statement:
     reads, such as dt=2026-09-24 or region=EU/dt=2026-09-24, and never reads a folder missing
     from it. A folder goes missing from the list when files reach the table's folder without a
     write: when create_table makes a table again where an old one's files stayed, because it
-    was dropped without purge=True, or when someone copies files in. run(repair_partitions(t),
-    execute=...) adds each Partition's folder it finds to the list. It only adds: it deletes no
+    was dropped without purge=True, or when someone copies files in. run_execute(repair_partitions(t),
+    execute) adds each Partition's folder it finds to the list. It only adds: it deletes no
     file and no Partition, so it is safe to send again.
 
     It takes only one of your Saved tables, a Table reference with location= and
@@ -82,7 +83,7 @@ def compute_statistics(t: Table, partition: dict[str, object] | None = None,
     Hive picks how to join a table from its statistics: how many rows and bytes it holds, in
     each of its Partitions. Without them it guesses, and may sort two big tables to join them
     even when copying a small one to every worker would do; the Session setting "map_joins"
-    lets Hive choose to copy it. run(compute_statistics(t), execute=...) reads the table's
+    lets Hive choose to copy it. run_execute(compute_statistics(t), execute) reads the table's
     files, counts them again and keeps the new count in place of the old, so it is safe to
     send again; it changes no row. The Session setting "statistics_on_write", sent before your
     writes, has each write count what it writes; compute_statistics is for what was written
@@ -251,8 +252,8 @@ def explain(s: Statement) -> Statement:
     WHERE
       job_runs.dt = '2026-09-24'
 
-    run(explain(s), query=...) gives back Hive's plan as text, which prints line by line. It is
-    the plan of exactly the Hive run(s, query=...) would send, with the LIMIT run adds when
+    run_query(explain(s), query) gives back Hive's plan as text, which prints line by line. It is
+    the plan of exactly the Hive run_query(s, query) would send, with the LIMIT run adds when
     set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
     only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows
     the write without making it; and it is safe to send again.
@@ -272,7 +273,7 @@ def explain(s: Statement) -> Statement:
     write itself.
     """
     _need_explainable(s, inspect.currentframe().f_back)
-    return _upkeep(Node("Explain", this=_statement_tree(s)))
+    return _upkeep(Node("Explain", this=_statement_tree(s)), kinds.PLAN)
 
 
 # The function that makes each Statement explain has no plan for, by its kind.
@@ -283,25 +284,25 @@ _MADE_BY = {"Create": "create_table", "Repair": "repair_partitions",
 def _need_explainable(s: object, frame: FrameType | None) -> None:
     """Refuse what explain can't explain: Hive written by hand, Session settings, what isn't a
     Statement, and a Statement that creates, drops or keeps up a table."""
-    if isinstance(s, UncheckedStatement):
+    if kinds.kind(s) == kinds.UNCHECKED:
         refuse(
             what="explain was given an Unchecked statement.",
             why="explain shows Hive's plan for a Statement it wrote itself, and Hive written by "
             "hand is sent as written.",
             fix="Write EXPLAIN at the start of its text: "
-            'unchecked_hive("EXPLAIN ...", returns_rows=True).',
+            'unchecked_hive("EXPLAIN ...").',
         )
-    if isinstance(s, SessionSettings):
+    if kinds.kind(s) == kinds.SETTINGS:
         refuse(
             what=f"explain was given {s!r}.",
             why="Session settings have no plan: they change how Hive plans the Statements sent "
             "after them.",
-            fix="Send them with run(...), then pass explain the Statement they're sent before.",
+            fix="Send them with run_execute(...), then pass explain the Statement they're sent before.",
         )
     _need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
-    if s._ddl is not None:
-        made_by = None if s._admin_call is not None else _MADE_BY.get(s._ddl.kind)
+    if kinds.kind(s) not in (kinds.READ, kinds.WRITE):
+        made_by = None if kinds.kind(s) == kinds.ADMIN else _MADE_BY.get(s._ddl.kind)
         given = f"the Statement {made_by}(...) makes" if made_by else "an Admin statement"
         refuse(
             what=f"explain was given {given}, which isn't a query or a write.",

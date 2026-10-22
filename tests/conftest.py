@@ -282,8 +282,8 @@ def previewed_days(module: TableLogic, days: list[str]) -> pd.DataFrame:
     with its day as dt, the column it selects last: the rows a Saved table its write fills
     would hold."""
     toolbox = toolbox_module()
-    return pd.concat([toolbox.run(rows_of_days(module, day, day),
-                                  query=toolbox.example_database.query) for day in days],
+    return pd.concat([toolbox.run_query(rows_of_days(module, day, day),
+                                        toolbox.example_database.query) for day in days],
                      ignore_index=True)
 
 

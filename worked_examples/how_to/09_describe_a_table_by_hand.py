@@ -148,7 +148,7 @@ WHERE
   job_day.dt BETWEEN '2026-09-23' AND '2026-09-24' AND job_day.minutes >= 30;
 
 The table mart.job_day isn't on the Example database, so this how-to shows its Hive but can't
-run it. At work, once the table exists and holds some days, `run(long_days, query=query)` runs
+run it. At work, once the table exists and holds some days, `run_query(long_days, query)` runs
 it.
 
 ### A table partitioned by two columns, its days written another way
@@ -171,7 +171,7 @@ table's way:
 ...     FROM(region_costs),
 ...     WHERE(equals(region_costs.dt, "20260923")),
 ... )
->>> run(costs, query=query)  # -> DataFrame
+>>> run_query(costs, query)  # -> DataFrame
    job_id  cost_cents
 0       1         120
 1       2         180
@@ -227,7 +227,7 @@ is how Hive splits a table into Partitions. LOCATION is the folder you wrote, as
 STORED AS ORC says how Hive keeps the table's files: ORC, a compact format Hive reads quickly.
 EXTERNAL and LOCATION say the files are yours, in the table's own folder.
 
-At work, once `run(create_table(job_day), execute=execute)` has made the table,
+At work, once `run_execute(create_table(job_day), execute)` has made the table,
 `check_table_reference(job_day, query=query)` compares it with your file, as above. And the
 Project knows the file:
 
@@ -302,7 +302,7 @@ stops it:
 ...     FROM(region_costs),
 ...     WHERE(equals(region_costs.dt, "2026-09-23")),
 ... )
->>> run(wrong_day, query=query)  # -> DataFrame
+>>> run_query(wrong_day, query)  # -> DataFrame
 Empty DataFrame
 Columns: [job_id]
 Index: []

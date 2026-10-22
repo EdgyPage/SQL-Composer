@@ -77,8 +77,8 @@ or made by hand.
 The Toolbox never connects to anything itself: it writes Hive as text, and hands that text to
 one of two functions of yours, in `warehouse.py`. `query` runs Hive that gives back rows, such
 as a SELECT, and gives them back as a pandas DataFrame; `execute` runs Hive that changes
-something, such as a write, and gives back nothing. The Toolbox picks which one each Statement
-goes to. `project.start()` wrote them to run on the Example database; at work, write them over
+something, such as a write, and gives back nothing. You pick which one sends a Statement, by
+calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run on the Example database; at work, write them over
 your team's API, once:
 
 ```python
@@ -142,7 +142,7 @@ A Statement is built along a chain of types, each made by a call on the one befo
 | `SELECT(...)`, `FROM(...)`, `WHERE(...)` and the others | `Clause` | one part of a query |
 | `statement(...)` | `Statement` | its Clauses, checked together as one query |
 | `to_hive(...)` | `str` | the Hive: the query's text, ready to paste |
-| `run(..., query=query)` | `DataFrame` | the rows your query gives back, in pandas |
+| `run_query(..., query)` | `DataFrame` | the rows your query gives back, in pandas |
 
 The runs that failed on 2026-09-23 and 2026-09-24. ops.job_runs is partitioned by dt, so a
 Statement on it must filter dt:
@@ -164,7 +164,7 @@ SELECT
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.status = 'FAILED' AND job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
->>> run(failed, query=query)  # -> DataFrame
+>>> run_query(failed, query)  # -> DataFrame
    run_id  job_id          dt
 0      97       3  2026-09-23
 1     102       2  2026-09-24
@@ -205,7 +205,7 @@ with every Condition `WHERE` takes, `AS`, `all_columns` and `first_look`.
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ...     GROUP_BY(job_runs.job_id),
 ... )
->>> run(per_job, query=query)  # -> DataFrame
+>>> run_query(per_job, query)  # -> DataFrame
    job_id  runs  failed_runs
 0       1     4            0
 1       2     3            1
@@ -260,7 +260,7 @@ The notebook's logic sets `READS`, the rows its write reads, and defines `create
 `INSERT_OVERWRITE`, which replaces whatever the Partitions its rows fill held, or the whole
 table when it has none, so sending it twice leaves the same rows, not twice as many. A write
 that fills its Partitions from its rows needs the Session setting "dynamic_partitions", which
-`show_hive` prints ahead of it. `project.run_tables(query=query, execute=execute)` then writes
+`show_hive` prints ahead of it. `project.run_tables(execute=execute)` then writes
 every Saved table, each after the tables it reads, sending that setting first; with no execute,
 it prints each write's Hive in order and sends nothing.
 
@@ -412,7 +412,7 @@ They come as they are, with no warranty.
 Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
 lives in. Import every name from `sqlglot_composer` itself, never from a file inside it.
 Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
-`job_runs.duration_mins / 60`. The star import brings the 101 names listed here before the admin
+`job_runs.duration_mins / 60`. The star import brings the 102 names listed here before the admin
 module. Two modules' functions come last: the admin module's, which change your own Saved
 tables, and the project module's, which make and archive a Project's folders and files. The star
 import leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

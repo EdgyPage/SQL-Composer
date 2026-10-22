@@ -80,15 +80,13 @@ list can't go stale. A new entry needs a reason and the user's OK (`docs/agents/
 
 ### R1. The user's `query` and `execute`: the only ways out (by design)
 
-`sqlglot_composer/running.py`, in `run(s, query=..., execute=...)` (until 7.0, a single
-`send(text)` stood here):
+`sqlglot_composer/running.py`, in `run_query(s, query)` and `run_execute(s, execute)` (until
+7.0, a single `send(text)` stood here):
 
 ```python
-text = to_hive(s)
+result = query(to_hive(s))  # run_query: a read
 ...
-execute(text)  # a write, CREATE, MSCK, ANALYZE or Admin statement
-...
-result = query(text)  # a read
+execute(to_hive(s))  # run_execute: a write, CREATE, MSCK, ANALYZE or Admin statement
 ```
 
 - **What it is.** `query` and `execute` are the user's own functions, in their Project's

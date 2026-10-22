@@ -1,7 +1,7 @@
 # The Toolbox reaches the warehouse through the user's query and execute
 
 Status: accepted, built by Toolbox 7.0; amends ADR 0004, whose one way out, `send`, becomes these
-two calls. Amended 2026-10-22: the user picks the call, not the Toolbox
+two calls. Amended 2026-10-22, built by Toolbox 7.1: the user picks the call, not the Toolbox
 
 Up to 6.1 the user's Project held one `send(hive) -> DataFrame`, and every Statement went through
 it, writes and `SET` lines included, whose result the Toolbox never read. On 2026-10-21 the user
@@ -14,7 +14,7 @@ So in 7.0:
   where `send.py` was.
 - **Each Toolbox function takes only the calls it uses**, as keyword arguments, so its signature
   says what it needs: `check_key(t, query=query)`, `run_query(s, query)`.
-- **The user picks the call** (amended 2026-10-22): `run_query(s, query)` sends a Statement
+- **The user picks the call** (amended 2026-10-22, Toolbox 7.1): `run_query(s, query)` sends a Statement
   through `query` and gives back its rows; `run_execute(s, execute)` sends one through
   `execute` and gives back nothing. Each refuses the plain mix-up, a read handed to
   `run_execute` or a write to `run_query`, saying which to call; it never sends a Statement to

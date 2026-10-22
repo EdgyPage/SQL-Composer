@@ -61,7 +61,7 @@ team, answers for every team at once, in one query:
 ...     FROM(team_notes),
 ...     GROUP_BY(team_notes.team),
 ... )
->>> run(notes_per_team, query=query)  # -> DataFrame
+>>> run_query(notes_per_team, query)  # -> DataFrame
       team  notes
 0     data      2
 1  finance      2
@@ -87,7 +87,7 @@ Then loop over the three teams, keeping each team's Statement in a dict, by team
 >>> per_team = {}
 >>> for team in ["data", "finance", "web"]:
 ...     per_team[team] = notes_of(team)
->>> run(per_team["finance"], query=query)  # -> DataFrame
+>>> run_query(per_team["finance"], query)  # -> DataFrame
    written_on                                     note
 0  2026-09-18   report_build came over from data today
 1  2026-09-21  invoice_sync's bill comes in a day late
@@ -95,7 +95,7 @@ Then loop over the three teams, keeping each team's Statement in a dict, by team
 Run each, and save each team's result in its own CSV file:
 
 >>> for team in per_team:
-...     result = run(per_team[team], query=query)
+...     result = run_query(per_team[team], query)
 ...     result.to_csv(f"notes_{team}.csv", index=False)
 
 A team with no notes gets a file with only the column names, so every team gets a file.
@@ -166,7 +166,7 @@ Loop over the tables, by name, and gather one row per table:
 
 >>> counted = []
 >>> for name in dir(ops):
-...     result = run(row_count(getattr(ops, name), reads[name]), query=query)
+...     result = run_query(row_count(getattr(ops, name), reads[name]), query)
 ...     counted.append({"table": name, "row_count": result["row_count"][0]})
 >>> pd.DataFrame(counted)  # -> DataFrame
             table  row_count
@@ -205,7 +205,7 @@ The loop builds and runs each check, and gathers one row per check:
 >>> for name, setting in CHECKS.items():
 ...     check = matching_rows(setting["table"], setting["column"], setting["value"],
 ...                           "2026-09-18")
-...     result = run(check, query=query)
+...     result = run_query(check, query)
 ...     found.append({"check": name, "matching": result["matching"][0]})
 >>> pd.DataFrame(found)  # -> DataFrame
          check  matching
@@ -342,7 +342,7 @@ GROUP BY
 
 Run each in a loop, and keep each result under its table's name:
 
->>> results = {name: run(totals, query=query)  # -> dict[str, DataFrame]
+>>> results = {name: run_query(totals, query)  # -> dict[str, DataFrame]
 ...            for name, totals in daily.items()}
 >>> results["ops.job_runs"]
            dt  row_count  total_duration_mins
@@ -366,7 +366,7 @@ statement_1 is `ops.job_runs`'s, statement_2 `ops.run_alerts`'s and statement_3
 
 The per-team Statements together find every note the one grouped Statement counts: five.
 
->>> sum(len(run(team_statement, query=query)) for team_statement in per_team.values())
+>>> sum(len(run_query(team_statement, query)) for team_statement in per_team.values())
 5
 
 And the loops made one Statement per team, per table, per check and per setting:

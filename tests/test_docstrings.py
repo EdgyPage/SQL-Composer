@@ -27,7 +27,7 @@ ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
 ADMIN += [f"project.{name}" for name in sqlglot_composer.project.__all__]
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
 # Examples that run a query, and so need the Example database to run here.
-RUNS_A_QUERY = ("run(", "check_key(")
+RUNS_A_QUERY = ("run_query(", "check_key(")
 
 
 def docstring_of(name: str) -> str:

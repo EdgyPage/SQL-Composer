@@ -73,7 +73,7 @@ WHERE
 GROUP BY
   CAST(NEXT_DAY(DATE_ADD(job_events.dt, 7 * -1), 'MO') AS STRING),
   job_events.job_id;
->>> run(starts_per_week, query=query)  # -> DataFrame
+>>> run_query(starts_per_week, query)  # -> DataFrame
          week  job_id  starts
 0  2026-09-07       1       3
 1  2026-09-07       2       1
@@ -85,7 +85,7 @@ GROUP BY
 7  2026-09-21       2       4
 8  2026-09-21       3       1
 
-Pasted into your own notebook, this `run`, and each `run` of a week, a month or subtotals
+Pasted into your own notebook, this `run_query`, and each `run_query` of a week, a month or subtotals
 below, stops with a RuntimeError saying the Example database can't run this Hive: the Example
 database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC, and makes no subtotals. The
 results here were worked out in pandas from the same rows, to show what the Hive gives. Your
@@ -126,7 +126,7 @@ WHERE
 GROUP BY
   CAST(TRUNC(job_events.dt, 'MM') AS STRING),
   job_events.job_id;
->>> run(starts_per_month, query=query)  # -> DataFrame
+>>> run_query(starts_per_month, query)  # -> DataFrame
         month  job_id  starts
 0  2026-09-01       1      14
 1  2026-09-01       2      10
@@ -146,7 +146,7 @@ that week:
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY("week"),
 ... )
->>> run(jobs_per_week, query=query)  # -> DataFrame
+>>> run_query(jobs_per_week, query)  # -> DataFrame
          week  jobs_that_ran
 0  2026-09-07              3
 1  2026-09-14              3
@@ -225,7 +225,7 @@ GROUP BY
     job_owners.team,
     ()
   );
->>> run(runs_per_job, query=query)  # -> DataFrame
+>>> run_query(runs_per_job, query)  # -> DataFrame
       team  job_id  runs  minutes
 0      NaN    <NA>    14      206
 1     data    <NA>     7       82
@@ -252,7 +252,7 @@ and a rollup of `job_owners.owner` over 2026-09-24's snapshot has two rows with 
 ...     WHERE(equals(job_owners.dt, "2026-09-24")),
 ...     GROUP_BY(rollup(job_owners.owner)),
 ... )
->>> run(jobs_per_owner, query=query)  # -> DataFrame
+>>> run_query(jobs_per_owner, query)  # -> DataFrame
    owner  subtotal  jobs
 0    NaN         0     1
 1    NaN         1     4
@@ -282,7 +282,7 @@ string function: `hive_function("string", job_events.job_id)`, which the Hive wr
 ...     WHERE(between(job_events.dt, "2026-09-18", "2026-09-24")),
 ...     GROUP_BY(rollup(job_owners.team, job_events.job_id)),
 ... )
->>> run(labelled, query=query)  # -> DataFrame
+>>> run_query(labelled, query)  # -> DataFrame
          team        job  runs
 0        data          1     7
 1        data  every job     7
@@ -312,7 +312,7 @@ looks like the rows it totals, so the Toolbox refuses it.
 ...     GROUP_BY(rollup(job_owners.team, job_events.job_id)),
 ...     HAVING(is_total(job_events.job_id)),
 ... )
->>> run(team_totals, query=query)  # -> DataFrame
+>>> run_query(team_totals, query)  # -> DataFrame
       team  job_id  runs
 0      NaN    <NA>    14
 1     data    <NA>     7
@@ -343,7 +343,7 @@ that many days off a day gives its Monday.
 ...           between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY(job_events.dt),
 ... )
->>> per_day = run(starts_per_day, query=query)  # -> DataFrame
+>>> per_day = run_query(starts_per_day, query)  # -> DataFrame
 >>> days = pd.to_datetime(per_day["dt"])
 >>> per_day["week"] = (days - pd.to_timedelta(days.dt.weekday, unit="D")).dt.strftime(
 ...     "%Y-%m-%d")
@@ -370,7 +370,7 @@ database runs, counts the same:
 ...     WHERE(between(job_events.dt, "2026-09-18", "2026-09-24")),
 ...     GROUP_BY(job_owners.team),
 ... )
->>> run(runs_per_team, query=query)  # -> DataFrame
+>>> run_query(runs_per_team, query)  # -> DataFrame
       team  runs
 0     data     7
 1  finance     7
@@ -439,7 +439,7 @@ The days you read decide which days each week holds. Counting the days in each w
 ...     WHERE(between(job_events.dt, "2026-09-11", "2026-09-24")),
 ...     GROUP_BY("week"),
 ... )
->>> run(days_per_week, query=query)  # -> DataFrame
+>>> run_query(days_per_week, query)  # -> DataFrame
          week  days
 0  2026-09-07     3
 1  2026-09-14     7
@@ -454,7 +454,7 @@ though nothing ran less. To compare weeks, read whole weeks, from a Monday to a 
 Each run is counted in its job's row, its team's subtotal and the grand total, so adding up the
 whole `"runs"` column in pandas counts every run three times:
 
->>> int(run(runs_per_job, query=query)["runs"].sum())
+>>> int(run_query(runs_per_job, query)["runs"].sum())
 42
 
 Add up only the rows that aren't subtotals, or read the grand total's own row.
@@ -517,7 +517,7 @@ import pandas as pd
 
 from sqlglot_composer import (
     FROM, LEFT_JOIN, SELECT, WHERE, all_columns, all_of, between, equals, example_database,
-    run, statement,
+    run_query, statement,
 )
 
 job_events = example_database.job_events
@@ -531,10 +531,10 @@ job_owners = example_database.job_owners
 def every_event() -> pd.DataFrame:
     """Every event over the 14 days, each with its week and month, as week_start and
     month_start give them."""
-    events = run(
+    events = run_query(
         statement(SELECT(all_columns(job_events)), FROM(job_events),
                   WHERE(between(job_events.dt, "2026-09-11", "2026-09-24"))),
-        query=example_database.query,
+        example_database.query,
     )
     days = pd.to_datetime(events.dt)
     monday = days - pd.to_timedelta(days.dt.weekday, unit="D")
@@ -575,7 +575,7 @@ def week_events() -> pd.DataFrame:
     """Every event of the week from 2026-09-18, with its job's team that day, read with a
     Statement the Example database can run, and a 1 in "start" on a run's start, and its
     minutes in "ended" on the event that ends a run."""
-    events = run(
+    events = run_query(
         statement(SELECT(job_events.job_id, job_events.event_type, job_events.minutes,
                          job_owners.team),
                   FROM(job_events),
@@ -584,7 +584,7 @@ def week_events() -> pd.DataFrame:
                       equals(job_owners.dt, job_events.dt),
                       between(job_owners.dt, "2026-09-18", "2026-09-24"))),
                   WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
-        query=example_database.query,
+        example_database.query,
     )
     ends = events.event_type.isin(["finish", "fail"])
     return events.assign(start=(events.event_type == "start").astype("int64"),
@@ -637,9 +637,9 @@ def labelled_in_pandas() -> pd.DataFrame:
 
 def jobs_per_owner_in_pandas() -> pd.DataFrame:
     """jobs_per_owner's result, computed in pandas, not by running this Hive."""
-    owners = run(statement(SELECT(job_owners.owner), FROM(job_owners),
-                           WHERE(equals(job_owners.dt, "2026-09-24"))),
-                 query=example_database.query)
+    owners = run_query(statement(SELECT(job_owners.owner), FROM(job_owners),
+                                 WHERE(equals(job_owners.dt, "2026-09-24"))),
+                       example_database.query)
     each = (owners.assign(every=0).groupby(["owner", "every"], dropna=False, as_index=False)
             .size().rename(columns={"size": "jobs"}).drop(columns="every"))
     each["subtotal"] = 0

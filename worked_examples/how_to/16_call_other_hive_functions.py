@@ -65,7 +65,7 @@ SELECT
 FROM ops.job_owners AS job_owners
 WHERE
   job_owners.dt = '2026-09-24';
->>> run(contacts, query=query)  # -> DataFrame
+>>> run_query(contacts, query)  # -> DataFrame
    job_id     team        contact
 0       1     DATA       ana@data
 1       2  FINANCE    ben@finance
@@ -106,7 +106,7 @@ WHERE
   job_events.dt = '2026-09-24'
 GROUP BY
   job_events.job_id;
->>> run(retries_per_finish, query=query)  # -> DataFrame
+>>> run_query(retries_per_finish, query)  # -> DataFrame
    job_id  retries_per_finish
 0       1                 0.0
 1       2                 NaN
@@ -140,7 +140,7 @@ GROUP BY
   job_events.job_id
 HAVING
   AVG(job_events.minutes) > 15.5;
->>> run(long_runs, query=query)  # -> DataFrame
+>>> run_query(long_runs, query)  # -> DataFrame
    job_id  finished_runs
 0       2              9
 1       3              3
@@ -164,7 +164,7 @@ SELECT
 FROM ops.job_owners AS job_owners
 WHERE
   job_owners.dt = '2026-09-24';
->>> run(owners, query=query)  # -> DataFrame
+>>> run_query(owners, query)  # -> DataFrame
    job_id  owner
 0       1    ana
 1       2    ben
@@ -180,7 +180,7 @@ argument changed, as the Common mistakes below show for date_format. The result 
 The function's name, in capitals, and each argument are in the Hive, and the result holds what
 the function gives: every team in capitals, and a contact for every job.
 
->>> result = run(contacts, query=query)  # -> DataFrame
+>>> result = run_query(contacts, query)  # -> DataFrame
 >>> list(result["team"])
 ['DATA', 'FINANCE', 'FINANCE', 'WEB']
 >>> int(result["contact"].isna().sum())
@@ -200,7 +200,7 @@ gets the same value, and nothing stops it:
 ...     FROM(job_owners),
 ...     WHERE(equals(job_owners.dt, "2026-09-24")),
 ... )
->>> run(shouting, query=query)  # -> DataFrame
+>>> run_query(shouting, query)  # -> DataFrame
    job_id  team
 0       1  TEAM
 1       2  TEAM
@@ -243,7 +243,7 @@ Without `fill_null`, a job with no owner gets no contact at all, not "@web":
 ...     FROM(job_owners),
 ...     WHERE(equals(job_owners.dt, "2026-09-24")),
 ... )
->>> run(no_fill, query=query)  # -> DataFrame
+>>> run_query(no_fill, query)  # -> DataFrame
    job_id        contact
 0       1       ana@data
 1       2    ben@finance

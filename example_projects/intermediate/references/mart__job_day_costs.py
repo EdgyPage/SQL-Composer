@@ -31,8 +31,8 @@ job_day_costs = Table(
 # Import one beside the table, such as:
 #     from references.mart__job_day_costs import job_day_costs, <alias>
 #
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame run
-# gives back, still call the column by its own name. To rename an output, use AS(...).
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
 #     <alias> = job_day_costs.<column>
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.

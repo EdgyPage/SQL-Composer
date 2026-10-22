@@ -14,6 +14,7 @@ from __future__ import annotations
 import datetime
 from typing import TYPE_CHECKING, NoReturn
 
+from . import kinds
 from .calculations import Ordering, ordered
 from .conditions import Condition, bounded_columns
 from .joins import (
@@ -50,7 +51,7 @@ from .windows import refuse_a_window_in, ungrouped_in_window
 if TYPE_CHECKING:
     from .stacking import Subtotals  # only for a hint: stacking.py imports this file
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -174,6 +175,8 @@ class Statement:
     """
 
     def __init__(self) -> None:
+        # What it is, as kinds.py names it: its maker marks it, a read until then.
+        self._kind = kinds.READ
         # Filled in by statement(...), from the clauses it was given:
         self._clauses = ()  # the clauses, in the order written
         self._returns_all_rows = False  # the opt-out of the automatic LIMIT
@@ -201,12 +204,10 @@ class Statement:
         # table it changes here, and its Hive in _admin_hive.
         self._ddl = None
         # Set by the admin module on each Admin statement: the call that made it, which the
-        # Admin log names when run sends it; what it changes, which show_hive prints first, a
-        # sentence to each item; and, for a check, a function run hands the result to, which
-        # refuses it when the check fails.
+        # Admin log names when run_execute sends it; and what it changes, which show_hive
+        # prints first, a sentence to each item.
         self._admin_call = None
         self._admin_about = []
-        self._admin_check = None
         # The Hive of an ALTER TABLE, which the admin module writes itself from pieces
         # writing.py wrote: the table's name, values and column types.
         self._admin_hive = None
@@ -216,7 +217,7 @@ class Statement:
         self._stack = None
 
     def __repr__(self) -> str:
-        if self._ddl is not None:
+        if kinds.kind(self) not in (kinds.READ, kinds.WRITE):
             return "<Statement - print(to_hive(s)) shows it>"
         if self._stack is not None:
             call, branches = self._stack
@@ -506,7 +507,7 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
     JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
     small table's unmatched rows too. It is written as a hint after SELECT, as below: a
     comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
-    first, with run(hive_settings("map_joins"), execute=...): Hive ignores the hint without it.
+    first, with run_execute(hive_settings("map_joins"), execute): Hive ignores the hint without it.
     You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
     from the tables' sizes and statistics. Ask for it only for a table you know is small:
     copied to every worker, a big one can run them out of memory.
@@ -857,7 +858,7 @@ def ORDER_BY(*columns: Column | str | Ordering | list[Column | str | Ordering],
 
     Sort by columns, output names or descending(...). Without LIMIT(n) it is refused, since
     it makes the warehouse put every row in order before any comes back: sort in pandas after
-    run(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
+    run_query(...), or pass sorts_everything=True. In a Statement you pass to derived(...), an
     ORDER_BY without LIMIT is refused even with sorts_everything=True: the order of rows there
     may not be kept, so a Statement that reads it can't rely on that order.
     """
@@ -1027,8 +1028,8 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
 
     Filling Partitions from the rows needs Hive's dynamic partitioning switched on, the
     Session setting the Toolbox calls "dynamic_partitions", whose two SET lines show_hive
-    prints ahead of such a write. Send them with run(hive_settings("dynamic_partitions"),
-    execute=execute) before the first such write: the warehouse keeps them for as long as your
+    prints ahead of such a write. Send them with run_execute(hive_settings("dynamic_partitions"),
+    execute) before the first such write: the warehouse keeps them for as long as your
     execute's connection lasts, and sending them again does no harm. The example above writes
     each job's runs on each of two days, one Partition for each day.
 
@@ -1199,7 +1200,7 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
 
     It runs the Guards and Load limits that need the whole Statement. to_hive(s) gives the
-    Hive string, and run(s, query=...) sends it. returns_all_rows=True drops the automatic
+    Hive string, and run_query(s, query) sends it. returns_all_rows=True drops the automatic
     LIMIT, if set_load_limits(rows=...) has set one.
     """
     _check_order(clauses)
@@ -1210,6 +1211,7 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     by_place = {clause._place(): clause for clause in clauses if clause._place() != "JOIN"}
     write = by_place.get("INSERT")
     s._write = write.table if write else None
+    s._kind = kinds.WRITE if write else kinds.READ
     # How the write was called, for messages: INSERT_INTO(daily_runs).
     s._write_call = f"{write._name}({write.table._alias})" if write else None
     s._replaces_rows = write is not None and write._name == "INSERT_OVERWRITE"
@@ -1357,7 +1359,7 @@ def _run_guards(s: Statement) -> None:
             alias = read.table._alias
             if alias in condition._tables() and alias not in condition._keeps_unmatched:
                 guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
-    if s._write is not None:
+    if kinds.kind(s) == kinds.WRITE:
         table = s._write
         expected = [c for c in table._columns if c not in s._static_partitions]
         names = [name for _, name in s._outputs]
@@ -1499,12 +1501,12 @@ def derived(name: str, statement: Statement) -> Table:
                why="The name is how the SQL calls it.",
                fix='Use letters, digits and _, such as derived("latest", ...).',
                error=ValueError)
-    if not isinstance(statement, Statement) or statement._ddl is not None:
+    if kinds.kind(statement) not in (kinds.READ, kinds.WRITE):
         refuse(what=f"derived({name!r}, ...) was given {statement!r}.",
                why="derived names a Statement made by statement(...).",
                fix="Pass statement(SELECT(...), FROM(...), ...).",
                given=statement, call="derived")
-    if statement._write is not None:
+    if kinds.kind(statement) == kinds.WRITE:
         refuse(what=f"derived({name!r}, ...) was given a write.",
                why="A Statement that writes a Saved table returns no rows to read.",
                fix="Read the Saved table through its own Table reference instead.",

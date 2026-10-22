@@ -40,7 +40,7 @@ from .writing import check_writable_call
 if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
 
-TOOLBOX_VERSION = "7.0"
+TOOLBOX_VERSION = "7.1"
 
 def _need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
@@ -440,7 +440,7 @@ def _check_function(name: str, count: int, call: str) -> None:
             why="hive_function can't write OVER, and without it Hive stops the whole "
             "Statement with an error.",
             fix=_WINDOW_FIXES.get(name.lower(), "SELECT the columns it needs, and work it out "
-                                  "in pandas on the DataFrame run(...) gives back."),
+                                  "in pandas on the DataFrame run_query(...) gives back."),
             error=ValueError,
         )
     fewest, most = HIVE_FUNCTION_ARGUMENTS.get(name.lower(), (0, None))

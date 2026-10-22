@@ -23,7 +23,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run, show_hive
+from sqlglot_composer import export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -76,7 +76,7 @@ def write() -> Statement:
 # %%
 # 3. Try it: the Hive of each step, then the rows write() saves
 show_hive([create(), write()])
-run(preview(), query=query)
+run_query(preview(), query)
 
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
