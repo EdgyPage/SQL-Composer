@@ -1,6 +1,6 @@
 # The user's Saved tables are external, each in a folder of its own
 
-Status: accepted
+Status: accepted; in part superseded by ADR 0011 (7.0): `location=` is used as written, with no folder added, Partitions are any columns, and `admin.drop_partitions` replaces `drop_days`
 
 Hive 3 has two kinds of table. A managed, transactional table keeps its files where Hive chooses,
 and takes `MERGE`, `UPDATE` and `DELETE`, at the cost of compaction and of being hard for other

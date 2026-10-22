@@ -49,7 +49,7 @@ from .windows import refuse_a_window_in, ungrouped_in_window
 if TYPE_CHECKING:
     from .stacking import Subtotals  # only for a hint: stacking.py imports this file
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]

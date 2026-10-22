@@ -27,7 +27,7 @@ from .tables import (
 from .trees import Node
 from .unchecked import SessionSettings, UncheckedStatement
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 def _upkeep(tree: Node) -> Statement:

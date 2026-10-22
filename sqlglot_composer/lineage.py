@@ -45,7 +45,7 @@ from .unchecked import SessionSettings, UncheckedStatement, tables_read_and_writ
 from .windows import call_of
 from .writing import hive_text
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 # --- What a box shows --------------------------------------------------------------------------

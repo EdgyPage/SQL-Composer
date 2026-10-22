@@ -43,7 +43,7 @@ from .trees import Node, has_aggregate, has_window
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 class Found(NamedTuple):

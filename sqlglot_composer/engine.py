@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
     from .tables import Table
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 
 def _stop(what: str, why: str, fix: str) -> NoReturn:

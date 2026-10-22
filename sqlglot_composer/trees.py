@@ -22,7 +22,7 @@ import re
 from collections import deque
 from collections.abc import Callable, Iterator
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 

@@ -20,7 +20,7 @@ from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import _INSTALL_NEWER
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 _DIALECT = "hive"
 

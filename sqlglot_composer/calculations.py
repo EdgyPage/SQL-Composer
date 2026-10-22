@@ -42,7 +42,7 @@ from .writing import check_writable_call
 if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 DEFAULT_HIVE_PATTERN = "yyyy-MM-dd"
 

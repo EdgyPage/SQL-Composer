@@ -1,6 +1,6 @@
 # Keys are checked before writing, and carried through every step
 
-Status: accepted
+Status: accepted; in part superseded by ADR 0011 (7.0): a Key names one row of a table, not one row on one day, and a table may have none
 
 Hive and Spark never enforce a primary key: a table declared with one takes repeated keys without
 a word, and a join on part of a key quietly multiplies rows. Up to 4.1 the Toolbox used a table's

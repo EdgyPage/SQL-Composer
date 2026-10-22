@@ -49,7 +49,7 @@ from .engine import run_query
 from .refusals import refuse
 from .tables import Table
 
-TOOLBOX_VERSION = "6.1"
+TOOLBOX_VERSION = "7.0"
 
 # --- The Table references -----------------------------------------------------------------
 
