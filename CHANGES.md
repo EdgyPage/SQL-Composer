@@ -47,8 +47,9 @@ built a day at a time, so some of your files change: each change below says how.
   - `project.run_tables(query=query, execute=execute)`; with no `execute` it is the dry
     run, as it was with no `send`.
 
-  `send=` anywhere is refused, with a message naming what to pass. These arguments are named
-  only: `run(s, query)` is Python's TypeError.
+  `send=` anywhere is refused, with a message naming what to pass, or saying to leave it out
+  where a function takes neither call. These arguments are named only: `run(s, query)` is
+  Python's TypeError.
 - **`unchecked_hive(text, returns_rows=...)` says whether its text gives back rows**: `True`
   sends it through `query` and gives back the DataFrame, as for a `SELECT` or `SHOW`; `False`
   sends it through `execute`, as for an `ALTER` or `INSERT`. It has no default: the Toolbox
@@ -160,6 +161,8 @@ built a day at a time, so some of your files change: each change below says how.
   such as `references/ops__jobs.py: project.register("ops.jobs")`.
 - **`project.start()`, run again in a Project, adds what the Project lacks** of what `start()`
   makes, such as an admin notebook or a Template a newer Toolbox ships, and writes over nothing.
+  A Project still holding `send.py` gets no `warehouse.py` from it, but a line saying to write
+  one by hand, as the `send.py` bullet above says.
 - **Two new admin notebooks, `new_block.ipynb` and `check_references.ipynb`.** `project.start()`
   writes them into a new Project's `admin/`. For yours, run `project.start()` again in your
   Project, which adds only what the Project is missing, and writes over nothing.
@@ -170,9 +173,9 @@ built a day at a time, so some of your files change: each change below says how.
 
 - **The how-tos are one story, then a menu: 26 where there were 41.** The README's eight
   steps are the eight Getting started how-tos, in order, each going on from the Project the one
-  before left, through the Starter Example project: Start a Project, Add your tables'
-  references, Build and run a first Statement, Count, join and stay safe, Share Building
-  blocks, Save a table, Follow Lineage, and Keep the Project in order. The 18 Intermediate
+  before left, through one Project, much like the Starter Example project: Start a Project, Add
+  your tables' references, Build and run a first Statement, Count, join and stay safe, Share
+  Building blocks, Save a table, Follow Lineage, and Keep the Project in order. The 18 Intermediate
   how-tos are a menu, each starting from the Intermediate Example project. How-tos that
   covered the same job are one now, and each job is done one way.
 - **The README holds a map of every file of a Project**: its path, the Project action that
