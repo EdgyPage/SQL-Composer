@@ -245,6 +245,7 @@ def paragraphs(text: str) -> list[str]:
 
 
 def is_code(paragraph: str) -> bool:
+    """Whether every line is indented four spaces, or blank."""
     return all(line.startswith("    ") or not line.strip() for line in paragraph.splitlines())
 
 
@@ -426,10 +427,10 @@ def used_by_html(found: list[list[tuple[str, str]]]) -> str:
 
 def script_parts(module: ModuleType) -> tuple[str, str, list[str]]:
     """A Statement script's title, its why, and the other paragraphs of its docstring."""
-    paragraphs = inspect.cleandoc(module.__doc__).split("\n\n")
-    title = paragraphs[0]
-    why = next(p for p in paragraphs if p.startswith("Why: "))
-    return title, why, [p for p in paragraphs[1:] if p is not why]
+    parts = inspect.cleandoc(module.__doc__).split("\n\n")
+    title = parts[0]
+    why = next(p for p in parts if p.startswith("Why: "))
+    return title, why, [p for p in parts[1:] if p is not why]
 
 
 def script_top(module: ModuleType) -> str:
