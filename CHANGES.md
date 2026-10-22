@@ -44,7 +44,7 @@ built a day at a time, so some of your files change: each change below says how.
     needs and wasn't given, naming it.
   - `query=query` alone: `check_key`, `check_table_reference`, `write_table_reference`,
     `project.add_references`, `admin.add_columns` and `admin.move_to_own_folder`.
-  - `project.run_tables(day, query=query, execute=execute)`; with no `execute` it is the dry
+  - `project.run_tables(query=query, execute=execute)`; with no `execute` it is the dry
     run, as it was with no `send`.
 
   `send=` anywhere is refused, with a message naming what to pass. These arguments are named
@@ -71,7 +71,11 @@ built a day at a time, so some of your files change: each change below says how.
 - **A write fills the Partitions its rows hold.** `INSERT_OVERWRITE(t)` and `INSERT_INTO(t)`
   into a partitioned table write `PARTITION(<its columns>)`, filled from each row's values,
   so its SELECT lists them; `partition={"region": "EU"}` names the first ones as values, which
-  the SELECT then leaves out. A write may read from any table. `by_day` is gone, and so are the
+  the SELECT then leaves out. A write that fills a partition column from its rows needs Hive's
+  dynamic partitioning, which 6.x's one-day writes didn't: send
+  `run(hive_settings("dynamic_partitions"), execute=execute)` first, as `show_hive` prints
+  ahead of such a write and `project.run_tables` does for you, or name every partition column
+  in `partition={...}`. A write may read from any table. `by_day` is gone, and so are the
   Guards that kept a write to one day: to write some Partitions at a time, loop over the
   values yourself, with `partition={...}` or a WHERE that picks them.
 - **Not every table has a Key.** A Key no longer drops its day: it names one row of the table.
@@ -92,6 +96,9 @@ built a day at a time, so some of your files change: each change below says how.
   partition columns. `compute_statistics(t, day)` becomes `compute_statistics(t, partition={...})`,
   or every Partition when it is left out. `repair_partitions` works on any partitioned table,
   and `admin.move_to_own_folder` copies a table whole.
+- **`first_look(t)` reads 20 rows from any Partition**, where it read 20 of yesterday's: it
+  has no WHERE, and reads a partitioned table with `reads_all_partitions=True`, since Hive stops
+  reading at the 20th row.
 - **The Reference sheet's `date_partition` column is now `partition`**, "yes" for each column
   the table is partitioned by.
 

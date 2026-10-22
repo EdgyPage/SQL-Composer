@@ -87,9 +87,9 @@ def hive_settings(*names: str,
     Name one or more sets. The Toolbox ships four:
 
     - "dynamic_partitions": hive.exec.dynamic.partition=true and
-      hive.exec.dynamic.partition.mode=nonstrict. For a table partitioned by more than its
-      day, such as by region too: a write gives the day, and Hive fills the other Partitions
-      from each row's own values only with these on.
+      hive.exec.dynamic.partition.mode=nonstrict. A write that fills a partition column from
+      its rows' own values, as INSERT_OVERWRITE(t) does for each one partition= doesn't name,
+      runs only with these on; show_hive prints them ahead of such a write.
     - "map_joins": hive.auto.convert.join=true,
       hive.auto.convert.join.noconditionaltask=true and hive.ignore.mapjoin.hint=false. Hive
       then joins a small table by copying it to every worker, which skips sorting the big one,
@@ -97,9 +97,9 @@ def hive_settings(*names: str,
       JOIN(..., broadcast=True) writes, which it ignores otherwise. explain(s) shows whether
       it made one: a Map Join in the plan.
     - "statistics_on_write": hive.stats.autogather=true and hive.stats.column.autogather=true.
-      Each write then gathers the statistics of the day it writes, which Hive picks its join
-      plans from, so they are never out of date. compute_statistics(t, day) counts a day
-      written without them.
+      Each write then gathers the statistics of the Partitions it writes, which Hive picks
+      its join plans from, so they are never out of date. compute_statistics(t, partition=...)
+      counts a Partition written without them.
     - "merge_small_files": hive.merge.mapfiles=true, hive.merge.mapredfiles=true and
       hive.merge.tezfiles=true. A write then merges its small files into fewer, larger ones,
       since many small files slow down every later read.
