@@ -471,8 +471,8 @@ def query(hive: str) -> pd.DataFrame:
     """Run Hive that gives back rows on the Example database, as a DataFrame, like your query
     at work.
 
-    It answers SELECT, DESCRIBE, SHOW PARTITIONS and EXPLAIN. run(...) sends the rest, which
-    change something, to execute instead.
+    It answers SELECT, DESCRIBE and SHOW PARTITIONS; it refuses other reads it doesn't know,
+    such as SHOW TABLES, and the rest, which change something, run(...) sends to execute.
 
     >>> example_database.query("DESCRIBE ops.jobs")
        col_name data_type comment
@@ -505,8 +505,9 @@ def query(hive: str) -> pd.DataFrame:
             "PARTITIONS and EXPLAIN.",
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
-            fix="run(s, execute=example_database.execute) takes a Statement that changes "
-            "something, and prints its first line. to_hive(...) shows the Hive of any "
+            fix="A Statement that changes something goes to execute instead: "
+            "run(s, execute=example_database.execute) prints its first line. A read it doesn't "
+            "answer, such as SHOW TABLES, runs only at work. to_hive(...) shows the Hive of any "
             "Statement without sending it, as in "
             "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
             "write. It takes a Statement, such as one create_table, statement(...) or the "

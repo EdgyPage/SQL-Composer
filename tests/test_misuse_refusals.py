@@ -101,7 +101,7 @@ MISUSES = [
     pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs))), TypeError,
                  "run needs query=, and wasn't given it", id="run_no_query"),
     pytest.param(lambda: run(statement(SELECT(jobs.team), FROM(jobs)), query=5), TypeError,
-                 "run: query=5 isn't a function", id="run_query_5"),
+                 "run: query= is an int, not a function", id="run_query_5"),
     pytest.param(lambda: job_runs.duration_mins + "a", TypeError, "+ was used with 'a'",
                  id="plus_text"),
     pytest.param(lambda: export_lineage(), TypeError, "was given no Statement",

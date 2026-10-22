@@ -4,12 +4,13 @@ It isn't brought by `from sqlglot_composer import *`. Import it by name:
 
     from sqlglot_composer import admin
 
-Each function makes an Admin statement, an ordinary Statement that run(s, execute=...) sends
-like any other; admin.move_to_own_folder makes a list of them, sent one at a time. show_hive prints,
-before an Admin statement's Hive, what it changes, what can't be undone, and what to check
-first. Each refuses a table that isn't one of your Saved tables: a Table reference with no
-location= is a table someone else owns. Each run of one adds an entry to the Admin log
-(help(set_admin_log)).
+Each function makes an Admin statement, an ordinary Statement that run(s, execute=...)
+sends like any other; admin.move_to_own_folder makes a list of them, sent one at a time with
+run(step, query=query, execute=execute), since the step that compares the counts reads rows.
+show_hive prints, before an Admin statement's Hive, what it changes, what can't be undone,
+and what to check first. Each refuses a table that isn't one of your Saved tables: a Table
+reference with no location= is a table someone else owns. Each run of one adds an entry to the
+Admin log (help(set_admin_log)).
 """
 
 from __future__ import annotations
@@ -260,7 +261,8 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
     ) CASCADE;
     """
     refuse_removed_arguments("add_columns", removed, "query=")
-    need_warehouse_call("admin.add_columns", "query", query, "It sends DESCRIBE through your query, to see which columns the table has.")
+    need_warehouse_call("admin.add_columns", "query", query, "It sends DESCRIBE through your "
+                        "query, to see which columns the table has.")
     t = need_saved_table(t, "admin.add_columns(...)")
     call = f"admin.add_columns({t._name}, query=...)"
     described = _describe(t._name, query, "admin.add_columns(...)")
@@ -473,7 +475,9 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
             run(step, query=query, execute=execute)
     """
     refuse_removed_arguments("move_to_own_folder", removed, "query=")
-    need_warehouse_call("admin.move_to_own_folder", "query", query, "It sends DESCRIBE FORMATTED and SHOW PARTITIONS through your query, to find the table's folder.")
+    need_warehouse_call("admin.move_to_own_folder", "query", query, "It sends DESCRIBE "
+                        "FORMATTED and SHOW PARTITIONS through your query, to find the table's "
+                        "folder.")
     t = need_saved_table(t, "admin.move_to_own_folder(...)")
     call = f"admin.move_to_own_folder({t._name}, query=...)"
     described = _describe(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
