@@ -1,7 +1,7 @@
 # query and execute replace send
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: M
 
