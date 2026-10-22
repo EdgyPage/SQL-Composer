@@ -22,7 +22,7 @@ from collections.abc import Callable
 
 import pandas as pd
 
-from . import kinds
+from . import describe, kinds
 from .clauses import Statement
 from .unchecked import logged_run
 from .conditions import Condition
@@ -37,17 +37,15 @@ from .tables import (
     FILE_FORMATS,
     PURGE,
     ROWS_WITH_NO_VALUE,
-    Described,
     Table,
-    _column_definition,
-    _describe,
-    _same_folder,
+    column_definition,
     create_table,
     need_saved_table,
     partition_columns,
     partitions_named,
     python_text,
     readable,
+    same_folder,
     table_node,
 )
 from .trees import Node, combined
@@ -380,9 +378,9 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                         "query, to see which columns the table has.")
     t = need_saved_table(t, "admin.add_columns(...)")
     call = f"admin.add_columns({t._name}, query=...)"
-    described = _describe(t._name, query, "admin.add_columns(...)")
+    described = describe.ask(t._name, query, "admin.add_columns(...)")
     new = _new_columns(t, described.columns, call)
-    definitions = [hive_text(_column_definition(t, column, call)) for column in new]
+    definitions = [hive_text(column_definition(t, column, call)) for column in new]
     hive = f"ALTER TABLE {_name(t)} ADD COLUMNS {_listed(definitions)}"
     named, them, its = (
         f"the columns {', '.join(new[:-1])} and {new[-1]}", "them", "their") if len(new) > 1 else (
@@ -601,7 +599,7 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
                         "FORMATTED through your query, to find the table's folder.")
     t = need_saved_table(t, "admin.move_to_own_folder(...)")
     call = f"admin.move_to_own_folder({t._name}, query=...)"
-    described = _describe(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
+    described = describe.ask(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
     managed = _check_movable(t, described, call)
     copy_of = _copy_of(t)
     return _numbered(call, [_create_step(t, copy_of, call, managed), _copy_step(t, copy_of)])
@@ -655,7 +653,7 @@ def check_the_copy(t: Table, *, query: Callable[[str], pd.DataFrame] | None = No
                         "table and its copy through your query, which gives back rows.")
     t = need_saved_table(t, "admin.check_the_copy(...)")
     call = f"admin.check_the_copy({t._name}, query=...)"
-    described = _describe(t._name, query, "admin.check_the_copy(...)", formatted=True)
+    described = describe.ask(t._name, query, "admin.check_the_copy(...)", formatted=True)
     managed = _check_movable(t, described, call)
     copy_of = _copy_of(t)
     check = _counts_match(t, copy_of)
@@ -680,9 +678,9 @@ def _numbered(call: str, steps: list[Statement]) -> list[Statement]:
     return steps
 
 
-def _check_movable(t: Table, described: Described, call: str) -> bool:
+def _check_movable(t: Table, described: describe.Description, call: str) -> bool:
     """Refuse a table the move can't, or needn't, move; True for a managed table."""
-    location = described.details.get("location")
+    location = described.location
     if not location:
         refuse(
             what=f"{call}: DESCRIBE FORMATTED listed no Location for {t._name}.",
@@ -690,8 +688,7 @@ def _check_movable(t: Table, described: Described, call: str) -> bool:
             fix="Check that your query returns everything DESCRIBE FORMATTED prints.",
             error=ValueError,
         )
-    kind = (described.details.get("table type") or described.details.get("type") or "")
-    managed = "MANAGED" in kind.upper()
+    managed = described.managed
     if not managed and not t._partitioned_by and _inside(t._location, location):
         refuse(
             what=f"{call}: {t._name}'s own folder, {t._location}, is inside the folder it is "
@@ -702,7 +699,7 @@ def _check_movable(t: Table, described: Described, call: str) -> bool:
             fix="Give its Table reference a location= outside that folder, and move it there.",
             error=ValueError,
         )
-    if not managed and _same_folder(location, t._location):
+    if not managed and same_folder(location, t._location):
         refuse(
             what=f"{call}: {t._name} is at its own folder already, {location}.",
             why="There is nothing to move.",

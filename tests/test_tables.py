@@ -6,7 +6,6 @@ import importlib
 import json
 import re
 import sys
-from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
@@ -33,24 +32,8 @@ from sqlglot_composer import (
     unchecked_hive,
     write_table_reference,
 )
+from sqlglot_composer.describe import COLUMNS, WAYS, StandIn
 from sqlglot_composer.example_database import job_runs, jobs
-
-
-def describing(columns: list[tuple[str, str]],
-               partitions: list[str] | tuple[str, ...] = ()) -> Callable[..., pd.DataFrame]:
-    """A stand-in for `query` at work: it answers DESCRIBE like Hive, listing a partition
-    column among the columns and again under its Partition Information."""
-
-    def query(hive: str) -> pd.DataFrame:
-        assert hive.startswith("DESCRIBE"), hive
-        rows = [(name, kind, "") for name, kind in columns]
-        if partitions:
-            rows += [("", None, None), ("# Partition Information", None, None),
-                     ("# col_name", "data_type", "comment")]
-            rows += [(name, dict(columns).get(name, "string"), "") for name in partitions]
-        return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-
-    return query
 
 
 # --- Table(...) checks itself ---------------------------------------------------------------
@@ -234,8 +217,9 @@ def test_table_refuses_descriptions_of_columns_it_doesnt_have(
 def test_write_table_reference_writes_every_partition_column_in_hives_order(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    query = describing([("n", "int"), ("day", "string"), ("load_id", "bigint")],
-                      partitions=["day", "load_id"])
+    query = StandIn(Table("mart.events", columns={"n": "int", "day": "string",
+                                                  "load_id": "bigint"},
+                          partitioned_by=["day", "load_id"]))
     path = write_table_reference("mart.events", query=query)
     text = path.read_text(encoding="utf-8")
     assert '    partitioned_by=["day", "load_id"],\n' in text
@@ -249,7 +233,7 @@ def test_write_table_reference_writes_every_partition_column_in_hives_order(
 def test_write_table_reference_writes_no_partitioned_by_for_an_unpartitioned_table(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    query = describing([("n", "int"), ("region", "string")])
+    query = StandIn(Table("mart.by_region", columns={"n": "int", "region": "string"}))
     text = write_table_reference("mart.by_region", query=query).read_text(encoding="utf-8")
     assert "partitioned_by" not in text
     assert "date_partition" not in text
@@ -257,50 +241,17 @@ def test_write_table_reference_writes_no_partitioned_by_for_an_unpartitioned_tab
 
 # --- What a real warehouse sends back ---------------------------------------------------------
 
-
-def answering(describe_rows: list[tuple[str, str | None, str | None]],
-              sent: list[str] | None = None) -> Callable[..., pd.DataFrame]:
-    """A stand-in for `query` answering DESCRIBE with the rows given, and any other command
-    with no repeated keys, noting every command it is sent."""
-
-    def query(hive: str) -> pd.DataFrame:
-        if sent is not None:
-            sent.append(hive)
-        if hive.startswith("DESCRIBE"):
-            return pd.DataFrame(describe_rows, columns=["col_name", "data_type", "comment"])
-        return pd.DataFrame({"run_id": [], "copies": []})
-
-    return query
+RUNS_IN_THE_WAREHOUSE = Table("ops.runs", columns={"run_id": "bigint", "status": "string",
+                                                   "dt": "string"}, partitioned_by=["dt"])
+# What a stand-in gives back for any query but DESCRIBE: no repeated keys.
+NO_REPEATS = pd.DataFrame({"run_id": [], "copies": []})
 
 
-# Some warehouses list DESCRIBE with a None comment, no blank row before the partitions, and
-# more sections after them, such as the columns that have a default value.
-COMPACT_DESCRIBE = [
-    ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
-    ("# Partition Information", "", ""), ("# col_name", "data_type", "comment"),
-    ("dt", "string", None),
-    ("", "", ""), ("# Column Default Values", "", ""), ("status", "string", "'NEW'"),
-]
-# Hive lists a blank row before the partitions, an empty comment, and nothing after them.
-HIVE_DESCRIBE = [
-    ("run_id", "bigint", ""), ("status", "string", ""), ("dt", "string", ""),
-    ("", None, None), ("# Partition Information", None, None),
-    ("# col_name", "data_type", "comment"), ("dt", "string", ""),
-]
-# A newer kind of table lists its partitioning as one row per column or function of one.
-NEWER_PARTITIONING = [
-    ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
-    ("", "", ""), ("# Partitioning", "", ""), ("Part 0", "dt", ""),
-]
-
-
-@pytest.mark.parametrize("describe", [COMPACT_DESCRIBE, HIVE_DESCRIBE, NEWER_PARTITIONING],
-                         ids=["compact", "hive", "newer_partitioning"])
-def test_describe_is_read_as_warehouses_list_it(
-        describe: list[tuple[str, str | None, str | None]], tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("way", WAYS)
+def test_describe_is_read_as_warehouses_list_it(way: str, tmp_path: Path,
+                                                monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    query = answering(describe)
+    query = StandIn(RUNS_IN_THE_WAREHOUSE, way=way)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               partitioned_by=["dt"])
     assert repr(check_table_reference(t, query=query)) == "ops.runs matches its Table reference."
@@ -309,10 +260,23 @@ def test_describe_is_read_as_warehouses_list_it(
     assert 'partitioned_by=["dt"],\n' in text
 
 
+# On purpose, more than a stand-in prints: some warehouses list more sections after the
+# partitions, such as the columns that have a default value.
+WITH_DEFAULT_VALUES = [
+    ("run_id", "bigint", None), ("status", "string", None), ("dt", "string", None),
+    ("# Partition Information", "", ""), ("# col_name", "data_type", "comment"),
+    ("dt", "string", None),
+    ("", "", ""), ("# Column Default Values", "", ""), ("status", "string", "'NEW'"),
+]
+
+
 def test_a_section_after_the_partitions_is_not_read_as_partitions(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    query = answering(COMPACT_DESCRIBE)
+
+    def query(hive: str) -> pd.DataFrame:
+        return pd.DataFrame(WITH_DEFAULT_VALUES, columns=COLUMNS)
+
     text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert 'partitioned_by=["dt"],\n' in text
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
@@ -323,10 +287,11 @@ def test_a_section_after_the_partitions_is_not_read_as_partitions(
 def test_a_reserved_table_name_is_quoted_in_what_is_sent(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    sent = []
-    write_table_reference("ops.order", query=answering(COMPACT_DESCRIBE, sent))
+    query = StandIn(Table("ops.order", columns={"run_id": "bigint", "dt": "string"},
+                          partitioned_by=["dt"]))
+    write_table_reference("ops.order", query=query)
     # DESCRIBE alone: the partition columns are in what it lists.
-    assert sent == ["DESCRIBE ops.`order`"]
+    assert query.sent == ["DESCRIBE ops.`order`"]
 
 
 # --- check_table_reference --------------------------------------------------------------------
@@ -337,10 +302,9 @@ def test_a_reserved_table_name_is_quoted_in_what_is_sent(
 ], ids=["another_column_too", "another_order", "an_unpartitioned_reference"])
 def test_a_partitioned_by_that_differs_is_a_problem_with_its_line(
         partitioned_by: list[str], hives: list[str]) -> None:
-    query = describing([("run_id", "bigint"), ("region", "string"), ("dt", "string")],
-                      partitions=hives)
-    t = Table("ops.t", columns={"run_id": "bigint", "region": "string", "dt": "string"},
-              partitioned_by=partitioned_by)
+    columns = {"run_id": "bigint", "region": "string", "dt": "string"}
+    query = StandIn(Table("ops.t", columns=columns, partitioned_by=hives))
+    t = Table("ops.t", columns=columns, partitioned_by=partitioned_by)
     verdict = check_table_reference(t, query=query)
     assert not verdict.ok
     assert (f"the table is partitioned by {', '.join(hives)}: change the line to "
@@ -348,7 +312,7 @@ def test_a_partitioned_by_that_differs_is_a_problem_with_its_line(
 
 
 def test_a_partitioned_by_the_table_no_longer_has_is_a_problem() -> None:
-    query = describing([("run_id", "bigint"), ("dt", "string")])
+    query = StandIn(Table("ops.t", columns={"run_id": "bigint", "dt": "string"}))
     t = Table("ops.t", columns={"run_id": "bigint", "dt": "string"}, partitioned_by=["dt"])
     verdict = check_table_reference(t, query=query)
     assert not verdict.ok
@@ -356,15 +320,14 @@ def test_a_partitioned_by_the_table_no_longer_has_is_a_problem() -> None:
 
 
 def test_a_partitioned_by_that_matches_is_no_problem() -> None:
-    query = describing([("run_id", "bigint"), ("region", "string"), ("dt", "string")],
-                      partitions=["region", "dt"])
-    t = Table("ops.t", columns={"run_id": "bigint", "region": "string", "dt": "string"},
-              partitioned_by=["region", "dt"])
+    columns = {"run_id": "bigint", "region": "string", "dt": "string"}
+    query = StandIn(Table("ops.t", columns=columns, partitioned_by=["region", "dt"]))
+    t = Table("ops.t", columns=columns, partitioned_by=["region", "dt"])
     assert repr(check_table_reference(t, query=query)) == "ops.t matches its Table reference."
 
 
 def test_a_different_column_order_is_only_a_note() -> None:
-    query = describing([("b", "int"), ("a", "int")])
+    query = StandIn(Table("ops.t", columns={"b": "int", "a": "int"}))
     t = Table("ops.t", columns={"a": "INT", "b": "int"})
     verdict = check_table_reference(t, query=query)
     assert verdict.ok
@@ -416,27 +379,26 @@ RUNS = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": 
 
 
 def test_check_key_on_a_partitioned_table_needs_where_or_reads_all_partitions() -> None:
-    sent = []
+    query = StandIn(RUNS, rows=NO_REPEATS)
     with pytest.raises(ValueError, match="nothing says which Partitions to check") as refused:
-        check_key(RUNS, query=answering(COMPACT_DESCRIBE, sent))
+        check_key(RUNS, query=query)
     assert "where=equals(runs.dt, <value>)" in str(refused.value)
     assert "reads_all_partitions=True" in str(refused.value)
-    assert sent == []
+    assert query.sent == []
 
 
 def test_check_key_reads_what_where_picks_and_says_so() -> None:
-    sent = []
-    verdict = check_key(RUNS, query=answering(COMPACT_DESCRIBE, sent),
-                        where=equals(RUNS.dt, "2026-09-24"))
+    query = StandIn(RUNS, rows=NO_REPEATS)
+    verdict = check_key(RUNS, query=query, where=equals(RUNS.dt, "2026-09-24"))
     assert repr(verdict) == "ops.runs: the key (run_id) holds where runs.dt = '2026-09-24'."
-    assert "WHERE\n  runs.dt = '2026-09-24'" in sent[-1]
+    assert "WHERE\n  runs.dt = '2026-09-24'" in query.sent[-1]
 
 
 def test_check_key_reads_every_partition_when_asked() -> None:
-    sent = []
-    verdict = check_key(RUNS, query=answering(COMPACT_DESCRIBE, sent), reads_all_partitions=True)
+    query = StandIn(RUNS, rows=NO_REPEATS)
+    verdict = check_key(RUNS, query=query, reads_all_partitions=True)
     assert repr(verdict) == "ops.runs: the key (run_id) holds."
-    assert "WHERE" not in sent[-1]
+    assert "WHERE" not in query.sent[-1]
 
 
 @pytest.mark.needs_example_database

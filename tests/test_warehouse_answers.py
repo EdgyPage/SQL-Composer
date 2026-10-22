@@ -16,12 +16,7 @@ from sqlglot_composer import (
     first_look,
     write_table_reference,
 )
-
-RUNS_DESCRIBE = [
-    ("run_id", "bigint", ""), ("status", "string", ""), ("dt", "string", ""),
-    ("", None, None), ("# Partition Information", None, None),
-    ("# col_name", "data_type", "comment"), ("dt", "string", ""),
-]
+from sqlglot_composer.describe import COLUMNS, StandIn
 
 
 def runs(**more: object) -> Table:
@@ -29,16 +24,15 @@ def runs(**more: object) -> Table:
                  partitioned_by=["dt"], key=["run_id"], **more)
 
 
-def answering(describe: list[tuple[str, str | None, str | None]] = RUNS_DESCRIBE
-              ) -> Callable[[str], pd.DataFrame]:
-    """A stand-in for `query`: DESCRIBE gives `describe`, and any other command no rows."""
+def holding(t: Table) -> StandIn:
+    """A stand-in for `query` holding t, where any query but DESCRIBE finds no repeated key."""
+    return StandIn(t, rows=pd.DataFrame({"run_id": [], "copies": []}))
 
-    def query(hive: str) -> pd.DataFrame:
-        if hive.startswith("DESCRIBE"):
-            return pd.DataFrame(describe, columns=["col_name", "data_type", "comment"])
-        return pd.DataFrame({"run_id": [], "copies": []})
 
-    return query
+def nothing_listed(hive: str) -> pd.DataFrame:
+    """A stand-in for `query` whose DESCRIBE lists no column, on purpose: no warehouse holding a
+    table answers so, so the StandIn never does."""
+    return pd.DataFrame(columns=COLUMNS)
 
 
 # --- An answer the tools can't use ---------------------------------------------------------
@@ -97,7 +91,7 @@ def test_send_is_refused_naming_query(tool: Callable[..., object], tmp_path: Pat
 
 def test_a_keyword_a_tool_doesnt_take_is_refused() -> None:
     with pytest.raises(TypeError) as refused:
-        check_key(runs(), query=answering(), quiery=answering())
+        check_key(runs(), query=holding(runs()), quiery=holding(runs()))
     message = str(refused.value)
     assert "check_key was given quiery=, which it doesn't take." in message
     assert ("It takes t, query=, where= and reads_all_partitions=, and nothing else."
@@ -108,11 +102,11 @@ def test_a_describe_with_no_columns_is_refused_by_write_table_reference(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match="DESCRIBE ops.runs listed no columns"):
-        write_table_reference("ops.runs", query=answering(describe=[]))
+        write_table_reference("ops.runs", query=nothing_listed)
 
 
 def test_check_table_reference_reports_a_describe_with_no_columns() -> None:
-    verdict = check_table_reference(runs(), query=answering(describe=[]))
+    verdict = check_table_reference(runs(), query=nothing_listed)
     assert not verdict.ok
     assert "DESCRIBE listed no columns, so nothing was compared" in repr(verdict)
     assert "remove its line" not in repr(verdict)
@@ -128,35 +122,30 @@ def test_check_table_reference_reports_an_answer_it_cant_read() -> None:
 
 
 def test_a_partitioned_table_matches_from_describe_alone() -> None:
-    sent = []
-
-    def query(hive: str) -> pd.DataFrame:
-        sent.append(hive)
-        return answering()(hive)
-
+    query = holding(runs())
     assert repr(check_table_reference(runs(), query=query)) == (
         "ops.runs matches its Table reference.")
-    assert sent == ["DESCRIBE ops.runs"]
+    assert query.sent == ["DESCRIBE ops.runs"]
 
 
 def test_check_table_reference_gives_the_line_for_a_changed_type() -> None:
     old = Table("ops.runs", columns={"run_id": "int", "status": "string", "dt": "string"},
                 partitioned_by=["dt"])
     assert 'run_id is bigint in the table: change its line to "run_id": "bigint",' in repr(
-        check_table_reference(old, query=answering()))
+        check_table_reference(old, query=holding(runs())))
 
 
 def test_check_table_reference_notes_columns_in_another_order() -> None:
     shuffled = Table("ops.runs", columns={"status": "string", "run_id": "bigint",
                                           "dt": "string"}, partitioned_by=["dt"])
-    verdict = check_table_reference(shuffled, query=answering())
+    verdict = check_table_reference(shuffled, query=holding(runs()))
     assert verdict.ok
     assert "The table's order is: run_id, status, dt." in repr(verdict)
 
 
 def test_a_partition_an_unpartitioned_reference_leaves_out_is_a_problem() -> None:
     flat = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"})
-    verdict = check_table_reference(flat, query=answering())
+    verdict = check_table_reference(flat, query=holding(runs()))
     assert not verdict.ok
     assert 'the table is partitioned by dt: change the line to partitioned_by=["dt"],' in repr(
         verdict)
@@ -201,8 +190,7 @@ def test_write_table_reference_names_the_file_and_the_table(
         table: str, file: str, variable: str, tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    describe = [("id", "bigint", "")]
-    path = write_table_reference(table, query=answering(describe=describe))
+    path = write_table_reference(table, query=StandIn(Table(table, columns={"id": "bigint"})))
     assert path.name == file
     assert f"\n{variable} = Table(\n" in path.read_text(encoding="utf-8")
 
@@ -210,12 +198,9 @@ def test_write_table_reference_names_the_file_and_the_table(
 def test_write_table_reference_writes_every_partition_column_with_no_guess_at_a_day(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    describe = [
-        ("run_id", "bigint", ""), ("region", "string", ""), ("dt", "string", ""),
-        ("", None, None), ("# Partition Information", None, None),
-        ("# col_name", "data_type", "comment"), ("region", "string", ""), ("dt", "string", ""),
-    ]
-    text = write_table_reference("ops.runs", query=answering(describe=describe)).read_text(
+    by_region = Table("ops.runs", columns={"run_id": "bigint", "region": "string",
+                                           "dt": "string"}, partitioned_by=["region", "dt"])
+    text = write_table_reference("ops.runs", query=StandIn(by_region)).read_text(
         encoding="utf-8")
     assert '    partitioned_by=["region", "dt"],\n' in text
     assert "day" not in text

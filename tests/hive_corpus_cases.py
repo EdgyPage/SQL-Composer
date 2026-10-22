@@ -100,6 +100,7 @@ from sqlglot_composer import (
     window,
 )
 from sqlglot_composer.clauses import Clause, Named
+from sqlglot_composer.describe import StandIn, of_table
 from sqlglot_composer.example_database import job_runs, jobs, run_alerts, scheduler_runs
 from sqlglot_composer.stacking import Subtotals
 from sqlglot_composer.windows import Window
@@ -859,26 +860,13 @@ def _upkeep_cases() -> dict[str, Callable[..., list[Statement]]]:
     return found
 
 
-def warehouse(t: Table, location: str | None = None, kind: str = "EXTERNAL_TABLE",
-              lacking: tuple[str, ...] = ()) -> Callable[..., pd.DataFrame]:
-    """A stand-in for query at work: the warehouse's DESCRIBE and DESCRIBE FORMATTED for a
-    Saved table, without the columns `lacking`, at `location` (by default a folder it shares
-    with others, SHARED)."""
-    partitions = t._partitioned_by
-
-    def query(hive: str) -> pd.DataFrame:
-        rows = [(name, kind_, "") for name, kind_ in t._columns.items()
-                if name not in lacking and name not in partitions]
-        if partitions:
-            rows += [("", None, None), ("# Partition Information", None, None),
-                     ("# col_name", "data_type", "comment"),
-                     *[(name, t._columns[name], "") for name in partitions if name not in lacking]]
-        if hive.startswith("DESCRIBE FORMATTED"):
-            rows += [("", None, None), ("# Detailed Table Information", None, None),
-                     ("Location:", location or f"hdfs://namenode:8020{SHARED}", None),
-                     ("Table Type:", kind, None)]
-        return pd.DataFrame(rows, columns=["col_name", "data_type", "comment"])
-    return query
+def warehouse(t: Table, location: str | None = None, managed: bool = False,
+              lacking: tuple[str, ...] = (), rows: pd.DataFrame | None = None) -> StandIn:
+    """A stand-in for query at work holding a Saved table, without the columns `lacking`, at
+    `location` (by default a folder it shares with others, SHARED), managed or not; any other
+    query gives back `rows`."""
+    return StandIn(of_table(t, location=location or f"hdfs://namenode:8020{SHARED}",
+                            managed=managed, lacking=lacking), rows=rows)
 
 
 def _saved(name: str = "mart.admin_runs", columns: dict[str, str | None] | None = None,
@@ -988,7 +976,7 @@ def _move_cases() -> dict[str, Callable[..., list[Statement]]]:
             compact)),
         "admin:move:managed": lambda: admin.move_to_own_folder(daily_runs, query=warehouse(
             daily_runs, location="hdfs://namenode:8020/warehouse/mart.db/daily_runs",
-            kind="MANAGED_TABLE")),
+            managed=True)),
         "admin:move:unpartitioned": lambda: admin.move_to_own_folder(
             _saved(columns={"job_id": "bigint"}, partitioned_by=None),
             query=warehouse(_saved(columns={"job_id": "bigint"}, partitioned_by=None))),
