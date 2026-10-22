@@ -32,7 +32,7 @@ TOOLBOX_VERSION = "7.1"
 # What compute_statistics does with a partition column its partition= doesn't name, for the
 # refusals.
 _COUNTS_THE_REST = ("then compute_statistics covers every value of each partition column "
-                    "partition= doesn't name")
+                    "given none")
 
 
 def _upkeep(tree: Node, kind: str = kinds.UPKEEP) -> Statement:

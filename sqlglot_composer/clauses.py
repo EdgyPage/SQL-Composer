@@ -901,8 +901,8 @@ def LIMIT(n: int) -> Clause:
 
 
 # What a write does with a partition column its partition= doesn't name, for the refusals.
-_WRITE_LEAVES_OUT = ("then the write fills each partition column partition= doesn't name from "
-                     "the rows' own values")
+_WRITE_LEAVES_OUT = ("then the write fills each partition column given no value from the "
+                     "rows' own values")
 
 
 def _write_clause(call: str, table: object, unproven_key: object,

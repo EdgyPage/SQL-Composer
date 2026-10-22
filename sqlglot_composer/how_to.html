@@ -11183,8 +11183,8 @@ Problems:
 <pre class="python">INSERT_OVERWRITE(job_region_costs, partition={&quot;dt&quot;: &quot;20260924&quot;})</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  INSERT_OVERWRITE(job_region_costs, partition=...) names dt, but not region, which comes before it in mart.job_region_costs&#x27;s partitioned_by (region, dt).
-  Why it matters: Hive takes the partition columns in order: the ones partition= names first, then the others by name alone. A column named after one left out can&#x27;t be.
-  Usual fix:      Name region too, or leave out the ones after it: then the write fills each partition column partition= doesn&#x27;t name from the rows&#x27; own values.
+  Why it matters: Hive takes the partition columns in order: first the ones partition= gives a value, then the others by name alone, so a column after one with no value can&#x27;t have one either.
+  Usual fix:      Give region a value too, or leave dt out as well: then the write fills each partition column given no value from the rows&#x27; own values.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Name region too, or leave dt to the rows.</p>
 <h5>Storage on a table you only read</h5>
@@ -13261,7 +13261,7 @@ print(to_hive(repair))</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">TypeError:
   What happened:  compute_statistics(job_day_facts, partition=&quot;2026-09-24&quot;): partition= is a dict of partition columns and their values.
   Why it matters: It names Partitions by their partition columns: each column it names, with one value of it.
-  Usual fix:      Write it like compute_statistics(job_day_facts, partition={&quot;dt&quot;: ...}), or leave partition= out: then compute_statistics covers every value of each partition column partition= doesn&#x27;t name.
+  Usual fix:      Write it like compute_statistics(job_day_facts, partition={&quot;dt&quot;: ...}), or leave partition= out: then compute_statistics covers every value of each partition column given none.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <p>Write <code>partition={&quot;dt&quot;: &quot;2026-09-24&quot;}</code>, as the steps do.</p>
 <h5>Sending Session settings to an execute that forgets them</h5>

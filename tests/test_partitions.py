@@ -328,11 +328,10 @@ def test_a_column_partition_names_is_selected_as_an_extra_column() -> None:
     pytest.param({"dt": "2026-09-24"}, ValueError,
                  "names dt, but not region, which comes before it in mart.region_runs's "
                  "partitioned_by (region, dt)", id="not_its_first_columns"),
-    pytest.param({"region": None}, ValueError, "gives region None", id="none"),
-    pytest.param({"region": job_runs.status}, ValueError, "gives region job_runs.status",
-                 id="a_column"),
-    pytest.param({}, TypeError, "partition= is a dict of partition columns and their values",
-                 id="an_empty_dict"),
+    pytest.param({"region": None}, ValueError, "gives region None, not a value", id="none"),
+    pytest.param({"region": job_runs.status}, ValueError,
+                 "gives region the column job_runs.status, not a value", id="a_column"),
+    pytest.param({}, ValueError, "partition={}) names no Partition", id="an_empty_dict"),
     pytest.param(["region"], TypeError, "partition= is a dict", id="not_a_dict"),
 ])
 @pytest.mark.parametrize("call", [INSERT_OVERWRITE, INSERT_INTO, compute_statistics])
