@@ -25,6 +25,7 @@ import pandas as pd
 from . import describe, kinds
 from .clauses import Statement
 from .unchecked import logged_run
+from .upkeep import ddl_statement
 from .conditions import Condition
 from .writing import hive_statement, hive_text
 from .refusals import (
@@ -42,8 +43,8 @@ from .tables import (
     column_definition,
     create_table,
     need_saved_table,
-    partition_columns,
     partitions_named,
+    property_pairs,
     python_text,
     readable,
     same_folder,
@@ -62,9 +63,7 @@ def _admin_statement(call: str, about: list[str], ddl: Node, hive: str | None = 
     """An Admin statement: `ddl` is its tree, or, for an ALTER TABLE, the table it changes,
     whose Hive is `hive`. `about` is what show_hive prints first, an item to a sentence or
     two."""
-    s = Statement()
-    s._kind = kinds.ADMIN
-    s._ddl = ddl
+    s = ddl_statement(kinds.ADMIN, ddl)
     s._admin_hive = hive
     s._admin_call = call
     s._admin_about = about
@@ -410,7 +409,7 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
             fix="Check the table's name, and that your query returns what DESCRIBE prints.",
             error=ValueError,
         )
-    partitions = partition_columns(t)
+    partitions = t._partitioned_by
     missing = [column for column in partitions if column not in columns]
     if missing:
         refuse(
@@ -486,11 +485,7 @@ def set_properties(t: Table) -> Statement:
     """
     t = need_saved_table(t, "admin.set_properties(...)")
     call = f"admin.set_properties({t._name})"
-    pairs = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
-    compression = FILE_FORMATS[t._stored_as][0]
-    if t._compression is not None:
-        pairs.append((compression, t._compression))
-    pairs += list(t._properties.items())
+    pairs = property_pairs(t)
     if not pairs:
         refuse(
             what=f"{call}: its Table reference gives no purge=, compression= or properties=.",
@@ -509,6 +504,7 @@ def set_properties(t: Table) -> Statement:
                      f"With {PURGE} false, dropping the table or its Partitions leaves their "
                      "files in its folder, from now on.")
     if t._compression is not None:
+        compression = FILE_FORMATS[t._stored_as][0]
         about.append(f"{compression} applies to the files written from now on; the files "
                      "already there keep theirs.")
     about += ["Can be undone: change purge=, compression= or properties= in the Table "
@@ -750,7 +746,7 @@ def _column(t: Table, column: str) -> Node:
 def _copy_step(t: Table, copy_of: Table) -> Statement:
     """One INSERT OVERWRITE of the whole table into its copy, its Partitions filled from the
     rows, so the partition columns come last, in partitioned_by order."""
-    partitions = partition_columns(t)
+    partitions = t._partitioned_by
     columns = [column for column in t._columns if column not in partitions] + partitions
     # PARTITION(region, dt): none named, so each is filled from the rows.
     partition = partitions_named(t, None, "admin.move_to_own_folder",
@@ -779,7 +775,7 @@ def _counts(t: Table, name: str) -> Node:
     named `name`."""
     counted = Node("Alias", this=Node("Count", this=Node("Star")), alias="row_count")
     source = table_node(t._name, alias=t._alias)
-    partitions = partition_columns(t)
+    partitions = t._partitioned_by
     if not partitions:
         select = Node("Select", outputs=[counted], source=source)
     else:
@@ -794,7 +790,7 @@ def _counts_tree(t: Table, copy_of: Table) -> Node:
     """The comparison: each Partition whose rows differ between the table and its copy."""
     old, new = Node("Column", name="row_count", table="old_counts"), Node(
         "Column", name="row_count", table="copied_counts")
-    partitions = partition_columns(t)
+    partitions = t._partitioned_by
     outputs = [*[Node("Column", name=column, table="old_counts") for column in partitions],
                Node("Alias", this=old.copy(), alias="old_rows"),
                Node("Alias", this=new.copy(), alias="copied_rows")]

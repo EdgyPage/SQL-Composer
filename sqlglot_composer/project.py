@@ -382,14 +382,7 @@ def start() -> ProjectReport:
         )
     for name in FOLDERS:
         (here / name).mkdir()
-    templates = here / "admin" / "templates"
-    templates.mkdir()
-    for name, text in TEMPLATES.items():
-        (templates / f"{name}.py").write_text(text, encoding="utf-8")
-    for name, (about, cells) in ADMIN_NOTEBOOKS.items():
-        write_notebook(here / "admin" / f"{name}.ipynb",
-                       [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
-                        *[("code", cell) for cell in cells]])
+    _add_admin_files(here)
     start_registry(here)
     (here / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
     _log(here, "project.start()", [],
@@ -409,8 +402,24 @@ def _complete(root: Path, frame: FrameType) -> ProjectReport:
         if not (root / name).exists():
             (root / name).mkdir()
             added.append(f"{name}/")
+    added += _add_admin_files(root)
+    # A Project from before 7.0 holds send.py: its calls go into warehouse.py by hand.
+    before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
+    if not (root / WAREHOUSE).exists() and not before_7:
+        (root / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
+        added.append(f"{WAREHOUSE}: write your two functions, query and execute, in it")
+    if added:
+        _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
+    return _completed(added, before_7)
+
+
+def _add_admin_files(root: Path) -> list[str]:
+    """Write each Template into admin/templates/, then each admin notebook into admin/,
+    where it isn't there already, writing over nothing: the files written, such as
+    admin/new_block.ipynb."""
     templates = root / "admin" / "templates"
     templates.mkdir(exist_ok=True)
+    added = []
     for name, text in TEMPLATES.items():
         path = templates / f"{name}.py"
         if not path.exists():
@@ -422,14 +431,7 @@ def _complete(root: Path, frame: FrameType) -> ProjectReport:
             write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                                   *[("code", cell) for cell in cells]])
             added.append(f"admin/{name}.ipynb")
-    # A Project from before 7.0 holds send.py: its calls go into warehouse.py by hand.
-    before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
-    if not (root / WAREHOUSE).exists() and not before_7:
-        (root / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
-        added.append(f"{WAREHOUSE}: write your two functions, query and execute, in it")
-    if added:
-        _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
-    return _completed(added, before_7)
+    return added
 
 
 def _completed(added: list[str], before_7: bool) -> ProjectReport:
@@ -489,26 +491,11 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
             error=ValueError,
         )
     folder, shown = TABLE_FOLDER.path(root, stem), TABLE_FOLDER.shown(stem)
-    if folder.exists():
-        refuse(
-            what=f"{call}: {shown} is already there, so nothing was made.",
-            why="A Table folder is made once, and making it again would write over your "
-            "notebook and its lineage.",
-            fix=f"Open {table_notebook(stem)}. To start the table again, archive the "
-            f'folder first with project.remove_table("{name}").',
-            error=FileExistsError,
-        )
-    registry = Registry(root)
-    if registry.listed(TABLE_FOLDER, name):
-        refuse(
-            what=f"{call}: the registry lists a Table folder for {name}, though {shown} "
-            "isn't there.",
-            why="Its folder was moved or deleted by hand, and making a new one would hide "
-            "that.",
-            fix="Run admin/check_project.ipynb to see what is missing. Put the folder back, "
-            f'or mark its registry row removed with project.remove_table("{name}").',
-            error=FileExistsError,
-        )
+    registry = _registry_for_new(
+        call, TABLE_FOLDER, name, root, folder, shown, f"a Table folder for {name}",
+        writes_over="your notebook and its lineage",
+        fix=f"Open {table_notebook(stem)}. To start the table again, archive the folder first "
+        f'with project.remove_table("{name}").')
     template_path = root / "admin" / "templates" / f"{template}.py"
     if not isinstance(template, str) or not _is_notebook_template(template_path):
         there = sorted(path.stem for path in template_path.parent.glob("*.py")
@@ -547,6 +534,34 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     changed, said = _write_databases(root)
     _log(root, call, [name], made + changed, frame)
     return ProjectReport(report + said)
+
+
+def _registry_for_new(call: str, kind: FileKind, name: str, root: Path, path: Path,
+                      shown: str, listed: str, *, writes_over: str, fix: str) -> Registry:
+    """The Project's registry, once `name` is sure to be free for a new Table folder or
+    Building block, `kind`, at `path`: it refuses one there already, and one the registry
+    lists, as `listed`, though it isn't there. `writes_over` and `fix` are the words of the
+    first refusal that differ by kind."""
+    if path.exists():
+        refuse(
+            what=f"{call}: {shown} is already there, so nothing was made.",
+            why=f"A {kind.label} is made once, and making it again would write over "
+            f"{writes_over}.",
+            fix=fix,
+            error=FileExistsError,
+        )
+    registry = Registry(root)
+    if registry.listed(kind, name):
+        held = "folder" if kind.is_folder else "file"
+        refuse(
+            what=f"{call}: the registry lists {listed}, though {shown} isn't there.",
+            why=f"Its {held} was moved or deleted by hand, and making a new one would hide "
+            "that.",
+            fix=f"Run admin/check_project.ipynb to see what is missing. Put the {held} back, "
+            f'or mark its registry row removed with project.{kind.remover}("{name}").',
+            error=FileExistsError,
+        )
+    return registry
 
 
 # --- remove_table and remove_reference --------------------------------------------------------
@@ -682,25 +697,11 @@ def new_block(name: str) -> ProjectReport:
     root = _project(call)
     _block_name(name, call)
     shown, path = BUILDING_BLOCK.shown(name), BUILDING_BLOCK.path(root, name)
-    if path.exists():
-        refuse(
-            what=f"{call}: {shown} is already there, so nothing was made.",
-            why="A Building block is made once, and making it again would write over your "
-            "file.",
-            fix=f"Open {shown}, or give the new Building block a name of its own. To start it "
-            f'again, archive it first with project.remove_block("{name}").',
-            error=FileExistsError,
-        )
-    registry = Registry(root)
-    if registry.listed(BUILDING_BLOCK, name):
-        refuse(
-            what=f"{call}: the registry lists a Building block {name}, though {shown} isn't "
-            "there.",
-            why="Its file was moved or deleted by hand, and making a new one would hide that.",
-            fix="Run admin/check_project.ipynb to see what is missing. Put the file back, or "
-            f'mark its registry row removed with project.remove_block("{name}").',
-            error=FileExistsError,
-        )
+    registry = _registry_for_new(
+        call, BUILDING_BLOCK, name, root, path, shown, f"a Building block {name}",
+        writes_over="your file",
+        fix=f"Open {shown}, or give the new Building block a name of its own. To start it "
+        f'again, archive it first with project.remove_block("{name}").')
     template = root / "admin" / "templates" / f"{BLOCK_TEMPLATE}.py"
     if not template.is_file():
         refuse(

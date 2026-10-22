@@ -17,7 +17,7 @@ import inspect
 import json
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import FrameType
 from typing import NoReturn
@@ -193,10 +193,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all("Column")]
-        if kind == "output":
-            key, shown = _box_key("output", index, name), name
-        else:
-            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        key, shown = _output_box(index, kind, group, table, name)
         graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
                   type=column._type, sql=hive_text(tree), formula=readable(tree),
                   calculated=tree.kind != "Column",
@@ -209,18 +206,14 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     for number, (clause, _, tree, then, kept) in enumerate(_conditions_of(step)):
         sql, formula = _condition_text(tree, then)
         # `joined`: the boxes of the LEFT JOIN's table this condition reads, where the rows
-        # that count stop; `kept`: that table's alias (see _deciding).
+        # that count stop; `kept`: that table's alias (see _deciding). Both are looked up
+        # once the condition's box is added, so that it comes before the table boxes it reads.
         joined = []
-        key = graph.add(_box_key("condition", index, group, number), kind="condition",
-                        group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
-                        type=None, sql=sql, formula=formula, calculated=False, statement=index,
-                        joined=joined, kept=kept, reads=_aliases_read(tree))
-        for used in tree.find_all("Column"):
-            graph.arrow(resolve(used), key, "rows")
-            if kept is not None and used.table == kept:
-                joined.append(resolve(used))
-        for target in made:
-            graph.arrow(key, target, "rows")
+        _add_condition(graph, index, group, number, clause, sql, formula, made,
+                       (resolve(used) for used in tree.find_all("Column")),
+                       joined=joined, kept=kept, reads=_aliases_read(tree))
+        joined += [resolve(used) for used in tree.find_all("Column")
+                   if kept is not None and used.table == kept]
 
 
 def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
@@ -240,10 +233,7 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
     feeding = branches if call in ("UNION_ALL", "UNION") else branches[:1]
     made = []
     for column, name in s._outputs:
-        if kind == "output":
-            key, shown = _box_key("output", index, name), name
-        else:
-            key, shown = _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+        key, shown = _output_box(index, kind, group, table, name)
         graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
                   type=column._type, sql=STACK_HOW[call], formula=f"{call}(...)",
                   calculated=True,
@@ -254,16 +244,35 @@ def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
     if call in ("INTERSECT", "EXCEPT"):
         what = ("keeps only the rows every other Statement returns too" if call == "INTERSECT"
                 else "leaves out the rows another Statement returns")
-        key = graph.add(_box_key("condition", index, group, "stack"), kind="condition",
-                        group=group, name=f"{call} in {group}", full=f"{call} in {group}",
-                        type=None, sql=call, formula=f"{call}(...) {what}", calculated=False,
-                        statement=index, joined=[], kept=None, reads=set())
-        for number in range(2, len(branches) + 1):
-            for _, name in s._outputs:
-                graph.arrow(_box_key("derived", index, f"{prefix}[{number}].{name}"), key,
-                            "rows")
-        for target in made:
-            graph.arrow(key, target, "rows")
+        others = (_box_key("derived", index, f"{prefix}[{number}].{name}")
+                  for number in range(2, len(branches) + 1) for _, name in s._outputs)
+        _add_condition(graph, index, group, "stack", call, call, f"{call}(...) {what}", made,
+                       others, joined=[], kept=None, reads=set())
+
+
+def _output_box(index: int, kind: str, group: str, table: str | None,
+                name: str) -> tuple[str, str]:
+    """An output box's key and the name it shows: the Statement's column by its own name, a
+    Derived table's as <group>.<name>."""
+    if kind == "output":
+        return _box_key("output", index, name), name
+    return _box_key("derived", index, f"{table}.{name}"), f"{group}.{name}"
+
+
+def _add_condition(graph: Graph, index: int, group: str, number: int | str, clause: str,
+                   sql: str, formula: str, made: list[str], sources: Iterable[str | None], *,
+                   joined: list[str | None], kept: str | None, reads: set[str]) -> None:
+    """A condition's box, "<clause> in <group>", with an arrow into it from each of the
+    boxes `sources` gives, read once the box is added, then an arrow from it into each box in
+    `made`, whose rows it decides. `joined` and `kept` are as _add_step says."""
+    key = graph.add(_box_key("condition", index, group, number), kind="condition",
+                    group=group, name=f"{clause} in {group}", full=f"{clause} in {group}",
+                    type=None, sql=sql, formula=formula, calculated=False, statement=index,
+                    joined=joined, kept=kept, reads=reads)
+    for source in sources:
+        graph.arrow(source, key, "rows")
+    for target in made:
+        graph.arrow(key, target, "rows")
 
 
 def _window_rows(tree: Node) -> list[dict[str, str]]:
