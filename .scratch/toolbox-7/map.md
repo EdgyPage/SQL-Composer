@@ -43,11 +43,11 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
   functions; one argument saved isn't worth a type to learn. Each Toolbox function takes, as
   keyword arguments, only the calls it uses, so its signature says what it needs:
   `check_key(t, query=query)`, `run(s, query=query, execute=execute)`.
-- **The Toolbox picks the call.** A read, DESCRIBE, SHOW and EXPLAIN go to `query`, whose rows
-  the Toolbox reads; a write, CREATE, MSCK, ANALYZE, a Session setting and an Admin statement go
-  to `execute`, whose result it never reads. `run` given a step whose call it lacks refuses,
-  naming the argument: "this writes a table; pass execute=".
-- **An Unchecked statement says which**: `unchecked_hive(text, returns_rows=...)`, no default.
+- **The user picks the call** (2026-10-22, reversing 02's routing; ticket 09):
+  `run_query(s, query)` and `run_execute(s, execute)` replace `run`. Each refuses the plain
+  mix-up, saying which to call, and never sends to the other call. `unchecked_hive(text)` takes
+  no `returns_rows=`. The user: "Decision logic inside the wrapper is too complex for this
+  project." 
 - **`send=` anywhere is the Toolbox's refusal**, naming `query=` and `execute=`, not Python's
   TypeError; `project.check()` reports a `send.py` with no `warehouse.py`.
 
@@ -146,6 +146,12 @@ is 3.12.10 and `requirements.txt` already pins every package for 3.12.
   how-to N through the Starter project; the file map and the chain of types; file blocks; every
   public docstring opens with an example.
 - [08 Python steps](issues/08-python-steps.md)
+- [09 You pick query or execute](issues/09-you-pick-query-or-execute.md): run_query and
+  run_execute replace run; returns_rows= goes; admin.check_the_copy.
+- [10 One answer to a Statement's kind](issues/10-one-answer-to-a-statements-kind.md): the
+  architecture review's candidate 1, built with 09.
+- [11 One notebook reader](issues/11-one-notebook-reader.md): the architecture review's
+  candidate 2; load's refusal of a broken notebook.
 
 The order is the user's (2026-10-21): one at a time, each blocked by the one before, since 02 to
 06 share `project.py`, `running.py`, `tables.py` and the Templates, and 07 writes about the shape
@@ -189,6 +195,7 @@ Toolbox files and 198 times in 23 test files.
 
 - Python 3.13: the user chose to stay on 3.12.
 - The Toolbox moving pandas data into the warehouse: Python steps are declared only.
+- The Toolbox choosing between query and execute (09 took it out).
 - A `Warehouse` wrapper, and a `send` kept beside `query` and `execute`.
 - Three-part column names in Hive text, and building any Saved table's path.
 - A second form of Unchecked statement that takes Columns, and column-level Lineage through one.
