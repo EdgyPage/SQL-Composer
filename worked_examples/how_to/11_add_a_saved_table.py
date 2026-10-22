@@ -245,7 +245,7 @@ Table references:
 >>> sorted(path.name for path in Path("tables/mart__daily_job_runs").iterdir())
 ['lineage', 'mart__daily_job_runs.ipynb']
 >>> project.check()
-Every Table folder and Table reference is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is there.
 
 With no `<...>` left in it, the notebook's logic runs, and its `write()` writes the table:
 

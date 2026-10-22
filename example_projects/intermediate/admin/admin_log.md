@@ -19,6 +19,34 @@ Each Admin statement, Unchecked statement and Project action the Toolbox has run
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.new_block("costs_per_job")`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("days_rewritten")`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("events_per_job")`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("owner_on_day")`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.new_table("mart.job_day_costs")`
 - Tables named: mart.job_day_costs
 - Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py

@@ -11,24 +11,31 @@ A Project is the folder you work in, laid out the same way every time:
     ├── warehouse.py         your query and execute, written once: each notebook imports them
     ├── admin/               the Project actions' notebooks, run once each time you need one
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
-    │   ├── registry.csv     every Table folder and Table reference a Project action made
-    │   ├── templates/       the Templates new_table makes notebooks from: yours to edit
-    │   └── removed/         what remove_table and remove_reference archived
+    │   ├── registry.csv     every Table folder, Table reference and Building block a Project
+    │   │                    action made
+    │   ├── templates/       the Templates new_table and new_block make files from: yours to edit
+    │   └── removed/         what remove_table, remove_reference and remove_block archived
     ├── references/          a Table reference per table, such as ops__job_runs.py, and a
     │                        Database module per Database, such as ops.py: from references
     │                        import ops gives ops.job_runs, and ops.job_runs.status a column
-    ├── building_blocks/     pieces several tables' notebooks share
+    ├── building_blocks/     a Building block per file, such as runs_per_job.py: a piece
+    │                        several tables' notebooks share
     └── tables/              a Table folder per Saved table you build
         └── mart__daily_job_runs/
             ├── mart__daily_job_runs.ipynb
             └── lineage/
 
-start() makes it, once. new_table makes a Table folder and remove_table archives one;
-add_references writes Table references in bulk, remove_reference archives one, register adopts
-one made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
+You make two things by hand: the Project's folder, and the copy of sqlglot_composer in it.
+start() makes the rest of the layout, once, and the Project actions make every file in it.
+new_table makes a Table folder and remove_table archives one; new_block makes a Building block
+and remove_block archives one; add_references writes Table references in bulk,
+remove_reference archives one, register adopts a Table folder, Table reference or Building
+block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
-before the tables that read it.
+before the tables that read it. Each runs from a notebook start() writes in admin/, such as
+admin/new_block.ipynb; admin/check_references.ipynb checks every Table reference against its
+table in the warehouse.
 
 Each of add_references, new_table, register, remove_reference and refresh_reference_sheet
 writes the Database modules again from the Table references in references/: one file per
@@ -37,14 +44,13 @@ Python yet, or has a <...> still to fill in, is left out of it until it is fille
 
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
-add_references sends
-DESCRIBE through your query, and run_tables, given your execute, writes your tables; the rest
-never touch the warehouse. start, new_table, remove_table, remove_reference, register and
-add_references, the Project actions, each add an entry to admin/admin_log.md, the log that
-also keeps every Admin statement run inside the Project. check, refresh_reference_sheet, load
-and run_tables change none of your files but the Reference sheet and the Database modules, and
-add no entry of their own, though an Admin or Unchecked statement run_tables sends is logged, as run logs one
-anywhere.
+add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
+your tables; the rest never touch the warehouse. start, new_table, new_block, remove_table,
+remove_reference, remove_block, register and add_references, the Project actions, each add an
+entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
+Project. check, refresh_reference_sheet, load and run_tables change none of your files but the
+Reference sheet and the Database modules, and add no entry of their own, though an Admin or
+Unchecked statement run_tables sends is logged, as run logs one anywhere.
 """
 
 from __future__ import annotations
@@ -75,8 +81,9 @@ from .unchecked import UncheckedStatement, _code, _script_line, _write_entry, hi
 
 TOOLBOX_VERSION = "7.0"
 
-__all__ = ["start", "new_table", "remove_table", "add_references", "remove_reference",
-           "register", "check", "refresh_reference_sheet", "load", "run_tables"]
+__all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
+           "remove_reference", "register", "check", "refresh_reference_sheet", "load",
+           "run_tables"]
 
 # The file a folder is a Project by: start() writes it, and only a Project has it.
 REGISTRY = Path("admin") / "registry.csv"
@@ -86,11 +93,15 @@ FOLDERS = ("admin", "references", "building_blocks", "tables")
 WAREHOUSE = "warehouse.py"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
-# The registry's columns: what a Project action made (a Table folder or a Table reference),
-# the table, when it was made, and when it was archived, empty while it is in use.
+# The registry's columns: what a Project action made (a Table folder, a Table reference or a
+# Building block), the table (or the Building block's name, such as runs_per_job), when it was
+# made, and when it was archived, empty while it is in use.
 REGISTRY_COLUMNS = ["kind", "table", "created_at", "removed_at"]
 TABLE_FOLDER = "table_folder"
 REFERENCE = "reference"
+BUILDING_BLOCK = "building_block"
+# The Template a Building block is made from, in admin/templates/.
+BLOCK_TEMPLATE = "building_block"
 # The Template a Saved table's Table reference is made from.
 REFERENCE_TEMPLATE = "saved_table_reference"
 # The Reference sheet, and its columns: one row per column of every Table reference, "yes" in
@@ -137,6 +148,53 @@ ADMIN_PATH_LINES = [
     "",
     "from sqlglot_composer import project",
 ]
+# The code cells of admin/check_references.ipynb, after the path: the Reference sheet read,
+# each table it lists checked, and a last cell for a check on a table's own Table reference.
+CHECK_REFERENCES_CELLS = [
+    '''import csv
+
+from sqlglot_composer import Table, check_key, check_table_reference
+from warehouse import query
+
+# The Reference sheet: a row per column of every Table reference in references/, with its
+# type, and "yes" for a partition column and for a column in the Key.
+print(project.refresh_reference_sheet())
+sheet = pathlib.Path.cwd().parent / "references" / "reference_sheet.csv"
+with open(sheet, encoding="utf-8", newline="") as file:
+    rows = list(csv.DictReader(file))''',
+    r'''# Each table, as the Reference sheet holds it, compared with the table in the warehouse;
+# then its Key, where it has one.
+for name in sorted({row["table"] for row in rows}):
+    columns = [row for row in rows if row["table"] == name]
+    partitions = [row["column"] for row in columns if row["partition"] == "yes"]
+    key = [row["column"] for row in columns if row["in_key"] == "yes"]
+    table = Table(name, columns={row["column"]: row["type"] or None for row in columns},
+                  partitioned_by=partitions, key=key or None)
+    found = check_table_reference(table, query=query)
+    print(found)
+    database, _, short = name.rpartition(".")
+    if not key:
+        print(f"{name} has no Key, so there is no Key to check.")
+    elif not found.ok:
+        print(f"{name}: its Key is checked once the problems above are fixed.")
+    elif partitions:
+        print(f"{name} is partitioned by {' and '.join(partitions)}, so its Key isn't checked "
+              "here: that would read every Partition. Check it on some, in the last cell:\n"
+              f"    from references.{database}__{short} import {short}\n"
+              f"    print(check_key({short}, query=query, "
+              f"where=equals({short}.{partitions[0]}, <a value>)))")
+    else:
+        print(check_key(table, query=query))
+    print()''',
+    '''# A table checked on its own Table reference: a Saved table's storage, its folder and file
+# format, which the Reference sheet doesn't hold, and a partitioned table's Key, on the
+# Partitions where= picks. Uncomment, and write your table, and a value of its partition
+# column, as the cell above printed:
+# from sqlglot_composer import equals
+# from references.ops__job_runs import job_runs
+# print(check_table_reference(job_runs, query=query))
+# print(check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24")))''',
+]
 # The admin notebooks start() writes: each one's text cell, then its code cells after the path.
 ADMIN_NOTEBOOKS = {
     "new_table": (
@@ -155,6 +213,17 @@ ADMIN_NOTEBOOKS = {
         "`references/` until you archive it too, with the last cell.",
         ['project.remove_table("mart.your_table")',
          '# project.remove_reference("mart.your_table")'],
+    ),
+    "new_block": (
+        "# New Building block\n\nWrites a Building block, a piece several Table notebooks "
+        "share, into `building_blocks/<name>.py`, from `templates/building_block.py`, and "
+        "registers it. Its name is a Python name, such as `runs_per_job`, and a notebook's "
+        "logic cell imports it by that name: `from building_blocks.runs_per_job import "
+        "runs_per_job`. Refuses a name already taken. Never touches the warehouse. Change the "
+        "name, then fill in the new file's `<...>` and TODO lines. The last cell archives a "
+        "Building block into `admin/removed/`, once no notebook imports it.",
+        ['project.new_block("your_block")',
+         '# project.remove_block("your_block")'],
     ),
     "add_references": (
         "# Add references\n\nWrites one Table reference per table into `references/`, "
@@ -186,10 +255,24 @@ ADMIN_NOTEBOOKS = {
          "# project.run_tables(query=query, execute=execute)"],
     ),
     "check_project": (
-        "# Check the Project\n\nReports, and changes nothing: a Table folder or Table "
-        "reference no Project action made (one made by hand), and one the registry lists that "
-        "isn't there. Adopt one made by hand with `project.register(...)`.",
-        ["project.check()", '# project.register("mart.your_table")'],
+        "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
+        "reference or Building block no Project action made (one made by hand), and one the "
+        "registry lists that isn't there. Adopt one made by hand with `project.register(...)`, "
+        "given its table's name, or the Building block's.",
+        ["project.check()",
+         '# project.register("mart.your_table")\n# project.register("your_block")'],
+    ),
+    "check_references": (
+        "# Check the Table references\n\nCompares every Table reference in `references/` "
+        "with its table in the warehouse, through your query, and prints what differs, with "
+        "the line to change. Then it checks the Key of each table that has one: that no two "
+        "rows share it. It changes nothing in the warehouse. It reads each table from the "
+        "Reference sheet, which the first cell refreshes from `references/`: its columns, "
+        "their types, its partition columns and its Key. A partitioned table's Key isn't "
+        "checked here, since that would read every Partition, and a Saved table's storage, "
+        "its folder and file format, isn't in the sheet: the last cell checks each on the "
+        "table's own Table reference, and the check prints the lines to write there.",
+        CHECK_REFERENCES_CELLS,
     ),
     "change_a_saved_table": (
         "# Change a Saved table in the warehouse\n\nThe admin module's Admin statements, run "
@@ -457,7 +540,8 @@ def remove_reference(name: str) -> ProjectReport:
 
 def _remove(root: Path, kind: str, name: str, call: str,
             frame: FrameType) -> ProjectReport:
-    """Archive a Table folder or Table reference, mark its registry row removed, and log it.
+    """Archive a Table folder, Table reference or Building block, mark its registry row
+    removed, and log it.
     One the registry lists that was deleted by hand has only its row marked; one neither
     there nor listed is refused."""
     stem = name.replace(".", "__", 1)
@@ -465,12 +549,15 @@ def _remove(root: Path, kind: str, name: str, call: str,
     path = root / shown.rstrip("/")
     if not path.exists():
         if not _in_use(root, kind, name):
+            named_as = ("the files in building_blocks/ are named as the Building block is, "
+                        "such as runs_per_job.py" if kind == BUILDING_BLOCK else
+                        "the files in references/ are named <db>__<table>.py")
             refuse(
                 what=f"{call}: there is no {shown} to remove, and the registry lists none.",
                 why=f"It archives a {_KINDS[kind]} that is there, or marks one the registry "
                 "lists removed.",
                 fix="Check the name: admin/check_project.ipynb lists what the registry knows, "
-                "and the files in references/ are named <db>__<table>.py.",
+                f"and {named_as}.",
                 error=FileNotFoundError,
             )
         _mark_removed(root, kind, name)
@@ -484,6 +571,150 @@ def _remove(root: Path, kind: str, name: str, call: str,
     changed, said = _write_databases(root) if kind == REFERENCE else ([], [])
     _log(root, call, [name], [f"moved {shown} to {moved}", *changed], frame)
     return ProjectReport([f"Moved {shown} to {moved}.", *said])
+
+
+# --- new_block and remove_block ---------------------------------------------------------------
+
+
+def new_block(name: str) -> ProjectReport:
+    """Make a Building block, building_blocks/<name>.py, from its Template.
+
+    `name` is the Building block's name, a Python name such as "runs_per_job": its file is
+    building_blocks/runs_per_job.py, and a notebook's logic cell imports it by that name, as
+    from building_blocks.runs_per_job import runs_per_job. The file is made from
+    admin/templates/building_block.py, a Derived table to fill in, with <BLOCK> filled in;
+    fill in every other <...> yourself, or write over its code with a piece of your own, such
+    as a join, or the function a Python step names. One Building block to a file. It
+    registers the file and logs it. It refuses a name already taken, by a file in
+    building_blocks/ or by the registry, and a name Python can't import, and never touches
+    the warehouse.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.new_block("runs_per_job")
+    Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
+    fill in its <...> and TODO lines.
+    """
+    frame = callers_frame()
+    call = _call("new_block", name)
+    root = _project(call)
+    _block_name(name, call)
+    shown = _shown(BUILDING_BLOCK, name)
+    if (root / shown).exists():
+        refuse(
+            what=f"{call}: {shown} is already there, so nothing was made.",
+            why="A Building block is made once, and making it again would write over your "
+            "file.",
+            fix=f"Open {shown}, or give the new Building block a name of its own. To start it "
+            f'again, archive it first with project.remove_block("{name}").',
+            error=FileExistsError,
+        )
+    if _in_use(root, BUILDING_BLOCK, name):
+        refuse(
+            what=f"{call}: the registry lists a Building block {name}, though {shown} isn't "
+            "there.",
+            why="Its file was moved or deleted by hand, and making a new one would hide that.",
+            fix="Run admin/check_project.ipynb to see what is missing. Put the file back, or "
+            f'mark its registry row removed with project.remove_block("{name}").',
+            error=FileExistsError,
+        )
+    template = root / "admin" / "templates" / f"{BLOCK_TEMPLATE}.py"
+    if not template.is_file():
+        refuse(
+            what=f"{call}: there is no admin/templates/{BLOCK_TEMPLATE}.py to make it from.",
+            why="A Building block is made from the Project's own Template, which start() "
+            "wrote into admin/templates/.",
+            fix="Put it back: run project.start() in an empty folder beside a copy of "
+            f"sqlglot_composer, and copy its admin/templates/{BLOCK_TEMPLATE}.py into yours.",
+            error=FileNotFoundError,
+        )
+    # A Template from before 7.0 also has <BLOCK_NAME>, the name in quotes.
+    fills = {"<BLOCK>": name, "<BLOCK_NAME>": f'"{name}"'}
+    (root / shown).write_text(_filled(template.read_text(encoding="utf-8"), fills),
+                              encoding="utf-8")
+    _add_rows(root, [BUILDING_BLOCK], name)
+    _log(root, call, [], [f"created {shown}"], frame)
+    return ProjectReport([f"Wrote {shown}, from admin/templates/{BLOCK_TEMPLATE}.py:",
+                          "fill in its <...> and TODO lines."])
+
+
+def remove_block(name: str) -> ProjectReport:
+    """Move a Building block into admin/removed/, named by the time, deleting nothing.
+
+    building_blocks/runs_per_job.py moves to a file such as
+    admin/removed/20261021-093000-runs_per_job.py, and its registry row is marked removed. It
+    refuses while a Table notebook or another Building block imports it, naming each, since
+    each would stop at that import: change them first. A Building block the registry lists
+    but that was deleted by hand only has its row marked.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py. Next: write your query and execute in warehouse.py.
+    >>> project.new_block("runs_per_job")
+    Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
+    fill in its <...> and TODO lines.
+    >>> project.remove_block("runs_per_job")  # the time it ran, as yyyymmdd-hhmmss
+    Moved building_blocks/runs_per_job.py to admin/removed/...-runs_per_job.py.
+    """
+    frame = callers_frame()
+    call = _call("remove_block", name)
+    root = _project(call)
+    _block_name(name, call)
+    importers = _importers(root, name)
+    if importers:
+        refuse(
+            what=f"{call}: {_as_a_sentence(importers)} still "
+            f"{'imports' if len(importers) == 1 else 'import'} {_shown(BUILDING_BLOCK, name)}.",
+            why="Without the Building block, each would stop at its import.",
+            fix=f"Take the import of {name} out of each, and what reads it, then remove it.",
+            error=ValueError,
+        )
+    return _remove(root, BUILDING_BLOCK, name, call, frame)
+
+
+def _block_name(name: object, call: str) -> None:
+    """Refuse a Building block's name that Python couldn't import it by."""
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        refuse(
+            what=f"{call}: {name!r} isn't a name Python can import a Building block by.",
+            why="A notebook imports a Building block by its file's name, as from "
+            "building_blocks.runs_per_job import runs_per_job, so the name is letters, digits "
+            "and _, not starting with a digit.",
+            fix='Write it like "runs_per_job". A table, such as "ops.jobs", is made with '
+            "project.new_table(...) or project.add_references(...).",
+            error=ValueError,
+        )
+    if keyword.iskeyword(name) or (name.startswith("__") and name.endswith("__")):
+        refuse(
+            what=f"{call}: {name} is a name Python keeps for itself.",
+            why="A notebook imports a Building block by its name, and Python can't import "
+            "one named so.",
+            fix=f'Name it something else, such as "{name.strip("_")}_block".',
+            error=ValueError,
+        )
+
+
+def _importers(root: Path, name: str) -> list[str]:
+    """The Table notebooks and other Building blocks whose code imports the Building block
+    `name`, as paths in the Project."""
+    imports = re.compile(rf"\bbuilding_blocks\.{name}\b"
+                         rf"|\bfrom\s+building_blocks\s+import\b[^\n]*\b{name}\b")
+    found = []
+    for notebook in sorted((root / "tables").glob("*/*.ipynb")):
+        try:
+            cells = json.loads(notebook.read_text(encoding="utf-8")).get("cells", [])
+        except ValueError:  # a notebook Jupyter can't read either imports nothing
+            continue
+        if any(cell.get("cell_type") == "code" and imports.search("".join(cell.get("source", [])))
+               for cell in cells):
+            found.append(notebook.relative_to(root).as_posix())
+    found += [f"building_blocks/{block.name}"
+              for block in sorted((root / "building_blocks").glob("*.py"))
+              if block.stem != name and imports.search(block.read_text(encoding="utf-8"))]
+    return found
 
 
 # --- add_references ---------------------------------------------------------------------------
@@ -591,13 +822,16 @@ def _quoted_list(names: object) -> str:
 
 
 def register(name: str) -> ProjectReport:
-    """Adopt a Table folder or Table reference made by hand into the registry.
+    """Adopt a Table folder, Table reference or Building block made by hand.
 
     check() then stops reporting it.
 
-    It adds a registry row for tables/<db>__<table>/ and for references/<db>__<table>.py,
-    whichever is there and isn't registered yet, and logs it. It refuses when there is nothing
-    to adopt.
+    Given a table's name, such as "ops.jobs", it adds a registry row for tables/ops__jobs/ and
+    for references/ops__jobs.py, whichever is there and isn't registered yet. Given a
+    Building block's name, such as "runs_per_job", it adds one for
+    building_blocks/runs_per_job.py: a Building block written by hand, as before 7.0, is
+    adopted so, since new_block refuses a name already taken. It logs what it adopted, and
+    refuses when there is nothing to adopt.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -607,37 +841,51 @@ def register(name: str) -> ProjectReport:
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.register("ops.jobs")
     Registered references/ops__jobs.py.
+    >>> _ = Path("building_blocks/runs_per_job.py").write_text("# written by hand")
+    >>> project.register("runs_per_job")
+    Registered building_blocks/runs_per_job.py.
     """
     frame = callers_frame()
     call = _call("register", name)
     root = _project(call)
-    _, _, stem = _table_name(name, call)
-    adopted = [(kind, _shown(kind, stem)) for kind in (TABLE_FOLDER, REFERENCE)
+    if isinstance(name, str) and "." not in name:
+        _block_name(name, call)
+        stem, kinds, tables = name, (BUILDING_BLOCK,), []
+        there = f"{_shown(BUILDING_BLOCK, name)} is"
+    else:
+        _, _, stem = _table_name(name, call)
+        kinds, tables = (TABLE_FOLDER, REFERENCE), [name]
+        there = f"tables/{stem}/ and references/{stem}.py are each"
+    adopted = [(kind, _shown(kind, stem)) for kind in kinds
                if (root / _shown(kind, stem).rstrip("/")).exists()
                and not _in_use(root, kind, name)]
     if not adopted:
         refuse(
-            what=f"{call}: nothing to register: tables/{stem}/ and references/{stem}.py are "
-            "each either registered already or not there.",
-            why="register adopts a Table folder or Table reference made by hand.",
-            fix="Run admin/check_project.ipynb to see what isn't registered.",
+            what=f"{call}: nothing to register: {there} either registered already or not "
+            "there.",
+            why="register adopts a Table folder, Table reference or Building block made by "
+            "hand: a table by its name with its database, such as \"ops.jobs\", and a "
+            "Building block by its own, such as \"runs_per_job\".",
+            fix="Run admin/check_project.ipynb to see what isn't registered, and the call that "
+            "adopts each.",
             error=ValueError,
         )
     _add_rows(root, [kind for kind, _ in adopted], name)
-    changed, said = _write_databases(root)
-    _log(root, call, [name], [f"registered {path}" for _, path in adopted] + changed, frame)
+    changed, said = _write_databases(root) if tables else ([], [])
+    _log(root, call, tables, [f"registered {path}" for _, path in adopted] + changed, frame)
     return ProjectReport([f"Registered {' and '.join(path for _, path in adopted)}.", *said])
 
 
 def check() -> ProjectReport:
-    """Report each Table folder or Table reference that the registry gets wrong.
+    """Report what the registry gets wrong, and the call that mends each.
 
-    It reports any the registry doesn't list, and any it lists that isn't there, and changes
-    nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it.
+    It reports any the registry doesn't list, and any it lists that isn't there, each with
+    the call that mends it, and changes nothing. It also reports a send.py from before 7.0
+    with no warehouse.py beside it.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
-    remove_table or remove_reference.
+    remove_table, remove_reference or remove_block.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -646,8 +894,8 @@ def check() -> ProjectReport:
     >>> from pathlib import Path
     >>> _ = Path("references/ops__jobs.py").write_text("# written by hand")
     >>> project.check()
-    Not registered, made by hand: references/ops__jobs.py. Adopt each with
-    project.register(...).
+    Not registered, made by hand. Adopt each with the call beside it:
+      references/ops__jobs.py: project.register("ops.jobs")
     """
     root = _project("project.check()")
     rows = _registry(root)
@@ -655,23 +903,28 @@ def check() -> ProjectReport:
     on_disk = {(TABLE_FOLDER, path.name) for path in (root / "tables").iterdir()
                if path.is_dir()}
     on_disk |= {(REFERENCE, path.stem) for path in _table_references(root)}
+    on_disk |= {(BUILDING_BLOCK, path.stem) for path in (root / "building_blocks").glob("*.py")
+                if path.name != "__init__.py"}
     named = {(kind, table.replace(".", "__", 1)): table for kind, table in listed}
-    unlisted = sorted(_shown(kind, stem) for kind, stem in on_disk - set(named))
-    missing = sorted(_shown(kind, stem) for kind, stem in set(named) - on_disk)
     lines = []
+    unlisted = sorted(on_disk - set(named), key=lambda found: _shown(*found))
     if unlisted:
-        lines.append(f"Not registered, made by hand: {', '.join(unlisted)}. Adopt each with")
-        lines.append("project.register(...).")
+        lines.append("Not registered, made by hand. Adopt each with the call beside it:")
+        lines += [f"  {_shown(kind, stem)}: project.register("
+                  f"{_quoted(stem if kind == BUILDING_BLOCK else stem.replace('__', '.', 1))})"
+                  for kind, stem in unlisted]
+    missing = sorted(set(named) - on_disk, key=lambda found: _shown(*found))
     if missing:
-        lines.append(f"Registered, but not there: {', '.join(missing)}. Put each back, or")
-        lines.append("mark it removed with project.remove_table(...) or "
-                     "project.remove_reference(...).")
+        lines.append("Registered, but not there. Put each back, or mark it removed with the "
+                     "call beside it:")
+        lines += [f"  {_shown(kind, stem)}: project.{_REMOVES[kind]}"
+                  f"({_quoted(named[kind, stem])})" for kind, stem in missing]
     if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
         lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
                      "query and execute in")
         lines.append(f"a new {WAREHOUSE}, as CHANGES.md's 7.0 says, then delete {OLD_SEND}.")
-    return ProjectReport(lines or ["Every Table folder and Table reference is registered, "
-                                   "and each one registered is there."])
+    return ProjectReport(lines or ["Every Table folder, Table reference and Building block is "
+                                   "registered, and each one registered is there."])
 
 
 # --- The Reference sheet ----------------------------------------------------------------------
@@ -1496,9 +1749,16 @@ def _mark_removed(root: Path, kind: str, name: str) -> None:
 
 
 # What each kind of registry row is called in a message.
-_KINDS = {TABLE_FOLDER: "Table folder", REFERENCE: "Table reference"}
+_KINDS = {TABLE_FOLDER: "Table folder", REFERENCE: "Table reference",
+          BUILDING_BLOCK: "Building block"}
+# The Project action that marks each kind of registry row removed.
+_REMOVES = {TABLE_FOLDER: "remove_table", REFERENCE: "remove_reference",
+            BUILDING_BLOCK: "remove_block"}
 
 
 def _shown(kind: str, stem: str) -> str:
-    """A Table folder or Table reference's path in the Project, as messages show it."""
+    """A Table folder, Table reference or Building block's path in the Project, as messages
+    show it."""
+    if kind == BUILDING_BLOCK:
+        return f"building_blocks/{stem}.py"
     return f"tables/{stem}/" if kind == TABLE_FOLDER else f"references/{stem}.py"

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from conftest import toolbox_module
+from conftest import run_admin_notebook, toolbox_module
 
 from sqlglot_composer import (
     Table,
@@ -36,8 +36,9 @@ from sqlglot_composer import (
 )
 
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
-ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project", "new_table",
-                   "refresh_reference_sheet", "remove_table", "run_tables"]
+ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project",
+                   "check_references", "new_block", "new_table", "refresh_reference_sheet",
+                   "remove_table", "run_tables"]
 
 
 @pytest.fixture
@@ -342,8 +343,8 @@ def test_new_table_doesnt_register_a_reference_twice(started: Path) -> None:
 
 
 def test_check_finds_nothing_in_a_new_project(started: Path) -> None:
-    assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
-                                     "and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
+                                     "registered, and each one registered is there.")
 
 
 def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
@@ -352,10 +353,11 @@ def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
     (started / "tables" / "mart__by_hand").mkdir()
     (started / "references" / "mart__daily_job_runs.py").unlink()
     assert repr(project.check()) == (
-        "Not registered, made by hand: references/ops__jobs.py, tables/mart__by_hand/. Adopt "
-        "each with\nproject.register(...).\n"
-        "Registered, but not there: references/mart__daily_job_runs.py. Put each back, or\n"
-        "mark it removed with project.remove_table(...) or project.remove_reference(...).")
+        "Not registered, made by hand. Adopt each with the call beside it:\n"
+        '  references/ops__jobs.py: project.register("ops.jobs")\n'
+        '  tables/mart__by_hand/: project.register("mart.by_hand")\n'
+        "Registered, but not there. Put each back, or mark it removed with the call beside it:\n"
+        '  references/mart__daily_job_runs.py: project.remove_reference("mart.daily_job_runs")')
 
 
 def test_check_reports_a_send_py_with_no_warehouse_py(started: Path) -> None:
@@ -391,6 +393,199 @@ def test_register_refuses_when_there_is_nothing_to_adopt(started: Path) -> None:
         project.register("mart.daily_job_runs")
     with pytest.raises(ValueError, match="nothing to register"):
         project.register("ops.jobs")
+
+
+# --- new_block and remove_block ---------------------------------------------------------------
+
+
+def test_new_block_writes_a_building_block_from_the_template(started: Path) -> None:
+    report = project.new_block("runs_per_job")
+    text = (started / "building_blocks" / "runs_per_job.py").read_text(encoding="utf-8")
+    # <BLOCK> is filled in; the placeholders that are yours stay, so it can't run half done.
+    assert "<BLOCK>" not in text
+    assert "def runs_per_job(reads: Condition) -> Table:" in text
+    assert '        "runs_per_job",  # the name the Hive gives it' in text
+    assert "from building_blocks.runs_per_job import runs_per_job" in text
+    assert 'project.new_block("runs_per_job") wrote this file' in text
+    assert "<SOURCE_TABLE>" in text
+    assert [(row["kind"], row["table"], row["removed_at"]) for row in registry(started)] == [
+        ("building_block", "runs_per_job", "")]
+    assert repr(report) == (
+        "Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:\n"
+        "fill in its <...> and TODO lines.")
+    assert ('- Call: `project.new_block("runs_per_job")`\n'
+            "- Files: created building_blocks/runs_per_job.py\n") in log_text(started)
+    assert repr(project.check()).startswith("Every Table folder, Table reference and Building")
+
+
+def test_new_block_uses_the_projects_own_template(started: Path) -> None:
+    """A Project's own copy, 6.x's among them, which named the Building block in quotes as
+    <BLOCK_NAME>."""
+    (started / "admin" / "templates" / "building_block.py").write_text(
+        '"""<BLOCK> - mine."""\nNAME = <BLOCK_NAME>\n', encoding="utf-8")
+    project.new_block("mine")
+    assert (started / "building_blocks" / "mine.py").read_text(encoding="utf-8") == (
+        '"""mine - mine."""\nNAME = "mine"\n')
+
+
+def test_new_block_refuses_a_name_already_taken(started: Path) -> None:
+    block = started / "building_blocks" / "runs_per_job.py"
+    block.write_text("# mine", encoding="utf-8")
+    with pytest.raises(FileExistsError, match="building_blocks/runs_per_job.py is already there"):
+        project.new_block("runs_per_job")
+    assert block.read_text(encoding="utf-8") == "# mine"
+    block.unlink()
+    project.new_block("runs_per_job")
+    block.unlink()
+    with pytest.raises(FileExistsError, match="the registry lists a Building block runs_per_job"):
+        project.new_block("runs_per_job")
+    assert len(registry(started)) == 1
+
+
+@pytest.mark.parametrize(("name", "said"), [
+    ("runs-per-job", "isn't a name Python can import a Building block by"),
+    ("ops.runs", "isn't a name Python can import a Building block by"),
+    ("1st_block", "isn't a name Python can import a Building block by"),
+    (7, "isn't a name Python can import a Building block by"),
+    ("class", "class is a name Python keeps for itself"),
+    ("__init__", "__init__ is a name Python keeps for itself"),
+])
+def test_new_block_refuses_a_name_python_cant_import(
+        started: Path, name: object, said: str) -> None:
+    with pytest.raises(ValueError, match=said):
+        project.new_block(name)  # type: ignore[arg-type]
+    assert list((started / "building_blocks").iterdir()) == []
+    assert registry(started) == []
+
+
+def test_new_block_refuses_a_project_with_no_template(started: Path) -> None:
+    (started / "admin" / "templates" / "building_block.py").unlink()
+    with pytest.raises(FileNotFoundError, match="there is no admin/templates/building_block.py"):
+        project.new_block("runs_per_job")
+    assert registry(started) == []
+
+
+def test_remove_block_archives_the_file(started: Path) -> None:
+    project.new_block("runs_per_job")
+    report = project.remove_block("runs_per_job")
+    archived = started / "admin" / "removed" / "20261021-093000-runs_per_job.py"
+    assert "def runs_per_job(" in archived.read_text(encoding="utf-8")
+    assert not (started / "building_blocks" / "runs_per_job.py").exists()
+    assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"]
+    assert repr(report) == ("Moved building_blocks/runs_per_job.py to "
+                            "admin/removed/20261021-093000-runs_per_job.py.")
+    assert "- Files: moved building_blocks/runs_per_job.py to admin/removed/" in log_text(
+        started)
+    # Removed, the name can be used again.
+    project.new_block("runs_per_job")
+
+
+def test_remove_block_refuses_while_something_imports_it(started: Path) -> None:
+    project.new_block("runs_per_job")
+    project.new_block("team_runs")
+    (started / "building_blocks" / "team_runs.py").write_text(
+        "from building_blocks.runs_per_job import runs_per_job\n", encoding="utf-8")
+    project.new_table("mart.daily_job_runs")
+    notebook = started / "tables" / "mart__daily_job_runs" / "mart__daily_job_runs.ipynb"
+    found = json.loads(notebook.read_text(encoding="utf-8"))
+    found["cells"][2]["source"] = ["# logic\n", "from building_blocks import runs_per_job\n"]
+    notebook.write_text(json.dumps(found), encoding="utf-8")
+    with pytest.raises(ValueError, match=(
+            "tables/mart__daily_job_runs/mart__daily_job_runs.ipynb and "
+            "building_blocks/team_runs.py still import building_blocks/runs_per_job.py")):
+        project.remove_block("runs_per_job")
+    assert (started / "building_blocks" / "runs_per_job.py").is_file()
+    # A name that only starts the same isn't an import of it.
+    (started / "building_blocks" / "team_runs.py").write_text(
+        "from building_blocks.runs_per_job_v2 import x\n", encoding="utf-8")
+    notebook.write_text(json.dumps({"cells": []}), encoding="utf-8")
+    project.remove_block("runs_per_job")
+    assert not (started / "building_blocks" / "runs_per_job.py").exists()
+
+
+def test_remove_block_marks_removed_a_block_deleted_by_hand(started: Path) -> None:
+    project.new_block("runs_per_job")
+    (started / "building_blocks" / "runs_per_job.py").unlink()
+    assert repr(project.check()) == (
+        "Registered, but not there. Put each back, or mark it removed with the call beside it:\n"
+        '  building_blocks/runs_per_job.py: project.remove_block("runs_per_job")')
+    assert repr(project.remove_block("runs_per_job")) == (
+        "building_blocks/runs_per_job.py wasn't there, so only its registry row is marked "
+        "removed.")
+    assert repr(project.check()).startswith("Every Table folder")
+
+
+def test_remove_block_refuses_a_block_neither_there_nor_registered(started: Path) -> None:
+    with pytest.raises(FileNotFoundError, match=(
+            "(?s)there is no building_blocks/runs_per_job.py to remove.*the files in "
+            "building_blocks/ are named as the Building block is")):
+        project.remove_block("runs_per_job")
+
+
+def test_a_building_block_made_by_hand_is_adopted_with_register(started: Path) -> None:
+    """A Project from before 7.0 holds Building blocks written by hand: register adopts each,
+    and new_block, which never writes over a file, refuses them."""
+    block = started / "building_blocks" / "runs_per_job.py"
+    block.write_text("# by hand", encoding="utf-8")
+    (started / "building_blocks" / "__init__.py").write_text("", encoding="utf-8")
+    assert repr(project.check()) == (
+        "Not registered, made by hand. Adopt each with the call beside it:\n"
+        '  building_blocks/runs_per_job.py: project.register("runs_per_job")')
+    with pytest.raises(FileExistsError, match="is already there"):
+        project.new_block("runs_per_job")
+    assert repr(project.register("runs_per_job")) == (
+        "Registered building_blocks/runs_per_job.py.")
+    assert block.read_text(encoding="utf-8") == "# by hand"
+    assert [(row["kind"], row["table"]) for row in registry(started)] == [
+        ("building_block", "runs_per_job")]
+    assert ('- Call: `project.register("runs_per_job")`\n'
+            "- Files: registered building_blocks/runs_per_job.py\n") in log_text(started)
+    assert repr(project.check()).startswith("Every Table folder")
+    with pytest.raises(ValueError, match="nothing to register: building_blocks/runs_per_job.py"):
+        project.register("runs_per_job")
+
+
+def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path) -> None:
+    notebook = started / "admin" / "new_block.ipynb"
+    code = [text for kind, text in cells(notebook) if kind == "code"]
+    assert code[1:] == ['project.new_block("your_block")', '# project.remove_block("your_block")']
+    run_admin_notebook(notebook)
+    assert (started / "building_blocks" / "your_block.py").is_file()
+    run_admin_notebook(notebook, [code[0], code[2].removeprefix("# ")])
+    assert not (started / "building_blocks" / "your_block.py").exists()
+    assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"]
+
+
+@pytest.mark.needs_example_database
+def test_the_check_references_notebook_checks_each_table_and_its_key(
+        started: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """ops.jobs' Key is checked; ops.team_notes has none; ops.job_runs is partitioned, so the
+    call that checks it on some Partitions is printed; a reference still to fill in is left
+    out, as the Reference sheet leaves it out."""
+    project.add_references(["ops.jobs", "ops.job_runs", "ops.team_notes"],
+                           query=example_database.query)
+    for name, key in (("ops__jobs", '["job_id"]'), ("ops__job_runs", '["run_id"]')):
+        reference = started / "references" / f"{name}.py"
+        text = reference.read_text(encoding="utf-8")
+        reference.write_text(text.replace("    key=None,", f"    key={key},", 1),
+                             encoding="utf-8")
+    project.new_table("mart.daily_job_runs")
+    capsys.readouterr()
+    said = run_admin_notebook(started / "admin" / "check_references.ipynb", capsys=capsys)
+    assert said.startswith("Wrote references/reference_sheet.csv: 13 rows, 3 tables.\n"
+                           "Left out, since it can't be read yet: "
+                           "references/mart__daily_job_runs.py.")
+    assert ("ops.job_runs matches its Table reference.\n"
+            "ops.job_runs is partitioned by dt, so its Key isn't checked here: that would read "
+            "every Partition. Check it on some, in the last cell:\n"
+            "    from references.ops__job_runs import job_runs\n"
+            "    print(check_key(job_runs, query=query, where=equals(job_runs.dt, "
+            "<a value>)))\n\n") in said
+    assert ("ops.jobs matches its Table reference.\n"
+            "ops.jobs: the key (job_id) holds.\n\n") in said
+    assert ("ops.team_notes matches its Table reference.\n"
+            "ops.team_notes has no Key, so there is no Key to check.\n") in said
+    assert "mart.daily_job_runs" not in said.split("\n", 2)[2]
 
 
 # --- add_references ---------------------------------------------------------------------------
@@ -620,8 +815,8 @@ def test_a_database_module_says_what_it_is_and_lists_its_tables(started: Path) -
 
 def test_check_and_the_reference_sheet_leave_a_database_module_out(started: Path) -> None:
     project.add_references(["ops.jobs"], query=example_database.query)
-    assert repr(project.check()) == ("Every Table folder and Table reference is registered, "
-                                     "and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
+                                     "registered, and each one registered is there.")
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
     assert [row["table"] for row in registry(started)] == ["ops.jobs"]

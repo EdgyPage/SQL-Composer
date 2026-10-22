@@ -58,15 +58,17 @@ can load and use that logic without running the rest.
 _Avoid_: table script, pipeline notebook, job
 
 **Registry**:
-The Project's list of every Table folder and Table reference a Project action made, and when
-each was removed. What is in the Project but not in the Registry was made by hand; what is in
+The Project's list of every Table folder, Table reference and Building block a Project action
+made, and when each was removed. What is in the Project but not in the Registry was made by hand; what is in
 the Registry but not in the Project was moved or deleted by hand.
 _Avoid_: manifest, inventory, index
 
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
-folder, adding Table references - run from the admin folder and recorded in the Admin log.
-Where an Admin statement changes the warehouse, a Project action changes only files.
+folder or a Building block, adding Table references - run from the admin folder and recorded
+in the Admin log. Where an Admin statement changes the warehouse, a Project action changes only
+files. The user makes only the Project's folder and the copy of the Toolbox in it; a Project
+action makes every other file, for the user to fill in.
 _Avoid_: admin statement, migration, setup step
 
 **Reference sheet**:
@@ -113,6 +115,8 @@ _Avoid_: unique key, id, partition key
 
 **Building block**:
 A Level 1 piece of a Statement - a filter, a join or a sub-query - reused across Statements.
+In a Project, each is a file of its own in the building_blocks folder, named as it is, which a
+Project action makes from a Template.
 _Avoid_: fragment, component, snippet, helper
 
 **Statement**:
