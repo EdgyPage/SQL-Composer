@@ -1,7 +1,7 @@
 # The Example database, the Templates and the Example projects
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03
 Size: L
 
@@ -41,3 +41,33 @@ onboarding pitfall, an example chart of which files I am responsible for creatin
 - CHANGES.md's "To update from 6.x" says which Templates are gone, and that a Project's own
   copies in `admin/templates/` stay until the user deletes them.
 - CLAUDE.md's Definition of done, the beginner reader included.
+
+## Answer
+
+Built 2026-10-21 in a worktree (e4630d6), merged into dev as d19fb72.
+
+- The Example database has nine tables: the seven, with their rows unchanged, and
+  `ops.region_budgets` (partitioned by region alone, Key [job_id, region]) and `ops.team_notes`
+  (no partitions, no Key). Its docstring describes the three kinds.
+- Table notebook Templates: `saved_table` (new_table's default; `READS = <READS>`, a condition
+  picking the rows write() reads; `<PARTITION_COLUMN>`) and `quality_checks`; plus
+  `saved_table_reference` (`partitioned_by=[]`, `key=None`) and `building_block` (takes `reads`,
+  a condition). daily_table, incremental_load, weekly_rollup and as_of_lookup are gone. Each
+  Template lists its placeholders first; none says "Date partition".
+- Both Example projects rebuilt; the intermediate one has six Saved tables, among them
+  `mart.budget_overruns` (partitioned by region, one write per region) and `mart.job_notes` (no
+  partitions, no Key). READMEs say how each file was made.
+
+## Reviews
+
+- Spec (2026-10-21): a Guard, Warning and Load limit on the new tables only in tests (ticket 07
+  shows them); only one table has no Key (enough to show the kind); the README's intermediate
+  description (ticket 07 rewrites it).
+- Standards (2026-10-21): no breach; quality_checks' text written out in full instead of
+  .replace() on shared strings, and long lines wrapped (review batch).
+- Beginner reader (2026-10-21), costliest stops, sent to ticket 07 and 06: filling a notebook
+  and its Table reference in step, with no filled-in pair to compare with; the Starter
+  notebooks use DAY where the Template uses READS, so none is the Template filled in plainly;
+  Building blocks copied by hand (ticket 06's new_block); what to give `<LOCATION>`.
+- Drift: d19fb72 opened D236 (fixed in the review batch).
+
