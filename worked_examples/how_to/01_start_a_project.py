@@ -203,7 +203,7 @@ a short name:
 
 >>> job_runs = example_database.job_runs
 
-A Statement is one read of the tables, built from clause functions written in SQL's order: `SELECT` the
+A Statement is one query, built from clause functions written in SQL's order: `SELECT` the
 columns you want, `FROM` a table, and keep only some rows with `WHERE`. `WHERE` keeps a row
 only if every condition in it holds. This Statement finds the runs that failed.
 

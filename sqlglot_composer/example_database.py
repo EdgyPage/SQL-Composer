@@ -471,8 +471,9 @@ def query(hive: str) -> pd.DataFrame:
     """Run Hive that gives back rows on the Example database, as a DataFrame, like your query
     at work.
 
-    It answers SELECT, DESCRIBE and SHOW PARTITIONS; it refuses other reads it doesn't know,
-    such as SHOW TABLES, and the rest, which change something, run(...) sends to execute.
+    It answers SELECT, DESCRIBE, SHOW PARTITIONS and EXPLAIN, as far as its executor knows
+    one; it refuses other reads it doesn't know, such as SHOW TABLES, and the rest, which
+    change something, run(...) sends to execute.
 
     >>> example_database.query("DESCRIBE ops.jobs")
        col_name data_type comment
