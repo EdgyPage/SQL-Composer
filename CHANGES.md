@@ -36,9 +36,9 @@ in place of a line in every file.
   `mapped(column, {"FAILED": "failed", ...}, otherwise=...)` looks one column's values up in a
   dict. Left without `otherwise=`, a row nothing matches gets NULL. Each refuses values of types
   that don't mix, such as a string beside a number, and `mapped` a key its column can't hold,
-  as `equals` does. The Worked example "Keep a long list and a lookup as constants" shows them
-  beside `is_in(column, A_NAMED_LIST)`, a long list kept as a constant at the top of a script.
-
+  as `equals` does. The Worked example "Keep a long list and a lookup as constants, and an
+  if/else chain as one CASE" (in the Example gallery) shows them beside
+  `is_in(column, A_NAMED_LIST)`, a long list kept as a constant at the top of a script.
 - **`version.txt`, the one place the version is written.** It names the Toolbox and its
   version, when this copy was exported and from which commit, and each file of the folder with
   a code worked out from its contents, which changes when the file does. No other file of the

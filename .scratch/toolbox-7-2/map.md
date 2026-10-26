@@ -158,6 +158,9 @@ asks, though all three touch CHANGES.md.
   `admin/project_version.txt`; `upgrades.py`'s `STEPS` and `Upgrade` (add, rewrite, mark);
   each step logged and archived to `admin/removed/<time>-upgrade_<version>/`; the first
   Upgrade runs from `admin/check_project.ipynb`, and adds `admin/upgrade.ipynb`.
+- [04 first_match and mapped](issues/04-first-match-and-mapped.md): built in a worktree beside
+  03; `Case` gains a `this` part; values of one kind as `equals` mixes them; a None key in
+  mapped is refused with the fill_null way to label NULL rows.
 
 ## Not yet specified
 

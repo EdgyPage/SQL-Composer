@@ -264,7 +264,7 @@ def if_else(condition: Condition,
 def first_match(
         cases: list[tuple[Condition, Column | str | int | float | datetime.date | None]],
         otherwise: Column | str | int | float | datetime.date | None = None) -> Column:
-    """Each row's value from the first condition that holds for it (CASE WHEN ...).
+    """The value of the first (condition, value) pair that holds for a row (CASE WHEN).
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id,
@@ -296,9 +296,10 @@ def first_match(
 
     It writes a whole if/else chain as one CASE, however many pairs it has. For one condition,
     if_else(...) is shorter; where every pair tests one column against a value, mapped(...)
-    reads plainer. Each value is a number, a string, a date, None or a column, and all of
-    them, otherwise= included, are one type, as a column's values are: a string beside a number
-    is refused, as is a condition where a value goes.
+    reads plainer. Each value is a number, a string, a date, True or False, None or a column, and
+    all of them, otherwise= included, are of one kind, as a column's values are: numbers, whole
+    or not; text and dates, which Hive compares as text; or True and False. A string beside a
+    number is refused, as is a condition where a value goes.
     """
     call = "first_match(...)"
     if not isinstance(cases, list):
@@ -322,7 +323,7 @@ def first_match(
     pairs = [_pair(item, number, call) for number, item in enumerate(cases, start=1)]
     written = ", ".join(f"({python_text(condition)}, {python_text(value)})"
                         for condition, value in pairs)
-    return _case(None, [(condition._tree.copy(), value) for condition, value in pairs],
+    return _case_column(None, [(condition._tree.copy(), value) for condition, value in pairs],
                  otherwise, call, f"first_match([{written}]")
 
 
@@ -332,8 +333,8 @@ def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
         refuse(
             what=f"first_match: pair {number} is {_written(item)}, which isn't a "
             "(condition, value) pair.",
-            why="Each item of the list is one condition and the value rows get where it holds, "
-            "in round brackets.",
+            why="Each item of the list is a condition and the value a row gets when it holds, "
+            "as a pair in round brackets.",
             fix='Write each as (condition, value), such as (equals(job_runs.status, "FAILED"), '
             '"failed").',
             given=item, call=call,
@@ -344,7 +345,7 @@ def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
             refuse(
                 what=f"first_match: pair {number} has the condition second: "
                 f"{_written(item)}.",
-                why="Each pair is a condition, then the value rows get where it holds.",
+                why="Each pair is a condition, then the value a row gets when it holds.",
                 fix="Swap the two, as in (equals(job_runs.status, \"FAILED\"), \"failed\").",
             )
         refuse(
@@ -370,7 +371,7 @@ def mapped(column: Column,
            values: dict[str | int | float | bool | datetime.date,
                         Column | str | int | float | datetime.date | None],
            otherwise: Column | str | int | float | datetime.date | None = None) -> Column:
-    """A value for each value of a column, looked up in a dict (CASE column WHEN ...).
+    """A lookup: each row gets the dict's value for its column's value (CASE x WHEN).
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id,
@@ -385,25 +386,33 @@ def mapped(column: Column,
     WHERE
       job_runs.dt = '2026-09-24'
 
-    Each key of the dict is a value the column may hold, and each row gets the value its
-    column's value is the key of. A row whose value is no key gets otherwise=; leave otherwise=
-    out, and the Hive has no ELSE, so that row gets NULL. A row whose column is NULL matches no
-    key, since NULL equals nothing, so a None key is refused: first_match([(is_null(column),
-    value), ...]) gives those rows a value of their own. Keep a long dict as a constant at the
-    top of your script, such as STATUS_LABELS = {...}, and pass it by its name.
+    Each key of the dict is a value the column may hold, and a row gets the dict's value for
+    its column's value. A row whose value is no key gets otherwise=; leave otherwise= out, and
+    the Hive has no ELSE, so that row gets NULL. Hive writes the lookup CASE column WHEN key
+    THEN value, which means CASE WHEN column = key THEN value. Keep a long dict as a constant at
+    the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.
+
+    A row whose column is NULL matches no key, since NULL equals nothing, so it gets otherwise=,
+    and a None key is refused. To give those rows a label of their own, fill the NULL in first,
+    and look up what you filled in:
+
+    >>> mapped(fill_null(job_runs.status, "RUNNING"),
+    ...        {"SUCCESS": "passed", "FAILED": "failed", "RUNNING": "still running"})
+    CASE COALESCE(job_runs.status, 'RUNNING') WHEN 'SUCCESS' THEN 'passed' WHEN 'FAILED' THEN 'failed' WHEN 'RUNNING' THEN 'still running' END
 
     It is first_match(...) for the chain that tests one column against a value in each pair,
     written shorter. Each key is a value of the column's own type: a key it can't hold, such as
-    "one" for a bigint column, is refused, as equals(...) refuses it. The values follow
-    first_match's rule: all one type, otherwise= included, and never a condition.
+    "one" for a bigint column, is refused, as equals(...) refuses it. The values are checked
+    as first_match's are: all one type, otherwise= included, and never a condition. A key
+    written twice in the dict is one key to Python, which keeps its last value.
     """
     call = f"mapped({python_text(column)}, ...)"
     column = need_column(column, call)
     if not isinstance(values, dict):
         refuse(
             what=f"{call} was given {_written(values)} where a dict of values goes.",
-            why="The dict pairs each value the column may hold with the value rows that hold "
-            "it get.",
+            why="The dict pairs each value the column may hold with the value a row holding it "
+            "gets.",
             fix=f'Write it as a dict, such as mapped({python_text(column)}, {{"FAILED": '
             '"failed", "SUCCESS": "passed"}).',
             given=values, call=call,
@@ -426,24 +435,36 @@ def mapped(column: Column,
                 "or give a value as the key.",
                 given=key, call=call,
             )
+        if key is None:
+            refuse(
+                what=f"{call} was given None as a key.",
+                why="A row whose column is NULL matches no key, since NULL equals nothing in "
+                "Hive, so a None key would never match: those rows get otherwise=.",
+                fix=f'Fill the NULL in first, and look that up: mapped(fill_null('
+                f'{python_text(column)}, "RUNNING"), {{..., "RUNNING": "still running"}}).',
+                error=ValueError,
+            )
     keys = [literal(key, call=call, column=column) for key in values]
     _one_type(list(values), call, "keys")
     written = ", ".join(f"{python_text(key)}: {python_text(value)}"
                         for key, value in values.items())
-    return _case(column, list(zip(keys, values.values())), otherwise, call,
+    return _case_column(column, list(zip(keys, values.values())), otherwise, call,
                  f"mapped({python_text(column)}, {{{written}}}")
 
 
-def _case(column: Column | None, pairs: list[tuple[Node, object]], otherwise: object,
+def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherwise: object,
           call: str, written: str) -> Column:
     """first_match's or mapped's CASE: each pair a WHEN's condition, or the value mapped looks
     `column` up for, and its THEN, the user's value as given; ELSE only when `otherwise` isn't
     None. `written` is the call as the user wrote it, up to its otherwise=, for the lineage."""
     given = [value for _, value in pairs] + ([otherwise] if otherwise is not None else [])
-    for value in given:
+    for number, value in enumerate(given, start=1):
         if isinstance(value, Condition):
+            where = ("otherwise=" if number > len(pairs) else f"pair {number}'s value"
+                     if column is None else f"the value for key {number}")
             refuse(
-                what=f"{call.split('(')[0]} was given {python_text(value)} where a value goes.",
+                what=f"{call.split('(')[0]} was given {python_text(value)} as {where}, where "
+                "a value goes.",
                 why="A value is what the rows get: a number, a string, a date, None or a "
                 "column. A condition is a test on rows, and only decides which rows get "
                 "which value.",
@@ -490,7 +511,9 @@ def _one_type(given: list[object], call: str, what: str) -> None:
 
 # What to do instead, for values or for keys.
 _MIXED_FIX = {
-    "values": 'Give all the values one type, such as all strings: "1" in place of 1.',
+    "values": 'Give all the values one kind: all numbers, all text, or all True or False, such '
+    'as "1" in place of 1 beside text. Where one is a column, make the others its kind, or leave '
+    "otherwise= out, so the other rows get NULL.",
     "keys": "Give every key the type of the values the column holds: for a string column, "
     '"1" in place of 1.',
 }
