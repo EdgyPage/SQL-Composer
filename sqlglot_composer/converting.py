@@ -2,9 +2,10 @@
 
 convert_query(text, columns_of) reads one Hive query with sqlglot and gives back a
 ConvertedQuery: the Python that builds the same query from Clause functions, as a Table
-notebook's logic holds it, and what it found on the way, each with its line in the Hive. What no Toolbox function writes
-yet is kept as Hive at the smallest size it can be (ADR 0014): one function the Toolbox doesn't
-wrap becomes hive_function(...); one expression no function writes, an Unchecked expression;
+notebook's logic holds it, and what it found on the way, each with its line in the Hive. What
+no Toolbox function writes yet is kept as Hive at the smallest size it can be (ADR 0014): one
+function the Toolbox doesn't wrap becomes hive_function(...); one expression no function
+writes, an Unchecked expression;
 one CTE no Statement can be, an Unchecked derived table; a query the Toolbox can't read at
 all, an Unchecked statement. A long IN list and a lookup CASE become named constants.
 
@@ -199,7 +200,11 @@ def _indented(text: str, by: int) -> str:
 
 
 def _start(node: exp.Expression, text: str) -> int | None:
-    """Where in `text`, the Hive, a piece starts, or None when sqlglot noted nothing.
+    """Where in `text`, the Hive, a piece starts, or None when it can't be told.
+
+    Where sqlglot noted no place for any part of the statement, as an older one such as
+    25.24.2 notes none, the piece is found by its words instead. It is None where sqlglot noted
+    places elsewhere in the statement but none in this piece, or its words aren't found.
 
     sqlglot notes where each name and value is, and a CASE starts at the CASE before its
     first one."""
@@ -223,9 +228,11 @@ def _noted_anywhere(node: exp.Expression) -> bool:
 
 
 def _found_by_its_words(node: exp.Expression, text: str) -> int | None:
-    """Where a piece starts in `text`, the Hive, found by its words as sqlglot writes them: a
-    sqlglot before 30 notes no places. The more of its words come in that order, the surer
-    the place, so the longest run of its first words that the Hive holds finds it."""
+    """Where a piece starts in `text`, the Hive, found by its words as sqlglot writes them.
+
+    An older sqlglot, such as 25.24.2, notes no places. The more of its words come in that
+    order, the surer the place, so the longest run of its first words that the Hive holds finds
+    it."""
     wanted = [word for word, _ in hive_tokens(sql_text(node))]
     words = [word for word, _ in hive_tokens(text)]
     starts = [start for _, start in hive_tokens(text)]
@@ -983,7 +990,7 @@ class _Converter:
         after = [(part, one) for part in ("rollup", "cube", "grouping_sets")
                  for one in (node.args.get(part) if isinstance(node.args.get(part), list)
                              else [node.args.get(part)] if node.args.get(part) else [])]
-        # A sqlglot before 30 holds ROLLUP (a, b) beside GROUP BY's columns, not among them.
+        # An older sqlglot, such as 25.24.2, holds ROLLUP (a, b) beside GROUP BY's columns.
         moved = [one for _, one in after if isinstance(one, (exp.Rollup, exp.Cube))
                  and one.expressions]
         inside += moved
@@ -1206,7 +1213,7 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     try:
         parsed = [one for one in read_hive(text) if one is not None]
     except sqlglot.errors.ParseError as error:
-        # A sqlglot before 30 can't read Hive's FROM ... INSERT ... INSERT at all.
+        # An older sqlglot, such as 25.24.2, can't read Hive's FROM ... INSERT ... INSERT.
         targets = re.findall(r"\bINSERT\s+(?:OVERWRITE|INTO)\s+(?:TABLE\s+)?([\w.`]+)", text,
                              re.IGNORECASE)
         if re.match(r"\s*FROM\b", text, re.IGNORECASE) and len(targets) > 1:
