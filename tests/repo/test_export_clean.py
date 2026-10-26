@@ -127,8 +127,9 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
 COPIED = ["example_projects"]
-# The copies with no comment syntax for a stamp, which main holds as dev does.
-UNSTAMPED = (".ipynb", ".csv", ".txt")
+# The copies with no comment syntax for a stamp, and a Conversion's original.hql, kept as the
+# Hive was given, which main holds as dev does.
+UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql")
 
 
 def copied_files(folder: str) -> list[str]:

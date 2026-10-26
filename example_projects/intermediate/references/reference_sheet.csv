@@ -25,6 +25,11 @@ mart.team_days,runs,bigint,,,,,2026-09-25 06:00:00
 mart.team_days,minutes,bigint,,,,,2026-09-25 06:00:00
 mart.team_days,cost_cents,bigint,,,,NULL while none of the team's bills for the day has come in,2026-09-25 06:00:00
 mart.team_days,dt,string,yes,yes,,"the day, as yyyy-MM-dd",2026-09-25 06:00:00
+mart.team_failures,team,string,,yes,,,2026-09-25 06:00:00
+mart.team_failures,team_name,string,,,,,2026-09-25 06:00:00
+mart.team_failures,events,bigint,,,,,2026-09-25 06:00:00
+mart.team_failures,fails,bigint,,,,,2026-09-25 06:00:00
+mart.team_failures,dt,string,yes,yes,,,2026-09-25 06:00:00
 ops.job_events,event_id,bigint,,yes,,,2026-09-25 06:00:00
 ops.job_events,job_id,bigint,,,,,2026-09-25 06:00:00
 ops.job_events,event_type,string,,,ends_a_run (a condition),start / finish / retry / fail,2026-09-25 06:00:00

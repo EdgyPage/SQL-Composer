@@ -1,7 +1,7 @@
 # Checking a Conversion
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 07
 Size: M
 
@@ -174,3 +174,9 @@ D267, and one more asked for by the main session were fixed in a worktree, findi
   often starts with them and ticket 07's notebook compares the Hive exactly as given; a second
   query, or an INSERT and a SELECT, is still refused ("holds 2 statements besides its SET
   lines"). Both docstrings say so; tested for each.
+- Code review of a3ff19c (2026-10-26): Standards found no hard breach. Spec answered: a
+  Verdict false when not ok also changes check_key's and check_table_reference's, which no
+  caller relied on and CHANGES.md says; a column written with its database and table,
+  ops.job_runs.dt, under a bounded read is Hive this Toolbox never writes, and a hand-written
+  original with one is compared by its Hive alone. D270 was closed in e615130's message by its
+  reason, not a `No-drift:` line; the drift reviewer took it, as the entry it named had landed.

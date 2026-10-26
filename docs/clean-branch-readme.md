@@ -63,9 +63,9 @@ or made by hand.
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
-| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb` | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
 | an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
-| `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference or a Building block adds a row | nothing |
+| `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
 | `references/<db>__<table>.py`, a Table reference per table | `project.add_references([...], query=query)` for a table in the warehouse, or `project.new_table(...)` for a Saved table of your own | its TODO lines, and your own Aliases |
 | `references/<db>.py`, a Database module per Database, such as `references/ops.py` | each Project action that adds or archives a Table reference | nothing: never edit it |
@@ -74,7 +74,7 @@ or made by hand.
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
-| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
 
 ### Your query and execute
 
@@ -403,7 +403,8 @@ And two more, for files beside the notebooks:
    folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
    at the line. Work through the boxes in the checklist it writes in admin/, named for the
    version, such as upgrade_7.3.md;
-   `project.check()` lists the marks left. It never touches the warehouse.
+   `project.check()` lists the marks left. It never touches the warehouse. How-to:
+   [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version).
 6. If your Project was made before 7.1, bring it to 7.1 by hand first, then upgrade it as in
    step 5: in `CHANGES.md`, at the top of the download, read the "To update" part of every
    version newer than yours, up to 7.1's: the newest comes first, so start at your version's

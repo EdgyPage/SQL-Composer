@@ -70,8 +70,8 @@ The file `references/mart__job_region_costs.py`, after you fill it in:
     )
 
 >>> project.refresh_reference_sheet()
-Wrote references/reference_sheet.csv: 49 rows, 12 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs and mart.team_days.
+Wrote references/reference_sheet.csv: 54 rows, 13 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> from references import mart, ops
 >>> job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -> Table, Table

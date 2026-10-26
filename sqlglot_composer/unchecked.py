@@ -825,8 +825,9 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     column it doesn't declare is refused at once. The text is one SELECT, written at the top
     of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot
     can tell the names of the columns the SELECT gives, they must be the ones declared. The
-    text names its columns itself, with no {placeholders}: a brace in it is refused, since
-    sqlglot reads it as a struct, which it can't write back as Hive.
+    text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct,
+    as {'k': 1}, is refused, since it can't write that back as Hive; one inside quotes, as in a
+    regular expression's '[a-z]{2}', is kept.
 
     No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can
     see unless you name one: key=["run_id"] says one row has each run_id, as a GROUP BY

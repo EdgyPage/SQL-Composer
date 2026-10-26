@@ -21,6 +21,9 @@ For each project, in a Python of its own, started in an empty folder, it:
 - runs project.new_table(...) for each Saved table the project builds, then fills in its Table
   reference and its notebook from the same sources: `references/`, and
   `tables/<db>__<table>.py`, a notebook as its Template is written, in `# %%` cells;
+- runs project.convert(...) on each Conversion's Hive, in `conversions/`, then
+  project.finish_conversion(...), deletes the `# CONVERSION:` marks, keeping the opt-outs, and
+  fills in its Table reference from `references/`;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write().
@@ -122,6 +125,14 @@ SAVED_TABLES = {
                      ("mart.job_events_checks", "quality_checks"),
                      ("mart.budget_overruns", "saved_table"),
                      ("mart.job_notes", "saved_table")],
+}
+# Each project's finished Conversions: the Conversion's name and the Saved table it became,
+# made from the Hive in `conversions/<name>.hql` of its sources, as a user makes one from Hive
+# someone else wrote, then finished, its marks decided and its Table reference filled in from
+# `references/`.
+CONVERSIONS = {
+    "starter": [],
+    "intermediate": [("team_failures", "mart.team_failures")],
 }
 # The tables whose lineage cell draws other tables too, through their notebooks' logic: each
 # table's lineage reads these tables' writes, then its own.
@@ -238,6 +249,7 @@ def write_here(name: str) -> None:
     _add_references(name, folder)
     _add_building_blocks(name, folder)
     _add_saved_tables(name, folder)
+    _add_conversions(name, folder)
     project.refresh_reference_sheet()
     _export_lineage(name, folder)
     _tidy(folder)
@@ -283,6 +295,25 @@ def _add_saved_tables(name: str, folder: Path) -> None:
     shutil.copyfile(source / "README.md", folder / "README.md")
 
 
+def _add_conversions(name: str, folder: Path) -> None:
+    """Convert each Conversion's Hive and finish it, deciding its marks by keeping each opt-out,
+    then fill in its Table reference from the project's hand-written source."""
+    from sqlglot_composer import converting, example_database, notebooks, project
+
+    source = SOURCES / name
+    for conversion, table in CONVERSIONS[name]:
+        project.convert(conversion, file=str(source / "conversions" / f"{conversion}.hql"),
+                        query=example_database.query, database="ops")
+        project.finish_conversion(conversion, table=table)
+        stem = project.table_stem(table)
+        notebook = folder / "tables" / stem / f"{stem}.ipynb"
+        notebooks.write_notebook(notebook, [
+            (kind, "\n".join(line for line in text.split("\n")
+                             if not converting.CONVERSION_MARK_LINE.search(line)))
+            for kind, text in notebooks.read_cells(notebook)])
+        shutil.copyfile(source / "references" / f"{stem}.py", folder / "references" / f"{stem}.py")
+
+
 def _export_lineage(name: str, folder: Path) -> None:
     """Export each Saved table's lineage from its Table folder, as its notebook's lineage cell
     does, from each notebook's write(), drawing the tables in LINEAGE_ACROSS first.
@@ -292,7 +323,8 @@ def _export_lineage(name: str, folder: Path) -> None:
     write() that gives several, such as write_budget_overruns_1."""
     from sqlglot_composer import export_lineage, lineage, project
 
-    for table, _ in SAVED_TABLES[name]:
+    for table in [table for table, _ in SAVED_TABLES[name]] + [
+            table for _, table in CONVERSIONS[name]]:
         os.chdir(folder / "tables" / project.table_stem(table))
         writes, names = [], []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:

@@ -1,7 +1,7 @@
 # The docs: how-tos, Worked examples and the Example project
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 08
 Size: L
 
@@ -42,3 +42,62 @@ every other.
 - The gallery and the how-to page regenerated; how-tos tested as the others are.
 - CLAUDE.md's Definition of done, the beginner reader included: it reads both how-tos start to
   finish as a beginner would.
+
+## Answer
+
+Built 2026-10-26 on dev.
+
+- **The sample**: two. How-to "Convert someone else's Hive" pastes a weekly report on
+  ops.job_events and ops.job_owners: SET lines, two CTEs, a long IN list, a lookup CASE that
+  becomes `mapped`, an if/else chain that becomes `first_match`, `upper` written by
+  `hive_function`, a `DIV` that stays an Unchecked expression, and a join that needs an opt-out.
+  The Intermediate Example project's finished Conversion comes from a second, smaller one, kept
+  in `tools/example_project_sources/intermediate/conversions/team_failures.hql` and shipped as
+  its Table folder's `original.hql`, since the how-to finishes its own as mart.weekly_events in
+  a copy of that project, and two of one name would clash. No sample stays an Unchecked derived
+  table: a CTE no Statement can be is rare in the Example database's tables, and tests hold it
+  (tests/test_converting.py).
+- **"Upgrade your Project to a new Toolbox version"** runs on a copy of the Intermediate Example
+  project with the files 7.2's Upgrade adds taken out, rather than the frozen 7.1 projects in
+  `tests/upgrade_from/`, which ship to no user.
+- **Worked examples**: every new public name has its gallery entry, from its docstring, as the
+  gallery's test holds; the before-and-after is `worked_examples/statements/named_lists_and_lookups.py`,
+  whose docstring now shows the hand-written Hive its CASE chain, lookup and IN list replace.
+- **The Example project**: `tools/example_project.py` converts, finishes and fills in
+  mart.team_failures, deleting its `# CONVERSION:` mark and keeping the opt-out, as a user
+  decides it; its README says so, and its file map gains the Conversion's files.
+- **The README**: the file map names `admin/convert.ipynb` and admin/conversions/ (pointing to
+  the how-to), the Update step names the Upgrade how-to; `version.txt`,
+  `admin/project_version.txt` and the Upgrade's checklist were named by tickets 01 and 02.
+- **CHANGES.md** names both how-tos.
+- The export ships a Conversion's `original.hql` unstamped, as the Hive was given.
+
+## Reviews
+
+- Beginner reader: [reports/09-beginner-reader.md](../reports/09-beginner-reader.md), stop by
+  stop:
+  - 1 (the download's path): answered, the Intermediate how-tos all start this way, and say the
+    page makes its copy in its first step.
+  - 2 (DATABASE, never passed): fixed, the how-to says why its calls leave database= out.
+  - 3 (SET lines never sent): fixed in the how-to, which says what HIVE_SETTINGS' key is and to
+    send session_settings() with run_execute before write(); run_tables takes no Session
+    settings in what write() gives.
+  - 4 (listed where): fixed.
+  - 5 (opt-out): fixed, the how-to says what one is.
+  - 6 (load's two names): answered, load's docstring says a name with no dot is a Conversion's.
+  - 7 (the mark line): fixed in project.check(): keep it, or change what made it needed, such as
+    a WHERE on the partition column or a key= in a Table reference.
+  - 8 (deciding at work): fixed, the how-to says to bound the other table's partition column.
+  - 9 (<COLUMN_TYPE>): fixed, the how-to and the Table reference say what one is; the reference
+    asks for partitioned_by= only when it isn't filled.
+  - 10 (the fixed week): fixed in the how-to, which points to days_rewritten.py's way.
+  - 11 (new_table in the Admin log): answered, finish_conversion makes the Table folder as
+    new_table does, and its docstring says so.
+  - 12 (the INSERT set aside): answered, compare_hive's docstring says an INSERT is compared by
+    its query.
+  - 13 ("the Project 7.1 left"): fixed, "looks to project.upgrade() like a Project 7.1 left".
+  - 14 (no warning shown): fixed, the how-to says when it shows and why this page shows none.
+  - 15 (why a file left behind stops the import): fixed, the how-to says the folder checks
+    itself against version.txt.
+  - 16 (the README's Update step): answered, 7.0's Project is upgraded after 7.1's "To update
+    from 7.0", as step 6 says.

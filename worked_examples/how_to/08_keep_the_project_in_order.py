@@ -5,9 +5,9 @@ For: Getting started
 ## Goal
 
 Keep your Project's files and its tables in step as they change. The registry lists every
-Table folder, Table reference and Building block a Project action made: `project.check()`
-says what it gets wrong, and `project.register` adopts a file made by hand. The Reference
-sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares
+Table folder, Table reference, Building block and Conversion folder a Project action made:
+`project.check()` says what it gets wrong, and `project.register` adopts a file made by hand.
+The Reference sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares
 each Table reference with its table in the warehouse. The `project.remove_*` actions archive
 what you no longer need, deleting nothing. And the Levels say which of your files may import
 which.

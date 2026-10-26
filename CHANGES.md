@@ -15,7 +15,8 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
 - **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
   `admin/upgrade_7.2.md`, which it writes. From 7.1 to 7.2 nothing of yours changes: it adds
   `admin/upgrade.ipynb`, where you run it next time, `admin/convert.ipynb` and
-  `admin/conversions/`, and `admin/project_version.txt`.
+  `admin/conversions/`, and `admin/project_version.txt`. The how-to "Upgrade your Project to a
+  new Toolbox version" walks through it.
 
 ### Also new
 
@@ -36,7 +37,8 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   its Table folder and its Table reference, with the columns it gives and `<LOCATION>`, any
   type it doesn't know and, without a `PARTITION(...)` to copy, a partition column to fill in.
   `project.remove_conversion("name")` archives one you no longer want. `project.load("name")`
-  runs a Conversion's logic, as it does a Table notebook's.
+  runs a Conversion's logic, as it does a Table notebook's. The how-to "Convert someone
+  else's Hive" walks through one, from pasting the Hive to writing the Saved table.
 
 - **`project.upgrade()`, an Upgrade.** From 7.2 on, each new version ships a step that carries
   your Project's files to it from the version before: the Table references, Building blocks,

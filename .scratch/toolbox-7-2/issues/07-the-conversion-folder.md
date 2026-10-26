@@ -90,3 +90,62 @@ Built 2026-10-26 on dev, with 05 and 06.
   Upgrade step adds both. `project.check()` lists the Conversions not finished and each
   `# CONVERSION:` mark left.
 - Tests: `tests/test_conversions.py`.
+
+## Reviews
+
+Tickets 05, 06 and 07 were reviewed as one change, 6642319 and 1a0ef3d; the fixes are in the
+commit after b341cc5's merge of 03 and 08's fixes.
+
+- Standards (2026-10-26): fixed: "translation", which the glossary avoids, is gone from the
+  code (`converting.convert_query` gives a `ConvertedQuery`); `_logic`'s dead parameters and
+  `_compared`'s unused root are gone; the Conversion notebook's check cells are found by a
+  named constant, `_CHECK_CELLS`; plurals by one helper, `_counted`; a Conversion's name told
+  from a table's by one, `_names_a_conversion`. Answered: the opt-outs a Conversion adds are
+  named in convert's report and scan.md from what `with_opt_out` returns, so the scan's
+  findings don't repeat them.
+- Spec (2026-10-26): fixed: GROUP BY ... WITH ROLLUP, WITH CUBE, ROLLUP(), CUBE() and GROUPING
+  SETS become Subtotals (`rollup`, `cube`, `grouping_sets`) where they were a whole Unchecked
+  statement or a crash; a finding says why rollup and cube are written as the GROUPING SETS
+  they stand for. Round trips are tested for deep CTEs, a CTE read twice, one table under two
+  aliases, `*` and `t.*`, quoted names, comments, mixed case, HAVING, LEFT JOIN, ROWS frames,
+  ORDER BY and LIMIT, DISTINCT, UNION ALL and a static PARTITION. A whole-Unchecked
+  Conversion is refused plainly by finish_conversion, before it makes any file. A static
+  partition column the query doesn't give is listed in the finished Table reference.
+  Deviations kept, each recorded in its ticket's Answer: 06 reports a Hive mismatch rather than
+  refusing it; each CTE is a module-level Derived table rather than a function; the constants
+  sit in the logic cell. `original.hql` is written as given, its line endings as Python reads
+  them; compare_hive reads them all alike.
+- Beginner reader: [reports/05-07-beginner-reader.md](../reports/05-07-beginner-reader.md),
+  stop by stop:
+  - 1 (the first cell): fixed, convert.ipynb names the `HIVE` cell.
+  - 2 (no database=): fixed, convert.ipynb has a `DATABASE` line that its scan and convert
+    pass; how-to "Convert someone else's Hive" says what it is for.
+  - 3 (findings out of order, CASE a line late, SET lines twice): fixed, in line order, CASE
+    at its CASE, one finding for all the SET lines, INSERT at its INSERT.
+  - 4 ("adds it" for three): fixed.
+  - 5 (`t.*` crash): fixed, a `*` of a table with no Table reference is `*all_columns(t)`, and
+    no reading error escapes as a traceback.
+  - 6 (SET lines not compared): fixed by 08's fix, compare_hive passes over SET lines.
+  - 7 (HIVE_SETTINGS unsent): answered, run_tables takes no Session settings in what write()
+    gives, so write()'s docstring says to send `session_settings()` first.
+  - 8 (how to decide a mark): fixed, check() says to keep the opt-out or give the Table
+    reference what the Guard needs, such as key=; convert names each opt-out it added.
+  - 9 (cell numbers): answered, cells are counted from 1 as Jupyter shows them, markdown too.
+  - 10 (row compare with a static partition): fixed, the hint compares on a partition column
+    the query gives, else with reads_all_partitions=True; 08's fix lets partition= name a
+    partition column of a table read.
+  - 11 (`*` expanded): fixed, a finding says the `*` became its columns.
+  - 12 (`${hivevar:...}`): fixed, a "variable" finding says your query must put its value in.
+  - 13 (DISTRIBUTE BY dropped, compare cut short): fixed, a "dropped" finding each, and
+    compare_hive's whole verdict is kept.
+  - 14 ("1 lines", "1 piece stay"): fixed.
+  - 15 (LATERAL VIEW, CAST, IN (subquery) findings): fixed, every table read is listed, and
+    each finding says its reason once.
+  - 16 (whole-Unchecked finish): fixed, refused before anything is made.
+  - 17 (finish under the Saved table's database): fixed, reading the original again no longer
+    needs every table's columns, so the database doesn't matter there.
+  - 18 (partition column not a column): fixed, it is listed as a string column.
+  - 19 (fill in partitioned_by, already filled): fixed, asked only when it isn't.
+  - 20 ("kept in admin/removed/"): fixed, "archived, kept as it was, in".
+  - 21 (the day hard-coded): answered, the Conversion keeps the original's days; making one a
+    parameter is the user's step, as in how-to "Save a table".

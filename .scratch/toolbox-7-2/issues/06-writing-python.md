@@ -57,3 +57,8 @@ Built 2026-10-26 on dev, with ticket 07 (see 05's "Python first").
   user asked for is still theirs, and the report says where they differ.
 - The sample shown: the user is shown one in ticket 09's how-to; tests/test_conversions.py
   holds one end to end.
+
+## Reviews
+
+Reviewed with tickets 05 and 07, as one change: see
+[07's Reviews](07-the-conversion-folder.md#reviews).

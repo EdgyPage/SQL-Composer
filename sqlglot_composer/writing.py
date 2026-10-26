@@ -343,7 +343,7 @@ def query_columns(text: str, call: str, whose: str) -> list[str]:
 def normalised_query(text: str, call: str, whose: str) -> list[str]:
     """A query's lines, read by sqlglot and written out one way, so that only what changes the
     query differs between two of them: not spacing, case, backticks, comments, a ;, brackets
-    that change nothing, INNER or OUTER, AS, nor the short name a table is called by."""
+    that change nothing, INNER or OUTER, AS, ASC, nor the short name a table is called by."""
     tree = _read_query(text, call, whose)
     _words_written_one_way(tree)
     _tables_called_by_their_names(tree)
@@ -353,6 +353,9 @@ def normalised_query(text: str, call: str, whose: str) -> list[str]:
     for table in tree.find_all(exp.Table):
         if table.alias == table.name:
             table.set("alias", None)
+    for ordered in tree.find_all(exp.Ordered):
+        if not ordered.args.get("desc"):
+            ordered.set("desc", False)  # ASC written out, as the Toolbox writes it, is the default
     _needless_brackets_out(tree)
     return _written_back(tree, call, whose).splitlines()
 

@@ -77,10 +77,14 @@ file, the call that makes it, and what you fill in:
 - admin/admin_log.md, the Admin log: `project.start()`, then each Project action adds an
   entry. You fill in nothing.
 - admin/registry.csv, the registry: `project.start()`, then each Project action that makes or
-  archives a Table folder, a Table reference or a Building block adds a row. You fill in
-  nothing.
+  archives a Table folder, a Table reference, a Building block or a Conversion folder adds a
+  row. You fill in nothing.
 - admin/project_version.txt, the Toolbox version that last wrote the Project:
   `project.start()`, then `project.upgrade()`. You fill in nothing.
+- admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until
+  you finish it: `project.convert(...)`, from admin/convert.ipynb. You make the checks its
+  notebook asks for, then finish it, as
+  [Convert someone else's Hive](#convert_someone_elses_hive) shows.
 - an Upgrade's checklist in admin/, named for the version it upgraded to, such as
   upgrade_7.3.md: `project.upgrade()`, once you copy in a newer Toolbox. You make each change
   it lists, each marked `# UPGRADE <version>:` at its line.
@@ -106,7 +110,9 @@ file, the call that makes it, and what you fill in:
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.
 - `admin/removed/`, what you archive: `project.remove_table(...)`, `project.remove_reference(...)`
-  and `project.remove_block(...)` move a file or folder here rather than delete it, and
+  and `project.remove_block(...)` move a file or folder here rather than delete it, as do
+  `project.finish_conversion(...)` and `project.remove_conversion(...)` with a Conversion
+  folder, and
   `project.upgrade()` keeps here each file as it was before it changed it.
 
 `references/`, `building_blocks/` and `tables/` are empty for now. Each Project action refuses

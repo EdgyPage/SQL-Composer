@@ -39,6 +39,15 @@ def labelled_runs() -> Statement:
     first_match tries its conditions in order and
     gives the value of the first that holds: a run of 40 minutes is "long", though it is more
     than 10 minutes too.
+
+    Before, as Hive written by hand, the lookup and the chain read as below, with the list
+    pasted in where WATCHED_JOBS goes; project.convert(...) writes them as this function does:
+
+        CASE status WHEN 'SUCCESS' THEN 'passed' WHEN 'FAILED' THEN 'failed'
+                    WHEN 'TEST' THEN 'test run' ELSE 'still running' END AS outcome,
+        CASE WHEN duration_mins > 30 THEN 'long' WHEN duration_mins > 10 THEN 'medium'
+             ELSE 'short' END AS length
+        ... WHERE job_id IN (1, 2)
     """
     return statement(
         SELECT(
