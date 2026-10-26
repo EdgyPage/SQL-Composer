@@ -6,7 +6,8 @@ is reached as mart.budget_overruns.job_id.
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
 job_events_checks (references/mart__job_events_checks.py), job_notes
-(references/mart__job_notes.py), team_days (references/mart__team_days.py).
+(references/mart__job_notes.py), team_days (references/mart__team_days.py), team_failures
+(references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a <...> still
@@ -22,10 +23,11 @@ from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name's message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "team_days"]
+__all__ = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "team_days", "team_failures"]
 _TABLES = __all__
 
 

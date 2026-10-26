@@ -99,6 +99,8 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <li data-for="keep_reads_and_joins_fast"><a href="#keep_reads_and_joins_fast">24. Keep reads and joins fast</a></li>
 <li data-for="declare_a_change_made_in_python"><a href="#declare_a_change_made_in_python">25. Declare a change made in Python</a></li>
 <li data-for="hand_written_hive_with_your_table_references"><a href="#hand_written_hive_with_your_table_references">26. Hand-written Hive with your Table references</a></li>
+<li data-for="convert_someone_elses_hive"><a href="#convert_someone_elses_hive">27. Convert someone else&#x27;s Hive</a></li>
+<li data-for="upgrade_your_project_to_a_new_toolbox_version"><a href="#upgrade_your_project_to_a_new_toolbox_version">28. Upgrade your Project to a new Toolbox version</a></li>
 </ul>
 </div>
 </nav>
@@ -147,7 +149,7 @@ admin/upgrade.ipynb
 warehouse.py</pre>
 <h5>Know every file of a Project</h5>
 <p>Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action, and never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You write your two functions, query and execute, in it, below.</li><li><code>admin/</code>, a notebook per Project action, such as new_table.ipynb, add_references.ipynb and run_tables.ipynb: <code>project.start()</code>. You fill in the call each holds, such as the table&#x27;s name, and run it. Calling the same Project action from any notebook of the Project does just the same.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference or a Building block adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, and <code>project.upgrade()</code> keeps here each file as it was before it changed it.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You write your two functions, query and execute, in it, below.</li><li><code>admin/</code>, a notebook per Project action, such as new_table.ipynb, add_references.ipynb and run_tables.ipynb: <code>project.start()</code>. You fill in the call each holds, such as the table&#x27;s name, and run it. Calling the same Project action from any notebook of the Project does just the same.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/conversions/, a Conversion folder per query of someone else&#x27;s Hive you convert, until you finish it: <code>project.convert(...)</code>, from admin/convert.ipynb. You make the checks its notebook asks for, then finish it, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as do <code>project.finish_conversion(...)</code> and <code>project.remove_conversion(...)</code> with a Conversion folder, and <code>project.upgrade()</code> keeps here each file as it was before it changed it.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action refuses a file or folder that is already there, so nothing of yours is written over, and logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -5079,7 +5081,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <section class="entry" id="keep_the_project_in_order">
 <h3>8. Keep the Project in order <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>Keep your Project&#x27;s files and its tables in step as they change. The registry lists every Table folder, Table reference and Building block a Project action made: <code>project.check()</code> says what it gets wrong, and <code>project.register</code> adopts a file made by hand. The Reference sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares each Table reference with its table in the warehouse. The <code>project.remove_*</code> actions archive what you no longer need, deleting nothing. And the Levels say which of your files may import which.</p>
+<p>Keep your Project&#x27;s files and its tables in step as they change. The registry lists every Table folder, Table reference, Building block and Conversion folder a Project action made: <code>project.check()</code> says what it gets wrong, and <code>project.register</code> adopts a file made by hand. The Reference sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares each Table reference with its table in the warehouse. The <code>project.remove_*</code> actions archive what you no longer need, deleting nothing. And the Levels say which of your files may import which.</p>
 <h4>When you&#x27;d use it</h4>
 <ul><li>After you copy in a file by hand, such as a colleague&#x27;s Table reference, or move or delete one.</li><li>When you look for a column and don&#x27;t know which table has it, or someone new asks what the Project&#x27;s tables hold.</li><li>On a schedule, say every Monday, and whenever a table&#x27;s owners say it changed: a table goes on changing after its Table reference is written, and a Table reference out of date lets through Statements the warehouse then refuses.</li><li>When a Saved table, a Table reference or a Building block is no longer needed.</li></ul>
 <h4>Steps</h4>
@@ -6153,7 +6155,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6167,6 +6169,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -6184,6 +6189,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -6209,6 +6215,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query:</p>
 <pre class="python">from sqlglot_composer import *
@@ -6247,9 +6257,10 @@ job_day = Table(
   references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/mart__job_day.py.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes and mart.team_days.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -6345,6 +6356,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.register(&quot;mart.job_day&quot;)`
@@ -6352,6 +6387,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: registered references/mart__job_day.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
@@ -6361,7 +6397,8 @@ is reached as mart.budget_overruns.job_id.
 Its tables: budget_overruns (references/mart__budget_overruns.py), job_day
 (references/mart__job_day.py), job_day_costs (references/mart__job_day_costs.py), job_day_facts
 (references/mart__job_day_facts.py), job_events_checks (references/mart__job_events_checks.py),
-job_notes (references/mart__job_notes.py), team_days (references/mart__team_days.py).
+job_notes (references/mart__job_notes.py), team_days (references/mart__team_days.py),
+team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -6378,10 +6415,11 @@ from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -6557,7 +6595,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6571,6 +6609,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -6588,6 +6629,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -6613,6 +6655,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;retry&quot;</code>, <code>&quot;finish&quot;</code> or <code>&quot;fail&quot;</code>, with the minutes since the run started. Its Table reference ends with an Alias, <code>ends_a_run</code>, the events that end a run, imported beside the table it is about:</p>
 <pre class="python">from sqlglot_composer import *
@@ -6882,7 +6928,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6896,6 +6942,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -6913,6 +6962,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -6938,6 +6988,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the Project&#x27;s <code>ops</code> Database and your query:</p>
 <pre class="python">from sqlglot_composer import *
@@ -7457,7 +7511,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -7471,6 +7525,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -7488,6 +7545,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -7513,6 +7571,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, and your query and execute:</p>
 <pre class="python">from sqlglot_composer import *
@@ -7797,7 +7859,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -7811,6 +7873,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -7828,6 +7893,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -7853,6 +7919,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;finish&quot;</code>, <code>&quot;retry&quot;</code> or <code>&quot;fail&quot;</code>. <code>ops.job_owners</code> is the snapshot: every job&#x27;s team and owner, once per day.</p>
 <pre class="python">from sqlglot_composer import *
@@ -8097,7 +8167,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8111,6 +8181,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -8128,6 +8201,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -8153,6 +8227,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database, its Alias <code>ends_a_run</code>, and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24. Each run has one <code>&quot;start&quot;</code> row, so counting the <code>&quot;start&quot;</code> rows counts the runs.</p>
 <pre class="python">from sqlglot_composer import *
@@ -8524,7 +8602,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8538,6 +8616,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -8555,6 +8636,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -8580,6 +8662,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query. This how-to reads three of its tables, each holding 14 days, 2026-09-11 to 2026-09-24: <code>ops.job_owners</code>, which says each day who owns each job; <code>ops.job_events</code>, each run&#x27;s start, finish, retry or fail; and <code>ops.region_costs</code>, what each job cost per region and day, in cents, which writes its days like 20260911, not 2026-09-11, so its days are written that way below.</p>
 <pre class="python">from sqlglot_composer import *
@@ -8807,7 +8893,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8821,6 +8907,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -8838,6 +8927,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -8863,6 +8953,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query:</p>
 <pre class="python">from sqlglot_composer import *
@@ -9074,7 +9168,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -9088,6 +9182,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -9105,6 +9202,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -9130,6 +9228,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query and execute:</p>
 <pre class="python">from sqlglot_composer import *
@@ -9304,6 +9406,7 @@ run_changes = Table(
 )</pre>
 <pre class="python">_ = project.register(&quot;mart.run_changes&quot;)</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -9399,6 +9502,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.register(&quot;mart.run_changes&quot;)`
@@ -9406,6 +9533,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: registered references/mart__run_changes.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
@@ -9416,7 +9544,7 @@ Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
 job_events_checks (references/mart__job_events_checks.py), job_notes
 (references/mart__job_notes.py), run_changes (references/mart__run_changes.py), team_days
-(references/mart__team_days.py).
+(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -9433,10 +9561,11 @@ from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__run_changes import run_changes
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_changes&quot;, &quot;team_days&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_changes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -9603,7 +9732,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -9617,6 +9746,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -9634,6 +9766,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -9659,6 +9792,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <pre class="python">import difflib
 import pandas as pd
@@ -10612,7 +10749,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -10626,6 +10763,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -10643,6 +10783,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -10668,6 +10809,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>mart.job_region_costs will hold each job&#x27;s cost in each region on each day, copied from ops.region_costs, which the Project reads already. Make its Table folder and Table reference, as <a href="#save_a_table">Save a table</a> shows:</p>
 <pre class="python">from sqlglot_composer import *
@@ -10678,6 +10823,7 @@ project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -10773,6 +10919,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_table(&quot;mart.job_region_costs&quot;)`
@@ -10780,6 +10950,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__job_region_costs/ (mart__job_region_costs.ipynb, lineage/); created references/mart__job_region_costs.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__job_region_costs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_region_costs - TODO: say in one line what one row is.
 
@@ -10844,8 +11015,8 @@ job_region_costs = Table(
     properties={&quot;made_by&quot;: &quot;mart__job_region_costs.ipynb&quot;},
 )</pre>
 <pre class="python">project.refresh_reference_sheet()</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 49 rows, 12 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs and mart.team_days.
+<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 54 rows, 13 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
@@ -10857,7 +11028,7 @@ Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
 job_events_checks (references/mart__job_events_checks.py), job_notes
 (references/mart__job_notes.py), job_region_costs (references/mart__job_region_costs.py),
-team_days (references/mart__team_days.py).
+team_days (references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -10874,10 +11045,11 @@ from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__job_region_costs import job_region_costs
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;job_region_costs&quot;, &quot;team_days&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;job_region_costs&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -10987,6 +11159,7 @@ GROUP BY
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 134 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -11082,6 +11255,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_table(&quot;mart.job_region_costs&quot;)`
@@ -11097,6 +11294,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__event_facts/ (mart__event_facts.ipynb, lineage/); created references/mart__event_facts.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__event_facts.py</p>
 <pre class="python">&quot;&quot;&quot;mart.event_facts - TODO: say in one line what one row is.
 
@@ -11272,7 +11470,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -11286,6 +11484,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -11303,6 +11504,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -11328,6 +11530,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>Then import the Toolbox, its project module, the Project&#x27;s <code>query</code> and <code>execute</code> from warehouse.py, which here call the Example database, and the Project&#x27;s <code>ops</code> Database:</p>
 <pre class="python">from sqlglot_composer import *
@@ -11346,6 +11552,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -11441,6 +11648,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_table(&quot;mart.job_day_events&quot;)`
@@ -11448,6 +11679,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__job_day_events/ (mart__job_day_events.ipynb, lineage/); created references/mart__job_day_events.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__job_day_events.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.
 
@@ -11505,8 +11737,8 @@ job_day_events = Table(
 )</pre>
 <p><code>project.refresh_reference_sheet()</code> writes the Database module references/mart.py again from the Table references, as it does once you fill one in, so <code>from references import mart</code> gives the new table by its name:</p>
 <pre class="python">project.refresh_reference_sheet()</pre>
-<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 49 rows, 12 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks, mart.job_notes and mart.team_days.
+<p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 54 rows, 13 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
@@ -11518,7 +11750,7 @@ Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_events (references/mart__job_day_events.py),
 job_day_facts (references/mart__job_day_facts.py), job_events_checks
 (references/mart__job_events_checks.py), job_notes (references/mart__job_notes.py), team_days
-(references/mart__team_days.py).
+(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -11535,10 +11767,11 @@ from references.mart__job_day_facts import job_day_facts
 from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_events&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_events&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -11981,7 +12214,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -11995,6 +12228,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -12012,6 +12248,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -12037,6 +12274,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>The Project reads ops.job_events and ops.job_owners already. The full join compares <code>ops.job_runs</code> with <code>ops.scheduler_runs</code>, the scheduler&#x27;s own record of the runs it started, which should match it run for run but doesn&#x27;t quite. Add their Table references, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows:</p>
 <pre class="python">from sqlglot_composer import *
@@ -12047,6 +12288,7 @@ project.add_references([&quot;ops.job_runs&quot;, &quot;ops.scheduler_runs&quot;
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12142,6 +12384,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.add_references([&quot;ops.job_runs&quot;, &quot;ops.scheduler_runs&quot;], query=...)`
@@ -12149,6 +12415,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__job_runs.py; created references/ops__scheduler_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -12548,7 +12815,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -12562,6 +12829,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -12579,6 +12849,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -12604,6 +12875,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>The admin module holds the changes to your own Saved tables: dropping one or some of its Partitions, adding columns, setting its properties, and moving it. The star import leaves it out, so you import it by name, and it is plain where a notebook changes a table:</p>
 <pre class="python">from sqlglot_composer import *
@@ -12816,7 +13091,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -12830,6 +13105,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -12847,6 +13125,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -12872,6 +13151,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p><code>ops.job_owners</code>, which the Project reads already, keeps each job&#x27;s team on each day. <code>ops.jobs</code> holds each job&#x27;s team as it is today: add its Table reference, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows. Its TODO lines can wait, since <code>EXCEPT</code> compares whole rows and reads no Key:</p>
 <pre class="python">from sqlglot_composer import *
@@ -12882,6 +13165,7 @@ project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12977,6 +13261,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.add_references([&quot;ops.jobs&quot;], query=...)`
@@ -12984,6 +13292,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__jobs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -13159,7 +13468,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -13173,6 +13482,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -13190,6 +13502,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -13215,6 +13528,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>mart.job_day_facts, each job&#x27;s events, runs and minutes per day beside its team, is one of the Project&#x27;s Saved tables, partitioned by dt:</p>
 <pre class="python">from sqlglot_composer import *
@@ -13357,7 +13674,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -13371,6 +13688,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -13388,6 +13708,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -13413,6 +13734,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
 from sqlglot_composer import project
@@ -13426,6 +13751,7 @@ job_events = ops.job_events  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 125 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13521,12 +13847,37 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_block(&quot;run_speed&quot;)`
 - Files: created building_blocks/run_speed.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes building_blocks/run_speed.py</p>
 <pre class="python">&quot;&quot;&quot;run_speed - TODO: say in one line what one row of it is.
 
@@ -13635,6 +13986,7 @@ changed</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13730,6 +14082,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_block(&quot;run_speed&quot;)`
@@ -13744,6 +14120,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__run_speed/ (mart__run_speed.ipynb, lineage/); created references/mart__run_speed.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__run_speed.py</p>
 <pre class="python">&quot;&quot;&quot;mart.run_speed - TODO: say in one line what one row is.
 
@@ -13890,9 +14267,10 @@ speed_step</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__slow_runs.py: fill in its &lt;...&gt; and TODO lines.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed and mart.team_days.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 141 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13988,6 +14366,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.new_block(&quot;run_speed&quot;)`
@@ -14010,6 +14412,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__slow_runs/ (mart__slow_runs.ipynb, lineage/); created references/mart__slow_runs.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
@@ -14020,7 +14423,7 @@ Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
 (references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
 job_events_checks (references/mart__job_events_checks.py), job_notes
 (references/mart__job_notes.py), run_speed (references/mart__run_speed.py), team_days
-(references/mart__team_days.py).
+(references/mart__team_days.py), team_failures (references/mart__team_failures.py).
 
 The Project actions and refresh_reference_sheet write this file again from the Table
 references in references/, so a change made here is lost. A Table reference with a &lt;...&gt; still
@@ -14037,10 +14440,11 @@ from references.mart__job_events_checks import job_events_checks
 from references.mart__job_notes import job_notes
 from references.mart__run_speed import run_speed
 from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
 
 # Its tables, by the names tab completion lists and a wrong name&#x27;s message gives: the names
 # `from references.mart import *` gives, too.
-__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_speed&quot;, &quot;team_days&quot;]
+__all__ = [&quot;budget_overruns&quot;, &quot;job_day_costs&quot;, &quot;job_day_facts&quot;, &quot;job_events_checks&quot;, &quot;job_notes&quot;, &quot;run_speed&quot;, &quot;team_days&quot;, &quot;team_failures&quot;]
 _TABLES = __all__
 
 
@@ -14430,7 +14834,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 56 files</p>
+<p class="label">It writes 64 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -14444,6 +14848,9 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
 admin/run_tables.ipynb
 admin/templates/building_block.py
 admin/templates/quality_checks.py
@@ -14461,6 +14868,7 @@ references/mart__job_day_facts.py
 references/mart__job_events_checks.py
 references/mart__job_notes.py
 references/mart__team_days.py
+references/mart__team_failures.py
 references/ops.py
 references/ops__job_events.py
 references/ops__job_owners.py
@@ -14486,6 +14894,10 @@ tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <p>The Project has the Table reference of ops.job_events already. Add the one of ops.jobs, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows. Its TODO lines can wait: no Key is read in Hive you write by hand.</p>
 <pre class="python">from sqlglot_composer import *
@@ -14496,6 +14908,7 @@ project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14591,6 +15004,30 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Script: a notebook, at commit nogit
 - Result: worked
 
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.add_references([&quot;ops.jobs&quot;], query=...)`
@@ -14598,6 +15035,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__jobs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -15037,6 +15475,1006 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <h4>Next</h4>
 <ul><li><a href="#semi_anti_and_full_joins">Semi-, anti- and full joins</a>: the subquery above, written as a <code>SEMI_JOIN</code>, which the Toolbox checks and draws column by column.</li><li><a href="#call_other_hive_functions">Call other Hive functions</a>: a Hive function inside a Statement, rather than the whole Statement by hand.</li><li><a href="#follow_lineage">Follow lineage</a>: Lineage of Statements and Saved tables.</li><li>The gallery&#x27;s <a href="examples.html#unchecked_hive"><code>unchecked_hive</code></a> entry.</li></ul>
 <p class="names">Toolbox names used: <code>to_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>run_execute</code>, <code>export_lineage</code>, <code>unchecked_hive</code>, <code>project.add_references</code></p>
+</section>
+<section class="entry" id="convert_someone_elses_hive">
+<h3>27. Convert someone else&#x27;s Hive <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Turn a long query of Hive someone else wrote, with its CTEs, its lists pasted in by hand and its if/else chains, into your own code: a Table notebook whose logic builds the same query from the Toolbox&#x27;s functions, checked against the original, then saved as a table of your own. That is a Conversion. What no Toolbox function writes yet stays Hive, at the smallest size it can, so you get the rest converted rather than none of it.</p>
+<h4>When you&#x27;d use it</h4>
+<p>When you inherit Hive that works but that you can&#x27;t maintain: a report another team wrote, a query copied from a dashboard, a script that has grown for years. Converted, its lists are named constants at the top, each CTE is a Derived table, the Guards check it, and Lineage traces it.</p>
+<p>It needs <a href="#start_a_project">Start a Project</a> and <a href="#save_a_table">Save a table</a>.</p>
+<h4>Steps</h4>
+<h5>Start from the Intermediate Example project</h5>
+<p>Work in a copy of the Intermediate Example project, at its top, as <a href="#reconcile_two_tables">Reconcile two tables</a> does. This page makes the copy in its first step:</p>
+<pre class="python">import shutil
+from pathlib import Path
+import sqlglot_composer
+download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
+_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p class="label">It writes 64 files</p>
+<pre class="file">README.md
+admin/add_references.ipynb
+admin/admin_log.md
+admin/change_a_saved_table.ipynb
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/convert.ipynb
+admin/new_block.ipynb
+admin/new_table.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
+admin/run_tables.ipynb
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
+building_blocks/costs_per_job.py
+building_blocks/days_rewritten.py
+building_blocks/events_per_job.py
+building_blocks/owner_on_day.py
+references/mart.py
+references/mart__budget_overruns.py
+references/mart__job_day_costs.py
+references/mart__job_day_facts.py
+references/mart__job_events_checks.py
+references/mart__job_notes.py
+references/mart__team_days.py
+references/mart__team_failures.py
+references/ops.py
+references/ops__job_events.py
+references/ops__job_owners.py
+references/ops__region_budgets.py
+references/ops__region_costs.py
+references/ops__team_notes.py
+references/reference_sheet.csv
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.ipynb
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.ipynb
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.ipynb
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.ipynb
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
+warehouse.py</pre>
+<pre class="python">from sqlglot_composer import compare_with_original, project, to_hive
+from warehouse import query</pre>
+<h5>Paste the Hive in</h5>
+<p>Open admin/convert.ipynb, which <code>project.start()</code> wrote, and paste the Hive between the triple quotes of its <code>HIVE</code> cell. Set DATABASE there too: a table the Hive names without its database, such as job_events, is taken to be in it. This Hive names each table&#x27;s database, so the calls below leave database= out.</p>
+<p>Here it is a weekly report of the kind you inherit: SET lines, two CTEs, a list of event types, a lookup of team names, an if/else chain, a whole-number division, and an INSERT into the other team&#x27;s table:</p>
+<pre class="python">HIVE = &#x27;&#x27;&#x27;SET hive.exec.parallel=true;
+-- Weekly event report, as the ops team wrote it
+WITH ev AS (
+  SELECT e.job_id, e.dt, e.event_type, e.minutes
+  FROM ops.job_events e
+  WHERE e.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27;
+    AND e.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;timeout&#x27;)
+), per_job AS (
+  SELECT ev.job_id, ev.dt,
+         SUM(CASE WHEN ev.event_type = &#x27;fail&#x27; THEN 1 ELSE 0 END) AS fails,
+         SUM(ev.minutes) AS minutes
+  FROM ev
+  GROUP BY ev.job_id, ev.dt
+)
+INSERT OVERWRITE TABLE ops_reports.weekly_events PARTITION (dt)
+SELECT o.team,
+       CASE o.team WHEN &#x27;data&#x27; THEN &#x27;Data platform&#x27; WHEN &#x27;web&#x27; THEN &#x27;Web&#x27; ELSE &#x27;Other&#x27; END AS team_name,
+       p.job_id,
+       p.fails,
+       CASE WHEN p.minutes &gt; 120 THEN &#x27;heavy&#x27; WHEN p.fails &gt; 0 THEN &#x27;failing&#x27; ELSE &#x27;light&#x27; END AS load,
+       p.minutes DIV 60 AS hours,
+       upper(o.owner) AS owner,
+       p.dt
+FROM per_job p
+JOIN ops.job_owners o ON o.job_id = p.job_id AND o.dt = p.dt
+&#x27;&#x27;&#x27;</pre>
+<p>Hive kept in a file works the same way: pass <code>file=&quot;weekly.hql&quot;</code>, its path from the folder you&#x27;re working in, in place of the text.</p>
+<h5>Scan it</h5>
+<p><code>project.scan_hive</code> reads the Hive and says what a Conversion of it would make, line by line, and changes nothing:</p>
+<pre class="python">print(project.scan_hive(HIVE))</pre>
+<p class="label">Python prints</p><pre class="output">25 lines of Hive, one query reading ops.job_events and ops.job_owners.
+Found:
+  line 1: its SET line is the Session settings HIVE_SETTINGS, which session_settings() gives
+  line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
+  line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...), with the same partitions
+  line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
+  line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet</pre>
+<p>Both tables have Table references in this Project already. One that has none is listed by the scan, under &quot;No Table reference yet&quot;, and the next step adds it, through your query.</p>
+<p>Its SET line becomes HIVE_SETTINGS, a dict of the settings by the name of the step they go before, here &quot;converted&quot;, and session_settings() in the logic gives them as Session settings. Send those with run_execute before the table&#x27;s write(), as the original sent its SET lines first: write() sends only the query.</p>
+<h5>Convert it</h5>
+<p>Give the Conversion a name of its own, a plain lowercase one: the Saved table&#x27;s name is yours to choose when you finish it.</p>
+<pre class="python">print(project.convert(&quot;weekly_events&quot;, HIVE, query=query))</pre>
+<p class="label">Python prints</p><pre class="output">Converted weekly_events: 25 lines of Hive into admin/conversions/weekly_events/weekly_events.ipynb.
+1 piece kept as Hive, 3 named constants, 1 opt-out marked # CONVERSION: for you to check: JOIN(o, reads_all_partitions=True).
+Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.
+admin/conversions/weekly_events/scan.md lists what it found, line by line.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.convert(&quot;weekly_events&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/weekly_events/ (original.hql, scan.md, weekly_events.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="label">It writes admin/conversions/weekly_events/scan.md</p>
+<pre class="file"># Conversion weekly_events
+
+- 25 lines of Hive, one query reading ops.job_events and ops.job_owners.
+- Found:
+  - line 1: its SET line is the Session settings HIVE_SETTINGS, which session_settings() gives
+  - line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
+  - line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...), with the same partitions
+  - line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
+  - line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet
+- Opt-out added, marked # CONVERSION: at its line: JOIN(o, reads_all_partitions=True)
+- Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
+<p class="note">It writes <code>admin/conversions/weekly_events/original.hql</code> too.</p>
+<p class="note">It writes <code>admin/conversions/weekly_events/weekly_events.ipynb</code> too.</p>
+<p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<p>Open admin/conversions/weekly_events/weekly_events.ipynb. Its logic cell holds your code: the list and the lookup as constants at the top, each CTE a Derived table, and rows(), the clauses of the query, which converted() builds. <code>project.load</code> runs that cell from anywhere in the Project, as it does a Table notebook&#x27;s:</p>
+<pre class="python">logic = project.load(&quot;weekly_events&quot;)  # -&gt; TableLogic
+print(to_hive(logic.converted()).splitlines()[0])</pre>
+<p class="label">Hive</p><pre class="hive">WITH ev AS (</pre>
+<h5>Decide each mark</h5>
+<p>The original joins ops.job_owners on its partition column, dt, matched with the other table&#x27;s, which the Load limit can&#x27;t tell bounds it, so the Conversion added the opt-out the original&#x27;s join needs, reads_all_partitions=True on that JOIN, with a mark on the line above it: &quot;# CONVERSION: reads_all_partitions=True, as the original did; check it&quot;. <code>project.check()</code> lists each mark left:</p>
+<pre class="python">print(project.check())</pre>
+<p class="label">Python prints</p><pre class="output">Conversions not finished yet: finish each with project.finish_conversion(...), or archive it with project.remove_conversion(...):
+  admin/conversions/weekly_events/
+Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it, or change what made it needed, such as a WHERE on the partition column or a key= in a Table reference, and take it off; then delete its mark.
+  admin/conversions/weekly_events/weekly_events.ipynb, cell 3, line 88: # CONVERSION: reads_all_partitions=True, as the original did; check it</pre>
+<p>An opt-out is a keyword that tells a Guard or a Load limit you have checked what it refuses. Here the other table holds five days only, so the join reads only those: keep the opt-out, and delete the mark. At work, ask how many Partitions the join reads: if it reads too many, add a WHERE on o.dt to bound it, and take the opt-out off.</p>
+<h5>Compare it with the original</h5>
+<p>The notebook&#x27;s cells compare the two: their Hive, always, and their rows, through your query, on one Partition:</p>
+<pre class="python">print(compare_with_original(logic.converted(), HIVE, query=query,
+                            partition={&quot;dt&quot;: &quot;2026-09-24&quot;}))</pre>
+<p class="label">Python prints</p><pre class="output">The Statement and the original give the same rows where dt = &#x27;2026-09-24&#x27;: 2 rows each.
+The Statement holds Hive written by hand, which the Toolbox can&#x27;t look inside: unchecked_column(&quot;{minutes} DIV 60&quot;, minutes=p.minutes). The rows match, so it gives what the original gives here.</pre>
+<p class="label">It writes admin_log.md</p>
+<details><summary>Show its 230 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 09:00:00, Statement with an Unchecked expression, compared with the original by compare_with_original
+
+- Call: `unchecked_column(&quot;{minutes} DIV 60&quot;, minutes=p.minutes)`
+- Tables named: ops.job_events, ops.job_owners
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+```sql
+WITH statement_ev AS (
+  SELECT
+    e.job_id,
+    e.dt,
+    e.event_type,
+    e.minutes
+  FROM ops.job_events AS e
+  WHERE
+    e.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27;
+    AND e.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;timeout&#x27;)
+), statement_per_job AS (
+  SELECT
+    ev.job_id,
+    ev.dt,
+    SUM(CASE WHEN ev.event_type = &#x27;fail&#x27; THEN 1 ELSE 0 END) AS fails,
+    SUM(ev.minutes) AS minutes
+  FROM statement_ev AS ev
+  GROUP BY
+    ev.job_id,
+    ev.dt
+), original_ev AS (
+  SELECT
+    e.job_id,
+    e.dt,
+    e.event_type,
+    e.minutes
+  FROM ops.job_events AS e
+  WHERE
+    e.dt BETWEEN &#x27;2026-09-20&#x27; AND &#x27;2026-09-24&#x27;
+    AND e.event_type IN (&#x27;start&#x27;, &#x27;retry&#x27;, &#x27;fail&#x27;, &#x27;timeout&#x27;)
+), original_per_job AS (
+  SELECT
+    ev.job_id,
+    ev.dt,
+    SUM(CASE WHEN ev.event_type = &#x27;fail&#x27; THEN 1 ELSE 0 END) AS fails,
+    SUM(ev.minutes) AS minutes
+  FROM original_ev AS ev
+  GROUP BY
+    ev.job_id,
+    ev.dt
+), from_statement AS (
+  SELECT
+    o.team,
+    CASE o.team WHEN &#x27;data&#x27; THEN &#x27;Data platform&#x27; WHEN &#x27;web&#x27; THEN &#x27;Web&#x27; ELSE &#x27;Other&#x27; END AS team_name,
+    p.job_id,
+    p.fails,
+    CASE
+      WHEN p.minutes &gt; 120
+      THEN &#x27;heavy&#x27;
+      WHEN p.fails &gt; 0
+      THEN &#x27;failing&#x27;
+      ELSE &#x27;light&#x27;
+    END AS load,
+    p.minutes DIV 60 AS hours,
+    UPPER(o.owner) AS owner,
+    p.dt
+  FROM statement_per_job AS p
+  JOIN ops.job_owners AS o
+    ON o.job_id = p.job_id AND o.dt = p.dt
+), from_original AS (
+  SELECT
+    o.team,
+    CASE o.team WHEN &#x27;data&#x27; THEN &#x27;Data platform&#x27; WHEN &#x27;web&#x27; THEN &#x27;Web&#x27; ELSE &#x27;Other&#x27; END AS team_name,
+    p.job_id,
+    p.fails,
+    CASE
+      WHEN p.minutes &gt; 120
+      THEN &#x27;heavy&#x27;
+      WHEN p.fails &gt; 0
+      THEN &#x27;failing&#x27;
+      ELSE &#x27;light&#x27;
+    END AS load,
+    p.minutes DIV 60 AS hours,
+    UPPER(o.owner) AS owner,
+    p.dt
+  FROM original_per_job AS p
+  JOIN ops.job_owners AS o
+    ON o.job_id = p.job_id AND o.dt = p.dt
+), both_sides AS (
+  SELECT
+    from_statement.team AS column_1,
+    from_statement.team_name AS column_2,
+    from_statement.job_id AS column_3,
+    from_statement.fails AS column_4,
+    from_statement.load AS column_5,
+    from_statement.hours AS column_6,
+    from_statement.owner AS column_7,
+    from_statement.dt AS column_8,
+    1 AS in_statement,
+    0 AS in_original
+  FROM from_statement
+  WHERE
+    from_statement.dt = &#x27;2026-09-24&#x27;
+  UNION ALL
+  SELECT
+    from_original.team AS column_1,
+    from_original.team_name AS column_2,
+    from_original.job_id AS column_3,
+    from_original.fails AS column_4,
+    from_original.load AS column_5,
+    from_original.hours AS column_6,
+    from_original.owner AS column_7,
+    from_original.dt AS column_8,
+    0 AS in_statement,
+    1 AS in_original
+  FROM from_original
+  WHERE
+    from_original.dt = &#x27;2026-09-24&#x27;
+), compared AS (
+  SELECT
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8,
+    SUM(in_statement) AS in_statement,
+    SUM(in_original) AS in_original
+  FROM both_sides
+  GROUP BY
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8
+), totals AS (
+  SELECT
+    1 AS joined,
+    SUM(in_statement) AS statement_rows,
+    SUM(in_original) AS original_rows,
+    SUM(CASE WHEN in_statement &gt; in_original THEN in_statement - in_original ELSE 0 END) AS only_in_statement,
+    SUM(CASE WHEN in_original &gt; in_statement THEN in_original - in_statement ELSE 0 END) AS only_in_original
+  FROM compared
+), statement_sample AS (
+  SELECT
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8,
+    in_statement,
+    in_original
+  FROM compared
+  WHERE
+    in_statement &gt; in_original
+  LIMIT 5
+), original_sample AS (
+  SELECT
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8,
+    in_statement,
+    in_original
+  FROM compared
+  WHERE
+    in_original &gt; in_statement
+  LIMIT 5
+), differing AS (
+  SELECT
+    1 AS joined,
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8,
+    in_statement,
+    in_original
+  FROM statement_sample
+  UNION ALL
+  SELECT
+    1 AS joined,
+    column_1,
+    column_2,
+    column_3,
+    column_4,
+    column_5,
+    column_6,
+    column_7,
+    column_8,
+    in_statement,
+    in_original
+  FROM original_sample
+)
+SELECT
+  totals.statement_rows,
+  totals.original_rows,
+  totals.only_in_statement,
+  totals.only_in_original,
+  differing.column_1,
+  differing.column_2,
+  differing.column_3,
+  differing.column_4,
+  differing.column_5,
+  differing.column_6,
+  differing.column_7,
+  differing.column_8,
+  differing.in_statement,
+  differing.in_original
+FROM totals
+LEFT JOIN differing
+  ON totals.joined = differing.joined
+```</pre>
+</details>
+<h5>Finish it</h5>
+<p>When it gives the rows you want, finish it under the name of a Saved table of yours:</p>
+<pre class="python">print(project.finish_conversion(&quot;weekly_events&quot;, table=&quot;mart.weekly_events&quot;))</pre>
+<p class="label">Python prints</p><pre class="output">Finished the Conversion weekly_events as mart.weekly_events: tables/mart__weekly_events/mart__weekly_events.ipynb, and its Table reference, references/mart__weekly_events.py.
+Fill in references/mart__weekly_events.py: its &lt;LOCATION&gt;, any &lt;COLUMN_TYPE&gt;, key=, and its TODO lines; then run the notebook&#x27;s create() and write().
+The Conversion folder is archived, kept as it was, in admin/removed/20260925-090000-weekly_events/.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 142 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.convert(&quot;weekly_events&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/weekly_events/ (original.hql, scan.md, weekly_events.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.weekly_events&quot;)`
+- Tables named: mart.weekly_events
+- Files: created tables/mart__weekly_events/ (mart__weekly_events.ipynb, lineage/); created references/mart__weekly_events.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;weekly_events&quot;, table=&quot;mart.weekly_events&quot;)`
+- Tables named: mart.weekly_events
+- Files: wrote tables/mart__weekly_events/mart__weekly_events.ipynb from admin/conversions/weekly_events/weekly_events.ipynb; wrote references/mart__weekly_events.py; copied original.hql into tables/mart__weekly_events/; moved admin/conversions/weekly_events/ to admin/removed/20260925-090000-weekly_events/
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="note">It writes <code>admin/removed/20260925-090000-weekly_events/scan.md</code> too, line for line the same as <code>admin/conversions/weekly_events/scan.md</code> above.</p>
+<p class="label">It writes references/mart__weekly_events.py</p>
+<pre class="python">&quot;&quot;&quot;mart.weekly_events - TODO: say in one line what one row is.
+
+Written by project.finish_conversion(&quot;weekly_events&quot;, table=&quot;mart.weekly_events&quot;). Fill in every &lt;...&gt; below,
+brackets and all, key=, and the TODO lines. A &lt;COLUMN_TYPE&gt; is a column whose
+type the Toolbox can&#x27;t tell, such as a CASE&#x27;s: write the Hive type it holds.
+&quot;&quot;&quot;
+
+from sqlglot_composer import Table
+
+weekly_events = Table(
+    &quot;mart.weekly_events&quot;,
+    columns={
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;team_name&quot;: &lt;COLUMN_TYPE&gt;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;fails&quot;: &lt;COLUMN_TYPE&gt;,
+        &quot;load&quot;: &lt;COLUMN_TYPE&gt;,
+        &quot;hours&quot;: &lt;COLUMN_TYPE&gt;,
+        &quot;owner&quot;: &lt;COLUMN_TYPE&gt;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],  # filled in from the original&#x27;s PARTITION(...)
+    key=None,  # TODO: the columns whose values name one row, or None if none do
+    location=&lt;LOCATION&gt;,  # its own folder, in quotes
+)</pre>
+<p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<p class="note">It writes <code>admin/removed/20260925-090000-weekly_events/original.hql</code> too.</p>
+<p class="note">It writes <code>admin/removed/20260925-090000-weekly_events/weekly_events.ipynb</code> too.</p>
+<p class="note">It writes <code>tables/mart__weekly_events/mart__weekly_events.ipynb</code> too.</p>
+<p class="note">It writes <code>tables/mart__weekly_events/original.hql</code> too.</p>
+<p>Its Table reference lists the columns the query gives, the types the Toolbox knows, and <code>partitioned_by=[&quot;dt&quot;]</code>, from the original&#x27;s PARTITION(...). Fill in the rest: each &lt;COLUMN_TYPE&gt; is a column whose type the Toolbox can&#x27;t tell, such as a CASE&#x27;s, so write the Hive type it holds, as DESCRIBE of the other team&#x27;s table shows.</p>
+<p class="label">The file <code>references/mart__weekly_events.py</code>, after you fill it in</p>
+<pre class="python">&quot;&quot;&quot;mart.weekly_events - one row per job and day: its events, fails and load.&quot;&quot;&quot;
+
+from sqlglot_composer import Table
+
+weekly_events = Table(
+    &quot;mart.weekly_events&quot;,
+    columns={
+        &quot;team&quot;: &quot;string&quot;,
+        &quot;team_name&quot;: &quot;string&quot;,
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;fails&quot;: &quot;bigint&quot;,
+        &quot;load&quot;: &quot;string&quot;,
+        &quot;hours&quot;: &quot;int&quot;,
+        &quot;owner&quot;: &quot;string&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;job_id&quot;, &quot;dt&quot;],
+    location=&quot;/data/mart.db/weekly_events&quot;,
+)</pre>
+<p>Its notebook&#x27;s write() writes the table as the original&#x27;s INSERT did. It keeps the original&#x27;s days, as written: to write the last few days on each run, make them a Building block, as the Intermediate Example project&#x27;s days_rewritten.py does. Its INSERT line:</p>
+<pre class="python">table = project.load(&quot;mart.weekly_events&quot;)  # -&gt; TableLogic
+[line for line in to_hive(table.write()).splitlines() if line.startswith(&quot;INSERT&quot;)]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;INSERT OVERWRITE TABLE mart.weekly_events PARTITION(dt)&#x27;]</pre>
+<h4>Check it worked</h4>
+<p><code>compare_with_original</code> says the two give the same rows on a Partition you choose, and <code>project.check()</code> lists no <code># CONVERSION:</code> mark and no Conversion not finished.</p>
+<h4>Common mistakes</h4>
+<ul><li>**Converting a script.** A Conversion reads one query. A script of several, SET lines aside, is refused: save each query in a file of its own and convert each.</li><li>**Leaving the marks.** A <code># CONVERSION:</code> mark is a chance the original took, such as a join that may repeat rows. Decide each: keep the opt-out, or fix the query, then delete the mark.</li><li>**Trusting the Hive alone.** Two queries can differ in their Hive and give the same rows, or the other way round where a piece stayed Hive: compare their rows too.</li></ul>
+<h4>Next</h4>
+<ul><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li><li><a href="#upgrade_your_project_to_a_new_toolbox_version">Upgrade your Project to a new Toolbox version</a>.</li><li>The gallery&#x27;s <a href="examples.html#compare_with_original"><code>compare_with_original</code></a> entry.</li></ul>
+<p class="names">Toolbox names used: <code>to_hive</code>, <code>compare_with_original</code>, <code>project.check</code>, <code>project.load</code>, <code>project.scan_hive</code>, <code>project.convert</code>, <code>project.finish_conversion</code></p>
+</section>
+<section class="entry" id="upgrade_your_project_to_a_new_toolbox_version">
+<h3>28. Upgrade your Project to a new Toolbox version <span class="badge intermediate">Intermediate</span></h3>
+<h4>Goal</h4>
+<p>Carry your Project&#x27;s files, its Table references, Building blocks, Table notebooks and the rest, to a newer Toolbox you copied in, so you never redo by hand what a Project action made once. An Upgrade makes each change that needs no judgement itself, and marks each one it leaves for you at its line.</p>
+<h4>When you&#x27;d use it</h4>
+<p>Each time you copy in a newer <code>sqlglot_composer</code> download: after deleting the old folder, copying in the new one and restarting the kernel, as the README&#x27;s Update says. From 7.1 on, every Toolbox version ships the step that carries a Project to it from the version before.</p>
+<p>It needs <a href="#start_a_project">Start a Project</a> and <a href="#keep_the_project_in_order">Keep the Project in order</a>.</p>
+<h4>Steps</h4>
+<h5>Start from a Project an older Toolbox wrote</h5>
+<p>Work in your own Project. This page makes one to upgrade: a copy of the Intermediate Example project, with the files 7.2&#x27;s Upgrade adds taken out, so it looks to <code>project.upgrade()</code> like a Project 7.1 left:</p>
+<pre class="python">import shutil
+from pathlib import Path
+import sqlglot_composer
+download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
+_ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
+<p class="label">It writes 64 files</p>
+<pre class="file">README.md
+admin/add_references.ipynb
+admin/admin_log.md
+admin/change_a_saved_table.ipynb
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/convert.ipynb
+admin/new_block.ipynb
+admin/new_table.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove_table.ipynb
+admin/removed/20260925-060000-team_failures/original.hql
+admin/removed/20260925-060000-team_failures/scan.md
+admin/removed/20260925-060000-team_failures/team_failures.ipynb
+admin/run_tables.ipynb
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
+building_blocks/costs_per_job.py
+building_blocks/days_rewritten.py
+building_blocks/events_per_job.py
+building_blocks/owner_on_day.py
+references/mart.py
+references/mart__budget_overruns.py
+references/mart__job_day_costs.py
+references/mart__job_day_facts.py
+references/mart__job_events_checks.py
+references/mart__job_notes.py
+references/mart__team_days.py
+references/mart__team_failures.py
+references/ops.py
+references/ops__job_events.py
+references/ops__job_owners.py
+references/ops__region_budgets.py
+references/ops__region_costs.py
+references/ops__team_notes.py
+references/reference_sheet.csv
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.ipynb
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.ipynb
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.ipynb
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.ipynb
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.ipynb
+tables/mart__team_failures/original.hql
+warehouse.py</pre>
+<pre class="python">for added in [&quot;admin/project_version.txt&quot;, &quot;admin/upgrade.ipynb&quot;, &quot;admin/convert.ipynb&quot;]:
+    Path(added).unlink()</pre>
+<p>admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has none, and is taken to be 7.1.</p>
+<h5>See that it needs an Upgrade</h5>
+<p>Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before taking the version file out, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
+<pre class="python">from sqlglot_composer import project
+print(project.check())</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.1, and this Toolbox is 7.2: run project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb once the Project has one.</pre>
+<h5>Upgrade it</h5>
+<p>Run <code>project.upgrade()</code> from a notebook in the Project: the first time, in a new cell of admin/check_project.ipynb, which imports <code>project</code> already.</p>
+<pre class="python">print(project.upgrade())</pre>
+<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.1 to 7.2.
+7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 125 lines</summary>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.job_events&quot;, &quot;ops.job_owners&quot;, &quot;ops.region_costs&quot;, &quot;ops.region_budgets&quot;, &quot;ops.team_notes&quot;], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;costs_per_job&quot;)`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;days_rewritten&quot;)`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;events_per_job&quot;)`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;owner_on_day&quot;)`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_costs&quot;)`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_day_facts&quot;)`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_days&quot;)`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_events_checks&quot;, template=&quot;quality_checks&quot;)`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.budget_overruns&quot;)`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.job_notes&quot;)`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert(&quot;team_failures&quot;, ...)`
+- Tables named: ops.job_events, ops.job_owners
+- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.finish_conversion(&quot;team_failures&quot;, table=&quot;mart.team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.upgrade()`
+- Files: added admin/convert.ipynb; added admin/upgrade.ipynb; wrote admin/upgrade_7.2.md; wrote admin/project_version.txt: 7.2
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+</details>
+<p class="label">It writes admin/upgrade_7.2.md</p>
+<pre class="file"># Upgrade to 7.2
+
+project.upgrade() carried this Project from 7.1 to 7.2 on 2026-09-25 09:00:00.
+
+## Done for you
+
+- added admin/convert.ipynb
+- added admin/upgrade.ipynb
+- recorded 7.2 in admin/project_version.txt
+
+## For you to do
+
+Nothing: 7.2 needs nothing changed by hand.</pre>
+<p class="note">It writes <code>admin/convert.ipynb</code> too.</p>
+<p class="note">It writes <code>admin/project_version.txt</code> too.</p>
+<p class="note">It writes <code>admin/upgrade.ipynb</code> too.</p>
+<p>It ran the step from each version to the next, here one, and wrote a checklist for each:</p>
+<pre class="python">checklist = Path(&quot;admin/upgrade_7.2.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
+[line for line in checklist.splitlines() if line.startswith((&quot;- &quot;, &quot;Nothing&quot;))]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;- added admin/convert.ipynb&#x27;, &#x27;- added admin/upgrade.ipynb&#x27;, &#x27;- recorded 7.2 in admin/project_version.txt&#x27;, &#x27;Nothing: 7.2 needs nothing changed by hand.&#x27;]</pre>
+<p>Under Done for you, it lists each change it made, and under For you to do, each it left you.</p>
+<p>A version that changes your files lists each change it made, keeps each file as it was in admin/removed/, and marks each change it leaves for you with an <code># UPGRADE</code> comment at its line, with a box on the checklist. Make each change, delete its mark, and tick its box.</p>
+<h4>Check it worked</h4>
+<p><code>project.check()</code> says nothing of the version, and lists no <code># UPGRADE</code> mark left:</p>
+<pre class="python">print(project.check())</pre>
+<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p>Run again, the Upgrade does nothing:</p>
+<pre class="python">print(project.upgrade())</pre>
+<p class="label">Python prints</p><pre class="output">The Project is at 7.2 already, as this Toolbox is: nothing to upgrade.</pre>
+<h4>Common mistakes</h4>
+<ul><li>**Pasting the new folder over the old one.** Delete the old <code>sqlglot_composer</code> folder first: a file a newer version dropped would be left behind, and the import stops on it, since the folder checks itself against its version.txt, as the README&#x27;s Update says.</li><li>**Upgrading a Project made before 7.1.** An Upgrade carries a Project from 7.1 on: bring an older one to 7.1 by hand, as CHANGES.md says, then upgrade it.</li><li>**Leaving the marks.** Each <code># UPGRADE</code> mark is a change only you can make: <code>project.check()</code> lists every one left.</li></ul>
+<h4>Next</h4>
+<ul><li><a href="#keep_the_project_in_order">Keep the Project in order</a>: <code>project.check()</code> and the registry.</li><li><a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a>: what 7.2&#x27;s admin/convert.ipynb is for.</li></ul>
+<p class="names">Toolbox names used: <code>project.check</code>, <code>project.upgrade</code></p>
 </section>
 </main>
 <script>

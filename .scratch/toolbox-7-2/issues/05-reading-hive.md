@@ -98,3 +98,8 @@ Built 2026-10-26 on dev (6642319; wired up with 06 and 07 in the commit after).
 - Tests: `tests/test_converting.py`, 41 cases on the Example database's tables. Not built: a
   300-line query of the user's own; the user's Hive will say what's missing, each piece a
   finding with its line.
+
+## Reviews
+
+Reviewed with tickets 06 and 07, as one change: see
+[07's Reviews](07-the-conversion-folder.md#reviews).

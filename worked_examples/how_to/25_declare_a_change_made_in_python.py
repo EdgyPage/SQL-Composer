@@ -240,7 +240,7 @@ from mart.run_speed:
 Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__slow_runs.py: fill in its <...> and TODO lines.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed and mart.team_days.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 The file `references/mart__slow_runs.py`, after you fill it in:

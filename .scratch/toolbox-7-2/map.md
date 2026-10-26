@@ -161,16 +161,31 @@ asks, though all three touch CHANGES.md.
 - [04 first_match and mapped](issues/04-first-match-and-mapped.md): built in a worktree beside
   03; `Case` gains a `this` part; values of one kind as `equals` mixes them; a None key in
   mapped is refused with the fill_null way to label NULL rows.
+- [03 Unchecked expressions and the Unchecked derived table](issues/03-unchecked-expressions.md):
+  `unchecked_column`, `unchecked_condition` and `unchecked_derived`, each Hive text a Guard
+  can't read, logged as an Unchecked statement is; built in a worktree beside 04.
+- [05 Reading Hive into the Toolbox's objects](issues/05-reading-hive.md): reversed in
+  the building: `converting.convert_query` writes Python from sqlglot's tree, and the Statement
+  is had by running that Python through `project.load`, the one place that may `exec`; every
+  INSERT form is read, VALUES, DIRECTORY and multi-INSERT refused; SET lines become
+  `HIVE_SETTINGS` and `session_settings()`.
+- [06 Writing a Statement out as Python](issues/06-writing-python.md): each CTE a module-level
+  Derived table, the constants in the logic cell; opt-outs found by running it and adding the
+  one each refusal names, marked `# CONVERSION:`; a Hive mismatch is reported, not refused.
+- [07 The scan, the Conversion folder and finish_conversion](issues/07-the-conversion-folder.md):
+  `scan_hive`, `convert`, `finish_conversion` and `remove_conversion`; `admin/conversions/<name>/`
+  holds original.hql, scan.md and the notebook; finishing archives it to `admin/removed/`.
+- [08 Checking a Conversion](issues/08-checking-a-conversion.md): `compare_hive` and
+  `compare_with_original` in comparisons.py; rows compared on one Partition the Statement gives,
+  through the user's query.
 
 ## Not yet specified
 
-- **Whether the scan takes `INSERT OVERWRITE ... SELECT` and leading `SET` lines.** Recommended in
-  the grilling (take the SELECT, drop their target, carry `PARTITION(...)` as the suggested
-  partition column; `SET` lines become a `hive_settings(...)`; a script of several statements is
-  refused, saying to split it), and the user's pre-filled partition column assumes the first.
-  Ticket 05 confirms with the user before building it.
-- **The converted notebook's exact shape**: which cells, in what order. Ticket 06 shows the user
-  one converted sample before writing the writer's tests.
+Nothing left. Both items once here were settled while building, the goal being to build
+without pausing to ask: the scan takes every INSERT form and leading `SET` lines, as the
+grilling recommended, which the user's "make sure we have all the applicable inserts eg insert,
+insert into, insert overwrite, etc." (2026-10-26) confirmed; the converted notebook's shape is
+ticket 07's Answer, shown in how-to "Convert someone else's Hive" for the user to judge.
 
 ## Out of scope
 

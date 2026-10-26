@@ -11,14 +11,15 @@ A Project is the folder you work in, laid out the same way every time:
     ├── warehouse.py         your query and execute, written once: each notebook imports them
     ├── admin/               the Project actions' notebooks, run once each time you need one
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
-    │   ├── registry.csv     every Table folder, Table reference and Building block a Project
-    │   │                    action made
+    │   ├── registry.csv     every Table folder, Table reference, Building block and Conversion
+    │   │                    folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
     │   ├── conversions/     a Conversion folder per query of someone else's Hive you convert
     │   ├── templates/       the Templates new_table and new_block make files from: yours to edit
-    │   └── removed/         what remove_table, remove_reference and remove_block archived, and
-    │                        each file as it was before upgrade changed it
+    │   └── removed/         what remove_table, remove_reference, remove_block,
+    │                        finish_conversion and remove_conversion archived, and each file
+    │                        as it was before upgrade changed it
     ├── references/          a Table reference per table, such as ops__job_runs.py, and a
     │                        Database module per Database, such as ops.py: from references
     │                        import ops gives ops.job_runs, and ops.job_runs.status a column
@@ -322,17 +323,19 @@ ADMIN_NOTEBOOKS = {
     ),
     "convert": (
         "# Convert Hive someone else wrote\n\nTurns one query of Hive into your own code: a "
-        "Conversion, in `conversions/<name>/`. Paste the Hive into the first cell, or "
-        "name its file. The scan says what a Conversion would make, and changes nothing; "
+        "Conversion, in `conversions/<name>/`. Paste the Hive into the `HIVE` cell below, or "
+        "name its file, and set `DATABASE` to the database of a table it names without "
+        "one. The scan says what a Conversion would make, and changes nothing; "
         "`convert` makes it, adding a Table reference for each table it reads that has "
         "none, through your query; then open its notebook, check it, and `finish_conversion` "
         "makes it a Saved table of yours, under the name you choose. "
         "`remove_conversion` archives one you no longer want into `removed/`.",
         ['HIVE = """\n-- Paste the Hive here, between the triple quotes.\n"""\n'
-         '# or, for Hive kept in a file, from this folder: FILE = "report.hql"',
-         "print(project.scan_hive(HIVE))  # or project.scan_hive(file=FILE)",
+         '# or, for Hive kept in a file, from this folder: FILE = "report.hql"\n'
+         'DATABASE = "default"  # the database of a table named without one, such as job_runs',
+         "print(project.scan_hive(HIVE, database=DATABASE))  # or file=FILE in place of HIVE",
          "from warehouse import query\n"
-         '# project.convert("your_name", HIVE, query=query)',
+         '# project.convert("your_name", HIVE, query=query, database=DATABASE)',
          '# project.finish_conversion("your_name", table="mart.your_table")',
          '# project.remove_conversion("your_name")'],
     ),
@@ -376,7 +379,8 @@ def start() -> ProjectReport:
     from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside
     them:
     admin/ gets a notebook for each Project action, the Templates in admin/templates/, an
-    empty registry, the Admin log, whose first entry is this one, and project_version.txt, the
+    empty admin/conversions/ for the Conversions you make, an empty registry, the Admin log,
+    whose first entry is this one, and project_version.txt, the
     Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that
     isn't a Project but has any of them already, and a folder inside a Project. Then write
     your two functions, query and execute, in warehouse.py, and make your first Table folder
@@ -1041,7 +1045,9 @@ def check() -> ProjectReport:
     with no warehouse.py beside it; a Project an older Toolbox last wrote, which
     project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
     needs that newer Toolbox copied in; an admin/project_version.txt that holds no version;
-    and each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line.
+    each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line; each
+    Conversion not finished yet, with finish_conversion and remove_conversion to run; and each
+    `# CONVERSION:` mark project.convert left for you, with its file and line.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1077,7 +1083,7 @@ def check() -> ProjectReport:
         lines += [f"  {CONVERSION_FOLDER.shown(name)}" for name in open_conversions]
     converted = upgrades.marks_in(root, converting.CONVERSION_MARK_LINE)
     if converted:
-        lines.append("Marked by project.convert(...) for you to check: decide each opt-out the original took, then delete its mark.")
+        lines.append("Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it, or change what made it needed, such as a WHERE on the partition column or a key= in a Table reference, and take it off; then delete its mark.")
         lines += [f"  {mark}" for mark in converted]
     marks = upgrades.marks_in(root, upgrades.MARK_LINE)
     if marks:
@@ -1303,8 +1309,8 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     call = "project.scan_hive(...)"
     root = _project(call)
     text = _hive_given(call, hive, file)
-    translation = _translated(call, text, root, database)
-    return ProjectReport(_scan_lines(text, translation))
+    hive_read = _converted_query(call, text, root, database)
+    return ProjectReport(_scan_lines(text, hive_read))
 
 
 def convert(name: str, hive: str | None = None, *, file: str | None = None,
@@ -1323,7 +1329,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     ...     WHERE r.dt = '2026-09-24' AND r.status = 'FAILED' ''',
     ...     query=example_database.query, database="ops"))
     Converted failed_runs: 4 lines of Hive into admin/conversions/failed_runs/failed_runs.ipynb.
-    0 pieces stay Hive, 0 named constants, 0 opt-outs marked # CONVERSION: for you to check.
+    0 pieces kept as Hive, 0 named constants, 0 opt-outs marked # CONVERSION: for you to check.
     Added Table references: ops.job_runs: fill in their TODO lines.
     Its Hive and the original's: The Statement's Hive and the original are the same query, once
     both are written out the same way.
@@ -1359,47 +1365,50 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
         fix=f"Choose another name, or archive that one first with "
         f'project.remove_conversion("{name}").')
     text = _hive_given(call, hive, file)
-    translation = _translated(call, text, root, database)
+    hive_read = _converted_query(call, text, root, database)
     added = []
-    if translation.missing:
+    if hive_read.missing:
         need_warehouse_call(call, "query", query, "It adds a Table reference for each table the "
-                            f"Hive reads that has none ({in_words(translation.missing)}), "
+                            f"Hive reads that has none ({in_words(hive_read.missing)}), "
                             "through your query, which gives back DESCRIBE's rows.")
-        add_references(translation.missing, query=query)
-        added = list(translation.missing)
-        translation = _translated(call, text, root, database)
+        add_references(hive_read.missing, query=query)
+        added = list(hive_read.missing)
+        hive_read = _converted_query(call, text, root, database)
     folder.mkdir(parents=True)
     (folder / ORIGINAL_HIVE).write_text(text, encoding="utf-8")
-    logic, opt_outs, stopped = _with_opt_outs(root, name, translation)
-    same = _compared(root, name, text) if stopped is None else None
-    lines = _scan_lines(text, translation)
+    logic, opt_outs, stopped = _with_opt_outs(root, name, hive_read)
+    same = _compared(name, text) if stopped is None else None
+    # compare_hive's verdict: its first line, then each line saying where the two differ.
+    compared = ([f"Its Hive and the original's: {same.splitlines()[0]}",
+                 *[f"  {line.strip()}" for line in same.splitlines()[1:] if line.strip()]]
+                if same is not None else [])
+    lines = _scan_lines(text, hive_read)
     lines += [f"Opt-out added, marked # CONVERSION: at its line: {said}" for said in opt_outs]
     if stopped is not None:
         lines.append(f"Stopped: a refusal it couldn't add an opt-out for, first line: {stopped}")
-    elif same is not None:
-        lines.append(f"Its Hive and the original's: {same}")
+    else:
+        lines += compared
     (folder / SCAN_REPORT).write_text(
         f"# Conversion {name}\n\n" + "\n".join(f"- {line}" if not line.startswith("  ")
                                                 else f"  - {line.strip()}" for line in lines)
         + "\n", encoding="utf-8")
     # Read again: add_references above added the Table references' rows.
     Registry(root).add([(CONVERSION_FOLDER, name)], unchecked.now())
-    _log(root, call, [*translation.tables], [
+    _log(root, call, [*hive_read.tables], [
         f"created {CONVERSION_FOLDER.shown(name)} ({ORIGINAL_HIVE}, {SCAN_REPORT}, {name}.ipynb)",
         *[f"added the Table reference of {table}" for table in added],
         *[f"added {said}" for said in opt_outs]], frame)
-    unchecked_pieces = sum(1 for finding in translation.findings if finding.kind == "unchecked")
+    unchecked_pieces = sum(1 for finding in hive_read.findings if finding.kind == "unchecked")
     return ProjectReport([
-        f"Converted {name}: {len(text.splitlines())} lines of Hive into "
+        f"Converted {name}: {_counted(len(text.splitlines()), 'line')} of Hive into "
         f"{conversion_notebook(name)}.",
-        f"{unchecked_pieces} piece{'' if unchecked_pieces == 1 else 's'} stay Hive, "
-        f"{len(translation.constants)} named constant"
-        f"{'' if len(translation.constants) == 1 else 's'}, {len(opt_outs)} opt-out"
-        f"{'' if len(opt_outs) == 1 else 's'} marked # CONVERSION: for you to check.",
+        f"{_counted(unchecked_pieces, 'piece')} kept as Hive, "
+        f"{_counted(len(hive_read.constants), 'named constant')}, "
+        f"{_counted(len(opt_outs), 'opt-out')} marked # CONVERSION: for you to check"
+        + (f": {'; '.join(opt_outs)}." if opt_outs else "."),
         *([f"Added Table references: {', '.join(added)}: fill in their TODO lines."]
           if added else []),
-        (f"Stopped short: {stopped}" if stopped is not None
-         else f"Its Hive and the original's: {same}"),
+        *([f"Stopped short: {stopped}"] if stopped is not None else compared),
         f"{CONVERSION_FOLDER.shown(name)}{SCAN_REPORT} lists what it found, line by line.",
     ])
 
@@ -1421,7 +1430,7 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     references/mart__failed_runs.py.
     Fill in references/mart__failed_runs.py: its <LOCATION>, any <COLUMN_TYPE>, partitioned_by=
     and key=, and its TODO lines; then run the notebook's create() and write().
-    The Conversion folder is kept in admin/removed/...-failed_runs/.
+    The Conversion folder is archived, kept as it was, in admin/removed/...-failed_runs/.
 
     Run it once the Conversion's notebook gives the rows you want, from admin/convert.ipynb,
     with the name you choose for the Saved table. It makes the Table folder tables/<db>__<table>/, as new_table does, whose notebook's logic
@@ -1460,7 +1469,17 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
                 error=FileExistsError,
             )
     statement = load(name).converted()
-    translation = _translated(call, (folder / ORIGINAL_HIVE).read_text(encoding="utf-8"), root,
+    if not isinstance(statement, Statement):
+        refuse(
+            what=f"{call}: the Conversion's converted() gives {statement!r}, not a Statement.",
+            why="The Saved table's Table reference lists the columns the Statement gives, and "
+            "Hive kept whole, as an Unchecked statement, says none.",
+            fix="Make converted() a Statement in its notebook first, keeping only the pieces no "
+            "Toolbox function writes as unchecked_derived(...) or unchecked_column(...); or "
+            "write the Saved table's notebook by hand with project.new_table(...).",
+            error=TypeError,
+        )
+    hive_read = _converted_query(call, (folder / ORIGINAL_HIVE).read_text(encoding="utf-8"), root,
                               database)
     logic = logic_cell(folder / f"{name}.ipynb", shown=conversion_notebook(name), call=call)
     logic = logic.removeprefix(LOGIC).lstrip("\n")  # the Table notebook's cell gets its own
@@ -1468,9 +1487,9 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     cells = read_cells(folder / f"{name}.ipynb")
     write_notebook(root / table_notebook(stem), _table_cells(
         table, name, cells, converting.saved_table_logic(
-            logic, table, short, translation.write, translation.static_partition)))
+            logic, table, short, hive_read.write, hive_read.static_partition)))
     REFERENCE.path(root, stem).write_text(
-        _converted_reference(table, short, name, statement, translation.partition_columns),
+        _converted_reference(table, short, name, statement, hive_read.partition_columns),
         encoding="utf-8")
     (TABLE_FOLDER.path(root, stem) / ORIGINAL_HIVE).write_bytes(
         (folder / ORIGINAL_HIVE).read_bytes())
@@ -1484,9 +1503,10 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     return ProjectReport([
         f"Finished the Conversion {name} as {table}: {table_notebook(stem)}, and its Table "
         f"reference, {REFERENCE.shown(stem)}.",
-        f"Fill in {REFERENCE.shown(stem)}: its <LOCATION>, any <COLUMN_TYPE>, partitioned_by= "
-        "and key=, and its TODO lines; then run the notebook's create() and write().",
-        f"The Conversion folder is kept in {moved}.",
+        f"Fill in {REFERENCE.shown(stem)}: its <LOCATION>, any <COLUMN_TYPE>, "
+        f"{'' if hive_read.partition_columns else 'partitioned_by= and '}key=, and its TODO "
+        "lines; then run the notebook's create() and write().",
+        f"The Conversion folder is archived, kept as it was, in {moved}.",
     ])
 
 
@@ -1560,7 +1580,7 @@ def _hive_given(call: str, hive: object, file: object) -> str:
     return hive
 
 
-def _translated(call: str, text: str, root: Path, database: str) -> converting.Translation:
+def _converted_query(call: str, text: str, root: Path, database: str) -> converting.ConvertedQuery:
     """The Hive read as the Toolbox's Python, the columns of each table taken from the
     Project's Table references; refused, saying what to do, where a Conversion can't take it."""
     columns = {}
@@ -1569,7 +1589,7 @@ def _translated(call: str, text: str, root: Path, database: str) -> converting.T
         if read is not None:
             columns[read[3]["name"]] = list(read[3]["columns"])
     try:
-        return converting.translate(text, columns.get, database)
+        return converting.convert_query(text, columns.get, database)
     except converting.ConversionRefused as why:
         refuse(
             what=f"{call}: a Conversion can't take this Hive: {why}.",
@@ -1580,29 +1600,31 @@ def _translated(call: str, text: str, root: Path, database: str) -> converting.T
         )
 
 
-def _scan_lines(text: str, translation: converting.Translation) -> list[str]:
+def _scan_lines(text: str, hive_read: converting.ConvertedQuery) -> list[str]:
     """What a scan says: the size of the Hive, the tables it reads, those with no Table
     reference, and each finding, with its line."""
-    lines = [f"{len(text.splitlines())} lines of Hive, one query reading "
-             f"{in_words(translation.tables) or 'no table'}."]
-    if translation.missing:
-        lines.append(f"No Table reference yet for {in_words(translation.missing)}: "
-                     "project.convert(...) adds it through your query.")
-    found = [finding for finding in translation.findings if finding.kind != "table"]
+    lines = [f"{_counted(len(text.splitlines()), 'line')} of Hive, one query reading "
+             f"{in_words(hive_read.tables) or 'no table'}."]
+    if hive_read.missing:
+        lines.append(f"No Table reference yet for {in_words(hive_read.missing)}: "
+                     f"project.convert(...) adds {'it' if len(hive_read.missing) == 1 else 'them'} "
+                     "through your query.")
+    found = sorted((finding for finding in hive_read.findings if finding.kind != "table"),
+                   key=lambda finding: finding.line or 0)
     if found:
         lines.append("Found:")
         lines += [f"  {finding}" for finding in found]
     return lines
 
 
-def _with_opt_outs(root: Path, name: str, translation: converting.Translation
+def _with_opt_outs(root: Path, name: str, hive_read: converting.ConvertedQuery
                    ) -> tuple[str, list[str], str | None]:
     """Write the Conversion's notebook, then load it and build its Statement, adding the
     opt-out each refusal names, until none refuses: the logic as written, each opt-out added,
     and the first line of a refusal it couldn't meet, or None."""
-    logic, added = translation.logic(), []
+    logic, added = hive_read.logic(), []
     for _ in range(_MOST_OPT_OUTS):
-        _write_conversion_notebook(root, name, translation, logic)
+        _write_conversion_notebook(root, name, hive_read, logic)
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("error", UserWarning)
@@ -1614,7 +1636,16 @@ def _with_opt_outs(root: Path, name: str, translation: converting.Translation
                 return logic, added, _what_happened(str(refusal))
             logic, said = with_it
             added.append(said)
+        except (TypeError, ValueError, AttributeError) as refusal:
+            # Logic the Conversion wrote that the Toolbox then refuses: the notebook is kept,
+            # to mend by hand, and the refusal said.
+            return logic, added, _what_happened(str(refusal))
     return logic, added, "more refusals than a Conversion adds opt-outs for"
+
+
+def _counted(count: int, thing: str) -> str:
+    """A count and its thing, plural but for one: "1 line", "25 lines"."""
+    return f"{count} {thing}{'' if count == 1 else 's'}"
 
 
 def _what_happened(refusal: str) -> str:
@@ -1623,18 +1654,33 @@ def _what_happened(refusal: str) -> str:
     return found.group(1) if found else (refusal.strip().splitlines() or [""])[0]
 
 
-def _compared(root: Path, name: str, text: str) -> str:
-    """What compare_hive says of the Conversion's Statement and the original, in one line."""
+def _compared(name: str, text: str) -> str:
+    """What compare_hive says of the Conversion's Statement and the original, every line."""
+    converted = load(name).converted()
+    if not isinstance(converted, Statement):
+        return ("not compared: the whole query stays Hive, as an Unchecked statement, so its "
+                "Hive is the original's, as written.")
     try:
-        return repr(compare_hive(load(name).converted(), text)).splitlines()[0]
+        return repr(compare_hive(converted, text))
     except (ValueError, TypeError) as error:
         return f"not compared: {_what_happened(str(error))}"
 
 
-def _write_conversion_notebook(root: Path, name: str, translation: converting.Translation,
+def _write_conversion_notebook(root: Path, name: str, hive_read: converting.ConvertedQuery,
                                logic: str) -> None:
     """A Conversion's notebook: what it is, the Project, its logic, and its checks."""
-    partition = (translation.partition_columns or ["dt"])[0]
+    given = [column for column in hive_read.partition_columns
+             if column not in hive_read.static_partition]
+    if given or not hive_read.static_partition:
+        rows = (f'# Its rows against the original\'s, through your query, on one Partition:\n'
+                f'# print(compare_with_original(converted(), ORIGINAL, query=query, '
+                f'partition={{"{(given or ["dt"])[0]}": "<a value>"}}))')
+    else:
+        rows = ("# Its rows against the original's, through your query. Its query gives no "
+                "partition column,\n# as the original's PARTITION(...) names its value: check "
+                "its WHERE keeps it small.\n"
+                "# print(compare_with_original(converted(), ORIGINAL, query=query, "
+                "reads_all_partitions=True))")
     write_notebook(CONVERSION_FOLDER.path(root, name) / f"{name}.ipynb", [
         ("markdown", f"# Conversion: {name}\n\nproject.convert made this notebook from "
          f"`{ORIGINAL_HIVE}`, beside it; `{SCAN_REPORT}` says what it found, line by line. Its "
@@ -1652,10 +1698,13 @@ def _write_conversion_notebook(root: Path, name: str, translation: converting.Tr
         ("code", f"# Its Hive against the original's, as given in {ORIGINAL_HIVE}\n"
          f'ORIGINAL = pathlib.Path("{ORIGINAL_HIVE}").read_text(encoding="utf-8")\n'
          "show_hive(converted())\nprint(compare_hive(converted(), ORIGINAL))"),
-        ("code", "# Its rows against the original's, through your query, on one Partition:\n"
-         f'# print(compare_with_original(converted(), ORIGINAL, query=query, partition={{"'
-         f'{partition}": "<a value>"}}))'),
+        ("code", rows),
     ])
+
+
+# A Conversion's notebook's cells from this one on are its checks against the original: its
+# text, the Project and its logic come first.
+_CHECK_CELLS = 3
 
 
 def _table_cells(table: str, name: str, cells: list[tuple[str, str]],
@@ -1680,7 +1729,7 @@ def _table_cells(table: str, name: str, cells: list[tuple[str, str]],
          "show_hive([create(), write()])\nrun_query(preview(), query)"),
         ("code", "# Lineage: a new pair in lineage/, named by the time and this table\n"
          "export_lineage(write())"),
-        *cells[3:],  # the Conversion's checks against the original
+        *cells[_CHECK_CELLS:],
         ("code", f'# Its rows in the Reference sheet\nproject.refresh_reference_sheet("{table}")'),
     ]
 
@@ -1692,14 +1741,22 @@ def _converted_reference(table: str, short: str, name: str, statement: Statement
     columns = "".join(f'        "{column_name}": '
                       f'{_quoted(column._type) if column._type else "<COLUMN_TYPE>"},\n'
                       for column, column_name in statement._outputs)
+    # A partition column the query doesn't give, as a static PARTITION (dt='...') writes it,
+    # is still one of the table's columns.
+    given = {column_name for _, column_name in statement._outputs}
+    columns += "".join(f'        "{column}": "string",  # the original\'s partition column\n'
+                       for column in partition_columns if column not in given)
     partitions = (", ".join(_quoted(column) for column in partition_columns)
                   if partition_columns else '"<PARTITION_COLUMN>"')
     said = ("filled in from the original's PARTITION(...)" if partition_columns else
             "name one of its columns, or write [] for a table with none: Table refuses "
             "<PARTITION_COLUMN>")
+    to_fill = "key=" if partition_columns else "partitioned_by= and key="
     return (f'"""{table} - TODO: say in one line what one row is.\n\n'
             f'Written by project.finish_conversion("{name}", table="{table}"). Fill in every '
-            "<...> below,\nbrackets and all, partitioned_by= and key=, and the TODO lines.\n"
+            f"<...> below,\nbrackets and all, {to_fill}, and the TODO lines. A <COLUMN_TYPE> "
+            "is a column whose\ntype the Toolbox can't tell, such as a CASE's: write the Hive "
+            "type it holds.\n"
             '"""\n\nfrom sqlglot_composer import Table\n\n'
             f"{short} = Table(\n    {_quoted(table)},\n    columns={{\n{columns}    }},\n"
             f"    partitioned_by=[{partitions}],  # {said}\n"
@@ -2049,8 +2106,8 @@ LOGIC_OF = "logic of "
 
 
 class TableLogic:
-    """A Table notebook's logic, as load gives it: each function its logic cell defines, by
-    its name, such as write."""
+    """A Table notebook's or a Conversion's logic, as load gives it: each function its logic
+    cell defines, by its name, such as write."""
 
     def __init__(self, name: str, functions: dict[str, Callable[..., object]]) -> None:
         self._name = name
@@ -2062,8 +2119,13 @@ class TableLogic:
         return f"The logic of {self._name}: {', '.join(self._functions)}."
 
 
+def _names_a_conversion(name: object) -> bool:
+    """True for a Conversion's name, which has no dot, as a table's always does."""
+    return isinstance(name, str) and "." not in name
+
+
 def load(name: str) -> TableLogic:
-    r"""A Table notebook's logic, its functions by name, from anywhere in the Project.
+    r"""A Table notebook's or Conversion's logic, its functions by name, from anywhere.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -2092,12 +2154,15 @@ def load(name: str) -> TableLogic:
     run_query or run_execute, which would send Hive just by loading, one with a <...> still to
     fill in, and one that defines no write() taking nothing.
 
+    Given a name with no dot, such as weekly_events, it loads that Conversion's notebook,
+    admin/conversions/<name>/<name>.ipynb, the same way, and refuses one whose logic cell
+    defines no converted() taking nothing in place of write().
+
     In the example above, a one-line Template stands in for a notebook of yours.
     """
     call = f"project.load({_quoted(name)})"
     root = _project(call)
-    # A Conversion's name has no dot, as a table's always does.
-    conversion = isinstance(name, str) and "." not in name
+    conversion = _names_a_conversion(name)
     if conversion:
         _conversion_name(name, call)
         shown = conversion_notebook(name)
@@ -2148,7 +2213,8 @@ def logic_notebook(module: str) -> str | None:
     if not module.startswith(LOGIC_OF):
         return None
     name = module.removeprefix(LOGIC_OF)
-    return table_notebook(table_stem(name)) if "." in name else conversion_notebook(name)
+    return conversion_notebook(name) if _names_a_conversion(name) else table_notebook(
+        table_stem(name))
 
 
 def _check_write(namespace: dict[str, object], shown: str, call: str) -> None:

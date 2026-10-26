@@ -61,7 +61,8 @@ def test_start_makes_the_conversions_folder_and_its_notebook(started: Path) -> N
     assert (started / "admin" / "conversions").is_dir()
     cells = json.loads((started / "admin" / "convert.ipynb").read_text(encoding="utf-8"))["cells"]
     code = "".join("".join(cell["source"]) for cell in cells)
-    assert 'HIVE = """' in code and "project.scan_hive(HIVE)" in code
+    assert 'HIVE = """' in code and "project.scan_hive(HIVE, database=DATABASE)" in code
+    assert '# project.convert("your_name", HIVE, query=query, database=DATABASE)' in code
     assert '# project.finish_conversion("your_name", table="mart.your_table")' in code
 
 
@@ -204,6 +205,8 @@ def test_a_partition_the_original_wrote_is_carried_over(started: Path) -> None:
     project.finish_conversion("runs", table="mart.runs")
     reference = (started / "references" / "mart__runs.py").read_text(encoding="utf-8")
     assert 'partitioned_by=["dt"],  # filled in from the original\'s PARTITION(...)' in reference
+    # dt is one of the table's columns, though the query doesn't give it, so Table takes it.
+    assert '"dt": "string",  # the original\'s partition column' in reference
     cells = json.loads((started / "tables" / "mart__runs" / "mart__runs.ipynb")
                        .read_text(encoding="utf-8"))["cells"]
     logic = next("".join(cell["source"]) for cell in cells
@@ -213,8 +216,145 @@ def test_a_partition_the_original_wrote_is_carried_over(started: Path) -> None:
 
 
 @pytest.mark.needs_example_database
+def test_a_static_partitions_row_compare_reads_every_partition(started: Path) -> None:
+    """Its query gives no dt, so the hint can't keep one Partition by it."""
+    hive = ("INSERT OVERWRITE TABLE theirs.x PARTITION (dt='2026-09-24') "
+            "SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'")
+    project.convert("runs", hive, query=example_database.query, database="ops")
+    notebook = started / "admin" / "conversions" / "runs" / "runs.ipynb"
+    code = "".join("".join(cell["source"]) for cell in
+                   json.loads(notebook.read_text(encoding="utf-8"))["cells"])
+    assert "reads_all_partitions=True))" in code and 'partition={"dt"' not in code
+
+
+@pytest.mark.needs_example_database
+def test_a_conversion_kept_whole_as_hive_is_refused_before_anything_is_made(
+        started: Path) -> None:
+    project.convert("kept", "SELECT j.job_id FROM ops.jobs j", query=example_database.query,
+                    database="ops")
+    notebook = started / "admin" / "conversions" / "kept" / "kept.ipynb"
+    cells = json.loads(notebook.read_text(encoding="utf-8"))
+    cells["cells"][2]["source"] = ["# logic\n", "from sqlglot_composer import unchecked_hive\n",
+                                   "\n", "def converted():\n",
+                                   "    return unchecked_hive('SELECT job_id FROM ops.jobs')\n"]
+    notebook.write_text(json.dumps(cells), encoding="utf-8")
+    with pytest.raises(TypeError, match="not a Statement"):
+        project.finish_conversion("kept", table="mart.kept")
+    assert not (started / "tables" / "mart__kept").exists()
+    assert not (started / "references" / "mart__kept.py").exists()
+
+
+@pytest.mark.needs_example_database
+def test_convert_says_each_count_plainly_and_each_opt_out(converted: Path,
+                                                          started: Path) -> None:
+    said = repr(project.convert("again", HIVE, query=example_database.query, database="ops"))
+    assert "Converted again: 9 lines of Hive" in said
+    assert ("0 pieces kept as Hive, 2 named constants, 1 opt-out marked # CONVERSION: for you "
+            "to check: JOIN(j, many_matches=True).") in said
+    one = repr(project.convert("one", "SELECT j.job_id FROM ops.jobs j",
+                               query=example_database.query, database="ops"))
+    assert one.startswith("Converted one: 1 line of Hive")
+
+
+@pytest.mark.needs_example_database
 def test_a_conversion_removed_is_archived(converted: Path, started: Path) -> None:
     said = repr(project.remove_conversion("job_outcomes"))
     assert said.startswith("Moved admin/conversions/job_outcomes/ to admin/removed/")
     assert not converted.exists()
     assert "Conversions not finished yet" not in repr(project.check())
+
+
+# --- Shapes, round trip ---------------------------------------------------------------------------
+
+# Hive written to break a Conversion, each converted in a started Project and its Statement
+# compared with the original: the same query, once both are written out the same way.
+SAME_QUERY = {
+    "deep_ctes": """\
+WITH a AS (SELECT r.job_id, r.status FROM ops.job_runs r WHERE r.dt = '2026-09-24'),
+b AS (SELECT a.job_id, a.status FROM a WHERE a.status = 'FAILED'),
+c AS (SELECT b.job_id, COUNT(*) AS n FROM b GROUP BY b.job_id)
+SELECT c.job_id, c.n FROM c""",
+    "cte_read_twice": """\
+WITH a AS (SELECT r.job_id, r.dt FROM ops.job_runs r WHERE r.dt = '2026-09-24')
+SELECT x.job_id FROM a x JOIN a y ON x.job_id = y.job_id AND x.dt = y.dt""",
+    "one_table_two_aliases": """\
+SELECT r1.run_id, r2.run_id AS other FROM ops.job_runs r1
+JOIN ops.job_runs r2 ON r1.job_id = r2.job_id AND r1.dt = r2.dt WHERE r1.dt = '2026-09-24'""",
+    "quoted_names": "SELECT `j`.`job_id`, `j`.`team` AS `the team` FROM `ops`.`jobs` `j`",
+    "comments": """\
+-- top comment
+SELECT j.job_id, /* inline */ j.team -- trailing
+FROM ops.jobs j""",
+    "mixed_case": "select J.Job_Id, j.TEAM from OPS.JOBS j Where j.Team = 'data'",
+    "having": """\
+SELECT r.job_id, COUNT(*) AS n FROM ops.job_runs r WHERE r.dt = '2026-09-24'
+GROUP BY r.job_id HAVING COUNT(*) > 2""",
+    "left_join": """\
+SELECT j.job_id, r.status FROM ops.jobs j LEFT JOIN ops.job_runs r
+ON j.job_id = r.job_id AND r.dt = '2026-09-24'""",
+    "order_by_and_limit": "SELECT j.job_id FROM ops.jobs j ORDER BY j.job_id DESC LIMIT 10",
+    "distinct": "SELECT DISTINCT j.team FROM ops.jobs j",
+    "union_all": """\
+SELECT j.job_id FROM ops.jobs j UNION ALL
+SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",
+    "rows_frame": """\
+SELECT r.job_id, SUM(r.duration_mins) OVER (PARTITION BY r.job_id ORDER BY r.dt ASC
+ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS s FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",
+    "grouping_sets": """\
+SELECT r.job_id, r.status, COUNT(*) AS n FROM ops.job_runs r WHERE r.dt = '2026-09-24'
+GROUP BY r.job_id, r.status GROUPING SETS ((r.job_id), (r.status))""",
+    "plain_values": "SELECT j.job_id, 1 AS one, 'x' AS tag, NULL AS nothing FROM ops.jobs j",
+    "a_piece_kept_inside_a_case": """\
+SELECT r.run_id,
+  CASE
+    WHEN r.status = 'FAILED' THEN regexp_replace(r.status, 'F', 'f')
+    WHEN r.duration_mins > 5 THEN CAST(r.duration_mins AS STRING)
+    ELSE 'x'
+  END AS label
+FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",
+    "hive_variable": "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '${hivevar:run_date}'",
+    "in_sub_query_in_a_cte": """\
+WITH a AS (SELECT r.run_id, r.job_id FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.job_id IN (SELECT j.job_id FROM ops.jobs j))
+SELECT a.run_id FROM a""",
+}
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("name", list(SAME_QUERY))
+def test_each_shape_converts_to_the_same_query(started: Path, name: str) -> None:
+    project.convert(name, SAME_QUERY[name], query=example_database.query, database="ops")
+    said = repr(compare_hive(project.load(name).converted(), SAME_QUERY[name]))
+    assert said.startswith("The Statement's Hive and the original are the same query")
+
+
+# Hive the Toolbox writes another way, each converted in a started Project: its Statement
+# builds, and the scan says what changed.
+WRITTEN_ANOTHER_WAY = {
+    "select_star": ("SELECT * FROM ops.jobs",
+                    "the * of jobs becomes its columns, job_id, job_name, team, region"),
+    "star_in_a_cte": ("WITH a AS (SELECT j.* FROM ops.jobs j WHERE j.team = 'data')\n"
+                      "SELECT a.job_id, a.team FROM a",
+                      "the * of j becomes its columns, job_id, job_name, team, region"),
+    "sub_query_in_from": ("SELECT s.job_id FROM (SELECT j.job_id FROM ops.jobs j) s",
+                          "the sub-query s becomes a Derived table"),
+    "with_rollup": ("SELECT r.job_id, r.status, COUNT(*) AS n FROM ops.job_runs r\n"
+                    "WHERE r.dt = '2026-09-24' GROUP BY r.job_id, r.status WITH ROLLUP",
+                    "becomes GROUP_BY(rollup(r.job_id, r.status))"),
+    "cube": ("SELECT r.job_id, r.status, COUNT(*) AS n FROM ops.job_runs r\n"
+             "WHERE r.dt = '2026-09-24' GROUP BY CUBE(r.job_id, r.status)",
+             "becomes GROUP_BY(cube(r.job_id, r.status))"),
+    "distribute_by": ("SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'\n"
+                      "DISTRIBUTE BY r.job_id SORT BY r.run_id",
+                      "line 2: DISTRIBUTE BY r.job_id is dropped"),
+}
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("name", list(WRITTEN_ANOTHER_WAY))
+def test_each_shape_written_another_way_builds_and_says_how(started: Path, name: str) -> None:
+    hive, said = WRITTEN_ANOTHER_WAY[name]
+    project.convert(name, hive, query=example_database.query, database="ops")
+    project.load(name).converted()
+    scan = (started / "admin" / "conversions" / name / "scan.md").read_text(encoding="utf-8")
+    assert said in scan

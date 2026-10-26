@@ -520,6 +520,15 @@ WHERE
     first_match tries its conditions in order and
     gives the value of the first that holds: a run of 40 minutes is &quot;long&quot;, though it is more
     than 10 minutes too.
+
+    Before, as Hive written by hand, the lookup and the chain read as below, with the list
+    pasted in where WATCHED_JOBS goes; project.convert(...) writes them as this function does:
+
+        CASE status WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27;
+                    WHEN &#x27;TEST&#x27; THEN &#x27;test run&#x27; ELSE &#x27;still running&#x27; END AS outcome,
+        CASE WHEN duration_mins &gt; 30 THEN &#x27;long&#x27; WHEN duration_mins &gt; 10 THEN &#x27;medium&#x27;
+             ELSE &#x27;short&#x27; END AS length
+        ... WHERE job_id IN (1, 2)
     &quot;&quot;&quot;
     return statement(
         SELECT(
@@ -3694,7 +3703,7 @@ FROM steps
 GROUP BY
   steps.step</pre>
 <p>Each run&#x27;s status is split at each _ (explode(split(r.status, &#x27;_&#x27;))), and LATERAL VIEW gives one row for each part, named s, beside the rest of the run&#x27;s row: steps has a row for each run and each part of its status, which no Clause function writes yet. The Example database can&#x27;t run it, as its executor has no LATERAL VIEW; Hive can.</p>
-<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared. The text names its columns itself, with no {placeholders}: a brace in it is refused, since sqlglot reads it as a struct, which it can&#x27;t write back as Hive.</p>
+<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared. The text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct, as {&#x27;k&#x27;: 1}, is refused, since it can&#x27;t write that back as Hive; one inside quotes, as in a regular expression&#x27;s &#x27;[a-z]{2}&#x27;, is kept.</p>
 <p>No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can see unless you name one: key=[&quot;run_id&quot;] says one row has each run_id, as a GROUP BY run_id in its text makes it, and a Table reference&#x27;s key= says. A JOIN on its Key is then checked as on any Derived table with one, and a write reading it isn&#x27;t refused for a Key it can&#x27;t prove. The Toolbox can&#x27;t check that the text makes it so: name a Key only when it does. Without one, a JOIN on it warns as on any table without a Key.</p>
 <p>A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads, those partitioned and those the Toolbox has no Table reference for: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which there says you have checked it. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no LATERAL VIEW.</p>
@@ -4194,7 +4203,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; and each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each Conversion not finished yet, with finish_conversion and remove_conversion to run; and each <code># CONVERSION:</code> mark project.convert left for you, with its file and line.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4214,7 +4223,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
     query=example_database.query, database=&quot;ops&quot;))</pre>
 <p class="label">Python shows</p>
 <pre class="output">Converted failed_runs: 4 lines of Hive into admin/conversions/failed_runs/failed_runs.ipynb.
-0 pieces stay Hive, 0 named constants, 0 opt-outs marked # CONVERSION: for you to check.
+0 pieces kept as Hive, 0 named constants, 0 opt-outs marked # CONVERSION: for you to check.
 Added Table references: ops.job_runs: fill in their TODO lines.
 Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once
 both are written out the same way.
@@ -4242,13 +4251,13 @@ tables/mart__failed_runs/mart__failed_runs.ipynb, and its Table reference,
 references/mart__failed_runs.py.
 Fill in references/mart__failed_runs.py: its &lt;LOCATION&gt;, any &lt;COLUMN_TYPE&gt;, partitioned_by=
 and key=, and its TODO lines; then run the notebook&#x27;s create() and write().
-The Conversion folder is kept in admin/removed/...-failed_runs/.</pre>
+The Conversion folder is archived, kept as it was, in admin/removed/...-failed_runs/.</pre>
 <p>Run it once the Conversion&#x27;s notebook gives the rows you want, from admin/convert.ipynb, with the name you choose for the Saved table. It makes the Table folder tables/&lt;db&gt;__&lt;table&gt;/, as new_table does, whose notebook&#x27;s logic cell is the Conversion&#x27;s, as you left it, with create(), preview() and write() added: write() writes the table as the original&#x27;s INSERT did, INSERT_OVERWRITE or INSERT_INTO, with its partition values, INSERT_OVERWRITE when it had none. The notebook keeps the Conversion&#x27;s cells that compare it with the original, until you remove them. It writes the table&#x27;s Table reference, references/&lt;db&gt;__&lt;table&gt;.py, with the columns the Statement gives and the types it knows, <code>&lt;COLUMN_TYPE&gt;</code> for each it doesn&#x27;t; partitioned_by=[...] filled in from the original&#x27;s PARTITION(...), or with a &quot;&lt;PARTITION_COLUMN&gt;&quot; that Table refuses until you name one of its columns, or write [] for a table with none; and <code>&lt;LOCATION&gt;</code>, the folder its files go in, for you to fill in. Then it archives the Conversion folder into admin/removed/. It never touches the warehouse: the notebook&#x27;s create() does.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
 </section>
 <section class="entry" id="project.load">
 <h3><code>project.load</code></h3>
-<p class="why">A Table notebook&#x27;s logic, its functions by name, from anywhere in the Project.</p>
+<p class="why">A Table notebook&#x27;s or Conversion&#x27;s logic, its functions by name, from anywhere.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -4267,6 +4276,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;what writes it&#x27;</pre>
 <p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines, and it defines write(), which takes nothing and gives what writes the table: a Statement, an Unchecked statement, a Python step, or a list of them. In a notebook made from the saved_table Template, it defines create, rows, preview and write, and load gives each of them (the functions and classes only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run_query or run_execute, which would send Hive just by loading, one with a &lt;...&gt; still to fill in, and one that defines no write() taking nothing.</p>
+<p>Given a name with no dot, such as weekly_events, it loads that Conversion&#x27;s notebook, admin/conversions/&lt;name&gt;/&lt;name&gt;.ipynb, the same way, and refuses one whose logic cell defines no converted() taking nothing in place of write().</p>
 <p>In the example above, a one-line Template stands in for a notebook of yours.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
 </section>
@@ -4471,7 +4481,7 @@ Found:
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty admin/conversions/ for the Conversions you make, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
 <p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>

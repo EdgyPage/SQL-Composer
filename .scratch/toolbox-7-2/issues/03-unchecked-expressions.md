@@ -209,3 +209,14 @@ and drift items D268 to D270 were fixed in a worktree, finding by finding:
   7.1 projects are untouched). D270 closed by 1a0ef3d: ticket 07's Conversion entry landed in
   CONTEXT.md before these fixes were rebased onto dev, so "or a Conversion" in the Unchecked
   expression's entry names a glossary word and stays.
+- Code review of a3ff19c, the fixes above (2026-10-26):
+  - Standards: no hard breach. Answered: `tables.partitioned_by_name` reads the Tables still
+    alive (a weak set), so a collected Table can only make a read of an Unchecked derived table
+    warn as one with no Table reference, never stay quiet where it should warn; in a notebook
+    the Table references it imports stay alive. `sent_for`, a private parameter, follows
+    `send_logged`'s name; the glossary's _Avoid_ is for the words a user reads. The long
+    docstrings and the (table, column, value) triples are left as they are.
+  - Spec: fixed, unchecked_derived's docstring said every brace is refused, where only one
+    sqlglot reads as a struct is; it says so now, and that a brace inside quotes is kept.
+    Answered: `key=` is taken on trust as a Table reference's `key=` is, and is checked the same
+    way, by check_key on the rows; it is the way out of the join warning finding 14 asked for.

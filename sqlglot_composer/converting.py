@@ -1,7 +1,8 @@
 """Conversions: Hive someone else wrote, read and written again as the Toolbox's own Python.
 
-translate(text, columns_of) reads one Hive query with sqlglot and gives back a Translation: the
-Python that builds the same query from Clause functions, as a Table notebook's logic holds it,
+convert_query(text, columns_of) reads one Hive query with sqlglot and gives back a
+ConvertedQuery: the Python that builds the same query from Clause functions, as a Table
+notebook's logic holds it,
 and what it found on the way, each with its line in the Hive. What no Toolbox function writes
 yet is kept as Hive at the smallest size it can be (ADR 0014): one function the Toolbox doesn't
 wrap becomes hive_function(...); one expression no function writes, an Unchecked expression;
@@ -57,8 +58,10 @@ class ConversionRefused(Exception):
 
 @dataclass
 class Finding:
-    """What a Conversion found at one line of the Hive: kind is "unchecked", "constant",
-    "settings", "dropped", "table" or "opt-out"."""
+    """What a Conversion found at one line of the Hive.
+
+    Its kind is "unchecked", "constant", "settings", "dropped", "changed", "variable" or
+    "table"."""
 
     line: int | None
     kind: str
@@ -69,7 +72,7 @@ class Finding:
 
 
 @dataclass
-class Translation:
+class ConvertedQuery:
     """A query read from Hive, as the Python that builds it again."""
 
     tables: list[str] = field(default_factory=list)  # each table it reads, as "db.table"
@@ -97,17 +100,13 @@ class Translation:
         """The Python of the whole Conversion, as its notebook's logic cell holds it: its
         imports, its constants, each table and CTE it reads, and converted(), which gives the
         Statement; when it is one SELECT, rows() too, its clauses, which converted() reads."""
-        return self._logic(set(), [])
-
-    def _logic(self, more: set[str], imports: list[str], extra: list[str] | None = None) -> str:
         lines = []
-        names = sorted(self.names | more | {"Statement"}
+        names = sorted(self.names | {"Statement"}
                        | ({"Clause"} if self.clauses is not None else set())
-                       | ({"hive_settings"} if self.settings else set()))
+                       | ({"SessionSettings", "hive_settings"} if self.settings else set()))
         lines.append("from sqlglot_composer import (\n"
                      + "".join(f"    {name},\n" for name in names) + ")")
         lines += [f"from references import {database}" for database in sorted(self.databases)]
-        lines += imports
         lines.append("")
         for name, value in self.constants:
             lines.append(f"{name} = {value}")
@@ -117,6 +116,11 @@ class Translation:
             lines.append(f"{name} = {value}")
         if self.assignments:
             lines.append("")
+        if self.settings:
+            lines += ["", "def session_settings() -> SessionSettings:",
+                      '    """The SET lines the original sent first: send them before the '
+                      'query."""',
+                      '    return hive_settings("converted", sets=HIVE_SETTINGS)', ""]
         if self.clauses is not None:
             lines += ["", "def rows() -> list[Clause]:",
                       '    """The clauses of the query, which converted() and a write share."""',
@@ -129,7 +133,7 @@ class Translation:
             lines += ["", "def converted() -> Statement:",
                       '    """The query, as the Hive this Conversion was made from writes it."""',
                       f"    return {_indented(self.query, 4)}"]
-        return "\n".join(lines + (extra or [])) + "\n"
+        return "\n".join(lines) + "\n"
 
 
 def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
@@ -166,6 +170,11 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         elif line.strip() and not line.startswith("#"):
             break
     lines[at:at] = imports
+    said = f"Save the rows into {saved_table}, as the original's INSERT did."
+    if re.search(r"^def session_settings\(", logic, re.MULTILINE):
+        # run_tables sends only writes, so the SET lines are sent by hand, as the docstring says.
+        said += ("\n\n    Send session_settings() first, as the original sent its SET lines: "
+                 "run_tables\n    sends only what write() gives.\n    ")
     return "\n".join(lines + [
         "",
         "",
@@ -180,7 +189,7 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         "",
         "",
         "def write() -> Statement:",
-        f'    """Save the rows into {saved_table}, as the original\'s INSERT did."""',
+        f'    """{said}"""',
         *body,
     ]) + "\n"
 
@@ -190,13 +199,35 @@ def _indented(text: str, by: int) -> str:
     return text.replace("\n", "\n" + " " * by)
 
 
-def _line(node: exp.Expression) -> int | None:
-    """The line of the Hive a piece starts on, from the first part sqlglot noted one for."""
-    for part in node.walk():
-        line = part.meta.get("line") if part.meta else None
-        if line:
-            return line
-    return None
+def _start(node: exp.Expression, text: str) -> int | None:
+    """Where in `text`, the Hive, a piece starts, or None when sqlglot noted nothing.
+
+    sqlglot notes where each name and value is, and a CASE starts at the CASE before its
+    first one."""
+    noted = [part.meta for part in node.walk() if part.meta and part.meta.get("line")]
+    if not noted:
+        return None
+    starts = [meta["start"] for meta in noted if isinstance(meta.get("start"), int)]
+    if len(starts) < len(noted):  # an older sqlglot notes only the line: the line's start
+        line = min(meta["line"] for meta in noted)
+        return sum(len(one) + 1 for one in text.split("\n")[:line - 1])
+    at = min(starts)
+    if isinstance(node, exp.Case):
+        before = list(re.finditer(r"\bCASE\b", text[:at], re.IGNORECASE))
+        at = before[-1].start() if before else at
+    return at
+
+
+def _line(node: exp.Expression, text: str) -> int | None:
+    """The line of `text`, the Hive, that a piece starts on.
+
+    Failing that, it is the line of the nearest piece it is part of, as for a NULL, which
+    sqlglot notes no line for."""
+    at = _start(node, text)
+    while at is None and node.parent is not None:
+        node = node.parent
+        at = _start(node, text)
+    return None if at is None else text.count("\n", 0, at) + 1
 
 
 def _string(value: str) -> str:
@@ -232,6 +263,31 @@ def _listed(values: list[str], indent: int = 0) -> str:
     return "[\n" + "".join(f"{pad}{value},\n" for value in values) + " " * indent + "]"
 
 
+def _is_star(item: exp.Expression) -> bool:
+    """True for a SELECT item that is * or t.*."""
+    return isinstance(item, exp.Star) or (isinstance(item, exp.Column)
+                                          and isinstance(item.this, exp.Star))
+
+
+def _called(node: exp.Expression) -> str:
+    """The name a call is written with, in capitals, such as CAST or NTILE."""
+    found = re.match(r"\s*(\w+)", sql_text(node))
+    return found.group(1).upper() if found else type(node).__name__.upper()
+
+
+# The parts of a SELECT that the Clause functions write, by sqlglot's name for each.
+_WRITTEN = {"expressions", "distinct", "from", "from_", "joins", "where", "group", "having",
+            "order", "limit", "with", "with_"}
+# The parts of a SELECT a Conversion leaves out, as they change how Hive runs the query and not
+# its rows, and what each did.
+_DROPPED = {
+    "distribute": "it only said how Hive spreads the rows over its workers",
+    "sort": "it only sorted the rows within each worker, not the result, as ORDER_BY does",
+    "cluster": "it only said how Hive spreads and sorts the rows over its workers",
+    "hint": "it only hinted at how Hive should run the query",
+}
+
+
 @dataclass
 class _Source:
     """One table a query reads: the Python name it is reached by and its columns, or None when
@@ -241,12 +297,13 @@ class _Source:
     columns: list[str] | None
 
 
-class _Translator:
+class _Converter:
     """The state of one Conversion: the names taken, the tables read, what it found."""
 
-    def __init__(self, columns_of: Callable[[str], list[str] | None], database: str) -> None:
-        self.columns_of, self.database = columns_of, database
-        self.result = Translation()
+    def __init__(self, columns_of: Callable[[str], list[str] | None], database: str,
+                 text: str) -> None:
+        self.columns_of, self.database, self.text = columns_of, database, text
+        self.result = ConvertedQuery()
         self.taken = set(_TAKEN)
         self.ctes: dict[str, _Source] = {}
         self.table_variables: dict[tuple[str, str], str] = {}
@@ -269,7 +326,13 @@ class _Translator:
         self.result.names.add(name)
         return name
 
-    def constant(self, wanted: str, value: str, line: int | None, said: str) -> str:
+    def found(self, node: exp.Expression, kind: str, text: str) -> None:
+        """Note a finding at the line of the Hive `node` starts on, once."""
+        finding = Finding(_line(node, self.text), kind, text)
+        if finding not in self.result.findings:
+            self.result.findings.append(finding)
+
+    def constant(self, wanted: str, value: str, node: exp.Expression, said: str) -> str:
         """A named constant, such as STATUS_VALUES = [...], and a finding saying so; the same
         value a second time is the same constant."""
         for name, held in self.result.constants:
@@ -278,8 +341,37 @@ class _Translator:
         name = self.fresh(wanted).upper()
         self.taken.add(name)
         self.result.constants.append((name, value))
-        self.result.findings.append(Finding(line, "constant", f"{said} is the constant {name}"))
+        self.found(node, "constant", f"{said} is the constant {name}")
         return name
+
+    # --- Tables read, before anything is converted ----------------------------------------------
+
+    def tables_read(self, query: exp.Expression) -> None:
+        """Note every table the query reads, and each with no Table reference yet.
+
+        Each is "db.table", in the order the Hive names them, however much of it converts."""
+        ctes = {cte.alias for cte in query.find_all(exp.CTE)}
+        tables = [table for table in query.find_all(exp.Table)
+                  if table.name and (table.db or table.name not in ctes)]
+        tables.sort(key=lambda table: _start(table, self.text) or 0)
+        for table in tables:
+            full = f"{table.db or self.database}.{table.name}"
+            if full in self.result.tables:
+                continue
+            self.result.tables.append(full)
+            if self.columns_of(full) is None:
+                self.result.missing.append(full)
+                self.found(table, "table", f"{full} has no Table reference yet")
+
+    def variables(self) -> None:
+        """Note each Hive variable, such as ${hivevar:day}, kept in the Hive as text."""
+        for found in re.finditer(r"\$\{[^}]*\}", self.text):
+            finding = Finding(self.text.count("\n", 0, found.start()) + 1, "variable",
+                              f"{found.group()} is a Hive variable, kept as written: your query "
+                              "must put its value in before it sends the Hive, as Hive's own "
+                              "client does")
+            if finding not in self.result.findings:
+                self.result.findings.append(finding)
 
     # --- Queries ----------------------------------------------------------------------------
 
@@ -297,14 +389,13 @@ class _Translator:
 
     def clauses(self, node: exp.Select) -> list[str]:
         """The Python of each clause of one SELECT, in SQL order."""
-        if node.args.get("laterals"):
-            raise Unconvertible("LATERAL VIEW, which no Clause function writes")
+        from_ = self.from_part(node)
         scope: dict[str, _Source] = {}
-        clauses = [self.from_clause(node.args["from_"].this, scope)]
+        clauses = [f"{self.use('FROM')}({self.source(from_.this, scope)})"]
         clauses += [self.join(join, scope) for join in node.args.get("joins") or []]
         outputs = self.outputs(node, scope)
         selected = ("SELECT_DISTINCT" if node.args.get("distinct") else "SELECT")
-        items = [item for item, _ in outputs]
+        items = [item for item, _ in outputs if item]
         clauses.insert(0, f"{self.use(selected)}(\n"
                        + "".join(f"    {_indented(item, 4)},\n" for item in items) + ")"
                        if len(items) > 1 or len(items[0]) > 60 or "\n" in items[0]
@@ -312,7 +403,7 @@ class _Translator:
         if node.args.get("where"):
             clauses.append(f"{self.use('WHERE')}({self.conditions(node.args['where'].this, scope)})")
         if node.args.get("group"):
-            clauses.append(self.group(node.args["group"], scope, outputs))
+            clauses.append(self.group(node.args["group"], scope))
         if node.args.get("having"):
             clauses.append(f"{self.use('HAVING')}("
                            f"{self.conditions(node.args['having'].this, scope)})")
@@ -321,6 +412,23 @@ class _Translator:
         if node.args.get("limit"):
             clauses.append(f"{self.use('LIMIT')}({node.args['limit'].expression.this})")
         return clauses
+
+    def from_part(self, node: exp.Select) -> exp.Expression:
+        """A SELECT's FROM, once its parts no Clause function writes are refused, and those
+        a Conversion leaves out noted."""
+        if node.args.get("laterals"):
+            raise Unconvertible("LATERAL VIEW, which no Clause function writes")
+        for part, given in node.args.items():
+            if given and part not in _WRITTEN and part not in _DROPPED:
+                raise Unconvertible(f"its {part.upper()}, which no Clause function writes")
+        from_ = node.args.get("from_") or node.args.get("from")
+        if from_ is None:
+            raise Unconvertible("a SELECT with no FROM, which statement(...) needs")
+        for part, why in _DROPPED.items():
+            if node.args.get(part):
+                self.found(node.args[part], "dropped",
+                           f"{sql_text(node.args[part])} is dropped: {why}")
+        return from_
 
     def stack(self, node: exp.Expression) -> str:
         """UNION ALL, UNION, INTERSECT or EXCEPT of whole queries."""
@@ -338,16 +446,22 @@ class _Translator:
                 + ")")
 
     def outputs(self, node: exp.Select, scope: dict[str, _Source]) -> list[tuple[str, str]]:
-        """Each SELECT item's Python, with the name of the column it gives."""
+        """Each SELECT item's Python, with the name of the column it gives.
+
+        A * gives one item and the names of all its columns, the Python of each after the
+        first empty."""
         found = []
         for number, item in enumerate(node.expressions):
-            if isinstance(item, exp.Star) or (isinstance(item, exp.Column)
-                                              and isinstance(item.this, exp.Star)):
+            if _is_star(item):
                 found += self.star(item, scope)
                 continue
             name = item.alias_or_name if isinstance(item, (exp.Alias, exp.Column)) else ""
             inner = item.this if isinstance(item, exp.Alias) else item
-            value = self.column_or_unchecked(inner, scope)
+            if _literal(inner) is not None or isinstance(inner, exp.Null):
+                value = self.unchecked(inner, scope, "unchecked_column",
+                                       "no Toolbox function gives a plain value as a column yet")
+            else:
+                value = self.column_or_unchecked(inner, scope)
             if isinstance(item, exp.Alias) or not isinstance(inner, exp.Column):
                 name = name or f"_c{number}"
                 value = f"{self.use('AS')}({value}, {_string(name)})"
@@ -355,21 +469,23 @@ class _Translator:
         return found
 
     def star(self, item: exp.Expression, scope: dict[str, _Source]) -> list[tuple[str, str]]:
-        """SELECT * or t.*: every column of the tables it names, through all_columns."""
+        """SELECT * or t.*: every column of the tables it names, through all_columns, and a
+        finding saying which columns, since the Toolbox writes each one."""
         table = item.table if isinstance(item, exp.Column) else ""
-        sources = [scope[table.lower()]] if table else list(scope.values())
+        if table and table not in scope:
+            raise Unconvertible(f"{table}.*, whose table the query doesn't read")
         found = []
-        for source in sources:
-            if source.columns is None:
-                raise Unconvertible("SELECT * of a table whose columns aren't known")
-            found.append((f"*{self.use('all_columns')}({source.variable})", "*"))
-            found += [("", column) for column in source.columns][:0]
+        for alias in [table] if table else list(scope):
+            source = scope[alias]
+            columns = source.columns or []
+            self.found(item, "changed", f"the * of {alias} becomes its columns, "
+                       + (", ".join(columns) if columns else "as its Table reference lists them"))
+            found.append((f"*{self.use('all_columns')}({source.variable})",
+                          columns[0] if columns else "*"))
+            found += [("", column) for column in columns[1:]]
         return found
 
     # --- Tables -----------------------------------------------------------------------------
-
-    def from_clause(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
-        return f"{self.use('FROM')}({self.source(node, scope)})"
 
     def source(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """The Python name of a table a query reads, bound in `scope` by its alias."""
@@ -380,42 +496,39 @@ class _Translator:
             variable = self.fresh(alias)
             self.result.assignments.append(
                 (variable, f"{self.use('derived')}({_string(alias)}, {self.query(node.this)})"))
-            scope[alias.lower()] = _Source(variable, self.columns_named(node.this))
+            scope[alias] = _Source(variable, self.columns_named(node.this))
+            self.found(node, "changed", f"the sub-query {alias} becomes a Derived table, which "
+                       f"the Toolbox writes at the top, as WITH {alias} AS (...)")
             return variable
         if not isinstance(node, exp.Table):
             raise Unconvertible(f"{type(node).__name__.upper()} in FROM")
+        if node.args.get("sample"):
+            raise Unconvertible("TABLESAMPLE, which no Clause function writes")
         name, database = node.name, node.db
-        if not database and name.lower() in self.ctes:
-            cte = self.ctes[name.lower()]
+        if not database and name in self.ctes:
+            cte = self.ctes[name]
             variable = cte.variable
-            if alias and alias.lower() != name.lower():
+            if alias and alias != name:
                 variable = self.fresh(alias)
                 self.result.assignments.append(
                     (variable, f"{self.use('AS')}({cte.variable}, {_string(alias)})"))
-            scope[(alias or name).lower()] = _Source(variable, cte.columns)
+            scope[alias or name] = _Source(variable, cte.columns)
             return variable
         database = database or self.database
         full = f"{database}.{name}"
-        if full not in self.result.tables:
-            self.result.tables.append(full)
-        columns = self.columns_of(full)
-        if columns is None and full not in self.result.missing:
-            self.result.missing.append(full)
-            self.result.findings.append(Finding(_line(node), "table",
-                                                f"{full} has no Table reference yet"))
         self.result.databases.add(database)
-        reached = f"{database}.{name}"
-        key = (full, (alias or name).lower())
+        key = (full, alias or name)
         if key not in self.table_variables:
             variable = self.fresh(alias or name)
-            value = (reached if not alias or alias.lower() == name.lower()
-                     else f"{self.use('AS')}({reached}, {_string(alias)})")
+            value = (full if not alias or alias == name
+                     else f"{self.use('AS')}({full}, {_string(alias)})")
             self.result.assignments.append((variable, value))
             self.table_variables[key] = variable
-        scope[(alias or name).lower()] = _Source(self.table_variables[key], columns)
+        scope[alias or name] = _Source(self.table_variables[key], self.columns_of(full))
         return self.table_variables[key]
 
     def join(self, node: exp.Join, scope: dict[str, _Source]) -> str:
+        """A join as the Clause function that writes it, ON= its condition."""
         side, kind = (node.side or "").upper(), (node.kind or "").upper()
         name = {("", ""): "JOIN", ("", "INNER"): "JOIN", ("LEFT", ""): "LEFT_JOIN",
                 ("LEFT", "OUTER"): "LEFT_JOIN", ("FULL", ""): "FULL_JOIN",
@@ -432,18 +545,46 @@ class _Translator:
         return f"{self.use(name)}({variable}, ON={self.conditions(node.args['on'], scope)})"
 
     def columns_named(self, node: exp.Expression) -> list[str] | None:
-        """The names of the columns a query gives, or None when a * hides them."""
+        """The names of the columns a query gives, or None when one is hidden by a * of a
+        table whose columns aren't known."""
         while isinstance(node, (exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
             node = node.this
         if not isinstance(node, exp.Select):
             return None
         names = []
         for number, item in enumerate(node.expressions):
-            if isinstance(item, exp.Star) or (isinstance(item, exp.Column)
-                                              and isinstance(item.this, exp.Star)):
-                return None
+            if _is_star(item):
+                columns = self.star_columns(node, item.table if isinstance(item, exp.Column)
+                                            else "")
+                if columns is None:
+                    return None
+                names += columns
+                continue
             names.append(item.alias_or_name if isinstance(item, (exp.Alias, exp.Column))
                          else f"_c{number}")
+        return names
+
+    def star_columns(self, node: exp.Select, table: str) -> list[str] | None:
+        """The columns a * of `table`, or of every table when it is "", gives in `node`, or
+        None when one of them isn't known."""
+        from_ = node.args.get("from_") or node.args.get("from")
+        reads = ([from_.this] if from_ else []) + [join.this for join in
+                                                   node.args.get("joins") or []]
+        names: list[str] = []
+        for read in reads:
+            if table and read.alias_or_name != table:
+                continue
+            if isinstance(read, exp.Subquery):
+                columns = self.columns_named(read.this)
+            elif isinstance(read, exp.Table) and not read.db and read.name in self.ctes:
+                columns = self.ctes[read.name].columns
+            elif isinstance(read, exp.Table):
+                columns = self.columns_of(f"{read.db or self.database}.{read.name}")
+            else:
+                columns = None
+            if columns is None:
+                return None
+            names += columns
         return names
 
     # --- Columns ----------------------------------------------------------------------------
@@ -452,7 +593,7 @@ class _Translator:
         """A column of a table the query reads, as Python: alias.column."""
         name, table = node.name, node.table
         if table:
-            source = scope.get(table.lower())
+            source = scope.get(table)
             if source is None:
                 raise Unconvertible(f"the column {table}.{name}, whose table the query doesn't "
                                     "read where it is used")
@@ -486,6 +627,8 @@ class _Translator:
                                                     for part in written) + ")"
 
     def condition_or_unchecked(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
+        """A condition as the Toolbox writes it, or, when no function does, an Unchecked
+        expression holding its Hive."""
         try:
             return self.condition(node, scope)
         except Unconvertible as why:
@@ -495,11 +638,14 @@ class _Translator:
                   why: str) -> str:
         """An Unchecked expression: the piece's Hive, each column in it a {placeholder} bound
         to the Column, and a finding saying why it stays Hive."""
+        if any(isinstance(part, (exp.Select, exp.Subquery)) for part in node.walk()):
+            raise Unconvertible(f"{why}; and an Unchecked expression can't hold it, as it reads "
+                                "a table of its own")
         piece = node.copy()
         bound: dict[str, str] = {}
         for number, column in enumerate(list(piece.find_all(exp.Column))):
             if isinstance(column.this, exp.Star):
-                raise Unconvertible(f"{why}, with a * inside it")
+                raise Unconvertible(f"{why}; and an Unchecked expression can't hold a *")
             name = _python_name(column.name)
             while name in bound and bound[name] != self.column(column, scope):
                 name = f"{name}_{number}"
@@ -508,8 +654,7 @@ class _Translator:
             column.replace(exp.Var(this=marker))
         text = sql_text(piece).replace("{", "{{").replace("}", "}}")
         text = re.sub(r"__placeholder_(\w+?)__", r"{\1}", text)
-        self.result.findings.append(Finding(_line(node), "unchecked",
-                                            f"{sql_text(node)} stays Hive: {why}"))
+        self.found(node, "unchecked", f"{sql_text(node)} stays Hive, in {function}(...): {why}")
         arguments = "".join(f", {name}={value}" for name, value in bound.items())
         return f"{self.use(function)}({_string(text)}{arguments})"
 
@@ -524,40 +669,43 @@ class _Translator:
             if isinstance(node, kinds):
                 return write(node, scope)
         if isinstance(node, exp.Coalesce) and len(node.expressions) == 1:
-            return (f"{self.use('fill_null')}({self.value(node.this, scope)}, "
-                    f"{self.value(node.expressions[0], scope)})")
+            return (f"{self.use('fill_null')}({self.column_or_unchecked(node.this, scope)}, "
+                    f"{self.column_or_unchecked(node.expressions[0], scope)})")
         if isinstance(node, exp.Func):
             return self.function(node, scope)
-        raise Unconvertible(f"{type(node).__name__.upper()}, which no Toolbox function writes")
+        raise Unconvertible("no Toolbox function writes it yet")
 
     def _writers(self) -> list[tuple[type | tuple[type, ...],
                                      Callable[[exp.Expression, dict[str, _Source]], str]]]:
         """What writes each kind of piece value() takes, first match wins: a Window before
         the function it holds, a Count before the aggregates."""
+        part = self.column_or_unchecked
         return [
-            (exp.Paren, lambda node, scope: f"({self.value(node.this, scope)})"),
+            (exp.Paren, lambda node, scope: f"({part(node.this, scope)})"),
             (exp.Column, self.column),
             (exp.Null, lambda node, scope: "None"),
-            (tuple(_BINARY), lambda node, scope: (f"{self.value(node.this, scope)} "
+            (tuple(_BINARY), lambda node, scope: (f"{part(node.this, scope)} "
                                                   f"{_BINARY[type(node)]} "
-                                                  f"{self.value(node.expression, scope)}")),
+                                                  f"{part(node.expression, scope)}")),
             (exp.Window, self.windowed),
             (exp.Count, self.count),
             (tuple(_AGGREGATES), self.aggregate),
             (exp.Case, self.case),
             (exp.If, lambda node, scope: (
-                f"{self.use('if_else')}({self.condition(node.this, scope)}, "
-                f"{self.value(node.args['true'], scope)}, "
-                f"{self.value(node.args.get('false') or exp.Null(), scope)})")),
+                f"{self.use('if_else')}({self.condition_or_unchecked(node.this, scope)}, "
+                f"{part(node.args['true'], scope)}, "
+                f"{part(node.args.get('false') or exp.Null(), scope)})")),
         ]
 
     def count(self, node: exp.Count, scope: dict[str, _Source]) -> str:
+        """COUNT(*) as count_rows(), COUNT(DISTINCT x) as count_distinct(x)."""
         inner = node.this
         if isinstance(inner, exp.Star):
             return f"{self.use('count_rows')}()"
         if isinstance(inner, exp.Distinct):
             if len(inner.expressions) != 1:
-                raise Unconvertible("COUNT(DISTINCT ...) of more than one column")
+                raise Unconvertible("no Toolbox function counts the distinct values of more "
+                                    "than one column")
             return f"{self.use('count_distinct')}({self.value(inner.expressions[0], scope)})"
         return f"{self.use('hive_function')}(\"count\", {self.value(inner, scope)})"
 
@@ -569,51 +717,55 @@ class _Translator:
         if (isinstance(inner, exp.Case) and len(inner.args.get("ifs") or []) == 1
                 and not inner.args.get("default") and not inner.this):
             branch = inner.args["ifs"][0]
-            return (f"{name}({self.value(branch.args['true'], scope)}, "
-                    f"where={self.condition(branch.this, scope)})")
-        return f"{name}({self.value(inner, scope)})"
+            return (f"{name}({self.column_or_unchecked(branch.args['true'], scope)}, "
+                    f"where={self.condition_or_unchecked(branch.this, scope)})")
+        return f"{name}({self.column_or_unchecked(inner, scope)})"
 
     def case(self, node: exp.Case, scope: dict[str, _Source]) -> str:
-        """CASE as mapped(...) when it looks one column up, if_else(...) with one WHEN, or
-        first_match(...)."""
+        """CASE as mapped(...), if_else(...) or first_match(...).
+
+        It is mapped(...) when it looks one column's plain values up, and if_else(...) with
+        one WHEN."""
         branches = node.args.get("ifs") or []
         default = node.args.get("default")
-        otherwise = f", otherwise={self.value(default, scope)}" if default else ""
-        if node.this is not None:
-            return self.mapped(node.this, branches, otherwise, node, scope)
-        keyed = [(branch.this, branch.args["true"]) for branch in branches]
-        looked_up = [(compared.this, compared.expression) for compared, _ in keyed
-                     if isinstance(compared, exp.EQ) and _literal(compared.expression)]
-        if (len(looked_up) == len(keyed) > 1
-                and len({sql_text(one) for one, _ in looked_up}) == 1):
-            return self.mapped(looked_up[0][0], [exp.If(this=key, true=then) for (_, key), (_, then)
-                                                 in zip(looked_up, keyed)], otherwise, node, scope)
+        otherwise = f", otherwise={self.column_or_unchecked(default, scope)}" if default else ""
+        # CASE x WHEN 1 THEN ... says the same as CASE WHEN x = 1 THEN ...
+        keyed = [(exp.EQ(this=node.this.copy(), expression=branch.this.copy())
+                  if node.this is not None else branch.this, branch.args["true"])
+                 for branch in branches]
+        looked_up = [compared for compared, then in keyed
+                     if isinstance(compared, exp.EQ) and _literal(compared.expression)
+                     and _literal(then)]
+        if (len(looked_up) == len(keyed) and (node.this is not None or len(keyed) > 1)
+                and len({sql_text(compared.this) for compared in looked_up}) == 1):
+            return self.mapped(keyed, otherwise, node, scope)
         if len(keyed) == 1:
             condition, then = keyed[0]
-            return (f"{self.use('if_else')}({self.condition(condition, scope)}, "
-                    f"{self.value(then, scope)}, "
-                    f"{self.value(default, scope) if default else 'None'})")
-        pairs = [f"({self.condition(condition, scope)}, {self.value(then, scope)})"
-                 for condition, then in keyed]
+            return (f"{self.use('if_else')}({self.condition_or_unchecked(condition, scope)}, "
+                    f"{self.column_or_unchecked(then, scope)}, "
+                    f"{self.column_or_unchecked(default, scope) if default else 'None'})")
+        pairs = [f"({self.condition_or_unchecked(condition, scope)}, "
+                 f"{self.column_or_unchecked(then, scope)})" for condition, then in keyed]
         listed = "[\n" + "".join(f"    {_indented(pair, 4)},\n" for pair in pairs) + "]"
         return f"{self.use('first_match')}({_indented(listed, 0)}{otherwise})"
 
-    def mapped(self, column: exp.Expression, branches: list[exp.Expression], otherwise: str,
-               node: exp.Expression, scope: dict[str, _Source]) -> str:
-        """CASE column WHEN key THEN value ...: mapped(column, A_NAMED_DICT)."""
-        pairs = []
-        for branch in branches:
-            key, then = _literal(branch.this), _literal(branch.args["true"])
-            if key is None or then is None:
-                raise Unconvertible("a CASE whose keys or values aren't all plain values")
-            pairs.append(f"{key}: {then}")
+    def mapped(self, keyed: list[tuple[exp.Expression, exp.Expression]], otherwise: str,
+               node: exp.Case, scope: dict[str, _Source]) -> str:
+        """A CASE comparing one column with plain values, each giving a plain value:
+        mapped(column, A_NAMED_DICT)."""
+        column = keyed[0][0].this
+        pairs = [f"{_literal(compared.expression)}: {_literal(then)}"
+                 for compared, then in keyed]
         looked_up = self.value(column, scope)
         named = node.parent.alias if isinstance(node.parent, exp.Alias) else ""
         key = column.name if isinstance(column, exp.Column) else "value"
         wanted = f"{named}_by_{key}" if named else f"{key}_names"
         value = "{\n" + "".join(f"    {pair},\n" for pair in pairs) + "}"
-        constant = self.constant(wanted, value, _line(node),
-                                 f"the CASE on {sql_text(column)}")
+        constant = self.constant(wanted, value, node, f"the CASE on {sql_text(column)}")
+        if node.this is None:
+            self.found(node, "changed", f"the CASE WHEN {sql_text(column)} = ... becomes "
+                       f"mapped(...), which the Toolbox writes as CASE {sql_text(column)} WHEN "
+                       "..., the same lookup")
         return f"{self.use('mapped')}({looked_up}, {constant}{otherwise})"
 
     def function(self, node: exp.Func, scope: dict[str, _Source]) -> str:
@@ -631,8 +783,10 @@ class _Translator:
                     arguments += given if isinstance(given, list) else [given]
         # sqlglot keeps some settings of its own beside the arguments, as True or False.
         arguments = [one for one in arguments if not isinstance(one, bool)]
-        if not called or not all(isinstance(one, exp.Expression) for one in arguments):
-            raise Unconvertible(f"{written}, which hive_function can't write")
+        if not called or not all(isinstance(one, exp.Expression)
+                                 and not isinstance(one, exp.DataType) for one in arguments):
+            raise Unconvertible(f"no Toolbox function writes {_called(node)} yet, and "
+                                "hive_function(...) writes only calls such as name(a, b)")
         name = called.group(1).lower()
         again = exp.Anonymous(this=name, expressions=[one.copy() for one in arguments])
         try:
@@ -640,8 +794,9 @@ class _Translator:
         except sqlglot.errors.ParseError:
             read_again = None
         if read_again is None or sql_text(read_again) != written:
-            raise Unconvertible(f"{written}, which hive_function would write differently")
-        values = [self.value(one, scope) for one in arguments]
+            raise Unconvertible(f"no Toolbox function writes {_called(node)} yet, and "
+                                "hive_function(...) would write it differently")
+        values = [self.column_or_unchecked(one, scope) for one in arguments]
         return f"{self.use('hive_function')}({_string(name)}{''.join(', ' + v for v in values)})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:
@@ -657,7 +812,7 @@ class _Translator:
             steps = inner.args.get("offset")
             far = f", {'back' if name == 'lag' else 'ahead'}={steps.this}" if steps else ""
             if inner.args.get("default"):
-                raise Unconvertible(f"{name.upper()} with a default value")
+                raise Unconvertible(f"{name} doesn't take a default value yet")
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over}{far})"
         if isinstance(inner, exp.Count) and isinstance(inner.this, exp.Star):
             return f"{self.use('count_rows')}(over={over})"
@@ -667,10 +822,10 @@ class _Translator:
         if isinstance(inner, (exp.FirstValue, exp.LastValue)):
             name = "first_value" if isinstance(inner, exp.FirstValue) else "last_value"
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over})"
-        raise Unconvertible(f"{sql_text(inner)} OVER (...), which no Toolbox "
-                            "function writes")
+        raise Unconvertible(f"no Toolbox function writes {_called(inner)} OVER (...) yet")
 
     def window(self, node: exp.Window, scope: dict[str, _Source]) -> str:
+        """The OVER (...) of a window function, as window(...)."""
         parts = []
         if node.args.get("partition_by"):
             parts.append("PARTITION_BY=" + _listed(
@@ -681,7 +836,7 @@ class _Translator:
         spec = node.args.get("spec")
         if spec is not None:
             if (spec.args.get("kind") or "").upper() != "ROWS":
-                raise Unconvertible("a RANGE window, which window(...) doesn't write")
+                raise Unconvertible("window(...) writes ROWS frames only, not RANGE")
             parts.append(f"rows=({self.frame_end(spec, 'start')}, {self.frame_end(spec, 'end')})")
         return f"{self.use('window')}({', '.join(parts)})"
 
@@ -696,7 +851,7 @@ class _Translator:
             return "0"
         number = int(value.this) if isinstance(value, exp.Literal) else None
         if number is None:
-            raise Unconvertible("a window frame whose ends aren't numbers of rows")
+            raise Unconvertible("window(...) takes frame ends counted in rows only")
         return str(-number if side == "PRECEDING" else number)
 
     # --- Conditions -------------------------------------------------------------------------
@@ -707,7 +862,7 @@ class _Translator:
             return self.condition(node.this, scope)
         if isinstance(node, (exp.And, exp.Or)):
             name = "all_of" if isinstance(node, exp.And) else "any_of"
-            parts = [self.condition(part, scope) for part in node.flatten()]
+            parts = [self.condition_or_unchecked(part, scope) for part in node.flatten()]
             return (f"{self.use(name)}(\n" + "".join(f"    {_indented(part, 4)},\n"
                                                      for part in parts) + ")")
         if type(node) in _COMPARISONS:
@@ -724,33 +879,38 @@ class _Translator:
             return self.negated(node.this, scope)
         if isinstance(node, exp.Like):
             return self.like(node, scope)
-        raise Unconvertible(f"{sql_text(node)}, which no condition function writes")
+        raise Unconvertible("no condition function writes it yet")
 
     def comparison(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
+        """=, !=, >, >=, < or <= as equals(...) and its like, the column first."""
         name, swapped = _COMPARISONS[type(node)]
         left, right = node.this, node.expression
         if isinstance(left, exp.Null) or isinstance(right, exp.Null):
-            raise Unconvertible("a comparison with NULL, which is never true")
+            raise Unconvertible("a comparison with NULL is never true, and no condition "
+                                "function writes one")
         if _literal(left) is not None and _literal(right) is None:
             left, right, name = right, left, swapped
         if _literal(left) is not None:
-            raise Unconvertible("a comparison of two plain values")
+            raise Unconvertible("no condition function compares two plain values")
         return f"{self.use(name)}({self.value(left, scope)}, {self.value(right, scope)})"
 
     def in_list(self, node: exp.In, scope: dict[str, _Source], name: str) -> str:
+        """IN (...) as is_in, or is_not_in under NOT; a long list a named constant."""
         if node.args.get("query"):
-            raise Unconvertible("IN (SELECT ...), which SEMI_JOIN writes as a join")
+            raise Unconvertible("no condition function writes IN (SELECT ...): SEMI_JOIN(...) "
+                                "writes it as a join")
         values = [_literal(one) for one in node.expressions]
         if None in values:
-            raise Unconvertible("an IN list holding more than plain values")
+            raise Unconvertible("is_in(...) takes a list of plain values only")
         listed = _listed(values)
         if len(values) >= LONG_LIST:
             column = node.this.name if isinstance(node.this, exp.Column) else "listed"
-            listed = self.constant(f"{column}_values", _listed(values),
-                                   _line(node), f"the IN list of {len(values)} values")
+            listed = self.constant(f"{column}_values", _listed(values), node,
+                                   f"the IN list of {len(values)} values")
         return f"{self.use(name)}({self.value(node.this, scope)}, {listed})"
 
     def negated(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
+        """NOT IN, IS NOT NULL and NOT x = y, as the condition functions that say each."""
         if isinstance(node, exp.Paren):
             return self.negated(node.this, scope)
         if isinstance(node, exp.In):
@@ -759,10 +919,10 @@ class _Translator:
             return f"{self.use('is_not_null')}({self.value(node.this, scope)})"
         if isinstance(node, exp.EQ):
             return self.comparison(exp.NEQ(this=node.this, expression=node.expression), scope)
-        raise Unconvertible(f"NOT {sql_text(node)}, which no condition function "
-                            "writes")
+        raise Unconvertible("no condition function writes NOT of it yet")
 
     def like(self, node: exp.Like, scope: dict[str, _Source]) -> str:
+        """LIKE 'x%' as starts_with, LIKE '%x%' as contains."""
         pattern = node.expression
         if isinstance(pattern, exp.Literal) and pattern.is_string:
             text = pattern.this
@@ -774,29 +934,81 @@ class _Translator:
                 if text == f"%{inner}%":
                     return (f"{self.use('contains')}({self.value(node.this, scope)}, "
                             f"{_string(inner)})")
-        raise Unconvertible("a LIKE pattern neither starts_with nor contains writes")
+        raise Unconvertible("starts_with(...) and contains(...) write only LIKE 'x%' and "
+                            "LIKE '%x%'")
 
     # --- GROUP BY and ORDER BY ----------------------------------------------------------------
 
-    def group(self, node: exp.Group, scope: dict[str, _Source],
-              outputs: list[tuple[str, str]]) -> str:
-        if any(node.args.get(part) for part in ("rollup", "cube", "grouping_sets")):
-            raise Unconvertible("ROLLUP, CUBE or GROUPING SETS in Hive's own form")
+    def grouped(self, node: exp.Expression, scope: dict[str, _Source],
+                named: dict[str, str]) -> str:
+        """One thing GROUP BY groups by: a column, a name the SELECT gives, or a calculation."""
+        if isinstance(node, exp.Column):
+            return self.column(node, scope)
+        if sql_text(node) in named:
+            return _string(named[sql_text(node)])
+        return self.column_or_unchecked(node, scope)
+
+    def group(self, node: exp.Group, scope: dict[str, _Source]) -> str:
+        """GROUP BY as GROUP_BY(...), with its subtotals in either of Hive's forms."""
         # A calculation the SELECT names is grouped by that name, as GROUP_BY takes it.
         named = {sql_text(item.this): item.alias
                  for item in node.parent.expressions if isinstance(item, exp.Alias)}
-        items = []
-        for one in node.expressions:
-            if isinstance(one, exp.Column):
-                items.append(self.column(one, scope))
-            elif sql_text(one) in named:
-                items.append(_string(named[sql_text(one)]))
-            else:
-                items.append(self.column_or_unchecked(one, scope))
+        plain = [one for one in node.expressions
+                 if not isinstance(one, (exp.Rollup, exp.Cube, exp.GroupingSets))]
+        inside = [one for one in node.expressions if one not in plain]
+        # Hive's older form: GROUP BY a, b WITH ROLLUP, WITH CUBE, or GROUPING SETS (...).
+        after = [(part, one) for part in ("rollup", "cube", "grouping_sets")
+                 for one in (node.args.get(part) if isinstance(node.args.get(part), list)
+                             else [node.args.get(part)] if node.args.get(part) else [])]
+        if len(inside) + len(after) > 1:
+            raise Unconvertible("GROUP_BY takes one rollup, cube or grouping_sets")
+        items = [self.grouped(one, scope, named) for one in plain]
+        if inside or after:
+            items = self.subtotals(node, inside, after, plain, items, scope, named)
         return f"{self.use('GROUP_BY')}({', '.join(items)})"
+
+    def subtotals(self, node: exp.Group, inside: list[exp.Expression],
+                  after: list[tuple[str, exp.Expression | bool]], plain: list[exp.Expression],
+                  items: list[str], scope: dict[str, _Source], named: dict[str, str]
+                  ) -> list[str]:
+        """GROUP_BY's items with its subtotals: ROLLUP (a, b) beside its plain columns, as
+        rollup(a, b) is; GROUP BY a, b WITH ROLLUP, all its columns rolled up; and
+        GROUP BY a, b GROUPING SETS (...), whose sets name every one of its columns."""
+        if inside:
+            one = inside[0]
+            kind = {exp.Rollup: "rollup", exp.Cube: "cube"}.get(type(one), "grouping_sets")
+            sets = list(one.expressions)
+        else:
+            kind, one = after[0]
+            sets = list(one.expressions) if isinstance(one, exp.Expression) else []
+            if kind != "grouping_sets":
+                sets, items = plain, []
+            else:
+                listed = {sql_text(column) for each in sets for column in (
+                    each.expressions if isinstance(each, exp.Tuple) else [each.unnest()])}
+                if listed != {sql_text(column) for column in plain}:
+                    raise Unconvertible("grouping_sets(...) groups by the columns its sets "
+                                        "name, and this GROUP BY names others too")
+                items = []
+        if not sets:
+            raise Unconvertible(f"{kind}(...) needs a column")
+        if kind == "grouping_sets":
+            written = ", ".join(
+                "[" + ", ".join(self.grouped(column, scope, named) for column in (
+                    each.expressions if isinstance(each, exp.Tuple) else [each.unnest()]))
+                + "]" for each in sets)
+        else:
+            written = ", ".join(self.grouped(column, scope, named) for column in sets)
+        call = f"{self.use(kind)}({written})"
+        if kind != "grouping_sets":
+            self.found(node, "changed", f"{sql_text(node)} becomes "
+                       f"GROUP_BY({', '.join([*items, call])}), which the Toolbox writes as the "
+                       "GROUPING SETS it stands for")
+        return [*items, call]
 
     def order(self, node: exp.Order, scope: dict[str, _Source],
               outputs: list[tuple[str, str]]) -> str:
+        """ORDER BY as ORDER_BY(...): by a name, a position or a column."""
         names = {name for _, name in outputs}
         items = []
         for ordered in node.expressions:
@@ -812,6 +1024,7 @@ class _Translator:
         return f"{self.use('ORDER_BY')}({', '.join(items)})"
 
     def ordering(self, node: exp.Ordered, scope: dict[str, _Source]) -> str:
+        """One ORDER BY of a window, descending(...) when it sorts down."""
         written = self.value(node.this, scope)
         return f"{self.use('descending')}({written})" if node.args.get("desc") else written
 
@@ -827,15 +1040,16 @@ class _Translator:
             value = f"{self.use('derived')}({_string(name)}, {self.query(node.this)})"
         except Unconvertible as why:
             if columns is None:
-                raise Unconvertible(f"the CTE {name}, whose columns a * hides: {why}") from why
+                raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * of a "
+                                    "table with no Table reference yet hides its columns") from why
             text = sql_text(node.this, pretty=True)
             listed = "{\n" + "".join(f"    {_string(column)}: None,\n" for column in columns) + "}"
             value = (f"{self.use('unchecked_derived')}({_string(name)}, {_string(text)}, "
                      f"columns={listed})")
-            self.result.findings.append(Finding(_line(node), "unchecked",
-                                                f"the CTE {name} stays Hive: {why}"))
+            self.found(node, "unchecked", f"the CTE {name} stays Hive, in "
+                       f"unchecked_derived(...): {why}")
         self.result.assignments.append((variable, value))
-        self.ctes[name.lower()] = _Source(variable, columns)
+        self.ctes[name] = _Source(variable, columns)
 
 
 # A refusal's opt-out, as its four-part message ends: the call it names, the first thing that
@@ -899,7 +1113,7 @@ def with_opt_out(logic: str, refusal: str) -> tuple[str, str] | None:
     return None
 
 
-def _read_insert(node: exp.Insert, result: Translation) -> exp.Expression:
+def _read_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
     """Note what an INSERT wrote, and how, and give back the query it wrote: INSERT INTO or
     INSERT OVERWRITE, with or without TABLE, PARTITION(...) with values or without, and a
     list of the table's columns. Your own Saved table is written in the same way instead."""
@@ -946,13 +1160,14 @@ def _read_insert(node: exp.Insert, result: Translation) -> exp.Expression:
                                              else item, name)
                                   for item, name in zip(query.expressions, result.insert_columns)])
         said += f", naming the columns {', '.join(result.insert_columns)}, which its SELECT now names,"
-    result.findings.append(Finding(_line(node), "dropped",
+    # The line of the table it writes, which is INSERT's: a WITH before it starts the node.
+    result.findings.append(Finding(_line(node.this, text), "dropped",
                                    f"{said} becomes your own Saved table's write, "
                                    f"{result.write}(...), with the same partitions"))
     return query
 
 
-def _the_one_query(text: str, result: Translation) -> exp.Expression:
+def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     """The one statement in `text` that isn't a SET line, its SET lines kept as `result`'s
     Session settings; refused when sqlglot can't read it, or it holds more than one."""
     try:
@@ -960,25 +1175,36 @@ def _the_one_query(text: str, result: Translation) -> exp.Expression:
     except sqlglot.errors.ParseError as error:
         raise ConversionRefused(f"sqlglot can't read it as Hive: {error}") from error
     queries = [one for one in parsed if not isinstance(one, exp.Set)]
-    for one in parsed:
-        if isinstance(one, exp.Set):
-            for item in one.expressions:
-                assigned = item.this
-                value = assigned.expression
-                result.settings[sql_text(assigned.this)] = (
-                    str(value.this).lower() if isinstance(value, exp.Boolean)
-                    else value.this if isinstance(value, exp.Literal) else sql_text(value))
-            result.findings.append(Finding(_line(one), "settings",
-                                           "its SET lines are the Session settings "
-                                           "HIVE_SETTINGS"))
+    sets = [one for one in parsed if isinstance(one, exp.Set)]
+    for one in sets:
+        for item in one.expressions:
+            assigned = item.this
+            value = assigned.expression
+            result.settings[sql_text(assigned.this)] = (
+                str(value.this).lower() if isinstance(value, exp.Boolean)
+                else value.this if isinstance(value, exp.Literal) else sql_text(value))
+    if sets:
+        result.findings.append(Finding(
+            _line(sets[0], text), "settings",
+            f"its {'SET line is' if len(sets) == 1 else f'{len(sets)} SET lines are'} the "
+            "Session settings HIVE_SETTINGS, which session_settings() gives"))
     if len(queries) != 1:
         raise ConversionRefused(f"it holds {len(queries)} statements, and a Conversion reads "
                                 "one query")
     return queries[0]
 
 
-def translate(text: str, columns_of: Callable[[str], list[str] | None],
-              database: str = "default") -> Translation:
+def _with(query: exp.Expression, with_: exp.Expression | None) -> exp.Expression:
+    """A copy of `query`, its WITH set to `with_`, or taken away when that is None."""
+    query = query.copy()
+    for part in ("with_", "with"):
+        if part in query.arg_types:
+            query.set(part, with_.copy() if with_ is not None else None)
+    return query
+
+
+def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
+                  database: str = "default") -> ConvertedQuery:
     """Read one Hive query and give back the Python that builds it again.
 
     `columns_of` gives a table's columns, by "db.table", from its Table reference, or None when
@@ -986,9 +1212,11 @@ def translate(text: str, columns_of: Callable[[str], list[str] | None],
     query's Session settings; an INSERT ... SELECT keeps its SELECT, and its PARTITION(...)
     columns are noted. A script of several queries is refused, to be split.
     """
-    translator = _Translator(columns_of, database)
-    result = translator.result
+    converter = _Converter(columns_of, database, text)
+    result = converter.result
     query = _the_one_query(text, result)
+    for name in query.find_all(exp.Identifier):
+        name.set("this", name.name.lower())  # Hive reads a name whatever its case
     # A WITH before INSERT ... SELECT is the INSERT's; before a SELECT, the SELECT's.
     with_ = query.args.get("with_") or query.args.get("with")
     if isinstance(query, exp.MultitableInserts):
@@ -997,29 +1225,33 @@ def translate(text: str, columns_of: Callable[[str], list[str] | None],
                                 f"{', '.join(targets)}, and a Conversion reads one query: write "
                                 "each INSERT as a query of its own, FROM first")
     if isinstance(query, exp.Insert):
-        query = _read_insert(query, result)
+        query = _read_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
         raise ConversionRefused(f"it is a {type(query).__name__.upper()}, not a query")
     with_ = with_ or query.args.get("with_") or query.args.get("with")
-    for cte in (with_.expressions if with_ else []):
-        translator.cte(cte)
-    query = query.copy()
-    for part in ("with_", "with"):
-        if part in query.arg_types:
-            query.set(part, None)
+    whole = _with(query, with_)
+    converter.tables_read(whole)
+    converter.variables()
+    before = list(result.findings)
+    query = _with(query, None)
     try:
+        for cte in (with_.expressions if with_ else []):
+            converter.cte(cte)
         if isinstance(query, exp.Select):
-            result.clauses = translator.clauses(query)
-            result.query = (f"{translator.use('statement')}(\n"
+            result.clauses = converter.clauses(query)
+            result.query = (f"{converter.use('statement')}(\n"
                             + "".join(f"    {_indented(clause, 4)},\n"
                                       for clause in result.clauses) + ")")
         else:
-            result.query = translator.query(query)
+            result.query = converter.query(query)
     except Unconvertible as why:
-        result.clauses = None
-        result.query = f"{translator.use('unchecked_hive')}({_string(sql_text(query))})"
-        result.findings.append(Finding(_line(query), "unchecked",
-                                       f"the whole query stays an Unchecked statement: {why}"))
+        # What was converted before it stopped is no use to the Unchecked statement.
+        result.clauses, result.assignments, result.constants = None, [], []
+        result.names, result.databases = set(), set()
+        result.findings = before + [Finding(_line(whole, text), "unchecked",
+                                            f"the whole query stays an Unchecked statement, "
+                                            f"unchecked_hive(...): {why}")]
+        result.query = f"{converter.use('unchecked_hive')}({_string(sql_text(whole))})"
     if result.settings:
         result.constants.insert(0, ("HIVE_SETTINGS", "{\"converted\": {\n" + "".join(
             f"    {_string(name)}: {_string(value)},\n" for name, value in result.settings.items())

@@ -117,7 +117,7 @@ Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register("mart.job_day")
 >>> project.register("mart.job_day")  # -> a report, printed
 Registered references/mart__job_day.py.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes and mart.team_days.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 `project.register` also writes references/mart.py again, the `mart` Database, so the table
