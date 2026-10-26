@@ -6,8 +6,8 @@ Run it on `dev` after changing a docstring's example, a Statement script in
     python tools/example_gallery.py
 
 A test fails while a committed page differs from what this writes. It runs every Statement on
-the Example database, which says when it can't, such as on a sqlglot older than the pin in
-requirements-dev.txt.
+the Example database, which runs on every sqlglot the Toolbox supports; the committed page is
+written on the pin in requirements-dev.txt.
 
 The page holds two kinds of Worked example:
 

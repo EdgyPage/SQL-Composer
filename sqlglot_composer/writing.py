@@ -28,7 +28,6 @@ from .trees import (
     plain_name,
 )
 
-
 if TYPE_CHECKING:
     from sqlglot.optimizer.scope import Scope
 
@@ -101,9 +100,9 @@ def read_back(text: str) -> str:
     return sql_text(parser.parse(dialect.tokenize(text), text)[0], pretty=True)
 
 
-# MSCK REPAIR TABLE, ANALYZE TABLE and EXPLAIN, which some or all of the sqlglot versions
-# sqlglot Composer supports read only as a Command, text sqlglot doesn't look inside, and say
-# so in a log message.
+# MSCK REPAIR TABLE and EXPLAIN, which sqlglot reads only as a Command, text it doesn't look
+# inside, saying so in a log message; and ANALYZE TABLE, which the Toolbox writes as a Command
+# too (_analyze). Each is read back by its own words.
 _UPKEEP = ("EXPLAIN ", "MSCK REPAIR TABLE ", "ANALYZE TABLE ")
 _ANALYZE = re.compile(r"ANALYZE TABLE (.+?) COMPUTE STATISTICS(?: FOR COLUMNS (.+))?", re.S)
 

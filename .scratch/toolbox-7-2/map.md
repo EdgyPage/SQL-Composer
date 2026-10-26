@@ -130,6 +130,7 @@ howto files".
 - [08 Checking a Conversion](issues/08-checking-a-conversion.md)
 - [09 The docs: how-tos, Worked examples and the Example project](issues/09-the-docs.md)
 - [10 Every row of the conversion chart checks out](issues/10-every-row-of-the-conversion-chart.md)
+- [11 sqlglot 30.19.0 at the bottom of the range](issues/11-sqlglot-30-19-at-the-bottom.md)
 
 The order is the user's habit from 7.0: one at a time, by number. The real dependencies are in
 each ticket's `Blocked by:`: 02, 03 and 04 need only 01, and could run side by side if the user
@@ -183,6 +184,9 @@ asks, though all three touch CHANGES.md.
   a query in brackets is its Derived table, and a `*` its columns, in both compares; the
   Example database runs windows itself, counts after any join, and spells out CASE on one
   column; a stand-in it never needs is refused.
+- [11 sqlglot 30.19.0 at the bottom of the range](issues/11-sqlglot-30-19-at-the-bottom.md):
+  the range is 30.19.0 up to (not including) 31, CI runs the pin alone, and what only older
+  sqlglot needed is gone; the multi-INSERT fallback stays for 30.19.0.
 
 ## Not yet specified
 

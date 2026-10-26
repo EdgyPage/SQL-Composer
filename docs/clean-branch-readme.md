@@ -27,8 +27,11 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
    - On Python 3.11, numpy 2.5.4 can't install: change its line in `requirements.txt` to
      `numpy==2.4.6`, which pandas 3.0.6 runs on there, before you run pip.
    - A package your notebook already has, such as pandas, needn't be installed again: delete
-     its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 30.19.0 up to
-     (not including) 31.
+     its line, so pip doesn't replace it.
+   - The Toolbox works with any sqlglot from 30.19.0 up to (not including) 31.
+     `import sqlglot; print(sqlglot.__version__)` in a notebook shows which you have: keep
+     sqlglot's line, so pip installs the one the Toolbox is tested on, unless yours is in that
+     range.
 3. Make an empty folder for your Project, and copy the whole `sqlglot_composer` folder into
    it. Keep your own files beside it, never inside it.
 4. Open a notebook in the Project's folder, such as start.ipynb, and lay the folder out with

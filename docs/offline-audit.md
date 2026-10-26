@@ -23,7 +23,8 @@ sqlglot 30.19.0, pandas 2.0.3, numpy 1.25.2, pyspark 4.0.4 and py4j 0.10.9.9, th
 and pyspark 3.5.0), weren't read; the tests run them under the same trap. The pins have since
 moved to sqlglot 30.23.0 and pyspark 4.2.0 (2026-10-19, py4j still 0.10.9.9), which this audit
 didn't read either; the tests run them under the same trap too. Since 7.2 sqlglot's range
-starts at 30.19.0, the version this audit read, and CI runs only the pin.
+is 30.19.0, the version this audit read, up to (not including) 31, and CI runs only the pin,
+no longer 25.24.2.
 
 ## The verdict
 
