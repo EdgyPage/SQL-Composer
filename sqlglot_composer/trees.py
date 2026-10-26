@@ -22,8 +22,6 @@ import re
 from collections import deque
 from collections.abc import Callable, Iterator
 
-TOOLBOX_VERSION = "7.1"
-
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # How the Toolbox writes a character of a string value between single quotes, escaped on its

@@ -18,8 +18,6 @@ from .refusals import is_count, refuse
 from .tables import Column, made_by, python_text
 from .trees import Node, has_window, is_aggregate, number, numbers_rows
 
-TOOLBOX_VERSION = "7.1"
-
 # What a function needs of its window: ORDER_BY, and whether it takes rows=.
 TOTAL = "a total"  # sum_of, average_of, count_rows, min_of, max_of: rows= with ORDER_BY
 PLACE = "a place"  # row_number, rank, dense_rank, ntile, lag, lead: ORDER_BY, no rows=

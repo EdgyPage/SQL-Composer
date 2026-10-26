@@ -37,8 +37,6 @@ from .unchecked import SessionSettings, UncheckedStatement, inline_code, tables_
 from .windows import call_of
 from .writing import hive_text
 
-TOOLBOX_VERSION = "7.1"
-
 
 # --- What a box shows --------------------------------------------------------------------------
 # Both views read box_lines, so a line added there shows in the HTML page and the Mermaid chart

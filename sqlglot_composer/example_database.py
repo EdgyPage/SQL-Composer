@@ -89,8 +89,6 @@ from .refusals import in_words, refuse
 from .tables import Table
 from .unchecked import SAID
 
-TOOLBOX_VERSION = "7.1"
-
 # --- The Table references -----------------------------------------------------------------
 # Each column's description is the comment DESCRIBE prints for it.
 

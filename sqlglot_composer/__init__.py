@@ -5,17 +5,19 @@ Import everything from here, never from a file inside the folder:
     from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run_query
 
 The Toolbox is this one folder. To update, delete it, copy it in again from the download and
-restart the kernel. It checks itself when imported. If a file is missing, extra, from another
-version or export, or from another Toolbox folder, or if this Python can't run the Toolbox, it
-stops and says what happened, why it matters and the usual fix.
+restart the kernel. It checks itself when imported. If a file is missing or extra, if its
+version.txt is missing or from another Toolbox folder, or if this Python can't run the Toolbox,
+it stops and says what happened, why it matters and the usual fix. A file that differs from the
+download, edited by hand or pasted from another one, only warns.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
-full text, which also says when this copy was exported.
+full text, which also says when this copy was exported. Both are read from the folder's
+version.txt, the one place the version is written.
 
 >>> TOOLBOX_VERSION
-'7.1'
+'7.2'
 >>> VERSION
-'sqlglot Composer 7.1, ...'
+'sqlglot Composer 7.2, ...'
 """
 
 from __future__ import annotations
@@ -23,16 +25,9 @@ from __future__ import annotations
 import os
 from typing import NoReturn
 
-TOOLBOX_VERSION = "7.1"
-
-# The folder this file belongs in, and the name its export stamps on each of the folder's
-# files.
+# The folder this file belongs in, and the name its version.txt gives the Toolbox.
 _FOLDER = "sqlglot_composer"
 _PRODUCT = "sqlglot Composer"
-
-# The export script writes this folder's file list here. On dev it is None, and the checks
-# for missing and extra files are skipped.
-_FILES = None
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 # The folder the import found, which a stop is headed by, even if you renamed it.
@@ -74,7 +69,9 @@ if not os.path.isfile(os.path.join(_HERE, "checks.py")):
 from . import checks  # noqa: E402
 
 checks.check_python(_PRODUCT, _IMPORTING)
-checks.check_folder(_HERE, _FOLDER, _PRODUCT, _FILES, TOOLBOX_VERSION, _IMPORTING)
+_VERSION_FILE = checks.read_version_file(_HERE, _PRODUCT, _IMPORTING)
+checks.check_folder(_HERE, _PRODUCT, _VERSION_FILE, _IMPORTING)
+TOOLBOX_VERSION = _VERSION_FILE.version
 
 # engine.py checks that sqlglot is installed. It is imported only once the folder is known to
 # be whole, and before writing.py, which needs sqlglot.
@@ -82,7 +79,7 @@ from . import engine  # noqa: E402
 
 engine.check_installed()
 
-VERSION = checks.version_text(_HERE, _PRODUCT, TOOLBOX_VERSION)
+VERSION = checks.version_text(_PRODUCT, _VERSION_FILE)
 
 from . import writing  # noqa: E402, F401
 from .public import *  # noqa: E402, F403

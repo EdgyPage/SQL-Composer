@@ -43,8 +43,6 @@ from .trees import Node, and_parts, has_aggregate, has_window
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
 
-TOOLBOX_VERSION = "7.1"
-
 
 class Found(NamedTuple):
     """One Key of a Statement: its output names, and how the rows are told apart by them."""

@@ -99,8 +99,6 @@ from .refusals import (callers_frame, in_words, need_warehouse_call, refuse,
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
-TOOLBOX_VERSION = "7.1"
-
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables"]

@@ -20,8 +20,6 @@ from . import kinds
 from .refusals import in_words, refuse
 from .tables import Column, Table
 
-TOOLBOX_VERSION = "7.1"
-
 # What a refusal's usual fix shows a call as.
 _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=margins)"
 

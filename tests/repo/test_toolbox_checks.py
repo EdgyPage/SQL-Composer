@@ -2,8 +2,8 @@
 
 - each Toolbox file imports only the standard library, itself and what `tools/toolbox_registry.py`
   allows it: pandas and numpy, and sqlglot in the files that need it;
-- every Toolbox file declares the same TOOLBOX_VERSION, and CHANGES.md, at the repo's top, has a
-  section for it;
+- the Toolbox's version is written in one place, its version.txt, and CHANGES.md, at the repo's
+  top, has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
   so are the admin module's and the project module's, which the star import leaves out;
 - ruff passes, with its complexity limit (C901, at most 10) on every function;
@@ -86,7 +86,7 @@ FOLDER = ROOT / toolbox_registry.FOLDER
 
 
 def toolbox_files() -> list[Path]:
-    """Every .py file of the Toolbox's folder: they share one TOOLBOX_VERSION."""
+    """Every .py file of the Toolbox's folder."""
     return sorted(FOLDER.glob("*.py"))
 
 
@@ -120,10 +120,14 @@ def test_each_toolbox_file_imports_only_what_toolbox_folder_allows() -> None:
 
 
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
-def test_every_toolbox_file_declares_the_same_toolbox_version(path: Path) -> None:
-    found = re.findall(r'^TOOLBOX_VERSION = "([^"]+)"$', path.read_text(encoding="utf-8"),
-                       re.MULTILINE)
-    assert found == [sqlglot_composer.TOOLBOX_VERSION]
+def test_no_toolbox_file_but_version_txt_names_the_version(path: Path) -> None:
+    """The version is written in one place, version.txt (ADR 0013)."""
+    assert not re.search(r'^TOOLBOX_VERSION = "', path.read_text(encoding="utf-8"), re.MULTILINE)
+
+
+def test_version_txt_holds_the_toolbox_and_its_version_alone() -> None:
+    text = (FOLDER / toolbox_registry.VERSION_FILE).read_text(encoding="utf-8")
+    assert text == f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}\n"
 
 
 def test_changes_has_a_section_for_the_version() -> None:

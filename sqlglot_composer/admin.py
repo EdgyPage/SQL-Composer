@@ -52,8 +52,6 @@ from .tables import (
 )
 from .trees import Node, combined
 
-TOOLBOX_VERSION = "7.1"
-
 
 # --- Pieces every Admin statement shares ------------------------------------------------------
 

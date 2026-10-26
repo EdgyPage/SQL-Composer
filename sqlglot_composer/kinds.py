@@ -9,8 +9,6 @@ which of a Statement's fields are filled in.
 
 from __future__ import annotations
 
-TOOLBOX_VERSION = "7.1"
-
 READ = "read"  # statement(...) with no write, and a Stack
 PLAN = "plan"  # explain(s)
 WRITE = "write"  # statement(...) with INSERT_OVERWRITE or INSERT_INTO
