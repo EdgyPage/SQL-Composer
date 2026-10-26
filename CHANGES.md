@@ -4,9 +4,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 7.2
 
-7.2 carries your Project's files from one Toolbox version to the next for you, with
-`project.upgrade()`, and writes the Toolbox's version in one place, its folder's `version.txt`,
-in place of a line in every file.
+7.2 turns Hive someone else wrote into your own code, a Conversion, carries your Project's
+files from one Toolbox version to the next for you, with `project.upgrade()`, and writes the
+Toolbox's version in one place, its folder's `version.txt`, in place of a line in every file.
 
 ### To update from 7.1
 
@@ -14,9 +14,29 @@ in place of a line in every file.
   as the README's Update says. A file left behind from an older folder stops the import.
 - **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
   `admin/upgrade_7.2.md`, which it writes. From 7.1 to 7.2 nothing of yours changes: it adds
-  `admin/upgrade.ipynb`, where you run it next time, and `admin/project_version.txt`.
+  `admin/upgrade.ipynb`, where you run it next time, `admin/convert.ipynb` and
+  `admin/conversions/`, and `admin/project_version.txt`.
 
 ### Also new
+
+- **A Conversion: Hive someone else wrote, made your own code.** Paste one query into
+  `admin/convert.ipynb`, or name its file. `project.scan_hive(...)` says what a Conversion of it
+  would make, and changes nothing: the tables it reads, which have no Table reference yet, and,
+  line by line, each long `IN` list and lookup `CASE` that becomes a named constant, and each
+  piece no Toolbox function writes yet, which stays Hive. `project.convert("name", HIVE,
+  query=query)` adds the missing Table references and writes `admin/conversions/<name>/`: the
+  Hive as given, what the scan found, and a notebook whose logic builds the same query from the
+  Toolbox's own functions. Every CTE is a Derived table; every INSERT form is read, `INSERT INTO`
+  or `INSERT OVERWRITE`, with or without `TABLE`, its `PARTITION(...)` and a column list, and
+  your Saved table is written the same way. Where the original took a chance a Guard refuses,
+  such as a join that may repeat rows, the Conversion takes it too, marked `# CONVERSION:` for
+  you to decide; `project.check()` lists each mark left. It compares its Hive with the
+  original's, and its notebook compares their rows through your query. Then
+  `project.finish_conversion("name", table="mart.your_table")` makes it a Saved table of yours:
+  its Table folder and its Table reference, with the columns it gives and `<LOCATION>`, any
+  type it doesn't know and, without a `PARTITION(...)` to copy, a partition column to fill in.
+  `project.remove_conversion("name")` archives one you no longer want. `project.load("name")`
+  runs a Conversion's logic, as it does a Table notebook's.
 
 - **`project.upgrade()`, an Upgrade.** From 7.2 on, each new version ships a step that carries
   your Project's files to it from the version before: the Table references, Building blocks,

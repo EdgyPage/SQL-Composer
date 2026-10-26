@@ -9,8 +9,8 @@ one CTE no Statement can be, an Unchecked derived table; a query the Toolbox can
 all, an Unchecked statement. A long IN list and a lookup CASE become named constants.
 
 The Python is the Conversion: run, it gives the Statement, and its Hive is compared with the
-original's. Which opt-outs the Statement needs is found by running it (opt_outs_for), since
-only the Guards know.
+original's. Which opt-outs the Statement needs is found by running it, since only the Guards
+know: with_opt_out adds the one a Guard's or Load limit's refusal names to the call it names.
 """
 
 from __future__ import annotations
@@ -86,20 +86,28 @@ class Translation:
     constants: list[tuple[str, str]] = field(default_factory=list)  # (name, Python value)
     assignments: list[tuple[str, str]] = field(default_factory=list)  # (name, Python), in order
     query: str = ""  # the Python of the Statement itself
+    # The Python of each of its clauses, when it is one SELECT: rows() gives them, so the
+    # Saved table's write() can put its INSERT before them.
+    clauses: list[str] | None = None
     names: set[str] = field(default_factory=set)  # the Toolbox names it uses
     databases: set[str] = field(default_factory=set)  # the Databases it imports
     findings: list[Finding] = field(default_factory=list)
 
     def logic(self) -> str:
-        """The Python of the whole Conversion: its imports, its constants, each table and CTE
-        it reads, and converted(), which gives the Statement."""
+        """The Python of the whole Conversion, as its notebook's logic cell holds it: its
+        imports, its constants, each table and CTE it reads, and converted(), which gives the
+        Statement; when it is one SELECT, rows() too, its clauses, which converted() reads."""
+        return self._logic(set(), [])
+
+    def _logic(self, more: set[str], imports: list[str], extra: list[str] | None = None) -> str:
         lines = []
-        names = sorted(self.names | {"Statement"}
+        names = sorted(self.names | more | {"Statement"}
+                       | ({"Clause"} if self.clauses is not None else set())
                        | ({"hive_settings"} if self.settings else set()))
-        if names:
-            lines.append("from sqlglot_composer import (\n"
-                         + "".join(f"    {name},\n" for name in names) + ")")
+        lines.append("from sqlglot_composer import (\n"
+                     + "".join(f"    {name},\n" for name in names) + ")")
         lines += [f"from references import {database}" for database in sorted(self.databases)]
+        lines += imports
         lines.append("")
         for name, value in self.constants:
             lines.append(f"{name} = {value}")
@@ -109,10 +117,72 @@ class Translation:
             lines.append(f"{name} = {value}")
         if self.assignments:
             lines.append("")
-        lines += ["", "def converted() -> Statement:",
-                  '    """The query, as the Hive this Conversion was made from writes it."""',
-                  f"    return {_indented(self.query, 4)}"]
-        return "\n".join(lines) + "\n"
+        if self.clauses is not None:
+            lines += ["", "def rows() -> list[Clause]:",
+                      '    """The clauses of the query, which converted() and a write share."""',
+                      "    return [\n" + "".join(f"        {_indented(clause, 8)},\n"
+                                             for clause in self.clauses) + "    ]",
+                      "", "", "def converted() -> Statement:",
+                      '    """The query, as the Hive this Conversion was made from writes it."""',
+                      "    return statement(*rows())"]
+        else:
+            lines += ["", "def converted() -> Statement:",
+                      '    """The query, as the Hive this Conversion was made from writes it."""',
+                      f"    return {_indented(self.query, 4)}"]
+        return "\n".join(lines + (extra or [])) + "\n"
+
+
+def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
+                      static_partition: dict[str, str]) -> str:
+    """A Conversion's logic cell, `logic`, as you left it, made a Table notebook's: the Saved
+    table's own Table reference, `short`, imported, and create(), preview() and write(), as the
+    saved_table Template has them. write() writes `saved_table` as the original's INSERT did,
+    `write` (INSERT_OVERWRITE when it had none), with its static partition values; through
+    rows() when the logic has one, else through converted() as a Derived table."""
+    mode = write or "INSERT_OVERWRITE"
+    given = ""
+    if static_partition:
+        values = ", ".join(f"{_string(name)}: {value}" for name, value in static_partition.items())
+        given = f", partition={{{values}}}"
+    stem = saved_table.replace(".", "__", 1)
+    imports = [f"from sqlglot_composer import {mode}, create_table  # for create() and write()",
+               f"from references.{stem} import {short}  # the Saved table's own Table reference"]
+    if re.search(r"^def rows\(", logic, re.MULTILINE):
+        body = [f"    return statement({mode}({short}{given}), *rows())"]
+    else:
+        imports.insert(1, "from sqlglot_composer import FROM, SELECT, all_columns, derived")
+        body = ['    made = derived("converted", converted())',
+                f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
+                "FROM(made))"]
+    lines = logic.rstrip("\n").split("\n")
+    # The imports go after the cell's own, which open it, so the logic still opens with them:
+    # after the last import line before the first line that is neither an import, nor inside
+    # one, nor a comment.
+    at, inside = 0, False
+    for number, line in enumerate(lines):
+        if inside or line.startswith(("from ", "import ")):
+            inside = line.endswith("(") or (inside and line != ")")
+            at = number + 1
+        elif line.strip() and not line.startswith("#"):
+            break
+    lines[at:at] = imports
+    return "\n".join(lines + [
+        "",
+        "",
+        "def create() -> Statement:",
+        f'    """Create {saved_table} from its Table reference, if it isn\'t there yet."""',
+        f"    return create_table({short}, may_exist=True)",
+        "",
+        "",
+        "def preview() -> Statement:",
+        '    """The rows write() would save, as a SELECT to run and check first."""',
+        "    return converted()",
+        "",
+        "",
+        "def write() -> Statement:",
+        f'    """Save the rows into {saved_table}, as the original\'s INSERT did."""',
+        *body,
+    ]) + "\n"
 
 
 def _indented(text: str, by: int) -> str:
@@ -221,6 +291,12 @@ class _Translator:
             return self.stack(node)
         if not isinstance(node, exp.Select):
             raise Unconvertible(f"a {type(node).__name__.upper()} where a query belongs")
+        return (f"{self.use('statement')}(\n"
+                + "".join(f"    {_indented(clause, 4)},\n" for clause in self.clauses(node))
+                + ")")
+
+    def clauses(self, node: exp.Select) -> list[str]:
+        """The Python of each clause of one SELECT, in SQL order."""
         if node.args.get("laterals"):
             raise Unconvertible("LATERAL VIEW, which no Clause function writes")
         scope: dict[str, _Source] = {}
@@ -244,8 +320,7 @@ class _Translator:
             clauses.append(self.order(node.args["order"], scope, outputs))
         if node.args.get("limit"):
             clauses.append(f"{self.use('LIMIT')}({node.args['limit'].expression.this})")
-        return (f"{self.use('statement')}(\n"
-                + "".join(f"    {_indented(clause, 4)},\n" for clause in clauses) + ")")
+        return clauses
 
     def stack(self, node: exp.Expression) -> str:
         """UNION ALL, UNION, INTERSECT or EXCEPT of whole queries."""
@@ -768,6 +843,7 @@ class _Translator:
 _OPT_OUT = re.compile(r"Opt-out:\s+(?P<call>\w+)\((?P<first>[^,)\n]*)[^\n]*?(?P<keyword>\w+)=True\)")
 # The mark a Conversion leaves on each opt-out it adds, for you to decide.
 CONVERSION_MARK = "# CONVERSION: {keyword}=True, as the original did; check it"
+CONVERSION_MARK_LINE = re.compile(r"#\s*CONVERSION: ")
 
 
 def _closing(text: str, opening: int) -> int:
@@ -932,8 +1008,15 @@ def translate(text: str, columns_of: Callable[[str], list[str] | None],
         if part in query.arg_types:
             query.set(part, None)
     try:
-        result.query = translator.query(query)
+        if isinstance(query, exp.Select):
+            result.clauses = translator.clauses(query)
+            result.query = (f"{translator.use('statement')}(\n"
+                            + "".join(f"    {_indented(clause, 4)},\n"
+                                      for clause in result.clauses) + ")")
+        else:
+            result.query = translator.query(query)
     except Unconvertible as why:
+        result.clauses = None
         result.query = f"{translator.use('unchecked_hive')}({_string(sql_text(query))})"
         result.findings.append(Finding(_line(query), "unchecked",
                                        f"the whole query stays an Unchecked statement: {why}"))

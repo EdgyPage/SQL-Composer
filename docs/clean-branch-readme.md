@@ -63,6 +63,7 @@ or made by hand.
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
+| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb` | the checks its notebook asks for, then `project.finish_conversion(...)` |
 | an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference or a Building block adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |

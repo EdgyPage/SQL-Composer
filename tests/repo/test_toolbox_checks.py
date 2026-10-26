@@ -87,7 +87,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  "add_references", "remove_reference", "register", "check",
                  "refresh_reference_sheet", "load", "run_tables",
                  # Toolbox 7.2, ticket 02: upgrade carries a Project to a newer Toolbox.
-                 "upgrade"]
+                 "upgrade",
+                 # Toolbox 7.2, ticket 07: a Conversion, from scan to Saved table.
+                 "scan_hive", "convert", "finish_conversion", "remove_conversion"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

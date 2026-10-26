@@ -61,15 +61,15 @@ can load and use that logic without running the rest.
 _Avoid_: table script, pipeline notebook, job
 
 **Registry**:
-The Project's list of every Table folder, Table reference and Building block a Project action
-made, and when each was removed. What is in the Project but not in the Registry was made by hand; what is in
+The Project's list of every Table folder, Table reference, Building block and Conversion folder
+a Project action made, and when each was removed. What is in the Project but not in the Registry was made by hand; what is in
 the Registry but not in the Project was moved or deleted by hand.
 _Avoid_: manifest, inventory, index
 
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
-folder or a Building block, adding Table references, upgrading the Project - run from the admin
-folder and recorded
+folder or a Building block, adding Table references, upgrading the Project, converting Hive and
+finishing a Conversion - run from the admin folder and recorded
 in the Admin log. Where an Admin statement changes the warehouse, a Project action changes only
 files. The user makes only the Project's folder and the copy of the Toolbox in it; a Project
 action makes every other file, for the user to fill in.
@@ -82,6 +82,21 @@ archiving each file first, and marks every one it leaves for the user with an
 `# UPGRADE` comment at the line and a box on a checklist. It never changes the warehouse. Every
 Toolbox version ships the step from the one before.
 _Avoid_: migration, port, conversion, update script
+
+**Conversion**:
+A Project action that reads one query of Hive someone else wrote and writes the user's own code
+for it, in a Conversion folder: Table references for the tables it reads that have none, and a
+notebook whose Statement gives the same rows. What no Toolbox function writes yet is left as
+Unchecked pieces, and each risk the original took is marked `# CONVERSION:` for the user to
+decide.
+_Avoid_: migration, port, translation, import, upgrade
+
+**Conversion folder**:
+The folder in a Project's admin folder holding one Conversion until it becomes a Table folder:
+the Hive as given, the scan of it, and the converted notebook with the cells that compare it
+with the original. Finishing it moves its logic into a new Table folder, under the Saved
+table's name the user gives then.
+_Avoid_: staging folder, draft, scratch folder
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
