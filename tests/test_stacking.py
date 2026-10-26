@@ -303,6 +303,22 @@ def test_except_both_ways_finds_where_two_tables_differ() -> None:
     assert agree.empty
 
 
+@pytest.mark.needs_example_database
+def test_two_reads_of_one_table_stack_each_ones_own_rows() -> None:
+    # Toolbox 7.2, ticket 08: the executor once took both reads for one, as both were called
+    # job_owners (or job_runs), and gave one read's rows twice.
+    moved = run_query(EXCEPT(owners_on("2026-09-18"), owners_on("2026-09-17")),
+                      example_database.query)
+    assert moved.values.tolist() == [[3, "finance"]]
+    both_days = run_query(UNION_ALL(
+        statement(SELECT(job_runs.run_id, job_runs.dt), FROM(job_runs),
+                  WHERE(equals(job_runs.dt, "2026-09-23"))),
+        statement(SELECT(job_runs.run_id, job_runs.dt), FROM(job_runs),
+                  WHERE(equals(job_runs.dt, DAY)))), example_database.query)
+    assert sorted(set(both_days["dt"])) == ["2026-09-23", DAY]
+    assert len(both_days) == len(set(both_days["run_id"]))
+
+
 # --- Stacks: Lineage -------------------------------------------------------------------------
 
 

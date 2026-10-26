@@ -22,7 +22,7 @@ LIBRARY = "sqlglot"
 # The only files that may import sqlglot.
 LIBRARY_FILES = ("writing.py", "engine.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
-                "conditions.py", "describe.py", "engine.py", "example_database.py", "joins.py",
+                "comparisons.py", "conditions.py", "describe.py", "engine.py", "example_database.py", "joins.py",
                 "keys.py", "kinds.py", "lineage.py", "notebooks.py", "project.py",
                 "project_files.py", "project_templates.py", "public.py", "python_steps.py",
                 "refusals.py", "running.py", "stacking.py", "tables.py", "trees.py",
