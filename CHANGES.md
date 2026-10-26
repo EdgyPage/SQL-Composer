@@ -2,6 +2,27 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 7.2
+
+7.2 writes the Toolbox's version in one place, its folder's `version.txt`, in place of a line in
+every file.
+
+### To update from 7.1
+
+- **Copy the `sqlglot_composer` folder in over 7.1's**, and restart the kernel. Delete the old
+  folder first, as always: 7.2's folder checks its files against `version.txt`.
+
+### Also new
+
+- **`version.txt`, the one place the version is written.** It names the Toolbox and its
+  version, when this copy was exported and from which commit, and each file of the folder with
+  its git hash. No other file names the version any more, so a new version changes only the
+  files whose code changed. `TOOLBOX_VERSION` and `VERSION` give the same answers as before.
+- **A file that differs from the download only warns.** When a file of the folder isn't the
+  one `version.txt` lists, edited by hand or pasted from another download, the import warns,
+  naming it, where 7.1 stopped on a file from another version. A missing file, an extra one, or
+  a missing `version.txt` still stops the import.
+
 ## 7.1
 
 7.1 stops choosing between your two calls: you send each Statement through `query` or

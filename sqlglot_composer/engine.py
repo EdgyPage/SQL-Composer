@@ -26,8 +26,6 @@ if TYPE_CHECKING:
 
     from .tables import Table
 
-TOOLBOX_VERSION = "7.1"
-
 
 def _stop(what: str, why: str, fix: str) -> NoReturn:
     """Stop the Toolbox's import, named by its own folder, with the four-part message."""

@@ -33,8 +33,6 @@ import pandas as pd
 from . import _FOLDER
 from . import _four_part_message as four_part_message
 
-TOOLBOX_VERSION = "7.1"
-
 
 class GuardRefused(Exception):
     """A Guard stopped a Statement that would silently give a wrong answer.

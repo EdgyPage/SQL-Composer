@@ -20,8 +20,6 @@ from types import FrameType
 from . import kinds
 from .refusals import callers_frame, refuse, warn_at_callers_line
 
-TOOLBOX_VERSION = "7.1"
-
 # A time as the logs and a Project's files show it, such as 2026-10-22 09:30:00, and as a
 # file's name holds it, such as 20261022-093000.
 TIME_SHOWN = "%Y-%m-%d %H:%M:%S"

@@ -22,8 +22,6 @@ from typing import NamedTuple
 
 from .unchecked import TIME_IN_A_NAME, TIME_SHOWN
 
-TOOLBOX_VERSION = "7.1"
-
 # The registry: the file a folder is a Project by, as start() writes it.
 REGISTRY = Path("admin") / "registry.csv"
 # The registry's columns: what a Project action made (a Table folder, a Table reference or a

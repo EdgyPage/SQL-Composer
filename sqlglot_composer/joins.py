@@ -24,8 +24,6 @@ from .trees import Node, and_parts
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
 
-TOOLBOX_VERSION = "7.1"
-
 # How each join clause is written in Hive.
 HOW = {
     "JOIN": "JOIN",

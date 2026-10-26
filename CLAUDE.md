@@ -66,7 +66,8 @@ reviewer looks for anything the commit made untrue and adds one open item per fi
 - Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.
 - A false alarm closes with a `No-drift: <item> - <why>` line in a commit message. The reviewer
   accepts it only if the reason holds.
-- Never raise the Toolbox version yourself. When a version item opens, ask the user.
+- Never raise the Toolbox version yourself. When a version item opens, ask the user. The
+  version is written in one place, `sqlglot_composer/version.txt` (ADR 0013).
 - A stop hook blocks the first try to end a turn while your own commits have an unrun review or
   an open item, then lets a second try through so you can ask the user. The export to `main`
   refuses while any item is open.

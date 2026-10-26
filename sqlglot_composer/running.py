@@ -43,8 +43,6 @@ from .unchecked import (
     unchecked_text,
 )
 
-TOOLBOX_VERSION = "7.1"
-
 # The seam that ships switched off. set_load_limits(...) switches it on.
 _limits = {"rows": None}
 

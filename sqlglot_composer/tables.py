@@ -54,8 +54,6 @@ if TYPE_CHECKING:  # clauses.py and conditions.py import this file
     from .clauses import Statement
     from .conditions import Condition
 
-TOOLBOX_VERSION = "7.1"
-
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
 # The partition Hive lists for the rows whose partition column is NULL.

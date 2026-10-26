@@ -1,31 +1,55 @@
 """The import self-check: the Toolbox's folder checks itself before any other file is trusted.
 
 At work the Toolbox is one folder pasted beside your scripts. Its __init__.py runs these checks
-before any other file is trusted. If a file is missing, extra, from another version or download,
-or from another Toolbox folder, such as an old composer_core folder's file pasted in, or if
-this Python can't run the Toolbox, the import stops and says what happened, why it matters and
-the usual fix. Every stop is headed by the folder you imported, `importing`, whichever folder it
-found the problem in.
+before any other file is trusted. The folder's version.txt says which Toolbox and version it is,
+and, in a copy from the download, lists every file with its hash. If a file is missing or
+extra, if version.txt is missing or from another Toolbox folder, or if this Python can't run
+the Toolbox, the import stops and says what happened, why it matters and the usual fix. A file
+whose hash isn't the one listed, edited by hand or pasted from another download, only warns.
+Every message is headed by the folder you imported, `importing`, whichever folder it found the
+problem in.
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import sys
+import warnings
 
-from . import _stop
-
-TOOLBOX_VERSION = "7.1"
+from . import _four_part_message, _stop
 
 _PYTHON_NEEDED = (3, 11)
 
-# Any Toolbox folder's stamp, such as "sqlglot Composer 6.0, exported 2026-10-20 14:05 - ...",
-# whose first words name the folder its file belongs in: before 6.0, "Composer core" too.
-_STAMP = re.compile(r"(\w+ Composer|Composer core) \S+, exported ")
+VERSION_FILE = "version.txt"
+
+# version.txt's first line, such as "sqlglot Composer 7.2": the Toolbox and its version.
+_FIRST_LINE = re.compile(r"(?P<product>.+) (?P<version>\d+\.\d+)")
+# Its export line, such as "exported 2026-10-26 14:05 from dev commit 768f7ce...".
+_EXPORTED = re.compile(r"exported (?P<when>\d{4}-\d\d-\d\d \d\d:\d\d) from dev commit \w+")
+# Each file's line: its git hash, two spaces, and its name.
+_FILE_LINE = re.compile(r"(?P<hash>[0-9a-f]{40})  (?P<name>\S+)")
 
 # What each file of a Toolbox folder that isn't Python holds, for a stop that finds it missing.
 _PAGES = {"examples.html": "the Example gallery", "how_to.html": "the how-tos"}
+
+
+class VersionFile:
+    """What a folder's version.txt says: the Toolbox, its version, when it was exported (None on
+    dev) and each file's hash (None on dev)."""
+
+    def __init__(self, product: str, version: str, exported: str | None,
+                 hashes: dict[str, str] | None) -> None:
+        self.product, self.version = product, version
+        self.exported, self.hashes = exported, hashes
+
+
+def git_hash(data: bytes) -> str:
+    """The hash `git hash-object` gives a file holding `data`, with its line endings as LF, so a
+    copy saved with Windows line endings hashes the same."""
+    data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
 
 
 def check_python(product: str, importing: str) -> None:
@@ -42,156 +66,113 @@ def check_python(product: str, importing: str) -> None:
         )
 
 
-def version_of(path: str) -> str | None:
-    """The TOOLBOX_VERSION a .py file declares, or None if it declares none."""
-    with open(path, encoding="utf-8") as file:
-        found = re.search(r'^TOOLBOX_VERSION = "([^"]*)"', file.read(), re.MULTILINE)
-    return found.group(1) if found else None
-
-
-def stamp_of(path: str) -> str | None:
-    """The export stamp on line 1, or None.
-
-    The export writes it as a `# ...` comment in a .py file and as `<!-- ... -->` in any
-    other, since a `#` line in Markdown is a heading.
-    """
-    with open(path, encoding="utf-8", errors="replace") as file:
-        first = file.readline().strip()
-    start, end = ("# ", "") if path.endswith(".py") else ("<!-- ", " -->")
-    stamp = first[len(start):len(first) - len(end)]
-    if first.startswith(start) and first.endswith(end) and _STAMP.match(stamp):
-        return stamp
-    return None
-
-
-def _version_and_time(stamp: str) -> str:
-    """A stamp's version and export time, such as "sqlglot Composer 6.0, exported 2026-10-20 14:05"."""
-    return stamp.split(" - ")[0]
-
-
-def version_text(here: str, product: str, version: str) -> str:
-    """The full version: the product and version, and when this copy was exported."""
-    stamp = stamp_of(os.path.join(here, "__init__.py"))
-    if stamp is None:
-        return f"{product} {version}, not exported (dev)"
-    return _version_and_time(stamp)
-
-
-def _home_of(name: str, stamp: str | None, folder: str) -> str | None:
-    """The folder a file belongs in: __init__.py knows its own, and a stamp names any other's.
-
-    None for an unstamped file other than __init__.py.
-    """
-    if name == "__init__.py":
-        return folder
-    if stamp is None:
-        return None
-    return _STAMP.match(stamp).group(1).lower().replace(" ", "_")
-
-
-def _check_home(here: str, folder: str, stamps: dict[str, str | None], importing: str) -> None:
-    """Stop if a file came from another Toolbox folder than the one it sits in."""
+def read_version_file(here: str, product: str, importing: str) -> VersionFile:
+    """The folder's version.txt, or a stop if it is missing, unreadable or another folder's."""
     on_disk = os.path.basename(here)
-    homes = {name: _home_of(name, stamp, folder) for name, stamp in stamps.items()}
-    # The folder is the Toolbox folder its name and its files' stamps agree on. A folder its
-    # files don't name, such as one you renamed, is the one most of its other files' stamps
-    # name, so a __init__.py pasted in can't decide it; unstamped, as on dev, __init__.py's.
-    votes = {}
-    for name, home in homes.items():
-        if name != "__init__.py" and home:
-            votes[home] = votes.get(home, 0) + 1
-    if on_disk in homes.values():
-        this = on_disk
-    elif votes:
-        this = max(votes, key=votes.get)
-    else:
-        this = folder
-    elsewhere = sorted(name for name, home in homes.items() if home not in (None, this))
-    if elsewhere:
-        home = homes[elsewhere[0]]
-        where = f"the {on_disk} folder" + ("" if on_disk == this else f", a copy of {this}")
+    path = os.path.join(here, VERSION_FILE)
+    if not os.path.isfile(path):
         _stop(
-            what=f"{', '.join(elsewhere)} {'is' if len(elsewhere) == 1 else 'are'} from the "
-            f"{home} folder, and this is {where}.",
-            why="A folder's files are made to work only with each other: a .py file from "
-            "another folder could make a Statement fail or come out wrong, and an "
-            "examples.html or how_to.html from one may not describe this folder's code.",
-            fix=f"Delete the {on_disk} folder, then copy it in again from the {this} folder "
-            f"of one download, not from {home}.",
+            what=f"{VERSION_FILE} is missing from the {on_disk} folder.",
+            why="It says which Toolbox version the folder is and lists its files, and the "
+            "folder can't check itself without it.",
+            fix=f"Delete the {on_disk} folder, then copy the whole folder in again from the "
+            "download.",
             folder=importing,
         )
+    with open(path, encoding="utf-8", errors="replace") as file:
+        lines = [line.strip() for line in file if line.strip() and not line.startswith("#")]
+    first = _FIRST_LINE.fullmatch(lines[0]) if lines else None
+    if first is None:
+        _stop(
+            what=f"{on_disk}/{VERSION_FILE} doesn't start with the Toolbox and its version, "
+            f"such as \"{product} 7.2\".",
+            why="The folder can't tell which Toolbox version it is, so it can't check its files.",
+            fix=f"Delete the {on_disk} folder, then copy the whole folder in again from the "
+            "download.",
+            folder=importing,
+        )
+    if first["product"] != product:
+        _stop(
+            what=f"{VERSION_FILE} is from {first['product']}, and this is the {on_disk} folder "
+            f"of {product}.",
+            why="A folder's files are made to work only with each other, and its version.txt "
+            "lists them: one from another folder checks the wrong files.",
+            fix=f"Delete the {on_disk} folder, then copy it in again from one download of "
+            f"{product}.",
+            folder=importing,
+        )
+    exported = next((found["when"] for found in map(_EXPORTED.fullmatch, lines[1:]) if found),
+                    None)
+    listed = [found for found in map(_FILE_LINE.fullmatch, lines[1:]) if found]
+    hashes = {found["name"]: found["hash"] for found in listed} if listed else None
+    return VersionFile(first["product"], first["version"], exported, hashes)
 
 
-def check_folder(here: str, folder: str, product: str, files: list[str] | None, version: str,
-                 importing: str) -> None:
-    """Stop if a pasted Toolbox folder is missing a file, has an extra one, or mixes versions,
-    exports or Toolbox folders.
+def version_text(product: str, version: VersionFile) -> str:
+    """The full version: the product and version, and when this copy was exported."""
+    if version.exported is None:
+        return f"{product} {version.version}, not exported (dev)"
+    return f"{product} {version.version}, exported {version.exported}"
 
-    `here` is the folder on disk, `folder` the name it was exported as, `product` what the
-    messages call it, `files` the file list the export wrote into its __init__.py (None on
-    dev), `version` its __init__.py's TOOLBOX_VERSION, and `importing` the folder you imported.
+
+def check_folder(here: str, product: str, version: VersionFile, importing: str) -> None:
+    """Stop if a pasted Toolbox folder is missing a file or has an extra one, and warn about a
+    file whose hash isn't the one version.txt lists.
+
+    `here` is the folder on disk, `product` what the messages call it, `version` its
+    version.txt, read, and `importing` the folder you imported. On dev version.txt lists no
+    files, and nothing is checked.
     """
+    if version.hashes is None:
+        return
     on_disk = os.path.basename(here)
     present = sorted(
         name for name in os.listdir(here)
         if name != "__pycache__" and not name.startswith(".")
     )
-    stamps = {
-        name: stamp_of(os.path.join(here, name))
-        for name in present if os.path.isfile(os.path.join(here, name))
-    }
-    # First, since a __init__.py from another folder brings that folder's file list and names.
-    _check_home(here, folder, stamps, importing)
-    if files is not None:
-        extra = [name for name in present if name not in files]
-        missing = [name for name in files if name not in present]
-        if extra:
-            _stop(
-                what=f"{', '.join(extra)} {'is' if len(extra) == 1 else 'are'} in the "
-                f"{on_disk} folder, but not part of {product} {version}.",
-                why="A file left over from an earlier Toolbox version can still be imported, "
-                "and would quietly run old code. A script of your own inside the folder would "
-                "be deleted with it at the next update.",
-                fix=f"Move any of your own scripts out first: they sit beside the {on_disk} "
-                f"folder, never inside it. Then delete the {on_disk} folder, and copy the "
-                f"whole folder in again from the {version} download.",
-                folder=importing,
-            )
-        if missing:
-            lost = ["a missing .py file would make a part of it fail later, far from the cause"]
-            lost += [f"a missing {name} leaves you without {_PAGES[name]}"
-                     for name in missing if name in _PAGES]
-            _stop(
-                what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
-                f"from the {on_disk} folder.",
-                why=f"Every file of {product} {version} is needed: "
-                + (", ".join(lost[:-1]) + ", and " if len(lost) > 1 else "") + f"{lost[-1]}.",
-                fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
-                f"the {version} download.",
-                folder=importing,
-            )
-    for name in present:
-        if not name.endswith(".py"):
-            continue
-        found = version_of(os.path.join(here, name))
-        if found != version:
-            _stop(
-                what=f"{name} is from "
-                + (f"Toolbox version {found}" if found else "another Toolbox version")
-                + f", and {on_disk}/__init__.py is from {version}.",
-                why="Files from different Toolbox versions weren't written to work together, "
-                "so a Statement could fail or come out wrong.",
-                fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
-                "one download.",
-                folder=importing,
-            )
-    if len(set(stamps.values())) > 1:
-        odd = sorted(name for name, stamp in stamps.items() if stamp != stamps["__init__.py"])
+    files = sorted([*version.hashes, VERSION_FILE])
+    extra = [name for name in present if name not in files]
+    missing = [name for name in files if name not in present]
+    number = version.version
+    if extra:
         _stop(
-            what=f"{', '.join(odd)} came from a different export than {on_disk}/__init__.py.",
-            why="Two exports of the same Toolbox version can differ, so the files in this "
-            "folder may not match each other.",
-            fix=f"Delete the {on_disk} folder, then copy the whole folder in again from one "
-            "download.",
+            what=f"{', '.join(extra)} {'is' if len(extra) == 1 else 'are'} in the "
+            f"{on_disk} folder, but not part of {product} {number}.",
+            why="A file left over from an earlier Toolbox version can still be imported, "
+            "and would quietly run old code. A script of your own inside the folder would "
+            "be deleted with it at the next update.",
+            fix=f"Move any of your own scripts out first: they sit beside the {on_disk} "
+            f"folder, never inside it. Then delete the {on_disk} folder, and copy the "
+            f"whole folder in again from the {number} download.",
             folder=importing,
         )
+    if missing:
+        lost = ["a missing .py file would make a part of it fail later, far from the cause"]
+        lost += [f"a missing {name} leaves you without {_PAGES[name]}"
+                 for name in missing if name in _PAGES]
+        _stop(
+            what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
+            f"from the {on_disk} folder.",
+            why=f"Every file of {product} {number} is needed: "
+            + (", ".join(lost[:-1]) + ", and " if len(lost) > 1 else "") + f"{lost[-1]}.",
+            fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
+            f"the {number} download.",
+            folder=importing,
+        )
+    changed = []
+    for name, listed in version.hashes.items():
+        with open(os.path.join(here, name), "rb") as file:
+            if git_hash(file.read()) != listed:
+                changed.append(name)
+    if changed:
+        warnings.warn(
+            f"{importing} on import:" + _four_part_message(
+                what=f"{', '.join(changed)} {'differs' if len(changed) == 1 else 'differ'} "
+                f"from the {product} {number} download, as {VERSION_FILE} lists "
+                f"{'it' if len(changed) == 1 else 'them'}.",
+                why="A file edited by hand, or pasted from another download, may not work with "
+                "the rest of the folder, so a Statement could fail or come out wrong.",
+                fix=f"If you didn't mean to change it, delete the {on_disk} folder and copy "
+                f"the whole folder in again from the {number} download.",
+                opt_out=None),
+            UserWarning, stacklevel=3)

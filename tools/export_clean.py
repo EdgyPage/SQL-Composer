@@ -6,13 +6,14 @@ Run it with `dev` checked out and nothing uncommitted:
 
 It builds the Clean tree in a temporary folder, from what `dev` has committed:
 
-- it copies the Toolbox's folder, `sqlglot_composer/`, and stamps line 1 of every file in it, for
-  example `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - generated from dev, do not edit`;
-- it writes the list of the folder's files into its `__init__.py`, for the import self-check;
+- it copies the Toolbox's folder, `sqlglot_composer/`, as dev holds it, and adds to its
+  `version.txt` when it was exported, from which dev commit, and each file's git hash, for the
+  import self-check (ADR 0013); no other file of the folder changes, so an export changes only
+  the files whose content changed;
 - it copies the Example projects, `example_projects/`, at the same paths, with line 1
-  stamped, for example
-  `# sqlglot Composer 6.0, exported 2026-10-20 14:05 - copy it, then edit your copy`; the
-  Templates ship inside the Toolbox, in `sqlglot_composer/project_templates.py`;
+  stamped with the version alone, for example
+  `# sqlglot Composer 7.2 - copy it, then edit your copy`; the Templates ship inside the
+  Toolbox, in `sqlglot_composer/project_templates.py`;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
@@ -24,14 +25,14 @@ It then checks what it built:
 
 - each Toolbox file imports only what work has (the standard library, pandas, numpy, and sqlglot
   where `tools/toolbox_registry.py` allows it);
-- the stamped folder imports in a fresh Python, in the Clean tree and copied on its own;
+- the exported folder imports in a fresh Python, in the Clean tree and copied on its own;
 - each Example project's `run_tables` dry run runs, in a fresh Python started in its
   `admin/` folder, finding the Toolbox at main's top, and leaves no file behind; a dry run
   prints every table's write and sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
   is imported or run: the Toolbox, the Example projects and the Templates, and the README,
   pages included and Markdown read as pages, so that none of it can reach the network;
-- the folder has one version;
+- the folder's `version.txt` names the Toolbox and its version;
 - the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the Example projects
   and the Templates, `.github/README.md`, `CHANGES.md`, `LICENSE` and `requirements.txt`.
 
@@ -50,6 +51,7 @@ from __future__ import annotations
 
 import ast
 import datetime
+import hashlib
 import inspect
 import io
 import json
@@ -60,6 +62,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 import toolbox_registry
@@ -99,14 +102,16 @@ def version_text(toolbox_version: str, when: datetime.datetime) -> str:
 
 
 def stamp_text(product: str, toolbox_version: str, when: datetime.datetime) -> str:
-    """The line-1 stamp, such as "sqlglot Composer 3.0, exported 2026-10-02 14:05 - ..."."""
+    """The README's line-1 stamp, such as "sqlglot Composer 3.0, exported 2026-10-02 14:05 -
+    ..."."""
     return f"{product} {version_text(toolbox_version, when)} - generated from dev, do not edit"
 
 
-def copy_stamp_text(product: str, toolbox_version: str, when: datetime.datetime) -> str:
-    """The line-1 stamp of an Example project's or a Template's file, such as "sqlglot Composer
-    3.0, exported 2026-10-02 14:05 - copy it, then edit your copy"."""
-    return f"{product} {version_text(toolbox_version, when)} - copy it, then edit your copy"
+def copy_stamp_text(product: str, toolbox_version: str) -> str:
+    """The line-1 stamp of an Example project's file, such as "sqlglot Composer 7.2 - copy it,
+    then edit your copy". It names no export time, so an export changes it only when the
+    version changes."""
+    return f"{product} {toolbox_version} - copy it, then edit your copy"
 
 
 def stamped(name: str, text: str, stamp: str) -> str:
@@ -122,26 +127,36 @@ def stamped(name: str, text: str, stamp: str) -> str:
 
 
 def toolbox_version_of(source: Path, folder: str) -> str:
-    text = (source / folder / "__init__.py").read_text(encoding="utf-8")
-    return re.search(r'^TOOLBOX_VERSION = "([^"]+)"$', text, re.MULTILINE).group(1)
+    """The version dev's `version.txt` names, such as "7.2"."""
+    first = (source / folder / toolbox_registry.VERSION_FILE).read_text(
+        encoding="utf-8").strip().splitlines()[0]
+    return first[len(toolbox_registry.PRODUCT) + 1:]
 
 
-def with_file_list(init_text: str, names: list[str], folder: str) -> str:
-    """`__init__.py`'s text with `_FILES = None` replaced by the list of the folder's files."""
-    if init_text.count("\n_FILES = None\n") != 1:
-        raise ExportRefused(
-            f"{folder}/__init__.py must have exactly one `_FILES = None` line for the export to "
-            "write the file list into. Put it back."
-        )
-    listed = "".join(f'    "{name}",\n' for name in names)
-    return init_text.replace("\n_FILES = None\n", f"\n_FILES = [\n{listed}]\n")
+def git_hash(data: bytes) -> str:
+    """The hash `git hash-object` gives a file holding `data`, with its line endings as LF, as
+    the import self-check works it out (`checks.git_hash`)."""
+    data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest()
+
+
+def version_file_text(product: str, toolbox_version: str, when: datetime.datetime, commit: str,
+                      hashes: dict[str, str]) -> str:
+    """The exported folder's version.txt: the Toolbox and its version, when and from which dev
+    commit it was exported, and each other file of the folder with its git hash."""
+    listed = "".join(f"{hashes[name]}  {name}\n" for name in sorted(hashes))
+    return (f"{product} {toolbox_version}\n"
+            f"exported {when.strftime('%Y-%m-%d %H:%M')} from dev commit {commit}\n"
+            "# Each file of this folder and its git hash, as `git hash-object` gives it. The\n"
+            "# import warns about a file whose hash differs. Written by the export: don't edit.\n"
+            + listed)
 
 
 def describe_toolbox(folder: str) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
     """Import the Toolbox's folder and describe it for the cheat sheet, grouped by file.
 
-    This runs in a fresh Python started inside the Clean tree (see `import_stamped`), so the
-    folder it imports is the stamped copy, and its import self-check runs on that copy.
+    This runs in a fresh Python started inside the Clean tree (see `import_exported`), so the
+    folder it imports is the exported copy, and its import self-check runs on that copy.
     """
     toolbox = __import__(folder)
     groups: dict[str, dict[str, str | list[list[str]]]] = {}
@@ -205,8 +220,8 @@ def fresh_python(folder: Path, code: str, path: str | None = None
     )
 
 
-def import_stamped(into: Path) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
-    """Import the stamped folder in a fresh Python, and return `describe_toolbox()` of it."""
+def import_exported(into: Path) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
+    """Import the exported folder in a fresh Python, and return `describe_toolbox()` of it."""
     folder = toolbox_registry.FOLDER
     done = fresh_python(
         into, "import json, export_clean; "
@@ -214,7 +229,7 @@ def import_stamped(into: Path) -> dict[str, str | list[dict[str, str | list[list
         path=str(Path(__file__).parent))
     if done.returncode != 0:
         raise ExportRefused(
-            f"The stamped copy of {toolbox_registry.PRODUCT} doesn't import, so nothing was "
+            f"The exported copy of {toolbox_registry.PRODUCT} doesn't import, so nothing was "
             f"exported:\n{last_error(done.stderr)}"
         )
     described = json.loads(done.stdout.strip().splitlines()[-1])
@@ -224,7 +239,7 @@ def import_stamped(into: Path) -> dict[str, str | list[dict[str, str | list[list
 
 
 def check_imports_alone(into: Path) -> None:
-    """Refuse a stamped folder that imports only with something else beside it: at work it is
+    """Refuse an exported folder that imports only with something else beside it: at work it is
     copied on its own, into a folder of the user's."""
     folder = toolbox_registry.FOLDER
     with tempfile.TemporaryDirectory() as alone:
@@ -294,7 +309,7 @@ def check_offline(into: Path, paths: list[str]) -> None:
             "its Example projects and its Templates reach nothing but the user's query and "
             "execute. "
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
-            "stamp:\n"
+            "stamp where the file has one:\n"
             + "".join(f"  {finding}\n" for finding in found)
             + "Take each out on dev. A Toolbox site that must stay needs a reviewed entry in "
             "ALLOWED in tools/offline_policy.py, with the user's OK.")
@@ -383,25 +398,19 @@ def readme_text(template: str, groups: list[dict[str, str | list[list[str]]]], v
 
 
 def check_folder(source: Path) -> None:
-    """Refuse a commit without the Toolbox's folder, or whose files declare more than one
-    version."""
-    folder = toolbox_registry.FOLDER
+    """Refuse a commit without the Toolbox's folder, or whose `version.txt` doesn't hold the
+    Toolbox and its version alone, as dev's does."""
+    folder, product = toolbox_registry.FOLDER, toolbox_registry.PRODUCT
     if not (source / folder).is_dir():
         raise ExportRefused(f"The export ships {folder}, but this commit doesn't have it. "
                             "Commit the folder on dev.")
-    versions = {path.name: re.search(r'^TOOLBOX_VERSION = "([^"]+)"$',
-                                     path.read_text(encoding="utf-8"), re.MULTILINE)
-                for path in sorted((source / folder).glob("*.py"))}
-    found = {name: version.group(1) for name, version in versions.items() if version}
-    if "__init__.py" not in found:
-        raise ExportRefused(f"{folder}/__init__.py declares no TOOLBOX_VERSION. Put its "
-                            '`TOOLBOX_VERSION = "..."` line back, and commit.')
-    if len(set(found.values())) > 1:
-        said = " and ".join(f"{name} is {version}" for name, version in found.items()
-                            if version != found["__init__.py"])
+    path = source / folder / toolbox_registry.VERSION_FILE
+    lines = path.read_text(encoding="utf-8").strip().splitlines() if path.is_file() else []
+    if len(lines) != 1 or not re.fullmatch(rf"{re.escape(product)} \d+\.\d+", lines[0]):
         raise ExportRefused(
-            f"The Toolbox's files share one version, but __init__.py is {found['__init__.py']} "
-            f"and {said}. Set TOOLBOX_VERSION in every .py file of {folder}/, and commit.")
+            f"{folder}/{toolbox_registry.VERSION_FILE} must hold one line on dev, the Toolbox "
+            f'and its version, such as "{product} 7.2": the export adds the rest. Put it back, '
+            "and commit.")
 
 
 # --- Building and committing ---------------------------------------------------------------------
@@ -428,21 +437,32 @@ def build_copies(source: Path, into: Path, stamp: str) -> None:
             target.write_text(text, encoding="utf-8", newline="\n")
 
 
-def build_folder(source: Path, into: Path, folder: str, stamp: str) -> None:
-    """Copy and stamp one Toolbox folder into `into`, and check its imports."""
+def build_folder(source: Path, into: Path, folder: str, version_file: Callable[..., str]
+                 ) -> None:
+    """Copy one Toolbox folder into `into` as dev holds it, write its version.txt from each
+    file's hash with `version_file`, and check its imports."""
     names = sorted(path.name for path in (source / folder).iterdir()
                    if path.name != "__pycache__")
     folders = [name for name in names if (source / folder / name).is_dir()]
     if folders:
         raise ExportRefused(f"The Toolbox is one flat folder, but {folder}/ holds {folders}. "
                             "Move them out of it on dev.")
+    unlisted = [f"{folder}/{name}" for name in names if name not in toolbox_registry.FILES]
+    if unlisted:
+        raise ExportRefused(
+            f"{', '.join(unlisted)} {'is' if len(unlisted) == 1 else 'are'} in the Toolbox's "
+            "folder, but tools/toolbox_registry.py doesn't list it. Add it to FILES there, or "
+            "move it out of the folder on dev.")
     (into / folder).mkdir(parents=True)
+    hashes = {}
     for name in names:
+        if name == toolbox_registry.VERSION_FILE:
+            continue
         text = (source / folder / name).read_text(encoding="utf-8")
-        if name == "__init__.py":
-            text = with_file_list(text, names, folder)
-        (into / folder / name).write_text(stamped(f"{folder}/{name}", text, stamp),
-                                          encoding="utf-8", newline="\n")
+        (into / folder / name).write_text(text, encoding="utf-8", newline="\n")
+        hashes[name] = git_hash((into / folder / name).read_bytes())
+    (into / folder / toolbox_registry.VERSION_FILE).write_text(
+        version_file(hashes), encoding="utf-8", newline="\n")
     bad_imports = toolbox_registry.imports_outside(into / folder)
     if bad_imports:
         raise ExportRefused(
@@ -469,8 +489,9 @@ def copy_root_files(source: Path, into: Path) -> None:
     check_offline(into, list(ROOT_FILES))
 
 
-def build(source: Path, into: Path, when: datetime.datetime) -> str:
-    """Build the Clean tree from the `dev` folder `source` into the folder `into`.
+def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str:
+    """Build the Clean tree from the `dev` folder `source`, the dev commit `commit`, into the
+    folder `into`.
 
     Returns what the tree is, as main's commit names it, such as "sqlglot Composer 6.0,
     exported 2026-10-20 14:05".
@@ -487,10 +508,11 @@ def build(source: Path, into: Path, when: datetime.datetime) -> str:
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     folder, product = toolbox_registry.FOLDER, toolbox_registry.PRODUCT
     version = toolbox_version_of(source, folder)
-    build_folder(source, into, folder, stamp_text(product, version, when))
-    described = import_stamped(into)
+    build_folder(source, into, folder,
+                 lambda hashes: version_file_text(product, version, when, commit, hashes))
+    described = import_exported(into)
     check_imports_alone(into)
-    build_copies(source, into, copy_stamp_text(product, version, when))
+    build_copies(source, into, copy_stamp_text(product, version))
     check_offline(into, list(COPIED))
     check_dry_runs(into)
     (into / README).parent.mkdir()
@@ -586,7 +608,7 @@ def export(repo: Path, when: datetime.datetime) -> str:
     ).stdout.strip()
     with tempfile.TemporaryDirectory() as temporary:
         committed = committed_files(repo, dev, Path(temporary) / "dev")
-        version = build(committed, Path(temporary) / "clean", when)
+        version = build(committed, Path(temporary) / "clean", when, dev)
         tree = tree_of(repo, Path(temporary) / "clean", Path(temporary) / "index")
     message = (f"{version}\n\nGenerated from dev {dev} by tools/export_clean.py. "
                "Never edit this branch by hand.")
@@ -600,7 +622,10 @@ def export(repo: Path, when: datetime.datetime) -> str:
 def main(arguments: list[str]) -> int:
     try:
         if len(arguments) == 2 and arguments[0] == "--preview":
-            version = build(ROOT, Path(arguments[1]), datetime.datetime.now())
+            # A preview builds the checkout, which may hold changes no commit has.
+            head = git(ROOT, "rev-parse", "HEAD")
+            version = build(ROOT, Path(arguments[1]), datetime.datetime.now(),
+                            f"{head} (a preview of the checkout)")
             print(f"Built {version} into {arguments[1]}. Nothing was committed.")
         elif not arguments:
             commit = export(ROOT, datetime.datetime.now())

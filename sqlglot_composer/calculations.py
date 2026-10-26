@@ -40,8 +40,6 @@ from .writing import check_writable_call
 if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
 
-TOOLBOX_VERSION = "7.1"
-
 def need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
         return column

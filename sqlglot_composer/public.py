@@ -112,8 +112,6 @@ from .windows import (
     window,
 )
 
-TOOLBOX_VERSION = "7.1"
-
 # Every public name, grouped by the file it lives in.
 __all__ = [
     # tables.py

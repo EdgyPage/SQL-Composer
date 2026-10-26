@@ -22,8 +22,9 @@ in 6.0 (ADR 0008).
 Each finding is one of these. The kind is the word in backticks.
 
 1. `version`: the diff adds, removes or renames a public name, or changes what a Statement
-   emits, in a Toolbox `main` already ships, and `TOOLBOX_VERSION` is still the version `main`
-   was last exported with (`git log -1 main`). Say which change needs it. The session asks the
+   emits, in a Toolbox `main` already ships, and the version in `sqlglot_composer/version.txt`,
+   the one place it is written, is still the version `main` was last exported with
+   (`git log -1 main`). Say which change needs it. The session asks the
    user whether to raise it.
 2. `change-notes`: a change the user would notice, in a Toolbox `main` already ships, has no
    plain-words line in `CHANGES.md` under the current version.

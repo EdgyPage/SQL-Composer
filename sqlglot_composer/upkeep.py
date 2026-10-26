@@ -25,8 +25,6 @@ from .tables import (
 )
 from .trees import Node
 
-TOOLBOX_VERSION = "7.1"
-
 
 # What compute_statistics does with a partition column its partition= doesn't name, for the
 # refusals.

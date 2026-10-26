@@ -27,8 +27,6 @@ from .writing import hive_text
 if TYPE_CHECKING:  # tables.py imports this file
     from .tables import Table
 
-TOOLBOX_VERSION = "7.1"
-
 # The three columns a warehouse prints DESCRIBE in, and the header Hive repeats them in.
 DESCRIBE_COLUMNS = ["col_name", "data_type", "comment"]
 COLUMNS_HEADER = ("# col_name", "data_type", "comment")

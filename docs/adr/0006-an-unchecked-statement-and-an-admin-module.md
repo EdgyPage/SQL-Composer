@@ -1,6 +1,7 @@
 # An Unchecked statement for what isn't written yet, and an admin module for changes to tables
 
-Status: accepted
+Status: accepted; extended by ADR 0014, whose Unchecked expressions and Unchecked derived tables
+sit inside a Statement
 
 The Toolbox had no way to send Hive it didn't write: `hive_function` covers one function, and the
 first design ruled out raw SQL so that every Statement passes the Guards, the Load limits and

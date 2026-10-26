@@ -15,8 +15,6 @@ from typing import NoReturn
 
 from .refusals import refuse
 
-TOOLBOX_VERSION = "7.1"
-
 # The first line of a Table notebook's logic cell, the cell project.load runs.
 LOGIC = "# logic"
 

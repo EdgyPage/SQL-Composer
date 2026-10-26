@@ -395,10 +395,12 @@ And two more, for files beside the notebooks:
    4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's "To update from 5.x". Each says what
    to change in your notebooks and files.
 
-When it is imported, the folder checks itself. If a file is missing, extra, from another
-version or another download, or from another Toolbox folder, or if this Python or the library
-it needs won't work with it, the import stops and says what happened, why it matters and the
-usual fix.
+When it is imported, the folder checks itself against its `version.txt`, the one file that
+names its version and lists each of its files. If a file is missing or extra, if `version.txt`
+is missing or from another Toolbox folder, or if this Python or the library it needs won't work
+with it, the import stops and says what happened, why it matters and the usual fix. A file
+that differs from the download, edited by hand or pasted from another one, only warns, naming
+it.
 
 ## License
 

@@ -1,8 +1,8 @@
 """The Clean-branch export, checked on `dev` without git: the same build `main` gets.
 
 `tools/export_clean.py` builds the Clean tree in a folder. These tests build it into a
-temporary folder and check what `main` would hold: the allowlist, the stamp on line 1 of every
-Toolbox file, the file list in `__init__.py`, the copy of the Example projects and
+temporary folder and check what `main` would hold: the allowlist, the Toolbox's files as dev
+holds them, its `version.txt` with each file's hash, the copy of the Example projects and
 the Templates, and the README with its lists of how-tos and Templates and its cheat sheet; and
 that a Clean tree failing one of the export's own checks is refused.
 """
@@ -30,6 +30,7 @@ from test_pointers import named_paths  # noqa: E402
 import sqlglot_composer  # noqa: E402
 
 WHEN = datetime.datetime(2026, 10, 2, 14, 5)
+COMMIT = "0123456789abcdef0123456789abcdef01234567"
 VERSION = sqlglot_composer.TOOLBOX_VERSION
 VERSION_TEXT = f"sqlglot Composer {VERSION}, exported 2026-10-02 14:05"
 STAMP = f"{VERSION_TEXT} - generated from dev, do not edit"
@@ -43,48 +44,38 @@ def dev_toolbox_files() -> list[str]:
     )
 
 
-@pytest.fixture(scope="module")
-def clean(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    folder = tmp_path_factory.mktemp("clean")
-    export_clean.build(ROOT, folder, WHEN)
-    return folder
-
-
-@pytest.mark.parametrize("name", dev_toolbox_files())
-def test_every_toolbox_file_is_stamped_on_line_1(clean: Path, name: str) -> None:
-    first = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8").splitlines()[0]
-    if name.endswith(".py"):
-        assert first == f"# {STAMP}"
-    else:
-        assert first == f"<!-- {STAMP} -->"
-
-
-def files_list_in(init_text: str) -> list[str]:
-    found = re.search(r"^_FILES = (\[.*?\])$", init_text, re.MULTILINE | re.DOTALL)
-    assert found, "__init__.py has no _FILES list"
-    return ast.literal_eval(found.group(1))
-
-
-def test_the_file_list_in_init_names_every_toolbox_file(clean: Path) -> None:
-    init = (clean / "sqlglot_composer" / "__init__.py").read_text(encoding="utf-8")
-    assert files_list_in(init) == dev_toolbox_files()
-    assert "_FILES = None" not in init
-
-
 # The Toolbox's folder, which the export ships.
 FOLDERS = ["sqlglot_composer"]
 
 
-@pytest.mark.parametrize("name", [
-    f"{folder}/{path.name}" for folder in FOLDERS
-    for path in sorted((ROOT / folder).iterdir()) if path.name != "__pycache__"])
-def test_below_the_stamp_each_file_is_devs_own(clean: Path, name: str) -> None:
-    exported = (clean / name).read_text(encoding="utf-8").split("\n", 1)[1]
-    dev = (ROOT / name).read_text(encoding="utf-8")
-    if name.endswith("/__init__.py"):
-        written = re.search(r"^_FILES = \[.*?\]$", exported, re.MULTILINE | re.DOTALL).group(0)
-        exported = exported.replace(written, "_FILES = None")
-    assert exported == dev
+@pytest.fixture(scope="module")
+def clean(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    folder = tmp_path_factory.mktemp("clean")
+    export_clean.build(ROOT, folder, WHEN, COMMIT)
+    return folder
+
+
+@pytest.mark.parametrize("name", [name for name in dev_toolbox_files() if name != "version.txt"])
+def test_each_toolbox_file_is_devs_own_word_for_word(clean: Path, name: str) -> None:
+    """No stamp, no file list: an export changes only the files whose content changed."""
+    exported = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8")
+    assert exported == (ROOT / "sqlglot_composer" / name).read_text(encoding="utf-8")
+
+
+def test_the_version_file_says_when_and_from_which_commit(clean: Path) -> None:
+    lines = (clean / "sqlglot_composer" / "version.txt").read_text(encoding="utf-8").splitlines()
+    assert lines[:2] == [f"sqlglot Composer {VERSION}",
+                         f"exported 2026-10-02 14:05 from dev commit {COMMIT}"]
+
+
+def test_the_version_file_lists_every_other_file_with_its_git_hash(clean: Path) -> None:
+    text = (clean / "sqlglot_composer" / "version.txt").read_text(encoding="utf-8")
+    listed = dict(reversed(line.split("  ")) for line in text.splitlines()
+                  if re.fullmatch(r"[0-9a-f]{40}  \S+", line))
+    assert sorted(listed) == [name for name in dev_toolbox_files() if name != "version.txt"]
+    for name, hashed in listed.items():
+        exported = (clean / "sqlglot_composer" / name).read_bytes()
+        assert export_clean.git_hash(exported) == hashed, name
 
 
 def readme(clean: Path) -> str:
@@ -189,7 +180,7 @@ def test_a_toolbox_file_importing_what_work_lacks_is_refused(tmp_path: Path) -> 
                        encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused,
                        match="sqlglot_composer/writing.py imports requests"):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
 DRIFT_TEXT = """\
@@ -319,34 +310,33 @@ def test_a_dev_without_a_root_file_is_refused(tmp_path: Path, name: str) -> None
     source = dev_copy(tmp_path / "dev")
     (source / name).unlink()
     with pytest.raises(export_clean.ExportRefused, match=name):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
-def test_the_stamped_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
-    assert export_clean.build(ROOT, tmp_path / "clean", WHEN) == SHIPPED
+def test_the_exported_copy_is_imported_and_says_it_was_exported(tmp_path: Path) -> None:
+    assert export_clean.build(ROOT, tmp_path / "clean", WHEN, COMMIT) == SHIPPED
 
 
 def test_a_toolbox_that_stops_on_import_is_refused(tmp_path: Path) -> None:
     source = dev_copy(tmp_path / "dev")
-    (source / "sqlglot_composer" / "old_module.py").write_text("x = 1\n")
+    public = source / "sqlglot_composer" / "public.py"
+    public.write_text(public.read_text(encoding="utf-8")
+                      + '\nraise ImportError("broken on purpose:\\n  its second line")\n',
+                      encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
-    # The whole four-part stop, not only its last line.
-    assert str(refused.value).startswith(
-        "The stamped copy of sqlglot Composer doesn't import, so nothing was exported:\n"
-        "ImportError: sqlglot_composer stopped on import:\n"
-        "  What happened:  old_module.py is from another Toolbox version, and "
-        "sqlglot_composer/__init__.py is from "
-        f"{VERSION}.\n"
-        "  Why it matters: ")
-    assert "\n  Usual fix:      " in str(refused.value)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
+    # The whole message, every line of it, not only its last line.
+    assert str(refused.value) == (
+        "The exported copy of sqlglot Composer doesn't import, so nothing was exported:\n"
+        "ImportError: broken on purpose:\n  its second line")
 
 
-def test_a_file_the_export_cannot_stamp_is_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize("name", ["notes.txt", "old_module.py"])
+def test_a_file_the_registry_doesnt_list_is_refused(tmp_path: Path, name: str) -> None:
     source = dev_copy(tmp_path / "dev")
-    (source / "sqlglot_composer" / "notes.txt").write_text("scratch\n")
-    with pytest.raises(export_clean.ExportRefused, match="sqlglot_composer/notes.txt"):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+    (source / "sqlglot_composer" / name).write_text("scratch\n")
+    with pytest.raises(export_clean.ExportRefused, match=f"sqlglot_composer/{name}"):
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
 @pytest.mark.parametrize("marker", ["<!-- CHEAT SHEET -->", "<!-- HOW-TOS -->"])
@@ -356,7 +346,7 @@ def test_a_readme_template_without_its_markers_is_refused(tmp_path: Path, marker
     template.write_text(template.read_text(encoding="utf-8").replace(marker, ""),
                         encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused, match=re.escape(marker)):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
 def section_of(text: str, heading: str) -> str:
@@ -449,23 +439,9 @@ def test_preview_builds_into_a_folder_and_commits_nothing(
 # --- The Toolbox's folder and the copies --------------------------------------------------------
 
 
-def _files_of(folder: Path) -> list[str]:
-    return sorted(path.name for path in folder.iterdir() if path.name != "__pycache__")
-
-
-def test_the_folder_is_stamped_with_its_name_and_one_time(clean: Path) -> None:
-    for name in _files_of(clean / "sqlglot_composer"):
-        first = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8").split("\n")[0]
-        assert first in (f"# {STAMP}", f"<!-- {STAMP} -->"), name
-
-
-def test_the_folders_file_list_names_its_own_files(clean: Path) -> None:
-    init = (clean / "sqlglot_composer" / "__init__.py").read_text(encoding="utf-8")
-    assert files_list_in(init) == _files_of(ROOT / "sqlglot_composer")
-
-
 def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
-    stamp = f"{VERSION_TEXT} - copy it, then edit your copy"
+    """With the version alone, so an export changes them only when the version changes."""
+    stamp = f"sqlglot Composer {VERSION} - copy it, then edit your copy"
     for folder in COPIED:
         for relative in copied_files(folder):
             if relative.endswith(UNSTAMPED):
@@ -544,19 +520,24 @@ def test_a_commit_without_the_example_projects_is_refused(tmp_path: Path) -> Non
     shutil.rmtree(source / "example_projects")
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
             "this commit doesn't have example_projects. Commit it on dev.")):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
-def test_files_of_different_versions_are_refused(tmp_path: Path) -> None:
+@pytest.mark.parametrize("held", [None, "", "sqlglot Composer\n", "Other Composer 7.2\n",
+                                  "sqlglot Composer 7.2\nexported 2026-10-02 14:05\n"])
+def test_a_dev_version_file_that_isnt_one_line_naming_the_version_is_refused(
+        tmp_path: Path, held: str | None) -> None:
     source = dev_copy(tmp_path / "dev")
-    writing = source / "sqlglot_composer" / "writing.py"
-    writing.write_text(writing.read_text(encoding="utf-8").replace(
-        f'TOOLBOX_VERSION = "{VERSION}"', 'TOOLBOX_VERSION = "9.9"'), encoding="utf-8")
+    path = source / "sqlglot_composer" / "version.txt"
+    if held is None:
+        path.unlink()
+    else:
+        path.write_text(held, encoding="utf-8")
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     assert str(refused.value) == (
-        f"The Toolbox's files share one version, but __init__.py is {VERSION} and writing.py "
-        "is 9.9. Set TOOLBOX_VERSION in every .py file of sqlglot_composer/, and commit.")
+        "sqlglot_composer/version.txt must hold one line on dev, the Toolbox and its version, "
+        'such as "sqlglot Composer 7.2": the export adds the rest. Put it back, and commit.')
 
 
 def spoil(path: Path, old: str, new: str) -> None:
@@ -582,7 +563,7 @@ def test_an_example_projects_dry_run_that_fails_is_refused(tmp_path: Path) -> No
     spoil(source / "example_projects" / "intermediate" / "references" / "mart__team_days.py",
           'key=["team", "dt"],', 'key=["team", "day"],')
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     assert str(refused.value).startswith(
         "example_projects/intermediate's run_tables doesn't run its dry run "
         "on main, so nothing was exported:\nValueError: ")
@@ -596,13 +577,13 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
     with pytest.raises(export_clean.ExportRefused, match=re.escape(
             "example_projects/starter's run_tables's dry run left files "
             "in the Clean tree: ['example_projects/starter/admin/left_behind.txt']")):
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
 
 
 NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network, but the "
                    "Toolbox, its Example projects and its Templates reach nothing but the "
                    "user's query and execute. tools/offline_policy.py found, as main would "
-                   "hold it, line 1 being the export's stamp:\n")
+                   "hold it, line 1 being the export's stamp where the file has one:\n")
 
 
 def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: Path) -> None:
@@ -610,7 +591,7 @@ def test_an_example_project_that_imports_a_network_client_is_refused(tmp_path: P
     spoil(source / "example_projects" / "starter" / "warehouse.py",
           '"""warehouse - ', 'import requests\n"""warehouse - ')
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     # Line 2 on main: the export's stamp is line 1.
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
@@ -623,7 +604,7 @@ def test_a_page_that_loads_a_script_from_the_internet_is_refused(tmp_path: Path)
     spoil(source / "example_projects" / "starter" / page,
           "<!doctype html>", '<!doctype html><script src="https://example.com/x.js"></script>')
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     assert str(refused.value).startswith(
         NETWORK_REFUSAL + f"  example_projects/starter/{page}:2 page reference: ")
     assert '<script src="https://example.com/x.js">' in str(refused.value)
@@ -634,7 +615,7 @@ def test_a_readme_that_embeds_a_picture_from_the_internet_is_refused(tmp_path: P
     spoil(source / export_clean.README_TEMPLATE, "# sqlglot Composer\n",
           '# sqlglot Composer\n<img src="https://example.com/x.png">\n')
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     assert str(refused.value).startswith(
         NETWORK_REFUSAL
         + '  .github/README.md:3 page reference: <img src="https://example.com/x.png">\n')
@@ -649,7 +630,7 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
           "\nfrom sqlglot_composer import", 'import pathlib\nimport socket\n'
           'pathlib.Path("left_behind.txt").write_text("x")\nfrom sqlglot_composer import')
     with pytest.raises(export_clean.ExportRefused) as refused:
-        export_clean.build(source, tmp_path / "clean", WHEN)
+        export_clean.build(source, tmp_path / "clean", WHEN, COMMIT)
     assert str(refused.value).startswith(NETWORK_REFUSAL)
     assert "example_projects/starter/building_blocks/runs_per_job.py:" in str(refused.value)
     assert not list((tmp_path / "clean").rglob("left_behind.txt"))
