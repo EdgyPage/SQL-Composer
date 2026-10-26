@@ -1,7 +1,7 @@
 # Writing a Statement out as Python
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 05
 Size: L
 
@@ -36,3 +36,24 @@ the how-to (ticket 09), since a goal session doesn't stop to ask.
 - The written source passes the repo's lint and reads like a Worked example: one Clause function
   a line where it fits, SQL order, the Toolbox's own names.
 - CLAUDE.md's Definition of done. Nothing public changes, so no beginner read.
+
+## Answer
+
+Built 2026-10-26 on dev, with ticket 07 (see 05's "Python first").
+
+- `Translation.logic()` writes the Conversion's logic cell: the imports (the Toolbox names used,
+  `from references import ops` per Database), the named constants, each table and CTE, and, for
+  one SELECT, `rows() -> list[Clause]` with `converted() -> Statement` returning
+  `statement(*rows())`, else `converted()` returning the Stack or the Unchecked statement.
+  Names come from the Hive (aliases, CTE names, a column's name for a constant), made plain and
+  unique; a Python keyword or builtin gets `_t`.
+- `saved_table_logic(...)` makes the logic cell, as the user left it, a Table notebook's:
+  `create()`, `preview()` and `write()`, write() through `rows()` with the original's INSERT
+  mode and static partition, or through `converted()` as a Derived table.
+- The round trip: `convert` loads the notebook it wrote (`project.load(name)`, so the logic
+  runs exactly where a user's would, the one reviewed `exec`), builds the Statement, adds each
+  opt-out a refusal names, and compares its Hive with the original's by `compare_hive`, saying
+  so in its report and scan.md. It doesn't refuse a Conversion whose Hive differs: the 80% the
+  user asked for is still theirs, and the report says where they differ.
+- The sample shown: the user is shown one in ticket 09's how-to; tests/test_conversions.py
+  holds one end to end.

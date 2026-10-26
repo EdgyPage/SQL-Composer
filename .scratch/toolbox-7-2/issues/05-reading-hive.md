@@ -1,7 +1,7 @@
 # Reading Hive into the Toolbox's objects
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03, 04
 Size: L
 
@@ -63,3 +63,38 @@ Settled while building (2026-10-26):
   CTE chains, a CTE read twice, the same table joined under two aliases, `SELECT *` and `t.*`,
   quoted names, comments, mixed case, a 300-line query.
 - CLAUDE.md's Definition of done. Nothing public changes, so no beginner read.
+
+## Answer
+
+Built 2026-10-26 on dev (6642319; wired up with 06 and 07 in the commit after).
+
+- `sqlglot_composer/converting.py`, a third file allowed to import sqlglot (`LIBRARY_FILES`,
+  standards.md), reading and writing Hive only through `writing.read_hive` and
+  `writing.sql_text`, as the sqlglot checks hold. `translate(text, columns_of, database)` gives
+  a `Translation`: the tables read, those with no Table reference (`missing`, a finding, not a
+  refusal), the SET lines, the INSERT's mode, table, partitions and column list, the named
+  constants, the assignments (each table under its alias, each CTE a Derived table), the query
+  (and, for one SELECT, its clauses), the Toolbox names used, and each finding with its line.
+- Read into the Toolbox's own functions: SELECT and SELECT DISTINCT, FROM, every join the
+  Toolbox writes (RIGHT JOIN and USING stay Hive), WHERE, GROUP BY (a calculation the SELECT
+  names grouped by that name), HAVING, ORDER BY (by name, position or column), LIMIT, Windows
+  (row_number, rank, dense_rank, lag, lead, first_value, last_value, the aggregates; ROWS
+  frames), Stacks, sub-queries in FROM as Derived tables, the conditions (comparisons turned
+  round when the value comes first, BETWEEN, IN and NOT IN, IS NULL, LIKE as starts_with or
+  contains, AND/OR as all_of/any_of), COALESCE as fill_null, IF as if_else.
+- A CASE comparing one column with plain values is `mapped` from a named dict; one WHEN is
+  `if_else`; more is `first_match`; `SUM(CASE WHEN c THEN x END)` is `sum_of(x, where=c)`. An
+  IN list of 4 values or more (`LONG_LIST`) is a named constant. A function the Toolbox doesn't
+  wrap is `hive_function` only when that call writes back to the same Hive, else an Unchecked
+  expression; an expression no function writes is an Unchecked expression, its columns as
+  `{name}` placeholders, a literal brace doubled; a CTE no Statement can be (LATERAL VIEW) an
+  Unchecked derived table; a top-level query the Toolbox can't read an Unchecked statement.
+- Every INSERT form, at the user's request mid-build (see "Settled while building"), and the
+  refusals: `ConversionRefused` for a script, VALUES, a directory, a multi-insert, and Hive
+  sqlglot can't read; the Project actions give it the four-part shape.
+- `with_opt_out(logic, refusal)`: the opt-out a Guard's or Load limit's message names, added to
+  the call it names, marked `# CONVERSION:`; a refusal naming no table goes to the outermost
+  call. Run by ticket 07's convert until nothing refuses.
+- Tests: `tests/test_converting.py`, 41 cases on the Example database's tables. Not built: a
+  300-line query of the user's own; the user's Hive will say what's missing, each piece a
+  finding with its line.

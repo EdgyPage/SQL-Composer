@@ -1,7 +1,7 @@
 # The scan, the Conversion folder and finish_conversion
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02, 06
 Size: L
 
@@ -62,3 +62,31 @@ New, under "The user's own scripts":
 
 **Registry** gains Conversion folders in its list. **Project action**'s list gains converting
 and finishing a Conversion.
+
+## Answer
+
+Built 2026-10-26 on dev, with 05 and 06.
+
+- `project.scan_hive(hive=... | file=..., database=)`, `project.convert(name, hive | file=,
+  query=, database=)`, `project.finish_conversion(name, table=)` and
+  `project.remove_conversion(name)`, each a Project action logged in the Admin log (scan_hive
+  changes nothing and isn't logged). `database=` names the Database of a table the Hive names
+  without one (default `default`, as Hive's).
+- The Conversion folder, `admin/conversions/<name>/`: `original.hql` exactly as given (pasted or
+  from a file), `scan.md`, and `<name>.ipynb`: what it is, the Project three folders up, the
+  logic cell, then compare_hive's cell and compare_with_original's (commented, with a partition
+  to fill in). A new `FileKind`, `CONVERSION_FOLDER`, kept out of `KINDS` so register never
+  adopts one; the Registry lists it while in force.
+- `project.load("<name>")` runs a Conversion's logic as it does a Table notebook's: a name
+  with no dot is a Conversion's, which must define `converted()`.
+- `finish_conversion` calls `new_table` (so its Admin log has that entry too), then writes the
+  Table notebook (the Conversion's logic with create, preview and write; trying it, lineage, the
+  checks, the Reference sheet) and the Table reference: the columns from the Statement's
+  outputs with the types it knows, `<COLUMN_TYPE>` for the rest, `partitioned_by` from the
+  original's PARTITION or `["<PARTITION_COLUMN>"]`, which Table refuses until it names a
+  column, `key=None` with a TODO, and `location=<LOCATION>`. `original.hql` is copied into the
+  Table folder for the checks; the Conversion folder is archived.
+- `project.start()` makes `admin/conversions/` and `admin/convert.ipynb`, so the 7.1 to 7.2
+  Upgrade step adds both. `project.check()` lists the Conversions not finished and each
+  `# CONVERSION:` mark left.
+- Tests: `tests/test_conversions.py`.
