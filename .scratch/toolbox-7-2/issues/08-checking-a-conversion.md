@@ -113,3 +113,64 @@ stays the one writer, always strict (a test holds it), for what is only shown to
 
 Tests: `tests/test_comparisons.py`; the gallery and how-to page regenerated; CHANGES.md's 7.2
 "Also new" has a line for each; the README template counts 104 names.
+
+## Reviews
+
+Built beside 03 and merged into dev as 7aba998; the code review's fixes in b158071 (the
+Unchecked pieces named, the comparison sent through `send_logged`, a partition= on no partition
+column refused). The beginner reader's report,
+[reports/03-08-beginner-reader.md](../reports/03-08-beginner-reader.md), drift items D266 and
+D267, and one more asked for by the main session were fixed in a worktree, finding by finding:
+
+- Beginner reader, 08:
+  - 1 ("the Hive it was converted from"): fixed, each docstring and message says "the original
+    Hive it replaces", which reads without knowing a Conversion, and holds too for Hive
+    rewritten by hand.
+  - 2 (short names unclear): fixed, compare_hive's docstring gives `r in FROM ops.job_runs r`
+    and says plainly what each is written as.
+  - 3 (" = :"): fixed, "a <> b written as NOT a = b".
+  - 4 ("line 6 of each"): fixed. The Verdict says "lines 1 to 5 match, and line 6 differs",
+    shows up to two matching lines before it, "line 4, in both: ...", then the line of each;
+    the docstring says the lines are counted as both are written out for comparing, not as
+    to_hive writes them.
+  - 5 (the first differing line can mislead; conditions in another order): fixed, the lines
+    before it show where it is (a test holds the extra column case), and the docstring says
+    two conditions in the other order count.
+  - 6 ("..", INNER and OUTER): fixed, sqlglot's reason loses its full stop, its `<Token ...>`
+    names and its "Line 1, Col: 17" (said "at line 1, column 17"); "LEFT OUTER JOIN is LEFT
+    JOIN" is said.
+  - 7 (reads_all_partitions=True on FROM, then partition=): fixed, a sentence in the Worked
+    example says why.
+  - 8 (a Statement that filters its own partition; costliest 1): fixed. partition= may name a
+    partition column of a table the Statement reads that it doesn't give: every read of that
+    table, in the Statement and in the original alike, becomes a read of that Partition alone
+    (`(SELECT * FROM ops.job_runs WHERE dt = '...') AS job_runs`, `writing._reads_bounded`), so
+    the original needs no dt among its columns. The Verdict says "reading ops.job_runs where
+    dt = '...'". The refusal without partition= names a partition column, never another
+    (`_example`), and says which table it partitions; "in every Partition" is said only where
+    no read of the Statement is bounded by its own conditions, else "each in the Partitions its
+    own conditions pick". A write into one static Partition is compared the same way (tested),
+    as is a Conversion whose notebook passes the original's PARTITION(...) column.
+  - 9 (where=): fixed, refused pointing to partition= with an example.
+  - 10 (a Verdict whose ok is False is truthy): fixed, `bool(verdict)` is its ok, for
+    check_key and check_table_reference too; nothing in the Toolbox, its tools or tests relied
+    on a Verdict being always true (grepped). Verdict's docstring and CHANGES say so.
+  - 11 (None in one table, NaN in another): answered, that is pandas showing each answer as
+    the warehouse gives it; the comparison matched NULL with NULL already.
+  - 12 (the Unchecked line): fixed, a full sentence: where the rows match, "The rows match, so
+    it gives what the original gives here."; where they differ, "Check that Hive first: the
+    Toolbox can't trace a difference inside it." The docstring says so (D267), and the Admin
+    log entry's heading now ends ", compared with the original by compare_with_original".
+  - 13 (the comparison query can't be previewed): answered, not done here: a preview needs a
+    public way to show it, a new name for the tracker; the Example database's refusal names
+    what its executor lacks.
+  - 14 (a positional query): answered, query= is keyword-only as in check_key, so the call
+    always names it.
+- Drift: D266 fixed, the docstring says partition= must name a partition column of a
+  partitioned table the Statement reads, or reads_all_partitions=True. D267 fixed, its
+  paragraph names the Admin log entry and the last line.
+- The main session (2026-10-26): SET lines in the original, and before an INSERT, are passed
+  over by compare_hive and compare_with_original (`writing._read_query`), since inherited Hive
+  often starts with them and ticket 07's notebook compares the Hive exactly as given; a second
+  query, or an INSERT and a SELECT, is still refused ("holds 2 statements besides its SET
+  lines"). Both docstrings say so; tested for each.

@@ -8,6 +8,7 @@ what it writes as a tree of its own objects, a "sqlglot tree".
 
 from __future__ import annotations
 
+import keyword
 import re
 from collections.abc import Callable
 from typing import NamedTuple
@@ -264,28 +265,48 @@ def _part(tree: exp.Expression, part: str) -> exp.Expression | None:
     return tree.args.get(part + "_", tree.args.get(part))
 
 
+def _first_line(error: sqlglot.errors.SqlglotError) -> str:
+    """sqlglot's reason, its first line, in plain words: where it stopped as "at line 1,
+    column 17", sqlglot's own name for a word it read, "<Token token_type: ..., text: WHERE,
+    ...>", as the word, WHERE, and no full stop, as a message adds its own after."""
+    said = (str(error).strip().splitlines() or [type(error).__name__])[0]
+    said = re.sub(r"<Token token_type: [^,]*, text: (.*?), line: .*?>", r"\1", said)
+    said = re.sub(r"\. Line (\d+), Col: (\d+)\.?$", r", at line \1, column \2", said)
+    return said.rstrip(".")
+
+
+def _is_a_set_line(tree: exp.Expression) -> bool:
+    """Whether a statement is a SET line, such as SET hive.exec.parallel=true: one that sets
+    the session, not the rows. An older sqlglot reads it as a Command."""
+    return isinstance(tree, exp.Set) or (isinstance(tree, exp.Command)
+                                         and str(tree.this).upper() == "SET")
+
+
 def _read_query(text: str, call: str, whose: str) -> exp.Expression:
     """The one query in Hive text, read by sqlglot: a SELECT, a Stack of them, or the SELECT of
-    an INSERT, which is taken from it with its WITH. Anything else is refused, in the name of
-    `call`, saying `whose` text it was, such as "the original"."""
+    an INSERT, which is taken from it with its WITH. SET lines are passed over, as they set
+    the session, not the rows. Anything else is refused, in the name of `call`, saying `whose`
+    text it was, such as "the original"."""
     try:
         read = [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
     except sqlglot.errors.SqlglotError as error:
-        said = (str(error).strip().splitlines() or [type(error).__name__])[0]
         refuse(
-            what=f"{call}: sqlglot can't read {whose} as Hive: {said}.",
+            what=f"{call}: sqlglot can't read {whose} as Hive: {_first_line(error)}.",
             why="It reads the Hive with sqlglot to compare it, as the Toolbox reads back its "
             "own.",
             fix="Check that it is the Hive that runs at work, pasted whole. If it runs there, "
             "sqlglot doesn't know a part of it: compare the two by eye, with print(to_hive(s)).",
             error=ValueError,
         )
+    settings = [tree for tree in read if _is_a_set_line(tree)]
+    read = [tree for tree in read if not _is_a_set_line(tree)]
     if len(read) != 1:
+        besides = " besides its SET lines" if settings else ""
         refuse(
-            what=f"{call}: {whose} holds {len(read)} statements, where one query goes.",
+            what=f"{call}: {whose} holds {len(read)} statements{besides}, where one query goes.",
             why="It is compared as one query, whose rows are the ones to compare.",
-            fix="Pass that query alone: SET lines, and any statement before or after it, run "
-            "at work apart from it.",
+            fix="Pass that query alone: any statement before or after it runs at work apart "
+            "from it. SET lines may stay, as they set the session, not the rows.",
             error=ValueError,
         )
     tree = read[0]
@@ -342,9 +363,9 @@ def _written_back(tree: exp.Expression, call: str, whose: str) -> str:
     try:
         return sql_text(tree, pretty=True)
     except sqlglot.errors.UnsupportedError as error:
-        said = (str(error).strip().splitlines() or [type(error).__name__])[0]
         refuse(
-            what=f"{call}: sqlglot reads {whose}, but can't write it back as Hive: {said}.",
+            what=f"{call}: sqlglot reads {whose}, but can't write it back as Hive: "
+            f"{_first_line(error)}.",
             why="It compares the Hive as sqlglot writes it out, and sends nothing it can't "
             "write.",
             fix="Compare that part by eye, with print(to_hive(s)); the rest of the Toolbox "
@@ -410,20 +431,25 @@ def _renamed_outputs(query: exp.Expression) -> set[str]:
 
 
 def rows_compared(call: str, statement_hive: str, original: str, columns: list[str],
-                  kept: list[tuple[str, str]], shown: int) -> str:
+                  kept: list[tuple[str, str]], bounded: list[tuple[str, str, str]],
+                  shown: int) -> str:
     """The one query that compares the rows of a Statement's Hive with an original's, whose
     columns are `columns`, both: each side's count of rows, how many are in one and not the
     other, then up to `shown` such rows of each side, numbered column_1, column_2 and so on.
 
     Each side's rows are stacked with UNION ALL and counted by GROUP BY on every column, which
     matches NULL with NULL and counts a row as many times as it comes. `kept` is each column
-    and its value as Hive, to keep only the rows of both sides that hold it. Hive takes no WITH
-    inside another, so each side's Derived tables are moved up into the one WITH, their names
-    starting statement_ or original_. `call` names the function asking, for a refusal.
+    and its value as Hive, to keep only the rows of both sides that hold it. `bounded` is each
+    partitioned table, as database.name, with a partition column and its value as Hive: every
+    read of that table, on both sides, reads only the rows that hold it (_reads_bounded). Hive
+    takes no WITH inside another, so each side's Derived tables are moved up into the one WITH,
+    their names starting statement_ or original_. `call` names the function asking, for a
+    refusal.
     """
-    ours, around_ours = _hoisted(_read_query(statement_hive, call, "the Statement's Hive"),
-                                 "statement")
-    theirs, around_theirs = _hoisted(_read_query(original, call, "the original"), "original")
+    ours, around_ours = _hoisted(_reads_bounded(
+        _read_query(statement_hive, call, "the Statement's Hive"), bounded), "statement")
+    theirs, around_theirs = _hoisted(_reads_bounded(
+        _read_query(original, call, "the original"), bounded), "original")
     numbered = [f"column_{place}" for place in range(1, len(columns) + 1)]
     listed = ", ".join(numbered)
 
@@ -466,6 +492,33 @@ def rows_compared(call: str, statement_hive: str, original: str, columns: list[s
     with_ = _part(tree, "with")
     with_.set("expressions", around_ours + around_theirs + sides + with_.expressions)
     return _written_back(tree, call, "the original")
+
+
+def _reads_bounded(query: exp.Expression, bounded: list[tuple[str, str, str]]
+                   ) -> exp.Expression:
+    """The query with each read of a table `bounded` names, as `FROM ops.job_runs r`, made a
+    read of only the rows that hold its values: `FROM (SELECT * FROM ops.job_runs WHERE dt =
+    '2026-09-24') r`, which Hive reads as that Partition alone. A name its own WITH gives isn't
+    a table, and is left as it is."""
+    wanted = {}
+    for table, column, value in bounded:
+        wanted.setdefault(table.lower(), []).append((column, value))
+    own = {cte.alias_or_name.lower() for cte in query.find_all(exp.CTE)}
+    for read in list(query.find_all(exp.Table)):
+        name = ".".join(part for part in (read.db, read.name) if part).lower()
+        if name not in wanted or name in own:
+            continue
+        # Each value is the Toolbox's own Hive, written by literal(), read back.
+        where = exp.and_(*[exp.EQ(this=exp.Column(this=_identifier(column)),
+                                  expression=sqlglot.parse_one(value, read=_DIALECT))
+                           for column, value in wanted[name]])
+        table = exp.Table(this=read.this.copy(), db=read.args["db"].copy() if read.db else None)
+        inner = exp.Select(expressions=[exp.Star()])
+        _set_part(inner, "from", exp.From(this=table))
+        inner.set("where", exp.Where(this=where))
+        read.replace(exp.Subquery(this=inner, alias=exp.TableAlias(
+            this=_identifier(read.alias or read.name))))
+    return query
 
 
 def _hoisted(query: exp.Expression, prefix: str) -> tuple[exp.Expression, list[exp.CTE]]:
@@ -802,6 +855,9 @@ class ExpressionFacts(NamedTuple):
     aggregate: bool
     # Whether it looks across rows through a window, OVER (...).
     window: bool
+    # Why sqlglot, which reads it, can't write it back as Hive, or None when it can: braces,
+    # say, which sqlglot reads as a struct, and Hive has no such value.
+    unwritable: str | None = None
 
 
 def read_unchecked_expression(text: str, stand_ins: list[str]) -> ExpressionFacts:
@@ -814,6 +870,7 @@ def read_unchecked_expression(text: str, stand_ins: list[str]) -> ExpressionFact
     select = read[0] if len(read) == 1 else None
     if not isinstance(select, exp.Select):
         return ExpressionFacts("it isn't one expression", 0, False, True, [], [], False, False)
+    unwritable = _unwritable(select)
     others = [part for part, value in select.args.items() if value and part != "expressions"]
     named, columns, found = False, [], []
     for expression in select.expressions:
@@ -828,7 +885,56 @@ def read_unchecked_expression(text: str, stand_ins: list[str]) -> ExpressionFact
         reads_a_table=bool(others) or select.find(exp.Subquery, exp.Table) is not None,
         columns=list(dict.fromkeys(columns)), found=found,
         aggregate=any(_adds_rows_up(node) for node in select.walk()),
-        window=select.find(exp.Window) is not None)
+        window=select.find(exp.Window) is not None, unwritable=unwritable)
+
+
+def _unwritable(tree: exp.Expression) -> str | None:
+    """Why sqlglot can't write a tree it read back as Hive, in its own words, or None when it
+    can: written once here, as to_hive will write it, so a refusal comes at the call."""
+    try:
+        sql_text(tree)
+    except sqlglot.errors.UnsupportedError as error:
+        return _first_line(error)
+    return None
+
+
+# Stand-ins for the placeholders with_placeholders adds, one for each column the text names.
+_ADDED = "unchecked_added_placeholder_"
+
+
+def with_placeholders(text: str, stand_ins: dict[str, str]
+                      ) -> tuple[str, list[tuple[str, str, str]]]:
+    """An Unchecked expression's text with each column it names itself made a placeholder,
+    as sqlglot writes it. `text` has each placeholder filled with its stand-in, and
+    `stand_ins` gives each stand-in's placeholder name. Gives back the text, a brace meant as
+    a brace doubled, and for each placeholder added, its name, the column's table as written
+    (or "" for none) and the column's name.
+
+    A placeholder is named by its column's plain name, without backticks, made a name Python
+    takes as an argument, and numbered where that name is taken already: {status_2}. A
+    column named twice is one placeholder. Text in quotes is left as it is."""
+    expression = _read_once("SELECT " + text)[0].expressions[0]
+    taken, added, by_column = set(stand_ins.values()), [], {}
+    for column in list(expression.find_all(exp.Column)):
+        if {part.name for part in column.parts} & set(stand_ins):
+            continue
+        seen = (column.table.lower(), column.name.lower())
+        if seen not in by_column:
+            base = re.sub(r"\W", "_", column.name)
+            if not base or base[0].isdigit() or keyword.iskeyword(base):
+                base = f"column_{base}"
+            name, number = base, 2
+            while name in taken:
+                name, number = f"{base}_{number}", number + 1
+            taken.add(name)
+            by_column[seen] = f"{_ADDED}{len(by_column)}"
+            added.append((name, column.table, column.name))
+        column.replace(exp.column(by_column[seen]))
+    names = {**stand_ins, **{stand_in: name for stand_in, (name, _, _)
+                             in zip(by_column.values(), added)}}
+    written = sql_text(expression).replace("{", "{{").replace("}", "}}")
+    pattern = "|".join(re.escape(stand_in) for stand_in in sorted(names, key=len, reverse=True))
+    return re.sub(pattern, lambda found: "{" + names[found.group()] + "}", written), added
 
 
 def _adds_rows_up(node: exp.Expression) -> bool:
@@ -844,8 +950,14 @@ def _adds_rows_up(node: exp.Expression) -> bool:
 
 def _said(error: sqlglot.errors.SqlglotError) -> str:
     """sqlglot's reason it can't read a text, without where it stopped, which counts the
-    characters of the text with its stand-ins in it."""
-    return str(error).splitlines()[0].split(". Line ")[0].rstrip(".")
+    characters of the text with its stand-ins in it. A part missing, which sqlglot names by
+    its own class, as "Required keyword: 'expression' missing for <class ...Add>", is said in
+    plain words."""
+    said = str(error).splitlines()[0].split(". Line ")[0].rstrip(".")
+    if said.startswith("Required keyword"):
+        return ("a part of it is missing, as where an operator such as + or AND has nothing "
+                "after it")
+    return said
 
 
 class SelectFacts(NamedTuple):
@@ -859,6 +971,8 @@ class SelectFacts(NamedTuple):
     # The tables it reads, as database.name, in small letters; not the names its own WITH
     # gives.
     tables: list[str]
+    # Why sqlglot, which reads it, can't write it back as Hive, or None when it can.
+    unwritable: str | None = None
 
 
 def read_unchecked_select(text: str) -> SelectFacts:
@@ -879,7 +993,8 @@ def read_unchecked_select(text: str) -> SelectFacts:
     tables = [".".join(part for part in (table.db, table.name) if part).lower()
               for table in query.find_all(exp.Table)]
     return SelectFacts(None, outputs,
-                       list(dict.fromkeys(name for name in tables if name not in own)))
+                       list(dict.fromkeys(name for name in tables if name not in own)),
+                       _unwritable(query))
 
 
 def _two_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:

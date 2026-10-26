@@ -8,6 +8,7 @@ rows of both on every column.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -17,11 +18,13 @@ import pytest
 from sqlglot_composer import (
     AS,
     FROM,
+    INSERT_OVERWRITE,
     LEFT_JOIN,
     SELECT,
     WHERE,
     Condition,
     Statement,
+    Table,
     any_of,
     compare_hive,
     compare_with_original,
@@ -34,6 +37,7 @@ from sqlglot_composer import (
     not_equals,
     set_load_limits,
     statement,
+    unchecked_column,
 )
 from sqlglot_composer.example_database import job_runs, jobs
 
@@ -102,15 +106,45 @@ def test_the_load_limits_automatic_limit_isnt_compared() -> None:
 
 def test_where_one_ends_first_it_says_so() -> None:
     verdict = compare_hive(runs_on(), "SELECT run_id, status FROM ops.job_runs")
-    assert repr(verdict).endswith("  the Statement: WHERE\n"
-                                  "  the original:  (nothing: it ends after line 4)")
+    assert repr(verdict).endswith("  line 5, in the Statement: WHERE\n"
+                                  "  line 5, in the original:  (nothing: it ends after line 4)")
+
+
+def test_a_verdict_is_true_only_when_ok() -> None:
+    """`if compare_hive(...)` reads as it says: a Verdict whose ok is False is false."""
+    assert bool(compare_hive(runs_on(), f"SELECT run_id, status FROM ops.job_runs "
+                                        f"WHERE dt = '{DAY}'")) is True
+    assert bool(compare_hive(runs_on(), "SELECT run_id FROM ops.job_runs")) is False
+
+
+SET_LINES = "SET hive.exec.dynamic.partition=true;\nset hive.exec.parallel = true;\n"
+
+
+def test_set_lines_before_the_query_are_passed_over() -> None:
+    """Inherited Hive often starts with SET lines, which set the session, not the rows."""
+    original = f"{SET_LINES}SELECT run_id, status FROM ops.job_runs WHERE dt = '{DAY}';"
+    assert compare_hive(runs_on(), original).ok
+    insert = (f"{SET_LINES}INSERT OVERWRITE TABLE mart.day_runs PARTITION (dt = '{DAY}')\n"
+              f"SELECT run_id, status FROM ops.job_runs WHERE dt = '{DAY}'")
+    assert compare_hive(runs_on(), insert).ok
+
+
+@pytest.mark.needs_example_database
+def test_set_lines_are_passed_over_when_comparing_the_rows_too() -> None:
+    original = f"{SET_LINES}{ORIGINAL}"
+    verdict = compare_with_original(not_tests(is_null(job_runs.status)), original,
+                                    query=example_database.query, partition={"dt": FIRST_DAY})
+    assert verdict.ok, verdict
 
 
 @pytest.mark.parametrize("original, said", [
     pytest.param("SELECT FROM WHERE (", "sqlglot can't read the original as Hive",
                  id="unreadable"),
-    pytest.param("SET hive.exec.dynamic.partition=true;\nSELECT run_id FROM ops.job_runs",
-                 "the original holds 2 statements, where one query goes", id="a_set_line"),
+    pytest.param(f"{SET_LINES}SELECT run_id FROM ops.job_runs;\nSELECT 1",
+                 "the original holds 2 statements besides its SET lines, where one query goes",
+                 id="two_queries_after_set_lines"),
+    pytest.param("INSERT OVERWRITE TABLE mart.x SELECT 1;\nSELECT run_id FROM ops.job_runs",
+                 "the original holds 2 statements", id="an_insert_and_a_select"),
     pytest.param("DROP TABLE ops.jobs", "the original isn't a query that gives rows: it is a "
                  "DROP statement", id="not_a_query"),
     pytest.param("  ", "original is empty text", id="empty"),
@@ -121,6 +155,8 @@ def test_an_original_that_isnt_one_query_is_refused(original: object, said: str)
         compare_hive(runs_on(), original)
     assert said in str(refused.value)
     assert "Usual fix:" in str(refused.value)
+    assert not re.search(r"(?<!\.)\.\.(?!\.)", str(refused.value))  # no full stop doubled
+    assert "<Token" not in str(refused.value)  # sqlglot's own name for a word it read
 
 
 def test_what_isnt_a_statement_that_reads_is_refused() -> None:
@@ -135,10 +171,26 @@ def test_the_first_line_that_differs_is_shown_from_each() -> None:
                                       "WHERE dt = '2026-09-23'")
     assert not verdict.ok
     assert repr(verdict) == (
-        "The Statement's Hive and the original differ, first at line 6 of each, once both are "
-        "written out the same way:\n"
-        "  the Statement: dt = '2026-09-24'\n"
-        "  the original:  dt = '2026-09-23'")
+        "The Statement's Hive and the original differ, once both are written out the same "
+        "way: lines 1 to 5 match, and line 6 differs.\n"
+        "  line 4, in both:          FROM ops.job_runs\n"
+        "  line 5, in both:          WHERE\n"
+        "  line 6, in the Statement: dt = '2026-09-24'\n"
+        "  line 6, in the original:  dt = '2026-09-23'")
+
+
+def test_an_extra_column_shows_the_lines_before_it() -> None:
+    """The lines before the one that differs show where it is, as an extra column's comma
+    would mislead alone."""
+    verdict = compare_hive(runs_on(), f"SELECT run_id, status, dt FROM ops.job_runs "
+                                      f"WHERE dt = '{DAY}'")
+    assert repr(verdict) == (
+        "The Statement's Hive and the original differ, once both are written out the same "
+        "way: lines 1 and 2 match, and line 3 differs.\n"
+        "  line 1, in both:          SELECT\n"
+        "  line 2, in both:          run_id,\n"
+        "  line 3, in the Statement: status\n"
+        "  line 3, in the original:  status,")
 
 
 # --- compare_with_original -------------------------------------------------------------------
@@ -246,9 +298,9 @@ def test_a_partitioned_read_with_no_partition_is_refused() -> None:
 
 
 @pytest.mark.parametrize("partition, error, said, fix", [
-    pytest.param({"day": FIRST_DAY}, ValueError, "names 'day', which isn't a column the "
-                 "Statement gives", "Name a column the Statement gives: run_id, status and dt",
-                 id="unknown_column"),
+    pytest.param({"day": FIRST_DAY}, ValueError, "names 'day', which is neither a column the "
+                 "Statement gives nor a partition column",
+                 "Name a column the Statement gives: run_id, status and dt", id="unknown_column"),
     pytest.param(["dt"], TypeError, "partition= is a dict", 'Write it like partition={"dt": '
                  "...}", id="not_a_dict"),
     pytest.param({}, ValueError, 'partition={}) names no column', 'as in partition={"dt": ...}',
@@ -308,9 +360,90 @@ def test_a_partition_that_names_no_partition_column_is_refused() -> None:
                               partition={"status": "FAILED"})
 
 
+# --- A Statement that picks its own Partitions ------------------------------------------------
+# runs_on() reads job_runs where dt = DAY, and doesn't give dt: partition= names dt, a partition
+# column of the table it reads, and applies to the reads of that table on both sides.
+
+UNBOUNDED = "SELECT run_id, status FROM ops.job_runs"
+
+
+@pytest.mark.needs_example_database
+def test_partition_may_name_a_partition_column_the_statement_doesnt_give() -> None:
+    sent = []
+    verdict = compare_with_original(runs_on(), UNBOUNDED, partition={"dt": DAY},
+                                    query=sent_through(example_database.query, sent))
+    assert verdict.ok, verdict
+    assert repr(verdict) == ("The Statement and the original give the same rows, reading "
+                             "ops.job_runs where dt = '2026-09-24': 4 rows each.")
+    # Each side reads only that Partition of ops.job_runs: the original too, which alone
+    # would read every one.
+    one_line = " ".join(sent[0].split()).replace("( ", "(").replace(" )", ")")
+    assert one_line.count("(SELECT * FROM ops.job_runs WHERE dt = '2026-09-24')") == 2, sent[0]
+
+
+@pytest.mark.needs_example_database
+def test_a_write_into_one_partition_is_compared_by_that_partition() -> None:
+    saved = Table("mart.day_runs", columns={"run_id": "bigint", "status": "string",
+                                            "dt": "string"},
+                  partitioned_by=["dt"], location="/data/your_team/mart.db/day_runs")
+    write = statement(INSERT_OVERWRITE(saved, partition={"dt": DAY}),
+                      SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+                      WHERE(equals(job_runs.dt, DAY)))
+    assert compare_with_original(write, UNBOUNDED, query=example_database.query,
+                                 partition={"dt": DAY}).ok
+
+
+def test_a_statement_that_picks_its_own_partition_is_told_to_name_that_column() -> None:
+    with pytest.raises(ValueError) as refused:
+        compare_with_original(runs_on(), UNBOUNDED, query=example_database.query)
+    fix = usual_fix(refused)
+    assert 'partition={"dt": ...}' in fix
+    assert "run_id" not in fix and "status" not in fix
+
+
+def test_every_partition_isnt_said_where_the_statement_picks_its_own() -> None:
+    verdict = compare_with_original(
+        runs_on(), f"{UNBOUNDED} WHERE dt = '{DAY}'", reads_all_partitions=True,
+        query=lambda hive: pd.DataFrame([[4, 4, 0, 0, None, None, None, None]]))
+    assert verdict.ok
+    assert repr(verdict) == ("The Statement and the original give the same rows, each in the "
+                             "Partitions its own conditions pick: 4 rows each.")
+
+
+def test_a_name_neither_given_nor_a_partition_column_lists_both() -> None:
+    with pytest.raises(ValueError) as refused:
+        compare_with_original(runs_on(), UNBOUNDED, query=example_database.query,
+                              partition={"job_id": 1})
+    message = str(refused.value)
+    assert "names 'job_id', which is neither a column the Statement gives nor a partition " \
+           "column of a table it reads" in message
+    assert "run_id and status; or a partition column of a table it reads: dt" in message
+
+
+def test_reading_no_partitioned_table_a_name_must_be_a_column_it_gives() -> None:
+    teams = statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
+    with pytest.raises(ValueError) as refused:
+        compare_with_original(teams, "SELECT job_id, team FROM ops.jobs",
+                              query=example_database.query, partition={"owner": "ana"})
+    assert "names 'owner', which isn't a column the Statement gives" in str(refused.value)
+    assert usual_fix(refused).strip() == "Name a column the Statement gives: job_id and team."
+
+
+def test_where_is_refused_pointing_to_partition() -> None:
+    with pytest.raises(TypeError) as refused:
+        compare_with_original(runs_on(), UNBOUNDED, query=example_database.query,
+                              where=equals(job_runs.dt, DAY))
+    assert "compare_with_original was given where=" in str(refused.value)
+    assert 'partition={"dt": ...}' in usual_fix(refused)
+
+
+def usual_fix(refused: pytest.ExceptionInfo) -> str:
+    return str(refused.value).split("Usual fix:")[1].split("Opt-out:")[0]
+
+
 @pytest.mark.needs_example_database
 def test_unchecked_pieces_are_named_and_the_comparison_logged(tmp_path: Path) -> None:
-    from sqlglot_composer import set_admin_log, unchecked_column
+    from sqlglot_composer import set_admin_log
 
     log = tmp_path / "admin_log.md"
     set_admin_log(log)
@@ -328,6 +461,22 @@ def test_unchecked_pieces_are_named_and_the_comparison_logged(tmp_path: Path) ->
     finally:
         set_admin_log()
     assert said.splitlines()[-1] == (
-        "Its Hive written by hand, which the Toolbox can't look inside: "
-        'unchecked_column("{minutes} DIV 15", minutes=job_runs.duration_mins).')
-    assert "Statement with an Unchecked expression" in log.read_text(encoding="utf-8")
+        "The Statement holds Hive written by hand, which the Toolbox can't look inside: "
+        'unchecked_column("{minutes} DIV 15", minutes=job_runs.duration_mins). The rows '
+        "match, so it gives what the original gives here.")
+    assert ("Statement with an Unchecked expression, compared with the original by "
+            "compare_with_original") in log.read_text(encoding="utf-8")
+
+
+def test_where_the_rows_differ_the_unchecked_line_says_to_check_that_hive_first() -> None:
+    runs = statement(
+        SELECT(job_runs.run_id, AS(unchecked_column("{minutes} DIV 15",
+                                                    minutes=job_runs.duration_mins), "q")),
+        FROM(job_runs), WHERE(equals(job_runs.dt, DAY)))
+    differ = pd.DataFrame([[4, 3, 1, 0, 101, 0, 1, 0]])
+    said = repr(compare_with_original(runs, "SELECT run_id, duration_mins DIV 15 AS q FROM "
+                                      f"ops.job_runs WHERE dt = '{DAY}'", partition={"dt": DAY},
+                                      query=lambda hive: differ))
+    assert said.splitlines()[-1].endswith(
+        "minutes=job_runs.duration_mins). Check that Hive first: the Toolbox can't trace a "
+        "difference inside it.")

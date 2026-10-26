@@ -1619,7 +1619,7 @@ Notes:
 <pre class="python">check_key(jobs, query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.jobs: the key (job_id) holds.</pre>
-<p>Its <code>ok</code> is True when it found nothing wrong, and printing it shows what it found. Make one with check_key(...), check_table_reference(...), compare_hive(...) or compare_with_original(...), never Verdict(). Write the name in a type hint, to say that a function of yours gives back what one of them found:</p>
+<p>Its <code>ok</code> is True when it found nothing wrong, and printing it shows what it found. The Verdict itself is true or false as its <code>ok</code> is, so <code>if check_key(...):</code> passes only when the key holds. Make one with check_key(...), check_table_reference(...), compare_hive(...) or compare_with_original(...), never Verdict(). Write the name in a type hint, to say that a function of yours gives back what one of them found:</p>
 <pre class="python">def key_holds(t: Table) -&gt; Verdict:
     return check_key(t, query=example_database.query)</pre>
 <pre class="python">verdict = key_holds(jobs)</pre>
@@ -3553,7 +3553,7 @@ SET mapreduce.job.reduces=8;</pre>
 </section>
 <section class="entry" id="unchecked_hive">
 <h3><code>unchecked_hive</code></h3>
-<p class="why">Hive you write by hand, to send when no clause function writes it yet.</p>
+<p class="why">Hive you write by hand, to send when no Toolbox function writes it yet.</p>
 <pre class="python">by_hand = unchecked_hive(
     &quot;SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;&quot;)</pre>
 <pre class="python">text = show_hive(by_hand)</pre>
@@ -3613,9 +3613,9 @@ WHERE
 1     102             20              1
 2     103             30              2
 3     104             40              2</pre>
-<p>Hive&#x27;s DIV divides and drops what is left over, which no Toolbox function writes yet. Write each column the text reads as a {name} placeholder, and pass the column itself by that name, as minutes=job_runs.duration_mins above: the Toolbox fills each placeholder with the column&#x27;s Hive, as str.format does, so Lineage traces the text to its real columns and statement(...) checks they are columns of the tables it reads. A brace you mean as a brace is written twice, as in &quot;regexp_extract({name}, &#x27;[a-z]{{2}}&#x27;, 0)&quot;. A column passed as a calculation, such as job_runs.duration_mins + 1, is put in round brackets.</p>
-<p>It gives back a Column, used like any other: give it a name with AS. Text that adds rows up, such as percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other columns. The Hive is written as sqlglot reads your text, so it may come out in capitals or with an argument left out that means the same, as hive_function&#x27;s does.</p>
-<p>It refuses text that, its placeholders filled, doesn&#x27;t read as one Hive expression; text that names a column itself rather than through a placeholder, saying how to write it; a placeholder with no column passed, or a column passed that no placeholder names; and text that reads a table of its own, as a sub-query does, which unchecked_derived(...) is for.</p>
+<p>Hive&#x27;s DIV divides and drops what is left over, which no Toolbox function writes yet. Write each column the text reads as a placeholder, its own name in braces, such as {minutes}, and pass the column itself by that name, as minutes=job_runs.duration_mins above: the Toolbox fills each placeholder with the column&#x27;s Hive, as str.format does, so Lineage traces the text to its real columns and statement(...) checks they are columns of the tables it reads. A brace you mean as a brace is written twice, as in &quot;regexp_extract({job_name}, &#x27;[a-z]{{2}}&#x27;, 0)&quot;. A column passed as a calculation, such as job_runs.duration_mins + 1, is put in round brackets.</p>
+<p>It gives back a Column, used like any other: give it a name with AS. For a condition, in WHERE, HAVING or ON=, use unchecked_condition(...). Text that adds rows up, such as percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other columns. The Hive is written as sqlglot reads your text, so it may come out in capitals, with an argument left out that means the same, as hive_function&#x27;s does, or in Hive&#x27;s own words for what Hive has no word for: {job_name} ILIKE &#x27;a%&#x27; becomes LOWER(...) LIKE LOWER(&#x27;a%&#x27;).</p>
+<p>It refuses text that, its placeholders filled, doesn&#x27;t read as one Hive expression, or that sqlglot reads but can&#x27;t write back as Hive, such as braces not doubled, which it reads as a struct; text that names a column itself rather than through a placeholder, saying how to write it; a placeholder with no column passed, or a column passed that no placeholder names; and text that reads a table of its own, as a sub-query does, which unchecked_derived(...) is for.</p>
 <p>No Guard, Warning or Load limit looks inside the text, though they check the rest of the Statement as ever, and where one can&#x27;t tell what the text does, it says so in a Warning. Lineage marks it with the same badge as an Unchecked statement, and each run of a Statement holding one adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, each one marks something the Toolbox should learn to write: a search for unchecked_ finds them all. Where a Toolbox function does the job, as hive_function does for a function call, use that instead: the Toolbox checks it.</p>
 <p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>duration_mins</th><th>quarter_hours</th></tr>
@@ -3656,8 +3656,9 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status RLIKE &#x27;^FAIL&#x27;</pre>
-<p>It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...). Its text is written as unchecked_column&#x27;s is: each column it reads as a {name} placeholder, with the column itself passed by that name, a brace you mean doubled, and the same refusals; help(unchecked_column) says more.</p>
-<p>The Guards and Load limits check the rest of the Statement, and say so where they can&#x27;t tell what the text does. A read of a partitioned table whose partition columns are filtered only in an Unchecked condition gets a Warning rather than the Load limit&#x27;s refusal, since the text may filter them or not: check that it does, and add reads_all_partitions=True to the read to silence it, or filter them with a condition function too. A WHERE that reads a LEFT_JOIN&#x27;s table only inside one gets a Warning in place of the Guard&#x27;s refusal, for the same reason.</p>
+<p>The Example database can&#x27;t run this one: its executor has no RLIKE, which Hive has. A condition it can run, such as unchecked_condition(&quot;{job_name} LIKE &#x27;%sync&#x27;&quot;, job_name=jobs.job_name), runs on it as on Hive.</p>
+<p>It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...). Its text is written as unchecked_column&#x27;s is: each column it reads as a placeholder in braces, such as {status}, with the column itself passed by that name, a brace you mean doubled, and the same refusals; help(unchecked_column) says more. The Toolbox doesn&#x27;t check that the text is a condition, one that is true or false for each row: Hive refuses one that isn&#x27;t when it runs.</p>
+<p>The Guards and Load limits check the rest of the Statement, and say so where they can&#x27;t tell what the text does. A read of a partitioned table whose partition columns are filtered only in an Unchecked condition gets a Warning rather than the Load limit&#x27;s refusal, since the text may filter them or not: check that it does, and add reads_all_partitions=True to the read to silence it, which there says you have checked it; or filter them with a condition function too. A WHERE that reads a LEFT_JOIN&#x27;s table only inside one gets a Warning in place of the Guard&#x27;s refusal, for the same reason.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no job_runs.status RLIKE &#x27;^FAIL&#x27;.</p>
 <p class="names">Toolbox names used: <code>unchecked_condition</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code></p>
 </section>
@@ -3692,8 +3693,10 @@ SELECT
 FROM steps
 GROUP BY
   steps.step</pre>
-<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared.</p>
-<p>No Guard, Warning or Load limit looks inside the text. So it has no Key the Toolbox can see, and a JOIN on it warns as on any table without one. A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which silences the Warning. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
+<p>Each run&#x27;s status is split at each _ (explode(split(r.status, &#x27;_&#x27;))), and LATERAL VIEW gives one row for each part, named s, beside the rest of the run&#x27;s row: steps has a row for each run and each part of its status, which no Clause function writes yet. The Example database can&#x27;t run it, as its executor has no LATERAL VIEW; Hive can.</p>
+<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared. The text names its columns itself, with no {placeholders}: a brace in it is refused, since sqlglot reads it as a struct, which it can&#x27;t write back as Hive.</p>
+<p>No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can see unless you name one: key=[&quot;run_id&quot;] says one row has each run_id, as a GROUP BY run_id in its text makes it, and a Table reference&#x27;s key= says. A JOIN on its Key is then checked as on any Derived table with one, and a write reading it isn&#x27;t refused for a Key it can&#x27;t prove. The Toolbox can&#x27;t check that the text makes it so: name a Key only when it does. Without one, a JOIN on it warns as on any table without a Key.</p>
+<p>A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads, those partitioned and those the Toolbox has no Table reference for: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which there says you have checked it. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
 <p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no LATERAL VIEW.</p>
 <p class="names">Toolbox names used: <code>unchecked_derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
@@ -3704,7 +3707,7 @@ GROUP BY
 <p class="label">Python shows</p>
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
 <pre class="python">set_admin_log()  # back to the usual place</pre>
-<p>The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file.</p>
+<p>The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or run_execute sends an Unchecked statement, an Admin statement, or a Statement holding an Unchecked expression or an Unchecked derived table (unchecked_column, unchecked_condition or unchecked_derived), and each time compare_with_original compares such a Statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file. Its Unchecked statements and Unchecked pieces are the list of what the Toolbox should learn to write next.</p>
 <p>Left unset, the log is admin_log.md beside the script or notebook that sends it, or inside a Project the Project&#x27;s admin/admin_log.md (help(project)). A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
 <p class="names">Toolbox names used: <code>set_admin_log</code></p>
 </section>
@@ -3738,7 +3741,7 @@ GROUP BY
 </section>
 <section class="entry" id="compare_hive">
 <h3><code>compare_hive</code></h3>
-<p class="why">Compare a Statement&#x27;s Hive with the Hive it was converted from.</p>
+<p class="why">Compare a Statement&#x27;s Hive with the original Hive it replaces.</p>
 <pre class="python">runs = statement(
     SELECT(job_runs.run_id, job_runs.status),
     FROM(job_runs),
@@ -3751,19 +3754,21 @@ GROUP BY
 &#x27;&#x27;&#x27;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
-<p><code>original</code> is the Hive text, such as a .hql file&#x27;s. Both are read by sqlglot and written out one way, so that what doesn&#x27;t change the query doesn&#x27;t count: spacing and line breaks, upper or lower case, backticks, comments, a ; at the end, brackets that change nothing, INNER and OUTER in a join, an AS that gives a column its own name, and the short name a table is called by, such as r for ops.job_runs: each table is called by its own name, and where a query reads one table alone, its columns by theirs. Anything else counts, even where the rows would come out the same, such as a &lt;&gt; written as NOT ... = : compare_with_original(...) compares the rows.</p>
-<p>Where they differ, it shows the first line that differs, from each:</p>
+<p><code>original</code> is the Hive text, such as a .hql file&#x27;s. Both are read by sqlglot and written out one way, so that what doesn&#x27;t change the query doesn&#x27;t count: spacing and line breaks, upper or lower case, backticks, comments, a ; at the end, brackets that change nothing, INNER and OUTER in a join (LEFT OUTER JOIN is LEFT JOIN), an AS that gives a column its own name, and the short name a table is called by, such as r in FROM ops.job_runs r: each table is written with its own name, and where a query reads one table alone, its columns with no table&#x27;s name before them. Anything else counts, even where the rows would come out the same, such as a &lt;&gt; b written as NOT a = b, or two conditions written in the other order: compare_with_original(...) compares the rows.</p>
+<p>Where they differ, it shows where they first differ, as both are written out that way: the line of each, and up to two lines before it, which are the same in both.</p>
 <pre class="python">compare_hive(runs, &quot;SELECT run_id, status FROM ops.job_runs WHERE dt = &#x27;2026-09-23&#x27;&quot;)</pre>
 <p class="label">Python shows</p>
-<pre class="output">The Statement&#x27;s Hive and the original differ, first at line 6 of each, once both are written out the same way:
-  the Statement: dt = &#x27;2026-09-24&#x27;
-  the original:  dt = &#x27;2026-09-23&#x27;</pre>
-<p>print(to_hive(s)) shows the Statement&#x27;s whole Hive. An INSERT ... SELECT is compared by its SELECT, the rows it writes; the original must be one query, without SET lines. It sends nothing to the warehouse. Its <code>ok</code> is True when the two are the same.</p>
+<pre class="output">The Statement&#x27;s Hive and the original differ, once both are written out the same way: lines 1 to 5 match, and line 6 differs.
+  line 4, in both:          FROM ops.job_runs
+  line 5, in both:          WHERE
+  line 6, in the Statement: dt = &#x27;2026-09-24&#x27;
+  line 6, in the original:  dt = &#x27;2026-09-23&#x27;</pre>
+<p>The lines are counted as both are written out for comparing, not as to_hive writes the Statement, which print(to_hive(s)) shows whole. An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused. It sends nothing to the warehouse. Its <code>ok</code> is True when the two are the same, and so is the Verdict itself: <code>if compare_hive(...):</code> reads as it says.</p>
 <p class="names">Toolbox names used: <code>compare_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code></p>
 </section>
 <section class="entry" id="compare_with_original">
 <h3><code>compare_with_original</code></h3>
-<p class="why">Compare the rows a Statement gives with those of the Hive it was converted from.</p>
+<p class="why">Compare the rows a Statement gives with those of the original Hive it replaces.</p>
 <pre class="python">runs = statement(
     SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
     FROM(job_runs, reads_all_partitions=True),
@@ -3783,7 +3788,7 @@ GROUP BY
 The rows that differ, at most 5 from each, with how many times each gives them:
  run_id status         dt  in_statement  in_original
      98   None 2026-09-23             0            1</pre>
-<p>Run 98 is still running, so its status is NULL: the original keeps it, and not_equals leaves it out, as SQL&#x27;s &lt;&gt; leaves out NULL. With any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status)) in WHERE, the two give the same rows:</p>
+<p>Both read every day, as reads_all_partitions=True on FROM says of the Statement; partition={&quot;dt&quot;: &quot;2026-09-23&quot;} compares one day&#x27;s rows of each, so the comparison reads one Partition. Run 98 is still running, so its status is NULL: the original keeps it, and not_equals leaves it out, as SQL&#x27;s &lt;&gt; leaves out NULL. With any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status)) in WHERE, the two give the same rows:</p>
 <pre class="python">runs = statement(
     SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
     FROM(job_runs, reads_all_partitions=True),
@@ -3793,9 +3798,10 @@ The rows that differ, at most 5 from each, with how many times each gives them:
                       partition={&quot;dt&quot;: &quot;2026-09-23&quot;})</pre>
 <p class="label">Python shows</p>
 <pre class="output">The Statement and the original give the same rows where dt = &#x27;2026-09-23&#x27;: 4 rows each.</pre>
-<p><code>original</code> is the Hive text, such as a .hql file&#x27;s, and <code>query</code> your own function, in your Project&#x27;s warehouse.py; it never needs <code>execute</code>. It sends one query through your <code>query</code>, which reads the rows of both and matches them on every column: NULL matches NULL, and a row counts as many times as it comes, so a row the original gives twice and the Statement once is a row in the original and not in the Statement. It gives back how many rows each gives, how many are in one and not the other, and up to 5 such rows from each; its <code>ok</code> is True when the two give the same rows.</p>
-<p>The original&#x27;s columns must be the Statement&#x27;s, by name and in order, as the rows are matched column by column: it refuses them otherwise, naming both. An INSERT ... SELECT is compared by its SELECT, the rows it writes.</p>
-<p><code>partition</code> keeps only the rows of both that hold its values, each a column the Statement gives, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}, so the warehouse reads only those Partitions. Where the Statement reads a partitioned table, leaving it out is refused, as reading every Partition may be more than the cluster should read at once; reads_all_partitions=True compares them all. Where it reads none, every row is compared.</p>
+<p><code>original</code> is the Hive text, such as a .hql file&#x27;s, and <code>query</code> your own function, in your Project&#x27;s warehouse.py; it never needs <code>execute</code>. It sends one query through your <code>query</code>, which reads the rows of both and matches them on every column: NULL matches NULL, and a row counts as many times as it comes, so a row the original gives twice and the Statement once is a row in the original and not in the Statement. It gives back how many rows each gives, how many are in one and not the other, and up to 5 such rows from each; its <code>ok</code> is True when the two give the same rows, and so is the Verdict itself.</p>
+<p>The original&#x27;s columns must be the Statement&#x27;s, by name and in order, as the rows are matched column by column: it refuses them otherwise, naming both. An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused.</p>
+<p><code>partition</code> names a column and one value of it, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}, so the warehouse reads only that Partition. A column the Statement gives keeps only the rows of both that hold the value, as above. A partition column of a table the Statement reads, which it doesn&#x27;t give, as when its WHERE picks its own day, keeps only that Partition of each read of the table, in the Statement and in the original alike: partition={&quot;dt&quot;: &quot;2026-09-24&quot;} for a Statement whose WHERE holds equals(job_runs.dt, &quot;2026-09-24&quot;) reads ops.job_runs where dt = &#x27;2026-09-24&#x27; on both sides. Where the Statement reads a partitioned table, partition= must name a partition column of one, or it is refused, as the original may read every Partition, which may be more than the cluster should read at once; reads_all_partitions=True compares the rows each one&#x27;s own conditions pick, every Partition where they pick none. Where it reads no partitioned table, every row is compared.</p>
+<p>A Statement holding an Unchecked expression or an Unchecked derived table, Hive written by hand, is compared as any other: the Verdict ends with a line naming each piece, whose Hive the Toolbox can&#x27;t look inside, and the comparison adds an entry to the Admin log, as run_query does for such a Statement (help(set_admin_log)).</p>
 <p class="names">Toolbox names used: <code>compare_with_original</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>not_equals</code>, <code>is_null</code>, <code>any_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="repair_partitions">

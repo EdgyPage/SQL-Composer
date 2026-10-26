@@ -252,7 +252,9 @@ _Avoid_: raw expression, SQL snippet, passthrough
 **Unchecked derived table**:
 A Derived table whose Statement is Hive text kept as written, with its output columns
 declared, for a piece no Clause function writes yet. It is read like any Derived table and
-shown as one opaque box in Lineage. In Python, `unchecked_derived(...)` gives back a `Table`.
+shown as one opaque box in Lineage. It has no Key the Toolbox can see unless its `key=[...]`
+names one, which the Toolbox takes on trust. In Python, `unchecked_derived(...)` gives back a
+`Table`.
 _Avoid_: raw CTE, unchecked view
 
 **Python step**:

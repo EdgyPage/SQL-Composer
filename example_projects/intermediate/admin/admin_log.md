@@ -1,6 +1,6 @@
 # Admin log
 
-Each Admin statement, Unchecked statement and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of what the Toolbox should learn to write next.
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
 
 ## 2026-09-25 06:00:00, Project action
 

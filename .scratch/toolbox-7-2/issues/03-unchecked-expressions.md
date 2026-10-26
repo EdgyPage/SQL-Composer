@@ -142,3 +142,70 @@ ffd8bde), side by side with ticket 04; the main session merges it into dev and r
 
 Left for the main session: the code review, the beginner reader and the drift review, after the
 merge.
+
+## Reviews
+
+Merged into dev as 1078a08; the code review's fixes in b158071 (with ticket 08's). The
+beginner reader's report, [reports/03-08-beginner-reader.md](../reports/03-08-beginner-reader.md),
+and drift items D268 to D270 were fixed in a worktree, finding by finding:
+
+- Beginner reader, 03:
+  - 1 (two phrasings of "no ... function writes it yet"): fixed, unchecked_hive's first line
+    says "no Toolbox function", as the other three do.
+  - 2 (placeholders named `name`): fixed. Each refusal's fix shows a call of its own kind
+    that runs on the Example database (`unchecked_column("upper({team})", team=jobs.team)`, a
+    LIKE condition for unchecked_condition, `SELECT DISTINCT team FROM ops.jobs` for
+    unchecked_derived), and the docstrings write `{minutes}`, `{job_name}`, never `{name}`; a
+    test holds that no fix names `{name}` or `name=`.
+  - 3 (examples that can't run here): fixed, unchecked_condition's docstring says the Example
+    database has no RLIKE and gives a LIKE that runs; unchecked_derived's says it has no
+    LATERAL VIEW. Answered: the failed run's Admin log entry is right, as it logs every run of
+    a Statement holding Hive written by hand, failed ones too.
+  - 4 (unchecked_derived's example unexplained): fixed, a paragraph says what explode, split
+    and LATERAL VIEW do there. Answered: the example is kept, as the corpus and gallery hold it,
+    and LATERAL VIEW is the piece no Clause function writes.
+  - 5 (three placeholder styles): answered, by design: unchecked_hive takes a whole statement,
+    where an f-string of Table references is its way; the Unchecked expressions bind columns so
+    Lineage traces them; unchecked_derived's text names its own tables, which the Toolbox
+    reads. Its braces are now refused (item 6), and its docstring says it takes none.
+  - 6 (braces sqlglot can't write, a raw error at to_hive; costliest 2): fixed. Each text is
+    written once at the call through `writing.sql_text` (`_unwritable`), and what sqlglot reads
+    but can't write is refused in four parts, saying a brace is doubled and only the two
+    Unchecked expressions take placeholders.
+  - 7 (ILIKE rewritten): fixed in unchecked_column's docstring, which names it.
+  - 8 (sqlglot's class name in a refusal): fixed, "Required keyword ... <class ...>" is said in
+    plain words, and a test holds no `<class` in a refusal.
+  - 9 (`unchecked_column("upper({})", jobs.team)`): answered: Python's own TypeError names the
+    one positional argument; catching more would put `*args` in help()'s signature.
+  - 10 (a condition that isn't one; unchecked_column in WHERE): fixed, WHERE (any place taking
+    conditions) given an unchecked_column refuses with the same call written as
+    unchecked_condition. Answered: whether a text is a condition stays unchecked, as Hive
+    refuses one loudly; the docstring now says so.
+  - 11 and 12 (the Warnings' opt-outs; `{x} IS NULL`): fixed. Each opt-out says what it means
+    there ("reads_all_partitions=True), which here says you have checked the Unchecked
+    expression bounds them"; keeps_only_matches=True "says you have checked the Unchecked
+    expression: that WHERE may keep it, whether or not it keeps the rows with no match", which
+    is true of a condition that keeps the NULL rows too), and the LEFT_JOIN fix names the
+    table, not `{x}`.
+  - 13 (a Warning for a text reading no partitioned table): fixed. A read of an Unchecked
+    derived table warns only for the tables its text reads that are partitioned, by their
+    Table references (`tables.partitioned_by_name`, over the Table references in use, the
+    Example database's included), or that the Toolbox has none for; the message says which.
+  - 14 (joining one that already groups; costliest 3): fixed. `unchecked_derived(...,
+    key=[...])`, as Table takes it, gives it a Key taken on trust: a JOIN on it is checked as on
+    a Derived table with a Key, a write reading it isn't refused when its key holds, the Keys
+    in Lineage name it, and a JOIN on one without a key says key= may name it. The docstring
+    and CONTEXT.md's entry say so.
+  - 15: fixed with D269.
+  - 16 (repr gives no sign it's unchecked): answered, a Column's repr is its Hive, as for
+    every Column; Lineage and the Admin log mark it.
+  - 17 (CHANGES' LATERAL VIEW): fixed, it says what LATERAL VIEW does, and names key=.
+- Drift: D268 fixed, the fix for a column named itself is built from sqlglot's reading
+  (`writing.with_placeholders`): every column named itself becomes a placeholder, named by its
+  plain name (numbered if taken, never a Python keyword), text in quotes left alone, the
+  columns already passed kept, and `<table>` where the text gives no table; tests follow each
+  fix and check it isn't refused. D269 fixed in set_admin_log's docstring and the Admin log's
+  HEADER, the Example projects regenerated (only their admin_log.md heading changed; the frozen
+  7.1 projects are untouched). D270 closed by 1a0ef3d: ticket 07's Conversion entry landed in
+  CONTEXT.md before these fixes were rebased onto dev, so "or a Conversion" in the Unchecked
+  expression's entry names a glossary word and stays.

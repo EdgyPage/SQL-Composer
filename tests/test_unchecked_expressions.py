@@ -12,6 +12,7 @@ when it is sent.
 from __future__ import annotations
 
 import datetime
+import re
 import warnings
 from collections.abc import Callable
 from pathlib import Path
@@ -52,6 +53,7 @@ from sqlglot_composer import (
     unchecked_condition,
     unchecked_derived,
 )
+from sqlglot_composer.refusals import RepeatedRowsWarning, UncheckedWarning
 
 job_runs = example_database.job_runs
 jobs = example_database.jobs
@@ -262,6 +264,21 @@ def test_a_window_in_the_text_is_refused_in_where_as_a_windows_is() -> None:
                  ValueError, "needs a dict of column names", id="derived_columns_list"),
     pytest.param(lambda: unchecked_derived("steps", 5, columns={"x": "int"}), TypeError,
                  "isn't Hive text", id="derived_not_text"),
+    pytest.param(lambda: unchecked_derived("steps", STEPS, columns={"run_id": "bigint",
+                                                                    "step": "string"},
+                                           key=["run"]),
+                 ValueError, "key names 'run', which isn't one of its columns",
+                 id="derived_key_not_a_column"),
+    # Braces sqlglot reads as a struct, which it can't write back as Hive: refused at the
+    # call, not later at to_hive.
+    pytest.param(lambda: unchecked_derived("d", "SELECT {id} AS run_id FROM ops.job_runs",
+                                           columns={"run_id": None}),
+                 ValueError, "sqlglot reads it, but can't write it back as Hive",
+                 id="derived_braces"),
+    pytest.param(lambda: unchecked_column("{{'k': {a}}}", a=jobs.team), ValueError,
+                 "sqlglot reads it, but can't write it back as Hive", id="a_struct_literal"),
+    pytest.param(lambda: unchecked_column("{a} +", a=jobs.team), ValueError,
+                 "doesn't read as one Hive expression", id="an_operator_with_nothing_after"),
 ])
 def test_text_that_cant_be_one_piece_is_refused_in_four_parts(
         make: Callable[[], object], error: type[Exception], said: str) -> None:
@@ -272,12 +289,80 @@ def test_text_that_cant_be_one_piece_is_refused_in_four_parts(
     for part in ("What happened:", "Why it matters:", "Usual fix:",
                  "Opt-out:        none - this one can't be switched off."):
         assert part in message
+    # Every example in a fix names a real-looking column, never a placeholder called name,
+    # and sqlglot's own words for its classes stay out.
+    assert "{name}" not in message and not re.search(r"\bname=", message)
+    assert "<class" not in message
+
+
+@pytest.mark.parametrize(("make", "example"), [
+    pytest.param(lambda: unchecked_column(5), 'unchecked_column("upper({team})", team=jobs.team)',
+                 id="column"),
+    pytest.param(lambda: unchecked_condition("  "),
+                 "unchecked_condition(\"{job_name} LIKE '%sync'\", job_name=jobs.job_name)",
+                 id="condition"),
+    pytest.param(lambda: unchecked_derived("teams", None, columns={"team": "string"}),
+                 'unchecked_derived("teams", "SELECT DISTINCT team FROM ops.jobs", '
+                 'columns={"team": "string"})', id="derived"),
+])
+def test_each_refusal_shows_an_example_of_its_own_kind(make: Callable[[], object],
+                                                       example: str) -> None:
+    with pytest.raises((TypeError, ValueError)) as refused:
+        make()
+    assert example in str(refused.value).split("Usual fix:")[1]
 
 
 def test_a_column_named_directly_is_refused_with_its_placeholder_written_for_you() -> None:
     with pytest.raises(ValueError) as refused:
         unchecked_column("upper(jobs.team)")
-    assert 'unchecked_column("upper({team})", team=jobs.team)' in str(refused.value)
+    assert 'unchecked_column("UPPER({team})", team=jobs.team)' in str(refused.value)
+
+
+@pytest.mark.parametrize(("make", "fix", "follow"), [
+    pytest.param(lambda: unchecked_condition("{d} > 1 AND job_runs.status = 'x'",
+                                             d=job_runs.duration_mins),
+                 "unchecked_condition(\"{d} > 1 AND {status} = 'x'\", "
+                 "d=job_runs.duration_mins, status=job_runs.status)",
+                 lambda: unchecked_condition("{d} > 1 AND {status} = 'x'",
+                                             d=job_runs.duration_mins, status=job_runs.status),
+                 id="keeps_the_columns_already_passed"),
+    pytest.param(lambda: unchecked_condition("job_runs.status RLIKE '^status'"),
+                 "unchecked_condition(\"{status} RLIKE '^status'\", status=job_runs.status)",
+                 lambda: unchecked_condition("{status} RLIKE '^status'", status=job_runs.status),
+                 id="leaves_the_same_letters_in_quotes"),
+    pytest.param(lambda: unchecked_condition("upper(`job_runs`.`status`) = 'A'"),
+                 "unchecked_condition(\"UPPER({status}) = 'A'\", status=job_runs.status)",
+                 lambda: unchecked_condition("UPPER({status}) = 'A'", status=job_runs.status),
+                 id="names_the_placeholder_without_backticks"),
+    pytest.param(lambda: unchecked_condition("{status} = 'A' OR job_runs.status IS NULL",
+                                             status=job_runs.status),
+                 "unchecked_condition(\"{status} = 'A' OR {status_2} IS NULL\", "
+                 "status=job_runs.status, status_2=job_runs.status)",
+                 lambda: unchecked_condition("{status} = 'A' OR {status_2} IS NULL",
+                                             status=job_runs.status, status_2=job_runs.status),
+                 id="a_name_already_taken"),
+])
+def test_following_the_fix_for_a_column_named_directly_is_never_refused(
+        make: Callable[[], object], fix: str, follow: Callable[[], object]) -> None:
+    with pytest.raises(ValueError) as refused:
+        make()
+    assert fix in str(refused.value)
+    assert isinstance(follow(), Condition)  # the call the fix writes, followed
+
+
+def test_a_column_named_with_no_table_is_passed_from_its_table_reference() -> None:
+    with pytest.raises(ValueError) as refused:
+        unchecked_condition("status RLIKE '^status'")
+    fix = str(refused.value).split("Usual fix:")[1]
+    assert "unchecked_condition(\"{status} RLIKE '^status'\", status=<table>.status)" in fix
+    assert "<table> the Table reference of the table it is a column of" in fix
+
+
+def test_an_unchecked_column_in_where_points_to_unchecked_condition() -> None:
+    with pytest.raises(TypeError) as refused:
+        WHERE(team_region())
+    assert ("unchecked_condition(\"concat_ws('-', {team}, {region})\", team=jobs.team, "
+            "region=jobs.region)") in str(refused.value).split("Usual fix:")[1]
 
 
 def test_a_lambdas_own_names_arent_taken_for_columns() -> None:
@@ -352,6 +437,115 @@ def test_a_write_from_one_says_its_key_cant_be_seen() -> None:
     with pytest.raises(GuardRefused, match="written by hand in unchecked_derived"):
         statement(INSERT_OVERWRITE(saved), SELECT(table.run_id, table.step),
                   FROM(table, reads_all_partitions=True))
+
+
+# An Unchecked derived table that already groups: key= says what names one row of it.
+PER_RUN = ("SELECT run_id, COUNT(*) AS checks FROM ops.job_runs WHERE dt = '2026-09-24' "
+           "GROUP BY run_id")
+
+
+def per_run() -> Table:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return unchecked_derived("per_run", PER_RUN, columns={"run_id": "bigint",
+                                                              "checks": "bigint"},
+                                 key=["run_id"])
+
+
+def test_a_join_on_its_key_is_checked_as_on_a_derived_table_with_a_key() -> None:
+    table = per_run()
+    quietly(lambda: statement(SELECT(job_runs.run_id, table.checks), FROM(job_runs),
+                              JOIN(table, ON=equals(table.run_id, job_runs.run_id),
+                                   reads_all_partitions=True),
+                              WHERE(equals(job_runs.dt, "2026-09-24"))))
+
+
+def test_a_join_off_its_key_still_warns_naming_the_key() -> None:
+    table = per_run()
+    with pytest.warns(RepeatedRowsWarning, match=r"told apart only by its Key \(run_id\)"):
+        statement(SELECT(job_runs.run_id, table.checks), FROM(job_runs),
+                  JOIN(table, ON=equals(table.checks, job_runs.run_id),
+                       reads_all_partitions=True),
+                  WHERE(equals(job_runs.dt, "2026-09-24")))
+
+
+def test_a_join_on_one_without_a_key_says_key_may_name_it() -> None:
+    table = steps()
+    with pytest.warns(RepeatedRowsWarning) as said:
+        statement(SELECT(job_runs.run_id, table.step), FROM(job_runs),
+                  JOIN(table, ON=equals(table.run_id, job_runs.run_id),
+                       reads_all_partitions=True),
+                  WHERE(equals(job_runs.dt, "2026-09-24")))
+    assert 'unchecked_derived("steps", ..., key=[...])' in str(said[0].message)
+
+
+def test_a_write_from_one_whose_key_holds_isnt_refused() -> None:
+    table = per_run()
+    saved = Table("mart.run_checks", key=["run_id"],
+                  columns={"run_id": "bigint", "checks": "bigint"},
+                  location="/data/your_team/mart.db/run_checks")
+    quietly(lambda: statement(INSERT_OVERWRITE(saved), SELECT(table.run_id, table.checks),
+                              FROM(table, reads_all_partitions=True)))
+
+
+def test_its_key_is_in_the_lineage_keys() -> None:
+    from sqlglot_composer.lineage import keys_report
+
+    table = per_run()
+    read = quietly(lambda: statement(SELECT(table.run_id, table.checks),
+                                     FROM(table, reads_all_partitions=True)))
+    assert keys_report(read, "s")[0] == (
+        "unchecked_derived('per_run', ...): Key (run_id), as its key=[...] says: the Toolbox "
+        "can't look inside its Hive to check it.")
+
+
+# --- What a Warning about Unchecked Hive says --------------------------------------------------
+
+
+def test_the_partition_warnings_opt_out_says_what_it_means_here() -> None:
+    day = unchecked_condition("{dt} = date_format(current_date, 'yyyy-MM-dd')", dt=job_runs.dt)
+    with pytest.warns(UncheckedWarning) as said:
+        statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(day))
+    assert ("Opt-out:        FROM(job_runs, reads_all_partitions=True), which here says you "
+            "have checked the Unchecked expression bounds them") in str(said[0].message)
+
+
+def test_reading_one_says_what_the_opt_out_means_here() -> None:
+    with pytest.warns(UncheckedWarning) as said:
+        statement(SELECT(steps().step), FROM(steps()))
+    assert ("FROM(steps, reads_all_partitions=True), which here says you have checked that "
+            "steps' Hive bounds them") in str(said[0].message)
+
+
+def test_the_left_join_warning_names_no_placeholder_and_says_what_its_opt_out_means() -> None:
+    named = unchecked_condition("{name} RLIKE 'sync$' OR {name} IS NULL", name=jobs.job_name)
+    with pytest.warns(UncheckedWarning) as said:
+        statement(SELECT(job_runs.run_id), FROM(job_runs),
+                  LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                  WHERE(equals(job_runs.dt, "2026-09-24"), named))
+    message = str(said[0].message)
+    assert "{x}" not in message
+    assert "as a test of a jobs column with IS NULL does" in message
+    assert ("LEFT_JOIN(jobs, ON=..., keeps_only_matches=True), which here says you have "
+            "checked the Unchecked expression: that WHERE may keep it, whether or not it keeps "
+            "the rows with no match") in message
+
+
+def test_reading_one_whose_text_reads_no_partitioned_table_doesnt_warn() -> None:
+    """ops.jobs has a Table reference, the Example database's, which isn't partitioned."""
+    teams = unchecked_derived("teams", "SELECT DISTINCT team FROM ops.jobs",
+                              columns={"team": "string"})
+    quietly(lambda: statement(SELECT(teams.team), FROM(teams)))
+
+
+def test_reading_one_whose_text_reads_a_table_the_toolbox_doesnt_know_warns() -> None:
+    other = unchecked_derived("other", "SELECT j.team FROM ops.jobs j JOIN ops.not_known n "
+                              "ON j.job_id = n.job_id", columns={"team": "string"})
+    with pytest.warns(UncheckedWarning) as said:
+        statement(SELECT(other.team), FROM(other))
+    message = str(said[0].message)
+    assert "whose Hive reads ops.not_known, which may be partitioned" in message
+    assert "ops.jobs" not in message
 
 
 # --- Lineage ----------------------------------------------------------------------------------
