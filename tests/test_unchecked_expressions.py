@@ -93,6 +93,7 @@ def test_a_column_is_written_with_its_placeholders_filled() -> None:
     assert "CONCAT_WS('-', jobs.team, jobs.region) AS team_region" in hive
 
 
+@pytest.mark.needs_example_database
 def test_it_runs_on_the_example_database() -> None:
     rows = run_query(statement(SELECT(jobs.job_id, AS(team_region(), "team_region")),
                                FROM(jobs)), example_database.query)
@@ -161,6 +162,7 @@ def test_a_condition_combines_with_any_of() -> None:
     assert repr(either) == "job_runs.status RLIKE '^FAIL' OR job_runs.status = 'TEST'"
 
 
+@pytest.mark.needs_example_database
 def test_a_condition_runs_on_the_example_database() -> None:
     sync = unchecked_condition("{name} LIKE '%sync'", name=jobs.job_name)
     rows = run_query(statement(SELECT(jobs.job_name), FROM(jobs), WHERE(sync)),
@@ -392,6 +394,7 @@ def test_its_select_is_written_at_the_top_as_with_name_as() -> None:
         in hive
 
 
+@pytest.mark.needs_example_database
 def test_the_example_database_says_it_has_no_lateral_view() -> None:
     table = steps()
     read_steps = statement(SELECT(table.step), FROM(table, reads_all_partitions=True))
