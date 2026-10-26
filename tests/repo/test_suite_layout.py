@@ -18,7 +18,10 @@ SHARED = sorted(TESTS.glob("*.py"))
 
 
 def test_every_file_under_tests_has_a_name_of_its_own() -> None:
-    names = [path.name for path in TESTS.rglob("*.py")]
+    # tests/upgrade_from/ holds Example projects as an earlier version left them, data for the
+    # Upgrade's test that pytest never imports.
+    names = [path.name for path in TESTS.rglob("*.py")
+             if "upgrade_from" not in path.relative_to(TESTS).parts]
     assert sorted({name for name in names if names.count(name) > 1}) == []
 
 

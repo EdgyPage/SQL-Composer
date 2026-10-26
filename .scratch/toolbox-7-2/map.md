@@ -150,7 +150,10 @@ asks, though all three touch CHANGES.md.
 
 ## Decisions so far
 
-- Nothing yet.
+- [01 One version file, at 7.2, and the ADRs](issues/01-one-version-file-at-7-2.md):
+  `version.txt` says `sqlglot Composer 7.2` on dev, the export adds time, commit and LF git
+  hashes; a differing file warns, a missing or extra one stops; the export refuses a file the
+  registry doesn't list; the Example projects' stamp names the version alone.
 
 ## Not yet specified
 

@@ -57,6 +57,7 @@ or made by hand.
 |---|---|---|
 | your Project's folder, such as my_project | you, in your file explorer | nothing |
 | `sqlglot_composer/` | you: copied in from the download | nothing: never edit a file inside it |
+| `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
 | `warehouse.py` | `project.start()` | your query and execute |
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
@@ -385,7 +386,8 @@ And two more, for files beside the notebooks:
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as
-   `'sqlglot Composer 5.1, exported ...'`.
+   `'sqlglot Composer 5.1, exported ...'`, and, if the import stops, the first line of
+   `sqlglot_composer/version.txt` does.
 2. Delete the `sqlglot_composer` folder, and any `composer_core` folder beside it, left over from
    before 6.0.
 3. From the new download, copy in the whole `sqlglot_composer` folder.
@@ -397,10 +399,9 @@ And two more, for files beside the notebooks:
 
 When it is imported, the folder checks itself against its `version.txt`, the one file that
 names its version and lists each of its files. If a file is missing or extra, if `version.txt`
-is missing or from another Toolbox folder, or if this Python or the library it needs won't work
-with it, the import stops and says what happened, why it matters and the usual fix. A file
-that differs from the download, edited by hand or pasted from another one, only warns, naming
-it.
+is missing or unreadable, or if this Python or the library it needs won't work with it, the
+import stops and says what happened, why it matters and the usual fix. A file that differs from
+the download, edited by hand or pasted from another download, only warns, naming it.
 
 ## License
 

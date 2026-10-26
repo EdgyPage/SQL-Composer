@@ -15,10 +15,12 @@ on dev, and every export touches every file on `main`, whatever changed.
 
 So in 7.2:
 
-- **`sqlglot_composer/version.txt` holds the Toolbox version**, and nothing else on dev. The
-  export adds the export's date and time, the dev commit it came from, and one line per file of
-  the folder with that file's git hash, the value `git hash-object` gives, which Python's
-  `hashlib` works out without git.
+- **`sqlglot_composer/version.txt` holds the Toolbox and its version**, `sqlglot Composer 7.2`,
+  and nothing else on dev; naming the Toolbox lets the import stop on another Toolbox's file.
+  The export adds the export's date and time, the dev commit it came from, and one line per
+  other file of the folder with that file's git hash, the value `git hash-object` gives, which
+  Python's `hashlib` works out without git. Both sides hash a file with its line endings as LF,
+  so a copy saved with Windows line endings matches.
 - **No file of the folder names the version or carries a stamp.** `TOOLBOX_VERSION` and
   `VERSION` stay public names, read from `version.txt`.
 - **The import's self-check reads `version.txt`.** A file missing from the folder, or one in it

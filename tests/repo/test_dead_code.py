@@ -26,14 +26,14 @@ ROOT = Path(__file__).resolve().parents[2]
 TOOLBOX = ROOT / "sqlglot_composer"
 # Folders no use is read from: a virtual environment, the tracker, generated Example projects
 # (tools/example_project_sources/ is read instead) and old worktrees.
-LEFT_OUT = {".venv", ".scratch", ".claude", "__pycache__", "example_projects", ".git"}
+LEFT_OUT = {".venv", ".scratch", ".claude", "__pycache__", "example_projects", ".git",
+            "upgrade_from"}
 IDENTIFIER = re.compile(r"[A-Za-z_]\w*")
 PRIVATE_CONSTANT = re.compile(r"_[A-Z][A-Z0-9_]*")
 EXAMPLES = doctest.DocTestParser()
 
-# Names a file defines for something other than code to read: the version check reads
-# TOOLBOX_VERSION by its text, and Python reads __all__.
-READ_BY_NAME = {"TOOLBOX_VERSION", "__all__"}
+# Names a file defines for something other than code to read: Python reads __all__.
+READ_BY_NAME = {"__all__"}
 
 # Defined and used nowhere: empty since ticket 16 of .scratch/toolbox-7/map.md. A name listed
 # here needs a reason it stays; the test fails on one not listed, and on one listed that is used
