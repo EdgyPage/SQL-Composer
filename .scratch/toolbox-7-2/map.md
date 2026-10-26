@@ -154,6 +154,10 @@ asks, though all three touch CHANGES.md.
   `version.txt` says `sqlglot Composer 7.2` on dev, the export adds time, commit and LF git
   hashes; a differing file warns, a missing or extra one stops; the export refuses a file the
   registry doesn't list; the Example projects' stamp names the version alone.
+- [02 The Project's version and project.upgrade()](issues/02-the-projects-version-and-upgrade.md):
+  `admin/project_version.txt`; `upgrades.py`'s `STEPS` and `Upgrade` (add, rewrite, mark);
+  each step logged and archived to `admin/removed/<time>-upgrade_<version>/`; the first
+  Upgrade runs from `admin/check_project.ipynb`, and adds `admin/upgrade.ipynb`.
 
 ## Not yet specified
 

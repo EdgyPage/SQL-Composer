@@ -78,7 +78,7 @@ _Avoid_: admin statement, migration, setup step
 **Upgrade**:
 A Project action that carries a Project's files from the Toolbox version that last wrote them
 to the one copied in, one version at a time. It makes the changes that need no judgement,
-keeping each file as it was first, and marks every one it leaves for the user with an
+archiving each file first, and marks every one it leaves for the user with an
 `# UPGRADE` comment at the line and a box on a checklist. It never changes the warehouse. Every
 Toolbox version ships the step from the one before.
 _Avoid_: migration, port, conversion, update script

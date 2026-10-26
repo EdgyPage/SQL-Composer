@@ -368,10 +368,12 @@ def warn_upgrade_needed(have: str, toolbox: str) -> None:
     message = "sqlglot_composer on import:" + four_part_message(
         what=f"The Project was last written by Toolbox {have}, and this Toolbox is {toolbox}.",
         why="A newer Toolbox may change what your files need, and an Upgrade makes those "
-        "changes, or marks them for you.",
-        fix="Run project.upgrade() from a notebook in the Project, then work through the "
-        "checklist it writes, admin/upgrade_<version>.md.",
-        opt_out=None,
+        "changes, or marks them for you. The import worked, and your notebooks still run "
+        "meanwhile: this only warns.",
+        fix="Run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
+        "admin/upgrade.ipynb once the Project has one, then work through the checklist it "
+        f"writes, admin/upgrade_{toolbox}.md.",
+        opt_out="none - it shows at each import until the Project is upgraded.",
     )
     warn_at_callers_line(message, UserWarning)
 
@@ -398,12 +400,14 @@ def warn_at_callers_line(message: str, category: type[Warning]) -> None:
 
 
 def callers_frame() -> FrameType:
-    """The frame of the first call outside the Toolbox: the user's own line."""
+    """The frame of the first call outside the Toolbox: the user's own line. Python's own
+    import machinery, which a warning at import passes through, isn't anyone's line, and is
+    passed over too."""
     toolbox = {os.path.dirname(os.path.abspath(__file__))}
     frame = sys._getframe(1)
-    while frame.f_back is not None and os.path.dirname(
-        os.path.abspath(frame.f_code.co_filename)
-    ) in toolbox:
+    while frame.f_back is not None and (
+            os.path.dirname(os.path.abspath(frame.f_code.co_filename)) in toolbox
+            or frame.f_code.co_filename.startswith("<frozen ")):
         frame = frame.f_back
     return frame
 

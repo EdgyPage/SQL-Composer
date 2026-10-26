@@ -73,7 +73,7 @@ or made by hand.
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
-| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
 
 ### Your query and execute
 
@@ -394,17 +394,21 @@ And two more, for files beside the notebooks:
    before 6.0.
 3. From the new download, copy in the whole `sqlglot_composer` folder.
 4. Restart the kernel, which still holds the old code.
-5. From 7.1 on, run `project.upgrade()` from a notebook in your Project, such as
-   `admin/upgrade.ipynb`. It carries your Project's files to the new version, one version at a
-   time: it makes each change that needs no judgement, keeping the file as it was in the
+5. If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
+   new cell of `admin/check_project.ipynb`, which imports `project` already, or of
+   `admin/upgrade.ipynb` once your Project has one (its first Upgrade adds it). Updating is
+   copying in the new folder; an Upgrade carries your Project's files to the new version, one
+   version at a time: it makes each change that needs no judgement, keeping the file as it was in the
    folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
    at the line. Work through the boxes in the checklist it writes in admin/, named for the
    version, such as upgrade_7.3.md;
    `project.check()` lists the marks left. It never touches the warehouse.
-6. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer
-   than yours: the newest comes first, so start at your version's next and read up the page. From
-   4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's "To update from 5.x". Each says what
-   to change in your notebooks and files; from 7.1 on, `project.upgrade()` does it, or marks it.
+6. If your Project was made before 7.1, bring it to 7.1 by hand first, then upgrade it as in
+   step 5: in `CHANGES.md`, at the top of the download, read the "To update" part of every
+   version newer than yours, up to 7.1's: the newest comes first, so start at your version's
+   next and read up the page. From 4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's
+   "To update from 5.x". Each says what to change in your notebooks and files. A Project 7.0
+   made looks like one 7.1 made to `project.upgrade()`, so do 7.1's "To update from 7.0" first.
 
 When it is imported, the folder checks itself against its `version.txt`, the one file that
 names its version and lists each of its files. If a file is missing or extra, if `version.txt`

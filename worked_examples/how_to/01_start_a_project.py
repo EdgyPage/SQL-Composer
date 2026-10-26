@@ -79,6 +79,11 @@ file, the call that makes it, and what you fill in:
 - admin/registry.csv, the registry: `project.start()`, then each Project action that makes or
   archives a Table folder, a Table reference or a Building block adds a row. You fill in
   nothing.
+- admin/project_version.txt, the Toolbox version that last wrote the Project:
+  `project.start()`, then `project.upgrade()`. You fill in nothing.
+- an Upgrade's checklist in admin/, named for the version it upgraded to, such as
+  upgrade_7.3.md: `project.upgrade()`, once you copy in a newer Toolbox. You make each change
+  it lists, each marked `# UPGRADE <version>:` at its line.
 - `admin/templates/`, the Templates a new notebook or Building block is made from:
   `project.start()`. Nothing, unless you want your team's own shape.
 - `references/<db>__<table>.py`, a Table reference per table:
@@ -101,7 +106,8 @@ file, the call that makes it, and what you fill in:
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.
 - `admin/removed/`, what you archive: `project.remove_table(...)`, `project.remove_reference(...)`
-  and `project.remove_block(...)` move a file or folder here rather than delete it.
+  and `project.remove_block(...)` move a file or folder here rather than delete it, and
+  `project.upgrade()` keeps here each file as it was before it changed it.
 
 `references/`, `building_blocks/` and `tables/` are empty for now. Each Project action refuses
 a file or folder that is already there, so nothing of yours is written over, and logs what it

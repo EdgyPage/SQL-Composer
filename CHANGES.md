@@ -12,7 +12,7 @@ in place of a line in every file.
 
 - **Delete the `sqlglot_composer` folder, copy in 7.2's whole folder**, and restart the kernel,
   as the README's Update says. A file left behind from an older folder stops the import.
-- **Run `project.upgrade()`** from a notebook in your Project, then read
+- **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
   `admin/upgrade_7.2.md`, which it writes. From 7.1 to 7.2 nothing of yours changes: it adds
   `admin/upgrade.ipynb`, where you run it next time, and `admin/project_version.txt`.
 
@@ -28,7 +28,8 @@ in place of a line in every file.
   Project; a Project 7.1 made has none, and is taken to be 7.1.
 - **A Project an older Toolbox last wrote warns** when you import the Toolbox in it, and in
   `project.check()`, saying to run `project.upgrade()`. Nothing is refused: a Statement you run
-  still runs.
+  still runs. `project.check()` also says when a newer Toolbox than the one copied in last wrote
+  the Project.
 
 - **`version.txt`, the one place the version is written.** It names the Toolbox and its
   version, when this copy was exported and from which commit, and each file of the folder with
