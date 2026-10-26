@@ -1008,13 +1008,14 @@ def first_look(t: Table) -> Statement:
 
 
 class Verdict:
-    """What check_key(...) or check_table_reference(...) found, ready to print.
+    """What a check, such as check_key(...), found, ready to print.
 
     >>> check_key(jobs, query=example_database.query)
     ops.jobs: the key (job_id) holds.
 
     Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
-    Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the
+    Make one with check_key(...), check_table_reference(...), compare_hive(...) or
+    compare_with_original(...), never Verdict(). Write the
     name in a type hint, to say that a function of yours gives back what a check
     found:
 

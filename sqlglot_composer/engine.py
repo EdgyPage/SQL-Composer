@@ -374,6 +374,39 @@ def _refuse_a_mix_up(mix_up: _MixUp) -> NoReturn:
     )) from mix_up
 
 
+def _stacked_reads_told_apart(tree: exp.Expression, schema: dict[str, dict[str, dict[str, str]]]
+                              ) -> exp.Expression:
+    """The query, with each table it reads under a name of its own, where it stacks two reads.
+
+    sqlglot's executor calls each step of a UNION, INTERSECT or EXCEPT by the name of the table
+    it reads, and keeps one step of each name: two reads of job_runs, one a day, would give one
+    day's rows twice, without saying so. So the query is first written out in full, as the
+    executor writes it, each column with its table's name; then a name used before, in another
+    part of the query, becomes job_runs_2, and so do the columns of that part that read it.
+    """
+    from sqlglot import exp
+    from sqlglot.optimizer import optimize
+    from sqlglot.optimizer.scope import traverse_scope
+
+    if not tree.find(exp.Union, exp.Intersect, exp.Except):
+        return tree
+    tree = optimize(tree, schema, leave_tables_isolated=True, dialect="hive")
+    used = set()
+    for scope in traverse_scope(tree):
+        for name, (read, _) in scope.selected_sources.items():
+            if name not in used:
+                used.add(name)
+                continue
+            new = next(f"{name}_{n}" for n in range(2, len(used) + 2)
+                       if f"{name}_{n}" not in used)
+            used.add(new)
+            read.set("alias", exp.TableAlias(this=exp.to_identifier(new, quoted=True)))
+            for column in scope.columns:
+                if column.table == name:
+                    column.set("table", exp.to_identifier(new, quoted=True))
+    return tree
+
+
 def _sqlglot_said(error: Exception) -> str:
     """The first line of what sqlglot said, without where it stopped ("Line 1, Col: 45.")."""
     said = (str(error).strip().splitlines() or [type(error).__name__])[0]
@@ -433,6 +466,7 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
                     for name, (table, table_rows) in tables.items()}}
     _refuse_what_it_runs_wrong(tree)
     try:
+        tree = _stacked_reads_told_apart(tree, schema)
         with _mix_ups_stopped(tree):
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,
                              dialect="hive")

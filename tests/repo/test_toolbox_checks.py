@@ -72,6 +72,8 @@ PUBLIC_NAMES = [
     "unchecked_column", "unchecked_condition", "unchecked_derived",
     # Toolbox 7.2, ticket 04: an if/else chain, or a lookup on one column, as one CASE.
     "first_match", "mapped",
+    # Toolbox 7.2, ticket 08: checking a Conversion against the Hive it was converted from.
+    "compare_hive", "compare_with_original",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
@@ -102,8 +104,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 107
-    assert len(set(PUBLIC_NAMES)) == 107
+    assert len(PUBLIC_NAMES) == 109
+    assert len(set(PUBLIC_NAMES)) == 109
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name
