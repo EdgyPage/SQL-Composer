@@ -23,8 +23,8 @@ from types import FrameType
 
 from . import kinds
 from .conditions import Condition
-from .keys import Keys
-from .refusals import callers_frame, refuse, warn_at_callers_line
+from .keys import Found, Keys
+from .refusals import callers_frame, in_words, refuse, warn_at_callers_line
 from .tables import Column, Table, UncheckedSelect, python_text
 from .trees import SIMPLE_NAME, Node
 from .writing import (
@@ -32,6 +32,7 @@ from .writing import (
     SelectFacts,
     read_unchecked_expression,
     read_unchecked_select,
+    with_placeholders,
 )
 
 # A time as the logs and a Project's files show it, such as 2026-10-22 09:30:00, and as a
@@ -326,7 +327,7 @@ class UncheckedNote(UserWarning):
 
 
 def unchecked_hive(text: str) -> UncheckedStatement:
-    """Hive you write by hand, to send when no clause function writes it yet.
+    """Hive you write by hand, to send when no Toolbox function writes it yet.
 
     >>> by_hand = unchecked_hive(
     ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'")
@@ -496,22 +497,28 @@ def unchecked_column(text: str, /, **columns: Column) -> Column:
     3     104             40              2
 
     Hive's DIV divides and drops what is left over, which no Toolbox function writes yet.
-    Write each column the text reads as a {name} placeholder, and pass the column itself by
-    that name, as minutes=job_runs.duration_mins above: the Toolbox fills each placeholder with
-    the column's Hive, as str.format does, so Lineage traces the text to its real columns and
-    statement(...) checks they are columns of the tables it reads. A brace you mean as a brace
-    is written twice, as in "regexp_extract({name}, '[a-z]{{2}}', 0)". A column passed as a
-    calculation, such as job_runs.duration_mins + 1, is put in round brackets.
+    Write each column the text reads as a placeholder, its own name in braces, such as
+    {minutes}, and pass the column itself by that name, as minutes=job_runs.duration_mins
+    above: the Toolbox fills each placeholder with the column's Hive, as str.format does, so
+    Lineage traces the text to its real columns and statement(...) checks they are columns of
+    the tables it reads. A brace you mean as a brace is written twice, as in
+    "regexp_extract({job_name}, '[a-z]{{2}}', 0)". A column passed as a calculation, such as
+    job_runs.duration_mins + 1, is put in round brackets.
 
-    It gives back a Column, used like any other: give it a name with AS. Text that adds rows up,
-    such as percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the
-    other columns. The Hive is written as sqlglot reads your text, so it may come out in
-    capitals or with an argument left out that means the same, as hive_function's does.
+    It gives back a Column, used like any other: give it a name with AS. For a condition, in
+    WHERE, HAVING or ON=, use unchecked_condition(...). Text that adds rows up, such as
+    percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other
+    columns. The Hive is written as sqlglot reads your text, so it may come out in capitals,
+    with an argument left out that means the same, as hive_function's does, or in Hive's own
+    words for what Hive has no word for: {job_name} ILIKE 'a%' becomes LOWER(...) LIKE
+    LOWER('a%').
 
-    It refuses text that, its placeholders filled, doesn't read as one Hive expression; text
-    that names a column itself rather than through a placeholder, saying how to write it; a
-    placeholder with no column passed, or a column passed that no placeholder names; and text
-    that reads a table of its own, as a sub-query does, which unchecked_derived(...) is for.
+    It refuses text that, its placeholders filled, doesn't read as one Hive expression, or that
+    sqlglot reads but can't write back as Hive, such as braces not doubled, which it reads as
+    a struct; text that names a column itself rather than through a placeholder, saying how to
+    write it; a placeholder with no column passed, or a column passed that no placeholder
+    names; and text that reads a table of its own, as a sub-query does, which
+    unchecked_derived(...) is for.
 
     No Guard, Warning or Load limit looks inside the text, though they check the rest of the
     Statement as ever, and where one can't tell what the text does, it says so in a Warning.
@@ -542,18 +549,24 @@ def unchecked_condition(text: str, /, **columns: Column) -> Condition:
     WHERE
       job_runs.dt = '2026-09-24' AND job_runs.status RLIKE '^FAIL'
 
+    The Example database can't run this one: its executor has no RLIKE, which Hive has. A
+    condition it can run, such as unchecked_condition("{job_name} LIKE '%sync'",
+    job_name=jobs.job_name), runs on it as on Hive.
+
     It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...).
-    Its text is written as unchecked_column's is: each column it reads as a {name} placeholder,
-    with the column itself passed by that name, a brace you mean doubled, and the same
-    refusals; help(unchecked_column) says more.
+    Its text is written as unchecked_column's is: each column it reads as a placeholder in
+    braces, such as {status}, with the column itself passed by that name, a brace you mean
+    doubled, and the same refusals; help(unchecked_column) says more. The Toolbox doesn't check
+    that the text is a condition, one that is true or false for each row: Hive refuses one
+    that isn't when it runs.
 
     The Guards and Load limits check the rest of the Statement, and say so where they can't
     tell what the text does. A read of a partitioned table whose partition columns are
     filtered only in an Unchecked condition gets a Warning rather than the Load limit's refusal,
     since the text may filter them or not: check that it does, and add reads_all_partitions=True
-    to the read to silence it, or filter them with a condition function too. A WHERE that reads
-    a LEFT_JOIN's table only inside one gets a Warning in place of the Guard's refusal, for the
-    same reason.
+    to the read to silence it, which there says you have checked it; or filter them with a
+    condition function too. A WHERE that reads a LEFT_JOIN's table only inside one gets a
+    Warning in place of the Guard's refusal, for the same reason.
     """
     return Condition(_unchecked_tree("unchecked_condition", text, columns))
 
@@ -565,9 +578,10 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
     names = _placeholders(call, written)
     _check_columns(call, written, names, columns)
     stand_ins = [f"unchecked_placeholder_{number}" for number in range(len(names))]
-    facts = read_unchecked_expression(written.format(**dict(zip(names, stand_ins))), stand_ins)
+    filled = written.format(**dict(zip(names, stand_ins)))
+    facts = read_unchecked_expression(filled, stand_ins)
     _check_expression(call, written, facts)
-    _check_columns_named(call, written, facts)
+    _check_columns_named(call, written, facts, filled, dict(zip(stand_ins, names)), columns)
     missing = [name for name, stand_in in zip(names, stand_ins) if stand_in not in facts.found]
     if missing:
         refuse(
@@ -587,6 +601,17 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
     return tree
 
 
+# A call of each function that takes Hive written by hand, for a refusal's fix to show: each
+# runs on the Example database.
+_EXAMPLES = {
+    "unchecked_column": 'unchecked_column("upper({team})", team=jobs.team)',
+    "unchecked_condition": "unchecked_condition(\"{job_name} LIKE '%sync'\", "
+                           "job_name=jobs.job_name)",
+    "unchecked_derived": 'unchecked_derived("teams", "SELECT DISTINCT team FROM ops.jobs", '
+                         'columns={"team": "string"})',
+}
+
+
 def _hive_written(call: str, text: object) -> str:
     """The Hive text `call` was given, without spaces around it or a last ;, or a refusal of
     what isn't text, or holds none."""
@@ -594,8 +619,7 @@ def _hive_written(call: str, text: object) -> str:
         refuse(
             what=f"{call} was given {text!r}, which isn't Hive text.",
             why="It is Hive you write by hand, which it keeps as you wrote it.",
-            fix=f'Write the Hive as a string, as in {call}("{{name}} RLIKE \'^a\'", '
-            "name=jobs.job_name).",
+            fix=f"Write the Hive as a string, as in {_EXAMPLES[call]}.",
             given=text, call=call,
         )
     written = text.strip().rstrip(";").rstrip()
@@ -603,7 +627,7 @@ def _hive_written(call: str, text: object) -> str:
         refuse(
             what=f"{call}({text!r}) has no Hive in it.",
             why="There would be nothing to write.",
-            fix=f'Write the Hive, as in {call}("{{name}} RLIKE \'^a\'", name=jobs.job_name).',
+            fix=f"Write the Hive, as in {_EXAMPLES[call]}.",
             error=ValueError,
         )
     return written
@@ -620,7 +644,7 @@ def _placeholders(call: str, text: str) -> list[str]:
             why="Each {name} is a placeholder for a column, so a brace on its own is read as "
             "the start or end of one.",
             fix="Write a brace you mean as a brace twice, {{ or }}, as in "
-            "'[a-z]{{2}}', and name each placeholder, as in {name}.",
+            "'[a-z]{{2}}', and name each placeholder, as in {team}.",
             error=ValueError,
         )
     for _, field, spec, conversion in parsed:
@@ -630,8 +654,7 @@ def _placeholders(call: str, text: str) -> list[str]:
             refuse(
                 what=f"{call}({python_text(text)}, ...): its placeholder {{}} has no name.",
                 why="Each placeholder is filled with the column passed by its name.",
-                fix=f'Name it, and pass the column by that name: {call}("upper({{team}})", '
-                "team=jobs.team).",
+                fix=f"Name it, and pass the column by that name, as in {_EXAMPLES[call]}.",
             )
         if spec or conversion or not SIMPLE_NAME.fullmatch(field):
             shown = "{" + field + (f"!{conversion}" if conversion else "") + (
@@ -686,8 +709,9 @@ def _check_expression(call: str, text: str, facts: ExpressionFacts) -> None:
             why="An Unchecked expression stands for one column or condition of the tables "
             "the Statement reads, which the Toolbox traces; a table it reads itself would be "
             "hidden from Lineage and the Load limits.",
-            fix="Write the sub-query as unchecked_derived(name, text, columns={...}), which "
-            "Lineage draws, and JOIN it, or SEMI_JOIN it to keep the rows with a match.",
+            fix="Write the sub-query as an Unchecked derived table, as in "
+            f"{_EXAMPLES['unchecked_derived']}, which Lineage draws, and JOIN it, or "
+            "SEMI_JOIN it to keep the rows with a match.",
             error=ValueError,
         )
     if facts.unreadable is not None:
@@ -712,32 +736,55 @@ def _check_expression(call: str, text: str, facts: ExpressionFacts) -> None:
             why="A column is named where SELECT shows it, so the name is checked like any "
             "other.",
             fix=f'Leave the name out of the text and name the column with AS: AS({call}(...), '
-            '"name").',
+            '"team_upper").',
             error=ValueError,
         )
+    _refuse_unwritable(said, facts.unwritable)
 
 
-def _check_columns_named(call: str, text: str, facts: ExpressionFacts) -> None:
-    """Refuse text that names a column itself, rather than through a placeholder, writing
-    the call as it should be."""
-    if not facts.columns:
+def _refuse_unwritable(said: str, unwritable: str | None) -> None:
+    """Refuse Hive sqlglot reads but can't write back as Hive, saying why in its words: at the
+    call, rather than at to_hive. `said` is the call, as a message writes it."""
+    if unwritable is None:
         return
-    column = facts.columns[0]
-    table, _, name = column.rpartition(".")
-    instead = text.replace(column, "{" + name + "}")
-    passed = f"{name}={column}" if table else f"{name}=<its table>.{name}"
     refuse(
-        what=f"{call}({python_text(text)}) names {column} itself, rather than through a "
-        "placeholder.",
-        why="The Toolbox can't tell which table's column text names, so Lineage couldn't trace "
-        "it and a table renamed with AS would leave it pointing at the old name.",
-        fix=f"Write it as {{{name}}} and pass the column: {call}({python_text(instead)}, "
-        f"{passed}).",
+        what=f"{said}: sqlglot reads it, but can't write it back as Hive: {unwritable}.",
+        why="to_hive writes every Statement's Hive through sqlglot, so it would stop there, "
+        "and the warehouse never gets Hive the Toolbox can't write.",
+        fix="Write it another way Hive reads. A brace sqlglot reads as a struct, as in "
+        "{'k': 1}: a brace you mean as a brace is doubled, {{ or }}, and only unchecked_column "
+        "and unchecked_condition take placeholders: unchecked_derived's text names its "
+        "columns itself.",
         error=ValueError,
     )
 
 
-def unchecked_derived(name: str, text: str, columns: dict[str, str | None]) -> Table:
+def _check_columns_named(call: str, text: str, facts: ExpressionFacts, filled: str,
+                         stand_ins: dict[str, str], columns: dict[str, object]) -> None:
+    """Refuse text that names a column itself, rather than through a placeholder, writing
+    the call as it should be: each such column a placeholder, as sqlglot writes the text, and
+    the columns passed already kept. `filled` is the text with each placeholder filled with
+    its stand-in, and `stand_ins` gives each stand-in's placeholder name."""
+    if not facts.columns:
+        return
+    instead, added = with_placeholders(filled, stand_ins)
+    passed = [f"{name}={python_text(columns[name])}" for name in stand_ins.values()]
+    passed += [f"{name}={table or '<table>'}.{column}" for name, table, column in added]
+    unknown = (", with <table> the Table reference of the table it is a column of"
+               if any(not table for _, table, _ in added) else "")
+    refuse(
+        what=f"{call}({python_text(text)}) names {in_words(facts.columns)} itself, rather than "
+        "through a placeholder.",
+        why="The Toolbox can't tell which table's column text names, so Lineage couldn't trace "
+        "it and a table renamed with AS would leave it pointing at the old name.",
+        fix=f"Write each column it names as a placeholder, and pass the column itself: "
+        f"{call}({python_text(instead)}, {', '.join(passed)}){unknown}.",
+        error=ValueError,
+    )
+
+
+def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
+                      key: list[str] | None = None) -> Table:
     """A Derived table whose SELECT is Hive you write by hand, its columns declared.
 
     >>> steps = unchecked_derived("steps", '''
@@ -768,21 +815,34 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None]) -> T
     GROUP BY
       steps.step
 
+    Each run's status is split at each _ (explode(split(r.status, '_'))), and LATERAL VIEW
+    gives one row for each part, named s, beside the rest of the run's row: steps has a row
+    for each run and each part of its status, which no Clause function writes yet. The
+    Example database can't run it, as its executor has no LATERAL VIEW; Hive can.
+
     It gives back a Table, read as a Derived table made by derived(...) is: its columns are
     the ones `columns` declares, each with its Hive type or None, so steps.step works and a
     column it doesn't declare is refused at once. The text is one SELECT, written at the top
     of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot
-    can tell the names of the columns the SELECT gives, they must be the ones declared.
+    can tell the names of the columns the SELECT gives, they must be the ones declared. The
+    text names its columns itself, with no {placeholders}: a brace in it is refused, since
+    sqlglot reads it as a struct, which it can't write back as Hive.
 
-    No Guard, Warning or Load limit looks inside the text. So it has no Key the Toolbox can
-    see, and a JOIN on it warns as on any table without one. A read of it warns that the Load
-    limit can't see whether its text filters the partition columns of the tables it reads:
-    check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it,
-    as above, which silences the Warning. Lineage draws it as one box it can't see inside,
-    marked with the Unchecked statement's badge, over the tables its text reads, and each run
-    of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like
-    unchecked_hive, it marks something the Toolbox should learn to write: a search for
-    unchecked_ finds it.
+    No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can
+    see unless you name one: key=["run_id"] says one row has each run_id, as a GROUP BY
+    run_id in its text makes it, and a Table reference's key= says. A JOIN on its Key is then
+    checked as on any Derived table with one, and a write reading it isn't refused for a Key
+    it can't prove. The Toolbox can't check that the text makes it so: name a Key only when
+    it does. Without one, a JOIN on it warns as on any table without a Key.
+
+    A read of it warns that the Load limit can't see whether its text filters the partition
+    columns of the tables it reads, those partitioned and those the Toolbox has no Table
+    reference for: check that it does, then add reads_all_partitions=True to the FROM or JOIN
+    that reads it, as above, which there says you have checked it. Lineage draws it as one box
+    it can't see inside, marked with the Unchecked statement's badge, over the tables its text
+    reads, and each run of a Statement reading it adds an entry to the Admin log
+    (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to
+    write: a search for unchecked_ finds it.
     """
     if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
         refuse(what=f"unchecked_derived({name!r}, ...) needs a plain name.",
@@ -800,13 +860,43 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None]) -> T
             "you don't know.",
             error=ValueError,
         )
+    _check_key(name, key, columns)
     facts = read_unchecked_select(written)
     _check_select(name, written, facts, columns)
     table = Table(name, columns=columns)
     table._statement = UncheckedSelect(written, facts.tables)
-    table._keys = Keys(found=[], lost="its Hive is written by hand in unchecked_derived(...), "
-                       "which the Toolbox can't look inside")
+    if key:
+        table._key = list(key)
+        table._keys = Keys(found=[Found(list(key), f"its key=[...] says its rows are told "
+                                        f"apart by {in_words(list(key))}", "not by")],
+                           lost=None)
+    else:
+        table._keys = Keys(found=[], lost="its Hive is written by hand in "
+                           "unchecked_derived(...), which the Toolbox can't look inside")
     return table
+
+
+def _check_key(name: str, key: object, columns: dict[str, str | None]) -> None:
+    """Refuse a key= that isn't a list of the columns declared."""
+    if key is None:
+        return
+    if not isinstance(key, (list, tuple)) or not key or not all(
+            isinstance(column, str) for column in key):
+        refuse(
+            what=f"unchecked_derived({name!r}, ..., key={key!r}) needs a list of column names.",
+            why="key= names the columns that tell its rows apart, as a Table reference's does.",
+            fix='Write it like key=["run_id"], or leave it out.',
+            given=key, call="unchecked_derived",
+        )
+    for column in key:
+        if column not in columns:
+            refuse(
+                what=f"unchecked_derived({name!r}, ...): key names {column!r}, which isn't one "
+                "of its columns.",
+                why="Every name in key= must be a column it declares in columns={...}.",
+                fix=f"Use one of: {', '.join(columns)}.",
+                error=ValueError,
+            )
 
 
 def _check_select(name: str, text: str, facts: SelectFacts,
@@ -834,6 +924,7 @@ def _check_select(name: str, text: str, facts: SelectFacts,
             fix="Declare each column the SELECT gives, under the name it gives it.",
             error=ValueError,
         )
+    _refuse_unwritable(f"unchecked_derived({name!r}, ...)", facts.unwritable)
 
 
 # --- The Admin log ---------------------------------------------------------------------------
@@ -851,8 +942,12 @@ def set_admin_log(path: str | Path | None = None) -> Path | None:
     >>> set_admin_log()  # back to the usual place
 
     The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or
-    run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive
-    sent, the script and its git commit, and whether it worked. It only ever adds to the file.
+    run_execute sends an Unchecked statement, an Admin statement, or a Statement holding an
+    Unchecked expression or an Unchecked derived table (unchecked_column, unchecked_condition
+    or unchecked_derived), and each time compare_with_original compares such a Statement:
+    when, the call, the Hive sent, the script and its git commit, and whether it worked. It
+    only ever adds to the file. Its Unchecked statements and Unchecked pieces are the list of
+    what the Toolbox should learn to write next.
 
     Left unset, the log is admin_log.md beside the script or notebook that sends it, or
     inside a Project the Project's admin/admin_log.md (help(project)). A path you give that
@@ -894,9 +989,10 @@ def set_admin_log(path: str | Path | None = None) -> Path | None:
 HEADER = (
     "# Admin log\n"
     "\n"
-    "Each Admin statement, Unchecked statement and Project action the Toolbox has run, oldest "
-    "first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of "
-    "what the Toolbox should learn to write next.\n"
+    "Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or "
+    "Unchecked derived table, and Project action the Toolbox has run, oldest first. The "
+    "Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived "
+    "tables are the list of what the Toolbox should learn to write next.\n"
 )
 
 # How much of an Unchecked statement's first line an entry's call shows.

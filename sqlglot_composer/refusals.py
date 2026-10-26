@@ -336,15 +336,20 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
 
 def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[str] | None,
                           many_matches: bool, derived: bool = False,
-                          lost: str | None = None) -> None:
+                          lost: str | None = None, unchecked: bool = False) -> None:
     """A join off the joined table's key repeats rows: warn, and still join.
 
-    `lost` says where a Derived table lost its Key.
+    `lost` says where a Derived table lost its Key; `unchecked` that the table is an
+    Unchecked derived table, whose key= may name one.
     """
     if many_matches:
         return
     on = ", ".join(matched) or "nothing"
     fix = f"Group {table} first so it has one row per value you join on, and join that."
+    if unchecked and not key:
+        fix = (f"If one {table} row has each value you join on, as a GROUP BY in its Hive may "
+               f'make it, say so with unchecked_derived("{table}", ..., key=[...]). If not, '
+               f"group {table} first so it has one row per value you join on, and join that.")
     if key:
         what = (f"{call}({table}) matches on {on}, but a {table} row is told apart only by "
                 f"its Key ({', '.join(key)}).")
@@ -390,10 +395,11 @@ def warning_unchecked_where_on_kept_rows(call: str, joined: str, table: str, con
         why=f"Most conditions are false where {table}'s columns are NULL, as they are in each "
         f"row with no match in {table}: such a condition throws those rows away again, and "
         f"the {call} gives what an ordinary JOIN gives.",
-        fix=f"{move}; or leave it in WHERE if it keeps the rows with NULL there, as "
-        "{x} IS NULL does.",
-        opt_out=f"{call}({joined}, ON=..., keeps_only_matches=True), if the Statement should "
-        "keep only the rows with a match.",
+        fix=f"{move}; or leave it in WHERE if it keeps the rows with NULL in {table}'s "
+        f"columns, as a test of a {table} column with IS NULL does.",
+        opt_out=f"{call}({joined}, ON=..., keeps_only_matches=True), which here says you have "
+        "checked the Unchecked expression: that WHERE may keep it, whether or not it keeps "
+        "the rows with no match.",
     )
     warn_at_callers_line(message, UncheckedWarning)
 
@@ -414,27 +420,33 @@ def warning_unchecked_partition_filter(call: str, table: str, full_name: str,
         fix=f"Check that it does, or filter one of them with a condition function beside it, "
         f"as in WHERE(equals({table}.{partitioned_by[0]}, ...)), or with is_in, between or "
         "last_n_days.",
-        opt_out=f"{call[:-1]}, reads_all_partitions=True), once you have checked the "
-        "Unchecked expression filters them.",
+        opt_out=f"{call[:-1]}, reads_all_partitions=True), which here says you have checked "
+        "the Unchecked expression bounds them.",
     )
     warn_at_callers_line(message, UncheckedWarning)
 
 
-def warning_unchecked_derived_read(call: str, name: str, tables: list[str],
+def warning_unchecked_derived_read(call: str, name: str,
+                                   tables: list[tuple[str, list[str] | None]],
                                    reads_all_partitions: bool) -> None:
     """A read of an Unchecked derived table, whose own reads of tables the Load limit can't
-    look inside."""
+    look inside. `tables` is each table its Hive reads that is partitioned, with its partition
+    columns, or that may be, with None: one the Toolbox has no Table reference for."""
     if reads_all_partitions or not tables:
         return
+    read = "; ".join(f"{table}, which is partitioned by {', '.join(columns)}" if columns
+                     else f"{table}, which may be partitioned: the Toolbox has no Table "
+                     "reference for it" for table, columns in tables)
+    whose = f"{name}'" if name.endswith("s") else f"{name}'s"
     message = four_part_message(
-        what=f"{call} reads the Unchecked derived table {name}, whose Hive reads "
-        f"{in_words(tables)}. The Load limit can't look inside it, to see that it filters "
-        "the partition columns of each partitioned one.",
+        what=f"{call} reads the Unchecked derived table {name}, whose Hive reads {read}. The "
+        "Load limit can't look inside it, to see that it filters their partition columns.",
         why="A read of a partitioned table that filters none of its partition columns reads "
         "every Partition the table holds, which can stall the cluster for everyone.",
-        fix=f"Check that the WHERE in {name}'s Hive filters a partition column of each "
-        "partitioned table it reads.",
-        opt_out=f"{call[:-1]}, reads_all_partitions=True), once you have checked it.",
+        fix=f"Check that the WHERE in {whose} Hive filters a partition column of each table "
+        "named above.",
+        opt_out=f"{call[:-1]}, reads_all_partitions=True), which here says you have checked "
+        f"that {whose} Hive bounds them.",
     )
     warn_at_callers_line(message, UncheckedWarning)
 

@@ -55,6 +55,7 @@ from .tables import (
     aliased,
     is_unchecked,
     need_saved_table,
+    partitioned_by_name,
     partitions_named,
     python_text,
 )
@@ -484,7 +485,8 @@ def _join(call: str, table: object, on: object, many_matches: bool,
     if call not in ONLY_TESTS and not any(set(key) <= set(matched) for key in keys_of(table)):
         warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
                               derived=table._statement is not None,
-                              lost=table._keys.lost if table._statement is not None else None)
+                              lost=table._keys.lost if table._statement is not None else None,
+                              unchecked=is_unchecked(table))
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, broadcast=broadcast, **more)
 
@@ -1422,8 +1424,13 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
                                    full_join=full_joined(s, read))
     for read in s._reads:
         if is_unchecked(read.table):
+            # Each table its Hive reads that is partitioned, or may be, as the Toolbox can't
+            # tell without a Table reference for it.
+            tables = [(name, partitioned_by_name(name))
+                      for name in read.table._statement._tables]
             warning_unchecked_derived_read(read._call(), read.table._name,
-                                           read.table._statement._tables,
+                                           [(name, columns) for name, columns in tables
+                                            if columns is None or columns],
                                            read.reads_all_partitions)
     if order is not None and s._limit is None:
         load_limit_order_by(order.sorts_everything)

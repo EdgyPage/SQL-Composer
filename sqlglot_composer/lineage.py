@@ -353,10 +353,19 @@ def _write_key_line(s: Statement) -> str | None:
     return f"{possessive(table._name)} Key ({key}) holds: each row written has its own."
 
 
+def _unchecked_key_line(table: Table) -> str:
+    """What a report's Keys say of an Unchecked derived table: the Key its key=[...] names,
+    which the Toolbox takes on trust, or that it has none the Toolbox can see."""
+    called = f"unchecked_derived({table._name!r}, ...)"
+    if table._key:
+        return (f"{called}: Key ({', '.join(table._key)}), as its key=[...] says: the Toolbox "
+                "can't look inside its Hive to check it.")
+    return f"{called}: no Key the Toolbox can see, since {table._keys.lost}."
+
+
 def keys_report(s: Statement, name: str) -> list[str]:
     """The lines of a report's Keys: each Derived table's, the Statement's, and its write's."""
-    lines = [f"unchecked_derived({table._name!r}, ...): no Key the Toolbox can see, since "
-             f"{table._keys.lost}." if is_unchecked(table)
+    lines = [_unchecked_key_line(table) if is_unchecked(table)
              else _key_line(f"derived({table._name!r}, ...)", table._statement)
              for table in derived_tables(s)]
     lines.append(_key_line(name, s))

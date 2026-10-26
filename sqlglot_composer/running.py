@@ -576,10 +576,13 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     return None
 
 
-def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]) -> object:
+def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object],
+                sent_for: str | None = None) -> object:
     """Send a Statement's Hive through your query or execute. One holding an Unchecked
     expression or an Unchecked derived table adds an entry to the Admin log, as an Unchecked
-    statement does: its Hive is partly written by hand."""
+    statement does: its Hive is partly written by hand. `sent_for` says, in its heading, why
+    other Hive than the Statement's own was sent, as "compared with the original by
+    compare_with_original"."""
     tree = statement_tree(s) if kinds.is_a_query(s) else Node("Null")
     calls = unchecked_calls(tree)
     if not calls:
@@ -588,8 +591,8 @@ def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]
     held = [words for kind, words in (("Unchecked", "an Unchecked expression"),
                                       ("UncheckedSelect", "an Unchecked derived table"))
             if kind in found]
-    return logged_run(f"Statement with {' and '.join(held)}", "; ".join(calls), text,
-                      warehouse_call)
+    kind = f"Statement with {' and '.join(held)}" + (f", {sent_for}" if sent_for else "")
+    return logged_run(kind, "; ".join(calls), text, warehouse_call)
 
 
 def _refuse_the_other_call(call: str, other: str, instead: str,

@@ -18,6 +18,7 @@ import json
 import keyword
 import re
 import urllib.parse
+import weakref
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
@@ -598,6 +599,7 @@ class Table:
         self._check_own_columns()
         _check_partitions(self)
         _set_storage(self, location, purge, properties, stored_as, compression, buckets)
+        _MADE.add(self)
 
     def _check_own_columns(self) -> None:
         named = {"key": self._key or []}
@@ -679,6 +681,23 @@ class UncheckedSelect:
 def is_unchecked(table: Table) -> bool:
     """Whether a table is an Unchecked derived table, made by unchecked_derived(...)."""
     return isinstance(table._statement, UncheckedSelect)
+
+
+# Each Table made and still in use, so a read of an Unchecked derived table can tell whether a
+# table its Hive reads is partitioned, by that table's Table reference. Held weakly: a Table
+# no longer in use drops out.
+_MADE: weakref.WeakSet[Table] = weakref.WeakSet()
+
+
+def partitioned_by_name(name: str) -> list[str] | None:
+    """The partition columns of the table `name`, as database.name, by the Table references
+    made for it: [] when each says it isn't partitioned, and None when none was made, so the
+    Toolbox can't tell. Where two say different things, their partition columns are joined."""
+    found = [table._partitioned_by for table in list(_MADE)
+             if table._statement is None and table._name.lower() == name.lower()]
+    if not found:
+        return None
+    return list(dict.fromkeys(column for columns in found for column in columns))
 
 
 def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
@@ -1013,8 +1032,9 @@ class Verdict:
     >>> check_key(jobs, query=example_database.query)
     ops.jobs: the key (job_id) holds.
 
-    Its `ok` is True when it found nothing wrong, and printing it shows what it found.
-    Make one with check_key(...), check_table_reference(...), compare_hive(...) or
+    Its `ok` is True when it found nothing wrong, and printing it shows what it found. The
+    Verdict itself is true or false as its `ok` is, so `if check_key(...):` passes only when
+    the key holds. Make one with check_key(...), check_table_reference(...), compare_hive(...) or
     compare_with_original(...), never Verdict(). Write the
     name in a type hint, to say that a function of yours gives back what one of them
     found:
@@ -1031,6 +1051,10 @@ class Verdict:
     def __init__(self, ok: bool, lines: list[str]) -> None:
         self.ok = ok
         self.lines = lines
+
+    def __bool__(self) -> bool:
+        """Its `ok`, so `if check_key(...):` reads as it says."""
+        return self.ok
 
     def __repr__(self) -> str:
         return "\n".join(self.lines)

@@ -428,6 +428,18 @@ def conditions_in(items: list[object] | tuple[object, ...], call: str,
             found.extend(conditions_in(item, call, why, none_why, none_fix))
         elif isinstance(item, Condition):
             found.append(item)
+        elif getattr(getattr(item, "_tree", None), "kind", None) == "Unchecked":
+            # unchecked_column(...) where a condition goes: the same text and columns make one
+            # with unchecked_condition(...).
+            instead = item._tree.meta["call"].replace("unchecked_column(",
+                                                      "unchecked_condition(", 1)
+            refuse(
+                what=f"{call} was given {item!r}, made by unchecked_column(...), which gives a "
+                "column, not a condition.",
+                why=why,
+                fix=f"Write a condition by hand with unchecked_condition(...): {instead}.",
+                given=item, call=call,
+            )
         else:
             refuse(
                 what=f"{call} was given {item!r}, which isn't a condition.",
