@@ -21,6 +21,7 @@ from sqlglot_composer import (
     WHERE,
     GuardRefused,
     Statement,
+    Table,
     average_of,
     between,
     equals,
@@ -138,6 +139,27 @@ def test_a_none_keys_fix_fills_with_the_columns_own_kind() -> None:
         mapped(job_runs.job_id, {None: "x", 1: "y"})
     followed = mapped(fill_null(job_runs.job_id, -1), {-1: "x", 1: "y"})
     assert repr(followed).startswith("CASE COALESCE(job_runs.job_id, -1) WHEN -1 THEN 'x'")
+
+
+def test_a_boolean_or_untyped_columns_none_key_gets_a_fix_that_runs() -> None:
+    """A boolean column holds both its values, so it is first_match; an untyped column's filler
+    is the kind of its other keys."""
+    flags = Table("ops.flags", columns={"ok": "boolean", "code": None})
+    with pytest.raises(ValueError, match=r"first_match\(\[\(is_null\(flags.ok\), \"the label "
+                       r"for NULL\"\)\], otherwise=mapped\(flags.ok, \{\.\.\.\}\)\)"):
+        mapped(flags.ok, {None: "x", True: "y"})
+    with pytest.raises(ValueError, match=r"mapped\(fill_null\(flags.code, -1\)"):
+        mapped(flags.code, {None: "x", 1: "y"})
+
+
+def test_otherwise_is_told_apart_by_its_place_not_its_object() -> None:
+    """Pair 2's value, the same object as otherwise=, clashes first, and leaving otherwise= out
+    wouldn't help, so the fix doesn't say to."""
+    three = 3
+    with pytest.raises(TypeError) as refused:
+        first_match([(equals(job_runs.status, "A"), "a"), (equals(job_runs.status, "B"), three)],
+                    otherwise=three)
+    assert "otherwise=" not in str(refused.value)
 
 
 def test_a_condition_given_as_a_value_names_its_key() -> None:
