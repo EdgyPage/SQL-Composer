@@ -54,7 +54,8 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     out one way, so that what doesn't change the query doesn't count:
     spacing and line breaks, upper or lower case, backticks, comments, a ; at the end,
     brackets that change nothing, INNER and OUTER in a join (LEFT OUTER JOIN is LEFT JOIN),
-    an AS that gives a column its own name, and the short name a table is called by, such as
+    an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names
+    none, and the short name a table is called by, such as
     r in FROM ops.job_runs r: each table is written with its own name, and where a query reads
     one table alone, its columns with no table's name before them. Anything else counts, even
     where the rows would come out the same, such as a <> b written as NOT a = b, or two

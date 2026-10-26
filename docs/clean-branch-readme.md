@@ -348,10 +348,10 @@ made, and how to run it:
   `mart.run_speed`, from Follow lineage, and `ops.scheduler_runs`, from Keep the Project in
   order.
 - `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
-  `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: six Saved tables, among them
+  `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: seven Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the
-  `quality_checks` Template, a table partitioned by region and written a region at a time, and
-  one with no partitions and no Key.
+  `quality_checks` Template, a table partitioned by region and written a region at a time, one
+  with no partitions and no Key, and a finished Conversion, with the Hive it replaced.
 
 Copy the `sqlglot_composer` folder into a project's folder first, as a Project holds it, then
 open its notebooks. The Example database can be read but not written, so a Table notebook

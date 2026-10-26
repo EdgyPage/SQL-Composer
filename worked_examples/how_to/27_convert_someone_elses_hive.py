@@ -86,7 +86,9 @@ Found:
   line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
   line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table's write, INSERT_OVERWRITE(...), with the same partitions
   line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
+  line 20: the CASE WHEN chain of 2 conditions becomes first_match(...), which tries them in order, as CASE does
   line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet
+  line 22: upper(...) is a Hive function no Toolbox function wraps: hive_function("upper", ...) writes it
 
 Both tables have Table references in this Project already. One that has none is listed by the
 scan, under "No Table reference yet", and the next step adds it, through your query.

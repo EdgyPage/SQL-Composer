@@ -1,4 +1,7 @@
-"""mart.team_failures - one row per team and day: its events, and how many were fails.
+"""mart.team_failures - one row per team and day: its events and its fails.
+
+Why: the project's notebooks read the table through this file, so each column they name, and
+the key each join and count relies on, is checked as the Statement is built.
 
 Written by project.finish_conversion("team_failures", table="mart.team_failures"), from the
 ops team's Hive, then filled in by hand: this line, the two column types, the key and the

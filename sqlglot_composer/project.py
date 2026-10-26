@@ -1299,7 +1299,11 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     the tables it reads and which have no Table reference yet, each long IN list and lookup
     CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays
     Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an
-    Unchecked statement), what becomes of its SET lines and its INSERT, if it has them. It
+    Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each
+    ${...} such as ${hivevar:day}, kept as written for your query to fill in, and each piece
+    written another way: a * as its table's columns, a CASE WHEN chain as first_match(...), a
+    lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the
+    like. It
     changes no file and sends nothing. A table named without its database, such as job_runs,
     is taken to be in `database`.
 
@@ -1439,7 +1443,9 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     with its partition values, INSERT_OVERWRITE when it had none. The notebook keeps the
     Conversion's cells that compare it with the original, until you remove them. It writes the
     table's Table reference, references/<db>__<table>.py, with the columns the Statement gives
-    and the types it knows, `<COLUMN_TYPE>` for each it doesn't; partitioned_by=[...] filled in
+    and the types it knows, `<COLUMN_TYPE>` for each it doesn't, and each partition column the
+    original's PARTITION(...) gave a value, which the query doesn't give, as "string", to check;
+    partitioned_by=[...] filled in
     from the original's PARTITION(...), or with a "<PARTITION_COLUMN>" that Table refuses until
     you name one of its columns, or write [] for a table with none; and `<LOCATION>`, the
     folder its files go in, for you to fill in. Then it archives the Conversion folder into
@@ -1636,7 +1642,7 @@ def _with_opt_outs(root: Path, name: str, hive_read: converting.ConvertedQuery
                 return logic, added, _what_happened(str(refusal))
             logic, said = with_it
             added.append(said)
-        except (TypeError, ValueError, AttributeError) as refusal:
+        except (TypeError, ValueError) as refusal:
             # Logic the Conversion wrote that the Toolbox then refuses: the notebook is kept,
             # to mend by hand, and the refusal said.
             return logic, added, _what_happened(str(refusal))

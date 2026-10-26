@@ -347,12 +347,18 @@ def test_distribute_sort_and_cluster_by_are_dropped_saying_so(hive: str, said: l
     assert done.clauses == ["SELECT(job_runs.run_id)", "FROM(job_runs)"]
 
 
+def test_a_set_line_sqlglot_cant_look_inside_is_a_set_line_too() -> None:
+    done = convert_query("SET hivevar:day=2026-09-24;\nSELECT run_id FROM ops.job_runs")
+    assert done.settings == {"hivevar:day": "2026-09-24"}
+    assert found(done, "settings")[0].startswith("line 1: its SET line is")
+
+
 def test_a_hive_variable_stays_as_text_and_a_finding_says_so() -> None:
     done = convert_query("SELECT run_id FROM ops.job_runs\nWHERE dt = '${hivevar:day}'")
     assert 'equals(job_runs.dt, "${hivevar:day}")' in done.query
     assert found(done, "variable") == [
-        "line 2: ${hivevar:day} is a Hive variable, kept as written: your query must put its "
-        "value in before it sends the Hive, as Hive's own client does"]
+        "line 2: ${hivevar:day} is kept as written, for Hive's own client to fill in: your "
+        "query must put its value in before it sends the Hive"]
 
 
 # --- Every table read, and the line each finding is on -----------------------------------------
