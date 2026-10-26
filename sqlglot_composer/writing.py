@@ -272,9 +272,13 @@ def _literal(node: Node) -> exp.Expression:
 
 
 def _case(node: Node) -> exp.Case:
-    if node.parts.get("default") is None:
-        return exp.Case(ifs=_all_built(node, "ifs"))
-    return exp.Case(ifs=_all_built(node, "ifs"), default=_built(node, "default"))
+    """CASE WHEN ... END, or CASE column WHEN value ... END when it has a column to look up;
+    ELSE only when it has a default."""
+    parts = {"ifs": _all_built(node, "ifs")}
+    for part in ("this", "default"):
+        if node.parts.get(part) is not None:
+            parts[part] = _built(node, part)
+    return exp.Case(**parts)
 
 
 def _window(node: Node) -> exp.Window:

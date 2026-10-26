@@ -67,6 +67,7 @@ from sqlglot_composer import (
     equals,
     explain,
     fill_null,
+    first_match,
     grouping_sets,
     first_value,
     hive_function,
@@ -82,6 +83,7 @@ from sqlglot_composer import (
     last_value,
     lead,
     less_than,
+    mapped,
     max_of,
     min_of,
     month_start,
@@ -319,6 +321,15 @@ def _calculation_cases() -> dict[str, Callable[..., list[Statement]]]:
             AS(if_else(is_null(job_runs.status), -12, 1.5), "numbers"),
             AS(fill_null(job_runs.avg_retry_secs, 0.1), "retry"),
             AS(fill_null(job_runs.status, ""), "status_or_empty"))],
+        # Toolbox 7.2, ticket 04: an if/else chain, and a lookup on one column, a simple CASE.
+        "calculations:case_chains": lambda: [_rows(
+            AS(first_match([(is_null(job_runs.status), minutes),
+                            (more_than(minutes, 20), job_runs.avg_retry_secs)]), "chain"),
+            AS(first_match([(equals(job_runs.status, "FAILED"), "it's 'bad'")],
+                           otherwise="ok"), "quoted"),
+            AS(mapped(job_runs.job_id, {3: minutes, 1: 0.5}, otherwise=job_runs.run_id),
+               "looked_up"),
+            AS(mapped(job_runs.status, {"FAILED": None, "TEST": "test"}), "labels"))],
         "calculations:dates": lambda: [_rows(AS(week_start(job_runs.dt), "week"),
                                              AS(month_start(job_runs.dt), "month"))],
         "calculations:row_number": lambda: [_rows(AS(row_number(

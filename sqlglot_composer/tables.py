@@ -299,7 +299,20 @@ def _python_family(value: bool | int | float | decimal.Decimal | str | datetime.
     return "date"
 
 
-# For each column type family, the kinds of Python value it may be compared with.
+def value_family(value: object) -> str | None:
+    """The family of a value a calculation gives, such as one of first_match's: a column's,
+    from its type, or a Python value's. None when it isn't known: NULL, a calculation with no
+    type, or what isn't a single value, which literal(...) refuses."""
+    if isinstance(value, Column):
+        return type_family(value._type)
+    value = _python_value(value)
+    if value is None or not isinstance(value, SINGLE_VALUES):
+        return None
+    return _python_family(value)
+
+
+# For each column type family, the kinds of Python value it may be compared with; they are
+# also the families whose values can stand in one column, as first_match's values must.
 COMPARABLE_VALUES = {
     "number": {"number"},
     "string": {"string", "date", "timestamp"},

@@ -28,8 +28,19 @@ in place of a line in every file.
   Project; a Project 7.1 made has none, and is taken to be 7.1.
 - **A Project an older Toolbox last wrote warns** when you import the Toolbox in it, and in
   `project.check()`, saying to run `project.upgrade()`. Nothing is refused: a Statement you run
+<<<<<<< HEAD
   still runs. `project.check()` also says when a newer Toolbox than the one copied in last wrote
   the Project.
+=======
+  still runs.
+- **`first_match` and `mapped`, for an if/else chain as one CASE.**
+  `first_match([(condition, value), ...], otherwise=...)` gives each row the value of the first
+  condition that holds for it, where `if_else` nested many deep did the same less plainly.
+  `mapped(column, {"FAILED": "failed", ...}, otherwise=...)` looks one column's values up in a
+  dict. Left without `otherwise=`, a row nothing matches gets NULL. Each refuses values of types
+  that don't mix, such as a string beside a number, and `mapped` a key its column can't hold,
+  as `equals` does. The Worked example "Keep a long list and a lookup as constants" shows them
+  beside `is_in(column, A_NAMED_LIST)`, a long list kept as a constant at the top of a script.
 
 - **`version.txt`, the one place the version is written.** It names the Toolbox and its
   version, when this copy was exported and from which commit, and each file of the folder with
