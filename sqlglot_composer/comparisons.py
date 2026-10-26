@@ -57,7 +57,11 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names
     none, and the short name a table is called by, such as
     r in FROM ops.job_runs r: each table is written with its own name, and where a query reads
-    one table alone, its columns with no table's name before them. Anything else counts, even
+    one table alone, its columns with no table's name before them. A query in brackets in FROM
+    or JOIN, as FROM (SELECT ...) ranked, is the Derived table a Statement writes as WITH
+    ranked AS (SELECT ...); and a * or r.* is the columns it stands for, where they can be
+    told: a Derived table's or a query's in brackets, or those of a table the Statement reads,
+    by its Table reference. Anything else counts, even
     where the rows would come out the same, such as a <> b written as NOT a = b, or two
     conditions written in the other order: compare_with_original(...) compares the rows.
 
@@ -81,8 +85,10 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     call = "compare_hive"
     _need_statement_and_original(statement, original, call, inspect.currentframe().f_back,
                                  "the Hive")
-    ours = normalised_query(hive_without_automatic_limit(statement), call, "the Statement's Hive")
-    theirs = normalised_query(original, call, "the original")
+    read = _columns_of(statement)
+    ours = normalised_query(hive_without_automatic_limit(statement), call, "the Statement's Hive",
+                            read)
+    theirs = normalised_query(original, call, "the original", read)
     if ours == theirs:
         return Verdict(True, [f"The Statement's Hive and the original are the same query, "
                               f"{_THE_SAME}."])
@@ -159,7 +165,10 @@ def compare_with_original(statement: Statement, original: str, *,
     True when the two give the same rows, and so is the Verdict itself.
 
     The original's columns must be the Statement's, by name and in order, as the rows are
-    matched column by column: it refuses them otherwise, naming both. An INSERT ... SELECT is
+    matched column by column: it refuses them otherwise, naming both. A * or r.* in the
+    original is the columns it stands for, where they can be told, as compare_hive tells them;
+    a * over a table the Statement doesn't read is refused, as its columns can't be. An
+    INSERT ... SELECT is
     compared by its SELECT, the rows it writes. The original is one query: SET lines before
     it are passed over, as they set the session, not the rows, and any other statement is
     refused.
@@ -192,7 +201,8 @@ def compare_with_original(statement: Statement, original: str, *,
                         "query, which gives back rows.")
     ours = hive_without_automatic_limit(statement)
     columns = query_columns(ours, call, "the Statement's Hive")
-    _need_the_same_columns(columns, query_columns(original, call, "the original"), call)
+    _need_the_same_columns(columns, query_columns(original, call, "the original",
+                                                  _columns_of(statement)), call)
     kept, bounded = _kept(statement, partition, columns, call)
     if not reads_all_partitions:
         _need_partitions_named(statement, columns, call,
@@ -327,6 +337,20 @@ def _value(value: object, name: str, column: Column | None, call: str) -> str:
     """A value partition= gives `name`, checked against its column, as Hive writes it."""
     return hive_text(literal(value, call=f"{call}(..., partition=...)", column=column,
                              position=f"the value of {name}", in_condition=False))
+
+
+def _columns_of(statement: Statement) -> dict[str, list[str]]:
+    """The columns of each table the Statement reads, by its database.name, as Hive gives
+    them for a *: its partition columns last."""
+    read = {}
+    for step in statements_within(statement):
+        for one in step._reads:
+            table = one.table
+            if table._statement is None:
+                read[table._name.lower()] = (
+                    [name for name in table._columns if name not in table._partitioned_by]
+                    + list(table._partitioned_by))
+    return read
 
 
 def _partitioned_tables(statement: Statement) -> list[Table]:

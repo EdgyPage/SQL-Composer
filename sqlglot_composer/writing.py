@@ -11,7 +11,7 @@ from __future__ import annotations
 import keyword
 import re
 from collections.abc import Callable
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
 
 import sqlglot
 from sqlglot import exp
@@ -29,6 +29,9 @@ from .trees import (
 )
 
 from .engine import INSTALL_NEWER
+
+if TYPE_CHECKING:
+    from sqlglot.optimizer.scope import Scope
 
 _DIALECT = "hive"
 
@@ -339,21 +342,33 @@ def _read_query(text: str, call: str, whose: str) -> exp.Expression:
     return tree
 
 
-def query_columns(text: str, call: str, whose: str) -> list[str]:
+def query_columns(text: str, call: str, whose: str,
+                  columns_of: dict[str, list[str]] | None = None) -> list[str]:
     """The names of the columns a query gives, as Hive names them: an unnamed calculation is
-    _c0, _c1 and so on by its place, and a * stays *, since its columns aren't known."""
+    _c0, _c1 and so on by its place, and a * or t.* the columns it stands for, where they can
+    be told (_stars_named, with `columns_of`); else it stays *."""
     tree = _read_query(text, call, whose)
+    _stars_named(tree, columns_of or {})
     while not isinstance(tree, exp.Select):
         tree = tree.this  # a Stack's columns are named by its first query
     return [(column.output_name or f"_c{place}") if not isinstance(column, exp.Star) else "*"
             for place, column in enumerate(tree.expressions)]
 
 
-def normalised_query(text: str, call: str, whose: str) -> list[str]:
+def normalised_query(text: str, call: str, whose: str,
+                     columns_of: dict[str, list[str]] | None = None) -> list[str]:
     """A query's lines, read by sqlglot and written out one way, so that only what changes the
     query differs between two of them: not spacing, case, backticks, comments, a ;, brackets
-    that change nothing, INNER or OUTER, AS, ASC, nor the short name a table is called by."""
+    that change nothing, INNER or OUTER, AS, ASC, the short name a table is called by, a
+    query in brackets in FROM or JOIN in place of the Derived table in WITH that the Toolbox
+    writes, nor a * in place of the columns it stands for, where they can be told
+    (_stars_named, with `columns_of`)."""
+    from sqlglot.optimizer.eliminate_subqueries import eliminate_subqueries
+
     tree = _read_query(text, call, whose)
+    _words_written_one_way(tree)
+    tree = eliminate_subqueries(tree)
+    _stars_named(tree, columns_of or {})
     _words_written_one_way(tree)
     _tables_called_by_their_names(tree)
     for named in list(tree.find_all(exp.Alias)):
@@ -367,6 +382,62 @@ def normalised_query(text: str, call: str, whose: str) -> list[str]:
             ordered.set("desc", False)  # ASC written out, as the Toolbox writes it, is the default
     _needless_brackets_out(tree)
     return _written_back(tree, call, whose).splitlines()
+
+
+def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None:
+    """Write each * and t.* a query gives as the columns it stands for, each with the name of
+    what it reads, where they can be told: a Derived table's or a query's in brackets, or a
+    table's that `columns_of` lists, by its database.name in lower case, as Hive gives them,
+    its partition columns last. A * over anything else is left as it is."""
+    from sqlglot.optimizer.scope import traverse_scope
+
+    try:
+        scopes = list(traverse_scope(tree))  # each query inside another before it
+    except sqlglot.errors.SqlglotError:
+        return
+    for scope in scopes:
+        query = scope.expression
+        if not isinstance(query, exp.Select):
+            continue
+        reads = [read for read in [_part(query, "from")] + (query.args.get("joins") or [])
+                 if read is not None]
+        named = [read.this.alias_or_name for read in reads]
+        given = []
+        for one in query.expressions:
+            if isinstance(one, exp.Star):
+                found = [_columns_read(scope, name, columns_of) for name in named]
+                given += (sum(found, []) if found and None not in found else [one])
+            elif isinstance(one, exp.Column) and isinstance(one.this, exp.Star):
+                given += _columns_read(scope, one.table, columns_of) or [one]
+            else:
+                given.append(one)
+        query.set("expressions", given)
+
+
+def _columns_read(scope: Scope, name: str, columns_of: dict[str, list[str]]
+                  ) -> list[exp.Column] | None:
+    """The columns of what a query reads under `name`, as a * gives them, each with that name
+    before it: a Derived table's or a query's in brackets, or a table's `columns_of` lists;
+    None where they can't be told."""
+    from sqlglot.optimizer.scope import Scope
+
+    read = scope.selected_sources.get(name)
+    if read is None:
+        return None
+    node, source = read
+    if not isinstance(source, Scope):
+        names = columns_of.get(".".join(part for part in (node.db, node.name) if part).lower())
+        return None if names is None else [exp.column(column, table=name) for column in names]
+    given = source.expression
+    while not isinstance(given, exp.Select) and isinstance(given, exp.Expression):
+        given = given.this  # a Stack's columns are named by its first query
+    if not isinstance(given, exp.Select) or any(
+            isinstance(one, exp.Star) or (isinstance(one, exp.Column)
+                                          and isinstance(one.this, exp.Star))
+            for one in given.expressions):
+        return None
+    names = [one.output_name or f"_c{place}" for place, one in enumerate(given.expressions)]
+    return [exp.column(column, table=name) for column in names]
 
 
 def _written_back(tree: exp.Expression, call: str, whose: str) -> str:

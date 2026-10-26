@@ -93,13 +93,24 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   how many rows each gives and how many are in one and not the other, with a few of them to
   look at; `partition={...}` keeps the rows of one Partition, as a read of a partitioned table
   must say which, by a column the Statement gives or a partition column of a table it reads.
-  SET lines before the original are passed over. Each gives back a `Verdict`, whose `ok` says
-  whether they match.
+  SET lines before the original are passed over. A query in brackets in FROM or JOIN is the
+  Derived table the Toolbox writes as a WITH, so the two are the same query; and an original
+  that gives `*` or `t.*` is compared by the columns it stands for, those of a Derived table or
+  query in brackets of the original, or of a table the Statement reads. Each gives back a
+  `Verdict`, whose `ok` says whether they match.
 - **A `Verdict` is true or false as its `ok` is**, so `if check_key(...):` passes only when
   the key holds, where before any Verdict was true.
 - **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
   `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
   days, gave one Statement's rows in place of both; your warehouse was never affected.
+- **The Example database runs Windows**: `row_number`, `rank`, `dense_rank`, `ntile`, `lag`,
+  `lead`, `first_value`, `last_value`, and `sum_of`, `average_of`, `count_rows`, `min_of` and
+  `max_of` with `over=`, as Hive works them out, NULL first in an ascending order. The how-tos
+  "The latest row of each group" and "Look across rows, then finish in pandas" and the gallery
+  now show the rows it gives, where they showed the same rows worked out in pandas.
+- **The Example database adds rows up after any join**, where it refused one whose tables
+  share a column's name, as `job_id`, and **answers `mapped(...)` beside a count**, where it
+  stopped. Neither was ever wrong on your warehouse.
 
 ## 7.1
 

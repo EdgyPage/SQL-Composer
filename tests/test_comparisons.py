@@ -18,6 +18,7 @@ import pytest
 from sqlglot_composer import (
     AS,
     FROM,
+    GROUP_BY,
     INSERT_OVERWRITE,
     LEFT_JOIN,
     SELECT,
@@ -25,9 +26,11 @@ from sqlglot_composer import (
     Condition,
     Statement,
     Table,
+    all_columns,
     any_of,
     compare_hive,
     compare_with_original,
+    count_rows,
     derived,
     equals,
     example_database,
@@ -77,6 +80,32 @@ def test_an_insert_is_compared_by_the_select_it_writes() -> None:
     converted = statement(SELECT(day_runs.run_id, day_runs.status), FROM(day_runs))
     assert compare_hive(converted, original).ok
 
+
+
+@pytest.mark.parametrize("original", [
+    pytest.param("SELECT day_runs.run_id, day_runs.status FROM (SELECT run_id, status FROM "
+                 f"ops.job_runs WHERE dt = '{DAY}') day_runs", id="a_subquery_in_from"),
+    pytest.param(f"SELECT * FROM (SELECT run_id, status FROM ops.job_runs WHERE dt = '{DAY}') "
+                 "day_runs", id="a_star_over_it"),
+])
+def test_a_subquery_in_from_is_the_derived_table_it_writes(original: str) -> None:
+    """A Derived table is written as a WITH; the original's subquery in FROM is the same."""
+    day_runs = derived("day_runs", runs_on())
+    converted = statement(SELECT(*all_columns(day_runs)), FROM(day_runs))
+    assert compare_hive(converted, original).ok, compare_hive(converted, original)
+
+
+def test_a_subquery_in_a_join_is_the_derived_table_it_writes() -> None:
+    day_runs = derived("day_runs", statement(
+        SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs),
+        WHERE(equals(job_runs.dt, DAY)), GROUP_BY(job_runs.job_id)))
+    converted = statement(SELECT(jobs.team, day_runs.runs), FROM(jobs),
+                          LEFT_JOIN(day_runs, ON=equals(day_runs.job_id, jobs.job_id)))
+    original = ("SELECT j.team, day_runs.runs FROM ops.jobs j LEFT JOIN (SELECT job_id, "
+                f"COUNT(*) AS runs FROM ops.job_runs WHERE dt = '{DAY}' GROUP BY job_id) "
+                "day_runs ON day_runs.job_id = j.job_id")
+    assert compare_hive(converted, original).ok, compare_hive(converted, original)
+    assert not compare_hive(converted, original.replace(DAY, FIRST_DAY)).ok
 
 def test_inner_outer_and_the_case_of_a_function_dont_count() -> None:
     converted = statement(
@@ -330,13 +359,44 @@ def test_columns_that_arent_the_statements_are_refused_naming_both() -> None:
 
 
 def test_a_star_or_an_unnamed_calculation_is_named_as_hive_names_it() -> None:
-    with pytest.raises(ValueError, match=r"the original \*"):
+    with pytest.raises(ValueError, match=r"the original run_id, job_id, status, duration_mins, "
+                                         r"avg_retry_secs and dt"):
         compare_with_original(not_tests(), "SELECT * FROM ops.job_runs",
                               query=example_database.query, partition={"dt": FIRST_DAY})
     with pytest.raises(ValueError, match=r"the original run_id, _c1 and dt"):
         compare_with_original(not_tests(), "SELECT run_id, upper(status), dt FROM ops.job_runs",
                               query=example_database.query, partition={"dt": FIRST_DAY})
 
+
+
+def test_a_star_over_a_table_the_statement_doesnt_read_is_still_refused() -> None:
+    """Its columns are known only from a Table reference the Statement reads."""
+    with pytest.raises(ValueError, match=r"the original \*\."):
+        compare_with_original(not_tests(), "SELECT * FROM ops.jobs",
+                              query=example_database.query, partition={"dt": FIRST_DAY})
+
+
+@pytest.mark.needs_example_database
+@pytest.mark.parametrize("original", [
+    pytest.param("SELECT * FROM ops.job_runs WHERE COALESCE(status, '') <> 'TEST'",
+                 id="a_table_the_statement_reads"),
+    pytest.param("SELECT r.* FROM ops.job_runs r WHERE COALESCE(r.status, '') <> 'TEST'",
+                 id="its_short_name_dot_star"),
+    pytest.param("SELECT * FROM (SELECT * FROM ops.job_runs WHERE COALESCE(status, '') <> "
+                 "'TEST') kept", id="a_subquery_of_the_original"),
+    pytest.param("WITH kept AS (SELECT * FROM ops.job_runs WHERE COALESCE(status, '') <> "
+                 "'TEST') SELECT * FROM kept", id="a_derived_table_of_the_original"),
+])
+def test_an_original_that_gives_star_is_compared_by_the_columns_it_reads(original: str
+                                                                          ) -> None:
+    every_column = statement(SELECT(*all_columns(job_runs)), FROM(job_runs,
+                                                                reads_all_partitions=True),
+                             WHERE(any_of(not_equals(job_runs.status, "TEST"),
+                                          is_null(job_runs.status))))
+    verdict = compare_with_original(every_column, original, query=example_database.query,
+                                    partition={"dt": FIRST_DAY})
+    assert repr(verdict) == ("The Statement and the original give the same rows where "
+                             "dt = '2026-09-23': 4 rows each.")
 
 def test_it_needs_your_query() -> None:
     with pytest.raises(TypeError, match="compare_with_original needs query="):

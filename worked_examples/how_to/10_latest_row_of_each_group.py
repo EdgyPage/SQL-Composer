@@ -115,21 +115,6 @@ the next Statement to read:
 ...     WHERE(*week_ends),
 ... ))
 
-The Example database runs only part of Hive, and not `row_number`. Pasted into your own
-notebook, running a Statement that reads `numbered`, here and in the steps below, stops with
-this message:
-
->>> run_query(statement(SELECT(all_columns(numbered)), FROM(numbered)), query)
-Traceback (most recent call last):
-...
-RuntimeError:
-  What happened:  The Example database can't run this Hive: its executor has no window functions such as row_number.
-...
-
-So the results below that read `numbered`, or `ranked` and `first_first` like it, are what
-Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the
-Hive your warehouse runs.
-
 Check the numbering alone first, with a Statement that reads every column of it:
 
 >>> numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))  # -> Statement
@@ -257,9 +242,7 @@ the whole result; `row_number` keeps the top N of each group.
 
 ## Check it worked
 
-Check that each job comes back once: one row per job, as many rows as jobs that ran. On the
-Example database this run stops, as above; `last_runs` here is the pandas result. At work the
-Statement runs, and the check is the same.
+Check that each job comes back once: one row per job, as many rows as jobs that ran.
 
 >>> last_runs = run_query(latest, query)  # -> DataFrame
 >>> last_runs["job_id"].is_unique
@@ -358,54 +341,3 @@ Name it with `AS`, so the Statement that reads it can test it by that name.
   [`descending`](examples.html#descending), and the careless and fixed Statements side by side:
   [latest and top N](examples.html#latest_and_top_n).
 """
-
-import pandas as pd
-
-from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, is_in, run_query, statement,
-)
-
-# The Example database can't run row_number, so the page and the doctest get each Statement's
-# result from these, worked out in pandas from every run-ending event of the week.
-
-
-def every_run_end() -> pd.DataFrame:
-    """Every event that ended a run in the week, read with a Statement the Example database
-    can run."""
-    job_events = example_database.job_events
-    return run_query(statement(SELECT(all_columns(job_events)), FROM(job_events),
-                               WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"),
-                                     is_in(job_events.event_type, ["finish", "fail"]))),
-                     example_database.query)
-
-
-def numbered_runs(by: list[str], largest_first: bool) -> pd.DataFrame:
-    """Every run end, numbered within its job in the order of the columns `by`, from 1."""
-    runs = every_run_end().sort_values(by, ascending=not largest_first, kind="stable")
-    return runs.assign(number=runs.groupby("job_id").cumcount() + 1)
-
-
-def in_order(rows: pd.DataFrame) -> pd.DataFrame:
-    """The rows as the Example database gives them: by the first column, then the next, ..."""
-    return rows.sort_values(list(rows.columns)).reset_index(drop=True)
-
-
-def numbering_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["event_id"], largest_first=True).rename(
-        columns={"number": "last_first"})
-    return in_order(rows[["job_id", "event_id", "minutes", "last_first"]])
-
-
-def latest_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["event_id"], largest_first=True)
-    return in_order(rows[rows["number"] == 1][["job_id", "event_id", "minutes"]])
-
-
-def top_three_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["minutes", "event_id"], largest_first=True)
-    return in_order(rows[rows["number"] <= 3][["job_id", "event_id", "minutes"]])
-
-
-def first_runs_in_pandas() -> pd.DataFrame:
-    rows = numbered_runs(["event_id"], largest_first=False)
-    return in_order(rows[rows["number"] == 1][["job_id", "event_id", "minutes"]])
