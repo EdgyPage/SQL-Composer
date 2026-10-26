@@ -68,6 +68,14 @@ def read_hive(text: str) -> list[exp.Expression]:
     return [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
 
 
+def hive_tokens(text: str) -> list[tuple[str, int]]:
+    """Each word and sign of Hive text, in lower case, with where in the text it starts.
+
+    A Conversion finds a piece's line by them where sqlglot notes no places, as before 30."""
+    return [(token.text.lower(), token.start)
+            for token in sqlglot.Dialect.get_or_raise(_DIALECT).tokenize(text)]
+
+
 def hive_text(node: Node) -> str:
     """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive on one line."""
     return sql_text(to_sqlglot(node))

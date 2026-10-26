@@ -886,6 +886,7 @@ def on_the_path(root: Path) -> Iterator[None]:
             del sys.modules[module]
 
 
+@pytest.mark.needs_example_database
 def test_a_database_gives_its_tables_and_their_columns(started: Path) -> None:
     project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     with on_the_path(started):
@@ -898,6 +899,7 @@ def test_a_database_gives_its_tables_and_their_columns(started: Path) -> None:
         "SELECT jobs.job_id FROM ops.jobs AS jobs")
 
 
+@pytest.mark.needs_example_database
 def test_a_name_a_database_doesnt_have_names_the_tables_it_has(started: Path) -> None:
     project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     with on_the_path(started):

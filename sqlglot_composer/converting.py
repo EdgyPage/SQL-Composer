@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
-from .writing import read_hive, sql_text
+from .writing import hive_tokens, read_hive, sql_text
 
 # An IN list with at least this many values becomes a named constant.
 LONG_LIST = 4
@@ -205,7 +205,7 @@ def _start(node: exp.Expression, text: str) -> int | None:
     first one."""
     noted = [part.meta for part in node.walk() if part.meta and part.meta.get("line")]
     if not noted:
-        return None
+        return None if _noted_anywhere(node) else _found_by_its_words(node, text)
     starts = [meta["start"] for meta in noted if isinstance(meta.get("start"), int)]
     if len(starts) < len(noted):  # an older sqlglot notes only the line: the line's start
         line = min(meta["line"] for meta in noted)
@@ -215,6 +215,25 @@ def _start(node: exp.Expression, text: str) -> int | None:
         before = list(re.finditer(r"\bCASE\b", text[:at], re.IGNORECASE))
         at = before[-1].start() if before else at
     return at
+
+
+def _noted_anywhere(node: exp.Expression) -> bool:
+    """Whether sqlglot noted a place for any part of the statement `node` is in."""
+    return any(part.meta and part.meta.get("line") for part in node.root().walk())
+
+
+def _found_by_its_words(node: exp.Expression, text: str) -> int | None:
+    """Where a piece starts in `text`, the Hive, found by its words as sqlglot writes them: a
+    sqlglot before 30 notes no places. The more of its words come in that order, the surer
+    the place, so the longest run of its first words that the Hive holds finds it."""
+    wanted = [word for word, _ in hive_tokens(sql_text(node))]
+    words = [word for word, _ in hive_tokens(text)]
+    starts = [start for _, start in hive_tokens(text)]
+    for size in range(len(wanted), 0, -1):
+        for at in range(len(words) - size + 1):
+            if words[at:at + size] == wanted[:size]:
+                return starts[at]
+    return None
 
 
 def _line(node: exp.Expression, text: str) -> int | None:
@@ -964,6 +983,11 @@ class _Converter:
         after = [(part, one) for part in ("rollup", "cube", "grouping_sets")
                  for one in (node.args.get(part) if isinstance(node.args.get(part), list)
                              else [node.args.get(part)] if node.args.get(part) else [])]
+        # A sqlglot before 30 holds ROLLUP (a, b) beside GROUP BY's columns, not among them.
+        moved = [one for _, one in after if isinstance(one, (exp.Rollup, exp.Cube))
+                 and one.expressions]
+        inside += moved
+        after = [(part, one) for part, one in after if not any(one is each for each in moved)]
         if len(inside) + len(after) > 1:
             raise Unconvertible("GROUP_BY takes one rollup, cube or grouping_sets")
         items = [self.grouped(one, scope, named) for one in plain]
@@ -1171,12 +1195,23 @@ def _read_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
     return query
 
 
+# Hive's FROM ... INSERT ... INSERT, which a Conversion refuses, saying what to do instead.
+_SEVERAL_INSERTS = ("it is one FROM with {count} INSERTs, into {targets}, and a Conversion reads "
+                    "one query: write each INSERT as a query of its own, FROM first")
+
+
 def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     """The one statement in `text` that isn't a SET line, its SET lines kept as `result`'s
     Session settings; refused when sqlglot can't read it, or it holds more than one."""
     try:
         parsed = [one for one in read_hive(text) if one is not None]
     except sqlglot.errors.ParseError as error:
+        # A sqlglot before 30 can't read Hive's FROM ... INSERT ... INSERT at all.
+        targets = re.findall(r"\bINSERT\s+(?:OVERWRITE|INTO)\s+(?:TABLE\s+)?([\w.`]+)", text,
+                             re.IGNORECASE)
+        if re.match(r"\s*FROM\b", text, re.IGNORECASE) and len(targets) > 1:
+            raise ConversionRefused(_SEVERAL_INSERTS.format(
+                count=len(targets), targets=", ".join(targets))) from error
         raise ConversionRefused(f"sqlglot can't read it as Hive: {error}") from error
     # A SET line sqlglot can't look inside, such as SET hivevar:day=..., it reads as a Command.
     commands = [one for one in parsed
@@ -1237,9 +1272,8 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
     with_ = query.args.get("with_") or query.args.get("with")
     if isinstance(query, exp.MultitableInserts):
         targets = [sql_text(one.this) for one in query.expressions]
-        raise ConversionRefused(f"it is one FROM with {len(targets)} INSERTs, into "
-                                f"{', '.join(targets)}, and a Conversion reads one query: write "
-                                "each INSERT as a query of its own, FROM first")
+        raise ConversionRefused(_SEVERAL_INSERTS.format(count=len(targets),
+                                                        targets=", ".join(targets)))
     if isinstance(query, exp.Insert):
         query = _read_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
