@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Table references: Table, and the functions that read, write and check one.
 
 A Table reference is one `Table(...)` call describing one table: its columns and their Hive
@@ -19,6 +18,7 @@ import json
 import keyword
 import re
 import urllib.parse
+import weakref
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 from . import _FOLDER, describe, kinds
-from .writing import check_writable_type, hive_text, readable_text
+from .writing import hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     arguments_of,
@@ -54,8 +54,6 @@ from .trees import (
 if TYPE_CHECKING:  # clauses.py and conditions.py import this file
     from .clauses import Statement
     from .conditions import Condition
-
-TOOLBOX_VERSION = "7.1"
 
 TABLE_NAME = re.compile(r"[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?")
 
@@ -302,7 +300,20 @@ def _python_family(value: bool | int | float | decimal.Decimal | str | datetime.
     return "date"
 
 
-# For each column type family, the kinds of Python value it may be compared with.
+def value_family(value: object) -> str | None:
+    """The family of a value a calculation gives, such as one of first_match's: a column's,
+    from its type, or a Python value's. None when it isn't known: NULL, a calculation with no
+    type, or what isn't a single value, which literal(...) refuses."""
+    if isinstance(value, Column):
+        return type_family(value._type)
+    value = _python_value(value)
+    if value is None or not isinstance(value, SINGLE_VALUES):
+        return None
+    return _python_family(value)
+
+
+# For each column type family, the kinds of Python value it may be compared with; they are
+# also the families whose values can stand in one column, as first_match's values must.
 COMPARABLE_VALUES = {
     "number": {"number"},
     "string": {"string", "date", "timestamp"},
@@ -588,6 +599,7 @@ class Table:
         self._check_own_columns()
         _check_partitions(self)
         _set_storage(self, location, purge, properties, stored_as, compression, buckets)
+        _MADE.add(self)
 
     def _check_own_columns(self) -> None:
         named = {"key": self._key or []}
@@ -642,6 +654,8 @@ class Table:
 
     def __repr__(self) -> str:
         kind = "derived" if self._statement is not None else "Table"
+        if is_unchecked(self):
+            kind = "unchecked_derived"
         return f"{kind}({self._name!r}, columns: {', '.join(self._columns)})"
 
     def __str__(self) -> str:
@@ -652,6 +666,38 @@ class Table:
     def __format__(self, spec: str) -> str:
         """Its Hive text, formatted as a str is, so f"{jobs:>20}" pads it."""
         return format(str(self), spec)
+
+
+class UncheckedSelect:
+    """The SELECT of an Unchecked derived table, as unchecked_derived(...) keeps it: its Hive
+    text as written, and the tables the text reads. It stands where a Derived table made by
+    derived(...) keeps its Statement, and no Guard, Warning or Load limit looks inside it."""
+
+    def __init__(self, text: str, tables: list[str]) -> None:
+        self._text = text  # the SELECT, as written, without a last ;
+        self._tables = tables  # each table it reads, as database.name
+
+
+def is_unchecked(table: Table) -> bool:
+    """Whether a table is an Unchecked derived table, made by unchecked_derived(...)."""
+    return isinstance(table._statement, UncheckedSelect)
+
+
+# Each Table made and still in use, so a read of an Unchecked derived table can tell whether a
+# table its Hive reads is partitioned, by that table's Table reference. Held weakly: a Table
+# no longer in use drops out.
+_MADE: weakref.WeakSet[Table] = weakref.WeakSet()
+
+
+def partitioned_by_name(name: str) -> list[str] | None:
+    """The partition columns of the table `name`, as database.name, by the Table references
+    made for it: [] when each says it isn't partitioned, and None when none was made, so the
+    Toolbox can't tell. Where two say different things, their partition columns are joined."""
+    found = [table._partitioned_by for table in list(_MADE)
+             if table._statement is None and table._name.lower() == name.lower()]
+    if not found:
+        return None
+    return list(dict.fromkeys(column for columns in found for column in columns))
 
 
 def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
@@ -981,14 +1027,16 @@ def first_look(t: Table) -> Statement:
 
 
 class Verdict:
-    """What check_key(...) or check_table_reference(...) found, ready to print.
+    """What check_key(...), check_table_reference(...) or a comparison found, to print.
 
     >>> check_key(jobs, query=example_database.query)
     ops.jobs: the key (job_id) holds.
 
-    Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
-    Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the
-    name in a type hint, to say that a function of yours gives back what a check
+    Its `ok` is True when it found nothing wrong, and printing it shows what it found. The
+    Verdict itself is true or false as its `ok` is, so `if check_key(...):` passes only when
+    the key holds. Make one with check_key(...), check_table_reference(...), compare_hive(...) or
+    compare_with_original(...), never Verdict(). Write the
+    name in a type hint, to say that a function of yours gives back what one of them
     found:
 
     >>> def key_holds(t: Table) -> Verdict:
@@ -1003,6 +1051,10 @@ class Verdict:
     def __init__(self, ok: bool, lines: list[str]) -> None:
         self.ok = ok
         self.lines = lines
+
+    def __bool__(self) -> bool:
+        """Its `ok`, so `if check_key(...):` reads as it says."""
+        return self.ok
 
     def __repr__(self) -> str:
         return "\n".join(self.lines)
@@ -1793,5 +1845,4 @@ def column_definition(t: Table, column: str, call: str | None = None) -> Node:
             "such as date or user.",
             error=ValueError,
         )
-    check_writable_type(kind, f"{call}: {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

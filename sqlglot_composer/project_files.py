@@ -1,5 +1,5 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
-"""The registry, and the kinds it lists: a Table folder, a Table reference, a Building block.
+"""The registry, and the kinds it lists: a Table folder, a Table reference, a Building block,
+and a Conversion folder.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions in project.py use it. Each kind is one FileKind below, holding where it lives in the
@@ -22,8 +22,6 @@ from pathlib import Path
 from typing import NamedTuple
 
 from .unchecked import TIME_IN_A_NAME, TIME_SHOWN
-
-TOOLBOX_VERSION = "7.1"
 
 # The registry: the file a folder is a Project by, as start() writes it.
 REGISTRY = Path("admin") / "registry.csv"
@@ -115,6 +113,14 @@ BUILDING_BLOCK = FileKind(
     "runs_per_job.py", writes_databases=False)
 # Every kind, in the order check() and register() name them.
 KINDS = (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK)
+# A Conversion folder, which only project.convert makes, so register() never adopts one and
+# check() names it on its own: one in progress until finish_conversion or remove_conversion
+# archives it.
+CONVERSION_FOLDER = FileKind(
+    kind="conversion_folder", label="Conversion folder", folder="admin/conversions",
+    is_folder=True, by_table=False, remover="remove_conversion",
+    named_as="the folders in admin/conversions/ are named as the Conversion is, such as "
+    "team_runs", writes_databases=False)
 
 
 def table_stem(name: str) -> str:

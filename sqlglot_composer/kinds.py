@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """What kind of step something is, and which of your two calls sends it.
 
 Each maker marks what it makes: statement(...) a read or a write, explain(...) a plan,
@@ -9,8 +8,6 @@ which of a Statement's fields are filled in.
 """
 
 from __future__ import annotations
-
-TOOLBOX_VERSION = "7.1"
 
 READ = "read"  # statement(...) with no write, and a Stack
 PLAN = "plan"  # explain(s)

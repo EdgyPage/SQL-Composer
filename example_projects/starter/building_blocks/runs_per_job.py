@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """runs_per_job - each job's runs, failed runs and minutes for each dt it reads.
 
 Why: more than one Statement needs each job's runs, failed runs and minutes, such as each

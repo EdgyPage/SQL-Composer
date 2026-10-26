@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Clause functions: SELECT, FROM, JOIN, WHERE and the rest, assembled by statement(...).
 
 A Statement is a list of clause functions written in SQL order, one per SQL clause:
@@ -45,24 +44,36 @@ from .refusals import (
     refuse_what_another_folder_made,
     repeated,
     warning_repeated_rows,
+    warning_unchecked_derived_read,
+    warning_unchecked_partition_filter,
+    warning_unchecked_where_on_kept_rows,
 )
 from .tables import (
     Column,
     NamedPartitions,
     Table,
     aliased,
+    is_unchecked,
     need_saved_table,
+    partitioned_by_name,
     partitions_named,
     python_text,
 )
-from .trees import Node, SIMPLE_NAME, and_parts, has_aggregate, has_window, is_aggregate
+from .trees import (
+    SIMPLE_NAME,
+    Node,
+    and_parts,
+    checked_columns,
+    has_aggregate,
+    has_window,
+    is_aggregate,
+    unchecked_columns,
+)
 from .writing import hive_text
 from .windows import refuse_a_window_in, ungrouped_in_window
 
 if TYPE_CHECKING:
     from .stacking import Subtotals  # only for a hint: stacking.py imports this file
-
-TOOLBOX_VERSION = "7.1"
 
 # The order clauses come in, as in SQL. A write comes first, and the joins share one place.
 ORDER = ["INSERT", "SELECT", "FROM", "JOIN", "WHERE", "GROUP_BY", "HAVING", "ORDER_BY", "LIMIT"]
@@ -474,7 +485,8 @@ def _join(call: str, table: object, on: object, many_matches: bool,
     if call not in ONLY_TESTS and not any(set(key) <= set(matched) for key in keys_of(table)):
         warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
                               derived=table._statement is not None,
-                              lost=table._keys.lost if table._statement is not None else None)
+                              lost=table._keys.lost if table._statement is not None else None,
+                              unchecked=is_unchecked(table))
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, broadcast=broadcast, **more)
 
@@ -1195,7 +1207,9 @@ def derived_tables(s: Statement) -> list[Table]:
         table = read.table
         if table._statement is None:
             continue
-        for inner in [*derived_tables(table._statement), table]:
+        # An Unchecked derived table reads no Derived table the Toolbox can see.
+        within = [] if is_unchecked(table) else derived_tables(table._statement)
+        for inner in [*within, table]:
             if not any(inner._statement is seen._statement for seen in found):
                 found.append(inner)
     return found
@@ -1303,8 +1317,13 @@ def _run_guards(s: Statement) -> None:
             continue
         for condition in s._where:
             alias = read.table._alias
-            if alias in condition._tables() and alias not in condition._keeps_unmatched:
+            if alias not in condition._tables() or alias in condition._keeps_unmatched:
+                continue
+            if alias in {table for table, _ in checked_columns(condition._tree)}:
                 guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
+            else:  # it reads the table only inside an Unchecked expression
+                warning_unchecked_where_on_kept_rows("LEFT_JOIN", alias, alias, repr(condition),
+                                                     read.keeps_only_matches)
     if kinds.kind(s) == kinds.WRITE:
         table = s._write
         expected = [c for c in table._columns if c not in s._partitions.values]
@@ -1362,37 +1381,57 @@ def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
     return [column for child in children for column in _ungrouped(child, groups)]
 
 
-def read_bounds(s: Statement) -> list[tuple[Clause, bool]]:
+def read_bounds(s: Statement) -> list[tuple[Clause, bool, bool]]:
     """Each read of a partitioned table in `s`, with whether the conditions that bound it
     filter at least one of its partition columns: WHERE and each JOIN's ON=, or, for a
     LEFT_JOIN, SEMI_JOIN or ANTI_JOIN, its own ON=; a FULL_JOIN's sides only by WHERE, with
-    keeps_only_matches=True."""
-    inner = [read.on for read in s._reads if read._name == "JOIN"]
-    everywhere = bounded_columns(s._where + inner)
+    keeps_only_matches=True. Then whether those conditions name one of its partition columns
+    only inside an Unchecked expression, which may filter it or not."""
     found = []
     for read in s._reads:
         table = read.table
         if table._statement is not None or not table._partitioned_by:
             continue
-        bounds = everywhere
-        if read._name in BOUNDED_IN_ON:
-            bounds = bounded_columns([read.on] + (s._where + inner if read.keeps_only_matches
-                                                  else []))
-        elif read._name == "FULL_JOIN" and not read.keeps_only_matches:
-            # FULL_JOIN keeps every row of its table, matched or not.
-            bounds = frozenset()
-        found.append((read, any((table._alias, column) in bounds
-                                for column in table._partitioned_by)))
+        conditions = _bounding(s, read)
+        partitions = {(table._alias, column) for column in table._partitioned_by}
+        unchecked = set().union(*(unchecked_columns(c._tree) for c in conditions))
+        found.append((read, bool(partitions & bounded_columns(conditions)),
+                      bool(partitions & unchecked)))
     return found
 
 
+def _bounding(s: Statement, read: Clause) -> list[Condition]:
+    """The conditions that can bound the Partitions a read reads, as read_bounds says."""
+    inner = [other.on for other in s._reads if other._name == "JOIN"]
+    if read._name in BOUNDED_IN_ON:
+        return [read.on] + (s._where + inner if read.keeps_only_matches else [])
+    if read._name == "FULL_JOIN" and not read.keeps_only_matches:
+        return []  # FULL_JOIN keeps every row of its table, matched or not.
+    return s._where + inner
+
+
 def _run_load_limits(s: Statement, order: Clause | None) -> None:
-    for read, bounded in read_bounds(s):
-        if not bounded:
-            table = read.table
-            load_limit_partition_bound(read._call(), table._alias, table._name,
-                                       table._partitioned_by, read.reads_all_partitions,
-                                       full_join=full_joined(s, read))
+    for read, bounded, unchecked in read_bounds(s):
+        table = read.table
+        if bounded:
+            continue
+        if unchecked:
+            warning_unchecked_partition_filter(read._call(), table._alias, table._name,
+                                               table._partitioned_by, read.reads_all_partitions)
+            continue
+        load_limit_partition_bound(read._call(), table._alias, table._name,
+                                   table._partitioned_by, read.reads_all_partitions,
+                                   full_join=full_joined(s, read))
+    for read in s._reads:
+        if is_unchecked(read.table):
+            # Each table its Hive reads that is partitioned, or may be, as the Toolbox can't
+            # tell without a Table reference for it.
+            tables = [(name, partitioned_by_name(name))
+                      for name in read.table._statement._tables]
+            warning_unchecked_derived_read(read._call(), read.table._name,
+                                           [(name, columns) for name, columns in tables
+                                            if columns is None or columns],
+                                           read.reads_all_partitions)
     if order is not None and s._limit is None:
         load_limit_order_by(order.sorts_everything)
 

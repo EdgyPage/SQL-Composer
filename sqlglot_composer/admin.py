@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The admin module: changes to your own Saved tables, written and checked for you.
 
 It isn't brought by `from sqlglot_composer import *`. Import it by name:
@@ -52,8 +51,6 @@ from .tables import (
     table_node,
 )
 from .trees import Node, combined
-
-TOOLBOX_VERSION = "7.1"
 
 
 # --- Pieces every Admin statement shares ------------------------------------------------------

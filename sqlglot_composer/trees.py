@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The Toolbox's own tree: what a Statement and each of its parts are made of.
 
 You never need this file to write a Statement. The Toolbox keeps each part of one in a tree of
@@ -22,8 +21,6 @@ from __future__ import annotations
 import re
 from collections import deque
 from collections.abc import Callable, Iterator
-
-TOOLBOX_VERSION = "7.1"
 
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
@@ -268,7 +265,9 @@ KINDS = {
     "Not": ("this",),
     "Between": ("this", "low", "high"),
     "In": ("this", "expressions"),
-    "Case": ("ifs", "default"),
+    # CASE WHEN ... THEN ... ELSE ... END; with `this`, the column mapped(...) looks up, it is
+    # CASE this WHEN value THEN ... END, each If's `this` a value to match.
+    "Case": ("this", "ifs", "default"),
     "If": ("this", "true"),
     "Coalesce": ("this", "expressions"),
     "Distinct": ("expressions",),
@@ -297,6 +296,13 @@ KINDS = {
     # hive_function's call: the function's name in lower case, its arguments as written, and
     # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
+    # An Unchecked expression, from unchecked_column or unchecked_condition: its text as
+    # written, with a {name} placeholder for each column; the placeholders' names, and the
+    # column each is filled with, in the same order; and whether the text adds rows up, and
+    # whether it looks across rows through a window (OVER).
+    "Unchecked": ("text", "names", "columns", "aggregate", "window"),
+    # An Unchecked derived table's SELECT, from unchecked_derived: its text as written.
+    "UncheckedSelect": ("text",),
     # A whole Statement: a query, a write, CREATE TABLE, DROP TABLE, MSCK REPAIR TABLE,
     # ANALYZE TABLE or EXPLAIN, and their pieces.
     # A Select's parts are its clauses; group_by and order_by are lists, and limit a number.
@@ -511,8 +517,10 @@ def and_parts(tree: Node) -> list[Node]:
 
 
 def is_aggregate(node: Node) -> bool:
-    """True when this Node itself adds rows up: COUNT, SUM, ... or an aggregate hive_function."""
-    return node.kind in AGGREGATES or (node.kind == "HiveFunction" and node.parts["aggregate"])
+    """True when this Node itself adds rows up: COUNT, SUM, ... or an aggregate hive_function
+    or Unchecked expression."""
+    return node.kind in AGGREGATES or (node.kind in ("HiveFunction", "Unchecked")
+                                       and node.parts["aggregate"])
 
 
 def has_aggregate(node: Node) -> bool:
@@ -524,8 +532,37 @@ def has_aggregate(node: Node) -> bool:
 
 
 def has_window(node: Node) -> bool:
-    """True when the tree looks across rows through a window, as ROW_NUMBER() OVER (...)."""
-    return node.kind == "Window" or any(has_window(child) for child in node.children())
+    """True when the tree looks across rows through a window, as ROW_NUMBER() OVER (...), or
+    an Unchecked expression's text does."""
+    if node.kind == "Window" or (node.kind == "Unchecked" and node.parts["window"]):
+        return True
+    return any(has_window(child) for child in node.children())
+
+
+def checked_columns(node: Node) -> set[tuple[str, str]]:
+    """(table alias, column) of each column the tree reads outside any Unchecked expression,
+    where the Guards can see what is done with it."""
+    if node.kind == "Unchecked":
+        return set()
+    if node.kind == "Column":
+        return {(node.table, node.name)}
+    return set().union(*(checked_columns(child) for child in node.children()))
+
+
+def unchecked_columns(node: Node) -> set[tuple[str, str]]:
+    """(table alias, column) of each column the tree reads only inside an Unchecked
+    expression, which no Guard can look inside."""
+    inside = {(column.table, column.name) for unchecked in node.find_all("Unchecked")
+              for column in unchecked.find_all("Column")}
+    return inside - checked_columns(node)
+
+
+def unchecked_calls(node: Node) -> list[str]:
+    """The call that made each Unchecked expression and Unchecked derived table in the tree,
+    such as unchecked_condition("{status} RLIKE '^FAIL'", status=job_runs.status), each
+    once, in the order walk() finds them."""
+    return list(dict.fromkeys(found.meta["call"]
+                              for found in node.find_all("Unchecked", "UncheckedSelect")))
 
 
 def rows_text(rows: tuple[int | None, int | None]) -> str:

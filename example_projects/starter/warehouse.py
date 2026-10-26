@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """warehouse - your two calls to the warehouse, query and execute.
 
 Why: every notebook in the Project reaches the warehouse through these two functions, so a

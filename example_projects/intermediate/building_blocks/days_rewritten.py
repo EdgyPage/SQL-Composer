@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """days_rewritten - the days each run writes again: its own, and the two before it.
 
 Why: a bill or an event can come in a day or two after its day was saved, so each table of

@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The Example database: nine made-up tables, and a query and execute to try them.
 
 >>> runs = example_database.job_runs
@@ -89,8 +88,6 @@ from .engine import run_query
 from .refusals import in_words, refuse
 from .tables import Table
 from .unchecked import SAID
-
-TOOLBOX_VERSION = "7.1"
 
 # --- The Table references -----------------------------------------------------------------
 # Each column's description is the comment DESCRIBE prints for it.

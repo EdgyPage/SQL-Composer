@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-26 17:35 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.1, exported 2026-10-22 13:22.
+This is version 7.2, exported 2026-10-26 17:35.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -28,9 +28,11 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
    - On Python 3.11, numpy 2.5.4 can't install: change its line in `requirements.txt` to
      `numpy==2.4.6`, which pandas 3.0.6 runs on there, before you run pip.
    - A package your notebook already has, such as pandas, needn't be installed again: delete
-     its line, so pip doesn't replace it. The Toolbox works with any sqlglot from 25.24.2 up to
-     (not including) 31, whose Example database and a struct column in create_table need
-     30.19.0 or newer.
+     its line, so pip doesn't replace it.
+   - The Toolbox works with any sqlglot from 30.19.0 up to (not including) 31.
+     `import sqlglot; print(sqlglot.__version__)` in a notebook shows which you have: keep
+     sqlglot's line, so pip installs the one the Toolbox is tested on, unless yours is in that
+     range.
 3. Make an empty folder for your Project, and copy the whole `sqlglot_composer` folder into
    it. Keep your own files beside it, never inside it.
 4. Open a notebook in the Project's folder, such as start.ipynb, and lay the folder out with
@@ -58,11 +60,15 @@ or made by hand.
 |---|---|---|
 | your Project's folder, such as my_project | you, in your file explorer | nothing |
 | `sqlglot_composer/` | you: copied in from the download | nothing: never edit a file inside it |
+| `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
 | `warehouse.py` | `project.start()` | your query and execute |
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
-| `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference or a Building block adds a row | nothing |
+| `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
+| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
+| `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
 | `references/<db>__<table>.py`, a Table reference per table | `project.add_references([...], query=query)` for a table in the warehouse, or `project.new_table(...)` for a Saved table of your own | its TODO lines, and your own Aliases |
 | `references/<db>.py`, a Database module per Database, such as `references/ops.py` | each Project action that adds or archives a Table reference | nothing: never edit it |
@@ -71,7 +77,7 @@ or made by hand.
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
-| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)` and `project.remove_block(...)` | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
 
 ### Your query and execute
 
@@ -324,7 +330,7 @@ Getting started, how-tos 1 to 8:
 7. [Follow lineage](../sqlglot_composer/how_to.html#follow_lineage)
 8. [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order)
 
-Intermediate, how-tos 9 to 26:
+Intermediate, how-tos 9 to 28:
 
 9. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
 10. [The latest row of each group, and the top N](../sqlglot_composer/how_to.html#latest_row_of_each_group)
@@ -344,6 +350,8 @@ Intermediate, how-tos 9 to 26:
 24. [Keep reads and joins fast](../sqlglot_composer/how_to.html#keep_reads_and_joins_fast)
 25. [Declare a change made in Python](../sqlglot_composer/how_to.html#declare_a_change_made_in_python)
 26. [Hand-written Hive with your Table references](../sqlglot_composer/how_to.html#hand_written_hive_with_your_table_references)
+27. [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
+28. [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version)
 
 ## The Example gallery
 
@@ -375,10 +383,10 @@ made, and how to run it:
   `mart.run_speed`, from Follow lineage, and `ops.scheduler_runs`, from Keep the Project in
   order.
 - `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
-  `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: six Saved tables, among them
+  `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: seven Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the
-  `quality_checks` Template, a table partitioned by region and written a region at a time, and
-  one with no partitions and no Key.
+  `quality_checks` Template, a table partitioned by region and written a region at a time, one
+  with no partitions and no Key, and a finished Conversion, with the Hive it replaced.
 
 Copy the `sqlglot_composer` folder into a project's folder first, as a Project holds it, then
 open its notebooks. The Example database can be read but not written, so a Table notebook
@@ -416,20 +424,34 @@ And two more, for files beside the notebooks:
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as
-   `'sqlglot Composer 5.1, exported ...'`.
+   `'sqlglot Composer 5.1, exported ...'`, and, if the import stops, the first line of
+   `sqlglot_composer/version.txt` does.
 2. Delete the `sqlglot_composer` folder, and any `composer_core` folder beside it, left over from
    before 6.0.
 3. From the new download, copy in the whole `sqlglot_composer` folder.
 4. Restart the kernel, which still holds the old code.
-5. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer
-   than yours: the newest comes first, so start at your version's next and read up the page. From
-   4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's "To update from 5.x". Each says what
-   to change in your notebooks and files.
+5. If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
+   new cell of `admin/check_project.ipynb`, which imports `project` already, or of
+   `admin/upgrade.ipynb` once your Project has one (its first Upgrade adds it). Updating is
+   copying in the new folder; an Upgrade carries your Project's files to the new version, one
+   version at a time: it makes each change that needs no judgement, keeping the file as it was in the
+   folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
+   at the line. Work through the boxes in the checklist it writes in admin/, named for the
+   version, such as upgrade_7.3.md;
+   `project.check()` lists the marks left. It never touches the warehouse. How-to:
+   [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version).
+6. If your Project was made before 7.1, bring it to 7.1 by hand first, then upgrade it as in
+   step 5: in `CHANGES.md`, at the top of the download, read the "To update" part of every
+   version newer than yours, up to 7.1's: the newest comes first, so start at your version's
+   next and read up the page. From 4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's
+   "To update from 5.x". Each says what to change in your notebooks and files. A Project 7.0
+   made looks like one 7.1 made to `project.upgrade()`, so do 7.1's "To update from 7.0" first.
 
-When it is imported, the folder checks itself. If a file is missing, extra, from another
-version or another download, or from another Toolbox folder, or if this Python or the library
-it needs won't work with it, the import stops and says what happened, why it matters and the
-usual fix.
+When it is imported, the folder checks itself against its `version.txt`, the one file that
+names its version and lists each of its files. If a file is missing or extra, if `version.txt`
+is missing or unreadable, or if this Python or the library it needs won't work with it, the
+import stops and says what happened, why it matters and the usual fix. A file that differs from
+the download, edited by hand or pasted from another download, only warns, naming it.
 
 ## License
 
@@ -443,7 +465,7 @@ They come as they are, with no warranty.
 Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
 lives in. Import every name from `sqlglot_composer` itself, never from a file inside it.
 Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
-`job_runs.duration_mins / 60`. The star import brings the 102 names listed here before the admin
+`job_runs.duration_mins / 60`. The star import brings the 109 names listed here before the admin
 module. Two modules' functions come last: the admin module's, which change your own Saved
 tables, and the project module's, which make and archive a Project's folders and files. The star
 import leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,
@@ -453,8 +475,8 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'7.1'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.1, exported 2026-10-22 13:22'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-26 17:35'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -466,7 +488,7 @@ Table references: Table, and the functions that read, write and check one.
 - `first_look` - A first look at a table: all its columns, and 20 of its rows.
 - `check_key` - Check that no two rows share a table's key, on the rows where= picks.
 - `check_table_reference` - Compare a Table reference with its table as it is now, and list what differs.
-- `Verdict` - What check_key(...) or check_table_reference(...) found, ready to print.
+- `Verdict` - What check_key(...), check_table_reference(...) or a comparison found, to print.
 - `create_table` - The CREATE EXTERNAL TABLE Statement for a Saved table, in a folder of its own.
 - `all_columns` - Every column of a Table reference, in its order, for SELECT instead of `*`.
 
@@ -545,6 +567,8 @@ Calculations: counts and sums, row-level functions, and dates grouped into weeks
 - `min_of` - The smallest value in a column.
 - `max_of` - The largest value in a column.
 - `if_else` - One value where a condition holds and another where it doesn't (CASE WHEN).
+- `first_match` - The value of the first (condition, value) pair that holds for a row (CASE WHEN).
+- `mapped` - A lookup: each row gets the dict's value for its column's value (CASE x WHEN).
 - `fill_null` - The column, with a value put in where it is NULL (COALESCE).
 - `week_start` - The Monday that starts each date's week, to group days into weeks.
 - `month_start` - The first day of each date's month, to group days into months.
@@ -599,13 +623,23 @@ Python steps: a change you make to rows in Python, declared so Lineage can show 
 
 ### `unchecked.py`
 
-Session settings, Unchecked statements and the Admin log: Hive sent as you chose it.
+Session settings, Hive written by hand, and the Admin log: Hive sent as you chose it.
 
 - `hive_settings` - The SET lines of Session settings, by name, to send before your Statements.
-- `unchecked_hive` - Hive you write by hand, to send when no clause function writes it yet.
+- `unchecked_hive` - Hive you write by hand, to send when no Toolbox function writes it yet.
+- `unchecked_column` - Hive you write by hand for one column that no Toolbox function writes yet.
+- `unchecked_condition` - Hive you write by hand for one condition that no Toolbox function writes yet.
+- `unchecked_derived` - A Derived table whose SELECT is Hive you write by hand, its columns declared.
 - `set_admin_log` - Set where the Admin log is written, such as "logs/admin_log.md".
 - `SessionSettings` - The SET lines of one or more named sets, made by hive_settings(...).
 - `UncheckedStatement` - Hive written by hand, made by unchecked_hive(...).
+
+### `comparisons.py`
+
+Checking a Statement against the original Hive it replaces, such as someone else's .hql.
+
+- `compare_hive` - Compare a Statement's Hive with the original Hive it replaces.
+- `compare_with_original` - Compare the rows a Statement gives with those of the original Hive it replaces.
 
 ### `upkeep.py`
 
@@ -644,5 +678,10 @@ The project module: a Project's folders and files, made and archived for you, an
 - `project.register` - Adopt a Table folder, Table reference or Building block made by hand.
 - `project.check` - Report what the registry gets wrong, and the call that mends each.
 - `project.refresh_reference_sheet` - Rebuild the Reference sheet: a row per column of every Table reference.
-- `project.load` - A Table notebook's logic, its functions by name, from anywhere in the Project.
+- `project.load` - A Table notebook's or Conversion's logic, its functions by name, from anywhere.
 - `project.run_tables` - Write every table, each before the tables that read it.
+- `project.upgrade` - Carry the Project's files on to this Toolbox's version, step by step.
+- `project.scan_hive` - Say what a Conversion of some Hive would make, and change nothing.
+- `project.convert` - Turn Hive someone else wrote into your own code: a Conversion.
+- `project.finish_conversion` - Make a Conversion a Saved table: its Table folder and Table reference.
+- `project.remove_conversion` - Archive a Conversion folder you no longer want, into admin/removed/.

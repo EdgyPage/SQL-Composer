@@ -1,0 +1,38 @@
+sqlglot Composer 7.2
+exported 2026-10-26 17:35 from dev commit fc788ce6b555fa46e97435f47060947f24757202
+# Each file of this folder, and a code worked out from its contents (its git hash),
+# so the import can warn about a file that differs. Written by the export: don't
+# edit it.
+89f8f4fa017fcdfac3650f6d46a7bdea8b56c099  __init__.py
+91d93e7ad2507c77fd5c914da84dfb8ff3876eed  admin.py
+58894d5166cc0d322927ebf42723b33af1d19549  calculations.py
+9d65c9c18e592d557273c39344353e005296e71f  checks.py
+68f510aa75a489e518a7b85055eaf74eb61d1dc4  clauses.py
+54a88dbd12c94bba670dbe30e3832a39ab25b576  comparisons.py
+accfd8a5244a178d263055343d78cc9c32c6a923  conditions.py
+41fc004312b82e4e606de18bb9aacd155fee26f8  converting.py
+5773801d81e9e1f3116c951f779c0e116434632a  describe.py
+96a65e248f5b94986d0d8672e376ecc97592d573  engine.py
+07a30c1192f1ebd5560f8ab9a7b755bbf1a60402  example_database.py
+032aea6ffec0ad50aba61a83415452cf3685e89e  examples.html
+6e8e92ae32f151066e330d8ee424b99cc5ba8431  how_to.html
+5893d9b8a6b099e9538f061ebfb6fe1942a4c08d  joins.py
+f726916cae7b3258ef3d70196d68119073b58920  keys.py
+371289240f350cef5b9f88f2d98b68a9375e0688  kinds.py
+41a64bbe6f440b7a3517f90d436a14999845a791  lineage.py
+905691d95b3097bf68de1328b34dc9d81ceb4175  notebooks.py
+2bac25f1d1e828b6a9594a7462203a59d6b33270  project.py
+5274186dc8bc748a90b80c71887bd45e1fe53212  project_files.py
+159634f58745a4425a6806c74c787e266885d525  project_templates.py
+8fe6f450b7cb0eae94e1527ef863e8684d6b0235  public.py
+4cffbb4b9739c626e5d1f9a28cc08fff0869e428  python_steps.py
+39f5ee90974eac8eba614677b47c8f5127b65709  refusals.py
+78f5a23b9beac7da87201e8faa598b35730ceacf  running.py
+8b75d855591c28bdf6443a3548369ba97f9c2733  stacking.py
+479ad028af1f6d6b97b3e186e295d557f99d9a4c  tables.py
+bc4f83a99fc4ed1602f8332e92b73a54baf97a81  trees.py
+aff3ccab6ed317de0a3e18bbaccf6bb030502d78  unchecked.py
+4d7143b984bfd52191abb0adc8af802c7d1d45dc  upgrades.py
+d81bdcb1ed7c09ce13cd2dd1d0c5bf79ea776744  upkeep.py
+0ba0db105b4407a1b3609ab76c3680facc2114c6  windows.py
+01cba4a37b0a00f672ff217303e9b4dedfeb473d  writing.py

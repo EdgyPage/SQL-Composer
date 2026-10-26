@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Calculations: counts and sums, row-level functions, and dates grouped into weeks and months.
 
 A calculation in SELECT needs a name, given with AS(...). Arithmetic uses Python's own
@@ -18,10 +17,13 @@ from .refusals import (
     refuse,
 )
 from .tables import (
+    COMPARABLE_VALUES,
     Column,
     literal,
     made_by,
     python_text,
+    type_family,
+    value_family,
 )
 from .trees import (
     HIVE_AGGREGATES,
@@ -40,8 +42,6 @@ from .writing import check_writable_call
 
 if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
-
-TOOLBOX_VERSION = "7.1"
 
 def need_column(column: object, call: str) -> Column:
     if isinstance(column, Column):
@@ -262,6 +262,311 @@ def if_else(condition: Condition,
     return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because)
 
 
+def first_match(
+        cases: list[tuple[Condition, Column | str | int | float | datetime.date | None]],
+        otherwise: Column | str | int | float | datetime.date | None = None) -> Column:
+    """The value of the first (condition, value) pair that holds for a row (CASE WHEN).
+
+    >>> print(to_hive(statement(
+    ...     SELECT(job_runs.run_id,
+    ...            AS(first_match([(is_null(job_runs.status), "still running"),
+    ...                            (more_than(job_runs.duration_mins, 20), "long")],
+    ...                           otherwise="short"), "length")),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")))))
+    SELECT
+      job_runs.run_id,
+      CASE
+        WHEN job_runs.status IS NULL
+        THEN 'still running'
+        WHEN job_runs.duration_mins > 20
+        THEN 'long'
+        ELSE 'short'
+      END AS length
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24'
+
+    Give it a list of (condition, value) pairs. Each row gets the value of the first pair whose
+    condition holds for it, so a run still going is "still running" whatever its minutes. A
+    row no condition holds for gets otherwise=; leave otherwise= out, and the Hive has no ELSE,
+    so that row gets NULL:
+
+    >>> first_match([(equals(job_runs.status, "FAILED"), 1)])
+    CASE WHEN job_runs.status = 'FAILED' THEN 1 END
+
+    It writes a whole if/else chain as one CASE, however many pairs it has. For one condition,
+    if_else(...) is shorter; where every pair tests one column against a value, mapped(...)
+    reads plainer. Each value is a number, a string, a date, True or False, None or a column, and
+    all of them, otherwise= included, are of one kind, as a column's values are: numbers, whole
+    or not; text and dates, which Hive compares as text; or True and False. A string beside a
+    number is refused, as is a condition where a value goes.
+    """
+    call = "first_match(...)"
+    if not isinstance(cases, list):
+        refuse(
+            what=f"first_match was given {_written(cases)} where a list of (condition, "
+            "value) pairs goes.",
+            why="Each pair is one test and the value it gives, and the list keeps them in the "
+            "order they are tried.",
+            fix='Put the pairs in a list, even one pair: first_match([(equals(job_runs.status, '
+            '"FAILED"), 1)]).',
+            given=cases, call=call,
+        )
+    if not cases:
+        refuse(
+            what="first_match(...) was given an empty list.",
+            why="With no condition to test, it would give every row its otherwise=.",
+            fix="Give it at least one (condition, value) pair, or use the otherwise= value "
+            "itself.",
+            error=ValueError,
+        )
+    pairs = [_pair(item, number, call) for number, item in enumerate(cases, start=1)]
+    written = ", ".join(f"({python_text(condition)}, {python_text(value)})"
+                        for condition, value in pairs)
+    return _case_column(None, [(condition._tree.copy(), value) for condition, value in pairs],
+                        otherwise, call, f"first_match([{written}]",
+                        [f"pair {number}'s value" for number in range(1, len(pairs) + 1)])
+
+
+def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
+    """One of first_match's pairs, checked: a condition, then the value it gives."""
+    if not isinstance(item, (tuple, list)) or len(item) != 2:
+        refuse(
+            what=f"first_match: pair {number} is {_written(item)}, which isn't a "
+            "(condition, value) pair.",
+            why="Each item of the list is a condition and the value a row gets when it holds, "
+            "as a pair in round brackets.",
+            fix='Write each as (condition, value), such as (equals(job_runs.status, "FAILED"), '
+            '"failed").',
+            given=item, call=call,
+        )
+    condition, value = item
+    if not isinstance(condition, Condition):
+        if isinstance(value, Condition):
+            refuse(
+                what=f"first_match: pair {number} has the condition second: "
+                f"{_written(item)}.",
+                why="Each pair is a condition, then the value a row gets when it holds.",
+                fix="Swap the two, as in (equals(job_runs.status, \"FAILED\"), \"failed\").",
+            )
+        refuse(
+            what=f"first_match: pair {number} has {python_text(condition)} where a condition "
+            "goes.",
+            why="Each pair starts with the test a row must pass to get the pair's value.",
+            fix="Start the pair with a condition, such as (equals(job_runs.status, \"FAILED\"), "
+            "\"failed\").",
+            given=condition, call=call,
+        )
+    return condition, value
+
+
+def _written(value: object) -> str:
+    """A value as the user wrote it, a tuple in round brackets: python_text writes one as a
+    list."""
+    if isinstance(value, tuple):
+        return "(" + ", ".join(python_text(item) for item in value) + ")"
+    return python_text(value)
+
+
+def mapped(column: Column,
+           values: dict[str | int | float | bool | datetime.date,
+                        Column | str | int | float | datetime.date | None],
+           otherwise: Column | str | int | float | datetime.date | None = None) -> Column:
+    """A lookup: each row gets the dict's value for its column's value (CASE x WHEN).
+
+    >>> print(to_hive(statement(
+    ...     SELECT(job_runs.run_id,
+    ...            AS(mapped(job_runs.status, {"SUCCESS": "passed", "FAILED": "failed"},
+    ...                      otherwise="other"), "outcome")),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")))))
+    SELECT
+      job_runs.run_id,
+      CASE job_runs.status WHEN 'SUCCESS' THEN 'passed' WHEN 'FAILED' THEN 'failed' ELSE 'other' END AS outcome
+    FROM ops.job_runs AS job_runs
+    WHERE
+      job_runs.dt = '2026-09-24'
+
+    Each key of the dict is a value the column may hold, and a row gets the dict's value for
+    its column's value. A row whose value is no key gets otherwise=; leave otherwise= out, and
+    the Hive has no ELSE, so that row gets NULL. Hive writes the lookup CASE column WHEN key
+    THEN value, which means CASE WHEN column = key THEN value. Keep a long dict as a constant at
+    the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.
+
+    A row whose column is NULL matches no key, since NULL equals nothing, so it gets otherwise=,
+    and a None key is refused. To give those rows a label of their own, fill the NULL in first,
+    and look up what you filled in:
+
+    >>> mapped(fill_null(job_runs.status, "RUNNING"),
+    ...        {"SUCCESS": "passed", "FAILED": "failed", "RUNNING": "still running"})
+    CASE COALESCE(job_runs.status, 'RUNNING') WHEN 'SUCCESS' THEN 'passed' WHEN 'FAILED' THEN 'failed' WHEN 'RUNNING' THEN 'still running' END
+
+    It is first_match(...) for the chain that tests one column against a value in each pair,
+    written shorter. Each key is a value of the column's own type: a key it can't hold, such as
+    "one" for a bigint column, is refused, as equals(...) refuses it. The values are checked
+    as first_match's are: all one type, otherwise= included, and never a condition. A key
+    written twice in the dict is one key to Python, which keeps its last value.
+    """
+    call = f"mapped({python_text(column)}, ...)"
+    column = need_column(column, call)
+    if not isinstance(values, dict):
+        refuse(
+            what=f"{call} was given {_written(values)} where a dict of values goes.",
+            why="The dict pairs each value the column may hold with the value a row holding it "
+            "gets.",
+            fix=f'Write it as a dict, such as mapped({python_text(column)}, {{"FAILED": '
+            '"failed", "SUCCESS": "passed"}).',
+            given=values, call=call,
+        )
+    if not values:
+        refuse(
+            what=f"{call} was given an empty dict.",
+            why="With no value to look up, it would give every row its otherwise=.",
+            fix="Give it at least one key and its value, or use the otherwise= value itself.",
+            error=ValueError,
+        )
+    for key in values:
+        if isinstance(key, (Column, Condition)):
+            refuse(
+                what=f"{call} was given {python_text(key)} as a key, where a value to look up "
+                "goes.",
+                why="mapped compares its column with each key, so a key is a value, such as "
+                '"FAILED"; a test of anything else needs a condition of its own.',
+                fix="Use first_match([(condition, value), ...]), which takes any condition, "
+                "or give a value as the key.",
+                given=key, call=call,
+            )
+        if key is None:
+            refuse(
+                what=f"{call} was given None as a key.",
+                why="A row whose column is NULL matches no key, since NULL equals nothing in "
+                "Hive, so a None key would never match: those rows get otherwise=.",
+                fix=_null_key_fix(column, list(values)),
+                error=ValueError,
+            )
+    keys = [literal(key, call=call, column=column) for key in values]
+    _one_type(list(values), call, "keys")
+    written = ", ".join(f"{python_text(key)}: {python_text(value)}"
+                        for key, value in values.items())
+    return _case_column(column, list(zip(keys, values.values())), otherwise, call,
+                        f"mapped({python_text(column)}, {{{written}}}",
+                        [f"the value for the key {python_text(key)}" for key in values])
+
+
+# What fill_null puts in a column's NULLs before mapped looks them up, by the type family of
+# the column, or of the other keys when the column's type isn't known, in a refusal's fix: a
+# value of that kind, unlikely among the column's real ones. A boolean column holds both of its
+# values, so it has none.
+_NULL_FILLERS = {"number": "-1", "string": '"RUNNING"', "date": '"1900-01-01"',
+                 "timestamp": '"1900-01-01 00:00:00"'}
+
+
+def _null_key_fix(column: Column, keys: list[object]) -> str:
+    """How to give a lookup's NULL rows a label: fill the NULL in with a value of the column's
+    kind, then look that up; for a column of True and False, which has no other value, ask
+    first_match to test is_null first."""
+    family = type_family(column._type) or next(
+        (found for key in keys if key is not None and (found := value_family(key))), "string")
+    shown = python_text(column)
+    if family not in _NULL_FILLERS:
+        return (f'Test is_null first, with first_match: first_match([(is_null({shown}), "the '
+                f'label for NULL")], otherwise=mapped({shown}, {{...}})).')
+    filler = _NULL_FILLERS[family]
+    return (f"Fill the NULL in first with a value the column never holds, and look that up: "
+            f'mapped(fill_null({shown}, {filler}), {{..., {filler}: "the label for NULL"}}).')
+
+
+def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherwise: object,
+                 call: str, written: str, places: list[str]) -> Column:
+    """first_match's or mapped's CASE: each pair a WHEN's condition, or the value mapped looks
+    `column` up for, and its THEN, the user's value as given; ELSE only when `otherwise` isn't
+    None. `written` is the call as the user wrote it, up to its otherwise=, for the lineage, and
+    `places` how a refusal names where each pair's value was given."""
+    given = [value for _, value in pairs] + ([otherwise] if otherwise is not None else [])
+    for place, value in enumerate(given):
+        if isinstance(value, Condition):
+            where = "otherwise=" if place >= len(pairs) else places[place]
+            refuse(
+                what=f"{call.split('(')[0]} was given {python_text(value)} as {where}, where "
+                "a value goes.",
+                why="A value is what the rows get: a number, a string, a date, None or a "
+                "column. A condition is a test on rows, and only decides which rows get "
+                "which value.",
+                fix="Give the value the rows get, such as \"failed\" or 1. A condition goes "
+                "first in a first_match pair: (condition, value).",
+                given=value, call=call,
+            )
+    values = [_as_column(value, call) for value in given]
+    _one_type(given, call, "values", otherwise)
+    tree = Node("Case", ifs=[Node("If", this=when, true=value._tree.copy())
+                             for (when, _), value in zip(pairs, values)])
+    if column is not None:
+        tree.set("this", column._tree.copy())
+    if otherwise is not None:
+        tree.set("default", values[-1]._tree.copy())
+        written += f", otherwise={python_text(otherwise)}"
+    tree.meta["call"] = f"{written})"
+    because = next((value._not_adding_up_because for value in values if not value._adds_up),
+                   None)
+    return Column(tree, adds_up=because is None, not_adding_up_because=because)
+
+
+# How a refusal names the type of a value, by its family (tables.value_family).
+_FAMILY_WORDS = {"number": "a number", "string": "a string", "date": "a date",
+                 "timestamp": "a timestamp", "boolean": "True or False"}
+
+
+def _one_type(given: list[object], call: str, what: str, otherwise: object = None) -> None:
+    """Refuse `what`, first_match's or mapped's values or mapped's keys, when two of them are of
+    types that can't stand in one column; one whose type isn't known, as NULL's, goes with any.
+    When `otherwise`, the otherwise= value, which `given` holds last, is one of the two, the fix
+    says it may be left out."""
+    known = [(place, value, family) for place, value in enumerate(given)
+             if (family := value_family(value)) is not None]
+    for place, value, family in known[1:]:
+        _, first, first_family = known[0]
+        if family in COMPARABLE_VALUES[first_family]:
+            continue
+        fix = _MIXED_FIX[what]
+        # Told apart by its place, since a pair's value may be the very same object.
+        if otherwise is not None and place == len(given) - 1:
+            fix += " Or leave otherwise= out, so the rows no pair holds for get NULL."
+        refuse(
+            what=f"{call.split('(')[0]} gives {what} whose types don't mix: "
+            f"{_with_type(first, first_family)}, and {_with_type(value, family)}.",
+            why=_MIXED_WHY[what],
+            fix=fix,
+        )
+
+
+# What to do instead, for values or for keys.
+_MIXED_FIX = {
+    "values": 'Give all the values one kind: all numbers, all text, or all True or False, such '
+    'as "1" in place of 1 beside text. Where one is a column, make the others its kind.',
+    "keys": "Give every key the type of the values the column holds: for a string column, "
+    '"1" in place of 1.',
+}
+# Why values, or keys, of types that don't mix give a wrong answer.
+_MIXED_WHY = {
+    "values": "A CASE gives back one column, of one type, so the warehouse would turn one into "
+    "the other's type: a row could quietly get NULL or a changed value, or the whole Statement "
+    "stop with an error.",
+    "keys": "Each key is compared with the column's value, so the warehouse would turn one into "
+    "the other's type: a row could quietly match the wrong key or none, or the whole Statement "
+    "stop with an error.",
+}
+
+
+def _with_type(value: object, family: str) -> str:
+    """A value and its type, as a refusal names them: "0, a number" or "job_runs.dt, a string
+    column"."""
+    if isinstance(value, Column):
+        article = "an" if value._type[0] in "aeiou" else "a"
+        return f"{python_text(value)}, {article} {value._type} column"
+    return f"{python_text(value)}, {_FAMILY_WORDS[family]}"
+
+
 def fill_null(column: Column, value: Column | str | int | float | datetime.date) -> Column:
     """The column, with a value put in where it is NULL (COALESCE).
 
@@ -473,6 +778,8 @@ __all__ = [
     "min_of",
     "max_of",
     "if_else",
+    "first_match",
+    "mapped",
     "fill_null",
     "week_start",
     "month_start",

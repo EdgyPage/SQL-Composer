@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """mart.job_notes - one row per note and each job its team owned that day.
 
 Why: a note in ops.team_notes names only a team, so finding the jobs it is about means looking

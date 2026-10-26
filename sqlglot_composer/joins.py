@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Joins: how each join clause is written in Hive, and the checks statement(...) runs on
 SEMI_JOIN, ANTI_JOIN and FULL_JOIN.
 
@@ -18,14 +17,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NoReturn
 
 from .conditions import Condition
-from .refusals import guard_full_join_then_where, refuse
+from .refusals import guard_full_join_then_where, refuse, warning_unchecked_where_on_kept_rows
 from .tables import Table
-from .trees import Node, and_parts
+from .trees import Node, and_parts, checked_columns
 
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
-
-TOOLBOX_VERSION = "7.1"
 
 # How each join clause is written in Hive.
 HOW = {
@@ -128,10 +125,15 @@ def check_joins(s: Statement) -> None:
             continue
         sides = {before.table._alias for before in s._reads[:number + 1]}
         for condition in s._where:
-            for alias in sorted(condition._tables() & sides):
-                if alias not in condition._keeps_unmatched:
+            checked = {table for table, _ in checked_columns(condition._tree)}
+            for alias in sorted(condition._tables() & sides - condition._keeps_unmatched):
+                if alias in checked:
                     guard_full_join_then_where(read.table._alias, alias, repr(condition),
                                                read.keeps_only_matches)
+                else:  # it reads the table only inside an Unchecked expression
+                    warning_unchecked_where_on_kept_rows(
+                        "FULL_JOIN", read.table._alias, alias, repr(condition),
+                        read.keeps_only_matches)
 
 
 def _places(s: Statement, read: Clause) -> list[tuple[str, Node]]:

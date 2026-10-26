@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Python steps: a change you make to rows in Python, declared so Lineage can show it.
 
 python_step(function, reads=[...], writes=table) declares a change you make in pandas,
@@ -20,8 +19,6 @@ import pandas as pd
 from . import kinds
 from .refusals import in_words, refuse
 from .tables import Column, Table
-
-TOOLBOX_VERSION = "7.1"
 
 # What a refusal's usual fix shows a call as.
 _EXAMPLE = "python_step(add_margin, reads=[sales.price, sales.cost], writes=margins)"

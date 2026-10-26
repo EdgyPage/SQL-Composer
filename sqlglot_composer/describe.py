@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """What DESCRIBE and DESCRIBE FORMATTED say of a table: read once, and printed for stand-ins.
 
 ask(...) sends DESCRIBE, or DESCRIBE FORMATTED, through your query and reads what comes back
@@ -27,8 +26,6 @@ from .writing import hive_text
 
 if TYPE_CHECKING:  # tables.py imports this file
     from .tables import Table
-
-TOOLBOX_VERSION = "7.1"
 
 # The three columns a warehouse prints DESCRIBE in, and the header Hive repeats them in.
 DESCRIBE_COLUMNS = ["col_name", "data_type", "comment"]

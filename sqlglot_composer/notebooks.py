@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The one reader and writer of a Project's notebooks: the plain JSON Jupyter reads.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
@@ -15,8 +14,6 @@ from pathlib import Path
 from typing import NoReturn
 
 from .refusals import refuse
-
-TOOLBOX_VERSION = "7.1"
 
 # The first line of a Table notebook's logic cell, the cell project.load runs.
 LOGIC = "# logic"
