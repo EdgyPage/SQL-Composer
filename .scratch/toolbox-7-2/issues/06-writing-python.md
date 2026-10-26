@@ -1,0 +1,33 @@
+# Writing a Statement out as Python
+
+Type: task
+Status: open
+Blocked by: 05
+Size: L
+
+## Question
+
+The second half of a Conversion: the objects ticket 05 reads, written out as the Python the user
+would have written, in a Table notebook's shape, so the result is code to read, edit and keep,
+"more maintainable patterns", not a Statement built at run time.
+
+Before writing the tests: show the user one converted sample, the notebook as it will land,
+since the map leaves the notebook's exact shape open.
+
+## Done when
+
+- A Toolbox function (internal, for ticket 07) writes, from ticket 05's result, the source of a
+  notebook in a Table notebook's shape: a first cell of named constants (every long list and
+  lookup), imports from the Project's Database modules, the logic cell (`# logic` first) with one
+  function per CTE giving back a Derived table and one giving back the Statement, and a cell that
+  shows its Hive.
+- The names it writes come from the original where they're good Python names (a CTE's name, a
+  column's alias), else plain made-up ones it never repeats.
+- Each Unchecked piece is written as its call, and each opt-out a Guard needs carries
+  `# CONVERSION: the original did this; check it` at its line.
+- Round trip, as a test on every sample of ticket 05's: the written Python, run, gives back a
+  Statement whose Hive is the original's once both are normalised by sqlglot. The writer refuses
+  to give back source that fails this, saying where they differ.
+- The written source passes the repo's lint and reads like a Worked example: one Clause function
+  a line where it fits, SQL order, the Toolbox's own names.
+- CLAUDE.md's Definition of done. Nothing public changes, so no beginner read.

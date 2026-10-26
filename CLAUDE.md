@@ -27,7 +27,9 @@ tickets. Toolbox 7.0 (query and execute in place of send, tables with no days, D
 steps, and the docs reworked into one story) is charted through `.scratch/toolbox-7/map.md`; read
 its Notes before working one of its tickets. Toolbox 7.1 (`run_query` and `run_execute` in place
 of `run`, so the user picks the call, and the cleanup after it) is that map's tickets
-09 to 18.
+09 to 18. Toolbox 7.2 (Conversions of other people's Hive into the user's code, Upgrades that
+carry a Project from one version to the next, and the version in one file) is charted through
+`.scratch/toolbox-7-2/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
