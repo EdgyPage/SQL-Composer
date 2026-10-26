@@ -75,6 +75,11 @@ class RepeatedRowsWarning(UserWarning):
     """A join may repeat rows, so sums and counts over them may come out too big."""
 
 
+class UncheckedWarning(UserWarning):
+    """A Guard or a Load limit couldn't look inside an Unchecked expression or an Unchecked
+    derived table, so it lets the Statement through and says what to check by hand."""
+
+
 def _stop(what: str, why: str, fix: str, opt_out: str | None,
           error: type[Exception] = GuardRefused) -> NoReturn:
     """Stop with a Guard's four-part message, or, given error=LoadRefused, a Load limit's."""
@@ -360,6 +365,78 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
         opt_out=f"{call}({table}, ON=..., many_matches=True)",
     )
     warn_at_callers_line(message, RepeatedRowsWarning)
+
+
+# --- Where a Guard or a Load limit can't look inside Unchecked Hive ------------------------
+# An Unchecked expression or derived table is Hive written by hand. Where a check would turn
+# on what that Hive does, it can't tell, so it neither refuses nor passes in silence: it warns,
+# saying what to check, and the check's own opt-out silences it.
+
+
+def warning_unchecked_where_on_kept_rows(call: str, joined: str, table: str, condition: str,
+                                         keeps_only_matches: bool) -> None:
+    """WHERE reads a LEFT_JOIN's or a FULL_JOIN's table only inside an Unchecked expression,
+    so the Guard can't tell whether it throws away the rows the join kept with no match."""
+    if keeps_only_matches:
+        return
+    brought = ("which LEFT_JOIN brought in" if call == "LEFT_JOIN"
+               else f"one side of FULL_JOIN({joined}), which keeps rows with no match")
+    move = (f"Move the condition into LEFT_JOIN({joined}, ON=...), so it only decides which "
+            "rows match" if call == "LEFT_JOIN" else
+            "Pick each side's rows in a derived(...) table of its own, then FULL_JOIN the two")
+    message = four_part_message(
+        what=f"WHERE has {condition}, a condition on {table}, {brought}. It reads {table} "
+        "only inside an Unchecked expression, which the Guard can't look inside.",
+        why=f"Most conditions are false where {table}'s columns are NULL, as they are in each "
+        f"row with no match in {table}: such a condition throws those rows away again, and "
+        f"the {call} gives what an ordinary JOIN gives.",
+        fix=f"{move}; or leave it in WHERE if it keeps the rows with NULL there, as "
+        "{x} IS NULL does.",
+        opt_out=f"{call}({joined}, ON=..., keeps_only_matches=True), if the Statement should "
+        "keep only the rows with a match.",
+    )
+    warn_at_callers_line(message, UncheckedWarning)
+
+
+def warning_unchecked_partition_filter(call: str, table: str, full_name: str,
+                                       partitioned_by: list[str],
+                                       reads_all_partitions: bool) -> None:
+    """A read of a partitioned table filters its partition columns only inside an Unchecked
+    expression, so the Load limit can't tell whether it reads every Partition."""
+    if reads_all_partitions:
+        return
+    columns = ", ".join(partitioned_by)
+    message = four_part_message(
+        what=f"{call} reads {full_name}, and filters its partition columns ({columns}) only in "
+        "an Unchecked expression, which the Load limit can't look inside.",
+        why="If that Hive doesn't hold one of them to some values, the warehouse reads every "
+        "Partition the table holds, which can stall the cluster for everyone.",
+        fix=f"Check that it does, or filter one of them with a condition function beside it, "
+        f"as in WHERE(equals({table}.{partitioned_by[0]}, ...)), or with is_in, between or "
+        "last_n_days.",
+        opt_out=f"{call[:-1]}, reads_all_partitions=True), once you have checked the "
+        "Unchecked expression filters them.",
+    )
+    warn_at_callers_line(message, UncheckedWarning)
+
+
+def warning_unchecked_derived_read(call: str, name: str, tables: list[str],
+                                   reads_all_partitions: bool) -> None:
+    """A read of an Unchecked derived table, whose own reads of tables the Load limit can't
+    look inside."""
+    if reads_all_partitions or not tables:
+        return
+    message = four_part_message(
+        what=f"{call} reads the Unchecked derived table {name}, whose Hive reads "
+        f"{in_words(tables)}. The Load limit can't look inside it, to see that it filters "
+        "the partition columns of each partitioned one.",
+        why="A read of a partitioned table that filters none of its partition columns reads "
+        "every Partition the table holds, which can stall the cluster for everyone.",
+        fix=f"Check that the WHERE in {name}'s Hive filters a partition column of each "
+        "partitioned table it reads.",
+        opt_out=f"{call[:-1]}, reads_all_partitions=True), once you have checked it.",
+    )
+    warn_at_callers_line(message, UncheckedWarning)
 
 
 def warn_upgrade_needed(have: str, toolbox: str) -> None:

@@ -29,10 +29,10 @@ from .conditions import Condition
 from .keys import Keys, possessive, statement_keys, unproven, wanted_key
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
 from .refusals import refuse
-from .running import name_in, statements_within, to_hive
+from .running import name_in, statement_tree, statements_within, to_hive
 from .stacking import STACK_HOW, nth
-from .tables import Table, readable
-from .trees import Node, rows_text
+from .tables import Table, is_unchecked, readable
+from .trees import Node, rows_text, unchecked_calls
 from .unchecked import SessionSettings, UncheckedStatement, inline_code, tables_read_and_written
 from .windows import call_of
 from .writing import hive_text
@@ -192,12 +192,13 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all("Column")]
         key, shown = _output_box(index, kind, group, table, name)
-        graph.add(key, kind=kind, group=group, name=shown, full=f"{group}.{name}",
+        graph.add(key, kind=kind, group=group, name=_badged(shown, tree), full=f"{group}.{name}",
                   type=column._type, sql=hive_text(tree), formula=readable(tree),
                   calculated=tree.kind != "Column",
                   group_by=[readable(c._tree) for c in step._group_by] if column._aggregate
                   else [], statement=index, reads=_aliases_read(tree),
-                  in_key=name in in_key, windows=_window_rows(tree))
+                  in_key=name in in_key, windows=_window_rows(tree),
+                  unchecked=_holds_unchecked(tree))
         for source in sources:
             graph.arrow(source, key, "value")
         made.append(key)
@@ -207,11 +208,22 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         # that count stop; `kept`: that table's alias (see _deciding). Both are looked up
         # once the condition's box is added, so that it comes before the table boxes it reads.
         joined = []
-        _add_condition(graph, index, group, number, clause, sql, formula, made,
+        _add_condition(graph, index, group, number, _badged(clause, tree), sql, formula, made,
                        (resolve(used) for used in tree.find_all("Column")),
                        joined=joined, kept=kept, reads=_aliases_read(tree))
         joined += [resolve(used) for used in tree.find_all("Column")
                    if kept is not None and used.table == kept]
+
+
+def _holds_unchecked(tree: Node) -> bool:
+    """Whether a calculation or condition holds an Unchecked expression."""
+    return next(tree.find_all("Unchecked"), None) is not None
+
+
+def _badged(name: str, tree: Node) -> str:
+    """A box's name, after the Unchecked statement's badge when its tree holds an Unchecked
+    expression: Lineage traces its columns, but nothing checked what its Hive does."""
+    return f"{UNCHECKED} {name}" if _holds_unchecked(tree) else name
 
 
 def _add_stack(graph: Graph, s: Statement, index: int, kind: str, group: str,
@@ -343,7 +355,9 @@ def _write_key_line(s: Statement) -> str | None:
 
 def keys_report(s: Statement, name: str) -> list[str]:
     """The lines of a report's Keys: each Derived table's, the Statement's, and its write's."""
-    lines = [_key_line(f"derived({table._name!r}, ...)", table._statement)
+    lines = [f"unchecked_derived({table._name!r}, ...): no Key the Toolbox can see, since "
+             f"{table._keys.lost}." if is_unchecked(table)
+             else _key_line(f"derived({table._name!r}, ...)", table._statement)
              for table in derived_tables(s)]
     lines.append(_key_line(name, s))
     written = _write_key_line(s)
@@ -380,6 +394,25 @@ def _add_unchecked(graph: Graph, s: UncheckedStatement, index: int, name: str) -
     for target in written:
         graph.arrow(key, target, "value")
     return [key, *written]
+
+
+def _add_unchecked_derived(graph: Graph, table: Table, index: int, group: str) -> None:
+    """An Unchecked derived table: one box Lineage can't see inside, with an arrow in from
+    each table its text reads, and out to a box for each column it declares."""
+    text = table._statement._text
+    key = graph.add(_box_key("unchecked", index, table._name), kind="unchecked", derived=True,
+                    group=group, name=f"{UNCHECKED} Unchecked derived table",
+                    full=f"{group}: Unchecked derived table", type=None, sql=text,
+                    formula=text.splitlines()[0], calculated=False, statement=index,
+                    reads=set())
+    for name in sorted(table._statement._tables):
+        graph.arrow(_whole_table_box(graph, name), key, "value")
+    for column, kind in table._columns.items():
+        box, shown = _output_box(index, "derived", group, table._name, column)
+        graph.add(box, kind="derived", group=group, name=shown, full=f"{group}.{column}",
+                  type=kind, sql="", formula="", calculated=False, group_by=[],
+                  statement=index, reads=set(), in_key=False)
+        graph.arrow(key, box, "value")
 
 
 def _link_whole_tables(graph: Graph) -> None:
@@ -446,6 +479,9 @@ def build_graph(ordered: list[tuple[Statement | UncheckedStatement | PythonStep,
             ends += _add_python_step(graph, s, index, name)
             continue
         for table in derived_tables(s):
+            if is_unchecked(table):
+                _add_unchecked_derived(graph, table, index, groups[(index, table._name)])
+                continue
             _add_step(graph, table._statement, index=index, kind="derived",
                       group=groups[(index, table._name)], table=table._name)
         _add_step(graph, s, index=index, kind="output", group=name)
@@ -480,13 +516,16 @@ def _derived_group_names(ordered: list[tuple[Statement | UncheckedStatement | Py
 
 def _tables_read(s: Statement | UncheckedStatement | PythonStep) -> set[str]:
     """The names of the real tables a Statement reads, itself or through its Derived tables,
-    that an Unchecked statement's text reads, or that a Python step read."""
+    an Unchecked derived table's text among them, that an Unchecked statement's text reads,
+    or that a Python step read."""
     if kinds.kind(s) == kinds.UNCHECKED:
         return {name for name, how in tables_read_and_written(s._text) if how == "reads"}
     if kinds.kind(s) == kinds.PYTHON:
         return step_tables_read(s)
-    return {read.table._name for step in statements_within(s) for read in step._reads
-            if read.table._statement is None}
+    by_hand = {name for table in derived_tables(s) if is_unchecked(table)
+               for name in table._statement._tables}
+    return by_hand | {read.table._name for step in statements_within(s) for read in step._reads
+                      if read.table._statement is None}
 
 
 def _tables_written(s: Statement | UncheckedStatement | PythonStep) -> list[str]:
@@ -736,6 +775,10 @@ def _about(s: Statement, index: int,
         else:
             written = f"It writes the whole Saved table {table._name}."
         parts.append(written)
+    by_hand = unchecked_calls(statement_tree(s)) if kinds.is_a_query(s) else []
+    if by_hand:
+        parts.append(f"{UNCHECKED} It holds Hive written by hand, which no Guard, Warning or "
+                     f"Load limit looked inside: {'; '.join(by_hand)}.")
     return " ".join(parts)
 
 
@@ -948,9 +991,13 @@ def graph_data(graph: Graph) -> dict[str, list[dict[str, object]] | list[list[st
 
 def _drawn_kind(box: dict[str, object]) -> str:
     """The kind the page's script draws a box as: an Unchecked statement's step and a Python
-    step are drawn as an output, marked unchecked or python."""
+    step are drawn as an output, marked unchecked or python, and an Unchecked derived table
+    as a Derived table, marked unchecked. A column worked out by an Unchecked expression is
+    marked unchecked too."""
     if box["kind"] in ("unchecked", "python"):
-        return f"output {box['kind']}"
+        return f"{'derived' if box.get('derived') else 'output'} {box['kind']}"
+    if box.get("unchecked"):
+        return f"{box['kind']} unchecked"
     return box["kind"]
 
 

@@ -31,8 +31,8 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .stacking import STACK_HOW
-from .tables import Column, Table, source, table_node
-from .trees import Node, combined
+from .tables import Column, Table, is_unchecked, python_text, source, table_node
+from .trees import Node, combined, unchecked_calls
 from .unchecked import (
     SHIPPED,
     SessionSettings,
@@ -149,9 +149,19 @@ def _query_tree(s: Statement) -> Node:
 
 def _with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
-    tree.set("derived_tables", [Node("CTE", this=_query_tree(table._statement),
-                                     alias=table._name) for table in derived_tables(s)])
+    tree.set("derived_tables", [Node("CTE", this=_derived_tree(table), alias=table._name)
+                                for table in derived_tables(s)])
     return tree
+
+
+def _derived_tree(table: Table) -> Node:
+    """A Derived table's query: its Statement's, or an Unchecked derived table's text, noted
+    with the call that made it."""
+    if not is_unchecked(table):
+        return _query_tree(table._statement)
+    node = Node("UncheckedSelect", text=table._statement._text)
+    node.meta["call"] = f"unchecked_derived({python_text(table._name)}, ...)"
+    return node
 
 
 def automatic_limit(s: Statement) -> int | None:
@@ -163,8 +173,10 @@ def automatic_limit(s: Statement) -> int | None:
 
 def statements_within(s: Statement) -> list[Statement]:
     """Every step of `s` that reads tables: itself and each Derived table it reads, or, for a
-    Stack, each Statement it stacks."""
-    return [part for step in [s] + [table._statement for table in derived_tables(s)]
+    Stack, each Statement it stacks. An Unchecked derived table has no Statement: its text
+    is Hive written by hand."""
+    return [part for step in [s] + [table._statement for table in derived_tables(s)
+                                    if not is_unchecked(table)]
             for part in stack_steps(step)]
 
 
@@ -502,7 +514,7 @@ def run_query(s: Statement | UncheckedStatement,
     text = to_hive(s)
     if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
-    result = query(text)
+    result = _sent(s, text, query)
     refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s)
     if limit is not None:
@@ -550,8 +562,24 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     elif marked == kinds.ADMIN:
         logged_run("Admin statement", s._admin_call, to_hive(s), execute)
     else:
-        execute(to_hive(s))
+        _sent(s, to_hive(s), execute)
     return None
+
+
+def _sent(s: Statement, text: str, warehouse_call: Callable[[str], object]) -> object:
+    """Send a Statement's Hive through your query or execute. One holding an Unchecked
+    expression or an Unchecked derived table adds an entry to the Admin log, as an Unchecked
+    statement does: its Hive is partly written by hand."""
+    tree = statement_tree(s) if kinds.is_a_query(s) else Node("Null")
+    calls = unchecked_calls(tree)
+    if not calls:
+        return warehouse_call(text)
+    found = {node.kind for node in tree.find_all("Unchecked", "UncheckedSelect")}
+    held = [words for kind, words in (("Unchecked", "an Unchecked expression"),
+                                      ("UncheckedSelect", "an Unchecked derived table"))
+            if kind in found]
+    return logged_run(f"Statement with {' and '.join(held)}", "; ".join(calls), text,
+                      warehouse_call)
 
 
 def _refuse_the_other_call(call: str, other: str, instead: str,

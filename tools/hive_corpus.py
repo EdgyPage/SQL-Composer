@@ -45,7 +45,7 @@ import sqlglot_composer  # noqa: E402
 from sqlglot_composer import example_database  # noqa: E402
 from sqlglot_composer.clauses import Statement, derived_tables  # noqa: E402
 from sqlglot_composer.describe import StandIn  # noqa: E402
-from sqlglot_composer.tables import Table  # noqa: E402
+from sqlglot_composer.tables import Table, is_unchecked  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
 
 # Where the golden corpus is committed.
@@ -204,8 +204,10 @@ def statement_lines(number: int,
             sqlglot_composer.show_hive(s)
         return lines + [PART_MARK + f"Statement {number}: show_hive",
                         printed.getvalue().rstrip("\n")]
+    # An Unchecked derived table has no Statement to show the parts of: its text is its Hive.
     for step, name in [(s, "the Statement")] + [
-            (table._statement, f"Derived table {table._name}") for table in derived_tables(s)]:
+            (table._statement, f"Derived table {table._name}") for table in derived_tables(s)
+            if not is_unchecked(table)]:
         shown = parts_shown(step)
         if shown:
             lines += [PART_MARK + f"Statement {number}: {name}", *shown]

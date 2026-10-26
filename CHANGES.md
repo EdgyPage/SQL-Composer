@@ -40,6 +40,16 @@ in place of a line in every file.
   naming it, where 7.1 stopped on a file from another version: a change you made on purpose may
   be one you need, and the warning says where to keep it instead. A missing file, an extra one,
   or a missing or unreadable `version.txt` still stops the import.
+- **Hive written by hand for one piece of a Statement, not the whole of it.**
+  `unchecked_column(...)` and `unchecked_condition(...)` stand for one Column or one Condition
+  that no Toolbox function writes yet, such as `{status} RLIKE '^FAIL'`: each column the text
+  reads is a `{name}` placeholder, with the column itself passed by that name, so Lineage
+  traces it and a renamed table still writes right. `unchecked_derived(name, text,
+  columns={...})` is a Derived table whose SELECT you write by hand, such as one built on
+  `LATERAL VIEW`, read as any Derived table is. The rest of the Statement is checked as ever;
+  where a Guard or a Load limit can't tell what the text does, it warns, saying what to check.
+  Lineage marks each with the Unchecked statement's badge, and each run of a Statement holding
+  one adds an entry to the Admin log. A search for `unchecked_` finds them all.
 
 ## 7.1
 
