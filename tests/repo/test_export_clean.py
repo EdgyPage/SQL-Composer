@@ -128,7 +128,7 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 # here, not taken from export_clean, so the tests say what main holds on their own.
 COPIED = ["example_projects"]
 # The copies with no comment syntax for a stamp, which main holds as dev does.
-UNSTAMPED = (".ipynb", ".csv")
+UNSTAMPED = (".ipynb", ".csv", ".txt")
 
 
 def copied_files(folder: str) -> list[str]:

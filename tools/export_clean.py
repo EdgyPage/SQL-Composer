@@ -84,8 +84,8 @@ CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 EXAMPLE_PROJECTS = "example_projects"
 COPIED = (EXAMPLE_PROJECTS,)
 # The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
-# its registry and its Reference sheet.
-UNSTAMPED = (".ipynb", ".csv")
+# its registry and its Reference sheet, and admin/project_version.txt, read from its first line.
+UNSTAMPED = (".ipynb", ".csv", ".txt")
 # The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"
 HOW_TOS_MARKER = "<!-- HOW-TOS -->"

@@ -4,15 +4,31 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 7.2
 
-7.2 writes the Toolbox's version in one place, its folder's `version.txt`, in place of a line in
-every file.
+7.2 carries your Project's files from one Toolbox version to the next for you, with
+`project.upgrade()`, and writes the Toolbox's version in one place, its folder's `version.txt`,
+in place of a line in every file.
 
 ### To update from 7.1
 
 - **Delete the `sqlglot_composer` folder, copy in 7.2's whole folder**, and restart the kernel,
   as the README's Update says. A file left behind from an older folder stops the import.
+- **Run `project.upgrade()`** from a notebook in your Project, then read
+  `admin/upgrade_7.2.md`, which it writes. From 7.1 to 7.2 nothing of yours changes: it adds
+  `admin/upgrade.ipynb`, where you run it next time, and `admin/project_version.txt`.
 
 ### Also new
+
+- **`project.upgrade()`, an Upgrade.** From 7.2 on, each new version ships a step that carries
+  your Project's files to it from the version before: the Table references, Building blocks,
+  Table notebooks and the rest. It makes the changes that need no judgement itself, keeping each
+  file it changes as it was in `admin/removed/`, and marks each change it leaves for you with
+  an `# UPGRADE <version>: <what to change>` comment at the line and a box in
+  `admin/upgrade_<version>.md`. `project.check()` lists every mark left. It changes files only,
+  never the warehouse. `admin/project_version.txt` records the version that last wrote the
+  Project; a Project 7.1 made has none, and is taken to be 7.1.
+- **A Project an older Toolbox last wrote warns** when you import the Toolbox in it, and in
+  `project.check()`, saying to run `project.upgrade()`. Nothing is refused: a Statement you run
+  still runs.
 
 - **`version.txt`, the one place the version is written.** It names the Toolbox and its
   version, when this copy was exported and from which commit, and each file of the folder with

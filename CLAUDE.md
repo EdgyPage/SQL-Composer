@@ -68,6 +68,10 @@ reviewer looks for anything the commit made untrue and adds one open item per fi
   accepts it only if the reason holds.
 - Never raise the Toolbox version yourself. When a version item opens, ask the user. The
   version is written in one place, `sqlglot_composer/version.txt` (ADR 0013).
+- Every version raise ships an Upgrade step, in `sqlglot_composer/upgrades.py`'s `STEPS`, even
+  one with nothing to change, and freezes the Example projects as the version before left them,
+  without their Lineage pages, in `tests/upgrade_from/<that version>/`; `tests/test_upgrades.py`
+  fails until both are there.
 - A stop hook blocks the first try to end a turn while your own commits have an unrun review or
   an open item, then lets a second try through so you can ask the user. The export to `main`
   refuses while any item is open.

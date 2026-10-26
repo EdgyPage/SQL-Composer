@@ -40,7 +40,7 @@ from sqlglot_composer import (
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
 ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project",
                    "check_references", "new_block", "new_table", "refresh_reference_sheet",
-                   "remove_table", "run_tables"]
+                   "remove_table", "run_tables", "upgrade"]
 
 
 @pytest.fixture
@@ -73,7 +73,7 @@ def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
         "admin", "building_blocks", "references", "tables", "warehouse.py"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
-        ["admin_log.md", "registry.csv", "templates"]
+        ["admin_log.md", "project_version.txt", "registry.csv", "templates"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
     assert sorted(path.name for path in (started / "admin" / "templates").iterdir()) == [
         "building_block.py", "quality_checks.py", "saved_table.py",

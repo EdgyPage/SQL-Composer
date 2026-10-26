@@ -79,7 +79,9 @@ ADMIN_NAMES = ["drop_table", "drop_partitions", "add_columns", "set_properties",
 # 6.0's ticket 06. Toolbox 7.0, ticket 06: new_block and remove_block, for Building blocks.
 PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_block",
                  "add_references", "remove_reference", "register", "check",
-                 "refresh_reference_sheet", "load", "run_tables"]
+                 "refresh_reference_sheet", "load", "run_tables",
+                 # Toolbox 7.2, ticket 02: upgrade carries a Project to a newer Toolbox.
+                 "upgrade"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

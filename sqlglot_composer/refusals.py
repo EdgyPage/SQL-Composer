@@ -362,6 +362,20 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
     warn_at_callers_line(message, RepeatedRowsWarning)
 
 
+def warn_upgrade_needed(have: str, toolbox: str) -> None:
+    """Warn, as the Toolbox is imported in a Project an older Toolbox last wrote, that the
+    Project needs an Upgrade. It only warns: a Statement run in a notebook harms nothing."""
+    message = "sqlglot_composer on import:" + four_part_message(
+        what=f"The Project was last written by Toolbox {have}, and this Toolbox is {toolbox}.",
+        why="A newer Toolbox may change what your files need, and an Upgrade makes those "
+        "changes, or marks them for you.",
+        fix="Run project.upgrade() from a notebook in the Project, then work through the "
+        "checklist it writes, admin/upgrade_<version>.md.",
+        opt_out=None,
+    )
+    warn_at_callers_line(message, UserWarning)
+
+
 def warn_at_callers_line(message: str, category: type[Warning]) -> None:
     """Show a Warning at the first line outside the Toolbox, every time it happens.
 

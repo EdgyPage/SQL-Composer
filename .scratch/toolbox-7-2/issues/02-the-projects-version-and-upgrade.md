@@ -1,7 +1,7 @@
 # The Project's version and project.upgrade()
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: L
 
