@@ -438,15 +438,11 @@ def mapped(column: Column,
                 given=key, call=call,
             )
         if key is None:
-            # A value the column's own type holds, which its real values aren't likely to be.
-            filler = _NULL_FILLERS.get(type_family(column._type), '"RUNNING"')
             refuse(
                 what=f"{call} was given None as a key.",
                 why="A row whose column is NULL matches no key, since NULL equals nothing in "
                 "Hive, so a None key would never match: those rows get otherwise=.",
-                fix=f"Fill the NULL in first with a value the column never holds, and look that "
-                f"up: mapped(fill_null({python_text(column)}, {filler}), {{..., {filler}: "
-                '"the label for NULL"}).',
+                fix=_null_key_fix(column, list(values)),
                 error=ValueError,
             )
     keys = [literal(key, call=call, column=column) for key in values]
@@ -458,10 +454,27 @@ def mapped(column: Column,
                         [f"the value for the key {python_text(key)}" for key in values])
 
 
-# What fill_null puts in a column's NULLs before mapped looks them up, by the column's type
-# family, in a refusal's fix: a value of the column's own type, unlikely among its real ones.
+# What fill_null puts in a column's NULLs before mapped looks them up, by the type family of
+# the column, or of the other keys when the column's type isn't known, in a refusal's fix: a
+# value of that kind, unlikely among the column's real ones. A boolean column holds both of its
+# values, so it has none.
 _NULL_FILLERS = {"number": "-1", "string": '"RUNNING"', "date": '"1900-01-01"',
-                 "timestamp": '"1900-01-01 00:00:00"', "boolean": "False"}
+                 "timestamp": '"1900-01-01 00:00:00"'}
+
+
+def _null_key_fix(column: Column, keys: list[object]) -> str:
+    """How to give a lookup's NULL rows a label: fill the NULL in with a value of the column's
+    kind, then look that up; for a column of True and False, which has no other value, ask
+    first_match to test is_null first."""
+    family = type_family(column._type) or next(
+        (found for key in keys if key is not None and (found := value_family(key))), "string")
+    shown = python_text(column)
+    if family not in _NULL_FILLERS:
+        return (f'Test is_null first, with first_match: first_match([(is_null({shown}), "the '
+                f'label for NULL")], otherwise=mapped({shown}, {{...}})).')
+    filler = _NULL_FILLERS[family]
+    return (f"Fill the NULL in first with a value the column never holds, and look that up: "
+            f'mapped(fill_null({shown}, {filler}), {{..., {filler}: "the label for NULL"}}).')
 
 
 def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherwise: object,
@@ -507,16 +520,17 @@ _FAMILY_WORDS = {"number": "a number", "string": "a string", "date": "a date",
 def _one_type(given: list[object], call: str, what: str, otherwise: object = None) -> None:
     """Refuse `what`, first_match's or mapped's values or mapped's keys, when two of them are of
     types that can't stand in one column; one whose type isn't known, as NULL's, goes with any.
-    When `otherwise`, the otherwise= value, is one of the two, the fix says it may be left
-    out."""
-    known = [(value, family) for value in given
+    When `otherwise`, the otherwise= value, which `given` holds last, is one of the two, the fix
+    says it may be left out."""
+    known = [(place, value, family) for place, value in enumerate(given)
              if (family := value_family(value)) is not None]
-    for value, family in known[1:]:
-        first, first_family = known[0]
+    for place, value, family in known[1:]:
+        _, first, first_family = known[0]
         if family in COMPARABLE_VALUES[first_family]:
             continue
         fix = _MIXED_FIX[what]
-        if otherwise is not None and (otherwise is first or otherwise is value):
+        # Told apart by its place, since a pair's value may be the very same object.
+        if otherwise is not None and place == len(given) - 1:
             fix += " Or leave otherwise= out, so the rows no pair holds for get NULL."
         refuse(
             what=f"{call.split('(')[0]} gives {what} whose types don't mix: "
