@@ -10,6 +10,9 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
 
 ### To update from 7.1
 
+- **Check your sqlglot is 30.19.0 or newer.** 7.2 needs it, where 7.1 took 25.24.2: an older
+  one stops the import, saying so. `pip install -r requirements.txt` installs 30.23.0, the one
+  the Toolbox is tested on.
 - **Delete the `sqlglot_composer` folder, copy in 7.2's whole folder**, and restart the kernel,
   as the README's Update says. A file left behind from an older folder stops the import.
 - **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
@@ -104,6 +107,10 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
 - **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
   `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
   days, gave one Statement's rows in place of both; your warehouse was never affected.
+- **sqlglot 30.19.0 or newer, below 31.** 30.19.0 is where the Example database already
+  started, so now the whole Toolbox does, and no longer carries what older sqlglot needed. A
+  `struct` column in `create_table` is no longer refused for a sqlglot that wrote it without
+  Hive's colons, as none in the range does.
 - **The Example database runs Windows**: `row_number`, `rank`, `dense_rank`, `ntile`, `lag`,
   `lead`, `first_value`, `last_value`, and `sum_of`, `average_of`, `count_rows`, `min_of` and
   `max_of` with `over=`, as Hive works them out: a NULL comes first where the Window's

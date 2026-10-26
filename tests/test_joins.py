@@ -186,19 +186,16 @@ def test_broadcast_must_be_true_or_false(value: int | str | None) -> None:
 # --- The rows --------------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_run_a_semi_join() -> None:
     with pytest.raises(RuntimeError, match="its executor has no LEFT SEMI JOIN"):
         run_query(runs_with_an_alert(), example_database.query)
 
 
-@pytest.mark.needs_example_database
 def test_anti_join_keeps_each_run_with_no_alert() -> None:
     frame = run_query(runs_with_no_alert(), example_database.query)
     assert list(frame.run_id) == [95, 96, 98, 99]
 
 
-@pytest.mark.needs_example_database
 def test_anti_join_finds_the_job_that_never_ran() -> None:
     s = statement(SELECT(jobs.job_name), FROM(jobs),
                   ANTI_JOIN(job_runs, ON=all_of(equals(job_runs.job_id, jobs.job_id),
@@ -206,7 +203,6 @@ def test_anti_join_finds_the_job_that_never_ran() -> None:
     assert list(run_query(s, example_database.query).job_name) == ["cache_warm"]
 
 
-@pytest.mark.needs_example_database
 def test_full_join_keeps_the_runs_only_one_record_holds() -> None:
     frame = run_query(both_records(any_of(is_null(recorded().run_id), is_null(started().run_id))),
                       example_database.query)
@@ -216,7 +212,6 @@ def test_full_join_keeps_the_runs_only_one_record_holds() -> None:
     assert len(run_query(both_records(), example_database.query)) == 10
 
 
-@pytest.mark.needs_example_database
 def test_broadcast_changes_no_row() -> None:
     def per_team(broadcast: bool) -> Statement:
         return statement(SELECT(jobs.team, AS(count_rows(), "runs")), FROM(job_runs),

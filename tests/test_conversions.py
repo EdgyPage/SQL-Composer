@@ -69,7 +69,6 @@ def test_start_makes_the_conversions_folder_and_its_notebook(started: Path) -> N
 # --- scan_hive ------------------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_a_scan_says_what_a_conversion_would_make_and_changes_nothing(started: Path) -> None:
     before = files(started)
     said = repr(project.scan_hive(HIVE, database="ops"))
@@ -104,7 +103,6 @@ def test_hive_a_conversion_cant_take_is_refused_saying_what_to_do(started: Path)
 # --- convert ----------------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_convert_writes_the_conversion_folder(converted: Path, started: Path) -> None:
     assert files(converted) == ["job_outcomes.ipynb", "original.hql", "scan.md"]
     assert (converted / "original.hql").read_text(encoding="utf-8") == HIVE
@@ -115,14 +113,12 @@ def test_convert_writes_the_conversion_folder(converted: Path, started: Path) ->
     assert "- Call: `project.convert(\"job_outcomes\", ...)`" in log
 
 
-@pytest.mark.needs_example_database
 def test_the_conversion_gives_the_same_query_as_the_original(converted: Path) -> None:
     statement = project.load("job_outcomes").converted()
     assert compare_hive(statement, HIVE).ok
     assert "WITH base AS" in to_hive(statement)
 
 
-@pytest.mark.needs_example_database
 def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path) -> None:
     """ops.jobs's Table reference has no Key yet, so the join may repeat rows: the original
     took that chance, so the Conversion takes it too, marked for you to decide."""
@@ -134,7 +130,6 @@ def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path) ->
     assert "Conversions not finished yet" in said and "admin/conversions/job_outcomes/" in said
 
 
-@pytest.mark.needs_example_database
 def test_convert_reads_a_file_and_keeps_it_as_given(started: Path) -> None:
     (started / "report.hql").write_text(HIVE, encoding="utf-8")
     project.convert("from_file", file="report.hql", query=example_database.query,
@@ -143,7 +138,6 @@ def test_convert_reads_a_file_and_keeps_it_as_given(started: Path) -> None:
     assert kept.read_text(encoding="utf-8") == HIVE
 
 
-@pytest.mark.needs_example_database
 def test_a_name_taken_is_refused(converted: Path) -> None:
     with pytest.raises(FileExistsError):
         project.convert("job_outcomes", HIVE, query=example_database.query, database="ops")
@@ -164,7 +158,6 @@ def test_a_table_with_no_reference_needs_your_query(started: Path) -> None:
 # --- finish_conversion and remove_conversion ------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_finishing_makes_the_saved_tables_folder_and_reference(converted: Path,
                                                                started: Path) -> None:
     said = repr(project.finish_conversion("job_outcomes", table="mart.job_outcomes"))
@@ -182,7 +175,6 @@ def test_finishing_makes_the_saved_tables_folder_and_reference(converted: Path,
         project_files.CONVERSION_FOLDER)
 
 
-@pytest.mark.needs_example_database
 def test_the_finished_tables_write_inserts_the_converted_rows(converted: Path,
                                                                started: Path) -> None:
     project.finish_conversion("job_outcomes", table="mart.job_outcomes")
@@ -197,7 +189,6 @@ def test_the_finished_tables_write_inserts_the_converted_rows(converted: Path,
     assert "INSERT OVERWRITE TABLE mart.job_outcomes" in write
 
 
-@pytest.mark.needs_example_database
 def test_a_partition_the_original_wrote_is_carried_over(started: Path) -> None:
     hive = ("INSERT OVERWRITE TABLE theirs.x PARTITION (dt='2026-09-24') "
             "SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'")
@@ -215,7 +206,6 @@ def test_a_partition_the_original_wrote_is_carried_over(started: Path) -> None:
         in logic
 
 
-@pytest.mark.needs_example_database
 def test_a_static_partitions_row_compare_reads_every_partition(started: Path) -> None:
     """Its query gives no dt, so the hint can't keep one Partition by it."""
     hive = ("INSERT OVERWRITE TABLE theirs.x PARTITION (dt='2026-09-24') "
@@ -227,7 +217,6 @@ def test_a_static_partitions_row_compare_reads_every_partition(started: Path) ->
     assert "reads_all_partitions=True))" in code and 'partition={"dt"' not in code
 
 
-@pytest.mark.needs_example_database
 def test_a_conversion_kept_whole_as_hive_is_refused_before_anything_is_made(
         started: Path) -> None:
     project.convert("kept", "SELECT j.job_id FROM ops.jobs j", query=example_database.query,
@@ -244,7 +233,6 @@ def test_a_conversion_kept_whole_as_hive_is_refused_before_anything_is_made(
     assert not (started / "references" / "mart__kept.py").exists()
 
 
-@pytest.mark.needs_example_database
 def test_convert_says_each_count_plainly_and_each_opt_out(converted: Path,
                                                           started: Path) -> None:
     said = repr(project.convert("again", HIVE, query=example_database.query, database="ops"))
@@ -256,7 +244,6 @@ def test_convert_says_each_count_plainly_and_each_opt_out(converted: Path,
     assert one.startswith("Converted one: 1 line of Hive")
 
 
-@pytest.mark.needs_example_database
 def test_a_conversion_removed_is_archived(converted: Path, started: Path) -> None:
     said = repr(project.remove_conversion("job_outcomes"))
     assert said.startswith("Moved admin/conversions/job_outcomes/ to admin/removed/")
@@ -320,7 +307,6 @@ SELECT a.run_id FROM a""",
 }
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("name", list(SAME_QUERY))
 def test_each_shape_converts_to_the_same_query(started: Path, name: str) -> None:
     project.convert(name, SAME_QUERY[name], query=example_database.query, database="ops")
@@ -350,7 +336,6 @@ WRITTEN_ANOTHER_WAY = {
 }
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("name", list(WRITTEN_ANOTHER_WAY))
 def test_each_shape_written_another_way_builds_and_says_how(started: Path, name: str) -> None:
     hive, said = WRITTEN_ANOTHER_WAY[name]

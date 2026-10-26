@@ -158,7 +158,6 @@ def test_set_lines_before_the_query_are_passed_over() -> None:
     assert compare_hive(runs_on(), insert).ok
 
 
-@pytest.mark.needs_example_database
 def test_set_lines_are_passed_over_when_comparing_the_rows_too() -> None:
     original = f"{SET_LINES}{ORIGINAL}"
     verdict = compare_with_original(not_tests(is_null(job_runs.status)), original,
@@ -246,7 +245,6 @@ def sent_through(answer: Callable[[str], pd.DataFrame], sent: list[str]
     return query
 
 
-@pytest.mark.needs_example_database
 def test_the_same_rows_match_null_with_null() -> None:
     sent = []
     verdict = compare_with_original(not_tests(is_null(job_runs.status)), ORIGINAL,
@@ -258,7 +256,6 @@ def test_the_same_rows_match_null_with_null() -> None:
     assert len(sent) == 1
 
 
-@pytest.mark.needs_example_database
 def test_rows_in_one_and_not_the_other_are_counted_and_shown() -> None:
     verdict = compare_with_original(not_tests(), ORIGINAL, query=example_database.query,
                                     partition={"dt": FIRST_DAY})
@@ -273,7 +270,6 @@ def test_rows_in_one_and_not_the_other_are_counted_and_shown() -> None:
         "     98   None 2026-09-23             0            1")
 
 
-@pytest.mark.needs_example_database
 def test_a_row_is_counted_as_many_times_as_it_comes() -> None:
     twice = f"{ORIGINAL} UNION ALL {ORIGINAL}"
     verdict = compare_with_original(not_tests(is_null(job_runs.status)), twice,
@@ -285,7 +281,6 @@ def test_a_row_is_counted_as_many_times_as_it_comes() -> None:
     assert "     95 SUCCESS 2026-09-23             1            2" in text
 
 
-@pytest.mark.needs_example_database
 def test_every_partition_is_compared_when_asked_and_said() -> None:
     verdict = compare_with_original(not_tests(is_null(job_runs.status)), ORIGINAL,
                                     query=example_database.query, reads_all_partitions=True)
@@ -293,7 +288,6 @@ def test_every_partition_is_compared_when_asked_and_said() -> None:
                              "Partition: 8 rows each.")
 
 
-@pytest.mark.needs_example_database
 def test_a_statement_reading_no_partitioned_table_needs_no_partition() -> None:
     teams = statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
     verdict = compare_with_original(teams, "SELECT job_id, team FROM ops.jobs",
@@ -301,7 +295,6 @@ def test_a_statement_reading_no_partitioned_table_needs_no_partition() -> None:
     assert repr(verdict) == "The Statement and the original give the same rows: 4 rows each."
 
 
-@pytest.mark.needs_example_database
 def test_derived_tables_of_one_name_on_both_sides_are_kept_apart() -> None:
     day = derived("day_runs", not_tests(is_null(job_runs.status)))
     converted = statement(SELECT(day.run_id, day.status, day.dt), FROM(day))
@@ -380,7 +373,6 @@ def test_a_star_over_a_table_the_statement_doesnt_read_is_still_refused() -> Non
             "List them in place of the *.") in message
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("original", [
     pytest.param("SELECT * FROM ops.job_runs WHERE COALESCE(status, '') <> 'TEST'",
                  id="a_table_the_statement_reads"),
@@ -431,7 +423,6 @@ def test_a_partition_that_names_no_partition_column_is_refused() -> None:
 UNBOUNDED = "SELECT run_id, status FROM ops.job_runs"
 
 
-@pytest.mark.needs_example_database
 def test_partition_may_name_a_partition_column_the_statement_doesnt_give() -> None:
     sent = []
     verdict = compare_with_original(runs_on(), UNBOUNDED, partition={"dt": DAY},
@@ -445,7 +436,6 @@ def test_partition_may_name_a_partition_column_the_statement_doesnt_give() -> No
     assert one_line.count("(SELECT * FROM ops.job_runs WHERE dt = '2026-09-24')") == 2, sent[0]
 
 
-@pytest.mark.needs_example_database
 def test_a_write_into_one_partition_is_compared_by_that_partition() -> None:
     saved = Table("mart.day_runs", columns={"run_id": "bigint", "status": "string",
                                             "dt": "string"},
@@ -505,7 +495,6 @@ def usual_fix(refused: pytest.ExceptionInfo) -> str:
     return str(refused.value).split("Usual fix:")[1].split("Opt-out:")[0]
 
 
-@pytest.mark.needs_example_database
 def test_unchecked_pieces_are_named_and_the_comparison_logged(tmp_path: Path) -> None:
     from sqlglot_composer import set_admin_log
 

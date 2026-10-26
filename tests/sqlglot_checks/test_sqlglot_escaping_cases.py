@@ -14,7 +14,6 @@ agree, not that Hive agrees with either; nothing on `dev` can ask Hive.
 
 from __future__ import annotations
 
-import re
 
 import pytest
 import sqlglot
@@ -46,22 +45,7 @@ HIVE = _hive_with_the_cores_escapes()
 
 STRING_IDS = [label for label, _value, _expected in STRING_CASES]
 IDENTIFIER_IDS = [label for label, _name, _expected in IDENTIFIER_CASES]
-# sqlglot writes a doubled backtick from 25.24.2 on, but reads one back only from 25.28.0.
-READS_A_DOUBLED_BACKTICK = (25, 28, 0)
-_found = re.match(r"(\d+)\.(\d+)\.(\d+)", sqlglot.__version__)
-SQLGLOT = tuple(int(n) for n in _found.groups()) if _found else (0, 0, 0)
-BACKTICK_LABELS = frozenset({"embedded_backtick", "hostile_name"})
-ROUND_TRIP_CASES = [
-    pytest.param(
-        *case,
-        id=case[0],
-        marks=pytest.mark.skipif(
-            case[0] in BACKTICK_LABELS and SQLGLOT < READS_A_DOUBLED_BACKTICK,
-            reason="sqlglot reads a doubled backtick back only from 25.28.0",
-        ),
-    )
-    for case in IDENTIFIER_CASES
-]
+ROUND_TRIP_CASES = [pytest.param(*case, id=case[0]) for case in IDENTIFIER_CASES]
 
 CONTROL_CHARACTER_VALUES = [
     value

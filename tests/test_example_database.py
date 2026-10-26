@@ -70,7 +70,6 @@ def test_its_query_doesnt_answer_a_session_setting() -> None:
         example_database.query("SET hive.exec.dynamic.partition=true")
 
 
-@pytest.mark.needs_example_database
 def test_its_execute_prints_the_first_line_and_changes_nothing(
         capsys: pytest.CaptureFixture[str]) -> None:
     before = len(example_database.query("SELECT job_id FROM ops.jobs"))
@@ -131,7 +130,6 @@ def test_a_query_sorts_itself_only_with_an_order_by_outside_every_bracket() -> N
     assert not example_database._sorts_itself("SELECT a FROM t WHERE b = 'ORDER BY x'")
 
 
-@pytest.mark.needs_example_database
 def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
     frame = run_query(statement(
         SELECT(job_runs.status, AS(count_rows(), "runs")),
@@ -148,7 +146,6 @@ def test_rows_come_back_sorted_when_the_query_leaves_their_order_open() -> None:
     ]
 
 
-@pytest.mark.needs_example_database
 def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
     from sqlglot_composer.refusals import RepeatedRowsWarning
 
@@ -166,7 +163,6 @@ def test_a_join_off_the_key_gives_the_inflated_number_and_a_warning() -> None:
     assert run_query(fixed, example_database.query).minutes[0] == 100
 
 
-@pytest.mark.needs_example_database
 def test_left_join_keeps_the_job_that_never_ran() -> None:
     s = statement(
         SELECT(jobs.job_name, AS(count_rows(where=equals(job_runs.status, "SUCCESS")), "ok")),
@@ -179,7 +175,6 @@ def test_left_join_keeps_the_job_that_never_ran() -> None:
     assert result == {"nightly_load": 3, "invoice_sync": 1, "report_build": 1, "cache_warm": 0}
 
 
-@pytest.mark.needs_example_database
 def test_count_distinct_is_right_on_the_executor() -> None:
     s = statement(SELECT(AS(count_distinct(job_runs.status), "statuses")), FROM(job_runs),
                   WHERE(last_n_days(job_runs.dt, 2)))
@@ -187,7 +182,6 @@ def test_count_distinct_is_right_on_the_executor() -> None:
     assert "COUNT(DISTINCT job_runs.status)" in to_hive(s)
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("condition", "names"),
     [
@@ -208,7 +202,6 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
 # --- What it refuses ---------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("hive", [
     "SELECT nope FROM ops.jobs",
     "SELECT job_id FROM mart.jobs",
@@ -239,7 +232,6 @@ def test_its_query_takes_only_hive_text(given: int | Statement | None) -> None:
         example_database.query(given)
 
 
-@pytest.mark.needs_example_database
 def test_a_tables_name_is_read_whatever_its_case() -> None:
     assert list(example_database.query("DESCRIBE OPS.Jobs").col_name)[:2] == ["job_id", "job_name"]
     assert len(example_database.query("SELECT job_id FROM OPS.jobs")) == 4

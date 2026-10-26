@@ -123,7 +123,6 @@ def test_check_table_reference_finds_each_one_matches(t: Table) -> None:
         f"{t._name} matches its Table reference.")
 
 
-@pytest.mark.needs_example_database
 def test_check_key_holds_on_one_region() -> None:
     verdict = check_key(budgets, query=example_database.query, where=equals(budgets.region, "eu"))
     assert str(verdict) == (
@@ -143,7 +142,6 @@ def test_a_read_of_region_budgets_names_its_regions() -> None:
         statement(SELECT(budgets.job_id), FROM(budgets))
 
 
-@pytest.mark.needs_example_database
 def test_a_read_of_team_notes_is_never_limited() -> None:
     found = run_query(statement(SELECT(notes.team, AS(count_rows(), "notes")), FROM(notes),
                                 GROUP_BY(notes.team)), example_database.query)
@@ -151,7 +149,6 @@ def test_a_read_of_team_notes_is_never_limited() -> None:
     assert found.set_index("team").notes.to_dict() == expected.to_dict()
 
 
-@pytest.mark.needs_example_database
 def test_a_join_onto_team_notes_is_warned_and_counts_each_job_once_per_note() -> None:
     """The Warning catches a wrong number: a team's jobs, counted after joining its notes,
     come out once per note."""

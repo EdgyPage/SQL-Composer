@@ -279,7 +279,6 @@ def test_a_union_of_statements_reading_different_days_fills_each_days_partition(
 # --- Stacks: on the Example database ---------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("stack, run_ids", [(UNION_ALL, [101, 102, 102]), (UNION, [101, 102]),
                                             (INTERSECT, [102]), (EXCEPT, [])])
 def test_each_stack_gives_its_rows(stack: Callable[..., Statement], run_ids: list[int]) -> None:
@@ -292,7 +291,6 @@ def owners_on(day: str) -> Statement:
                      WHERE(equals(job_owners.dt, day)))
 
 
-@pytest.mark.needs_example_database
 def test_except_both_ways_finds_where_two_tables_differ() -> None:
     teams = statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
     only_in_jobs = run_query(EXCEPT(teams, owners_on("2026-09-17")), example_database.query)
@@ -303,7 +301,6 @@ def test_except_both_ways_finds_where_two_tables_differ() -> None:
     assert agree.empty
 
 
-@pytest.mark.needs_example_database
 def test_two_reads_of_one_table_stack_each_ones_own_rows() -> None:
     # Toolbox 7.2, ticket 08: the executor once took both reads for one, as both were called
     # job_owners (or job_runs), and gave one read's rows twice.
@@ -489,7 +486,6 @@ def test_subtotals_lose_the_key() -> None:
 # --- Subtotals: on the Example database ------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_make_subtotals() -> None:
     with pytest.raises(RuntimeError, match="its executor has no GROUPING SETS"):
         run_query(runs_by(rollup(jobs.team, jobs.job_name)), example_database.query)

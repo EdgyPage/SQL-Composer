@@ -96,7 +96,6 @@ def test_each_query_of_the_chart_converts_to_the_same_hive(intermediate: Path,
             "query, once both are written out the same way.") in said, said
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("name", list(CHART))
 def test_each_query_of_the_chart_converts_to_the_same_rows(intermediate: Path,
                                                            name: str) -> None:

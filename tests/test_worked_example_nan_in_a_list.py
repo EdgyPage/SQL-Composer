@@ -36,7 +36,6 @@ def test_the_guard_refuses_a_nan_in_the_list() -> None:
     assert "Opt-out:        none" in message
 
 
-@pytest.mark.needs_example_database
 def test_the_careless_hive_would_count_no_rows() -> None:
     hive = to_hive(example.fixed())
     listed = "2.0"
@@ -45,6 +44,5 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     assert example_database.query(careless_hive).runs[0] == 0
 
 
-@pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_the_other_jobs_runs() -> None:
     assert run_query(example.fixed(), example_database.query).runs[0] == pandas_check() == 3

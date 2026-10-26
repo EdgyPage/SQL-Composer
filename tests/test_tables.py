@@ -11,7 +11,6 @@ from types import ModuleType
 
 import pandas as pd
 import pytest
-from conftest import skip_unless_the_example_database_runs
 
 from sqlglot_composer import (
     AS,
@@ -118,7 +117,6 @@ def test_a_format_spec_works_on_a_table_and_a_column_as_on_a_str() -> None:
 
 
 def test_the_text_of_a_table_and_its_columns_is_hive_that_runs() -> None:
-    skip_unless_the_example_database_runs()
     by_hand = unchecked_hive(f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} "
                              f"ORDER BY {jobs.job_id}")
     rows = run_query(by_hand, example_database.query)
@@ -368,7 +366,6 @@ def test_check_key_needs_a_key() -> None:
         check_key(t, query=example_database.query)
 
 
-@pytest.mark.needs_example_database
 def test_check_key_on_an_unpartitioned_table_reads_it_whole() -> None:
     assert repr(check_key(jobs, query=example_database.query)) == \
         "ops.jobs: the key (job_id) holds."
@@ -401,7 +398,6 @@ def test_check_key_reads_every_partition_when_asked() -> None:
     assert "WHERE" not in query.sent[-1]
 
 
-@pytest.mark.needs_example_database
 def test_check_key_reports_a_repeat_where_where_picks() -> None:
     alerts = Table("ops.run_alerts", columns={"alert_id": "bigint", "run_id": "bigint",
                    "severity": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"])
@@ -421,7 +417,6 @@ def test_first_look_reads_a_partitioned_table_with_no_where() -> None:
     assert hive.endswith("FROM ops.runs AS runs\nLIMIT 20")
 
 
-@pytest.mark.needs_example_database
 def test_first_look_runs_on_a_partitioned_table() -> None:
     from sqlglot_composer import run_query
 

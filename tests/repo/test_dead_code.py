@@ -55,7 +55,6 @@ PRIVATE_SEAMS = {
     ("tables", "_SET_IT"): "a fix text a test checks against the admin module",
     ("unchecked", "_ALTERED_BY"): "fix texts a test checks against the admin module",
     ("writing", "_REPLAY"): "the replay table a sqlglot check reads",
-    ("writing", "_writes_struct_colons"): "swapped by a sqlglot check for an old sqlglot",
     ("lineage", "_version"): "pinned by the page tools so pages don't name a dev version",
 }
 

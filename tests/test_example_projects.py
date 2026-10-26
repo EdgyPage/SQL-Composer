@@ -169,7 +169,6 @@ def test_each_building_block_was_made_by_new_block(name: str) -> None:
     assert "written by hand: no Project action" not in readme
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("name", example_project.PROJECTS)
 def test_the_check_references_notebook_checks_each_table(
         projects: dict[str, Path], capsys: pytest.CaptureFixture[str], name: str) -> None:
@@ -190,7 +189,6 @@ def test_the_check_references_notebook_checks_each_table(
         assert "ops.region_costs is partitioned by region and dt, so its Key" in said
 
 
-@pytest.mark.needs_example_database
 def test_the_check_references_notebooks_last_cell_checks_a_partitioned_tables_key(
         projects: dict[str, Path], capsys: pytest.CaptureFixture[str]) -> None:
     set_admin_log()
@@ -269,7 +267,6 @@ def test_an_incremental_table_writes_its_last_3_days(inside: Callable[..., Path]
     assert re.search(r"BETWEEN '2026-?09-?22' AND '2026-?09-?24'", hive), hive
 
 
-@pytest.mark.needs_example_database
 def test_a_write_of_several_days_writes_each_day_what_a_write_of_the_day_writes(
         inside: Callable[..., Path]) -> None:
     """A write of several days is one write: the rows a write of each day alone saves, put
@@ -387,14 +384,12 @@ def team_day_on(day: str, with_costs: bool = True) -> pd.DataFrame:
             .agg(lambda numbers: numbers.sum(min_count=1)).reset_index())
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_daily_job_runs_previews_each_jobs_runs(inside: Callable[..., Path], day: str) -> None:
     same(day_rows(reading_the_day(inside, "mart.daily_job_runs", day), day),
          runs_on(day))
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_alerts_per_job_previews_each_jobs_alerts(
         inside: Callable[..., Path], day: str) -> None:
@@ -402,7 +397,6 @@ def test_alerts_per_job_previews_each_jobs_alerts(
          alerts_on(day))
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_alerts_per_severity_previews_each_severitys_alerts(
         inside: Callable[..., Path], day: str) -> None:
@@ -412,7 +406,6 @@ def test_alerts_per_severity_previews_each_severitys_alerts(
     same(day_rows(reading_the_day(inside, "mart.alerts_per_severity", day), day), expected)
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", DAYS)
 def test_team_day_groups_each_teams_runs_from_job_runs(
         inside: Callable[..., Path], day: str) -> None:
@@ -421,20 +414,17 @@ def test_team_day_groups_each_teams_runs_from_job_runs(
     same(run_query(check, example_database.query), team_runs_on(day))
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_job_day_costs_previews_each_jobs_cost(inside: Callable[..., Path], day: str) -> None:
     same(day_rows(logic(inside, "intermediate", "mart.job_day_costs"), day), costs_on(day))
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_job_day_facts_previews_each_jobs_day_with_its_team_then(
         inside: Callable[..., Path], day: str) -> None:
     same(day_rows(logic(inside, "intermediate", "mart.job_day_facts"), day), facts_on(day))
 
 
-@pytest.mark.needs_example_database
 def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
         inside: Callable[..., Path]) -> None:
     logic_of = logic(inside, "intermediate", "mart.job_day_facts")
@@ -443,7 +433,6 @@ def test_job_day_facts_counts_a_job_for_the_team_it_had_then(
     assert teams == {"2026-09-14": "data", "2026-09-18": "finance"}
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_team_days_groups_each_teams_day_from_job_events(
         inside: Callable[..., Path], day: str) -> None:
@@ -451,7 +440,6 @@ def test_team_days_groups_each_teams_day_from_job_events(
     same(run_query(check, example_database.query), team_day_on(day, with_costs=False))
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("day", I_DAYS)
 def test_team_days_previews_each_teams_day_from_both_saved_tables(
         inside: Callable[..., Path], day: str) -> None:
@@ -467,7 +455,6 @@ def test_team_days_previews_each_teams_day_from_both_saved_tables(
     same(got, team_day_on(day))
 
 
-@pytest.mark.needs_example_database
 def test_the_quality_checks_find_no_repeated_event(inside: Callable[..., Path]) -> None:
     checks = logic(inside, "intermediate", "mart.job_events_checks")
     assert len(run_query(checks.repeated_keys(), example_database.query)) == 0
@@ -488,7 +475,6 @@ def overruns_in(region: str) -> pd.DataFrame:
             .agg(days=("dt", "size"), days_over=("over", "sum")).reset_index())
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("region", ["eu", "us"])
 def test_budget_overruns_counts_each_jobs_days_over_budget(
         inside: Callable[..., Path], region: str) -> None:
@@ -497,7 +483,6 @@ def test_budget_overruns_counts_each_jobs_days_over_budget(
          overruns_in(region))
 
 
-@pytest.mark.needs_example_database
 def test_job_notes_puts_each_note_beside_each_job_its_team_owned_that_day(
         inside: Callable[..., Path]) -> None:
     got = run_query(logic(inside, "intermediate", "mart.job_notes").preview(),

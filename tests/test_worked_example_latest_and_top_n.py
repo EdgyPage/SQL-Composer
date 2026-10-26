@@ -8,7 +8,6 @@ come from the wrong runs.
 from __future__ import annotations
 
 import pandas as pd
-import pytest
 
 from conftest import example_rows
 from sqlglot_composer import example_database, run_query
@@ -48,7 +47,6 @@ def test_the_checks_hold_the_numbers_the_docstrings_give() -> None:
     assert top_two_check() == {1: {104, 95}, 2: {102, 96}, 3: {97, 103}}
 
 
-@pytest.mark.needs_example_database
 def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
     careless = run_query(example.careless(), example_database.query).to_dict("records")
     right = latest_check()
@@ -58,13 +56,11 @@ def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
     assert [row["status"] for row in right] == ["SUCCESS", "FAILED", "SUCCESS"]
 
 
-@pytest.mark.needs_example_database
 def test_the_fixed_statement_gives_each_jobs_latest_run() -> None:
     assert run_query(example.fixed(), example_database.query).to_dict("records") == (
         latest_check())
 
 
-@pytest.mark.needs_example_database
 def test_the_top_n_statement_gives_each_jobs_two_longest_runs() -> None:
     top = run_query(example.top_runs_per_job(), example_database.query)
     assert list(top.columns) == ["job_id", "run_id", "duration_mins"]

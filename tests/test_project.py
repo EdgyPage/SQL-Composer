@@ -662,7 +662,6 @@ def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path
     assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"]
 
 
-@pytest.mark.needs_example_database
 def test_the_check_references_notebook_checks_each_table_and_its_key(
         started: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """ops.jobs' Key is checked; ops.team_notes has none; ops.job_runs is partitioned, so the
@@ -886,7 +885,6 @@ def on_the_path(root: Path) -> Iterator[None]:
             del sys.modules[module]
 
 
-@pytest.mark.needs_example_database
 def test_a_database_gives_its_tables_and_their_columns(started: Path) -> None:
     project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     with on_the_path(started):
@@ -899,7 +897,6 @@ def test_a_database_gives_its_tables_and_their_columns(started: Path) -> None:
         "SELECT jobs.job_id FROM ops.jobs AS jobs")
 
 
-@pytest.mark.needs_example_database
 def test_a_name_a_database_doesnt_have_names_the_tables_it_has(started: Path) -> None:
     project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     with on_the_path(started):

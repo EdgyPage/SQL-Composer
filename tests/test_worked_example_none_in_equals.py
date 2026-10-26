@@ -29,7 +29,6 @@ def test_the_guard_refuses_none_in_equals() -> None:
     assert "Opt-out:        none" in message
 
 
-@pytest.mark.needs_example_database
 def test_the_careless_hive_would_count_no_rows() -> None:
     equal_to_none, _ = pandas_check()
     hive = to_hive(example.fixed())
@@ -38,7 +37,6 @@ def test_the_careless_hive_would_count_no_rows() -> None:
     assert example_database.query(careless_hive).running[0] == equal_to_none == 0
 
 
-@pytest.mark.needs_example_database
 def test_the_fixed_statement_finds_the_run_still_going() -> None:
     _, missing = pandas_check()
     assert run_query(example.fixed(), example_database.query).running[0] == missing == 1

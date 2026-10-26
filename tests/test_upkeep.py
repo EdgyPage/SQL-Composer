@@ -334,7 +334,6 @@ def test_repair_and_count_go_to_execute_which_the_example_database_only_prints(
         assert capsys.readouterr().out == f"execute: {to_hive(s)}\n"
 
 
-@pytest.mark.needs_example_database
 def test_the_example_database_says_it_cant_explain() -> None:
     with pytest.raises(RuntimeError, match="its executor has no EXPLAIN"):
         run_query(explain(one_day()), example_database.query)

@@ -30,11 +30,11 @@ def _stop(what: str, why: str, fix: str) -> NoReturn:
     _core_stop(what, why, fix, folder=__name__.split(".")[0])
 
 
-_LOWEST = (25, 24, 2)
+# The supported range: 30.19.0, where the Example database's executor first counts
+# COUNT(DISTINCT ...) right, up to (not including) 31. CI runs the pin, _NEWEST_TESTED.
+_LOWEST = (30, 19, 0)
 _BELOW = (31, 0, 0)
 _NEWEST_TESTED = (30, 23, 0)
-# The executor counts COUNT(DISTINCT ...) right only from 30.19.0.
-_EXECUTOR_NEEDS = (30, 19, 0)
 
 
 # --- sqlglot ------------------------------------------------------------------------------------
@@ -51,8 +51,8 @@ def _numbers(text: str) -> tuple[int, ...] | None:
 
 _IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
-# What to install where an older sqlglot writes something wrong: the one the Toolbox is tested on,
-# or a newer one in its range.
+# What to install where a sqlglot in the range behaves wrongly: the one the Toolbox is tested
+# on, or a newer one in its range.
 INSTALL_NEWER = (f'Install a newer sqlglot from a notebook cell with %pip install '
                   f'"sqlglot>={_dotted(_NEWEST_TESTED)},<{_dotted(_BELOW)}", then restart the '
                   f"kernel. {_NO_INSTALLING}")
@@ -138,36 +138,20 @@ def _sqlglot_behaviour() -> list[str]:
 # --- The Example database's executor --------------------------------------------------------
 
 
-def example_database_cannot_run() -> str | None:
-    """Why the Example database can't run a query here, or None when it can."""
-    import sqlglot
-
-    version = _numbers(sqlglot.__version__) or (0, 0, 0)
-    if version < _EXECUTOR_NEEDS:
-        return f"the Example database runs queries only on sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer"
-    return None
-
-
 def _executor_ready() -> None:
     """Stop with a plain message when sqlglot's executor would give wrong answers."""
     import sqlglot
 
-    if example_database_cannot_run() is None:
-        # Imported only when a query runs: the rest of the Toolbox never needs the executor.
-        from sqlglot.executor import execute
+    # Imported only when a query runs: the rest of the Toolbox never needs the executor.
+    from sqlglot.executor import execute
 
-        check = execute("SELECT COUNT(DISTINCT x) AS n FROM t", dialect="hive",
-                        tables={"t": [{"x": "a"}, {"x": "a"}, {"x": "b"}, {"x": None}]})
-        if check.rows == [(2,)]:
-            return
-        what = ("The Example database runs queries on sqlglot's own executor, and sqlglot "
-                f"{sqlglot.__version__}'s counts COUNT(DISTINCT ...) wrong.")
-    else:
-        what = ("The Example database runs queries on sqlglot's own executor, which needs "
-                f"sqlglot {_dotted(_EXECUTOR_NEEDS)} or newer to count correctly. This Python "
-                f"has sqlglot {sqlglot.__version__}.")
+    check = execute("SELECT COUNT(DISTINCT x) AS n FROM t", dialect="hive",
+                    tables={"t": [{"x": "a"}, {"x": "a"}, {"x": "b"}, {"x": None}]})
+    if check.rows == [(2,)]:
+        return
     raise RuntimeError(four_part_message(
-        what=what,
+        what="The Example database runs queries on sqlglot's own executor, and sqlglot "
+        f"{sqlglot.__version__}'s counts COUNT(DISTINCT ...) wrong.",
         why="An executor that counts COUNT(DISTINCT ...) wrong says nothing about it.",
         fix=f"{INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
         "still shows a Statement's Hive.",
@@ -408,8 +392,8 @@ def _within(inner: exp.Expression, outer: exp.Expression) -> bool:
 
 
 def _with_of(query: exp.Expression) -> exp.With | None:
-    """A query's WITH, under the name this sqlglot gives it, or None."""
-    return query.args.get("with_", query.args.get("with"))
+    """A query's WITH, or None."""
+    return query.args.get("with_")
 
 
 def _where_in_with(query: exp.Expression, tree: exp.Expression) -> int:
@@ -510,8 +494,7 @@ def _without_windows(tree: exp.Expression, query: exp.Select, read: list[exp.Exp
     around = _with_of(tree)
     before = around.expressions[:_where_in_with(query, tree)] if around is not None else []
     if query is not tree and before and _with_of(without) is None:
-        without.set("with_" if "with_" in type(without).arg_types else "with",
-                    exp.With(expressions=[one.copy() for one in before]))
+        without.set("with_", exp.With(expressions=[one.copy() for one in before]))
     return without
 
 

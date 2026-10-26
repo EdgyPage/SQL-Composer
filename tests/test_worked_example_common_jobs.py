@@ -36,7 +36,6 @@ def result(s: Statement) -> list[dict[str, object]]:
 # --- jobs_that_never_ran --------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_the_anti_join_finds_the_job_with_no_runs() -> None:
     jobs = example_rows("jobs")
     never = jobs[~jobs.job_id.isin(runs().job_id)]
@@ -45,7 +44,6 @@ def test_the_anti_join_finds_the_job_with_no_runs() -> None:
     assert list(never.job_name) == ["cache_warm"]
 
 
-@pytest.mark.needs_example_database
 def test_the_semi_join_lists_each_job_that_ran_once() -> None:
     jobs = example_rows("jobs")
     ran = jobs[jobs.job_id.isin(runs().job_id)]
@@ -57,7 +55,6 @@ def test_the_semi_join_lists_each_job_that_ran_once() -> None:
 # --- labels_and_counts ----------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_labels_fill_null_and_split_by_length() -> None:
     expected = pd.DataFrame({
         "run_id": runs().run_id,
@@ -67,7 +64,6 @@ def test_labels_fill_null_and_split_by_length() -> None:
     assert result(labels_and_counts.labelled_runs()) == expected.to_dict("records")
 
 
-@pytest.mark.needs_example_database
 def test_one_row_per_job_with_a_count_of_each_outcome() -> None:
     found = runs().assign(
         succeeded=runs().status.eq("SUCCESS"),
@@ -79,7 +75,6 @@ def test_one_row_per_job_with_a_count_of_each_outcome() -> None:
         expected.reset_index().to_dict("records"))
 
 
-@pytest.mark.needs_example_database
 def test_each_jobs_failed_runs_as_a_percent_of_its_runs() -> None:
     per_job = runs().assign(failed=runs().status.eq("FAILED")).groupby("job_id").failed
     expected = (per_job.sum() * 100.0 / per_job.size()).rename("failed_percent")
@@ -97,14 +92,12 @@ def watched_runs() -> pd.DataFrame:
     return runs()[runs().job_id.isin([1, 2])]
 
 
-@pytest.mark.needs_example_database
 def test_is_in_reads_the_list_kept_as_a_constant() -> None:
     assert named_lists_and_lookups.WATCHED_JOBS == [1, 2]
     assert result(named_lists_and_lookups.runs_of_watched_jobs()) == (
         watched_runs()[["run_id", "job_id"]].to_dict("records"))
 
 
-@pytest.mark.needs_example_database
 def test_the_lookup_and_the_chain_give_each_run_its_labels() -> None:
     labels = {"SUCCESS": "passed", "FAILED": "failed", "TEST": "test run"}
     expected = pd.DataFrame({
@@ -122,7 +115,6 @@ def test_the_lookup_and_the_chain_give_each_run_its_labels() -> None:
 # --- groups_and_top_n -----------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_distinct_counts_having_and_top_n() -> None:
     assert sorted(row["team"] for row in result(groups_and_top_n.teams())) == sorted(
         example_rows("jobs").team.unique())
@@ -143,7 +135,6 @@ def test_distinct_counts_having_and_top_n() -> None:
 # --- lists_and_text -------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("statement", "keep"),
     [
@@ -161,14 +152,12 @@ def test_lists_and_either_condition(statement: str,
     assert [row["run_id"] for row in found] == list(kept.run_id)
 
 
-@pytest.mark.needs_example_database
 def test_the_still_running_run_is_dropped_by_not_in_and_kept_by_is_null() -> None:
     dropped = [row["run_id"] for row in result(lists_and_text.runs_that_did_not_pass())]
     kept = [row["run_id"] for row in result(lists_and_text.runs_to_check())]
     assert 98 not in dropped and 98 in kept
 
 
-@pytest.mark.needs_example_database
 def test_text_matching_takes_underscore_as_itself() -> None:
     jobs = example_rows("jobs")
     names = jobs.job_name
@@ -180,7 +169,6 @@ def test_text_matching_takes_underscore_as_itself() -> None:
 # --- step_by_step ---------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_each_step_reads_the_one_before_it() -> None:
     per_job = runs().groupby("job_id").agg(runs=("run_id", "size"),
                                             minutes=("duration_mins", "sum"))

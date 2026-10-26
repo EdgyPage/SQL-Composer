@@ -7,7 +7,6 @@ pandas' own `!=`, which keeps the NULL row.
 
 from __future__ import annotations
 
-import pytest
 
 from conftest import example_rows
 from sqlglot_composer import example_database, run_query
@@ -27,7 +26,6 @@ def test_both_statements_build_with_no_guard_or_warning() -> None:
     example.fixed()
 
 
-@pytest.mark.needs_example_database
 def test_the_careless_statement_drops_the_run_still_going() -> None:
     sql_count, pandas_count = pandas_check()
     result = run_query(example.careless(), example_database.query)
@@ -35,7 +33,6 @@ def test_the_careless_statement_drops_the_run_still_going() -> None:
     assert pandas_count == 4
 
 
-@pytest.mark.needs_example_database
 def test_the_fixed_statement_counts_it_as_pandas_does() -> None:
     _, pandas_count = pandas_check()
     assert run_query(example.fixed(), example_database.query).runs[0] == pandas_count == 4

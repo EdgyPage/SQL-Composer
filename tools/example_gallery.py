@@ -58,7 +58,6 @@ from sqlglot_composer import conditions, example_database, kinds  # noqa: E402
 from sqlglot_composer.clauses import Statement  # noqa: E402
 from sqlglot_composer.python_steps import PythonStep  # noqa: E402
 from sqlglot_composer.unchecked import SessionSettings, UncheckedStatement  # noqa: E402
-from sqlglot_composer import engine  # noqa: E402
 
 GALLERY = ROOT / toolbox_registry.FOLDER / "examples.html"
 
@@ -628,10 +627,6 @@ def pandas_results_by_hive(scripts: list[ModuleType]) -> dict[str, Callable[...,
 
 def gallery_page() -> str:
     """The whole page, as one HTML string."""
-    cannot_run = engine.example_database_cannot_run()
-    if cannot_run is not None:
-        raise RuntimeError(f"The Example gallery runs every Statement on the Example database, "
-                           f"and {cannot_run}.")
     scripts = statement_scripts()
     pandas_results = pandas_results_by_hive(scripts)
     # Common jobs first, then the wrong numbers and their fixes; each list in file-name order.

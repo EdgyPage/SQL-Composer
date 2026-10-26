@@ -35,7 +35,6 @@ def test_adds_up_true_lets_the_careless_statement_through() -> None:
     example.careless(adds_up=True)
 
 
-@pytest.mark.needs_example_database
 def test_the_pandas_results_give_the_wrong_and_the_right_count() -> None:
     added_up, right = pandas_check()
     careless = example.careless_in_pandas()

@@ -225,7 +225,6 @@ def test_check_table_reference_gives_region_costs_partition_line(
             'partitioned_by=["region", "dt"],') in str(verdict)
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(("t", "where", "said"), [
     (events, equals(events.dt, "2026-09-24"),
      "ops.job_events: the key (event_id) holds where job_events.dt = '2026-09-24'."),
@@ -241,7 +240,6 @@ def test_check_key_holds_on_each(t: Table, where: Condition, said: str) -> None:
     assert str(verdict) == said
 
 
-@pytest.mark.needs_example_database
 def test_check_key_reads_every_partition_only_when_told() -> None:
     with pytest.raises(ValueError, match="nothing says which Partitions to check"):
         check_key(costs, query=example_database.query)
@@ -252,7 +250,6 @@ def test_check_key_reads_every_partition_only_when_told() -> None:
 # --- Queries ----------------------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_events_per_type_over_the_14_days() -> None:
     s = statement(
         SELECT(events.event_type, AS(count_rows(), "events")),
@@ -266,7 +263,6 @@ def test_events_per_type_over_the_14_days() -> None:
     assert sum(found.values()) == len(rows)
 
 
-@pytest.mark.needs_example_database
 def test_each_jobs_team_on_the_day_it_changes() -> None:
     def teams_on(day: str) -> dict[int, str]:
         s = statement(SELECT(owners.job_id, owners.team), FROM(owners),
@@ -279,7 +275,6 @@ def test_each_jobs_team_on_the_day_it_changes() -> None:
     assert teams_on("2026-09-17")[3] != teams_on("2026-09-18")[3]
 
 
-@pytest.mark.needs_example_database
 def test_finished_minutes_per_team_as_of_each_day() -> None:
     """Joined on the day, each run counts for the team its job was in that day."""
     s = statement(
@@ -297,7 +292,6 @@ def test_finished_minutes_per_team_as_of_each_day() -> None:
     assert found == joined.groupby("team").minutes.sum().to_dict()
 
 
-@pytest.mark.needs_example_database
 def test_cost_per_region_over_a_week_of_compact_days() -> None:
     s = statement(
         SELECT(costs.region, AS(sum_of(costs.cost_cents), "cents")),
@@ -313,7 +307,6 @@ def test_cost_per_region_over_a_week_of_compact_days() -> None:
                      in week.groupby("region").cost_cents.sum().items()}
 
 
-@pytest.mark.needs_example_database
 def test_last_n_days_writes_days_with_dashes_whatever_the_column_holds() -> None:
     """A day is compared as it is written: last_n_days writes 2026-09-18, which none of
     region_costs' days, written like 20260918, equals, so a read of them compares them with
@@ -334,7 +327,6 @@ def test_a_day_is_written_as_given_whatever_the_column_holds() -> None:
     assert repr(between(costs.dt, "2026-09-14", "2026-09-20")) == repr(as_dates)
 
 
-@pytest.mark.needs_example_database
 def test_one_region_alone_filters_the_partitions_read() -> None:
     """region is region_costs' first partition column, so filtering it alone is enough."""
     s = statement(
@@ -373,7 +365,6 @@ def test_a_snapshot_for_every_job_on_every_day() -> None:
 # --- What the intermediate how-tos run on the Example database ------------------------------
 
 
-@pytest.mark.needs_example_database
 def test_distinct_event_types_per_job() -> None:
     s = statement(
         SELECT(events.job_id, AS(count_distinct(events.event_type), "types")),
@@ -385,7 +376,6 @@ def test_distinct_event_types_per_job() -> None:
     assert found == example_rows("job_events").groupby("job_id").event_type.nunique().to_dict()
 
 
-@pytest.mark.needs_example_database
 def test_the_newest_snapshot_day_per_job() -> None:
     s = statement(
         SELECT(owners.job_id, AS(max_of(owners.dt), "newest")),
@@ -397,7 +387,6 @@ def test_the_newest_snapshot_day_per_job() -> None:
     assert found == example_rows("job_owners").groupby("job_id").dt.max().to_dict()
 
 
-@pytest.mark.needs_example_database
 def test_a_missing_cost_filled_and_labelled() -> None:
     s = statement(
         SELECT(costs.job_id, AS(fill_null(costs.cost_cents, 0), "cents"),
@@ -411,7 +400,6 @@ def test_a_missing_cost_filled_and_labelled() -> None:
     assert list(found.cost) == ["missing" if pd.isna(c) else "known" for c in day.cost_cents]
 
 
-@pytest.mark.needs_example_database
 def test_a_derived_table_of_events_per_day_is_read_by_the_next_step() -> None:
     per_day = derived("events_per_day", statement(
         SELECT(events.dt, AS(count_rows(), "events")),

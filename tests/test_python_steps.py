@@ -398,7 +398,6 @@ def python_table(a_project: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return a_project
 
 
-@pytest.mark.needs_example_database
 def test_a_dry_run_prints_it_in_order_as_comment_lines(
         python_table: Path, capsys: pytest.CaptureFixture[str]) -> None:
     capsys.readouterr()
@@ -411,7 +410,6 @@ def test_a_dry_run_prints_it_in_order_as_comment_lines(
     assert repr(report) == "Printed 2 writes in order, and sent nothing. Pass execute= to run them."
 
 
-@pytest.mark.needs_example_database
 def test_run_tables_passes_over_it_and_sends_the_rest_in_order(
         python_table: Path, capsys: pytest.CaptureFixture[str]) -> None:
     capsys.readouterr()
