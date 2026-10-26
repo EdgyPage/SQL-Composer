@@ -15597,7 +15597,9 @@ Found:
   line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
   line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...), with the same partitions
   line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
-  line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet</pre>
+  line 20: the CASE WHEN chain of 2 conditions becomes first_match(...), which tries them in order, as CASE does
+  line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet
+  line 22: upper(...) is a Hive function no Toolbox function wraps: hive_function(&quot;upper&quot;, ...) writes it</pre>
 <p>Both tables have Table references in this Project already. One that has none is listed by the scan, under &quot;No Table reference yet&quot;, and the next step adds it, through your query.</p>
 <p>Its SET line becomes HIVE_SETTINGS, a dict of the settings by the name of the step they go before, here &quot;converted&quot;, and session_settings() in the logic gives them as Session settings. Send those with run_execute before the table&#x27;s write(), as the original sent its SET lines first: write() sends only the query.</p>
 <h5>Convert it</h5>
@@ -15745,7 +15747,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
   - line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
   - line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table&#x27;s write, INSERT_OVERWRITE(...), with the same partitions
   - line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
+  - line 20: the CASE WHEN chain of 2 conditions becomes first_match(...), which tries them in order, as CASE does
   - line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet
+  - line 22: upper(...) is a Hive function no Toolbox function wraps: hive_function(&quot;upper&quot;, ...) writes it
 - Opt-out added, marked # CONVERSION: at its line: JOIN(o, reads_all_partitions=True)
 - Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
 <p class="note">It writes <code>admin/conversions/weekly_events/original.hql</code> too.</p>

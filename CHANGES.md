@@ -24,7 +24,8 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   `admin/convert.ipynb`, or name its file. `project.scan_hive(...)` says what a Conversion of it
   would make, and changes nothing: the tables it reads, which have no Table reference yet, and,
   line by line, each long `IN` list and lookup `CASE` that becomes a named constant, and each
-  piece no Toolbox function writes yet, which stays Hive. `project.convert("name", HIVE,
+  piece no Toolbox function writes yet, which stays Hive, and each it writes another way, such
+  as an if/else chain as `first_match`. `project.convert("name", HIVE,
   query=query)` adds the missing Table references and writes `admin/conversions/<name>/`: the
   Hive as given, what the scan found, and a notebook whose logic builds the same query from the
   Toolbox's own functions. Every CTE is a Derived table; every INSERT form is read, `INSERT INTO`

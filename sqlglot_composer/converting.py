@@ -2,8 +2,7 @@
 
 convert_query(text, columns_of) reads one Hive query with sqlglot and gives back a
 ConvertedQuery: the Python that builds the same query from Clause functions, as a Table
-notebook's logic holds it,
-and what it found on the way, each with its line in the Hive. What no Toolbox function writes
+notebook's logic holds it, and what it found on the way, each with its line in the Hive. What no Toolbox function writes
 yet is kept as Hive at the smallest size it can be (ADR 0014): one function the Toolbox doesn't
 wrap becomes hive_function(...); one expression no function writes, an Unchecked expression;
 one CTE no Statement can be, an Unchecked derived table; a query the Toolbox can't read at
@@ -326,9 +325,9 @@ class _Converter:
         self.result.names.add(name)
         return name
 
-    def found(self, node: exp.Expression, kind: str, text: str) -> None:
+    def found(self, node: exp.Expression, kind: str, said: str) -> None:
         """Note a finding at the line of the Hive `node` starts on, once."""
-        finding = Finding(_line(node, self.text), kind, text)
+        finding = Finding(_line(node, self.text), kind, said)
         if finding not in self.result.findings:
             self.result.findings.append(finding)
 
@@ -364,12 +363,12 @@ class _Converter:
                 self.found(table, "table", f"{full} has no Table reference yet")
 
     def variables(self) -> None:
-        """Note each Hive variable, such as ${hivevar:day}, kept in the Hive as text."""
+        """Note each ${...} in the Hive, such as ${hivevar:day}, kept in it as text."""
         for found in re.finditer(r"\$\{[^}]*\}", self.text):
             finding = Finding(self.text.count("\n", 0, found.start()) + 1, "variable",
-                              f"{found.group()} is a Hive variable, kept as written: your query "
-                              "must put its value in before it sends the Hive, as Hive's own "
-                              "client does")
+                              f"{found.group()} is kept as written, for Hive's own client to "
+                              "fill in: your query must put its value in before it sends the "
+                              "Hive")
             if finding not in self.result.findings:
                 self.result.findings.append(finding)
 
@@ -747,6 +746,8 @@ class _Converter:
         pairs = [f"({self.condition_or_unchecked(condition, scope)}, "
                  f"{self.column_or_unchecked(then, scope)})" for condition, then in keyed]
         listed = "[\n" + "".join(f"    {_indented(pair, 4)},\n" for pair in pairs) + "]"
+        self.found(node, "changed", f"the CASE WHEN chain of {len(pairs)} conditions becomes "
+                   "first_match(...), which tries them in order, as CASE does")
         return f"{self.use('first_match')}({_indented(listed, 0)}{otherwise})"
 
     def mapped(self, keyed: list[tuple[exp.Expression, exp.Expression]], otherwise: str,
@@ -797,6 +798,8 @@ class _Converter:
             raise Unconvertible(f"no Toolbox function writes {_called(node)} yet, and "
                                 "hive_function(...) would write it differently")
         values = [self.column_or_unchecked(one, scope) for one in arguments]
+        self.found(node, "changed", f"{name}(...) is a Hive function no Toolbox function wraps: "
+                   f'hive_function("{name}", ...) writes it')
         return f"{self.use('hive_function')}({_string(name)}{''.join(', ' + v for v in values)})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:
@@ -1174,9 +1177,19 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
         parsed = [one for one in read_hive(text) if one is not None]
     except sqlglot.errors.ParseError as error:
         raise ConversionRefused(f"sqlglot can't read it as Hive: {error}") from error
-    queries = [one for one in parsed if not isinstance(one, exp.Set)]
-    sets = [one for one in parsed if isinstance(one, exp.Set)]
+    # A SET line sqlglot can't look inside, such as SET hivevar:day=..., it reads as a Command.
+    commands = [one for one in parsed
+                if isinstance(one, exp.Command) and str(one.this).upper() == "SET"]
+    queries = [one for one in parsed if not isinstance(one, exp.Set) and one not in commands]
+    sets = [one for one in parsed if isinstance(one, exp.Set) or one in commands]
+    for one in commands:
+        # The text after SET: a string, or a Literal holding it, by sqlglot's version.
+        said = one.expression.this if isinstance(one.expression, exp.Literal) else one.expression
+        name, _, value = str(said).strip().partition("=")
+        result.settings[name.strip()] = value.strip()
     for one in sets:
+        if one in commands:
+            continue
         for item in one.expressions:
             assigned = item.this
             value = assigned.expression
@@ -1185,7 +1198,9 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
                 else value.this if isinstance(value, exp.Literal) else sql_text(value))
     if sets:
         result.findings.append(Finding(
-            _line(sets[0], text), "settings",
+            # A Command notes no line, so the first SET is found in the text.
+            _line(sets[0], text) or text.count("\n", 0, re.search(
+                r"^[ \t]*SET\b", text, re.IGNORECASE | re.MULTILINE).start()) + 1, "settings",
             f"its {'SET line is' if len(sets) == 1 else f'{len(sets)} SET lines are'} the "
             "Session settings HIVE_SETTINGS, which session_settings() gives"))
     if len(queries) != 1:

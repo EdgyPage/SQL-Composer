@@ -149,3 +149,6 @@ commit after b341cc5's merge of 03 and 08's fixes.
   - 20 ("kept in admin/removed/"): fixed, "archived, kept as it was, in".
   - 21 (the day hard-coded): answered, the Conversion keeps the original's days; making one a
     parameter is the user's step, as in how-to "Save a table".
+- Also fixed, beside these: compare_hive took an explicit ASC, which the Toolbox writes, as a
+  difference from the original's ORDER BY without one; `writing.normalised_query` now writes
+  ASC out on both sides, so a ROWS frame, a window's ORDER BY and a plain ORDER BY round-trip.

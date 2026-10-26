@@ -101,3 +101,18 @@ Built 2026-10-26 on dev.
     itself against version.txt.
   - 16 (the README's Update step): answered, 7.0's Project is upgraded after 7.1's "To update
     from 7.0", as step 6 says.
+- Code review of e86946b (2026-10-26):
+  - Spec: fixed, the scan now names the CASE WHEN chain that becomes first_match(...) and each
+    function hive_function(...) writes, so the how-to shows both. Answered, each recorded in the
+    Answer above: the sample ships on the how-to page, in the Toolbox's folder, rather than in
+    example_database.py, which holds tables, not Hive; no sample stays an Unchecked derived
+    table; the Example project's Conversion is a second sample, decided as a user decides one;
+    the Upgrade how-to runs on a copy of the Intermediate project. D273 to D276 are ticked in the
+    commit after, as each drift fix is, naming its fixing commit.
+  - Standards: no hard breach. Fixed: "Hive variable", not a glossary word, is gone from the
+    finding, which says what ${...} is in plain words; `_with_opt_outs` no longer takes an
+    AttributeError for a refusal; `Converter.found`'s message is `said`, apart from the Hive's
+    `text`; the module docstring's broken line. Answered: "CTE" is the other team's word, used
+    only where a finding or the how-to names what their Hive holds, beside the Derived table it
+    becomes; the Finding kinds stay strings, listed in Finding's docstring, as the refusals'
+    kinds are; the denser helpers of converting.py are left as they are.
