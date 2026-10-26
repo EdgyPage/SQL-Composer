@@ -45,8 +45,10 @@ INSERT ... INSERT, so that fallback stays, saying so. The full suite passes on b
 
 Beyond the list: the escaping tests' skip below 25.28.0 went with the rest, and the
 Example database keeps its own check of the executor's COUNT(DISTINCT ...), now tested by
-making it count wrong, as the version test it had can no longer happen. Every install advice
-now names the one sqlglot the Toolbox is tested on, `sqlglot==30.23.0`.
+making it count wrong, as the version test it had can no longer happen. Where sqlglot is
+missing or out of the range, every install advice names the one the Toolbox is tested on,
+`sqlglot==30.23.0`; where one in the range counts wrong, the executor's stop asks for that one
+or newer.
 
 ## Reviews
 
