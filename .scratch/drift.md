@@ -293,6 +293,7 @@ any item is open.
 - [x] D283 | 031d36a | worked-example | how-to 13 still says, under `newest_owner` (`worked_examples/how_to/13_look_things_up_as_of_a_day.py` lines 220-223, and so `sqlglot_composer/how_to.html` line 8067), that pasted into a notebook this `run_query` "stops with a RuntimeError" because the Example database "has no `row_number`" and that "The result above was worked out in pandas", but since 031d36a the Example database runs `row_number` and the page now labels that result "Python shows". Drop the paragraph, and the now-unused `newest_owner_in_pandas` stand-in (lines 329-350), as 031d36a did for how-tos 10 and 17, then rebuild the page. - closed by d0122dd
 - [x] D284 | 031d36a | docstring | `tools/example_gallery.py`'s module docstring (lines 22-23) says a pandas result stands in "Where the Example database can't run a Statement, as it can't run row_number or week_start", but since 031d36a it runs row_number and the gallery shows its rows. Name only week_start, e.g. "as it can't run week_start". - closed by d0122dd
 - [x] D285 | 031d36a | docstring | `tools/how_to_page.py`'s module docstring (lines 56-57) gives "one with row_number or week_start" as a Statement whose Hive the Example database can't run, but since 031d36a it runs row_number. Name week_start alone, e.g. "such as one with week_start". - closed by d0122dd
+- [x] D286 | c26989b | docstring | `sqlglot_composer/engine.py`'s comment on its TYPE_CHECKING imports (lines 21-22) says tables.py "imports writing.py, which imports this file", but c26989b took `from .engine import INSTALL_NEWER` out of writing.py, and neither writing.py nor tables.py imports engine.py now: say why `Table` is imported only for hints as it now stands, or import it plainly if nothing cycles. - closed by 192cca1
 
 ## Reviewed commits
 
@@ -645,3 +646,4 @@ any item is open.
 - 0173d46: clean
 - 031d36a: D283, D284, D285
 - d0122dd: clean
+- c26989b: D286
