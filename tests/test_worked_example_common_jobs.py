@@ -18,6 +18,7 @@ from statements import (
     jobs_that_never_ran,
     labels_and_counts,
     lists_and_text,
+    named_lists_and_lookups,
     step_by_step,
 )
 
@@ -86,6 +87,36 @@ def test_each_jobs_failed_runs_as_a_percent_of_its_runs() -> None:
         expected.reset_index().to_dict("records"))
     assert [row["failed_percent"] for row in expected.reset_index().to_dict("records")] == [
         0.0, 100.0 / 3, 50.0]
+
+
+# --- named_lists_and_lookups ----------------------------------------------------------------
+
+
+def watched_runs() -> pd.DataFrame:
+    """The runs of jobs 1 and 2, the list the Worked example keeps as WATCHED_JOBS."""
+    return runs()[runs().job_id.isin([1, 2])]
+
+
+@pytest.mark.needs_example_database
+def test_is_in_reads_the_list_kept_as_a_constant() -> None:
+    assert named_lists_and_lookups.WATCHED_JOBS == [1, 2]
+    assert result(named_lists_and_lookups.runs_of_watched_jobs()) == (
+        watched_runs()[["run_id", "job_id"]].to_dict("records"))
+
+
+@pytest.mark.needs_example_database
+def test_the_lookup_and_the_chain_give_each_run_its_labels() -> None:
+    labels = {"SUCCESS": "passed", "FAILED": "failed", "TEST": "test run"}
+    expected = pd.DataFrame({
+        "run_id": watched_runs().run_id,
+        "outcome": [labels.get(status, "still running") for status in watched_runs().status],
+        "length": ["long" if m > 30 else "medium" if m > 10 else "short"
+                   for m in watched_runs().duration_mins],
+    })
+    assert result(named_lists_and_lookups.labelled_runs()) == expected.to_dict("records")
+    # Every key, the run still going, and every length are in the rows, so each is shown.
+    assert set(expected.outcome) == {"passed", "failed", "test run", "still running"}
+    assert set(expected.length) == {"long", "medium", "short"}
 
 
 # --- groups_and_top_n -----------------------------------------------------------------------

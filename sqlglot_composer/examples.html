@@ -24,8 +24,8 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 </style></head><body>
 <header>
 <h1>sqlglot Composer 7.2: Example gallery</h1>
-<p>Every Worked example on one page: 13 Worked examples on their own, and the
-122 examples from the Toolbox's docstrings. Each shows its Python and, for each
+<p>Every Worked example on one page: 14 Worked examples on their own, and the
+124 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -59,6 +59,7 @@ from <code>example_database</code>, whose Table references ship inside the Toolb
 <li><a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a></li>
 <li><a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></li>
 <li><a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></li>
+<li><a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></li>
 <li><a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
 <li><a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a></li>
 </ul>
@@ -73,7 +74,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -471,6 +472,94 @@ WHERE
 <tr><td>3</td><td>report_build</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>is_in</code>, <code>is_not_in</code>, <code>contains</code>, <code>starts_with</code>, <code>any_of</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="named_lists_and_lookups">
+<h3>Keep a long list and a lookup as constants, and an if/else chain as one CASE.</h3>
+<p class="why">Why: a list or a lookup pasted into each Statement, as hand-written Hive often has them, must be found and changed in every one, where a constant at the top of the script, named for what it holds, is changed once.</p>
+<p class="label">The top of its script, named_lists_and_lookups.py, a Table notebook&#x27;s logic cell in a Project</p>
+<pre class="python">from sqlglot_composer import (
+    AS, FROM, SELECT, WHERE, Statement, between, example_database, first_match, is_in, mapped,
+    more_than, statement,
+)
+
+job_runs = example_database.job_runs
+
+FIRST_DAY = &quot;2026-09-23&quot;
+LAST_DAY = &quot;2026-09-24&quot;
+
+# The jobs this report watches, by job_id. However long the list grows, it is written once.
+WATCHED_JOBS = [1, 2]
+# A label for each status a run can have.
+STATUS_LABELS = {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;, &quot;TEST&quot;: &quot;test run&quot;}</pre>
+<h4><code>runs_of_watched_jobs()</code></h4><pre class="python">def runs_of_watched_jobs() -&gt; Statement:
+    &quot;&quot;&quot;Runs of the watched jobs: is_in reads the list by its name (IN a list).&quot;&quot;&quot;
+    return statement(
+        SELECT(job_runs.run_id, job_runs.job_id),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY), is_in(job_runs.job_id, WATCHED_JOBS)),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.job_id IN (1, 2)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th></tr>
+<tr><td>95</td><td>1</td></tr>
+<tr><td>96</td><td>2</td></tr>
+<tr><td>98</td><td>2</td></tr>
+<tr><td>99</td><td>1</td></tr>
+<tr><td>101</td><td>1</td></tr>
+<tr><td>102</td><td>2</td></tr>
+<tr><td>104</td><td>1</td></tr>
+</table></div><h4><code>labelled_runs()</code></h4><pre class="python">def labelled_runs() -&gt; Statement:
+    &quot;&quot;&quot;Each watched run&#x27;s status as a label, and its length in words (CASE ... WHEN ...).
+
+    mapped looks each status up in STATUS_LABELS. A run still going has no status (NULL),
+    which matches no key, so it gets otherwise=. first_match tries its conditions in order and
+    gives the value of the first that holds: a run of 40 minutes is &quot;long&quot;, though it is more
+    than 10 minutes too.
+    &quot;&quot;&quot;
+    return statement(
+        SELECT(
+            job_runs.run_id,
+            AS(mapped(job_runs.status, STATUS_LABELS, otherwise=&quot;still running&quot;), &quot;outcome&quot;),
+            AS(first_match([(more_than(job_runs.duration_mins, 30), &quot;long&quot;),
+                            (more_than(job_runs.duration_mins, 10), &quot;medium&quot;)],
+                           otherwise=&quot;short&quot;), &quot;length&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY), is_in(job_runs.job_id, WATCHED_JOBS)),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  CASE job_runs.status
+    WHEN &#x27;SUCCESS&#x27;
+    THEN &#x27;passed&#x27;
+    WHEN &#x27;FAILED&#x27;
+    THEN &#x27;failed&#x27;
+    WHEN &#x27;TEST&#x27;
+    THEN &#x27;test run&#x27;
+    ELSE &#x27;still running&#x27;
+  END AS outcome,
+  CASE
+    WHEN job_runs.duration_mins &gt; 30
+    THEN &#x27;long&#x27;
+    WHEN job_runs.duration_mins &gt; 10
+    THEN &#x27;medium&#x27;
+    ELSE &#x27;short&#x27;
+  END AS length
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.job_id IN (1, 2)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>outcome</th><th>length</th></tr>
+<tr><td>95</td><td>passed</td><td>medium</td></tr>
+<tr><td>96</td><td>passed</td><td>medium</td></tr>
+<tr><td>98</td><td>still running</td><td>medium</td></tr>
+<tr><td>99</td><td>test run</td><td>short</td></tr>
+<tr><td>101</td><td>passed</td><td>short</td></tr>
+<tr><td>102</td><td>failed</td><td>medium</td></tr>
+<tr><td>104</td><td>passed</td><td>long</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>more_than</code>, <code>between</code>, <code>is_in</code>, <code>first_match</code>, <code>mapped</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="saved_table">
 <h3>Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
@@ -1668,7 +1757,7 @@ FROM ops.jobs AS jobs</pre>
 <p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / divides as Python&#x27;s / does, so 7 / 2 is 3.5, and dividing by zero gives NULL rather than an error.</p>
 <p>A table named twice in one Statement, such as a table joined to itself, needs a second name for one of them: AS(job_runs, &quot;earlier&quot;) is read as FROM ops.job_runs AS earlier.</p>
 <p class="names">Toolbox names used: <code>AS</code>, <code>count_rows</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="FROM">
 <h3><code>FROM</code></h3>
@@ -2668,7 +2757,7 @@ GROUP BY
 <p class="label">Hive</p>
 <pre class="output">job_runs.duration_mins &gt; 30</pre>
 <p class="names">Toolbox names used: <code>more_than</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="less_than">
 <h3><code>less_than</code></h3>
@@ -2686,7 +2775,7 @@ GROUP BY
 <pre class="output">job_runs.dt BETWEEN &#x27;2026-09-01&#x27; AND &#x27;2026-09-24&#x27;</pre>
 <p>On a partition column, such as a day, this is the usual way to bound the Partitions a Statement reads.</p>
 <p class="names">Toolbox names used: <code>between</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="last_n_days">
 <h3><code>last_n_days</code></h3>
@@ -2704,7 +2793,7 @@ GROUP BY
 <p class="label">Hive</p>
 <pre class="output">job_runs.status IN (&#x27;FAILED&#x27;, &#x27;TEST&#x27;)</pre>
 <p class="names">Toolbox names used: <code>is_in</code></p>
-<p class="names">Worked examples that use it: <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></p>
+<p class="names">Worked examples that use it: <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="is_not_in">
 <h3><code>is_not_in</code></h3>
@@ -2855,6 +2944,72 @@ GROUP BY
 <pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 ELSE 0 END</pre>
 <p class="names">Toolbox names used: <code>if_else</code>, <code>equals</code></p>
 <p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
+</section>
+<section class="entry" id="first_match">
+<h3><code>first_match</code></h3>
+<p class="why">Each row&#x27;s value from the first condition that holds for it (CASE WHEN ...).</p>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id,
+           AS(first_match([(is_null(job_runs.status), &quot;still running&quot;),
+                           (more_than(job_runs.duration_mins, 20), &quot;long&quot;)],
+                          otherwise=&quot;short&quot;), &quot;length&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)))))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  CASE
+    WHEN job_runs.status IS NULL
+    THEN &#x27;still running&#x27;
+    WHEN job_runs.duration_mins &gt; 20
+    THEN &#x27;long&#x27;
+    ELSE &#x27;short&#x27;
+  END AS length
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p>Give it a list of (condition, value) pairs. Each row gets the value of the first pair whose condition holds for it, so a run still going is &quot;still running&quot; whatever its minutes. A row no condition holds for gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL:</p>
+<pre class="python">first_match([(equals(job_runs.status, &quot;FAILED&quot;), 1)])</pre>
+<p class="label">Hive</p>
+<pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END</pre>
+<p>It writes a whole if/else chain as one CASE, however many pairs it has. For one condition, if_else(...) is shorter; where every pair tests one column against a value, mapped(...) reads plainer. Each value is a number, a string, a date, None or a column, and all of them, otherwise= included, are one type, as a column&#x27;s values are: a string beside a number is refused, as is a condition where a value goes.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>length</th></tr>
+<tr><td>101</td><td>short</td></tr>
+<tr><td>102</td><td>short</td></tr>
+<tr><td>103</td><td>long</td></tr>
+<tr><td>104</td><td>long</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>first_match</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>to_hive</code></p>
+<p class="names">Worked examples that use it: <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
+</section>
+<section class="entry" id="mapped">
+<h3><code>mapped</code></h3>
+<p class="why">A value for each value of a column, looked up in a dict (CASE column WHEN ...).</p>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id,
+           AS(mapped(job_runs.status, {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;},
+                     otherwise=&quot;other&quot;), &quot;outcome&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)))))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  CASE job_runs.status WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27; ELSE &#x27;other&#x27; END AS outcome
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p>Each key of the dict is a value the column may hold, and each row gets the value its column&#x27;s value is the key of. A row whose value is no key gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL. A row whose column is NULL matches no key, since NULL equals nothing, so a None key is refused: first_match([(is_null(column), value), ...]) gives those rows a value of their own. Keep a long dict as a constant at the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.</p>
+<p>It is first_match(...) for the chain that tests one column against a value in each pair, written shorter. Each key is a value of the column&#x27;s own type: a key it can&#x27;t hold, such as &quot;one&quot; for a bigint column, is refused, as equals(...) refuses it. The values follow first_match&#x27;s rule: all one type, otherwise= included, and never a condition.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>outcome</th></tr>
+<tr><td>101</td><td>passed</td></tr>
+<tr><td>102</td><td>failed</td></tr>
+<tr><td>103</td><td>passed</td></tr>
+<tr><td>104</td><td>passed</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>mapped</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code></p>
+<p class="names">Worked examples that use it: <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="fill_null">
 <h3><code>fill_null</code></h3>
