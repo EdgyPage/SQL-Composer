@@ -357,8 +357,9 @@ def test_a_hive_variable_stays_as_text_and_a_finding_says_so() -> None:
     done = convert_query("SELECT run_id FROM ops.job_runs\nWHERE dt = '${hivevar:day}'")
     assert 'equals(job_runs.dt, "${hivevar:day}")' in done.query
     assert found(done, "variable") == [
-        "line 2: ${hivevar:day} is kept as written, for Hive's own client to fill in: your "
-        "query must put its value in before it sends the Hive"]
+        "line 2: ${hivevar:day} is kept as written, and Hive fills it in from a SET line sent "
+        "first: session_settings() sends the original's; with none, send one with "
+        "hive_settings(...), or have your query put the value in"]
 
 
 # --- Every table read, and the line each finding is on -----------------------------------------

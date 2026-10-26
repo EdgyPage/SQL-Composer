@@ -1300,7 +1300,8 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays
     Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an
     Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each
-    ${...} such as ${hivevar:day}, kept as written for your query to fill in, and each piece
+    ${...} such as ${hivevar:day}, kept as written for Hive to fill in from a SET line sent
+    first, and each piece
     written another way: a * as its table's columns, a CASE WHEN chain as first_match(...), a
     lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the
     like. It
