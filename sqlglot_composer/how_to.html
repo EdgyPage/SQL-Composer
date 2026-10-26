@@ -6710,14 +6710,6 @@ GROUP BY
     FROM(job_events),
     WHERE(*week_ends),
 ))</pre>
-<p>The Example database runs only part of Hive, and not <code>row_number</code>. Pasted into your own notebook, running a Statement that reads <code>numbered</code>, here and in the steps below, stops with this message:</p>
-<pre class="python">run_query(statement(SELECT(all_columns(numbered)), FROM(numbered)), query)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">RuntimeError:
-  What happened:  The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.
-  Why it matters: The Example database runs Hive on sqlglot&#x27;s own small executor, which knows only part of Hive. Hive at work knows all of it.
-  Usual fix:      See the Hive with to_hive(...), and run it at work with your own query; or try the Statement here without that part.
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>So the results below that read <code>numbered</code>, or <code>ranked</code> and <code>first_first</code> like it, are what Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.</p>
 <p>Check the numbering alone first, with a Statement that reads every column of it:</p>
 <pre class="python">numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))  # -&gt; Statement
 text = show_hive(numbering)  # -&gt; str</pre>
@@ -6739,7 +6731,7 @@ SELECT
   numbered.last_first
 FROM numbered;</pre>
 <pre class="python">run_query(numbering, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>event_id</th><th>minutes</th><th>last_first</th></tr>
 <tr><td>1</td><td>32</td><td>14</td><td>7</td></tr>
 <tr><td>1</td><td>38</td><td>11</td><td>6</td></tr>
@@ -6783,7 +6775,7 @@ FROM numbered
 WHERE
   numbered.last_first = 1;</pre>
 <pre class="python">run_query(latest, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>event_id</th><th>minutes</th></tr>
 <tr><td>1</td><td>56</td><td>10</td></tr>
 <tr><td>2</td><td>54</td><td>18</td></tr>
@@ -6828,7 +6820,7 @@ FROM ranked
 WHERE
   ranked.longest_first &lt;= 3;</pre>
 <pre class="python">run_query(top_three, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>event_id</th><th>minutes</th></tr>
 <tr><td>1</td><td>32</td><td>14</td></tr>
 <tr><td>1</td><td>42</td><td>13</td></tr>
@@ -6841,7 +6833,7 @@ WHERE
 </table></div>
 <p>Three rows per job, or fewer for a job with fewer runs, as job 3 has two. Of job 1&#x27;s two runs of 12 minutes, the later, event 52, is kept. <code>ORDER_BY</code> with <code>LIMIT</code> keeps the top N rows of the whole result; <code>row_number</code> keeps the top N of each group.</p>
 <h4>Check it worked</h4>
-<p>Check that each job comes back once: one row per job, as many rows as jobs that ran. On the Example database this run stops, as above; <code>last_runs</code> here is the pandas result. At work the Statement runs, and the check is the same.</p>
+<p>Check that each job comes back once: one row per job, as many rows as jobs that ran.</p>
 <pre class="python">last_runs = run_query(latest, query)  # -&gt; DataFrame
 last_runs[&quot;job_id&quot;].is_unique</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
@@ -6887,7 +6879,7 @@ first_runs = statement(  # -&gt; Statement
     WHERE(equals(first_first.position, 1)),
 )
 run_query(first_runs, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>event_id</th><th>minutes</th></tr>
 <tr><td>1</td><td>32</td><td>14</td></tr>
 <tr><td>2</td><td>34</td><td>22</td></tr>
@@ -8065,7 +8057,7 @@ FROM numbered
 WHERE
   numbered.newest_first = 1;</pre>
 <pre class="python">run_query(newest_owner, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>team</th><th>owner</th><th>dt</th></tr>
 <tr><td>1</td><td>data</td><td>ana</td><td>2026-09-24</td></tr>
 <tr><td>2</td><td>finance</td><td>ben</td><td>2026-09-24</td></tr>
@@ -9250,16 +9242,6 @@ region_costs = ops.region_costs  # -&gt; Table</pre>
     between(job_events.dt, &quot;2026-09-18&quot;, &quot;2026-09-24&quot;),
     equals(job_events.event_type, &quot;finish&quot;),
 ]</pre>
-<p>The Example database runs only part of Hive, and no windows. Pasted into your own notebook, running a Statement with a Window stops with this message:</p>
-<pre class="python">run_query(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
-                                                 &quot;minutes_before&quot;)),
-                    FROM(job_events), WHERE(*week_finished)), query)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">RuntimeError:
-  What happened:  The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.
-  Why it matters: The Example database runs Hive on sqlglot&#x27;s own small executor, which knows only part of Hive. Hive at work knows all of it.
-  Usual fix:      See the Hive with to_hive(...), and run it at work with your own query; or try the Statement here without that part.
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p>So the results of the Statements below with a Window are what Hive gives at work, worked out in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.</p>
 <h5>The run before: lag</h5>
 <p>How much faster or slower was each run than the job&#x27;s run before it? <code>lag</code> gives each row the value of the row before it in its Window&#x27;s order, and NULL to the first row of each job. pandas holds a missing number as NaN, and so shows that column with decimals; the tables on this page show NaN as NULL:</p>
 <pre class="python">with_before = statement(  # -&gt; Statement
@@ -9281,7 +9263,7 @@ WHERE
   job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
   AND job_events.event_type = &#x27;finish&#x27;;</pre>
 <pre class="python">run_query(with_before, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>minutes</th><th>minutes_before</th><th>change</th></tr>
 <tr><td>1</td><td>2026-09-18</td><td>14</td><td><i>NULL</i></td><td><i>NULL</i></td></tr>
 <tr><td>1</td><td>2026-09-19</td><td>11</td><td>14.0</td><td>-3.0</td></tr>
@@ -9308,7 +9290,7 @@ ranked = statement(  # -&gt; Statement
     WHERE(*week_finished),
 )
 run_query(ranked, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>minutes</th><th>longest_first</th></tr>
 <tr><td>1</td><td>2026-09-18</td><td>14</td><td>1</td></tr>
 <tr><td>1</td><td>2026-09-19</td><td>11</td><td>5</td></tr>
@@ -9352,7 +9334,7 @@ WHERE
   job_events.dt BETWEEN &#x27;2026-09-18&#x27; AND &#x27;2026-09-24&#x27;
   AND job_events.event_type = &#x27;finish&#x27;;</pre>
 <pre class="python">run_query(last_three, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>minutes</th><th>last_3_runs</th><th>week_minutes</th></tr>
 <tr><td>1</td><td>2026-09-18</td><td>14</td><td>14</td><td>82</td></tr>
 <tr><td>1</td><td>2026-09-19</td><td>11</td><td>25</td><td>82</td></tr>
@@ -9377,7 +9359,7 @@ slower = statement(  # -&gt; Statement
     WHERE(more_than(changes.change, 0)),
 )
 run_query(slower, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>dt</th><th>change</th></tr>
 <tr><td>1</td><td>2026-09-20</td><td>1</td></tr>
 <tr><td>1</td><td>2026-09-21</td><td>1</td></tr>

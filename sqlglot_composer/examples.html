@@ -887,11 +887,9 @@ WHERE
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
 <p class="label">The top of its script, latest_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
-<pre class="python">import pandas as pd
-
-from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
-    descending, equals, example_database, max_of, row_number, run_query, statement,
+<pre class="python">from sqlglot_composer import (
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, at_most, between, derived,
+    descending, equals, example_database, max_of, row_number, statement,
 )
 
 job_runs = example_database.job_runs
@@ -955,7 +953,7 @@ SELECT
   numbered.status
 FROM numbered
 WHERE
-  numbered.newest_first = 1</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.newest_first = 1</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
@@ -991,7 +989,7 @@ SELECT
   numbered.duration_mins
 FROM numbered
 WHERE
-  numbered.longest_first &lt;= 2</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.longest_first &lt;= 2</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>duration_mins</th></tr>
 <tr><td>1</td><td>95</td><td>12</td></tr>
 <tr><td>1</td><td>104</td><td>40</td></tr>
@@ -3172,7 +3170,13 @@ SELECT
 FROM two_days
 WHERE
   two_days.dt = &#x27;2026-09-24&#x27;</pre>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.</p>
+<p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>job_minutes</th><th>minutes_so_far</th></tr>
+<tr><td>101</td><td>10</td><td>50</td><td>10</td></tr>
+<tr><td>102</td><td>20</td><td>20</td><td>30</td></tr>
+<tr><td>103</td><td>30</td><td>30</td><td>60</td></tr>
+<tr><td>104</td><td>40</td><td>50</td><td>100</td></tr>
+</table></div>
 <p class="note">No result here. The Example database is never written to: its execute prints the Hive's first line and changes nothing, and run_execute gives back None.</p>
 <p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
@@ -3232,7 +3236,7 @@ WHERE
                        ORDER_BY=descending(job_runs.run_id)))</pre>
 <p class="label">Hive</p>
 <pre class="output">ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
@@ -3763,7 +3767,7 @@ GROUP BY
 &#x27;&#x27;&#x27;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
-<p><code>original</code> is the Hive text, such as a .hql file&#x27;s. Both are read by sqlglot and written out one way, so that what doesn&#x27;t change the query doesn&#x27;t count: spacing and line breaks, upper or lower case, backticks, comments, a ; at the end, brackets that change nothing, INNER and OUTER in a join (LEFT OUTER JOIN is LEFT JOIN), an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names none, and the short name a table is called by, such as r in FROM ops.job_runs r: each table is written with its own name, and where a query reads one table alone, its columns with no table&#x27;s name before them. Anything else counts, even where the rows would come out the same, such as a &lt;&gt; b written as NOT a = b, or two conditions written in the other order: compare_with_original(...) compares the rows.</p>
+<p><code>original</code> is the Hive text, such as a .hql file&#x27;s. Both are read by sqlglot and written out one way, so that what doesn&#x27;t change the query doesn&#x27;t count: spacing and line breaks, upper or lower case, backticks, comments, a ; at the end, brackets that change nothing, INNER and OUTER in a join (LEFT OUTER JOIN is LEFT JOIN), an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names none, and the short name a table is called by, such as r in FROM ops.job_runs r: each table is written with its own name, and where a query reads one table alone, its columns with no table&#x27;s name before them. A query in brackets in FROM or JOIN, as FROM (SELECT ...) ranked, is the Derived table a Statement writes as WITH ranked AS (SELECT ...); and a * or r.* is the columns it stands for, where they can be told: a Derived table&#x27;s or a query&#x27;s in brackets, or those of a table the Statement reads, by its Table reference. Anything else counts, even where the rows would come out the same, such as a &lt;&gt; b written as NOT a = b, or two conditions written in the other order: compare_with_original(...) compares the rows.</p>
 <p>Where they differ, it shows where they first differ, as both are written out that way: the line of each, and up to two lines before it, which are the same in both.</p>
 <pre class="python">compare_hive(runs, &quot;SELECT run_id, status FROM ops.job_runs WHERE dt = &#x27;2026-09-23&#x27;&quot;)</pre>
 <p class="label">Python shows</p>
@@ -3808,7 +3812,7 @@ The rows that differ, at most 5 from each, with how many times each gives them:
 <p class="label">Python shows</p>
 <pre class="output">The Statement and the original give the same rows where dt = &#x27;2026-09-23&#x27;: 4 rows each.</pre>
 <p><code>original</code> is the Hive text, such as a .hql file&#x27;s, and <code>query</code> your own function, in your Project&#x27;s warehouse.py; it never needs <code>execute</code>. It sends one query through your <code>query</code>, which reads the rows of both and matches them on every column: NULL matches NULL, and a row counts as many times as it comes, so a row the original gives twice and the Statement once is a row in the original and not in the Statement. It gives back how many rows each gives, how many are in one and not the other, and up to 5 such rows from each; its <code>ok</code> is True when the two give the same rows, and so is the Verdict itself.</p>
-<p>The original&#x27;s columns must be the Statement&#x27;s, by name and in order, as the rows are matched column by column: it refuses them otherwise, naming both. An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused.</p>
+<p>The original&#x27;s columns must be the Statement&#x27;s, by name and in order, as the rows are matched column by column: it refuses them otherwise, naming both. A * or r.* in the original is the columns it stands for, where they can be told, as compare_hive tells them; a * over a table the Statement doesn&#x27;t read is refused, as its columns can&#x27;t be. An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused.</p>
 <p><code>partition</code> names a column and one value of it, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}, so the warehouse reads only that Partition. A column the Statement gives keeps only the rows of both that hold the value, as above. A partition column of a table the Statement reads, which it doesn&#x27;t give, as when its WHERE picks its own day, keeps only that Partition of each read of the table, in the Statement and in the original alike: partition={&quot;dt&quot;: &quot;2026-09-24&quot;} for a Statement whose WHERE holds equals(job_runs.dt, &quot;2026-09-24&quot;) reads ops.job_runs where dt = &#x27;2026-09-24&#x27; on both sides. Where the Statement reads a partitioned table, partition= must name a partition column of one, or it is refused, as the original may read every Partition, which may be more than the cluster should read at once; reads_all_partitions=True compares the rows each one&#x27;s own conditions pick, every Partition where they pick none. Where it reads no partitioned table, every row is compared.</p>
 <p>A Statement holding an Unchecked expression or an Unchecked derived table, Hive written by hand, is compared as any other: the Verdict ends with a line naming each piece, whose Hive the Toolbox can&#x27;t look inside, and the comparison adds an entry to the Admin log, as run_query does for such a Statement (help(set_admin_log)).</p>
 <p class="names">Toolbox names used: <code>compare_with_original</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>not_equals</code>, <code>is_null</code>, <code>any_of</code>, <code>example_database</code></p>

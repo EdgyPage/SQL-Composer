@@ -1,8 +1,8 @@
 """Worked example 7, latest run per job and top N per group with row_number.
 
-The example gives the row_number results computed in pandas too, for where the Example
-database can't run row_number. Nothing here is guarded: the careless Statement runs, and its
-statuses come from the wrong runs.
+Each Statement runs on the Example database, and its rows are checked against the same
+worked out in pandas. Nothing here is guarded: the careless Statement runs, and its statuses
+come from the wrong runs.
 """
 
 from __future__ import annotations
@@ -59,13 +59,14 @@ def test_the_careless_statement_takes_each_status_from_the_wrong_run() -> None:
 
 
 @pytest.mark.needs_example_database
-def test_the_pandas_result_gives_each_jobs_latest_run() -> None:
-    assert example.fixed_in_pandas().to_dict("records") == latest_check()
+def test_the_fixed_statement_gives_each_jobs_latest_run() -> None:
+    assert run_query(example.fixed(), example_database.query).to_dict("records") == (
+        latest_check())
 
 
 @pytest.mark.needs_example_database
-def test_the_pandas_result_gives_each_jobs_two_longest_runs() -> None:
-    top = example.top_runs_per_job_in_pandas()
+def test_the_top_n_statement_gives_each_jobs_two_longest_runs() -> None:
+    top = run_query(example.top_runs_per_job(), example_database.query)
     assert list(top.columns) == ["job_id", "run_id", "duration_mins"]
     found = {job: set(top.run_id[top.job_id == job]) for job in top.job_id.unique()}
     assert found == top_two_check()

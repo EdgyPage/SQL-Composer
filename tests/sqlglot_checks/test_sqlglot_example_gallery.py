@@ -8,7 +8,7 @@ from conftest import gallery_entries
 
 
 @pytest.mark.parametrize(
-    "entry_id", ["row_number", "week_start", "latest_and_top_n", "regrouping"])
+    "entry_id", ["week_start", "regrouping"])
 def test_results_the_example_database_cannot_run_come_from_pandas_labelled(
     entry_id: str,
 ) -> None:

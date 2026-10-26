@@ -22,13 +22,11 @@ from sqlglot_composer import (
     between,
     count_rows,
     derived,
-    descending,
     equals,
     example_database,
     is_null,
     last_n_days,
     month_start,
-    row_number,
     run_query,
     statement,
     week_start,
@@ -46,8 +44,6 @@ def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch: pytest.MonkeyPatch
 @pytest.mark.parametrize(
     ("calculation", "missing"),
     [
-        (row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
-         "window functions such as row_number"),
         (week_start(job_runs.dt), "NEXT_DAY"),
         (month_start(job_runs.dt), "TRUNC"),
     ],
@@ -115,21 +111,32 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(
 
 @pytest.mark.needs_example_database
 @pytest.mark.parametrize(("table", "calculation", "missing"), [
-    ("job_owners", lambda t: row_number(PARTITION_BY=t.job_id, ORDER_BY=descending(t.dt)),
-     "window functions such as row_number"),
     ("job_events", lambda t: week_start(t.dt), "NEXT_DAY"),
     ("job_events", lambda t: month_start(t.dt), "TRUNC"),
 ])
 def test_the_intermediate_tables_meet_the_same_limits(
         table: str, calculation: Callable[[Table], Column], missing: str) -> None:
-    """The newest snapshot per key and week and month rollups, which the intermediate how-tos
-    show, which the gallery shows as a pandas result."""
+    """Week and month rollups, which the intermediate how-tos show, which the gallery shows as
+    a pandas result."""
     t = getattr(example_database, table)
     s = statement(SELECT(t.job_id, AS(calculation(t), "x")), FROM(t),
                   WHERE(last_n_days(t.dt, 14)))
     with pytest.raises(RuntimeError, match=f"its executor has no {missing}"):
         run_query(s, example_database.query)
 
+
+
+@pytest.mark.needs_example_database
+def test_a_case_on_one_column_is_answered_beside_a_count() -> None:
+    """mapped(...) writes CASE team WHEN ..., which sqlglot's executor wrote as Python's = where
+    it adds rows up; the Example database spells it out as CASE WHEN team = ... first."""
+    found = example_database.query(
+        "SELECT j.team, CASE j.team WHEN 'data' THEN 'D' WHEN 'web' THEN 'W' ELSE 'O' END AS t, "
+        "COUNT(*) AS n FROM ops.jobs AS j GROUP BY j.team")
+    assert len(found) > 1
+    wanted = {"data": "D", "web": "W"}
+    assert [row.t for row in found.itertuples()] == [wanted.get(row.team, "O")
+                                                     for row in found.itertuples()]
 
 def _events_of(event_type: str, name: str) -> Table:
     """Each job's days with an event of one type, over the 14 days: how-to 27's blocks."""
@@ -142,11 +149,10 @@ def _events_of(event_type: str, name: str) -> Table:
 
 
 @pytest.mark.needs_example_database
-def test_it_refuses_to_add_up_rows_after_a_left_join_to_a_column_named_like_one_before_it(
-) -> None:
-    """sqlglot's executor, adding rows up after a join, can read a column of the joined
-    table where a same-named column of a table before it was asked for: for a LEFT_JOIN's
-    unmatched rows, NULL in place of starts.job_id."""
+def test_it_adds_up_rows_after_a_left_join_to_a_column_named_like_one_before_it() -> None:
+    """sqlglot's executor, adding rows up after a join, widened each joined table into the
+    next one's columns, so it read finishes.job_id where starts.job_id was asked for: NULL for
+    a LEFT_JOIN's unmatched rows. The Example database mends that while a query runs."""
     starts, finishes = _events_of("start", "starts"), _events_of("finish", "finishes")
     unfinished_per_job = statement(
         SELECT(starts.job_id, AS(count_rows(where=is_null(finishes.job_id)), "unfinished")),
@@ -155,15 +161,17 @@ def test_it_refuses_to_add_up_rows_after_a_left_join_to_a_column_named_like_one_
                                       equals(finishes.dt, starts.dt))),
         GROUP_BY(starts.job_id),
     )
-    with pytest.raises(RuntimeError) as refused:
-        run_query(unfinished_per_job, example_database.query)
-    message = str(refused.value)
-    assert ("The Example database can't run this Hive: its executor would mix up "
-            "starts.job_id and finishes.job_id, two columns called job_id" in message)
-    assert "to_hive(...)" in message
-    assert ('in the SELECT of derived("finishes", ...), wrap its job_id in '
-            'AS(..., "finishes_job_id"), then read finishes.finishes_job_id' in message)
-    assert "Opt-out:        none" in message
+    found = run_query(unfinished_per_job, example_database.query)
+    # The same, worked out in pandas from the rows of each side.
+    started = run_query(statement(SELECT(starts.job_id, starts.dt), FROM(starts)),
+                        example_database.query)
+    finished = run_query(statement(SELECT(finishes.job_id, finishes.dt), FROM(finishes)),
+                         example_database.query)
+    both = started.merge(finished.assign(finished=True), how="left", on=["job_id", "dt"])
+    wanted = both.finished.isna().groupby(both.job_id).sum().to_dict()
+    assert found.job_id.notna().all()
+    assert found.set_index("job_id").unfinished.to_dict() == wanted
+    assert any(wanted.values())  # some start has no finish that day, so the join leaves NULLs
 
 
 @pytest.mark.needs_example_database

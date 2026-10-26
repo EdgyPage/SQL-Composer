@@ -129,6 +129,7 @@ howto files".
 - [07 The scan, the Conversion folder and finish_conversion](issues/07-the-conversion-folder.md)
 - [08 Checking a Conversion](issues/08-checking-a-conversion.md)
 - [09 The docs: how-tos, Worked examples and the Example project](issues/09-the-docs.md)
+- [10 Every row of the conversion chart checks out](issues/10-every-row-of-the-conversion-chart.md)
 
 The order is the user's habit from 7.0: one at a time, by number. The real dependencies are in
 each ticket's `Blocked by:`: 02, 03 and 04 need only 01, and could run side by side if the user

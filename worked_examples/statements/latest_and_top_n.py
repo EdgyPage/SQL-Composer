@@ -4,11 +4,9 @@ Why: to keep whole rows, since max_of on each column can take the status from a 
 run than the newest one.
 """
 
-import pandas as pd
-
 from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
-    descending, equals, example_database, max_of, row_number, run_query, statement,
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, at_most, between, derived,
+    descending, equals, example_database, max_of, row_number, statement,
 )
 
 job_runs = example_database.job_runs
@@ -64,30 +62,3 @@ def top_runs_per_job(n: int = 2) -> Statement:
         WHERE(at_most(numbered.longest_first, n)),
     )
 
-
-def every_run() -> pd.DataFrame:
-    """Every run on both days, read with a Statement the Example database can run."""
-    return run_query(
-        statement(SELECT(all_columns(job_runs)), FROM(job_runs),
-                  WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY))),
-        example_database.query,
-    )
-
-
-def fixed_in_pandas() -> pd.DataFrame:
-    """fixed()'s result, computed in pandas, not by running this Hive."""
-    newest_first = every_run().sort_values("run_id", ascending=False)
-    latest = newest_first.groupby("job_id").head(1)
-    return latest[["job_id", "run_id", "status"]].sort_values("job_id").reset_index(drop=True)
-
-
-def top_runs_per_job_in_pandas(n: int = 2) -> pd.DataFrame:
-    """top_runs_per_job(n)'s result, computed in pandas, not by running this Hive.
-
-    Its rows are in the Example database's order for a Statement with no ORDER_BY: by the first
-    column, then the second, and so on.
-    """
-    longest_first = every_run().sort_values("duration_mins", ascending=False, kind="stable")
-    top = longest_first.groupby("job_id").head(n)
-    top = top[["job_id", "run_id", "duration_mins"]]
-    return top.sort_values(["job_id", "run_id", "duration_mins"]).reset_index(drop=True)

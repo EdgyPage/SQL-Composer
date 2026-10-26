@@ -68,21 +68,6 @@ Example database.
 ...     equals(job_events.event_type, "finish"),
 ... ]
 
-The Example database runs only part of Hive, and no windows. Pasted into your own notebook,
-running a Statement with a Window stops with this message:
-
->>> run_query(statement(SELECT(job_events.job_id, AS(lag(job_events.minutes, over=each_jobs_runs),
-...                                                  "minutes_before")),
-...                     FROM(job_events), WHERE(*week_finished)), query)
-Traceback (most recent call last):
-...
-RuntimeError:
-  What happened:  The Example database can't run this Hive: its executor has no window functions such as row_number.
-...
-
-So the results of the Statements below with a Window are what Hive gives at work, worked out
-in pandas for this page, as their label says. The Hive is the Hive your warehouse runs.
-
 ### The run before: lag
 
 How much faster or slower was each run than the job's run before it? `lag` gives each row the
@@ -411,58 +396,3 @@ Add up per job first, as `cost_per_job` does, then merge.
 - The gallery's [`window`](examples.html#window), [`lag`](examples.html#lag) and
   [`row_number`](examples.html#row_number) entries.
 """
-
-import pandas as pd
-
-from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
-)
-
-# The Example database can't run a window, so the page and the doctest get
-# each Statement's result from these, worked out in pandas from every finished run of the
-# week.
-
-
-def finished_runs() -> pd.DataFrame:
-    """Every finished run of the week, read with a Statement the Example database can run."""
-    job_events = example_database.job_events
-    rows = run_query(statement(SELECT(all_columns(job_events)), FROM(job_events),
-                               WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
-                     example_database.query)
-    rows = rows[rows["event_type"] == "finish"]
-    return rows.sort_values(["job_id", "dt"]).reset_index(drop=True)
-
-
-def in_order(rows: pd.DataFrame) -> pd.DataFrame:
-    """The rows as the Example database gives them: by the first column, then the next, ..."""
-    return rows.sort_values(list(rows.columns)).reset_index(drop=True)
-
-
-def with_before_in_pandas() -> pd.DataFrame:
-    runs = finished_runs()
-    runs["minutes_before"] = runs.groupby("job_id")["minutes"].shift(1)
-    runs["change"] = runs["minutes"] - runs["minutes_before"]
-    return in_order(runs[["job_id", "dt", "minutes", "minutes_before", "change"]])
-
-
-def ranked_in_pandas() -> pd.DataFrame:
-    runs = finished_runs()
-    runs["longest_first"] = (runs.groupby("job_id")["minutes"]
-                             .rank(method="min", ascending=False).astype("int32"))
-    return in_order(runs[["job_id", "dt", "minutes", "longest_first"]])
-
-
-def last_three_in_pandas() -> pd.DataFrame:
-    runs = finished_runs()
-    runs["last_3_runs"] = (runs.groupby("job_id")["minutes"]
-                           .transform(lambda minutes: minutes.rolling(3, min_periods=1).sum())
-                           .astype("int64"))
-    runs["week_minutes"] = runs.groupby("job_id")["minutes"].transform("sum").astype("int64")
-    return in_order(runs[["job_id", "dt", "minutes", "last_3_runs", "week_minutes"]])
-
-
-def slower_in_pandas() -> pd.DataFrame:
-    changes = with_before_in_pandas()
-    slower = changes[changes["change"] > 0][["job_id", "dt", "change"]]
-    # With no NULL left, Hive gives the change as whole numbers.
-    return in_order(slower.astype({"change": "int64"}))
