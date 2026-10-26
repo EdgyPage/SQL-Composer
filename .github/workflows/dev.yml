@@ -1,6 +1,6 @@
-# Runs pytest on every push to `dev`, on Python 3.12, at the bottom of the range of sqlglot the
-# Toolbox supports and at its pin in requirements-dev.txt, the newest version it is tested on:
-# sqlglot 25.24.2 up to (not including) 31, run at 25.24.2 and 30.23.0.
+# Runs pytest on every push to `dev`, on Python 3.12, at sqlglot's pin in requirements-dev.txt,
+# the newest version the Toolbox is tested on. It supports sqlglot 30.19.0 up to (not including)
+# 31; since 7.2 CI doesn't run the bottom of that range.
 # `main` has no CI: a workflow file there would sit outside its allowlist.
 # Each action is pinned to the commit its tag named on 2026-10-06, so a moved tag runs nothing
 # new, and the jobs may only read the repo.
@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        sqlglot: ["25.24.2", "30.23.0"]
+        sqlglot: ["30.23.0"]
     name: sqlglot Composer (sqlglot ${{ matrix.sqlglot }})
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4

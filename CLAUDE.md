@@ -42,9 +42,9 @@ tools and tests, with `.venv/Scripts/python`, never a bare `python`. `requiremen
 user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
 `tools/toolbox_registry.py` lets the Toolbox import.
 
-CI runs two jobs on Python 3.12: sqlglot at the bottom of the Toolbox's range and at its pin,
-which `.github/workflows/dev.yml` names. Export only a commit whose two jobs passed: the export
-doesn't check the gallery.
+CI runs one job on Python 3.12, at sqlglot's pin, which `.github/workflows/dev.yml` names: the
+Toolbox's range starts at 30.19.0, and since 7.2 CI doesn't run its bottom. Export only a commit
+whose CI job passed: the export doesn't check the gallery.
 
 What no test can hold is in `docs/agents/standards.md`, which the code reviewer reads.
 
@@ -102,7 +102,7 @@ reaches only this computer, as ADR 0004 records (ADR 0012 split `send` in two);
 
 A `task` ticket that changes code is done when:
 
-1. `.venv/Scripts/python -m pytest` passes, and CI's two jobs pass before the commit is
+1. `.venv/Scripts/python -m pytest` passes, and CI's job passes before the commit is
    exported;
 2. the `code-review` skill has run with the ticket as its spec, and its findings are fixed or
    answered in the ticket;

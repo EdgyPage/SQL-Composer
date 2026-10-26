@@ -53,7 +53,6 @@ def page_sections() -> dict[str, str]:
                            re.DOTALL))
 
 
-@pytest.mark.needs_example_database
 def test_the_committed_page_is_what_the_tool_writes() -> None:
     committed = page() if PAGE.exists() else ""
     assert how_to_page.how_to_page() == committed, (
@@ -75,7 +74,6 @@ def test_the_how_tos_are_numbered_from_1_getting_started_first() -> None:
 # --- Each how-to's source --------------------------------------------------------------------
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
 def test_each_how_to_runs_as_a_doctest(
         path: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -466,7 +464,6 @@ def test_a_warning_a_step_gives_is_shown_with_its_message(tmp_path: Path) -> Non
             "its Key (alert_id).") in page_text(shown)
 
 
-@pytest.mark.needs_example_database
 def test_a_file_a_step_writes_is_shown_in_full_or_by_name(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, """>>> from sqlglot_composer import *
 >>> path = write_table_reference("ops.run_alerts", query=example_database.query)
@@ -555,7 +552,6 @@ def weeks_in_pandas():
 '''
 
 
-@pytest.mark.needs_example_database
 def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path) -> None:
     path = a_how_to(tmp_path, WEEKS, stand_ins=WEEKS_IN_PANDAS)
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
@@ -565,7 +561,6 @@ def test_a_pandas_stand_in_gives_what_the_example_database_cannot(tmp_path: Path
     assert "stops" not in shown
 
 
-@pytest.mark.needs_example_database
 def test_without_its_stand_in_the_statement_shows_why_it_cannot_run(tmp_path: Path) -> None:
     shown = how_to_page.how_to_html(how_to_page.read_how_to(a_how_to(tmp_path, WEEKS)))
     assert "The Example database can&#x27;t run this Hive" in shown
@@ -578,7 +573,6 @@ def test_a_stand_in_for_no_statement_is_refused(tmp_path: Path) -> None:
 
 
 
-@pytest.mark.needs_example_database
 def test_a_stand_in_the_example_database_doesnt_need_is_refused(tmp_path: Path) -> None:
     """A stand-in left after the Example database learns to run its Statement would leave the
     how-to saying, wrongly, that it can't."""

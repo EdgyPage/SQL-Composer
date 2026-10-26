@@ -17,7 +17,6 @@ from sqlglot_composer import example_database, run_query
 from statements import regrouping
 
 
-@pytest.mark.needs_example_database
 def test_the_example_database_cant_run_week_start() -> None:
     with pytest.raises(RuntimeError, match="its executor has no NEXT_DAY"):
         run_query(regrouping.fixed(), example_database.query)
@@ -33,7 +32,6 @@ def _next_day(day: str, weekday: str) -> str:
     return (start + datetime.timedelta(days=7 - start.weekday())).isoformat()
 
 
-@pytest.mark.needs_example_database
 def test_the_regrouping_hive_gives_the_same_numbers_as_pandas(
         monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sqlglot.executor.python.ENV, "TSORDSADD", _date_add)

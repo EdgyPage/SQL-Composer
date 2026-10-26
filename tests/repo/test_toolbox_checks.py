@@ -10,7 +10,7 @@
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
   pinned to the version requirements-dev.txt pins;
 - sqlglot's pin in requirements-dev.txt falls inside the range engine.py supports, and CI runs
-  the tests at the bottom of that range and at the pin.
+  the tests at the pin.
 """
 
 from __future__ import annotations
@@ -264,11 +264,11 @@ def test_requirements_pins_the_versions_dev_tests_on() -> None:
     assert _requirements() == {name: dev[name] for name in _requirements()}
 
 
-def test_ci_runs_at_the_bottom_of_sqlglots_range_and_at_its_pin() -> None:
+def test_ci_runs_at_sqlglots_pin() -> None:
     job, library = _job(), toolbox_registry.LIBRARY
     matrix = re.search(rf"^\s+{library}: \[(.*)\]$", job, re.MULTILINE).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
-    assert versions == {_engine()._LOWEST, _pin()}
+    assert versions == {_pin()}
     assert 'python-version: "3.12"' in job
     assert f'pip install "{library}==${{{{ matrix.{library} }}}}"' in _steps(job)
     assert "continue-on-error" not in job

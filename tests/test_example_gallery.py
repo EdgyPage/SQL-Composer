@@ -29,7 +29,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 import example_gallery  # noqa: E402
 
 
-@pytest.mark.needs_example_database
 def test_the_committed_gallery_is_what_the_generator_writes() -> None:
     committed = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
     assert example_gallery.gallery_page() == committed, (

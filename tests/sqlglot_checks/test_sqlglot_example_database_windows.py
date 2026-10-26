@@ -37,8 +37,6 @@ from sqlglot_composer import (
 )
 from sqlglot_composer.example_database import job_runs
 
-pytestmark = pytest.mark.needs_example_database
-
 
 def by_run(hive: str, column: str) -> dict[int, object]:
     """Each run's value of `column`, by its run_id, NULL as None."""

@@ -120,7 +120,6 @@ from example_gallery import (  # noqa: E402
     run_step,
     table_html,
 )
-from sqlglot_composer import engine  # noqa: E402
 
 HOW_TOS = ROOT / "worked_examples" / "how_to"
 PAGE_PATH = ROOT / toolbox_registry.FOLDER / "how_to.html"
@@ -719,10 +718,6 @@ def contents_html(how_tos: list[HowTo]) -> str:
 
 def how_to_page() -> str:
     """The whole page, as one HTML string."""
-    cannot_run = engine.example_database_cannot_run()
-    if cannot_run is not None:
-        raise RuntimeError(f"The how-to page runs every step on the Example database, and "
-                           f"{cannot_run}.")
     how_tos = [read_how_to(path) for path in how_to_paths()]
     check_numbering(how_tos)
     groups, contents = [], []

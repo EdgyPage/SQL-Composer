@@ -145,7 +145,6 @@ def test_you_pick_the_call_whatever_the_text_says() -> None:
     assert sent == [("execute", "SELECT 1")]
 
 
-@pytest.mark.needs_example_database
 def test_it_runs_on_the_example_database() -> None:
     rows = run_query(no_note("SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'"),
                      example_database.query)

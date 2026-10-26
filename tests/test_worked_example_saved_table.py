@@ -7,7 +7,6 @@ with pandas.
 
 from __future__ import annotations
 
-import pytest
 
 from conftest import example_rows
 from sqlglot_composer import Statement, example_database, to_hive
@@ -35,7 +34,6 @@ def test_the_first_write_of_a_day_replaces_it_and_the_second_adds_to_it() -> Non
     assert second == "INSERT INTO mart.runs_to_review PARTITION(dt = '2026-09-24')"
 
 
-@pytest.mark.needs_example_database
 def test_the_two_writes_fill_the_day_with_the_runs_to_review() -> None:
     runs = example_rows("job_runs")
     alerts = example_rows("run_alerts")

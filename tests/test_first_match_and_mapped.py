@@ -201,7 +201,6 @@ def test_it_adds_up_unless_a_value_doesnt() -> None:
         "SUM(CASE job_runs.status WHEN 'FAILED' THEN job_runs.duration_mins END)")
 
 
-@pytest.mark.needs_example_database
 def test_the_first_condition_that_holds_wins_and_an_unmatched_row_is_null() -> None:
     runs = example_rows("job_runs")
     runs = runs[runs.dt.between("2026-09-23", "2026-09-24")]

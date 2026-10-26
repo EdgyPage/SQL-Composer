@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 import pytest
@@ -34,13 +35,6 @@ from sqlglot_composer import (
 from sqlglot_composer.example_database import job_runs, jobs
 
 
-def test_it_says_plainly_when_sqlglot_is_too_old(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
-    with pytest.raises(RuntimeError, match="30.19.0 or newer.*This Python has sqlglot 25.24.2"):
-        example_database.query("SELECT 1 FROM ops.jobs")
-
-
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(
     ("calculation", "missing"),
     [
@@ -59,14 +53,12 @@ def test_it_says_plainly_what_its_executor_cant_run(calculation: Column, missing
     assert "to_hive(...)" in message
 
 
-@pytest.mark.needs_example_database
 def test_a_cast_to_anything_but_text_is_one_its_executor_cant_run() -> None:
     """Hive gives NULL for a value it can't cast, where the executor's own CAST would stop."""
     with pytest.raises(RuntimeError, match="its executor has no CAST"):
         example_database.query("SELECT CAST(jobs.team AS INT) AS n FROM ops.jobs AS jobs")
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("hive", [
     "SELECT EXTRACT(year FROM r.dt) AS y FROM ops.job_runs AS r",
     "SELECT job_id FROM ops.jobs /* FROM mart.x */",
@@ -75,20 +67,34 @@ def test_a_from_that_names_no_table_is_answered(hive: str) -> None:
     assert len(example_database.query(hive)) > 0
 
 
-@pytest.mark.needs_example_database
 def test_where_sqlglot_stopped_is_left_out_of_the_sentence() -> None:
     with pytest.raises(RuntimeError) as refused:
         example_database.query("SELECT job_id FROM ops.jobs WHERE (job_id = 1")
     assert "Col:" not in str(refused.value)
 
 
-def test_too_old_a_sqlglot_is_told_which_to_install(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(sqlglot, "__version__", "25.24.2")
-    with pytest.raises(RuntimeError, match=r"Usual fix: +Install a newer sqlglot"):
+def test_an_executor_that_counts_wrong_is_told_which_to_install(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The executor's own check, before each query: COUNT(DISTINCT ...) over a NULL."""
+    import sqlglot.executor
+
+    real = sqlglot.executor.execute
+
+    def counts_wrong(query: str | sqlglot.exp.Expression, *args: object,
+                     **kwargs: object) -> sqlglot.executor.table.Table:
+        found = real(query, *args, **kwargs)
+        if isinstance(query, str):  # the check of the executor itself
+            found.rows = [(3,)]
+        return found
+
+    monkeypatch.setattr(sqlglot.executor, "execute", counts_wrong)
+    with pytest.raises(RuntimeError) as refused:
         example_database.query("SELECT 1 FROM ops.jobs")
+    message = str(refused.value)
+    assert "counts COUNT(DISTINCT ...) wrong" in message
+    assert re.search(r"Usual fix: +Install a newer sqlglot", message)
 
 
-@pytest.mark.needs_example_database
 def test_an_executor_error_that_names_no_function_is_refused_plainly(
         monkeypatch: pytest.MonkeyPatch) -> None:
     import sqlglot.executor
@@ -109,7 +115,6 @@ def test_an_executor_error_that_names_no_function_is_refused_plainly(
     assert "couldn't run this Hive: unsupported operand type(s)" in message
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(("table", "calculation", "missing"), [
     ("job_events", lambda t: week_start(t.dt), "NEXT_DAY"),
     ("job_events", lambda t: month_start(t.dt), "TRUNC"),
@@ -126,7 +131,6 @@ def test_the_intermediate_tables_meet_the_same_limits(
 
 
 
-@pytest.mark.needs_example_database
 def test_a_case_on_one_column_is_answered_beside_a_count() -> None:
     """mapped(...) writes CASE team WHEN ..., which sqlglot's executor wrote as Python's = where
     it adds rows up; the Example database spells it out as CASE WHEN team = ... first."""
@@ -148,7 +152,6 @@ def _events_of(event_type: str, name: str) -> Table:
     ))
 
 
-@pytest.mark.needs_example_database
 def test_it_adds_up_rows_after_a_left_join_to_a_column_named_like_one_before_it() -> None:
     """sqlglot's executor, adding rows up after a join, widened each joined table into the
     next one's columns, so it read finishes.job_id where starts.job_id was asked for: NULL for
@@ -174,7 +177,6 @@ def test_it_adds_up_rows_after_a_left_join_to_a_column_named_like_one_before_it(
     assert any(wanted.values())  # some start has no finish that day, so the join leaves NULLs
 
 
-@pytest.mark.needs_example_database
 def test_it_still_adds_up_rows_after_a_join_whose_on_sets_the_shared_column_equal() -> None:
     """A JOIN (not a LEFT_JOIN) that sets the shared column equal gives both the same value,
     so the executor's mix-up can't change the answer."""

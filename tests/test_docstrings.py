@@ -18,7 +18,6 @@ from pathlib import Path
 import pytest
 
 import sqlglot_composer
-from conftest import skip_unless_the_example_database_runs
 
 PUBLIC = list(sqlglot_composer.__all__)
 # The admin module's names, as admin.drop_table: imported by name, not by the star import.
@@ -26,8 +25,6 @@ ADMIN = [f"admin.{name}" for name in sqlglot_composer.admin.__all__]
 # The project module's names, as project.start, imported by name like the admin module's.
 ADMIN += [f"project.{name}" for name in sqlglot_composer.project.__all__]
 CONSTANTS = {"TOOLBOX_VERSION", "VERSION"}
-# Examples that run a query, and so need the Example database to run here.
-RUNS_A_QUERY = ("run_query(", "check_key(", "compare_with_original(")
 
 
 def docstring_of(name: str) -> str:
@@ -65,8 +62,6 @@ def test_a_first_line_is_one_short_sentence(name: str) -> None:
 def test_the_worked_example_runs(
         name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     doc = docstring_of(name)
-    if any(call in doc for call in RUNS_A_QUERY):
-        skip_unless_the_example_database_runs()
     monkeypatch.chdir(tmp_path)
     scope = {public: getattr(sqlglot_composer, public) for public in PUBLIC}
     scope["job_runs"] = sqlglot_composer.example_database.job_runs

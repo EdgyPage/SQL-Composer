@@ -18,7 +18,6 @@ from sqlglot_composer import (
     hive_function,
     statement,
     to_hive,
-    writing,
 )
 from sqlglot_composer.example_database import job_runs
 
@@ -49,22 +48,8 @@ def test_a_call_sqlglot_cant_build_is_refused_in_the_toolboxs_words() -> None:
         hive_function("nvl2", job_runs.status)
 
 
-def test_a_struct_column_is_written_with_its_colons_or_refused() -> None:
-    """Hive reads STRUCT<name: type>; sqlglot 25 writes STRUCT<name type>."""
+def test_a_struct_column_is_written_with_its_colons() -> None:
+    """Hive reads STRUCT<name: type>, as every sqlglot in the range writes it."""
     t = Table("mart.t", columns={"a": "struct<name:string,runs:int>"},
               location="/data/your_team/mart.db/t")
-    if writing._writes_struct_colons():
-        assert "  a STRUCT<name: STRING, runs: INT>\n" in to_hive(create_table(t))
-    else:
-        with pytest.raises(ValueError, match="without the colons Hive needs"):
-            create_table(t)
-
-
-def test_a_struct_column_this_sqlglot_cant_write_is_refused(
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(writing, "_writes_struct_colons", lambda: False)
-    t = Table("mart.t", columns={"a": "array<struct<name:string>>"})
-    with pytest.raises(ValueError, match=re.escape(
-            "create_table(t): a's type 'array<struct<name:string>>' holds a struct, and the "
-            "sqlglot this Python has")):
-        create_table(t)
+    assert "  a STRUCT<name: STRING, runs: INT>\n" in to_hive(create_table(t))

@@ -6,8 +6,7 @@
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.
 # pytest, ruff and coverage are for `dev` only; coverage is read by tools/usage_report.py.
 
-# sqlglot Composer's pin. It supports sqlglot 25.24.2 up to (not including) 31; CI also runs the
-# suite on 25.24.2, the bottom of that range.
+# sqlglot Composer's pin, the one CI runs. It supports sqlglot 30.19.0 up to (not including) 31.
 sqlglot==30.23.0
 
 pandas==3.0.6

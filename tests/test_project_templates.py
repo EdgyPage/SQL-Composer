@@ -152,7 +152,6 @@ def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, templat
         ast.parse(text)
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize(("template", "fills", "partition"), [
     (template, fills, partition) for template in NOTEBOOK_TEMPLATES
     for fills, partition in ((FILLS, "dt"), (REGION_FILLS, "region"))])
@@ -173,7 +172,6 @@ def test_a_filled_notebooks_logic_writes_the_partitions_its_rows_fill(
     assert set(preview[partition]) == {DAY if partition == "dt" else "eu"}
 
 
-@pytest.mark.needs_example_database
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
 def test_a_notebook_for_a_table_with_no_partitions_writes_it_whole(
         started: Path, template: str) -> None:
@@ -216,7 +214,6 @@ def test_a_templates_functions_take_nothing(template: str) -> None:
                for node in logic.body)
 
 
-@pytest.mark.needs_example_database
 def test_quality_checks_find_no_repeated_keys_on_the_example_database(started: Path) -> None:
     name = "mart.made_from_quality_checks"
     filled_notebook(started, "quality_checks", name, FILLS["quality_checks"])

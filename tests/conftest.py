@@ -10,11 +10,6 @@ the whole session.
 A run collects the shared tests directly in `tests/`, sqlglot Composer's own in
 `tests/sqlglot_checks/`, and the repo's own checks in `tests/repo/`.
 
-A test marked `needs_example_database` runs a query on the Example database. Where this computer
-can't run one, because something it needs is missing, the test skips, saying why; whether it can
-is asked once a run, by sending it one query. Anything else that stops that query is a bug, and
-fails the test.
-
 Every test runs under the offline trap, `offline_trap`, installed as this file loads: its Python
 refuses any lookup or connection that would leave this computer.
 """
@@ -70,42 +65,6 @@ def toolbox_module(name: str = "") -> ModuleType:
         return importlib.import_module(FOLDER)
     toolbox_module()  # the folder is imported first, so its import self-check runs first
     return importlib.import_module(f"{FOLDER}.{name}")
-
-
-# Whether the Example database answered the one query each run sends it, and if not, why.
-_ANSWERED: dict = {}
-
-
-def example_database_cannot_run() -> str | None:
-    """Why the Example database can't run a query here, or None when it can.
-
-    engine.py says what it lacks. Then, once a run, it is sent one query, so an Example
-    database that can't answer gives every test one reason
-    rather than each test a reason of its own. Any reason the query gives is a bug.
-    """
-    reason = toolbox_module("engine").example_database_cannot_run()
-    if reason is not None:
-        return reason
-    if "reason" not in _ANSWERED:
-        try:
-            toolbox_module("example_database").query("SELECT job_id FROM ops.jobs")
-            _ANSWERED["reason"] = None
-        except RuntimeError as error:
-            said = re.search(r"What happened:\s*(.+)", str(error))
-            _ANSWERED["reason"] = ("the Example database didn't answer: "
-                                   + (said.group(1) if said else str(error).strip()))
-            _ANSWERED["bug"] = True
-    return _ANSWERED["reason"]
-
-
-def skip_unless_the_example_database_runs() -> None:
-    """Skip the test where the Example database can't run a query, or fail if that's a bug."""
-    reason = example_database_cannot_run()
-    if reason is None:
-        return
-    if _ANSWERED.get("bug"):
-        pytest.fail(reason)
-    pytest.skip(reason)
 
 
 def example_rows(table: str) -> pd.DataFrame:
@@ -318,12 +277,6 @@ def gallery_entries() -> dict[str, tuple[str, str]]:
                    page_text(body))
         for entry_id, body in gallery_sections(toolbox_folder()).items()
     }
-
-
-@pytest.fixture(autouse=True)
-def skip_without_the_example_database(request: pytest.FixtureRequest) -> None:
-    if request.node.get_closest_marker("needs_example_database"):
-        skip_unless_the_example_database_runs()
 
 
 @pytest.fixture(autouse=True)

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import project_on_the_path, skip_unless_the_example_database_runs, toolbox_module
+from conftest import project_on_the_path, toolbox_module
 
 TEMPLATE = Path(__file__).resolve().parents[1] / "docs" / "clean-branch-readme.md"
 
@@ -32,9 +32,6 @@ def test_the_readme_examples_run(
     report = []
     with project_on_the_path(tmp_path, ("references", "building_blocks", "warehouse")):
         for block in BLOCKS[: number + 1]:
-            # A query, the Example database's or warehouse.py's, runs on the Example database.
-            if "query=" in block:
-                skip_unless_the_example_database_runs()
             # The block before may have made the files this one imports, such as warehouse.py.
             importlib.invalidate_caches()
             test = doctest.DocTestParser().get_doctest(block, shared, "README", None, 0)

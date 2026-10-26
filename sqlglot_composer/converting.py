@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
-from .writing import hive_tokens, read_hive, sql_text
+from .writing import read_hive, sql_text
 
 # An IN list with at least this many values becomes a named constant.
 LONG_LIST = 4
@@ -200,47 +200,19 @@ def _indented(text: str, by: int) -> str:
 
 
 def _start(node: exp.Expression, text: str) -> int | None:
-    """Where in `text`, the Hive, a piece starts, or None when it can't be told.
-
-    Where sqlglot noted no place for any part of the statement, as an older one such as
-    25.24.2 notes none, the piece is found by its words instead. It is None where sqlglot noted
-    places elsewhere in the statement but none in this piece, or its words aren't found.
+    """Where in `text`, the Hive, a piece starts, or None where sqlglot noted no place in it.
 
     sqlglot notes where each name and value is, and a CASE starts at the CASE before its
     first one."""
-    noted = [part.meta for part in node.walk() if part.meta and part.meta.get("line")]
-    if not noted:
-        return None if _noted_anywhere(node) else _found_by_its_words(node, text)
-    starts = [meta["start"] for meta in noted if isinstance(meta.get("start"), int)]
-    if len(starts) < len(noted):  # an older sqlglot notes only the line: the line's start
-        line = min(meta["line"] for meta in noted)
-        return sum(len(one) + 1 for one in text.split("\n")[:line - 1])
+    starts = [part.meta["start"] for part in node.walk()
+              if part.meta and isinstance(part.meta.get("start"), int)]
+    if not starts:
+        return None
     at = min(starts)
     if isinstance(node, exp.Case):
         before = list(re.finditer(r"\bCASE\b", text[:at], re.IGNORECASE))
         at = before[-1].start() if before else at
     return at
-
-
-def _noted_anywhere(node: exp.Expression) -> bool:
-    """Whether sqlglot noted a place for any part of the statement `node` is in."""
-    return any(part.meta and part.meta.get("line") for part in node.root().walk())
-
-
-def _found_by_its_words(node: exp.Expression, text: str) -> int | None:
-    """Where a piece starts in `text`, the Hive, found by its words as sqlglot writes them.
-
-    An older sqlglot, such as 25.24.2, notes no places. The more of its words come in that
-    order, the surer the place, so the longest run of its first words that the Hive holds finds
-    it."""
-    wanted = [word for word, _ in hive_tokens(sql_text(node))]
-    words = [word for word, _ in hive_tokens(text)]
-    starts = [start for _, start in hive_tokens(text)]
-    for size in range(len(wanted), 0, -1):
-        for at in range(len(words) - size + 1):
-            if words[at:at + size] == wanted[:size]:
-                return starts[at]
-    return None
 
 
 def _line(node: exp.Expression, text: str) -> int | None:
@@ -301,8 +273,8 @@ def _called(node: exp.Expression) -> str:
 
 
 # The parts of a SELECT that the Clause functions write, by sqlglot's name for each.
-_WRITTEN = {"expressions", "distinct", "from", "from_", "joins", "where", "group", "having",
-            "order", "limit", "with", "with_"}
+_WRITTEN = {"expressions", "distinct", "from_", "joins", "where", "group", "having", "order",
+            "limit", "with_"}
 # The parts of a SELECT a Conversion leaves out, as they change how Hive runs the query and not
 # its rows, and what each did.
 _DROPPED = {
@@ -447,7 +419,7 @@ class _Converter:
         for part, given in node.args.items():
             if given and part not in _WRITTEN and part not in _DROPPED:
                 raise Unconvertible(f"its {part.upper()}, which no Clause function writes")
-        from_ = node.args.get("from_") or node.args.get("from")
+        from_ = node.args.get("from_")
         if from_ is None:
             raise Unconvertible("a SELECT with no FROM, which statement(...) needs")
         for part, why in _DROPPED.items():
@@ -593,7 +565,7 @@ class _Converter:
     def star_columns(self, node: exp.Select, table: str) -> list[str] | None:
         """The columns a * of `table`, or of every table when it is "", gives in `node`, or
         None when one of them isn't known."""
-        from_ = node.args.get("from_") or node.args.get("from")
+        from_ = node.args.get("from_")
         reads = ([from_.this] if from_ else []) + [join.this for join in
                                                    node.args.get("joins") or []]
         names: list[str] = []
@@ -990,11 +962,6 @@ class _Converter:
         after = [(part, one) for part in ("rollup", "cube", "grouping_sets")
                  for one in (node.args.get(part) if isinstance(node.args.get(part), list)
                              else [node.args.get(part)] if node.args.get(part) else [])]
-        # An older sqlglot, such as 25.24.2, holds ROLLUP (a, b) beside GROUP BY's columns.
-        moved = [one for _, one in after if isinstance(one, (exp.Rollup, exp.Cube))
-                 and one.expressions]
-        inside += moved
-        after = [(part, one) for part, one in after if not any(one is each for each in moved)]
         if len(inside) + len(after) > 1:
             raise Unconvertible("GROUP_BY takes one rollup, cube or grouping_sets")
         items = [self.grouped(one, scope, named) for one in plain]
@@ -1213,7 +1180,8 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     try:
         parsed = [one for one in read_hive(text) if one is not None]
     except sqlglot.errors.ParseError as error:
-        # An older sqlglot, such as 25.24.2, can't read Hive's FROM ... INSERT ... INSERT.
+        # sqlglot 30.19.0, the bottom of the range, can't read Hive's FROM ... INSERT ...
+        # INSERT, which 30.23.0 reads as one MultitableInserts.
         targets = re.findall(r"\bINSERT\s+(?:OVERWRITE|INTO)\s+(?:TABLE\s+)?([\w.`]+)", text,
                              re.IGNORECASE)
         if re.match(r"\s*FROM\b", text, re.IGNORECASE) and len(targets) > 1:
@@ -1226,9 +1194,7 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     queries = [one for one in parsed if not isinstance(one, exp.Set) and one not in commands]
     sets = [one for one in parsed if isinstance(one, exp.Set) or one in commands]
     for one in commands:
-        # The text after SET: a string, or a Literal holding it, by sqlglot's version.
-        said = one.expression.this if isinstance(one.expression, exp.Literal) else one.expression
-        name, _, value = str(said).strip().partition("=")
+        name, _, value = str(one.expression).strip().partition("=")  # the text after SET
         result.settings[name.strip()] = value.strip()
     for one in sets:
         if one in commands:
@@ -1255,9 +1221,7 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
 def _with(query: exp.Expression, with_: exp.Expression | None) -> exp.Expression:
     """A copy of `query`, its WITH set to `with_`, or taken away when that is None."""
     query = query.copy()
-    for part in ("with_", "with"):
-        if part in query.arg_types:
-            query.set(part, with_.copy() if with_ is not None else None)
+    query.set("with_", with_.copy() if with_ is not None else None)
     return query
 
 
@@ -1276,7 +1240,7 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
     for name in query.find_all(exp.Identifier):
         name.set("this", name.name.lower())  # Hive reads a name whatever its case
     # A WITH before INSERT ... SELECT is the INSERT's; before a SELECT, the SELECT's.
-    with_ = query.args.get("with_") or query.args.get("with")
+    with_ = query.args.get("with_")
     if isinstance(query, exp.MultitableInserts):
         targets = [sql_text(one.this) for one in query.expressions]
         raise ConversionRefused(_SEVERAL_INSERTS.format(count=len(targets),
@@ -1285,7 +1249,7 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         query = _read_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
         raise ConversionRefused(f"it is a {type(query).__name__.upper()}, not a query")
-    with_ = with_ or query.args.get("with_") or query.args.get("with")
+    with_ = with_ or query.args.get("with_")
     whole = _with(query, with_)
     converter.tables_read(whole)
     converter.variables()

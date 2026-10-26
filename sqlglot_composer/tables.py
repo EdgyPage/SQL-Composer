@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 from . import _FOLDER, describe, kinds
-from .writing import check_writable_type, hive_text, readable_text
+from .writing import hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
     arguments_of,
@@ -1845,5 +1845,4 @@ def column_definition(t: Table, column: str, call: str | None = None) -> Node:
             "such as date or user.",
             error=ValueError,
         )
-    check_writable_type(kind, f"{call}: {column}'s type {kind!r}")
     return Node("ColumnDef", name=column, type=kind)

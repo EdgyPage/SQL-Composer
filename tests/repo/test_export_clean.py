@@ -467,7 +467,7 @@ def test_each_example_projects_readme_says_to_copy_the_toolbox_in(clean: Path) -
 
 
 def _range_of(folder: str) -> dict[str, str]:
-    """A folder's engine.py's version constants, such as {"_LOWEST": "25.24.2"}."""
+    """A folder's engine.py's version constants, such as {"_LOWEST": "30.19.0"}."""
     text = (ROOT / folder / "engine.py").read_text(encoding="utf-8")
     return {name: ".".join(numbers.replace(" ", "").split(","))
             for name, numbers in re.findall(r"^(_\w+) = \(([\d, ]+)\)$", text, re.MULTILINE)}
@@ -488,9 +488,8 @@ def test_the_readme_says_what_the_toolbox_needs_as_its_engine_checks_it() -> Non
                        (ROOT / "sqlglot_composer" / "checks.py").read_text(encoding="utf-8"),
                        re.MULTILINE).groups()
     assert f"The Toolbox needs Python {'.'.join(python)} or newer" in template
-    assert (f"any sqlglot from {sql['_LOWEST']} up to (not including) {_short(sql['_BELOW'])}, "
-            f"whose Example database and a struct column in create_table need "
-            f"{sql['_EXECUTOR_NEEDS']} or newer") in template
+    assert (f"any sqlglot from {sql['_LOWEST']} up to (not including) "
+            f"{_short(sql['_BELOW'])}.") in template
 
 
 def test_the_toolbox_is_exported_from_a_checkout_that_writes_crlf(

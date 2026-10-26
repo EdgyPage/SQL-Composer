@@ -28,7 +28,6 @@ from .trees import (
     plain_name,
 )
 
-from .engine import INSTALL_NEWER
 
 if TYPE_CHECKING:
     from sqlglot.optimizer.scope import Scope
@@ -40,14 +39,11 @@ def _hive_with_hints() -> sqlglot.Dialect:
     """sqlglot's Hive, but writing a query's hint, such as /*+ MAPJOIN(jobs) */, which Hive
     reads and sqlglot's Hive leaves out. Only this copy of the dialect is changed.
 
-    It also writes GROUPING SETS straight after GROUP BY's columns, as in GROUP BY a, b
-    GROUPING SETS ((a, b), a, ()): Hive refuses a comma before it, which an older sqlglot,
-    such as 25.24.2, writes. And it escapes a string value's characters by the Toolbox's
-    table, trees.HIVE_ESCAPES, whatever sqlglot version runs.
+    It also escapes a string value's characters by the Toolbox's table, trees.HIVE_ESCAPES,
+    whatever sqlglot version runs.
     """
     hive = type(sqlglot.Dialect.get_or_raise(_DIALECT))()
-    hive.generator_class = type("HiveWithHints", (hive.generator_class,),
-                                {"QUERY_HINTS": True, "GROUPINGS_SEP": ""})
+    hive.generator_class = type("HiveWithHints", (hive.generator_class,), {"QUERY_HINTS": True})
     # A string value's characters are escaped by the Toolbox's table, not sqlglot's own,
     # which changed within the supported range. The quote is left to sqlglot, which escapes it
     # as the table does.
@@ -69,15 +65,6 @@ def read_hive(text: str) -> list[exp.Expression]:
     A Conversion reads the Hive it converts with it; sqlglot's ParseError says what it can't
     read."""
     return [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
-
-
-def hive_tokens(text: str) -> list[tuple[str, int]]:
-    """Each word and sign of Hive text, in lower case, with where in the text it starts.
-
-    A Conversion finds a piece's line by them where sqlglot notes no places, as an older one
-    such as 25.24.2 doesn't."""
-    return [(token.text.lower(), token.start)
-            for token in sqlglot.Dialect.get_or_raise(_DIALECT).tokenize(text)]
 
 
 def hive_text(node: Node) -> str:
@@ -175,48 +162,6 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
         ) from error
 
 
-def check_writable_type(text: str, subject: str) -> None:
-    """Refuse a column type sqlglot would write wrong: a struct, where this sqlglot leaves out
-    the colons Hive's STRUCT<name: type> needs. `subject` names the type, as the refusal does.
-
-    create_table has checked the type against HIVE_TYPES in trees.py already.
-    """
-    built = _hive_type(text)
-    holds_struct = any(part.is_type(exp.DataType.Type.STRUCT)
-                       for part in built.find_all(exp.DataType))
-    if not holds_struct or _writes_struct_colons():
-        return
-    raise ValueError(
-        four_part_message(
-            what=f"{subject} holds a struct, and the sqlglot this Python has, "
-            f"{sqlglot.__version__}, writes a struct without the colons Hive needs: "
-            "STRUCT<name STRING> where Hive reads STRUCT<name: STRING>.",
-            why="Hive would refuse the CREATE TABLE.",
-            fix=INSTALL_NEWER,
-            opt_out=None,
-        )
-    )
-
-
-def _writes_struct_colons() -> bool:
-    """Whether this sqlglot writes a struct's fields with the colons Hive needs."""
-    built = exp.DataType.build("struct<a:int>", dialect=_DIALECT)
-    return sql_text(built) == "STRUCT<a: INT>"
-
-
-def _hive_call(name: str, arguments: list[exp.Expression]) -> exp.Expression:
-    """A call to a Hive function, as sqlglot builds it.
-
-    sqlglot writes DATE_SUB(day, n) as DATE_ADD(day, n * -1), and before version 30 it left a
-    sum unbracketed: DATE_ADD(day, n + 1 * -1) moves the day by n - 1. Bracketing the count as
-    version 30 does writes the same on every sqlglot.
-    """
-    if name.lower() == "date_sub" and len(arguments) == 2 and isinstance(
-            arguments[1], (exp.Add, exp.Sub, exp.Div)):
-        arguments = [arguments[0], exp.Paren(this=arguments[1])]
-    return exp.func(name, *arguments, dialect=_DIALECT)
-
-
 # Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
 _READ_BACK = {}
 
@@ -224,10 +169,9 @@ _READ_BACK = {}
 def _read_back_call(name: str, arguments: list[exp.Expression]) -> exp.Expression:
     """hive_function's call as sqlglot builds it, then read back as to_hive's self-check will.
 
-    A few functions come back in sqlglot's own form (DATEDIFF gains TO_DATE on older sqlglot),
-    which is then stable.
+    A function may come back in sqlglot's own form, which is then stable.
     """
-    text = sql_text(_hive_call(name, arguments))
+    text = sql_text(exp.func(name, *arguments, dialect=_DIALECT))
     if text not in _READ_BACK:
         _READ_BACK[text] = sqlglot.parse_one(text, read=_DIALECT)
     return _READ_BACK[text].copy()
@@ -237,18 +181,6 @@ def _hive_type(text: str) -> exp.DataType:
     """A column's type for CREATE TABLE, as sqlglot reads it. create_table has checked it
     against HIVE_TYPES in trees.py already."""
     return exp.DataType.build(text, dialect=_DIALECT)
-
-
-def _set_part(tree: exp.Expression, part: str, value: exp.Expression) -> None:
-    """Set a part of a sqlglot tree, under the name this sqlglot gives it.
-
-    sqlglot version 30 renamed `from` and `with` to `from_` and `with_`.
-    """
-    for key in (part, part + "_"):
-        if key in type(tree).arg_types:
-            tree.set(key, value)
-            return
-    raise RuntimeError(f"sqlglot_composer: this sqlglot has no {part!r} on {type(tree).__name__}.")
 
 
 # --- Names ---------------------------------------------------------------------------------
@@ -272,11 +204,6 @@ def _hive_table(name: str, database: str | None = None,
 # --- Hive someone else wrote, read to compare with a Statement's -----------------------------
 
 
-def _part(tree: exp.Expression, part: str) -> exp.Expression | None:
-    """A part of a sqlglot tree, under the name this sqlglot gives it, as _set_part sets it."""
-    return tree.args.get(part + "_", tree.args.get(part))
-
-
 def _first_line(error: sqlglot.errors.SqlglotError) -> str:
     """sqlglot's reason, its first line, in plain words: where it stopped as "at line 1,
     column 17", sqlglot's own name for a word it read, "<Token token_type: ..., text: WHERE,
@@ -289,7 +216,8 @@ def _first_line(error: sqlglot.errors.SqlglotError) -> str:
 
 def _is_a_set_line(tree: exp.Expression) -> bool:
     """Whether a statement is a SET line, such as SET hive.exec.parallel=true: one that sets
-    the session, not the rows. An older sqlglot reads it as a Command."""
+    the session, not the rows. One sqlglot can't look inside, such as SET hivevar:day=..., it
+    reads as a Command."""
     return isinstance(tree, exp.Set) or (isinstance(tree, exp.Command)
                                          and str(tree.this).upper() == "SET")
 
@@ -323,9 +251,9 @@ def _read_query(text: str, call: str, whose: str) -> exp.Expression:
         )
     tree = read[0]
     if isinstance(tree, exp.Insert):
-        query, around = tree.expression, _part(tree, "with")
-        if around is not None and _part(query, "with") is None:
-            _set_part(query, "with", around)
+        query, around = tree.expression, tree.args.get("with_")
+        if around is not None and query.args.get("with_") is None:
+            query.set("with_", around)
         tree = query
     while isinstance(tree, exp.Subquery):
         tree = tree.this
@@ -406,7 +334,7 @@ def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None
         query = scope.expression
         if not isinstance(query, exp.Select):
             continue
-        reads = [read for read in [_part(query, "from")] + (query.args.get("joins") or [])
+        reads = [read for read in [query.args.get("from_")] + (query.args.get("joins") or [])
                  if read is not None]
         named = [read.this.alias_or_name for read in reads]
         given = []
@@ -574,7 +502,7 @@ def rows_compared(call: str, statement_hive: str, original: str, columns: list[s
     tree = sqlglot.parse_one(text, read=_DIALECT)
     sides = [exp.CTE(this=ours, alias=exp.TableAlias(this=_identifier("from_statement"))),
              exp.CTE(this=theirs, alias=exp.TableAlias(this=_identifier("from_original")))]
-    with_ = _part(tree, "with")
+    with_ = tree.args.get("with_")
     with_.set("expressions", around_ours + around_theirs + sides + with_.expressions)
     return _written_back(tree, call, "the original")
 
@@ -599,7 +527,7 @@ def _reads_bounded(query: exp.Expression, bounded: list[tuple[str, str, str]]
                            for column, value in wanted[name]])
         table = exp.Table(this=read.this.copy(), db=read.args["db"].copy() if read.db else None)
         inner = exp.Select(expressions=[exp.Star()])
-        _set_part(inner, "from", exp.From(this=table))
+        inner.set("from_", exp.From(this=table))
         inner.set("where", exp.Where(this=where))
         read.replace(exp.Subquery(this=inner, alias=exp.TableAlias(
             this=_identifier(read.alias or read.name))))
@@ -610,9 +538,9 @@ def _hoisted(query: exp.Expression, prefix: str) -> tuple[exp.Expression, list[e
     """A query without its WITH, and the Derived tables that WITH held, each renamed to
     start with `prefix`, as statement_day_runs, and read under that name. A read keeps the
     name it was called by, so its columns, as day_runs.run_id, still read it."""
-    around = _part(query, "with")
+    around = query.args.get("with_")
     query = query.copy()
-    _set_part(query, "with", None)
+    query.set("with_", None)
     renamed, moved = {}, []
     for derived_table in around.expressions if around is not None else []:
         body = derived_table.this.copy()
@@ -764,7 +692,7 @@ def _select(node: Node) -> exp.Select:
             this="MAPJOIN", expressions=[_identifier(name) for name in node.parts["broadcast"]])]))
     if node.parts.get("distinct"):
         tree.set("distinct", exp.Distinct())
-    _set_part(tree, "from", exp.From(this=_built(node, "source")))
+    tree.set("from_", exp.From(this=_built(node, "source")))
     if node.parts.get("joins"):
         tree.set("joins", _all_built(node, "joins"))
     if node.parts.get("where") is not None:
@@ -814,7 +742,7 @@ def _with_tables(tree: exp.Expression, node: Node) -> exp.Expression:
     """Put the Derived tables a query or write reads at its top, as WITH name AS (...)."""
     tables = [to_sqlglot(table) for table in node.parts.get("derived_tables") or []]
     if tables:
-        _set_part(tree, "with", exp.With(expressions=tables))
+        tree.set("with_", exp.With(expressions=tables))
     return tree
 
 
@@ -851,12 +779,8 @@ def _create(node: Node) -> exp.Create:
 
 
 def _drop(node: Node) -> exp.Drop:
-    """sqlglot version 30 renamed the part of a DROP that holds its table from `this` to
-    `tables`."""
-    table = _built(node, "target")
-    if "tables" in exp.Drop.arg_types:
-        return exp.Drop(kind="TABLE", tables=[table], exists=True)
-    return exp.Drop(kind="TABLE", this=table, exists=True)
+    """DROP TABLE IF EXISTS, its table in the DROP's `tables`."""
+    return exp.Drop(kind="TABLE", tables=[_built(node, "target")], exists=True)
 
 
 def _repair(node: Node) -> exp.Command:
@@ -866,8 +790,7 @@ def _repair(node: Node) -> exp.Command:
 
 
 def _analyze(node: Node) -> exp.Command:
-    """ANALYZE TABLE ... COMPUTE STATISTICS, held as a Command: sqlglot before version 26 has
-    no tree of its own for it, and the Hive is the same either way."""
+    """ANALYZE TABLE ... COMPUTE STATISTICS, held as a Command, text sqlglot writes as given."""
     sql = f"TABLE {sql_text(_built(node, 'target'))} COMPUTE STATISTICS"
     if node.parts["columns"]:
         sql += " FOR COLUMNS " + ", ".join(sql_text(_identifier(name))
@@ -1119,7 +1042,7 @@ _REPLAY = {
     "Avg": _one_sided(exp.Avg),
     "Min": _one_sided(exp.Min),
     "Max": _one_sided(exp.Max),
-    # sqlglot builds GROUPING with a class of its own where it has one, as version 30 does.
+    # sqlglot builds GROUPING with a class of its own.
     "Grouping": lambda node: exp.func("grouping", _built(node, "this"), dialect=_DIALECT),
     "Between": lambda node: exp.Between(this=_built(node, "this"), low=_built(node, "low"),
                                         high=_built(node, "high")),
@@ -1140,7 +1063,8 @@ _REPLAY = {
     "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
     "Cast": lambda node: exp.Cast(this=_built(node, "this"),
                                   to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
-    "Call": lambda node: _hive_call(node.parts["name"], _all_built(node, "args")),
+    "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
+                                  dialect=_DIALECT),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
     "Unchecked": _unchecked,
     "UncheckedSelect": _unchecked_select,
