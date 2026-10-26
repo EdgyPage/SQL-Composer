@@ -1009,8 +1009,9 @@ def check() -> ProjectReport:
     list, and each it lists that isn't there, each with
     the call that mends it, and changes nothing. It also reports a send.py from before 7.0
     with no warehouse.py beside it; a Project an older Toolbox last wrote, which
-    project.upgrade() carries on to this one; and each `# UPGRADE <version>:` mark an Upgrade
-    left for you, with its file and line.
+    project.upgrade() carries on to this one, or a newer one, or whose
+    admin/project_version.txt holds no version; and each `# UPGRADE <version>:` mark an
+    Upgrade left for you, with its file and line.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1061,8 +1062,7 @@ def upgrade() -> ProjectReport:
     tables/ and warehouse.py.
     Next: write your two functions, query and execute, in warehouse.py.
     >>> import os
-    >>> # Here only to show a Project 7.1 made, which has no project_version.txt: never in yours.
-    >>> os.remove("admin/project_version.txt")
+    >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
     Upgraded the Project from 7.1 to 7.2.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
