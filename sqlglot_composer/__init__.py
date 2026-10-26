@@ -94,3 +94,6 @@ from . import admin  # noqa: E402, F401
 # The project module, imported by name too, as `from sqlglot_composer import project`: its
 # functions make and archive a Project's folders and files.
 from . import project  # noqa: E402, F401
+
+# Imported inside a Project that an older Toolbox last wrote, it warns: run project.upgrade().
+project.warn_if_behind()

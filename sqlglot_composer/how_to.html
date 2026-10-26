@@ -125,7 +125,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -133,6 +133,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -141,6 +142,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <h5>Know every file of a Project</h5>
 <p>Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action, and never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
@@ -287,7 +289,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -295,6 +297,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -303,6 +306,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute</pre>
 <p>Every step here passes that <code>query</code>; <code>execute</code> waits for a step that changes a table. Here it runs on the Example database, as warehouse.py holds it; at work it is your own, and you name your own tables.</p>
@@ -698,7 +702,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -706,6 +710,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -714,6 +719,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
@@ -1141,7 +1147,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -1149,6 +1155,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -1157,6 +1164,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
@@ -2038,7 +2046,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -2046,6 +2054,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -2054,6 +2063,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
@@ -2537,7 +2547,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -2545,6 +2555,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -2553,6 +2564,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
@@ -3308,7 +3320,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -3316,6 +3328,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -3324,6 +3337,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=query)</pre>
@@ -5074,7 +5088,7 @@ project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p class="label">It writes 16 files</p>
+<p class="label">It writes 18 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
 admin/change_a_saved_table.ipynb
@@ -5082,6 +5096,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -5090,6 +5105,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 warehouse.py</pre>
 <pre class="python">from warehouse import query, execute
 project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=query)</pre>
@@ -6129,7 +6145,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6138,6 +6154,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -6146,6 +6163,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -6530,7 +6548,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6539,6 +6557,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -6547,6 +6566,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -6852,7 +6872,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -6861,6 +6881,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -6869,6 +6890,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -7424,7 +7446,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -7433,6 +7455,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -7441,6 +7464,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -7761,7 +7785,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -7770,6 +7794,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -7778,6 +7803,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -8058,7 +8084,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8067,6 +8093,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -8075,6 +8102,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -8482,7 +8510,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8491,6 +8519,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -8499,6 +8528,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -8762,7 +8792,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -8771,6 +8801,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -8779,6 +8810,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -9026,7 +9058,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -9035,6 +9067,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -9043,6 +9076,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -9552,7 +9586,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -9561,6 +9595,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -9569,6 +9604,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -10558,7 +10594,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -10567,6 +10603,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -10575,6 +10612,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -11215,7 +11253,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -11224,6 +11262,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -11232,6 +11271,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -11921,7 +11961,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -11930,6 +11970,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -11938,6 +11979,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -12485,7 +12527,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -12494,6 +12536,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -12502,6 +12545,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -12750,7 +12794,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -12759,6 +12803,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -12767,6 +12812,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -13090,7 +13136,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -13099,6 +13145,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -13107,6 +13154,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -13285,7 +13333,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -13294,6 +13342,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -13302,6 +13351,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py
@@ -14355,7 +14405,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 53 files</p>
+<p class="label">It writes 55 files</p>
 <pre class="file">README.md
 admin/add_references.ipynb
 admin/admin_log.md
@@ -14364,6 +14414,7 @@ admin/check_project.ipynb
 admin/check_references.ipynb
 admin/new_block.ipynb
 admin/new_table.ipynb
+admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove_table.ipynb
@@ -14372,6 +14423,7 @@ admin/templates/building_block.py
 admin/templates/quality_checks.py
 admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
+admin/upgrade.ipynb
 building_blocks/costs_per_job.py
 building_blocks/days_rewritten.py
 building_blocks/events_per_job.py

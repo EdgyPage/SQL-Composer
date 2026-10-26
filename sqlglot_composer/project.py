@@ -13,6 +13,8 @@ A Project is the folder you work in, laid out the same way every time:
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
     │   ├── registry.csv     every Table folder, Table reference and Building block a Project
     │   │                    action made
+    │   ├── project_version.txt  the Toolbox version that last wrote the Project
+    │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
     │   ├── templates/       the Templates new_table and new_block make files from: yours to edit
     │   └── removed/         what remove_table, remove_reference and remove_block archived
     ├── references/          a Table reference per table, such as ops__job_runs.py, and a
@@ -34,7 +36,9 @@ remove_reference archives one, register adopts a Table folder, Table reference o
 block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
 a Table notebook's logic from anywhere in the Project, and run_tables writes every table, each
-before the tables that read it. Each runs from a notebook start() writes in admin/, such as
+before the tables that read it. upgrade carries the Project's files to a newer Toolbox you
+copied in, marking with `# UPGRADE` what it leaves you to change. Each runs from a notebook
+start() writes in admin/, such as
 admin/new_block.ipynb; admin/check_references.ipynb checks every Table reference against its
 table in the warehouse.
 
@@ -47,8 +51,8 @@ None of them deletes a file of yours: what they remove moves into admin/removed/
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
 your tables; the rest never touch the warehouse. start, new_table, new_block, remove_table,
-remove_reference, remove_block, register and add_references, the Project actions, each add an
-entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
+remove_reference, remove_block, register, add_references and upgrade, the Project actions, each
+add an entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
 Project. The rest add no entry of their own: check and load change no file;
 refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
 file; run_tables writes only your tables in the warehouse, though an Admin or Unchecked
@@ -73,7 +77,7 @@ from typing import NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import kinds, unchecked
+from . import kinds, unchecked, upgrades
 from .clauses import Statement
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
 from .project_files import (
@@ -95,13 +99,13 @@ from .project_files import (
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
 from .refusals import (callers_frame, in_words, need_warehouse_call, refuse,
-                       refuse_removed_arguments)
+                       refuse_removed_arguments, warn_upgrade_needed)
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
-           "run_tables"]
+           "run_tables", "upgrade"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -305,6 +309,16 @@ ADMIN_NOTEBOOKS = {
          "# new_columns = admin.add_columns(your_table, query=query)  # once its Table "
          "reference lists them\n# show_hive(new_columns)\n# run_execute(new_columns, execute)"],
     ),
+    "upgrade": (
+        "# Upgrade the Project\n\nRun it once you have copied in a newer `sqlglot_composer` and "
+        "restarted the kernel. It carries the Project's files from the Toolbox version that "
+        "last wrote them, in `project_version.txt`, to the one copied in: it makes the changes "
+        "that need no judgement, keeping each file it changes as it was in `removed/`, and "
+        "marks each change left for you with an `# UPGRADE <version>:` comment at its line. "
+        "`upgrade_<version>.md` lists what it did and a box for each mark. It never touches "
+        "the warehouse. Run again, it does nothing.",
+        ["project.upgrade()"],
+    ),
 }
 
 
@@ -382,6 +396,7 @@ def start() -> ProjectReport:
         (here / name).mkdir()
     _add_admin_files(here)
     start_registry(here)
+    upgrades.write_project_version(here, _toolbox_version())
     (here / WAREHOUSE).write_text(WAREHOUSE_TEXT, encoding="utf-8")
     _log(here, "project.start()", [],
          [f"created {', '.join(f'{name}/' for name in FOLDERS)}, {WAREHOUSE}"], frame)
@@ -395,12 +410,7 @@ def start() -> ProjectReport:
 
 def _complete(root: Path, frame: FrameType) -> ProjectReport:
     """Add to a Project what start() makes and it lacks, writing over nothing."""
-    added = []
-    for name in FOLDERS[1:]:
-        if not (root / name).exists():
-            (root / name).mkdir()
-            added.append(f"{name}/")
-    added += _add_admin_files(root)
+    added = _start_makes(root)
     # A Project from before 7.0 holds send.py: its calls go into warehouse.py by hand.
     before_7 = (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists()
     if not (root / WAREHOUSE).exists() and not before_7:
@@ -409,6 +419,18 @@ def _complete(root: Path, frame: FrameType) -> ProjectReport:
     if added:
         _log(root, "project.start()", [], [f"added {', '.join(added)}"], frame)
     return _completed(added, before_7)
+
+
+def _start_makes(root: Path) -> list[str]:
+    """Add each folder, Template and admin notebook start() makes that the Project at `root`
+    lacks, writing over nothing: the paths added, such as references/ and
+    admin/new_block.ipynb."""
+    added = []
+    for name in FOLDERS[1:]:
+        if not (root / name).exists():
+            (root / name).mkdir()
+            added.append(f"{name}/")
+    return added + _add_admin_files(root)
 
 
 def _add_admin_files(root: Path) -> list[str]:
@@ -1010,8 +1032,162 @@ def check() -> ProjectReport:
         lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
                      "query and execute in")
         lines.append(f"a new {WAREHOUSE}, as CHANGES.md's 7.0 says, then delete {OLD_SEND}.")
+    behind = _behind(root)
+    if behind:
+        lines.append(behind)
+    marks = upgrades.marks_in(root, upgrades.MARK_LINE)
+    if marks:
+        lines.append("Marked by project.upgrade() for you to change: make each change, then "
+                     "delete its mark.")
+        lines += [f"  {mark}" for mark in marks]
     return ProjectReport(lines or ["Every Table folder, Table reference and Building block is "
                                    "registered, and each one registered is there."])
+
+
+# --- upgrade ----------------------------------------------------------------------------------
+
+
+def upgrade() -> ProjectReport:
+    """Carry the Project's files on to this Toolbox's version, step by step.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: write your two functions, query and execute, in warehouse.py.
+    >>> import os
+    >>> os.remove("admin/project_version.txt")  # as a Project 7.1 made has none
+    >>> project.upgrade()
+    Upgraded the Project from 7.1 to 7.2.
+    7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
+
+    Run it from a notebook in the Project, such as admin/upgrade.ipynb (a Project made by 7.1
+    has none until its Upgrade adds one), once you have copied in a newer sqlglot_composer and
+    restarted the kernel. It reads the version that last wrote the Project from
+    admin/project_version.txt, and runs each version's step from there to this Toolbox's, in
+    order. A step makes the changes that need no judgement, keeping each file it changes, as it
+    was, in admin/removed/, and marks each change that needs you with a
+    `# UPGRADE <version>: <what to change>` comment at the line. admin/upgrade_<version>.md
+    lists what each step did, and a box for each mark; project.check() lists the marks left.
+    It changes only files, never the warehouse, and logs what it did in the Admin log. Run
+    again, it does nothing.
+
+    A Project with no admin/project_version.txt was made by 7.1, the first version it upgrades
+    from; one from before 7.0, holding send.py, is refused: update it by hand as CHANGES.md
+    says first.
+    """
+    frame = callers_frame()
+    call = "project.upgrade()"
+    root = _project(call)
+    toolbox = _toolbox_version()
+    before = _version_of_or_refuse(root, call, toolbox)
+    steps = [version for version in sorted(upgrades.STEPS, key=upgrades.numbers)
+             if upgrades.numbers(before) < upgrades.numbers(version)
+             <= upgrades.numbers(toolbox)]
+    if not steps:
+        return ProjectReport([f"The Project is at {toolbox} already, as this Toolbox is: "
+                              "nothing to upgrade."])
+    now = unchecked.now()
+    lines, files, was = [f"Upgraded the Project from {before} to {toolbox}."], [], before
+    for version in steps:
+        step = upgrades.Upgrade(
+            root, version, root / "admin" / "removed" / f"{now:%Y%m%d-%H%M%S}-upgrade_{version}",
+            lambda: _start_makes(root))
+        upgrades.STEPS[version](step)
+        checklist = f"admin/upgrade_{version}.md"
+        (root / checklist).write_text(step.checklist(was, now.strftime(unchecked.TIME_SHOWN)),
+                                      encoding="utf-8")
+        files += [*step.changed, *[f"marked {mark}" for mark in step.marks],
+                  f"wrote {checklist}"]
+        lines.append(f"{version}: " + (f"{len(step.marks)} change"
+                                       f"{'' if len(step.marks) == 1 else 's'} for you to make, "
+                                       f"each marked `# UPGRADE {version}:`, and listed in "
+                                       f"{checklist}." if step.marks else
+                                       f"nothing to change by hand. {checklist} lists what it "
+                                       "did."))
+        was = version
+    upgrades.write_project_version(root, toolbox)
+    _log(root, call, [], [*files, f"wrote {upgrades.PROJECT_VERSION.as_posix()}: {toolbox}"],
+         frame)
+    return ProjectReport(lines)
+
+
+def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
+    """The version that last wrote the Project, 7.1 if it records none, refused if it is from
+    before 7.0, before the first version an Upgrade starts from, or newer than this Toolbox."""
+    recorded = upgrades.project_version(root)
+    if recorded is None and (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
+        refuse(
+            what=f"{call}: this Project is from before 7.0: it holds {OLD_SEND} and no "
+            f"{WAREHOUSE}.",
+            why=f"An Upgrade carries a Project from {upgrades.FLOOR} on; the steps before that "
+            "are made by hand.",
+            fix=f"Update it by hand as CHANGES.md says, from 7.0's \"To update from 6.x\" to "
+            f"{upgrades.FLOOR}'s, then run {call} again.",
+            error=ValueError,
+        )
+    have = recorded or upgrades.FLOOR
+    if not re.fullmatch(r"\d+\.\d+", have) or upgrades.numbers(have) < upgrades.numbers(
+            upgrades.FLOOR):
+        refuse(
+            what=f"{call}: {upgrades.PROJECT_VERSION.as_posix()} says {have!r}, which isn't a "
+            f"version an Upgrade starts from.",
+            why=f"An Upgrade carries a Project from {upgrades.FLOOR} on, and reads where to start "
+            "from that file.",
+            fix=f"Write the version that last wrote the Project on its first line, such as "
+            f"{upgrades.FLOOR}, then run {call} again.",
+            error=ValueError,
+        )
+    if upgrades.numbers(have) > upgrades.numbers(toolbox):
+        refuse(
+            what=f"{call}: the Project was last written by Toolbox {have}, and this Toolbox is "
+            f"{toolbox}.",
+            why="An Upgrade only carries a Project forward; an older Toolbox may not read files "
+            "a newer one wrote.",
+            fix=f"Copy in the {have} download of sqlglot_composer, or a newer one, and restart "
+            "the kernel.",
+            error=ValueError,
+        )
+    return have
+
+
+def _versions_behind(root: Path) -> tuple[str, str] | None:
+    """The version that last wrote the Project and this Toolbox's, when the Toolbox copied in
+    is the newer, or None when it isn't."""
+    have = upgrades.project_version(root) or upgrades.FLOOR
+    toolbox = _toolbox_version()
+    if re.fullmatch(r"\d+\.\d+", have) and upgrades.numbers(have) < upgrades.numbers(toolbox):
+        return have, toolbox
+    return None
+
+
+def _behind(root: Path) -> str | None:
+    """What check() says when the Toolbox copied in is newer than the version that last wrote
+    the Project, or None when it isn't."""
+    behind = _versions_behind(root)
+    if behind is None:
+        return None
+    return (f"The Project was last written by Toolbox {behind[0]}, and this Toolbox is "
+            f"{behind[1]}: run project.upgrade() from a notebook in the Project.")
+
+
+def warn_if_behind() -> None:
+    """Warn, when the Toolbox is imported inside a Project, that the Project needs an Upgrade.
+
+    It only warns: a Statement run in a notebook harms nothing. The import calls it, and
+    project.check() says the same.
+    """
+    root = project_folder(_working_folder())
+    behind = _versions_behind(root) if root is not None else None
+    if behind:
+        warn_upgrade_needed(*behind)
+
+
+def _toolbox_version() -> str:
+    """This Toolbox's version, as its version.txt says."""
+    from . import TOOLBOX_VERSION  # __init__.py sets it before importing this module
+
+    return TOOLBOX_VERSION
 
 
 # --- The Reference sheet ----------------------------------------------------------------------

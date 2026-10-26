@@ -44,7 +44,7 @@ _Avoid_: backend, engine, server, platform, send
 **Project**:
 The user's folder at work holding the Toolbox and their own scripts in one fixed layout: an
 admin folder, a flat folder of Table references, Building blocks, and a Table folder for each
-Saved table they build.
+Saved table they build. It records, in its admin folder, the Toolbox version that last wrote it.
 _Avoid_: workspace, repo, codebase
 
 **Table folder**:
@@ -68,11 +68,20 @@ _Avoid_: manifest, inventory, index
 
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
-folder or a Building block, adding Table references - run from the admin folder and recorded
+folder or a Building block, adding Table references, upgrading the Project - run from the admin
+folder and recorded
 in the Admin log. Where an Admin statement changes the warehouse, a Project action changes only
 files. The user makes only the Project's folder and the copy of the Toolbox in it; a Project
 action makes every other file, for the user to fill in.
 _Avoid_: admin statement, migration, setup step
+
+**Upgrade**:
+A Project action that carries a Project's files from the Toolbox version that last wrote them
+to the one copied in, one version at a time. It makes the changes that need no judgement,
+keeping each file as it was first, and marks every one it leaves for the user with an
+`# UPGRADE` comment at the line and a box on a checklist. It never changes the warehouse. Every
+Toolbox version ships the step from the one before.
+_Avoid_: migration, port, conversion, update script
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its

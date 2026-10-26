@@ -62,6 +62,8 @@ or made by hand.
 | `warehouse.py` | `project.start()` | your query and execute |
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
+| `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
+| an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference or a Building block adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
 | `references/<db>__<table>.py`, a Table reference per table | `project.add_references([...], query=query)` for a table in the warehouse, or `project.new_table(...)` for a Saved table of your own | its TODO lines, and your own Aliases |
@@ -392,10 +394,17 @@ And two more, for files beside the notebooks:
    before 6.0.
 3. From the new download, copy in the whole `sqlglot_composer` folder.
 4. Restart the kernel, which still holds the old code.
-5. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer
+5. From 7.1 on, run `project.upgrade()` from a notebook in your Project, such as
+   `admin/upgrade.ipynb`. It carries your Project's files to the new version, one version at a
+   time: it makes each change that needs no judgement, keeping the file as it was in the
+   folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
+   at the line. Work through the boxes in the checklist it writes in admin/, named for the
+   version, such as upgrade_7.3.md;
+   `project.check()` lists the marks left. It never touches the warehouse.
+6. In `CHANGES.md`, at the top of the download, read the "To update" part of every version newer
    than yours: the newest comes first, so start at your version's next and read up the page. From
    4.x to 6.0, that is 5.0's "To update from 4.x", then 6.0's "To update from 5.x". Each says what
-   to change in your notebooks and files.
+   to change in your notebooks and files; from 7.1 on, `project.upgrade()` does it, or marks it.
 
 When it is imported, the folder checks itself against its `version.txt`, the one file that
 names its version and lists each of its files. If a file is missing or extra, if `version.txt`
