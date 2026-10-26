@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Stacks and subtotals: UNION_ALL and the rest, rollup, cube, grouping_sets and is_total.
 
 A Stack puts the rows of whole Statements together, one Statement after another:
@@ -31,10 +30,16 @@ from .clauses import (
 )
 from .conditions import Condition
 from .refusals import refuse
-from .tables import Column, Table, made_by, python_text, readable, type_family
+from .tables import (
+    Column,
+    Table,
+    is_unchecked,
+    made_by,
+    python_text,
+    readable,
+    type_family,
+)
 from .trees import Node, number
-
-TOOLBOX_VERSION = "7.1"
 
 # How each Stack is written in Hive.
 STACK_HOW = {"UNION_ALL": "UNION ALL", "UNION": "UNION", "INTERSECT": "INTERSECT",
@@ -649,7 +654,7 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
 def _refuse_writing_subtotals(s: Statement) -> None:
     """Refuse a write whose rows come from subtotals, at any step."""
     for step, where in [(s, "")] + [(table._statement, f" in derived({table._name!r}, ...)")
-                                     for table in derived_tables(s)]:
+                                     for table in derived_tables(s) if not is_unchecked(table)]:
         for part in stack_steps(step):
             if part._grouping_sets is None:
                 continue

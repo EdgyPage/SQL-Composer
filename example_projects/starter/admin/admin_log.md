@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy -->
+<!-- sqlglot Composer 7.2 - copy it, then edit your copy -->
 # Admin log
 
-Each Admin statement, Unchecked statement and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements are the list of what the Toolbox should learn to write next.
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
 
 ## 2026-09-25 06:00:00, Project action
 

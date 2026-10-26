@@ -1,8 +1,7 @@
-<!-- sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit -->
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 7.1: Example gallery</title>
+<title>sqlglot Composer 7.2: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -24,9 +23,9 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 7.1: Example gallery</h1>
-<p>Every Worked example on one page: 13 Worked examples on their own, and the
-121 examples from the Toolbox's docstrings. Each shows its Python and, for each
+<h1>sqlglot Composer 7.2: Example gallery</h1>
+<p>Every Worked example on one page: 14 Worked examples on their own, and the
+133 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -60,6 +59,7 @@ from <code>example_database</code>, whose Table references ship inside the Toolb
 <li><a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a></li>
 <li><a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></li>
 <li><a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></li>
+<li><a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></li>
 <li><a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></li>
 <li><a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a></li>
 </ul>
@@ -74,7 +74,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#compare_hive"><code>compare_hive</code></a>, <a href="#compare_with_original"><code>compare_with_original</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.convert"><code>project.convert</code></a>, <a href="#project.finish_conversion"><code>project.finish_conversion</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_conversion"><code>project.remove_conversion</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.scan_hive"><code>project.scan_hive</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -473,6 +473,105 @@ WHERE
 </table></div>
 <p class="names">Toolbox names used: <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>equals</code>, <code>is_null</code>, <code>between</code>, <code>is_in</code>, <code>is_not_in</code>, <code>contains</code>, <code>starts_with</code>, <code>any_of</code>, <code>example_database</code></p>
 </section>
+<section class="entry" id="named_lists_and_lookups">
+<h3>Keep a long list and a lookup as constants, and an if/else chain as one CASE.</h3>
+<p class="why">Why: a list or a lookup pasted into each Statement, as hand-written Hive often has them, must be found and changed in every one, where a constant at the top of the script, named for what it holds, is changed once.</p>
+<p class="label">The top of its script, named_lists_and_lookups.py, a Table notebook&#x27;s logic cell in a Project</p>
+<pre class="python">from sqlglot_composer import (
+    AS, FROM, SELECT, WHERE, Statement, between, example_database, first_match, is_in, mapped,
+    more_than, statement,
+)
+
+job_runs = example_database.job_runs
+
+FIRST_DAY = &quot;2026-09-23&quot;
+LAST_DAY = &quot;2026-09-24&quot;
+
+# The jobs this report watches, by job_id. However long the list grows, it is written once.
+WATCHED_JOBS = [1, 2]
+# A label for each status a run can have.
+STATUS_LABELS = {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;, &quot;TEST&quot;: &quot;test run&quot;}</pre>
+<h4><code>runs_of_watched_jobs()</code></h4><pre class="python">def runs_of_watched_jobs() -&gt; Statement:
+    &quot;&quot;&quot;Runs of the watched jobs: is_in takes the list kept in WATCHED_JOBS (IN a list).&quot;&quot;&quot;
+    return statement(
+        SELECT(job_runs.run_id, job_runs.job_id),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY), is_in(job_runs.job_id, WATCHED_JOBS)),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.job_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.job_id IN (1, 2)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>job_id</th></tr>
+<tr><td>95</td><td>1</td></tr>
+<tr><td>96</td><td>2</td></tr>
+<tr><td>98</td><td>2</td></tr>
+<tr><td>99</td><td>1</td></tr>
+<tr><td>101</td><td>1</td></tr>
+<tr><td>102</td><td>2</td></tr>
+<tr><td>104</td><td>1</td></tr>
+</table></div><h4><code>labelled_runs()</code></h4><pre class="python">def labelled_runs() -&gt; Statement:
+    &quot;&quot;&quot;Each watched run&#x27;s status as a label, and its length in words (CASE ... WHEN ...).
+
+    mapped looks each status up in STATUS_LABELS. A run still going has no status (NULL),
+    which matches no key, so it gets otherwise=, as any status the dict doesn&#x27;t hold would; to
+    give NULL a label of its own, mapped&#x27;s docstring fills it in first, with fill_null.
+    first_match tries its conditions in order and
+    gives the value of the first that holds: a run of 40 minutes is &quot;long&quot;, though it is more
+    than 10 minutes too.
+
+    Before, as Hive written by hand, the lookup and the chain read as below, with the list
+    pasted in where WATCHED_JOBS goes; project.convert(...) writes them as this function does:
+
+        CASE status WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27;
+                    WHEN &#x27;TEST&#x27; THEN &#x27;test run&#x27; ELSE &#x27;still running&#x27; END AS outcome,
+        CASE WHEN duration_mins &gt; 30 THEN &#x27;long&#x27; WHEN duration_mins &gt; 10 THEN &#x27;medium&#x27;
+             ELSE &#x27;short&#x27; END AS length
+        ... WHERE job_id IN (1, 2)
+    &quot;&quot;&quot;
+    return statement(
+        SELECT(
+            job_runs.run_id,
+            AS(mapped(job_runs.status, STATUS_LABELS, otherwise=&quot;still running&quot;), &quot;outcome&quot;),
+            AS(first_match([(more_than(job_runs.duration_mins, 30), &quot;long&quot;),
+                            (more_than(job_runs.duration_mins, 10), &quot;medium&quot;)],
+                           otherwise=&quot;short&quot;), &quot;length&quot;),
+        ),
+        FROM(job_runs),
+        WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY), is_in(job_runs.job_id, WATCHED_JOBS)),
+    )</pre><p class="label">Hive</p><pre class="hive">SELECT
+  job_runs.run_id,
+  CASE job_runs.status
+    WHEN &#x27;SUCCESS&#x27;
+    THEN &#x27;passed&#x27;
+    WHEN &#x27;FAILED&#x27;
+    THEN &#x27;failed&#x27;
+    WHEN &#x27;TEST&#x27;
+    THEN &#x27;test run&#x27;
+    ELSE &#x27;still running&#x27;
+  END AS outcome,
+  CASE
+    WHEN job_runs.duration_mins &gt; 30
+    THEN &#x27;long&#x27;
+    WHEN job_runs.duration_mins &gt; 10
+    THEN &#x27;medium&#x27;
+    ELSE &#x27;short&#x27;
+  END AS length
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt BETWEEN &#x27;2026-09-23&#x27; AND &#x27;2026-09-24&#x27; AND job_runs.job_id IN (1, 2)</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>outcome</th><th>length</th></tr>
+<tr><td>95</td><td>passed</td><td>medium</td></tr>
+<tr><td>96</td><td>passed</td><td>medium</td></tr>
+<tr><td>98</td><td>still running</td><td>medium</td></tr>
+<tr><td>99</td><td>test run</td><td>short</td></tr>
+<tr><td>101</td><td>passed</td><td>short</td></tr>
+<tr><td>102</td><td>failed</td><td>medium</td></tr>
+<tr><td>104</td><td>passed</td><td>long</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>Statement</code>, <code>more_than</code>, <code>between</code>, <code>is_in</code>, <code>first_match</code>, <code>mapped</code>, <code>example_database</code></p>
+</section>
 <section class="entry" id="saved_table">
 <h3>Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</h3>
 <p class="why">Why: a result that is slow to work out, or read by many notebooks, is cheaper to work out once a day and save than to work out again every time someone reads it.</p>
@@ -788,11 +887,9 @@ WHERE
 <h3>Latest run per job, and top N per group, with row_number.</h3>
 <p class="why">Why: to keep whole rows, since max_of on each column can take the status from a different run than the newest one.</p>
 <p class="label">The top of its script, latest_and_top_n.py, a Table notebook&#x27;s logic cell in a Project</p>
-<pre class="python">import pandas as pd
-
-from sqlglot_composer import (
-    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, all_columns, at_most, between, derived,
-    descending, equals, example_database, max_of, row_number, run_query, statement,
+<pre class="python">from sqlglot_composer import (
+    AS, FROM, GROUP_BY, SELECT, WHERE, Statement, at_most, between, derived,
+    descending, equals, example_database, max_of, row_number, statement,
 )
 
 job_runs = example_database.job_runs
@@ -856,14 +953,18 @@ SELECT
   numbered.status
 FROM numbered
 WHERE
-  numbered.newest_first = 1</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.newest_first = 1</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
 <tr><td>3</td><td>103</td><td>SUCCESS</td></tr>
 </table></div></div>
 </div><h4>Also in this script: <code>top_runs_per_job()</code></h4><pre class="python">def top_runs_per_job(n: int = 2) -&gt; Statement:
-    &quot;&quot;&quot;The n longest runs of each job: number them from the longest, keep numbers 1 to n.&quot;&quot;&quot;
+    &quot;&quot;&quot;The n longest runs of each job: number them from the longest, keep numbers 1 to n.
+
+    With no ORDER_BY, the Example database gives the rows by the first column, then the
+    second, and so on: by job, then by run, not longest first.
+    &quot;&quot;&quot;
     numbered = derived(&quot;numbered&quot;, statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.duration_mins,
                AS(row_number(PARTITION_BY=job_runs.job_id,
@@ -892,7 +993,7 @@ SELECT
   numbered.duration_mins
 FROM numbered
 WHERE
-  numbered.longest_first &lt;= 2</pre><p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+  numbered.longest_first &lt;= 2</pre><p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>duration_mins</th></tr>
 <tr><td>1</td><td>95</td><td>12</td></tr>
 <tr><td>1</td><td>104</td><td>40</td></tr>
@@ -1348,14 +1449,14 @@ WHERE
 <p class="why">Write Hive SQL as Python, one clause function per SQL clause.</p>
 <p>Import everything from here, never from a file inside the folder:</p>
 <pre class="python">from sqlglot_composer import statement, SELECT, AS, FROM, WHERE, GROUP_BY, to_hive, run_query</pre>
-<p>The Toolbox is this one folder. To update, delete it, copy it in again from the download and restart the kernel. It checks itself when imported. If a file is missing, extra, from another version or export, or from another Toolbox folder, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix.</p>
-<p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported.</p>
+<p>The Toolbox is this one folder. To update, delete it, copy it in again from the download and restart the kernel. It checks itself when imported. If a file is missing or extra, if its version.txt is missing or unreadable, or if this Python can&#x27;t run the Toolbox, it stops and says what happened, why it matters and the usual fix. A file that differs from the download, edited by hand or pasted from another download, only warns.</p>
+<p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported. Both are read from the folder&#x27;s version.txt, the one place the version is written.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;7.1&#x27;</pre>
+<pre class="output">&#x27;7.2&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 7.1, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 7.2, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -1525,11 +1626,11 @@ Notes:
 </section>
 <section class="entry" id="Verdict">
 <h3><code>Verdict</code></h3>
-<p class="why">What check_key(...) or check_table_reference(...) found, ready to print.</p>
+<p class="why">What check_key(...), check_table_reference(...) or a comparison found, to print.</p>
 <pre class="python">check_key(jobs, query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">ops.jobs: the key (job_id) holds.</pre>
-<p>Its <code>ok</code> is True when the check found nothing wrong, and printing it shows what it found. Make one with check_key(...) or check_table_reference(...), never Verdict(). Write the name in a type hint, to say that a function of yours gives back what a check found:</p>
+<p>Its <code>ok</code> is True when it found nothing wrong, and printing it shows what it found. The Verdict itself is true or false as its <code>ok</code> is, so <code>if check_key(...):</code> passes only when the key holds. Make one with check_key(...), check_table_reference(...), compare_hive(...) or compare_with_original(...), never Verdict(). Write the name in a type hint, to say that a function of yours gives back what one of them found:</p>
 <pre class="python">def key_holds(t: Table) -&gt; Verdict:
     return check_key(t, query=example_database.query)</pre>
 <pre class="python">verdict = key_holds(jobs)</pre>
@@ -1669,7 +1770,7 @@ FROM ops.jobs AS jobs</pre>
 <p>Every calculation in SELECT needs a name, which becomes its column in pandas. Arithmetic uses Python&#x27;s + - * / and comes out bracketed. / divides as Python&#x27;s / does, so 7 / 2 is 3.5, and dividing by zero gives NULL rather than an error.</p>
 <p>A table named twice in one Statement, such as a table joined to itself, needs a second name for one of them: AS(job_runs, &quot;earlier&quot;) is read as FROM ops.job_runs AS earlier.</p>
 <p class="names">Toolbox names used: <code>AS</code>, <code>count_rows</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#nan_in_a_list">NaN in a list: leaving out the jobs a DataFrame lists leaves out every run.</a>; <a href="#none_in_equals">None in equals: a search for a missing status finds nothing.</a>; <a href="#not_equals_drops_null">not_equals: leaving out TEST runs also leaves out the run still going.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="FROM">
 <h3><code>FROM</code></h3>
@@ -2669,7 +2770,7 @@ GROUP BY
 <p class="label">Hive</p>
 <pre class="output">job_runs.duration_mins &gt; 30</pre>
 <p class="names">Toolbox names used: <code>more_than</code></p>
-<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
+<p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="less_than">
 <h3><code>less_than</code></h3>
@@ -2687,7 +2788,7 @@ GROUP BY
 <pre class="output">job_runs.dt BETWEEN &#x27;2026-09-01&#x27; AND &#x27;2026-09-24&#x27;</pre>
 <p>On a partition column, such as a day, this is the usual way to bound the Partitions a Statement reads.</p>
 <p class="names">Toolbox names used: <code>between</code></p>
-<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
+<p class="names">Worked examples that use it: <a href="#groups_and_top_n">Distinct values, counts per group, groups kept by HAVING, and the top N.</a>; <a href="#jobs_that_never_ran">Jobs with no runs, and jobs with at least one: anti-join and semi-join.</a>; <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a>; <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a>; <a href="#step_by_step">Build a long Statement from named steps, each one reading the step before it.</a>; <a href="#latest_and_top_n">Latest run per job, and top N per group, with row_number.</a>; <a href="#left_join_then_where">LEFT_JOIN then WHERE: counting runs per job loses the job that never ran.</a>; <a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a>; <a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></p>
 </section>
 <section class="entry" id="last_n_days">
 <h3><code>last_n_days</code></h3>
@@ -2705,7 +2806,7 @@ GROUP BY
 <p class="label">Hive</p>
 <pre class="output">job_runs.status IN (&#x27;FAILED&#x27;, &#x27;TEST&#x27;)</pre>
 <p class="names">Toolbox names used: <code>is_in</code></p>
-<p class="names">Worked examples that use it: <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a></p>
+<p class="names">Worked examples that use it: <a href="#lists_and_text">Keep rows by a list of values, by either of two conditions, or by text.</a>; <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="is_not_in">
 <h3><code>is_not_in</code></h3>
@@ -2857,6 +2958,77 @@ GROUP BY
 <p class="names">Toolbox names used: <code>if_else</code>, <code>equals</code></p>
 <p class="names">Worked examples that use it: <a href="#labels_and_counts">Label with if_else, fill NULL with fill_null, count by condition, and divide.</a></p>
 </section>
+<section class="entry" id="first_match">
+<h3><code>first_match</code></h3>
+<p class="why">The value of the first (condition, value) pair that holds for a row (CASE WHEN).</p>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id,
+           AS(first_match([(is_null(job_runs.status), &quot;still running&quot;),
+                           (more_than(job_runs.duration_mins, 20), &quot;long&quot;)],
+                          otherwise=&quot;short&quot;), &quot;length&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)))))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  CASE
+    WHEN job_runs.status IS NULL
+    THEN &#x27;still running&#x27;
+    WHEN job_runs.duration_mins &gt; 20
+    THEN &#x27;long&#x27;
+    ELSE &#x27;short&#x27;
+  END AS length
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p>Give it a list of (condition, value) pairs. Each row gets the value of the first pair whose condition holds for it, so a run still going is &quot;still running&quot; whatever its minutes. A row no condition holds for gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL:</p>
+<pre class="python">first_match([(equals(job_runs.status, &quot;FAILED&quot;), 1)])</pre>
+<p class="label">Hive</p>
+<pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END</pre>
+<p>It writes a whole if/else chain as one CASE, however many pairs it has. For one condition, if_else(...) is shorter; where every pair tests one column against a value, mapped(...) reads plainer. Each value is a number, a string, a date, True or False, None or a column, and all of them, otherwise= included, are of one kind, as a column&#x27;s values are: numbers, whole or not; text and dates, which Hive compares as text; or True and False. A string beside a number is refused, as is a condition where a value goes.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>length</th></tr>
+<tr><td>101</td><td>short</td></tr>
+<tr><td>102</td><td>short</td></tr>
+<tr><td>103</td><td>long</td></tr>
+<tr><td>104</td><td>long</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>first_match</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>is_null</code>, <code>more_than</code>, <code>to_hive</code></p>
+<p class="names">Worked examples that use it: <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
+</section>
+<section class="entry" id="mapped">
+<h3><code>mapped</code></h3>
+<p class="why">A lookup: each row gets the dict&#x27;s value for its column&#x27;s value (CASE x WHEN).</p>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id,
+           AS(mapped(job_runs.status, {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;},
+                     otherwise=&quot;other&quot;), &quot;outcome&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)))))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  CASE job_runs.status WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27; ELSE &#x27;other&#x27; END AS outcome
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p>Each key of the dict is a value the column may hold, and a row gets the dict&#x27;s value for its column&#x27;s value. A row whose value is no key gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL. Hive writes the lookup CASE column WHEN key THEN value, which means CASE WHEN column = key THEN value. Keep a long dict as a constant at the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.</p>
+<p>A row whose column is NULL matches no key, since NULL equals nothing, so it gets otherwise=, and a None key is refused. To give those rows a label of their own, fill the NULL in first, and look up what you filled in:</p>
+<pre class="python">mapped(fill_null(job_runs.status, &quot;RUNNING&quot;),
+       {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;, &quot;RUNNING&quot;: &quot;still running&quot;})</pre>
+<p class="label">Hive</p>
+<pre class="output">CASE COALESCE(job_runs.status, &#x27;RUNNING&#x27;) WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27; WHEN &#x27;RUNNING&#x27; THEN &#x27;still running&#x27; END</pre>
+<p>It is first_match(...) for the chain that tests one column against a value in each pair, written shorter. Each key is a value of the column&#x27;s own type: a key it can&#x27;t hold, such as &quot;one&quot; for a bigint column, is refused, as equals(...) refuses it. The values are checked as first_match&#x27;s are: all one type, otherwise= included, and never a condition. A key written twice in the dict is one key to Python, which keeps its last value.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>outcome</th></tr>
+<tr><td>101</td><td>passed</td></tr>
+<tr><td>102</td><td>failed</td></tr>
+<tr><td>103</td><td>passed</td></tr>
+<tr><td>104</td><td>passed</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>mapped</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>fill_null</code>, <code>to_hive</code></p>
+<p class="names">Worked examples that use it: <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
+</section>
 <section class="entry" id="fill_null">
 <h3><code>fill_null</code></h3>
 <p class="why">The column, with a value put in where it is NULL (COALESCE).</p>
@@ -3002,7 +3174,13 @@ SELECT
 FROM two_days
 WHERE
   two_days.dt = &#x27;2026-09-24&#x27;</pre>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no window functions such as row_number.</p>
+<p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>job_minutes</th><th>minutes_so_far</th></tr>
+<tr><td>101</td><td>10</td><td>50</td><td>10</td></tr>
+<tr><td>102</td><td>20</td><td>20</td><td>30</td></tr>
+<tr><td>103</td><td>30</td><td>30</td><td>60</td></tr>
+<tr><td>104</td><td>40</td><td>50</td><td>100</td></tr>
+</table></div>
 <p class="note">No result here. The Example database is never written to: its execute prints the Hive's first line and changes nothing, and run_execute gives back None.</p>
 <p class="names">Toolbox names used: <code>window</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>derived</code>, <code>equals</code>, <code>between</code>, <code>sum_of</code>, <code>lag</code>, <code>to_hive</code></p>
 </section>
@@ -3062,7 +3240,7 @@ WHERE
                        ORDER_BY=descending(job_runs.run_id)))</pre>
 <p class="label">Hive</p>
 <pre class="output">ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>job_id</th><th>run_id</th><th>status</th></tr>
 <tr><td>1</td><td>104</td><td>SUCCESS</td></tr>
 <tr><td>2</td><td>102</td><td>FAILED</td></tr>
@@ -3392,7 +3570,7 @@ SET mapreduce.job.reduces=8;</pre>
 </section>
 <section class="entry" id="unchecked_hive">
 <h3><code>unchecked_hive</code></h3>
-<p class="why">Hive you write by hand, to send when no clause function writes it yet.</p>
+<p class="why">Hive you write by hand, to send when no Toolbox function writes it yet.</p>
 <pre class="python">by_hand = unchecked_hive(
     &quot;SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = &#x27;2026-09-24&#x27;&quot;)</pre>
 <pre class="python">text = show_hive(by_hand)</pre>
@@ -3427,6 +3605,118 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;</pre>
 </table></div>
 <p class="names">Toolbox names used: <code>unchecked_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code></p>
 </section>
+<section class="entry" id="unchecked_column">
+<h3><code>unchecked_column</code></h3>
+<p class="why">Hive you write by hand for one column that no Toolbox function writes yet.</p>
+<pre class="python">quarter_hours = unchecked_column(&quot;{minutes} DIV 15&quot;, minutes=job_runs.duration_mins)</pre>
+<pre class="python">runs = statement(
+    SELECT(job_runs.run_id, job_runs.duration_mins, AS(quarter_hours, &quot;quarter_hours&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<pre class="python">print(to_hive(runs))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  job_runs.duration_mins DIV 15 AS quarter_hours
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<pre class="python">run_query(runs, example_database.query)</pre>
+<p class="label">Python shows</p>
+<pre class="output">   run_id  duration_mins  quarter_hours
+0     101             10              0
+1     102             20              1
+2     103             30              2
+3     104             40              2</pre>
+<p>Hive&#x27;s DIV divides and drops what is left over, which no Toolbox function writes yet. Write each column the text reads as a placeholder, its own name in braces, such as {minutes}, and pass the column itself by that name, as minutes=job_runs.duration_mins above: the Toolbox fills each placeholder with the column&#x27;s Hive, as str.format does, so Lineage traces the text to its real columns and statement(...) checks they are columns of the tables it reads. A brace you mean as a brace is written twice, as in &quot;regexp_extract({job_name}, &#x27;[a-z]{{2}}&#x27;, 0)&quot;. A column passed as a calculation, such as job_runs.duration_mins + 1, is put in round brackets.</p>
+<p>It gives back a Column, used like any other: give it a name with AS. For a condition, in WHERE, HAVING or ON=, use unchecked_condition(...). Text that adds rows up, such as percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other columns. The Hive is written as sqlglot reads your text, so it may come out in capitals, with an argument left out that means the same, as hive_function&#x27;s does, or in Hive&#x27;s own words for what Hive has no word for: {job_name} ILIKE &#x27;a%&#x27; becomes LOWER(...) LIKE LOWER(&#x27;a%&#x27;).</p>
+<p>It refuses text that, its placeholders filled, doesn&#x27;t read as one Hive expression, or that sqlglot reads but can&#x27;t write back as Hive, such as braces not doubled, which it reads as a struct; text that names a column itself rather than through a placeholder, saying how to write it; a placeholder with no column passed, or a column passed that no placeholder names; and text that reads a table of its own, as a sub-query does, which unchecked_derived(...) is for.</p>
+<p>No Guard, Warning or Load limit looks inside the text, though they check the rest of the Statement as ever, and where one can&#x27;t tell what the text does, it says so in a Warning. Lineage marks it with the same badge as an Unchecked statement, and each run of a Statement holding one adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, each one marks something the Toolbox should learn to write: a search for unchecked_ finds them all. Where a Toolbox function does the job, as hive_function does for a function call, use that instead: the Toolbox checks it.</p>
+<p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>quarter_hours</th></tr>
+<tr><td>101</td><td>10</td><td>0</td></tr>
+<tr><td>102</td><td>20</td><td>1</td></tr>
+<tr><td>103</td><td>30</td><td>2</td></tr>
+<tr><td>104</td><td>40</td><td>2</td></tr>
+</table></div>
+<p class="label">The Hive of the Statement given to run_query(...)</p>
+<pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  job_runs.duration_mins DIV 15 AS quarter_hours
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p class="label">Result of Statement 2 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>quarter_hours</th></tr>
+<tr><td>101</td><td>10</td><td>0</td></tr>
+<tr><td>102</td><td>20</td><td>1</td></tr>
+<tr><td>103</td><td>30</td><td>2</td></tr>
+<tr><td>104</td><td>40</td><td>2</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>unchecked_column</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="unchecked_condition">
+<h3><code>unchecked_condition</code></h3>
+<p class="why">Hive you write by hand for one condition that no Toolbox function writes yet.</p>
+<pre class="python">failing = unchecked_condition(&quot;{status} RLIKE &#x27;^FAIL&#x27;&quot;, status=job_runs.status)</pre>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), failing),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status RLIKE &#x27;^FAIL&#x27;</pre>
+<p>The Example database can&#x27;t run this one: its executor has no RLIKE, which Hive has. A condition it can run, such as unchecked_condition(&quot;{job_name} LIKE &#x27;%sync&#x27;&quot;, job_name=jobs.job_name), runs on it as on Hive.</p>
+<p>It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...). Its text is written as unchecked_column&#x27;s is: each column it reads as a placeholder in braces, such as {status}, with the column itself passed by that name, a brace you mean doubled, and the same refusals; help(unchecked_column) says more. The Toolbox doesn&#x27;t check that the text is a condition, one that is true or false for each row: Hive refuses one that isn&#x27;t when it runs.</p>
+<p>The Guards and Load limits check the rest of the Statement, and say so where they can&#x27;t tell what the text does. A read of a partitioned table whose partition columns are filtered only in an Unchecked condition gets a Warning rather than the Load limit&#x27;s refusal, since the text may filter them or not: check that it does, and add reads_all_partitions=True to the read to silence it, which there says you have checked it; or filter them with a condition function too. A WHERE that reads a LEFT_JOIN&#x27;s table only inside one gets a Warning in place of the Guard&#x27;s refusal, for the same reason.</p>
+<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no job_runs.status RLIKE &#x27;^FAIL&#x27;.</p>
+<p class="names">Toolbox names used: <code>unchecked_condition</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code></p>
+</section>
+<section class="entry" id="unchecked_derived">
+<h3><code>unchecked_derived</code></h3>
+<p class="why">A Derived table whose SELECT is Hive you write by hand, its columns declared.</p>
+<pre class="python">steps = unchecked_derived(&quot;steps&quot;, &#x27;&#x27;&#x27;
+    SELECT r.run_id, s AS step
+    FROM ops.job_runs r
+    LATERAL VIEW explode(split(r.status, &#x27;_&#x27;)) t AS s
+    WHERE r.dt = &#x27;2026-09-24&#x27;
+&#x27;&#x27;&#x27;, columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;step&quot;: &quot;string&quot;})</pre>
+<pre class="python">print(to_hive(statement(
+    SELECT(steps.step, AS(count_rows(), &quot;runs&quot;)),
+    FROM(steps, reads_all_partitions=True),
+    GROUP_BY(steps.step),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">WITH steps AS (
+  SELECT
+    r.run_id,
+    s AS step
+  FROM ops.job_runs AS r
+  LATERAL VIEW
+  EXPLODE(SPLIT(r.status, &#x27;_&#x27;)) t AS s
+  WHERE
+    r.dt = &#x27;2026-09-24&#x27;
+)
+SELECT
+  steps.step,
+  COUNT(*) AS runs
+FROM steps
+GROUP BY
+  steps.step</pre>
+<p>Each run&#x27;s status is split at each _ (explode(split(r.status, &#x27;_&#x27;))), and LATERAL VIEW gives one row for each part, named s, beside the rest of the run&#x27;s row: steps has a row for each run and each part of its status, which no Clause function writes yet. The Example database can&#x27;t run it, as its executor has no LATERAL VIEW; Hive can.</p>
+<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared. The text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct, as {&#x27;k&#x27;: 1}, is refused, since it can&#x27;t write that back as Hive; one inside quotes, as in a regular expression&#x27;s &#x27;[a-z]{2}&#x27;, is kept.</p>
+<p>No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can see unless you name one: key=[&quot;run_id&quot;] says one row has each run_id, as a GROUP BY run_id in its text makes it, and a Table reference&#x27;s key= says. A JOIN on its Key is then checked as on any Derived table with one, and a write reading it isn&#x27;t refused for a Key it can&#x27;t prove. The Toolbox can&#x27;t check that the text makes it so: name a Key only when it does. Without one, a JOIN on it warns as on any table without a Key.</p>
+<p>A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads, those partitioned and those the Toolbox has no Table reference for: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which there says you have checked it. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
+<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no LATERAL VIEW.</p>
+<p class="names">Toolbox names used: <code>unchecked_derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
+</section>
 <section class="entry" id="set_admin_log">
 <h3><code>set_admin_log</code></h3>
 <p class="why">Set where the Admin log is written, such as &quot;logs/admin_log.md&quot;.</p>
@@ -3434,7 +3724,7 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;admin_log.md&#x27;</pre>
 <pre class="python">set_admin_log()  # back to the usual place</pre>
-<p>The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or run_execute sends an Unchecked statement or an Admin statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file.</p>
+<p>The Admin log is a Markdown file the Toolbox adds an entry to each time run_query or run_execute sends an Unchecked statement, an Admin statement, or a Statement holding an Unchecked expression or an Unchecked derived table (unchecked_column, unchecked_condition or unchecked_derived), and each time compare_with_original compares such a Statement: when, the call, the Hive sent, the script and its git commit, and whether it worked. It only ever adds to the file. Its Unchecked statements and Unchecked pieces are the list of what the Toolbox should learn to write next.</p>
 <p>Left unset, the log is admin_log.md beside the script or notebook that sends it, or inside a Project the Project&#x27;s admin/admin_log.md (help(project)). A path you give that isn&#x27;t absolute, such as &quot;logs/admin_log.md&quot;, starts from the folder of the script or notebook that calls set_admin_log. Call it at the top of each notebook or pipeline: a restarted kernel forgets it. It returns the path now in force, or None for the default.</p>
 <p class="names">Toolbox names used: <code>set_admin_log</code></p>
 </section>
@@ -3465,6 +3755,73 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;</pre>
 <p class="label">Python shows</p>
 <pre class="output">&lt;Unchecked statement - show_hive(...) shows its Hive&gt;</pre>
 <p class="names">Toolbox names used: <code>UncheckedStatement</code>, <code>unchecked_hive</code></p>
+</section>
+<section class="entry" id="compare_hive">
+<h3><code>compare_hive</code></h3>
+<p class="why">Compare a Statement&#x27;s Hive with the original Hive it replaces.</p>
+<pre class="python">runs = statement(
+    SELECT(job_runs.run_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<pre class="python">compare_hive(runs, &#x27;&#x27;&#x27;
+    select r.run_id, r.status   -- the day&#x27;s runs
+    from ops.job_runs r
+    where (r.dt = &#x27;2026-09-24&#x27;);
+&#x27;&#x27;&#x27;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">The Statement&#x27;s Hive and the original are the same query, once both are written out the same way.</pre>
+<p><code>original</code> is the Hive text, such as a .hql file&#x27;s. Both are read by sqlglot and written out one way, so that what doesn&#x27;t change the query doesn&#x27;t count: spacing and line breaks, upper or lower case, backticks, comments, a ; at the end, brackets that change nothing, INNER and OUTER in a join (LEFT OUTER JOIN is LEFT JOIN), an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names none, and the short name a table is called by, such as r in FROM ops.job_runs r: each table is written with its own name, and where a query reads one table alone, its columns with no table&#x27;s name before them.</p>
+<p>Two more don&#x27;t count. A query in brackets in FROM or JOIN, as FROM (SELECT ...) ranked, is the same as the Derived table a Statement writes as WITH ranked AS (SELECT ...), where the name after the bracket, ranked, is the Derived table&#x27;s name. And a * is the same as the columns it stands for, where the Toolbox knows them: SELECT * FROM ops.job_runs is the same as listing job_runs&#x27;s columns, from its Table reference, when the Statement reads ops.job_runs, its partition columns last, as Hive gives them; a * over a Derived table or a query in brackets is its columns too. Anything else counts, even where the rows would come out the same, such as a &lt;&gt; b written as NOT a = b, or two conditions written in the other order: compare_with_original(...) compares the rows.</p>
+<p>Where they differ, it shows where they first differ, as both are written out that way: the line of each, and up to two lines before it, which are the same in both.</p>
+<pre class="python">compare_hive(runs, &quot;SELECT run_id, status FROM ops.job_runs WHERE dt = &#x27;2026-09-23&#x27;&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">The Statement&#x27;s Hive and the original differ, once both are written out the same way: lines 1 to 5 match, and line 6 differs.
+  line 4, in both:          FROM ops.job_runs
+  line 5, in both:          WHERE
+  line 6, in the Statement: dt = &#x27;2026-09-24&#x27;
+  line 6, in the original:  dt = &#x27;2026-09-23&#x27;</pre>
+<p>The lines are counted as both are written out for comparing, not as to_hive writes the Statement, which print(to_hive(s)) shows whole. An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused. It sends nothing to the warehouse. Its <code>ok</code> is True when the two are the same, and so is the Verdict itself: <code>if compare_hive(...):</code> reads as it says.</p>
+<p class="names">Toolbox names used: <code>compare_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code></p>
+</section>
+<section class="entry" id="compare_with_original">
+<h3><code>compare_with_original</code></h3>
+<p class="why">Compare the rows a Statement gives with those of the original Hive it replaces.</p>
+<pre class="python">runs = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
+    FROM(job_runs, reads_all_partitions=True),
+    WHERE(not_equals(job_runs.status, &quot;TEST&quot;)),
+)</pre>
+<pre class="python">original = &#x27;&#x27;&#x27;
+    SELECT run_id, status, dt
+    FROM ops.job_runs
+    WHERE COALESCE(status, &#x27;&#x27;) &lt;&gt; &#x27;TEST&#x27;
+&#x27;&#x27;&#x27;</pre>
+<pre class="python">compare_with_original(runs, original, query=example_database.query,
+                      partition={&quot;dt&quot;: &quot;2026-09-23&quot;})</pre>
+<p class="label">Python shows</p>
+<pre class="output">The Statement and the original give different rows where dt = &#x27;2026-09-23&#x27;.
+  The Statement gives 3 rows, and the original 4.
+  0 rows are in the Statement and not in the original, and 1 row is in the original and not in the Statement.
+The rows that differ, at most 5 from each, with how many times each gives them:
+ run_id status         dt  in_statement  in_original
+     98   None 2026-09-23             0            1</pre>
+<p>Both read every day, as reads_all_partitions=True on FROM says of the Statement; partition={&quot;dt&quot;: &quot;2026-09-23&quot;} compares one day&#x27;s rows of each, so the comparison reads one Partition. Run 98 is still running, so its status is NULL: the original keeps it, and not_equals leaves it out, as SQL&#x27;s &lt;&gt; leaves out NULL. With any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status)) in WHERE, the two give the same rows:</p>
+<pre class="python">runs = statement(
+    SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
+    FROM(job_runs, reads_all_partitions=True),
+    WHERE(any_of(not_equals(job_runs.status, &quot;TEST&quot;), is_null(job_runs.status))),
+)</pre>
+<pre class="python">compare_with_original(runs, original, query=example_database.query,
+                      partition={&quot;dt&quot;: &quot;2026-09-23&quot;})</pre>
+<p class="label">Python shows</p>
+<pre class="output">The Statement and the original give the same rows where dt = &#x27;2026-09-23&#x27;: 4 rows each.</pre>
+<p><code>original</code> is the Hive text, such as a .hql file&#x27;s, and <code>query</code> your own function, in your Project&#x27;s warehouse.py; it never needs <code>execute</code>. It sends one query through your <code>query</code>, which reads the rows of both and matches them on every column: NULL matches NULL, and a row counts as many times as it comes, so a row the original gives twice and the Statement once is a row in the original and not in the Statement. It gives back how many rows each gives, how many are in one and not the other, and up to 5 such rows from each; its <code>ok</code> is True when the two give the same rows, and so is the Verdict itself.</p>
+<p>The original&#x27;s columns must be the Statement&#x27;s, by name and in order, as the rows are matched column by column: it refuses them otherwise, naming both. A * or r.* in the original is the columns it stands for, as compare_hive reads it. A * over a table the Statement doesn&#x27;t read is refused, as the Toolbox doesn&#x27;t know its columns.</p>
+<p>An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one query: SET lines before it are passed over, as they set the session, not the rows, and any other statement is refused.</p>
+<p><code>partition</code> names a column and one value of it, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}, so the warehouse reads only that Partition. A column the Statement gives keeps only the rows of both that hold the value, as above. A partition column of a table the Statement reads, which it doesn&#x27;t give, as when its WHERE picks its own day, keeps only that Partition of each read of the table, in the Statement and in the original alike: partition={&quot;dt&quot;: &quot;2026-09-24&quot;} for a Statement whose WHERE holds equals(job_runs.dt, &quot;2026-09-24&quot;) reads ops.job_runs where dt = &#x27;2026-09-24&#x27; on both sides. Where the Statement reads a partitioned table, partition= must name a partition column of one, or it is refused, as the original may read every Partition, which may be more than the cluster should read at once; reads_all_partitions=True compares the rows each one&#x27;s own conditions pick, every Partition where they pick none. Where it reads no partitioned table, every row is compared.</p>
+<p>A Statement holding an Unchecked expression or an Unchecked derived table, Hive written by hand, is compared as any other: the Verdict ends with a line naming each piece, whose Hive the Toolbox can&#x27;t look inside, and the comparison adds an entry to the Admin log, as run_query does for such a Statement (help(set_admin_log)).</p>
+<p class="names">Toolbox names used: <code>compare_with_original</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>not_equals</code>, <code>is_null</code>, <code>any_of</code>, <code>example_database</code></p>
 </section>
 <section class="entry" id="repair_partitions">
 <h3><code>repair_partitions</code></h3>
@@ -3856,13 +4213,61 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each Conversion not finished yet, with finish_conversion and remove_conversion to run; and each <code># CONVERSION:</code> mark project.convert left for you, with its file and line.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
+<section class="entry" id="project.convert">
+<h3><code>project.convert</code></h3>
+<p class="why">Turn Hive someone else wrote into your own code: a Conversion.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<pre class="python">print(project.convert(&quot;failed_runs&quot;, &#x27;&#x27;&#x27;
+    SELECT r.run_id, r.status
+    FROM ops.job_runs r
+    WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status = &#x27;FAILED&#x27; &#x27;&#x27;&#x27;,
+    query=example_database.query, database=&quot;ops&quot;))</pre>
+<p class="label">Python shows</p>
+<pre class="output">Converted failed_runs: 4 lines of Hive into admin/conversions/failed_runs/failed_runs.ipynb.
+0 pieces kept as Hive, 0 named constants, 0 opt-outs marked # CONVERSION: for you to check.
+Added Table references: ops.job_runs: fill in their TODO lines.
+Its Hive and the original&#x27;s: The Statement&#x27;s Hive and the original are the same query, once
+both are written out the same way.
+admin/conversions/failed_runs/scan.md lists what it found, line by line.</pre>
+<p>Run it from admin/convert.ipynb, once project.scan_hive(...) has shown what it will make, with your own query: project.convert(&quot;team_runs&quot;, HIVE, query=query). It reads the one query in the Hive, as scan_hive does, adds a Table reference for each table it reads that has none, through your query, as add_references does, and writes the Conversion folder admin/conversions/&lt;name&gt;/: original.hql, the Hive as given; scan.md, what it found; and &lt;name&gt;.ipynb, a notebook whose logic cell builds the same query from the Toolbox&#x27;s own functions, its converted() giving the Statement. Each CTE is a Derived table, each long IN list and lookup CASE a named constant at the top, and what no Toolbox function writes yet stays Hive at the smallest size it can (an Unchecked expression, then an Unchecked derived table, then the whole query as an Unchecked statement). Where a Guard or Load limit refuses what the original did, such as a join that may repeat rows, it adds that opt-out, marked <code># CONVERSION:</code> at its line, for you to decide; project.check() lists each mark left. Then it compares the Statement&#x27;s Hive with the original&#x27;s, as compare_hive does, and says whether they are the same query.</p>
+<p><code>name</code> is the Conversion&#x27;s, a plain lowercase name such as team_runs: the Saved table&#x27;s own name is yours to choose when you finish it, with project.finish_conversion(...). It refuses a name taken by another Conversion. It needs your query only when a table has no Table reference yet, and never your execute.</p>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code></p>
+</section>
+<section class="entry" id="project.finish_conversion">
+<h3><code>project.finish_conversion</code></h3>
+<p class="why">Make a Conversion a Saved table: its Table folder and Table reference.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<pre class="python">_ = project.convert(&quot;failed_runs&quot;, &#x27;&#x27;&#x27;
+    SELECT r.run_id, r.status FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27; &#x27;&#x27;&#x27;,
+    query=example_database.query, database=&quot;ops&quot;)</pre>
+<pre class="python">print(project.finish_conversion(&quot;failed_runs&quot;, table=&quot;mart.failed_runs&quot;))</pre>
+<p class="label">Python shows</p>
+<pre class="output">Finished the Conversion failed_runs as mart.failed_runs:
+tables/mart__failed_runs/mart__failed_runs.ipynb, and its Table reference,
+references/mart__failed_runs.py.
+Fill in references/mart__failed_runs.py: its &lt;LOCATION&gt;, any &lt;COLUMN_TYPE&gt;, partitioned_by=
+and key=, and its TODO lines; then run the notebook&#x27;s create() and write().
+The Conversion folder is archived, kept as it was, in admin/removed/...-failed_runs/.</pre>
+<p>Run it once the Conversion&#x27;s notebook gives the rows you want, from admin/convert.ipynb, with the name you choose for the Saved table. It makes the Table folder tables/&lt;db&gt;__&lt;table&gt;/, as new_table does, whose notebook&#x27;s logic cell is the Conversion&#x27;s, as you left it, with create(), preview() and write() added: write() writes the table as the original&#x27;s INSERT did, INSERT_OVERWRITE or INSERT_INTO, with its partition values, INSERT_OVERWRITE when it had none. The notebook keeps the Conversion&#x27;s cells that compare it with the original, until you remove them. It writes the table&#x27;s Table reference, references/&lt;db&gt;__&lt;table&gt;.py, with the columns the Statement gives and the types it knows, <code>&lt;COLUMN_TYPE&gt;</code> for each it doesn&#x27;t, and each partition column the original&#x27;s PARTITION(...) gave a value, which the query doesn&#x27;t give, as &quot;string&quot;, to check; partitioned_by=[...] filled in from the original&#x27;s PARTITION(...), or with a &quot;&lt;PARTITION_COLUMN&gt;&quot; that Table refuses until you name one of its columns, or write [] for a table with none; and <code>&lt;LOCATION&gt;</code>, the folder its files go in, for you to fill in. Then it archives the Conversion folder into admin/removed/. It never touches the warehouse: the notebook&#x27;s create() does.</p>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
+</section>
 <section class="entry" id="project.load">
 <h3><code>project.load</code></h3>
-<p class="why">A Table notebook&#x27;s logic, its functions by name, from anywhere in the Project.</p>
+<p class="why">A Table notebook&#x27;s or Conversion&#x27;s logic, its functions by name, from anywhere.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
@@ -3881,6 +4286,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">&#x27;what writes it&#x27;</pre>
 <p>It reads tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb and runs only its logic cell, the cell whose first line is # logic. That cell only imports and defines, and it defines write(), which takes nothing and gives what writes the table: a Statement, an Unchecked statement, a Python step, or a list of them. In a notebook made from the saved_table Template, it defines create, rows, preview and write, and load gives each of them (the functions and classes only, not other names the cell sets). So another table&#x27;s notebook can use this table&#x27;s write, for lineage across your tables, and run_tables can write every table in order. It reads the notebook file as last saved, and your references/ and building_blocks/ as they are on disk now. It refuses a notebook with no logic cell, a logic cell that calls run_query or run_execute, which would send Hive just by loading, one with a &lt;...&gt; still to fill in, and one that defines no write() taking nothing.</p>
+<p>Given a name with no dot, such as weekly_events, it loads that Conversion&#x27;s notebook, admin/conversions/&lt;name&gt;/&lt;name&gt;.ipynb, the same way, and refuses one whose logic cell defines no converted() taking nothing in place of write().</p>
 <p>In the example above, a one-line Template stands in for a notebook of yours.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
 </section>
@@ -3978,6 +4384,23 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <p>building_blocks/runs_per_job.py moves to a file such as admin/removed/20261021-093000-runs_per_job.py, and its registry row is marked removed. It refuses while a Table notebook or another Building block imports it, naming each, since each would stop at that import: change them first. A Building block the registry lists but that was deleted by hand only has its row marked.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_block</code></p>
 </section>
+<section class="entry" id="project.remove_conversion">
+<h3><code>project.remove_conversion</code></h3>
+<p class="why">Archive a Conversion folder you no longer want, into admin/removed/.</p>
+<pre class="python">from sqlglot_composer import example_database, project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<pre class="python">_ = project.convert(&quot;spare&quot;, &quot;SELECT r.run_id FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27;&quot;,
+                    query=example_database.query, database=&quot;ops&quot;)</pre>
+<pre class="python">project.remove_conversion(&quot;spare&quot;)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Moved admin/conversions/spare/ to admin/removed/...-spare/.</pre>
+<p>It moves admin/conversions/&lt;name&gt;/ into admin/removed/, named by the time, and marks its registry row removed, as remove_table does a Table folder: nothing is deleted. One the registry lists but that was deleted by hand only has its row marked.</p>
+<p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
+</section>
 <section class="entry" id="project.remove_reference">
 <h3><code>project.remove_reference</code></h3>
 <p class="why">Move a Table reference into admin/removed/, deleting nothing of yours.</p>
@@ -4036,6 +4459,29 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p>Each table&#x27;s write() comes from its notebook&#x27;s logic cell, through load; one that gives a list, such as a write per region, sends each in turn. Each write() gives Statements that write, an Admin statement among them, Unchecked statements or Python steps: anything else, such as Session settings, is refused before anything is sent. A Python step (help(python_step)) sends nothing, so it is passed over, and its table isn&#x27;t written: run its own notebook, whose call saves the rows. They run in the order lineage draws them: a table is written before any table that reads it, and a loop, two tables each reading the other, is refused. <code>tables</code> names some, such as [&quot;mart.team_day&quot;]; left out, it is every Table folder the registry lists. With no <code>execute</code> it prints each one&#x27;s Hive in that order, headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you send. With your execute, it sends the Session setting &quot;dynamic_partitions&quot; first when a write fills Partitions from its rows, then each in turn, printing a line as each one works, and stops at the first that fails: the tables after it aren&#x27;t written. It adds no entry of its own to the Admin log, since what it writes is in the warehouse, not your files; a write() that gives an Admin or Unchecked statement is logged by run_execute, as anywhere else. Everything a write() gives is sent through your execute, so one that gives a read is refused before anything is sent.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
+<section class="entry" id="project.scan_hive">
+<h3><code>project.scan_hive</code></h3>
+<p class="why">Say what a Conversion of some Hive would make, and change nothing.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<pre class="python">print(project.scan_hive(&#x27;&#x27;&#x27;
+    SELECT r.job_id, COUNT(*) AS runs
+    FROM ops.job_runs r
+    WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status IN (&#x27;FAILED&#x27;, &#x27;RETRY&#x27;, &#x27;SKIPPED&#x27;, &#x27;TEST&#x27;)
+    GROUP BY r.job_id&#x27;&#x27;&#x27;))</pre>
+<p class="label">Python shows</p>
+<pre class="output">5 lines of Hive, one query reading ops.job_runs.
+No Table reference yet for ops.job_runs: project.convert(...) adds it through your query.
+Found:
+  line 4: the IN list of 4 values is the constant STATUS_VALUES</pre>
+<p>Give it the Hive as text, pasted between triple quotes in admin/convert.ipynb, or as file=, a .hql or .sql file&#x27;s path from the folder you&#x27;re working in. It reads the one query in it with sqlglot, the way project.convert(...) does, and reports, with the line of each: the tables it reads and which have no Table reference yet, each long IN list and lookup CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each ${...} such as ${hivevar:day}, kept as written for Hive to fill in from a SET line sent first, and each piece written another way: a * as its table&#x27;s columns, a CASE WHEN chain as first_match(...), a lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the like. It changes no file and sends nothing. A table named without its database, such as job_runs, is taken to be in <code>database</code>.</p>
+<p>A script of several queries, an INSERT ... VALUES, an INSERT into a folder, and a FROM with several INSERTs are refused, each saying what to do instead.</p>
+<p class="names">Toolbox names used: <code>project.start</code></p>
+</section>
 <section class="entry" id="project.start">
 <h3><code>project.start</code></h3>
 <p class="why">Make a Project in the folder you&#x27;re working in, once, from a notebook there.</p>
@@ -4045,7 +4491,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty admin/conversions/ for the Conversions you make, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
 <p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>
@@ -4053,6 +4499,25 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">This folder is a Project already. Added what it lacked: admin/new_block.ipynb.</pre>
 <p class="names">Toolbox names used: none</p>
+</section>
+<section class="entry" id="project.upgrade">
+<h3><code>project.upgrade</code></h3>
+<p class="why">Carry the Project&#x27;s files on to this Toolbox&#x27;s version, step by step.</p>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.</pre>
+<pre class="python">import os</pre>
+<pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
+<pre class="python">project.upgrade()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Upgraded the Project from 7.1 to 7.2.
+7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.</pre>
+<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/upgrade.ipynb, which a Project&#x27;s first Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order. A step makes the changes that need no judgement, keeping each file it changes, as it was, in admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark; project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
+<p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
+<p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 </main>
 <script>

@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """The Templates project.start() copies into a Project's admin/templates/, each as its text.
 
 A Template is a file with placeholders written <LIKE_THIS>. project.new_table fills in <DB>,
@@ -18,8 +17,6 @@ notebooks made after.
 """
 
 from __future__ import annotations
-
-TOOLBOX_VERSION = "7.1"
 
 
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str

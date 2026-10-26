@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """ops.region_costs - one row per job, region and day: its cost there, in cents.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the

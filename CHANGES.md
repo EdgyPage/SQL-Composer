@@ -2,6 +2,126 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 7.2
+
+7.2 turns Hive someone else wrote into your own code, a Conversion, carries your Project's
+files from one Toolbox version to the next for you, with `project.upgrade()`, and writes the
+Toolbox's version in one place, its folder's `version.txt`, in place of a line in every file.
+
+### To update from 7.1
+
+- **Your sqlglot must be 30.19.0 or newer**, where 7.1 accepted 25.24.2.
+  `import sqlglot; print(sqlglot.__version__)` in a notebook shows yours. If it is older, run
+  `%pip install "sqlglot==30.23.0"`, the one the Toolbox is tested on, in a notebook cell, and
+  restart the kernel. Otherwise the import stops, saying the same.
+- **Delete the `sqlglot_composer` folder, copy in 7.2's whole folder**, and restart the kernel,
+  as the README's Update says. A file left behind from an older folder stops the import.
+- **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
+  `admin/upgrade_7.2.md`, which it writes. From 7.1 to 7.2 nothing of yours changes: it adds
+  `admin/upgrade.ipynb`, where you run it next time, `admin/convert.ipynb` and
+  `admin/conversions/`, and `admin/project_version.txt`. The how-to "Upgrade your Project to a
+  new Toolbox version" walks through it.
+
+### Also new
+
+- **A Conversion: Hive someone else wrote, made your own code.** Paste one query into
+  `admin/convert.ipynb`, or name its file. `project.scan_hive(...)` says what a Conversion of it
+  would make, and changes nothing: the tables it reads, which have no Table reference yet, and,
+  line by line, each long `IN` list and lookup `CASE` that becomes a named constant, and each
+  piece no Toolbox function writes yet, which stays Hive, and each it writes another way, such
+  as an if/else chain as `first_match`. `project.convert("name", HIVE,
+  query=query)` adds the missing Table references and writes `admin/conversions/<name>/`: the
+  Hive as given, what the scan found, and a notebook whose logic builds the same query from the
+  Toolbox's own functions. Every CTE is a Derived table; every INSERT form is read, `INSERT INTO`
+  or `INSERT OVERWRITE`, with or without `TABLE`, its `PARTITION(...)` and a column list, and
+  your Saved table is written the same way. Where the original took a chance a Guard refuses,
+  such as a join that may repeat rows, the Conversion takes it too, marked `# CONVERSION:` for
+  you to decide; `project.check()` lists each mark left. It compares its Hive with the
+  original's, and its notebook compares their rows through your query. Then
+  `project.finish_conversion("name", table="mart.your_table")` makes it a Saved table of yours:
+  its Table folder and its Table reference, with the columns it gives and `<LOCATION>`, any
+  type it doesn't know and, without a `PARTITION(...)` to copy, a partition column to fill in.
+  `project.remove_conversion("name")` archives one you no longer want. `project.load("name")`
+  runs a Conversion's logic, as it does a Table notebook's. The how-to "Convert someone
+  else's Hive" walks through one, from pasting the Hive to writing the Saved table.
+
+- **`project.upgrade()`, an Upgrade.** From 7.2 on, each new version ships a step that carries
+  your Project's files to it from the version before: the Table references, Building blocks,
+  Table notebooks and the rest. It makes the changes that need no judgement itself, keeping each
+  file it changes as it was in `admin/removed/`, and marks each change it leaves for you with
+  an `# UPGRADE <version>: <what to change>` comment at the line and a box in
+  `admin/upgrade_<version>.md`. `project.check()` lists every mark left. It changes files only,
+  never the warehouse. `admin/project_version.txt` records the version that last wrote the
+  Project; a Project 7.1 made has none, and is taken to be 7.1.
+- **A Project an older Toolbox last wrote warns** when you import the Toolbox in it, and in
+  `project.check()`, saying to run `project.upgrade()`. Nothing is refused: a Statement you run
+  still runs. `project.check()` also says when a newer Toolbox than the one copied in last wrote
+  the Project.
+- **`first_match` and `mapped`, for an if/else chain as one CASE.**
+  `first_match([(condition, value), ...], otherwise=...)` gives each row the value of the first
+  condition that holds for it, where `if_else` nested many deep did the same less plainly.
+  `mapped(column, {"FAILED": "failed", ...}, otherwise=...)` looks one column's values up in a
+  dict. Left without `otherwise=`, a row nothing matches gets NULL. Each refuses values of types
+  that don't mix, such as a string beside a number, and `mapped` a key its column can't hold,
+  as `equals` does. The Worked example "Keep a long list and a lookup as constants, and an
+  if/else chain as one CASE" (in the Example gallery) shows them beside
+  `is_in(column, A_NAMED_LIST)`, a long list kept as a constant at the top of a script.
+- **`version.txt`, the one place the version is written.** It names the Toolbox and its
+  version, when this copy was exported and from which commit, and each file of the folder with
+  a code worked out from its contents, which changes when the file does. No other file of the
+  folder names the version any more. `TOOLBOX_VERSION` and `VERSION` still give the version,
+  now 7.2, read from `version.txt`.
+- **A file that differs from the download only warns.** When a file of the folder isn't the
+  one `version.txt` lists, edited by hand or pasted from another download, the import warns,
+  naming it, where 7.1 stopped on a file from another version: a change you made on purpose may
+  be one you need, and the warning says where to keep it instead. A missing file, an extra one,
+  or a missing or unreadable `version.txt` still stops the import.
+- **Hive written by hand for one piece of a Statement, not the whole of it.**
+  `unchecked_column(...)` and `unchecked_condition(...)` stand for one Column or one Condition
+  that no Toolbox function writes yet, such as `{status} RLIKE '^FAIL'`: each column the text
+  reads is a `{name}` placeholder, with the column itself passed by that name, so Lineage
+  traces it and a renamed table still writes right. `unchecked_derived(name, text,
+  columns={...})` is a Derived table whose SELECT you write by hand, such as one built on
+  Hive's `LATERAL VIEW`, which gives a row for each item of a list, read as any Derived table
+  is; its `key=[...]` says what tells its rows apart, where its Hive makes it so. Text sqlglot
+  can't write back as Hive is refused when you make the piece. The rest of the Statement is
+  checked as ever; where a Guard or a Load limit can't tell what the text does, it warns,
+  saying what to check. Lineage marks each with the Unchecked statement's badge, and each run
+  of a Statement holding one adds an entry to the Admin log. A search for `unchecked_` finds
+  them all.
+- **`compare_hive(s, original)` and `compare_with_original(s, original, query=...)` check a
+  Statement against the original Hive it replaces.** `compare_hive` reads both with sqlglot
+  and writes them out one way, so spacing, case, comments and the short names given to tables
+  don't count, and shows where they first differ. `compare_with_original` sends one query
+  through your `query` that matches the rows of both on every column, NULL with NULL, and says
+  how many rows each gives and how many are in one and not the other, with a few of them to
+  look at; `partition={...}` keeps the rows of one Partition, as a read of a partitioned table
+  must say which, by a column the Statement gives or a partition column of a table it reads.
+  SET lines before the original are passed over. A query in brackets in FROM or JOIN, as
+  `FROM (SELECT ...) ranked`, is the same query as a Derived table named `ranked`, which the
+  Toolbox writes as a WITH. An original that gives `*` or `t.*` is compared by the columns it
+  stands for: those of a Derived table or a query in brackets of the original, or of a table
+  the Statement reads, its partition columns last, as Hive gives them. Each gives back a
+  `Verdict`, whose `ok` says whether they match.
+- **A `Verdict` is true or false as its `ok` is**, so `if check_key(...):` passes only when
+  the key holds, where before any Verdict was true.
+- **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
+  `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
+  days, gave one Statement's rows in place of both; your warehouse was never affected.
+- **sqlglot 30.19.0 or newer, below 31.** The Example database already needed 30.19.0 or
+  newer to run queries; now the whole Toolbox does. The Hive it writes is the same as 7.1
+  wrote on those versions.
+- **The Example database runs Windows**: `row_number`, `rank`, `dense_rank`, `ntile`, `lag`,
+  `lead`, `first_value`, `last_value`, and `sum_of`, `average_of`, `count_rows`, `min_of` and
+  `max_of` with `over=`, as Hive works them out: a NULL comes first where the Window's
+  ORDER_BY is ascending, and last where it is `descending`. The how-tos "The latest row of each
+  group, and the top N", "Look things up as of a day" and "Look across rows, then finish in
+  pandas", and the gallery, now show the rows it gives, where they showed the same rows worked
+  out in pandas.
+- **The Example database counts and sums after any join**, where it refused a GROUP_BY after a
+  join of two tables that share a column's name, as `job_id`; and **it runs `mapped(...)`
+  beside a count**, where it stopped with an error. Your warehouse was never affected.
+
 ## 7.1
 
 7.1 stops choosing between your two calls: you send each Statement through `query` or

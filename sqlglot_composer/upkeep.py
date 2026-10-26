@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Keeping reads and joins fast: repair_partitions, compute_statistics and explain.
 
 Each gives a Statement, sent with run_execute like any other change, and each is safe to send
@@ -25,8 +24,6 @@ from .tables import (
     table_node,
 )
 from .trees import Node
-
-TOOLBOX_VERSION = "7.1"
 
 
 # What compute_statistics does with a partition column its partition= doesn't name, for the

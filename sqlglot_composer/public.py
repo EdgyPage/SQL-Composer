@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Every public name of the Toolbox, which its __init__.py imports and re-exports.
 
 The two constants, TOOLBOX_VERSION and VERSION, are __init__.py's own.
@@ -15,7 +14,9 @@ from .calculations import (
     descending,
     fill_null,
     hive_function,
+    first_match,
     if_else,
+    mapped,
     max_of,
     min_of,
     month_start,
@@ -47,6 +48,7 @@ from .clauses import (
     derived,
     statement,
 )
+from .comparisons import compare_hive, compare_with_original
 from .conditions import (
     Condition,
     all_of,
@@ -97,6 +99,9 @@ from .unchecked import (
     UncheckedStatement,
     hive_settings,
     set_admin_log,
+    unchecked_column,
+    unchecked_condition,
+    unchecked_derived,
     unchecked_hive,
 )
 from .upkeep import compute_statistics, explain, repair_partitions
@@ -112,8 +117,6 @@ from .windows import (
     row_number,
     window,
 )
-
-TOOLBOX_VERSION = "7.1"
 
 # Every public name, grouped by the file it lives in.
 __all__ = [
@@ -187,6 +190,8 @@ __all__ = [
     "min_of",
     "max_of",
     "if_else",
+    "first_match",
+    "mapped",
     "fill_null",
     "week_start",
     "month_start",
@@ -221,9 +226,15 @@ __all__ = [
     # unchecked.py
     "hive_settings",
     "unchecked_hive",
+    "unchecked_column",
+    "unchecked_condition",
+    "unchecked_derived",
     "set_admin_log",
     "SessionSettings",
     "UncheckedStatement",
+    # comparisons.py
+    "compare_hive",
+    "compare_with_original",
     # upkeep.py
     "repair_partitions",
     "compute_statistics",

@@ -1,4 +1,4 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - copy it, then edit your copy
+# sqlglot Composer 7.2 - copy it, then edit your copy
 """events_per_job - each job's events, runs and minutes for each dt it reads.
 
 Why: mart.job_day_facts saves these numbers, and mart.team_days' notebook checks a day from

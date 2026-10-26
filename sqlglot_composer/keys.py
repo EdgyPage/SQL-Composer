@@ -1,4 +1,3 @@
-# sqlglot Composer 7.1, exported 2026-10-22 13:22 - generated from dev, do not edit
 """Keys: which columns tell a Statement's rows apart, worked out from its clauses (ADR 0005).
 
 A Table reference declares its table's Key. A Statement's, and so a Derived table's, is worked
@@ -43,8 +42,6 @@ from .trees import Node, and_parts, has_aggregate, has_window
 
 if TYPE_CHECKING:
     from .clauses import Clause, Statement  # only for a hint: clauses.py imports this file
-
-TOOLBOX_VERSION = "7.1"
 
 
 class Found(NamedTuple):
