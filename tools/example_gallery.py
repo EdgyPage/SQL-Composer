@@ -20,7 +20,7 @@ The page holds two kinds of Worked example:
   `run_query(...)`, `run_execute(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, as it can't run row_number or week_start, a pandas result from the Worked example
+Statement, as it can't run week_start, a pandas result from the Worked example
 that builds the same Hive stands in, labelled as such. Everything is plain HTML; a few lines of script add a filter box.
 """
 

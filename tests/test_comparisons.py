@@ -371,9 +371,13 @@ def test_a_star_or_an_unnamed_calculation_is_named_as_hive_names_it() -> None:
 
 def test_a_star_over_a_table_the_statement_doesnt_read_is_still_refused() -> None:
     """Its columns are known only from a Table reference the Statement reads."""
-    with pytest.raises(ValueError, match=r"the original \*\."):
+    with pytest.raises(ValueError) as refused:
         compare_with_original(not_tests(), "SELECT * FROM ops.jobs",
                               query=example_database.query, partition={"dt": FIRST_DAY})
+    message = str(refused.value)
+    assert "and the original *." in message
+    assert ("it reads a table the Statement doesn't, so the Toolbox doesn't know its columns. "
+            "List them in place of the *.") in message
 
 
 @pytest.mark.needs_example_database

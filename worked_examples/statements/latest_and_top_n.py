@@ -47,7 +47,11 @@ def fixed() -> Statement:
 
 
 def top_runs_per_job(n: int = 2) -> Statement:
-    """The n longest runs of each job: number them from the longest, keep numbers 1 to n."""
+    """The n longest runs of each job: number them from the longest, keep numbers 1 to n.
+
+    With no ORDER_BY, the Example database gives the rows by the first column, then the
+    second, and so on: by job, then by run, not longest first.
+    """
     numbered = derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.duration_mins,
                AS(row_number(PARTITION_BY=job_runs.job_id,

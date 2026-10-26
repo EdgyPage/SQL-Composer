@@ -152,7 +152,9 @@ FROM numbered;
 11       3        36       12           2
 12       3        46       33           1
 
-Each job's runs are numbered 1, 2, 3, ... from its last.
+Each job's runs are numbered 1, 2, 3, ... from its last. The table lists them by job and
+event id, as the Example database gives rows when nothing orders them, so each job's numbers
+count down.
 
 ### Keep number 1
 

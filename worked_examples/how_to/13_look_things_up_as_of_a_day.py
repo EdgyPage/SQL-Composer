@@ -217,11 +217,6 @@ WHERE
 2       3  finance  chloe  2026-09-24
 3       4      web    NaN  2026-09-24
 
-Pasted into your own notebook, this `run_query` stops with a RuntimeError saying the Example database
-can't run this Hive: the Example database runs Hive with sqlglot, which has no `row_number`.
-The result above was worked out in pandas from the same rows, to show what the Hive gives.
-Your warehouse runs the Hive above as it is.
-
 Here every job is in every day's copy, so each newest row is from 2026-09-24, and reading that
 one day would give the same. At work a row can drop out of a snapshot, such as a job that was
 deleted, and then `row_number` still finds its last row, from whichever day that was. Nobody
@@ -325,24 +320,3 @@ Filter it with the same days as the table it is joined to, in `WHERE` as the ste
   on each column can mix values from different rows, and its Worked example of
   [`row_number`](examples.html#row_number).
 """
-
-import pandas as pd
-
-from sqlglot_composer import (
-    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
-)
-
-job_owners = example_database.job_owners
-
-
-def newest_owner_in_pandas() -> pd.DataFrame:
-    """newest_owner's result, computed in pandas, not by running this Hive."""
-    every_day = run_query(
-        statement(SELECT(all_columns(job_owners)), FROM(job_owners),
-                  WHERE(between(job_owners.dt, "2026-09-11", "2026-09-24"))),
-        example_database.query,
-    )
-    newest_first = every_day.sort_values("dt", ascending=False, kind="stable")
-    newest = newest_first.groupby("job_id").head(1)
-    newest = newest[["job_id", "team", "owner", "dt"]]
-    return newest.sort_values("job_id").reset_index(drop=True)

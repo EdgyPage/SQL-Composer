@@ -277,8 +277,9 @@ def _refuse_missing_part(missing: str, error: Exception | None = None) -> NoRetu
         what=f"The Example database can't run this Hive: its executor has no {missing}.",
         why="The Example database runs Hive on sqlglot's own small executor, which knows only "
         "part of Hive. Hive at work knows all of it.",
-        fix="See the Hive with to_hive(...), and run it at work with your own query; or try "
-        "the Statement here without that part.",
+        fix="See the Hive with to_hive(...), and run it at work with your own query. Or try "
+        "the rest here without that part: in the Statement, or in the original Hive, where "
+        "you compare a Statement with one.",
         opt_out=None,
     )) from error
 
@@ -329,21 +330,31 @@ def _joined_tables_kept_apart() -> Iterator[None]:
 
 
 # What each window function reads, by sqlglot's name for it: the places of the rows in their
-# order, a value of the row a place away, or the values of the rows the window frames.
+# order, a value of the row a place away, or the values of the rows it looks across.
 _PLACES = {"RowNumber", "Rank", "DenseRank", "Ntile"}
 _A_PLACE_AWAY = {"Lag": -1, "Lead": 1}
-_FRAMED = {"FirstValue", "LastValue", "Sum", "Avg", "Min", "Max", "Count"}
+_OVER_ROWS = {"FirstValue", "LastValue", "Sum", "Avg", "Min", "Max", "Count"}
+
+
+class _Ordered(NamedTuple):
+    """One column of a window's ORDER BY: its place in the rows the rest of the query gives,
+    whether it is DESC, and whether NULL comes first."""
+
+    place: int
+    descending: bool
+    null_first: bool
 
 
 class _Worked(NamedTuple):
     """A window, as the Example database works it out: its function, by sqlglot's name; where
-    each value it reads is in the rows the rest of the query gives, by place; and its frame."""
+    each value it reads is in the rows the rest of the query gives, by place; and, where it
+    says, which rows near each row it looks across, as window(..., rows=...) writes them."""
 
     function: str
     arguments: list[int | None]  # its column, then its other arguments, None where left out
-    partition: list[int]
-    order: list[tuple[int, bool, bool]]  # each ORDER BY column's place, DESC, NULL first
-    frame: exp.WindowSpec | None
+    groups: list[int]  # PARTITION BY's columns
+    order: list[_Ordered]
+    rows_near: exp.WindowSpec | None
 
 
 def _windows_worked_out(tree: exp.Expression, schema: dict[str, dict[str, dict[str, str]]],
@@ -372,7 +383,7 @@ def _windows_worked_out(tree: exp.Expression, schema: dict[str, dict[str, dict[s
                      if not any(other is not query and _within(other, query)
                                 for other in windowed)]
         made += 1
-        query = min(innermost, key=lambda one: _place(one, tree))
+        query = min(innermost, key=lambda one: _where_in_with(one, tree))
         answer = _window_worked_out(tree, query, f"_window_{made}", schema, rows, run)
         if query is tree:
             tree = answer
@@ -401,7 +412,7 @@ def _with_of(query: exp.Expression) -> exp.With | None:
     return query.args.get("with_", query.args.get("with"))
 
 
-def _place(query: exp.Expression, tree: exp.Expression) -> int:
+def _where_in_with(query: exp.Expression, tree: exp.Expression) -> int:
     """Where a SELECT is among the Derived tables of the query's WITH, which may read only
     those before it: the query itself, after them all."""
     around = _with_of(tree)
@@ -429,20 +440,21 @@ def _window_worked_out(tree: exp.Expression, query: exp.Select, name: str,
     windows = _own_windows(query)
     if any(not any(window is found or _within(window, found) for found in query.expressions)
            for window in windows):
-        _refuse_missing_part("windows outside SELECT's columns")
+        _refuse_missing_part("window outside SELECT's columns, such as one in ORDER BY: work "
+                             "it out in SELECT, named with AS, and order by that name")
     read = []  # each value the rows of the SELECT without its windows give
 
     def value(node: exp.Expression) -> exp.Column:
         read.append(node.copy())
         return exp.column(_made_column("_w", len(read) - 1), table=name)
 
-    def place(node: exp.Expression | None) -> int | None:
+    def read_at(node: exp.Expression | None) -> int | None:
         if node is None:
             return None
         value(node)
         return len(read) - 1
 
-    worked = [_worked(window, place) for window in windows]
+    worked = [_worked(window, read_at) for window in windows]
     outputs = [_output(column, windows, name, value) for column in query.expressions]
     order = _order_after(query, value)
     given = [list(row) for row in run(_without_windows(tree, query, read)).rows]
@@ -496,7 +508,7 @@ def _without_windows(tree: exp.Expression, query: exp.Select, read: list[exp.Exp
         if part in type(without).arg_types:
             without.set(part, None)
     around = _with_of(tree)
-    before = around.expressions[:_place(query, tree)] if around is not None else []
+    before = around.expressions[:_where_in_with(query, tree)] if around is not None else []
     if query is not tree and before and _with_of(without) is None:
         without.set("with_" if "with_" in type(without).arg_types else "with",
                     exp.With(expressions=[one.copy() for one in before]))
@@ -527,9 +539,9 @@ def _output(column: exp.Expression, windows: list[exp.Window], name: str,
     return exp.alias_(given, alias) if alias else given
 
 
-def _worked(window: exp.Window, place: Callable[[exp.Expression | None], int | None]
+def _worked(window: exp.Window, read_at: Callable[[exp.Expression | None], int | None]
             ) -> _Worked:
-    """A window, its function and its pieces each read through `place`, or refused plainly
+    """A window, its function and its pieces each read through `read_at`, or refused plainly
     where the Example database can't work it out."""
     from sqlglot import exp
 
@@ -537,24 +549,29 @@ def _worked(window: exp.Window, place: Callable[[exp.Expression | None], int | N
     kind = type(function).__name__
     if isinstance(function, exp.Count) and isinstance(function.this, exp.Distinct):
         _refuse_missing_part("COUNT(DISTINCT ...) over a window")
-    if kind not in _PLACES | set(_A_PLACE_AWAY) | _FRAMED:
+    if isinstance(function, (exp.IgnoreNulls, exp.RespectNulls)):
+        _refuse_missing_part("IGNORE NULLS or RESPECT NULLS in a window")
+    if kind not in _PLACES | set(_A_PLACE_AWAY) | _OVER_ROWS:
         named = function.name.upper() if isinstance(function, exp.Anonymous) else (
-            function.sql_name())
-        _refuse_missing_part(f"the window function {named}")
+            function.sql_name() if isinstance(function, exp.Func) else function.key.upper())
+        _refuse_missing_part(f"window function {named}")
     spec = window.args.get("spec")
     if spec is not None and (spec.args.get("kind") or "").upper() == "RANGE" and any(
             isinstance(spec.args.get(end), exp.Expression) for end in ("start", "end")):
-        _refuse_missing_part("a window whose RANGE counts from the row by a number")
+        _refuse_missing_part("window over RANGE with a number of rows, such as RANGE "
+                             "BETWEEN 1 PRECEDING AND CURRENT ROW; window(rows=...) writes "
+                             "ROWS BETWEEN, which it has")
     if kind == "Count" and isinstance(function.this, exp.Star):
         arguments = [None]
     else:
-        arguments = [place(function.args.get(part)) for part in ("this", "offset", "default")]
+        arguments = [read_at(function.args.get(part))
+                     for part in ("this", "offset", "default")]
     order = window.args.get("order")
     return _Worked(
-        kind, arguments, [place(column) for column in window.args.get("partition_by") or []],
-        [(place(ordered.this), bool(ordered.args.get("desc")),
-          ordered.args.get("nulls_first") if ordered.args.get("nulls_first") is not None
-          else not ordered.args.get("desc"))
+        kind, arguments, [read_at(column) for column in window.args.get("partition_by") or []],
+        [_Ordered(read_at(ordered.this), bool(ordered.args.get("desc")),
+                  ordered.args.get("nulls_first") if ordered.args.get("nulls_first") is not None
+                  else not ordered.args.get("desc"))
          for ordered in (order.expressions if order is not None else [])],
         spec)
 
@@ -568,7 +585,7 @@ def _window_values(window: _Worked, rows: list[list[object]]) -> list[object]:
 
     groups = {}
     for row in range(len(rows)):
-        groups.setdefault(tuple(rows[row][column] for column in window.partition), []).append(row)
+        groups.setdefault(tuple(rows[row][column] for column in window.groups), []).append(row)
     values = [None] * len(rows)
     for members in groups.values():
         ordered = sorted(members, key=functools.cmp_to_key(compared))
@@ -578,7 +595,7 @@ def _window_values(window: _Worked, rows: list[list[object]]) -> list[object]:
     return values
 
 
-def _compared(order: list[tuple[int, bool, bool]], one: list[object], other: list[object]
+def _compared(order: list[_Ordered], one: list[object], other: list[object]
               ) -> int:
     """Which of two rows comes first in a window's order: -1 the first, 1 the second, 0 tied.
     NULL comes first where `order` says so, as Hive puts it first in an ascending order."""
@@ -620,8 +637,9 @@ def _window_value(window: _Worked, rows: list[list[object]], ordered: list[int],
         if 0 <= away < len(ordered):
             return rows[ordered[away]][this]
         return None if default is None else row[default]
-    start, end = _framed(window.frame, place, peers[place], len(ordered), bool(window.order))
-    return _framed_value(window, [rows[at] for at in ordered[start:end]])
+    start, end = _rows_looked_across(window.rows_near, place, peers[place], len(ordered),
+                                     bool(window.order))
+    return _value_over_rows(window, [rows[at] for at in ordered[start:end]])
 
 
 def _place_value(window: _Worked, row: list[object], size: int, place: int,
@@ -633,21 +651,31 @@ def _place_value(window: _Worked, row: list[object], size: int, place: int,
         return peers[place][0] + 1
     if window.function == "DenseRank":
         return len({first for first, _ in peers[:place + 1]})
-    small, extra = divmod(size, int(row[window.arguments[0]]))  # NTILE(parts)
+    parts = int(row[window.arguments[0]])  # NTILE(parts)
+    if parts < 1:
+        raise RuntimeError(four_part_message(
+            what=f"The Example database can't run this Hive: NTILE({parts}) splits each group "
+            "into no parts.",
+            why="NTILE numbers the rows of each group from 1 to its number of parts, so it "
+            "needs 1 part or more. Hive refuses it too.",
+            fix="Give NTILE a number of parts of 1 or more, such as ntile(4, over=...).",
+            opt_out=None,
+        ))
+    small, extra = divmod(size, parts)
     if small == 0:
         return place + 1
     big = extra * (small + 1)  # the first `extra` parts hold a row more
     return place // (small + 1) + 1 if place < big else extra + (place - big) // small + 1
 
 
-def _framed_value(window: _Worked, framed: list[list[object]]) -> object:
-    """A window's value over the rows its frame holds for one row."""
+def _value_over_rows(window: _Worked, across: list[list[object]]) -> object:
+    """A window's value over the rows it looks across for one row."""
     this = window.arguments[0]
     if window.function == "Count":
-        return len(framed) if this is None else sum(one[this] is not None for one in framed)
+        return len(across) if this is None else sum(one[this] is not None for one in across)
     if window.function in ("FirstValue", "LastValue"):
-        return framed[0 if window.function == "FirstValue" else -1][this] if framed else None
-    found = [one[this] for one in framed if one[this] is not None]
+        return across[0 if window.function == "FirstValue" else -1][this] if across else None
+    found = [one[this] for one in across if one[this] is not None]
     if not found:
         return None
     if window.function == "Sum":
@@ -657,16 +685,16 @@ def _framed_value(window: _Worked, framed: list[list[object]]) -> object:
     return min(found) if window.function == "Min" else max(found)
 
 
-def _framed(spec: exp.WindowSpec | None, place: int, peers: tuple[int, int], size: int,
-            ordered: bool) -> tuple[int, int]:
-    """The places a window's frame holds for the row at `place`, first to after-last: with no
-    frame, the whole group, or with ORDER BY every row up to the row and those tied with it,
-    as Hive frames it."""
+def _rows_looked_across(spec: exp.WindowSpec | None, place: int, peers: tuple[int, int],
+                        size: int, ordered: bool) -> tuple[int, int]:
+    """The places of the rows a window looks across for the row at `place`, first to
+    after-last: with no rows=, the whole group, or with ORDER BY every row up to the row and
+    those tied with it, as Hive reads them."""
     if spec is None:
         return (0, peers[1]) if ordered else (0, size)
     by_rows = (spec.args.get("kind") or "ROWS").upper() == "ROWS"
 
-    def end_of(said: object, side: str | None, start: bool) -> int:
+    def end_of(said: str | exp.Expression | None, side: str | None, start: bool) -> int:
         said = said if isinstance(said, str) or said is None else said.name
         if said is None or said.upper() == "CURRENT ROW":
             if by_rows:
