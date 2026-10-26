@@ -62,7 +62,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 import toolbox_registry
@@ -126,11 +125,16 @@ def stamped(name: str, text: str, stamp: str) -> str:
     )
 
 
-def toolbox_version_of(source: Path, folder: str) -> str:
-    """The version dev's `version.txt` names, such as "7.2"."""
-    first = (source / folder / toolbox_registry.VERSION_FILE).read_text(
-        encoding="utf-8").strip().splitlines()[0]
-    return first[len(toolbox_registry.PRODUCT) + 1:]
+# Dev's version.txt: one line, the Toolbox and its version, such as "sqlglot Composer 7.2".
+DEV_VERSION_FILE = re.compile(rf"{re.escape(toolbox_registry.PRODUCT)} (?P<version>\d+\.\d+)\n?")
+
+
+def toolbox_version_of(source: Path, folder: str) -> str | None:
+    """The version dev's `version.txt` names, such as "7.2", or None if it holds anything but
+    the one line `DEV_VERSION_FILE` reads."""
+    path = source / folder / toolbox_registry.VERSION_FILE
+    found = DEV_VERSION_FILE.fullmatch(path.read_text(encoding="utf-8")) if path.is_file() else None
+    return found["version"] if found else None
 
 
 def git_hash(data: bytes) -> str:
@@ -147,8 +151,9 @@ def version_file_text(product: str, toolbox_version: str, when: datetime.datetim
     listed = "".join(f"{hashes[name]}  {name}\n" for name in sorted(hashes))
     return (f"{product} {toolbox_version}\n"
             f"exported {when.strftime('%Y-%m-%d %H:%M')} from dev commit {commit}\n"
-            "# Each file of this folder and its git hash, as `git hash-object` gives it. The\n"
-            "# import warns about a file whose hash differs. Written by the export: don't edit.\n"
+            "# Each file of this folder, and a code worked out from its contents (its git hash),\n"
+            "# so the import can warn about a file that differs. Written by the export: don't\n"
+            "# edit it.\n"
             + listed)
 
 
@@ -404,9 +409,7 @@ def check_folder(source: Path) -> None:
     if not (source / folder).is_dir():
         raise ExportRefused(f"The export ships {folder}, but this commit doesn't have it. "
                             "Commit the folder on dev.")
-    path = source / folder / toolbox_registry.VERSION_FILE
-    lines = path.read_text(encoding="utf-8").strip().splitlines() if path.is_file() else []
-    if len(lines) != 1 or not re.fullmatch(rf"{re.escape(product)} \d+\.\d+", lines[0]):
+    if toolbox_version_of(source, folder) is None:
         raise ExportRefused(
             f"{folder}/{toolbox_registry.VERSION_FILE} must hold one line on dev, the Toolbox "
             f'and its version, such as "{product} 7.2": the export adds the rest. Put it back, '
@@ -437,10 +440,9 @@ def build_copies(source: Path, into: Path, stamp: str) -> None:
             target.write_text(text, encoding="utf-8", newline="\n")
 
 
-def build_folder(source: Path, into: Path, folder: str, version_file: Callable[..., str]
-                 ) -> None:
-    """Copy one Toolbox folder into `into` as dev holds it, write its version.txt from each
-    file's hash with `version_file`, and check its imports."""
+def build_folder(source: Path, into: Path, folder: str) -> dict[str, str]:
+    """Copy one Toolbox folder into `into` as dev holds it, all but its version.txt, which
+    `build` writes, check its imports, and return each file's git hash by name."""
     names = sorted(path.name for path in (source / folder).iterdir()
                    if path.name != "__pycache__")
     folders = [name for name in names if (source / folder / name).is_dir()]
@@ -454,15 +456,13 @@ def build_folder(source: Path, into: Path, folder: str, version_file: Callable[.
             "folder, but tools/toolbox_registry.py doesn't list it. Add it to FILES there, or "
             "move it out of the folder on dev.")
     (into / folder).mkdir(parents=True)
-    hashes = {}
+    hashes: dict[str, str] = {}
     for name in names:
         if name == toolbox_registry.VERSION_FILE:
             continue
         text = (source / folder / name).read_text(encoding="utf-8")
         (into / folder / name).write_text(text, encoding="utf-8", newline="\n")
         hashes[name] = git_hash((into / folder / name).read_bytes())
-    (into / folder / toolbox_registry.VERSION_FILE).write_text(
-        version_file(hashes), encoding="utf-8", newline="\n")
     bad_imports = toolbox_registry.imports_outside(into / folder)
     if bad_imports:
         raise ExportRefused(
@@ -471,6 +471,7 @@ def build_folder(source: Path, into: Path, folder: str, version_file: Callable[.
             f"{'; '.join(f'{folder}/{bad}' for bad in bad_imports)}."
         )
     check_offline(into, [folder])
+    return hashes
 
 
 def check_root_files(source: Path) -> None:
@@ -508,8 +509,10 @@ def build(source: Path, into: Path, when: datetime.datetime, commit: str) -> str
     template = (source / README_TEMPLATE).read_text(encoding="utf-8")
     folder, product = toolbox_registry.FOLDER, toolbox_registry.PRODUCT
     version = toolbox_version_of(source, folder)
-    build_folder(source, into, folder,
-                 lambda hashes: version_file_text(product, version, when, commit, hashes))
+    hashes = build_folder(source, into, folder)
+    (into / folder / toolbox_registry.VERSION_FILE).write_text(
+        version_file_text(product, version, when, commit, hashes), encoding="utf-8",
+        newline="\n")
     described = import_exported(into)
     check_imports_alone(into)
     build_copies(source, into, copy_stamp_text(product, version))

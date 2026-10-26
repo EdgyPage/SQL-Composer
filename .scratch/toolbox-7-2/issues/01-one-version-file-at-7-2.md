@@ -1,7 +1,7 @@
 # One version file, at 7.2, and the ADRs
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: L
 
@@ -53,3 +53,49 @@ CONTEXT.md's **Toolbox version** becomes:
 > one place: the Toolbox folder's `version.txt`, which also lists each of its files' hashes. Two
 > copies of the same Toolbox version are told apart by when they were exported.
 > _Avoid_: release, build, hash
+
+## Answer
+
+Built 2026-10-26 on dev (e04f477; review fixes in the next commit).
+
+- `sqlglot_composer/version.txt` holds `sqlglot Composer 7.2` on dev: the Toolbox's name as well
+  as the version, so the import can tell a `version.txt` that isn't this Toolbox's (ADR 0013
+  says so now). The export adds `exported <time> from dev commit <hash>`, two `#` comment lines
+  for a reader, and `<git hash>  <name>` for every other file. Both sides hash with line endings
+  as LF, so a copy saved with Windows line endings matches (ADR 0013 says so now).
+- No `TOOLBOX_VERSION = ...` line in any file; `__init__.py` reads `TOOLBOX_VERSION` and
+  `VERSION` from `version.txt`. The export writes nothing into the folder's own files: no stamp,
+  no `_FILES` list. The Example projects keep a line-1 stamp, now naming the version alone
+  (`sqlglot Composer 7.2 - copy it, then edit your copy`), so an export changes them only when
+  the version changes; "no line-1 stamp" is read as the Toolbox folder's files, as ADR 0013
+  says. The README keeps its stamp: one file, which names the export time anyway.
+- The import stops on a missing or extra file, a missing `version.txt`, or one whose first line
+  isn't `sqlglot Composer` and a version (read as `utf-8-sig`, so a byte-order mark is fine);
+  it warns once, naming every file, on a hash that differs.
+- The export refuses a file in the folder that `tools/toolbox_registry.py` doesn't list: the
+  per-file version line used to catch a stray module, and the hash list can't, since the export
+  lists whatever the folder holds.
+- 7.2 named everywhere the current version is; CHANGES `## 7.2`; CONTEXT's Toolbox version; the
+  README's file map and Update; the drift reviewer's version item; CLAUDE.md's Drift section;
+  ADR 0006's Status.
+- `tests/upgrade_from/7.1/` (the 7.1 Example projects, frozen, without Lineage pages) is in the
+  same commit as the review fixes, for ticket 02; the dead-code and suite-layout tests and ruff
+  leave it out.
+
+## Reviews
+
+- Standards (2026-10-26): fixed: `build_folder` returns the hashes, no callback; one pattern
+  reads dev's `version.txt` (`DEV_VERSION_FILE`); `VersionFile` is a NamedTuple and the argument
+  is `version_file`; the glossary no longer says "hashes" beside its _Avoid_ of hash. Answered:
+  `git_hash` is in `checks.py` and the export on purpose, since the Toolbox can't import a tool,
+  and `test_the_hash_is_gits_own` holds both to git's value; ADR 0006's Status is this ticket's
+  "Done when".
+- Spec (2026-10-26): fixed: the README's file map names `version.txt`; `test_dead_code.py`'s
+  note. Answered above: the product name in `version.txt`, the Example projects' stamp, the
+  registry check, the LF hashing (both now in ADR 0013). `test_docstrings.py` and
+  `test_how_tos.py` read `TOOLBOX_VERSION` from the package and needed no change.
+- Beginner reader: [reports/01-beginner-reader.md](../reports/01-beginner-reader.md). Taken:
+  stops 1 to 11 and 14, as the report's last section lists; left for the user: 12 (a folder
+  dragged into the old one) and 13 (editing `version.txt`).
+- Drift: e04f477 clean. The drift reviewer's note that a preview's `version.txt` read as "not
+  exported (dev)" is fixed, with a test.

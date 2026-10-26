@@ -22,8 +22,11 @@ line-length = 96
 target-version = "py311"
 # A Template's placeholders, such as <TABLE>, stop it parsing until it is filled in, on
 # purpose: tests/test_project_templates.py fills each one in and checks that it runs. The
-# Example projects' notebook sources are cells, whose imports sit at each cell's top.
-extend-exclude = ["example_projects/*/admin/templates", "tools/example_project_sources"]
+# Example projects' notebook sources are cells, whose imports sit at each cell's top. The
+# Example projects as an earlier version left them, in tests/upgrade_from/, are kept frozen
+# for the Upgrade's test, never edited.
+extend-exclude = ["example_projects/*/admin/templates", "tools/example_project_sources",
+                  "tests/upgrade_from"]
 
 [tool.ruff.lint]
 extend-select = ["C901"]

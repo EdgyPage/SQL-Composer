@@ -6,9 +6,9 @@ Import everything from here, never from a file inside the folder:
 
 The Toolbox is this one folder. To update, delete it, copy it in again from the download and
 restart the kernel. It checks itself when imported. If a file is missing or extra, if its
-version.txt is missing or from another Toolbox folder, or if this Python can't run the Toolbox,
-it stops and says what happened, why it matters and the usual fix. A file that differs from the
-download, edited by hand or pasted from another one, only warns.
+version.txt is missing or unreadable, or if this Python can't run the Toolbox, it stops and
+says what happened, why it matters and the usual fix. A file that differs from the download,
+edited by hand or pasted from another download, only warns.
 
 TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the
 full text, which also says when this copy was exported. Both are read from the folder's
