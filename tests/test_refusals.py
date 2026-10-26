@@ -53,6 +53,8 @@ from sqlglot_composer import (
     statement,
     sum_of,
     to_hive,
+    unchecked_condition,
+    unchecked_derived,
     week_start,
 )
 from sqlglot_composer import refusals
@@ -64,7 +66,7 @@ from sqlglot_composer.example_database import (
     region_costs,
     run_alerts,
 )
-from sqlglot_composer.refusals import RepeatedRowsWarning
+from sqlglot_composer.refusals import RepeatedRowsWarning, UncheckedWarning
 from conftest import FOLDER, toolbox_folder
 
 DAYS = between(job_runs.dt, "2026-09-23", "2026-09-24")
@@ -392,6 +394,63 @@ def test_warning_repeated_rows_opt_out() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         JOIN(run_alerts, ON=equals(run_alerts.run_id, job_runs.run_id), many_matches=True)
+
+
+# --- Where a Guard or Load limit can't look inside Unchecked Hive (Toolbox 7.2, ticket 03) ----
+
+
+def _quietly(make: Callable[[], object]) -> object:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        return make()
+
+
+def _unchecked_steps() -> Table:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return unchecked_derived(
+            "steps", "SELECT run_id FROM ops.job_runs WHERE dt = '2026-09-24'",
+            columns={"run_id": "bigint"})
+
+
+def test_warning_unchecked_where_on_kept_rows_warns() -> None:
+    named = unchecked_condition("{name} RLIKE 'sync$'", name=jobs.job_name)
+    with pytest.warns(UncheckedWarning, match="keeps_only_matches=True") as caught:
+        statement(SELECT(job_runs.run_id), FROM(job_runs),
+                  LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
+                  WHERE(equals(job_runs.dt, "2026-09-24"), named))
+    assert caught[0].filename == __file__, "the warning points at the user's own line"
+
+
+def test_warning_unchecked_where_on_kept_rows_opt_out() -> None:
+    named = unchecked_condition("{name} RLIKE 'sync$'", name=jobs.job_name)
+    _quietly(lambda: statement(
+        SELECT(job_runs.run_id), FROM(job_runs),
+        LEFT_JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id), keeps_only_matches=True),
+        WHERE(equals(job_runs.dt, "2026-09-24"), named)))
+
+
+def test_warning_unchecked_partition_filter_warns() -> None:
+    day = unchecked_condition("{dt} = date_format(current_date, 'yyyy-MM-dd')", dt=job_runs.dt)
+    with pytest.warns(UncheckedWarning, match="reads_all_partitions=True"):
+        statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(day))
+
+
+def test_warning_unchecked_partition_filter_opt_out() -> None:
+    day = unchecked_condition("{dt} = date_format(current_date, 'yyyy-MM-dd')", dt=job_runs.dt)
+    _quietly(lambda: statement(SELECT(job_runs.run_id),
+                               FROM(job_runs, reads_all_partitions=True), WHERE(day)))
+
+
+def test_warning_unchecked_derived_read_warns() -> None:
+    steps = _unchecked_steps()
+    with pytest.warns(UncheckedWarning, match="FROM\\(steps, reads_all_partitions=True\\)"):
+        statement(SELECT(steps.run_id), FROM(steps))
+
+
+def test_warning_unchecked_derived_read_opt_out() -> None:
+    steps = _unchecked_steps()
+    _quietly(lambda: statement(SELECT(steps.run_id), FROM(steps, reads_all_partitions=True)))
 
 
 def test_a_repeated_rows_warning_shows_on_every_join_that_earns_it() -> None:

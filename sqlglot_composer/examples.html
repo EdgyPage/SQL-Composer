@@ -25,7 +25,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 <header>
 <h1>sqlglot Composer 7.2: Example gallery</h1>
 <p>Every Worked example on one page: 14 Worked examples on their own, and the
-124 examples from the Toolbox's docstrings. Each shows its Python and, for each
+127 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -74,7 +74,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -3587,6 +3587,115 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs;</pre>
 <tr><td>4</td><td>cache_warm</td></tr>
 </table></div>
 <p class="names">Toolbox names used: <code>unchecked_hive</code>, <code>show_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="unchecked_column">
+<h3><code>unchecked_column</code></h3>
+<p class="why">Hive you write by hand for one column that no Toolbox function writes yet.</p>
+<pre class="python">quarter_hours = unchecked_column(&quot;{minutes} DIV 15&quot;, minutes=job_runs.duration_mins)</pre>
+<pre class="python">runs = statement(
+    SELECT(job_runs.run_id, job_runs.duration_mins, AS(quarter_hours, &quot;quarter_hours&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+)</pre>
+<pre class="python">print(to_hive(runs))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  job_runs.duration_mins DIV 15 AS quarter_hours
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<pre class="python">run_query(runs, example_database.query)</pre>
+<p class="label">Python shows</p>
+<pre class="output">   run_id  duration_mins  quarter_hours
+0     101             10              0
+1     102             20              1
+2     103             30              2
+3     104             40              2</pre>
+<p>Hive&#x27;s DIV divides and drops what is left over, which no Toolbox function writes yet. Write each column the text reads as a {name} placeholder, and pass the column itself by that name, as minutes=job_runs.duration_mins above: the Toolbox fills each placeholder with the column&#x27;s Hive, as str.format does, so Lineage traces the text to its real columns and statement(...) checks they are columns of the tables it reads. A brace you mean as a brace is written twice, as in &quot;regexp_extract({name}, &#x27;[a-z]{{2}}&#x27;, 0)&quot;. A column passed as a calculation, such as job_runs.duration_mins + 1, is put in round brackets.</p>
+<p>It gives back a Column, used like any other: give it a name with AS. Text that adds rows up, such as percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other columns. The Hive is written as sqlglot reads your text, so it may come out in capitals or with an argument left out that means the same, as hive_function&#x27;s does.</p>
+<p>It refuses text that, its placeholders filled, doesn&#x27;t read as one Hive expression; text that names a column itself rather than through a placeholder, saying how to write it; a placeholder with no column passed, or a column passed that no placeholder names; and text that reads a table of its own, as a sub-query does, which unchecked_derived(...) is for.</p>
+<p>No Guard, Warning or Load limit looks inside the text, though they check the rest of the Statement as ever, and where one can&#x27;t tell what the text does, it says so in a Warning. Lineage marks it with the same badge as an Unchecked statement, and each run of a Statement holding one adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, each one marks something the Toolbox should learn to write: a search for unchecked_ finds them all. Where a Toolbox function does the job, as hive_function does for a function call, use that instead: the Toolbox checks it.</p>
+<p class="label">Result of Statement 1 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>quarter_hours</th></tr>
+<tr><td>101</td><td>10</td><td>0</td></tr>
+<tr><td>102</td><td>20</td><td>1</td></tr>
+<tr><td>103</td><td>30</td><td>2</td></tr>
+<tr><td>104</td><td>40</td><td>2</td></tr>
+</table></div>
+<p class="label">The Hive of the Statement given to run_query(...)</p>
+<pre class="hive">SELECT
+  job_runs.run_id,
+  job_runs.duration_mins,
+  job_runs.duration_mins DIV 15 AS quarter_hours
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27;</pre>
+<p class="label">Result of Statement 2 of 2 on the Example database</p><div class="scroll"><table class="result">
+<tr><th>run_id</th><th>duration_mins</th><th>quarter_hours</th></tr>
+<tr><td>101</td><td>10</td><td>0</td></tr>
+<tr><td>102</td><td>20</td><td>1</td></tr>
+<tr><td>103</td><td>30</td><td>2</td></tr>
+<tr><td>104</td><td>40</td><td>2</td></tr>
+</table></div>
+<p class="names">Toolbox names used: <code>unchecked_column</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code>, <code>run_query</code>, <code>example_database</code></p>
+</section>
+<section class="entry" id="unchecked_condition">
+<h3><code>unchecked_condition</code></h3>
+<p class="why">Hive you write by hand for one condition that no Toolbox function writes yet.</p>
+<pre class="python">failing = unchecked_condition(&quot;{status} RLIKE &#x27;^FAIL&#x27;&quot;, status=job_runs.status)</pre>
+<pre class="python">print(to_hive(statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), failing),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt = &#x27;2026-09-24&#x27; AND job_runs.status RLIKE &#x27;^FAIL&#x27;</pre>
+<p>It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...). Its text is written as unchecked_column&#x27;s is: each column it reads as a {name} placeholder, with the column itself passed by that name, a brace you mean doubled, and the same refusals; help(unchecked_column) says more.</p>
+<p>The Guards and Load limits check the rest of the Statement, and say so where they can&#x27;t tell what the text does. A read of a partitioned table whose partition columns are filtered only in an Unchecked condition gets a Warning rather than the Load limit&#x27;s refusal, since the text may filter them or not: check that it does, and add reads_all_partitions=True to the read to silence it, or filter them with a condition function too. A WHERE that reads a LEFT_JOIN&#x27;s table only inside one gets a Warning in place of the Guard&#x27;s refusal, for the same reason.</p>
+<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no job_runs.status RLIKE &#x27;^FAIL&#x27;.</p>
+<p class="names">Toolbox names used: <code>unchecked_condition</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code></p>
+</section>
+<section class="entry" id="unchecked_derived">
+<h3><code>unchecked_derived</code></h3>
+<p class="why">A Derived table whose SELECT is Hive you write by hand, its columns declared.</p>
+<pre class="python">steps = unchecked_derived(&quot;steps&quot;, &#x27;&#x27;&#x27;
+    SELECT r.run_id, s AS step
+    FROM ops.job_runs r
+    LATERAL VIEW explode(split(r.status, &#x27;_&#x27;)) t AS s
+    WHERE r.dt = &#x27;2026-09-24&#x27;
+&#x27;&#x27;&#x27;, columns={&quot;run_id&quot;: &quot;bigint&quot;, &quot;step&quot;: &quot;string&quot;})</pre>
+<pre class="python">print(to_hive(statement(
+    SELECT(steps.step, AS(count_rows(), &quot;runs&quot;)),
+    FROM(steps, reads_all_partitions=True),
+    GROUP_BY(steps.step),
+)))</pre>
+<p class="label">Hive</p>
+<pre class="output">WITH steps AS (
+  SELECT
+    r.run_id,
+    s AS step
+  FROM ops.job_runs AS r
+  LATERAL VIEW
+  EXPLODE(SPLIT(r.status, &#x27;_&#x27;)) t AS s
+  WHERE
+    r.dt = &#x27;2026-09-24&#x27;
+)
+SELECT
+  steps.step,
+  COUNT(*) AS runs
+FROM steps
+GROUP BY
+  steps.step</pre>
+<p>It gives back a Table, read as a Derived table made by derived(...) is: its columns are the ones <code>columns</code> declares, each with its Hive type or None, so steps.step works and a column it doesn&#x27;t declare is refused at once. The text is one SELECT, written at the top of the Hive as WITH steps AS (...), laid out as the Toolbox lays out its Hive. When sqlglot can tell the names of the columns the SELECT gives, they must be the ones declared.</p>
+<p>No Guard, Warning or Load limit looks inside the text. So it has no Key the Toolbox can see, and a JOIN on it warns as on any table without one. A read of it warns that the Load limit can&#x27;t see whether its text filters the partition columns of the tables it reads: check that it does, then add reads_all_partitions=True to the FROM or JOIN that reads it, as above, which silences the Warning. Lineage draws it as one box it can&#x27;t see inside, marked with the Unchecked statement&#x27;s badge, over the tables its text reads, and each run of a Statement reading it adds an entry to the Admin log (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to write: a search for unchecked_ finds it.</p>
+<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no LATERAL VIEW.</p>
+<p class="names">Toolbox names used: <code>unchecked_derived</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="set_admin_log">
 <h3><code>set_admin_log</code></h3>

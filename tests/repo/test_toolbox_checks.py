@@ -68,6 +68,8 @@ PUBLIC_NAMES = [
     "python_step", "PythonStep",
     # Toolbox 7.1 (7.0's map, ticket 09): you pick the call, so run_query and run_execute replace run.
     "run_query", "run_execute",
+    # Toolbox 7.2, ticket 03: Unchecked expressions and the Unchecked derived table.
+    "unchecked_column", "unchecked_condition", "unchecked_derived",
     # Toolbox 7.2, ticket 04: an if/else chain, or a lookup on one column, as one CASE.
     "first_match", "mapped",
 ]
@@ -100,8 +102,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 104
-    assert len(set(PUBLIC_NAMES)) == 104
+    assert len(PUBLIC_NAMES) == 107
+    assert len(set(PUBLIC_NAMES)) == 107
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

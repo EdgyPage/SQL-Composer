@@ -391,6 +391,24 @@ def _check_tables(tree: exp.Expression,
             _refuse_unreadable(f"it has no table {table.db}.{table.name}", tables)
 
 
+def _refuse_what_it_runs_wrong(tree: exp.Expression) -> None:
+    """Refuse a part of Hive the executor hasn't got, or would run wrong without a word."""
+    from sqlglot import exp
+
+    if tree.find(exp.Window):
+        _refuse_missing_part("window functions such as row_number")
+    if tree.find(exp.GroupingSets):
+        # Its executor would group by every column, leaving out the subtotal rows unsaid.
+        _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
+    # The executor would run a LEFT SEMI JOIN as a LEFT JOIN, repeating and keeping rows.
+    if any(join.kind == "SEMI" for join in tree.find_all(exp.Join)):
+        _refuse_missing_part("LEFT SEMI JOIN")
+    # Its executor runs a LATERAL VIEW as a join it can't finish, as an Unchecked derived table
+    # may hold.
+    if tree.find(exp.Lateral):
+        _refuse_missing_part("LATERAL VIEW")
+
+
 def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]]]
               ) -> tuple[list[str], list[tuple[object, ...]]]:
     """Run a query's Hive on sqlglot's executor: its column names, and its rows.
@@ -398,7 +416,6 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
     `tables` maps each table's short name to its Table reference and its rows.
     """
     import sqlglot
-    from sqlglot import exp
 
     if text.split(None, 1)[:1] and text.split(None, 1)[0].upper() == "EXPLAIN":
         # The executor runs a query step by step, with no plan of Hive's to show.
@@ -414,14 +431,7 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
     schema = {"ops": {name: dict(table._columns) for name, (table, _) in tables.items()}}
     rows = {"ops": {name: [dict(zip(table._columns, row)) for row in table_rows]
                     for name, (table, table_rows) in tables.items()}}
-    if tree.find(exp.Window):
-        _refuse_missing_part("window functions such as row_number")
-    if tree.find(exp.GroupingSets):
-        # Its executor would group by every column, leaving out the subtotal rows unsaid.
-        _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
-    # The executor would run a LEFT SEMI JOIN as a LEFT JOIN, repeating and keeping rows.
-    if any(join.kind == "SEMI" for join in tree.find_all(exp.Join)):
-        _refuse_missing_part("LEFT SEMI JOIN")
+    _refuse_what_it_runs_wrong(tree)
     try:
         with _mix_ups_stopped(tree):
             result = execute(_plain_casts(_like_spelled_out(tree)), schema=schema, tables=rows,

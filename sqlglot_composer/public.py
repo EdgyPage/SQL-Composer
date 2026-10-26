@@ -98,6 +98,9 @@ from .unchecked import (
     UncheckedStatement,
     hive_settings,
     set_admin_log,
+    unchecked_column,
+    unchecked_condition,
+    unchecked_derived,
     unchecked_hive,
 )
 from .upkeep import compute_statistics, explain, repair_partitions
@@ -222,6 +225,9 @@ __all__ = [
     # unchecked.py
     "hive_settings",
     "unchecked_hive",
+    "unchecked_column",
+    "unchecked_condition",
+    "unchecked_derived",
     "set_admin_log",
     "SessionSettings",
     "UncheckedStatement",
