@@ -24,8 +24,10 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
-from .running import hive_without_automatic_limit, need_statement, statements_within
+from .running import (hive_without_automatic_limit, need_statement, send_logged,
+                      statement_tree, statements_within)
 from .tables import Column, Table, Verdict, literal, python_text
+from .trees import unchecked_calls
 from .writing import hive_text, normalised_query, query_columns, rows_compared
 
 _THE_SAME = "once both are written out the same way"
@@ -151,14 +153,16 @@ def compare_with_original(statement: Statement, original: str, *,
     columns = query_columns(ours, call, "the Statement's Hive")
     _need_the_same_columns(columns, query_columns(original, call, "the original"), call)
     kept = _kept(statement, partition, columns, call)
-    if partition is None and not reads_all_partitions:
-        _need_partitions_named(statement, columns, call)
-    result = query(rows_compared(call, ours, original, columns, kept, _SHOWN))
+    if not reads_all_partitions:
+        _need_partitions_named(statement, columns, call, [name for name, _ in kept])
+    # Sent as run_query sends a Statement, so one holding Unchecked pieces is in the Admin log.
+    result = send_logged(statement, rows_compared(call, ours, original, columns, kept, _SHOWN),
+                         query)
     refuse_what_isnt_a_dataframe(result)
-    every = reads_all_partitions and _partitioned_tables(statement)
+    in_every_partition = reads_all_partitions and bool(_partitioned_tables(statement))
     where = (" where " + " and ".join(f"{name} = {value}" for name, value in kept) if kept
-             else ", in every Partition" if every else "")
-    return _rows_verdict(result, columns, where, call)
+             else ", in every Partition" if in_every_partition else "")
+    return _rows_verdict(result, columns, where, call, unchecked_calls(statement_tree(statement)))
 
 
 # How many rows of each side that differ a comparison shows at most.
@@ -250,16 +254,19 @@ def _example(statement: Statement, columns: list[str]) -> str:
     return next((name for name in columns if name in partition_columns), columns[0])
 
 
-def _need_partitions_named(statement: Statement, columns: list[str], call: str) -> None:
-    """Refuse a comparison that would read every Partition of a table the Statement reads."""
+def _need_partitions_named(statement: Statement, columns: list[str], call: str,
+                           named: list[str]) -> None:
+    """Refuse a comparison that would read every Partition of a table the Statement reads:
+    one whose partition= names none of those tables' partition columns, or is left out."""
     tables = _partitioned_tables(statement)
-    if not tables:
+    if not tables or any(name in table._partitioned_by for table in tables for name in named):
         return
     example = _example(statement, columns)
+    said = (f"partition= names {in_words(named)}, by which none of them is partitioned"
+            if named else "nothing says which Partitions to compare")
     refuse(
         what=f"{call}: the Statement reads {in_words([table._name for table in tables])}, "
-        f"which {'is' if len(tables) == 1 else 'are'} partitioned, and nothing says which "
-        "Partitions to compare.",
+        f"which {'is' if len(tables) == 1 else 'are'} partitioned, and {said}.",
         why="Comparing every Partition reads the whole of each table, for the Statement and "
         "for the original, which may be more than the cluster should read at once.",
         fix=f'Pass partition={{"{example}": ...}}, a value of a column the Statement gives, '
@@ -269,8 +276,11 @@ def _need_partitions_named(statement: Statement, columns: list[str], call: str) 
     )
 
 
-def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: str) -> Verdict:
-    """What the comparison's answer says: the four counts, then the rows that differ."""
+def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: str,
+                  unchecked: list[str]) -> Verdict:
+    """What the comparison's answer says: the four counts, then the rows that differ, and the
+    Unchecked pieces, `unchecked`, the Statement holds, whose Hive the Toolbox can't look
+    inside."""
     wanted = 4 + len(columns) + 2
     if len(result) == 0 or len(result.columns) < wanted:
         many = len(result.columns)
@@ -284,9 +294,11 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
         )
     counts = [0 if pd.isna(value) else int(value) for value in result.iloc[0, :4]]
     ours, theirs, only_ours, only_theirs = counts
+    held = ([f"Its Hive written by hand, which the Toolbox can't look inside: "
+             f"{'; '.join(unchecked)}."] if unchecked else [])
     if only_ours == 0 and only_theirs == 0:
         return Verdict(True, [f"The Statement and the original give the same rows{where}: "
-                              f"{_rows(ours)} each."])
+                              f"{_rows(ours)} each.", *held])
     shown = result.iloc[:, 4:wanted].copy()
     shown.columns = [*columns, "in_statement", "in_original"]
     shown = shown[shown["in_statement"].notna()]
@@ -299,6 +311,8 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
         f"The rows that differ, at most {_SHOWN} from each, with how many times each gives "
         "them:",
         shown.to_string(index=False),
+        *[f"{line} Check it first: a difference there can't be traced further."
+          for line in held],
     ])
 
 

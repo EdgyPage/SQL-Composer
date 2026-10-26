@@ -374,7 +374,7 @@ def _refuse_a_mix_up(mix_up: _MixUp) -> NoReturn:
     )) from mix_up
 
 
-def _stacked_reads_told_apart(tree: exp.Expression, schema: dict[str, dict[str, dict[str, str]]]
+def _stacked_reads_told_apart(tree: exp.Expression, schema: dict[str, dict[str, dict[str, str | None]]]
                               ) -> exp.Expression:
     """The query, with each table it reads under a name of its own, where it stacks two reads.
 

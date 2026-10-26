@@ -326,14 +326,14 @@ def normalised_query(text: str, call: str, whose: str) -> list[str]:
         if table.alias == table.name:
             table.set("alias", None)
     _needless_brackets_out(tree)
-    return _written_back(tree, call, whose, pretty=True).splitlines()
+    return _written_back(tree, call, whose).splitlines()
 
 
-def _written_back(tree: exp.Expression, call: str, whose: str, pretty: bool) -> str:
+def _written_back(tree: exp.Expression, call: str, whose: str) -> str:
     """Hive someone else wrote, read by sqlglot, written out again; refused where sqlglot reads
     a part of it that it can't write back as Hive."""
     try:
-        return sql_text(tree, pretty=pretty)
+        return sql_text(tree, pretty=True)
     except sqlglot.errors.UnsupportedError as error:
         said = (str(error).strip().splitlines() or [type(error).__name__])[0]
         refuse(
@@ -458,7 +458,7 @@ def rows_compared(call: str, statement_hive: str, original: str, columns: list[s
              exp.CTE(this=theirs, alias=exp.TableAlias(this=_identifier("from_original")))]
     with_ = _part(tree, "with")
     with_.set("expressions", around_ours + around_theirs + sides + with_.expressions)
-    return _written_back(tree, call, "the original", pretty=True)
+    return _written_back(tree, call, "the original")
 
 
 def _hoisted(query: exp.Expression, prefix: str) -> tuple[exp.Expression, list[exp.CTE]]:

@@ -1008,15 +1008,15 @@ def first_look(t: Table) -> Statement:
 
 
 class Verdict:
-    """What a check, such as check_key(...), found, ready to print.
+    """What check_key(...), check_table_reference(...) or a comparison found, to print.
 
     >>> check_key(jobs, query=example_database.query)
     ops.jobs: the key (job_id) holds.
 
-    Its `ok` is True when the check found nothing wrong, and printing it shows what it found.
+    Its `ok` is True when it found nothing wrong, and printing it shows what it found.
     Make one with check_key(...), check_table_reference(...), compare_hive(...) or
     compare_with_original(...), never Verdict(). Write the
-    name in a type hint, to say that a function of yours gives back what a check
+    name in a type hint, to say that a function of yours gives back what one of them
     found:
 
     >>> def key_holds(t: Table) -> Verdict:
