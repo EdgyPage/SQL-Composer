@@ -68,6 +68,8 @@ PUBLIC_NAMES = [
     "python_step", "PythonStep",
     # Toolbox 7.1 (7.0's map, ticket 09): you pick the call, so run_query and run_execute replace run.
     "run_query", "run_execute",
+    # Toolbox 7.2, ticket 08: checking a Conversion against the Hive it was converted from.
+    "compare_hive", "compare_with_original",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
@@ -98,8 +100,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 102
-    assert len(set(PUBLIC_NAMES)) == 102
+    assert len(PUBLIC_NAMES) == 104
+    assert len(set(PUBLIC_NAMES)) == 104
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

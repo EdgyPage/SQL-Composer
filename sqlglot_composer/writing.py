@@ -15,7 +15,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
-from .refusals import four_part_message
+from .refusals import four_part_message, refuse
 from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
 
 from .engine import INSTALL_NEWER
@@ -238,6 +238,273 @@ def _hive_table(name: str, database: str | None = None,
     """
     return exp.Table(this=_identifier(name), db=_identifier(database) if database else None,
                      partition=partition)
+
+
+# --- Hive someone else wrote, read to compare with a Statement's -----------------------------
+
+
+def _part(tree: exp.Expression, part: str) -> exp.Expression | None:
+    """A part of a sqlglot tree, under the name this sqlglot gives it, as _set_part sets it."""
+    return tree.args.get(part + "_", tree.args.get(part))
+
+
+def _read_query(text: str, call: str, whose: str) -> exp.Expression:
+    """The one query in Hive text, read by sqlglot: a SELECT, a Stack of them, or the SELECT of
+    an INSERT, which is taken from it with its WITH. Anything else is refused, in the name of
+    `call`, saying `whose` text it was, such as "the original"."""
+    try:
+        read = [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
+    except sqlglot.errors.SqlglotError as error:
+        said = (str(error).strip().splitlines() or [type(error).__name__])[0]
+        refuse(
+            what=f"{call}: sqlglot can't read {whose} as Hive: {said}.",
+            why="It reads the Hive with sqlglot to compare it, as the Toolbox reads back its "
+            "own.",
+            fix="Check that it is the Hive that runs at work, pasted whole. If it runs there, "
+            "sqlglot doesn't know a part of it: compare the two by eye, with print(to_hive(s)).",
+            error=ValueError,
+        )
+    if len(read) != 1:
+        refuse(
+            what=f"{call}: {whose} holds {len(read)} statements, where one query goes.",
+            why="It is compared as one query, whose rows are the ones to compare.",
+            fix="Pass that query alone: SET lines, and any statement before or after it, run "
+            "at work apart from it.",
+            error=ValueError,
+        )
+    tree = read[0]
+    if isinstance(tree, exp.Insert):
+        query, around = tree.expression, _part(tree, "with")
+        if around is not None and _part(query, "with") is None:
+            _set_part(query, "with", around)
+        tree = query
+    while isinstance(tree, exp.Subquery):
+        tree = tree.this
+    if not isinstance(tree, (exp.Select, exp.Union, exp.Intersect, exp.Except)):
+        refuse(
+            what=f"{call}: {whose} isn't a query that gives rows: it is a "
+            f"{tree.key.upper()} statement.",
+            why="It is compared by the rows it gives, and only a SELECT gives rows.",
+            fix="Pass its SELECT, or an INSERT ... SELECT, whose SELECT is taken.",
+            error=ValueError,
+        )
+    for node in tree.find_all(exp.Expression):
+        node.comments = None
+    return tree
+
+
+def query_columns(text: str, call: str, whose: str) -> list[str]:
+    """The names of the columns a query gives, as Hive names them: an unnamed calculation is
+    _c0, _c1 and so on by its place, and a * stays *, since its columns aren't known."""
+    tree = _read_query(text, call, whose)
+    while not isinstance(tree, exp.Select):
+        tree = tree.this  # a Stack's columns are named by its first query
+    return [(column.output_name or f"_c{place}") if not isinstance(column, exp.Star) else "*"
+            for place, column in enumerate(tree.expressions)]
+
+
+def normalised_query(text: str, call: str, whose: str) -> list[str]:
+    """A query's lines, read by sqlglot and written out one way, so that only what changes the
+    query differs between two of them: not spacing, case, backticks, comments, a ;, brackets
+    that change nothing, INNER or OUTER, AS, nor the short name a table is called by."""
+    tree = _read_query(text, call, whose)
+    _words_written_one_way(tree)
+    _tables_called_by_their_names(tree)
+    for named in list(tree.find_all(exp.Alias)):
+        if isinstance(named.this, exp.Column) and named.alias == named.this.name:
+            named.replace(named.this)
+    for table in tree.find_all(exp.Table):
+        if table.alias == table.name:
+            table.set("alias", None)
+    _needless_brackets_out(tree)
+    return _written_back(tree, call, whose, pretty=True).splitlines()
+
+
+def _written_back(tree: exp.Expression, call: str, whose: str, pretty: bool) -> str:
+    """Hive someone else wrote, read by sqlglot, written out again; refused where sqlglot reads
+    a part of it that it can't write back as Hive."""
+    try:
+        return sql_text(tree, pretty=pretty)
+    except sqlglot.errors.UnsupportedError as error:
+        said = (str(error).strip().splitlines() or [type(error).__name__])[0]
+        refuse(
+            what=f"{call}: sqlglot reads {whose}, but can't write it back as Hive: {said}.",
+            why="It compares the Hive as sqlglot writes it out, and sends nothing it can't "
+            "write.",
+            fix="Compare that part by eye, with print(to_hive(s)); the rest of the Toolbox "
+            "works as usual.",
+            error=ValueError,
+        )
+
+
+def _words_written_one_way(tree: exp.Expression) -> None:
+    """Each name in lower case, in backticks only where Hive needs them; each function Hive
+    has that sqlglot doesn't know in upper case, as sqlglot writes those it knows; and a join
+    without INNER or OUTER, which change nothing."""
+    for name in tree.find_all(exp.Identifier):
+        lower = name.name.lower()  # Hive reads a name whatever its case
+        name.set("this", lower)
+        name.set("quoted", not plain_name(lower))
+    for function in tree.find_all(exp.Anonymous):
+        if isinstance(function.this, str):
+            function.set("this", function.this.upper())
+    for join in tree.find_all(exp.Join):
+        if (join.args.get("kind") or "").upper() in ("INNER", "OUTER"):
+            join.set("kind", None)
+
+
+def _tables_called_by_their_names(tree: exp.Expression) -> None:
+    """Call each table by its own name, as `FROM ops.job_runs r` becomes `FROM ops.job_runs`,
+    and a Derived table by its name in WITH, where nothing else read beside it is called
+    that; and where a query reads one table
+    alone, its columns by their names alone, as `r.run_id` becomes `run_id`. A column in
+    ORDER BY keeps its table's name, as it may stand for a column the query names."""
+    from sqlglot.optimizer.scope import traverse_scope
+
+    try:
+        scopes = list(traverse_scope(tree))
+    except sqlglot.errors.SqlglotError:
+        return  # left as it is: two queries differ where they would otherwise match
+    for scope in scopes:
+        sources = scope.selected_sources
+        for name, (read, _) in list(sources.items()):
+            # A table's own name, or a Derived table's from WITH; a query in brackets in FROM
+            # has only the name it is given.
+            own = read.name if isinstance(read, exp.Table) else name
+            if own != name and own not in sources:
+                read.set("alias", exp.TableAlias(this=_identifier(own)))
+                for column in scope.columns:
+                    if column.table == name:
+                        column.set("table", _identifier(own))
+        if len(sources) == 1:
+            renamed = _renamed_outputs(scope.expression)
+            for column in scope.columns:
+                if column.table and not (column.find_ancestor(exp.Order)
+                                         and column.name in renamed):
+                    column.set("table", None)
+
+
+def _renamed_outputs(query: exp.Expression) -> set[str]:
+    """The names a query gives to anything but the column of that name, as `x` in
+    `SELECT a + 1 AS x`: in ORDER BY, x alone means that, and t.x the table's own column."""
+    if not isinstance(query, exp.Select):
+        return set()
+    return {output.alias for output in query.expressions if isinstance(output, exp.Alias)
+            and not (isinstance(output.this, exp.Column) and output.this.name == output.alias)}
+
+
+def rows_compared(call: str, statement_hive: str, original: str, columns: list[str],
+                  kept: list[tuple[str, str]], shown: int) -> str:
+    """The one query that compares the rows of a Statement's Hive with an original's, whose
+    columns are `columns`, both: each side's count of rows, how many are in one and not the
+    other, then up to `shown` such rows of each side, numbered column_1, column_2 and so on.
+
+    Each side's rows are stacked with UNION ALL and counted by GROUP BY on every column, which
+    matches NULL with NULL and counts a row as many times as it comes. `kept` is each column
+    and its value as Hive, to keep only the rows of both sides that hold it. Hive takes no WITH
+    inside another, so each side's Derived tables are moved up into the one WITH, their names
+    starting statement_ or original_. `call` names the function asking, for a refusal.
+    """
+    ours, around_ours = _hoisted(_read_query(statement_hive, call, "the Statement's Hive"),
+                                 "statement")
+    theirs, around_theirs = _hoisted(_read_query(original, call, "the original"), "original")
+    numbered = [f"column_{place}" for place in range(1, len(columns) + 1)]
+    listed = ", ".join(numbered)
+
+    def side(name: str, in_statement: int, in_original: int) -> str:
+        picked = ", ".join(f"{name}.{sql_text(_identifier(column))} AS {number}"
+                           for column, number in zip(columns, numbered))
+        where = " AND ".join(f"{name}.{sql_text(_identifier(column))} = {value}"
+                             for column, value in kept)
+        return (f"SELECT {picked}, {in_statement} AS in_statement, {in_original} AS "
+                f"in_original FROM {name}" + (f" WHERE {where}" if where else ""))
+
+    def more(one: str, other: str) -> str:
+        return f"SUM(CASE WHEN {one} > {other} THEN {one} - {other} ELSE 0 END)"
+
+    def differing(name: str, one: str, other: str) -> str:
+        return (f"{name} AS (SELECT {listed}, in_statement, in_original FROM compared "
+                f"WHERE {one} > {other} LIMIT {shown})")
+
+    text = (
+        f"WITH both_sides AS ({side('from_statement', 1, 0)} UNION ALL "
+        f"{side('from_original', 0, 1)}), "
+        f"compared AS (SELECT {listed}, SUM(in_statement) AS in_statement, SUM(in_original) AS "
+        f"in_original FROM both_sides GROUP BY {listed}), "
+        f"totals AS (SELECT 1 AS joined, SUM(in_statement) AS statement_rows, SUM(in_original) "
+        f"AS original_rows, {more('in_statement', 'in_original')} AS only_in_statement, "
+        f"{more('in_original', 'in_statement')} AS only_in_original FROM compared), "
+        f"{differing('statement_sample', 'in_statement', 'in_original')}, "
+        f"{differing('original_sample', 'in_original', 'in_statement')}, "
+        f"differing AS (SELECT 1 AS joined, {listed}, in_statement, in_original FROM "
+        f"statement_sample UNION ALL SELECT 1 AS joined, {listed}, in_statement, in_original "
+        f"FROM original_sample) "
+        f"SELECT totals.statement_rows, totals.original_rows, totals.only_in_statement, "
+        f"totals.only_in_original, {', '.join(f'differing.{n}' for n in numbered)}, "
+        f"differing.in_statement, differing.in_original "
+        f"FROM totals LEFT JOIN differing ON totals.joined = differing.joined"
+    )
+    tree = sqlglot.parse_one(text, read=_DIALECT)
+    sides = [exp.CTE(this=ours, alias=exp.TableAlias(this=_identifier("from_statement"))),
+             exp.CTE(this=theirs, alias=exp.TableAlias(this=_identifier("from_original")))]
+    with_ = _part(tree, "with")
+    with_.set("expressions", around_ours + around_theirs + sides + with_.expressions)
+    return _written_back(tree, call, "the original", pretty=True)
+
+
+def _hoisted(query: exp.Expression, prefix: str) -> tuple[exp.Expression, list[exp.CTE]]:
+    """A query without its WITH, and the Derived tables that WITH held, each renamed to
+    start with `prefix`, as statement_day_runs, and read under that name. A read keeps the
+    name it was called by, so its columns, as day_runs.run_id, still read it."""
+    around = _part(query, "with")
+    query = query.copy()
+    _set_part(query, "with", None)
+    renamed, moved = {}, []
+    for derived_table in around.expressions if around is not None else []:
+        body = derived_table.this.copy()
+        _read_renamed(body, renamed)
+        name = derived_table.alias.lower()
+        renamed[name] = f"{prefix}_{name}"
+        moved.append(exp.CTE(this=body, alias=exp.TableAlias(this=_identifier(renamed[name]))))
+    _read_renamed(query, renamed)
+    return query, moved
+
+
+def _read_renamed(query: exp.Expression, renamed: dict[str, str]) -> None:
+    """Point each read of a Derived table `renamed` names at its new name, keeping the name it
+    was called by. A table named with its database, as ops.jobs, is never a Derived table."""
+    for table in query.find_all(exp.Table):
+        name = table.name.lower()
+        if table.args.get("db") is None and name in renamed:
+            called = table.alias or table.name
+            table.set("this", _identifier(renamed[name]))
+            table.set("alias", exp.TableAlias(this=_identifier(called)))
+
+
+# Where a bracket changes nothing whatever it holds: around a whole condition, a column to
+# return, a bracket, and a value given to a function written as a call, not as an operator.
+_WHOLE = (exp.Where, exp.Having, exp.Join, exp.Paren, exp.Alias, exp.Select, exp.Group,
+          exp.Ordered, exp.Func)
+# What a bracket changes nothing around wherever it stands, but for a function written as an
+# operator, as Hive's DIV.
+_ATOMS = (exp.Column, exp.Literal, exp.Null, exp.Boolean, exp.Func, exp.Paren, exp.Star)
+
+
+def _needless_brackets_out(tree: exp.Expression) -> None:
+    """Take out each bracket that changes nothing: around a column, a value or a call, around
+    a whole condition or output, and around an AND inside an AND, or an OR inside an OR."""
+    found = True
+    while found:
+        found = False
+        for bracket in list(tree.find_all(exp.Paren)):
+            inside, around = bracket.this, bracket.parent
+            same_kind = isinstance(inside, (exp.And, exp.Or)) and type(inside) is type(around)
+            if (isinstance(inside, _ATOMS) and not isinstance(inside, exp.Binary)) or (
+                    isinstance(around, _WHOLE) and not isinstance(around, exp.Binary)
+            ) or same_kind:
+                bracket.replace(inside)
+                found = True
+                break
 
 
 # --- The Toolbox's own tree, as a sqlglot tree ---------------------------------------------

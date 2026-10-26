@@ -46,6 +46,7 @@ from .clauses import (
     derived,
     statement,
 )
+from .comparisons import compare_hive, compare_with_original
 from .conditions import (
     Condition,
     all_of,
@@ -221,6 +222,9 @@ __all__ = [
     "set_admin_log",
     "SessionSettings",
     "UncheckedStatement",
+    # comparisons.py
+    "compare_hive",
+    "compare_with_original",
     # upkeep.py
     "repair_partitions",
     "compute_statistics",

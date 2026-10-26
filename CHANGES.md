@@ -40,6 +40,17 @@ in place of a line in every file.
   naming it, where 7.1 stopped on a file from another version: a change you made on purpose may
   be one you need, and the warning says where to keep it instead. A missing file, an extra one,
   or a missing or unreadable `version.txt` still stops the import.
+- **`compare_hive(s, original)` and `compare_with_original(s, original, query=...)` check a
+  Statement against the Hive it was converted from.** `compare_hive` reads both with sqlglot
+  and writes them out one way, so spacing, case, comments and the short names given to tables
+  don't count, and shows the first line that differs. `compare_with_original` sends one query
+  through your `query` that matches the rows of both on every column, NULL with NULL, and says
+  how many rows each gives and how many are in one and not the other, with a few of them to
+  look at; `partition={...}` keeps the rows of one Partition, as a read of a partitioned table
+  must say which. Each gives back a `Verdict`, whose `ok` says whether they match.
+- **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
+  `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
+  days, gave one Statement's rows in place of both; your warehouse was never affected.
 
 ## 7.1
 

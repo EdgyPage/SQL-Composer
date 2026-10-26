@@ -241,6 +241,16 @@ def to_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep) ->
     return text
 
 
+def hive_without_automatic_limit(s: Statement) -> str:
+    """to_hive's Hive for a read or a write, without the automatic LIMIT that
+    set_load_limits(rows=...) adds when it is sent: the rows the Statement itself gives."""
+    if automatic_limit(s) is None:
+        return to_hive(s)
+    text = writing.hive_statement(_with(_query_tree(s), s))
+    _self_check(text)
+    return text
+
+
 def need_statement(s: object, call: str, frame: FrameType | None, why: str,
                     more: str = "") -> None:
     """Refuse what isn't a Statement, in the name of `call`, the function it was given to.
