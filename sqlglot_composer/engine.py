@@ -18,7 +18,7 @@ from . import _stop as _core_stop
 
 if TYPE_CHECKING:
     # Only for hints: sqlglot is imported inside the functions, once it is checked, and
-    # tables.py imports writing.py, which imports this file.
+    # tables.py imports writing.py, which imports sqlglot as it loads.
     from sqlglot import exp
     from sqlglot.executor import table as executed
 
@@ -49,7 +49,9 @@ def _numbers(text: str) -> tuple[int, ...] | None:
     return tuple(int(n) for n in found.groups()) if found else None
 
 
-_IN_RANGE = f'"sqlglot>={_dotted(_LOWEST)},<{_dotted(_BELOW)}"'
+# Where sqlglot is missing or out of the range, the one the Toolbox is tested on.
+_INSTALL_TESTED = ("Install the sqlglot sqlglot Composer is tested on from a notebook cell with "
+                   f'%pip install "sqlglot=={_dotted(_NEWEST_TESTED)}", then restart the kernel.')
 _NO_INSTALLING = "If you can't install packages, ask whoever looks after your environment."
 # What to install where a sqlglot in the range behaves wrongly: the one the Toolbox is tested
 # on, or a newer one in its range.
@@ -69,8 +71,7 @@ def check_installed() -> None:
             what="sqlglot Composer needs sqlglot, and this Python can't import it.",
             why="sqlglot Composer writes every Statement as Hive through sqlglot, and reads the "
             "Hive back to check it, so it can't build anything without it.",
-            fix=f"Install sqlglot from a notebook cell with %pip install {_IN_RANGE}, then "
-            f"restart the kernel. {_NO_INSTALLING}",
+            fix=f"{_INSTALL_TESTED} {_NO_INSTALLING}",
         )
     found = getattr(sqlglot, "__version__", "unknown")
     version = _numbers(found)
@@ -78,11 +79,10 @@ def check_installed() -> None:
         _stop(
             what=f"sqlglot Composer needs sqlglot {_dotted(_LOWEST)} or newer, below "
             f"{_dotted(_BELOW)}, and this Python has sqlglot {found}.",
-            why="sqlglot Composer is checked only on that range of sqlglot. Another sqlglot can "
-            "write Hive differently, so a Statement could come out wrong without anything "
-            "saying so.",
-            fix="Install a sqlglot in that range from a notebook cell with %pip install "
-            f"{_IN_RANGE}, then restart the kernel. {_NO_INSTALLING}",
+            why="sqlglot Composer works only with that range of sqlglot, and is tested on "
+            f"{_dotted(_NEWEST_TESTED)}. Another sqlglot can write Hive differently, so a "
+            "Statement could come out wrong without anything saying so.",
+            fix=f"{_INSTALL_TESTED} {_NO_INSTALLING}",
         )
     problems = _sqlglot_behaviour()
     if problems:
@@ -151,7 +151,7 @@ def _executor_ready() -> None:
         return
     raise RuntimeError(four_part_message(
         what="The Example database runs queries on sqlglot's own executor, and sqlglot "
-        f"{sqlglot.__version__}'s counts COUNT(DISTINCT ...) wrong.",
+        f"{sqlglot.__version__}'s executor counts COUNT(DISTINCT ...) wrong.",
         why="An executor that counts COUNT(DISTINCT ...) wrong says nothing about it.",
         fix=f"{INSTALL_NEWER} Until then the rest of the Toolbox works as usual: to_hive(...) "
         "still shows a Statement's Hive.",

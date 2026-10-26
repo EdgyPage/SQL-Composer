@@ -3,17 +3,16 @@
 Nothing here imports the Toolbox. These tests say what sqlglot's Hive writes for each case in
 `escaping_cases.py` when it escapes a string by the Toolbox's table
 (`trees.HIVE_ESCAPES`), as sqlglot Composer has it do, so a sqlglot version that changes how it
-applies that table, quotes, or reads back fails here first. CI runs them at both ends of the
-supported range. A failure means sqlglot changed how it escapes: check the new output against
-Hive's own lexer rules before re-recording a case. (sqlglot's own table changed within the
-range, 30.23.0 writing NUL and SUB as \\0 and \\Z, which is why the Toolbox brings its own.)
+applies that table, quotes, or reads back fails here first. CI runs them at sqlglot's pin. A
+failure means sqlglot changed how it escapes: check the new output against Hive's own lexer
+rules before re-recording a case. (sqlglot's own table changed within the range, 30.23.0
+writing NUL and SUB as \\0 and \\Z, which is why the Toolbox brings its own.)
 
 The round trips parse with sqlglot's own Hive parser. That proves sqlglot's writer and reader
 agree, not that Hive agrees with either; nothing on `dev` can ask Hive.
 """
 
 from __future__ import annotations
-
 
 import pytest
 import sqlglot

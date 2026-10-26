@@ -19,9 +19,10 @@ def test_a_python_without_sqlglot_stops_the_import(monkeypatch: pytest.MonkeyPat
         what="sqlglot Composer needs sqlglot, and this Python can't import it.",
         why="sqlglot Composer writes every Statement as Hive through sqlglot, and reads the Hive "
         "back to check it, so it can't build anything without it.",
-        fix='Install sqlglot from a notebook cell with %pip install "sqlglot>=30.19.0,<31.0.0", '
-        "then restart the kernel. If you can't install packages, ask whoever looks after your "
-        "environment.",
+        fix="Install the sqlglot sqlglot Composer is tested on from a notebook cell with %pip "
+        'install "sqlglot==30.23.0", then restart the kernel. '
+        "If you can't install packages, "
+        "ask whoever looks after your environment.",
     )
 
 
@@ -34,10 +35,11 @@ def test_a_sqlglot_outside_the_range_stops_the_import(monkeypatch: pytest.Monkey
     assert f"ImportError: {error.value}" == import_stop(
         what="sqlglot Composer needs sqlglot 30.19.0 or newer, below 31.0.0, and this Python has "
         f"sqlglot {version}.",
-        why="sqlglot Composer is checked only on that range of sqlglot. Another sqlglot can write "
-        "Hive differently, so a Statement could come out wrong without anything saying so.",
-        fix="Install a sqlglot in that range from a notebook cell with %pip install "
-        '"sqlglot>=30.19.0,<31.0.0", then restart the kernel. '
+        why="sqlglot Composer works only with that range of sqlglot, and is tested on 30.23.0. "
+        "Another sqlglot can write Hive differently, so a Statement could come out wrong "
+        "without anything saying so.",
+        fix="Install the sqlglot sqlglot Composer is tested on from a notebook cell with %pip "
+        'install "sqlglot==30.23.0", then restart the kernel. '
         "If you can't install packages, "
         "ask whoever looks after your environment.",
     )
