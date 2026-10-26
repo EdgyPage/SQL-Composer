@@ -3855,7 +3855,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; and each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one, or a newer one, or whose admin/project_version.txt holds no version; and each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4063,7 +4063,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">import os</pre>
-<pre class="python">os.remove(&quot;admin/project_version.txt&quot;)</pre>
+<pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Upgraded the Project from 7.1 to 7.2.
