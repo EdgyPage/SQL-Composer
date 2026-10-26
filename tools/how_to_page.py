@@ -54,11 +54,12 @@ Under the headings go:
   box headed by its path and the call. Its `<...>` placeholders needn't be Python yet.
 
 Where the Example database can't run a Statement's Hive, such as one with
-row_number or week_start, the how-to's file gives a pandas stand-in after its docstring: a
+week_start, the how-to's file gives a pandas stand-in after its docstring: a
 function `NAME_in_pandas()`, which returns the DataFrame the Statement the steps call `NAME`
 gives, as the Worked examples' `*_in_pandas` functions do. When the Example database's query
 can't run that Statement's Hive, the stand-in's DataFrame comes back instead, both on the page,
-labelled as computed in pandas as the Example gallery labels it, and in the doctest.
+labelled as computed in pandas as the Example gallery labels it, and in the doctest. A
+stand-in for a Statement the Example database runs is refused, as it would never be used.
 
 While the steps run, today is 2026-09-25, as on the Example gallery, and each how-to works in a
 folder of its own, deleted afterwards. A lineage's or a Project action's time, your scripts'
@@ -673,6 +674,10 @@ def how_to_html(how_to: HowTo) -> str:
         if not isinstance(notebook.scope.get(name), Statement):
             raise HowToRefused(f"How-to {how_to.number} has {name}_in_pandas, but none of its "
                                f"steps makes a Statement {name} for it to stand in for.")
+        if sqlglot_composer.to_hive(notebook.scope[name]) not in notebook.answered:
+            raise HowToRefused(f"How-to {how_to.number} has {name}_in_pandas, but the Example "
+                               f"database runs {name}: take the stand-in out, and any words "
+                               "saying it can't run.")
     group = GROUP_NAMED[how_to.group]
     badge = f'<span class="badge {group.id}">{escape(group.name)}</span>'
     return (f'<section class="entry" id="{how_to.slug}">\n'

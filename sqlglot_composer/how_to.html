@@ -6747,7 +6747,7 @@ FROM numbered;</pre>
 <tr><td>3</td><td>36</td><td>12</td><td>2</td></tr>
 <tr><td>3</td><td>46</td><td>33</td><td>1</td></tr>
 </table></div>
-<p>Each job&#x27;s runs are numbered 1, 2, 3, ... from its last.</p>
+<p>Each job&#x27;s runs are numbered 1, 2, 3, ... from its last. The table lists them by job and event id, as the Example database gives rows when nothing orders them, so each job&#x27;s numbers count down.</p>
 <h5>Keep number 1</h5>
 <p>The Statement that reads <code>numbered</code> keeps the rows numbered 1: one whole row per job.</p>
 <pre class="python">latest = statement(  # -&gt; Statement
@@ -8064,7 +8064,6 @@ WHERE
 <tr><td>3</td><td>finance</td><td>chloe</td><td>2026-09-24</td></tr>
 <tr><td>4</td><td>web</td><td><i>NULL</i></td><td>2026-09-24</td></tr>
 </table></div>
-<p>Pasted into your own notebook, this <code>run_query</code> stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no <code>row_number</code>. The result above was worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive above as it is.</p>
 <p>Here every job is in every day&#x27;s copy, so each newest row is from 2026-09-24, and reading that one day would give the same. At work a row can drop out of a snapshot, such as a job that was deleted, and then <code>row_number</code> still finds its last row, from whichever day that was. Nobody owns cache_warm (job 4), so its owner is NULL (pandas shows it as NaN).</p>
 <h4>Check it worked</h4>
 <p>Each run should meet exactly one row of the snapshot, so the teams&#x27; runs add up to every run over the 14 days:</p>

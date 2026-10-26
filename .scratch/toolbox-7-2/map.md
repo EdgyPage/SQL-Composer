@@ -179,6 +179,10 @@ asks, though all three touch CHANGES.md.
 - [08 Checking a Conversion](issues/08-checking-a-conversion.md): `compare_hive` and
   `compare_with_original` in comparisons.py; rows compared on one Partition the Statement gives,
   through the user's query.
+- [10 Every row of the conversion chart checks out](issues/10-every-row-of-the-conversion-chart.md):
+  a query in brackets is its Derived table, and a `*` its columns, in both compares; the
+  Example database runs windows itself, counts after any join, and spells out CASE on one
+  column; a stand-in it never needs is refused.
 
 ## Not yet specified
 

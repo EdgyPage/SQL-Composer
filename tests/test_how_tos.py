@@ -577,6 +577,16 @@ def test_a_stand_in_for_no_statement_is_refused(tmp_path: Path) -> None:
         how_to_page.how_to_html(how_to_page.read_how_to(path))
 
 
+
+@pytest.mark.needs_example_database
+def test_a_stand_in_the_example_database_doesnt_need_is_refused(tmp_path: Path) -> None:
+    """A stand-in left after the Example database learns to run its Statement would leave the
+    how-to saying, wrongly, that it can't."""
+    runs = WEEKS.replace("AS(week_start(job_runs.dt), \"week\")", "job_runs.status")
+    path = a_how_to(tmp_path, runs, stand_ins=WEEKS_IN_PANDAS)
+    with pytest.raises(how_to_page.HowToRefused, match="the Example database runs weeks"):
+        how_to_page.how_to_html(how_to_page.read_how_to(path))
+
 def test_a_how_to_without_the_fixed_headings_in_order_is_refused(tmp_path: Path) -> None:
     headings = list(how_to_page.HEADINGS)
     headings[0], headings[1] = headings[1], headings[0]

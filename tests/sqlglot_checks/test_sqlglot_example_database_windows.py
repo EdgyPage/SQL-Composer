@@ -122,6 +122,18 @@ JOB_IN_RUN_ORDER = "PARTITION BY r.job_id ORDER BY r.run_id"
                  "r.run_id)",
                  {96: 1, 102: 2, 98: 3, 99: 1, 95: 2, 101: 3, 104: 4, 103: 1, 97: 2},
                  id="null_last_descending"),
+    pytest.param("ROW_NUMBER() OVER (PARTITION BY r.job_id ORDER BY r.status NULLS LAST, "
+                 "r.run_id)",
+                 {102: 1, 96: 2, 98: 3, 95: 1, 101: 2, 104: 3, 99: 4, 97: 1, 103: 2},
+                 id="nulls_last_as_written"),
+    pytest.param(f"SUM(r.duration_mins) OVER ({JOB_IN_RUN_ORDER} ROWS BETWEEN CURRENT ROW "
+                 "AND 1 FOLLOWING)",
+                 {95: 17, 99: 15, 101: 50, 104: 40, 96: 33, 98: 35, 102: 20, 97: 60, 103: 30},
+                 id="rows_after_the_row"),
+    pytest.param("SUM(r.duration_mins) OVER (ORDER BY r.dt RANGE BETWEEN CURRENT ROW AND "
+                 "UNBOUNDED FOLLOWING)",
+                 {95: 180, 96: 180, 97: 180, 98: 180, 99: 180, 101: 100, 102: 100, 103: 100,
+                  104: 100}, id="range_to_the_end_counts_the_rows_tied_with_it"),
 ])
 def test_each_window_is_worked_out_as_hive_does(calculation: str,
                                                wanted: dict[int, object]) -> None:
@@ -191,9 +203,12 @@ def test_a_statement_with_a_window_runs() -> None:
 
 @pytest.mark.parametrize(("calculation", "missing"), [
     ("SUM(r.duration_mins) OVER (ORDER BY r.run_id RANGE BETWEEN 1 PRECEDING AND CURRENT ROW)",
-     "a window whose RANGE counts from the row by a number"),
-    ("PERCENT_RANK() OVER (ORDER BY r.run_id)", "the window function PERCENT_RANK"),
+     "window over RANGE with a number of rows, such as RANGE BETWEEN 1 PRECEDING AND "
+     "CURRENT ROW; window(rows=...) writes ROWS BETWEEN, which it has"),
+    ("PERCENT_RANK() OVER (ORDER BY r.run_id)", "window function PERCENT_RANK"),
     ("COUNT(DISTINCT r.job_id) OVER ()", "COUNT(DISTINCT ...) over a window"),
+    ("FIRST_VALUE(r.status) IGNORE NULLS OVER (ORDER BY r.run_id)",
+     "IGNORE NULLS or RESPECT NULLS in a window"),
 ])
 def test_a_window_it_cant_work_out_is_refused_plainly(calculation: str, missing: str) -> None:
     with pytest.raises(RuntimeError) as refused:
@@ -201,3 +216,9 @@ def test_a_window_it_cant_work_out_is_refused_plainly(calculation: str, missing:
     message = str(refused.value)
     assert f"The Example database can't run this Hive: its executor has no {missing}." in message
     assert "to_hive(...)" in message
+
+
+def test_ntile_of_no_parts_is_refused_as_hive_refuses_it() -> None:
+    with pytest.raises(RuntimeError, match=r"NTILE\(0\) splits each group into no parts"):
+        example_database.query("SELECT r.run_id, NTILE(0) OVER (ORDER BY r.run_id) AS x "
+                               "FROM ops.job_runs AS r")

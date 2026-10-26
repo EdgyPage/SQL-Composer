@@ -345,14 +345,21 @@ def _read_query(text: str, call: str, whose: str) -> exp.Expression:
 def query_columns(text: str, call: str, whose: str,
                   columns_of: dict[str, list[str]] | None = None) -> list[str]:
     """The names of the columns a query gives, as Hive names them: an unnamed calculation is
-    _c0, _c1 and so on by its place, and a * or t.* the columns it stands for, where they can
-    be told (_stars_named, with `columns_of`); else it stays *."""
+    _c0, _c1 and so on by its place, and a * or t.* the columns it stands for, where
+    _stars_named finds them, with `columns_of`; else it stays *."""
     tree = _read_query(text, call, whose)
     _stars_named(tree, columns_of or {})
-    while not isinstance(tree, exp.Select):
-        tree = tree.this  # a Stack's columns are named by its first query
+    return _names_given(tree)
+
+
+def _names_given(query: exp.Expression) -> list[str]:
+    """The names of the columns a query gives, as Hive names them: an unnamed calculation is
+    _c0, _c1 and so on by its place, and a * or t.* is *. A Stack's columns are named by its
+    first query."""
+    while not isinstance(query, exp.Select):
+        query = query.this
     return [(column.output_name or f"_c{place}") if not isinstance(column, exp.Star) else "*"
-            for place, column in enumerate(tree.expressions)]
+            for place, column in enumerate(query.expressions)]
 
 
 def normalised_query(text: str, call: str, whose: str,
@@ -361,8 +368,8 @@ def normalised_query(text: str, call: str, whose: str,
     query differs between two of them: not spacing, case, backticks, comments, a ;, brackets
     that change nothing, INNER or OUTER, AS, ASC, the short name a table is called by, a
     query in brackets in FROM or JOIN in place of the Derived table in WITH that the Toolbox
-    writes, nor a * in place of the columns it stands for, where they can be told
-    (_stars_named, with `columns_of`)."""
+    writes, nor a * in place of the columns it stands for, where _stars_named finds them,
+    with `columns_of`."""
     from sqlglot.optimizer.eliminate_subqueries import eliminate_subqueries
 
     tree = _read_query(text, call, whose)
@@ -386,7 +393,7 @@ def normalised_query(text: str, call: str, whose: str,
 
 def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None:
     """Write each * and t.* a query gives as the columns it stands for, each with the name of
-    what it reads, where they can be told: a Derived table's or a query's in brackets, or a
+    what it reads, where it finds them: a Derived table's or a query's in brackets, or a
     table's that `columns_of` lists, by its database.name in lower case, as Hive gives them,
     its partition columns last. A * over anything else is left as it is."""
     from sqlglot.optimizer.scope import traverse_scope
@@ -406,7 +413,10 @@ def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None
         for one in query.expressions:
             if isinstance(one, exp.Star):
                 found = [_columns_read(scope, name, columns_of) for name in named]
-                given += (sum(found, []) if found and None not in found else [one])
+                if found and None not in found:
+                    given += [column for columns in found for column in columns]
+                else:
+                    given.append(one)
             elif isinstance(one, exp.Column) and isinstance(one.this, exp.Star):
                 given += _columns_read(scope, one.table, columns_of) or [one]
             else:
@@ -428,16 +438,8 @@ def _columns_read(scope: Scope, name: str, columns_of: dict[str, list[str]]
     if not isinstance(source, Scope):
         names = columns_of.get(".".join(part for part in (node.db, node.name) if part).lower())
         return None if names is None else [exp.column(column, table=name) for column in names]
-    given = source.expression
-    while not isinstance(given, exp.Select) and isinstance(given, exp.Expression):
-        given = given.this  # a Stack's columns are named by its first query
-    if not isinstance(given, exp.Select) or any(
-            isinstance(one, exp.Star) or (isinstance(one, exp.Column)
-                                          and isinstance(one.this, exp.Star))
-            for one in given.expressions):
-        return None
-    names = [one.output_name or f"_c{place}" for place, one in enumerate(given.expressions)]
-    return [exp.column(column, table=name) for column in names]
+    names = _names_given(source.expression)
+    return None if "*" in names else [exp.column(column, table=name) for column in names]
 
 
 def _written_back(tree: exp.Expression, call: str, whose: str) -> str:

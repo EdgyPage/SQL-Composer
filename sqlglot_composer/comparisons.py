@@ -57,11 +57,15 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     an AS that gives a column its own name, an ASC, the order an ORDER BY takes when it names
     none, and the short name a table is called by, such as
     r in FROM ops.job_runs r: each table is written with its own name, and where a query reads
-    one table alone, its columns with no table's name before them. A query in brackets in FROM
-    or JOIN, as FROM (SELECT ...) ranked, is the Derived table a Statement writes as WITH
-    ranked AS (SELECT ...); and a * or r.* is the columns it stands for, where they can be
-    told: a Derived table's or a query's in brackets, or those of a table the Statement reads,
-    by its Table reference. Anything else counts, even
+    one table alone, its columns with no table's name before them.
+
+    Two more don't count. A query in brackets in FROM or JOIN, as FROM (SELECT ...) ranked,
+    is the same as the Derived table a Statement writes as WITH ranked AS (SELECT ...), where
+    the name after the bracket, ranked, is the Derived table's name. And a * is the same as
+    the columns it stands for, where the Toolbox knows them: SELECT * FROM ops.job_runs is the
+    same as listing job_runs's columns, from its Table reference, when the Statement reads
+    ops.job_runs, its partition columns last, as Hive gives them; a * over a Derived table or
+    a query in brackets is its columns too. Anything else counts, even
     where the rows would come out the same, such as a <> b written as NOT a = b, or two
     conditions written in the other order: compare_with_original(...) compares the rows.
 
@@ -166,12 +170,12 @@ def compare_with_original(statement: Statement, original: str, *,
 
     The original's columns must be the Statement's, by name and in order, as the rows are
     matched column by column: it refuses them otherwise, naming both. A * or r.* in the
-    original is the columns it stands for, where they can be told, as compare_hive tells them;
-    a * over a table the Statement doesn't read is refused, as its columns can't be. An
-    INSERT ... SELECT is
-    compared by its SELECT, the rows it writes. The original is one query: SET lines before
-    it are passed over, as they set the session, not the rows, and any other statement is
-    refused.
+    original is the columns it stands for, as compare_hive reads it. A * over a table the
+    Statement doesn't read is refused, as the Toolbox doesn't know its columns.
+
+    An INSERT ... SELECT is compared by its SELECT, the rows it writes. The original is one
+    query: SET lines before it are passed over, as they set the session, not the rows, and
+    any other statement is refused.
 
     `partition` names a column and one value of it, such as {"dt": "2026-09-23"}, so the
     warehouse reads only that Partition. A column the Statement gives keeps only the rows of
@@ -249,8 +253,10 @@ def _need_the_same_columns(ours: list[str], theirs: list[str], call: str) -> Non
         why="The rows are matched column by column, the first with the first and so on, so "
         "each must be the same column, by name and in order.",
         fix="Give the original's columns the Statement's names and order, in its SELECT, "
-        "with AS where a name differs; or rename the Statement's with AS(...). A * or a "
-        "calculation with no name, which Hive names _c0, _c1 and so on, needs a name too.",
+        "with AS where a name differs; or rename the Statement's with AS(...). A calculation "
+        "with no name, which Hive names _c0, _c1 and so on, needs a name too"
+        + (", and so does a *: it reads a table the Statement doesn't, so the Toolbox doesn't "
+           "know its columns. List them in place of the *." if "*" in theirs else "."),
         error=ValueError,
     )
 
