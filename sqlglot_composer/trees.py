@@ -265,7 +265,9 @@ KINDS = {
     "Not": ("this",),
     "Between": ("this", "low", "high"),
     "In": ("this", "expressions"),
-    "Case": ("ifs", "default"),
+    # CASE WHEN ... THEN ... ELSE ... END; with `this`, the column mapped(...) looks up, it is
+    # CASE this WHEN value THEN ... END, each If's `this` a value to match.
+    "Case": ("this", "ifs", "default"),
     "If": ("this", "true"),
     "Coalesce": ("this", "expressions"),
     "Distinct": ("expressions",),
