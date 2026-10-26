@@ -1009,9 +1009,9 @@ def check() -> ProjectReport:
     list, and each it lists that isn't there, each with
     the call that mends it, and changes nothing. It also reports a send.py from before 7.0
     with no warehouse.py beside it; a Project an older Toolbox last wrote, which
-    project.upgrade() carries on to this one, or a newer one, or whose
-    admin/project_version.txt holds no version; and each `# UPGRADE <version>:` mark an
-    Upgrade left for you, with its file and line.
+    project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
+    needs that newer Toolbox copied in; an admin/project_version.txt that holds no version;
+    and each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
