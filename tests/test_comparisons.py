@@ -9,6 +9,7 @@ rows of both on every column.
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -294,3 +295,39 @@ def test_a_query_that_gives_back_too_few_columns_is_refused() -> None:
     with pytest.raises(ValueError, match="gave back 1 column"):
         compare_with_original(not_tests(), ORIGINAL, partition={"dt": FIRST_DAY},
                               query=lambda hive: pd.DataFrame({"x": [1]}))
+
+
+def test_a_partition_that_names_no_partition_column_is_refused() -> None:
+    """partition= on a column no table is partitioned by would still read every Partition."""
+    runs = statement(SELECT(job_runs.run_id, job_runs.status, job_runs.dt),
+                     FROM(job_runs, reads_all_partitions=True))
+    original = "SELECT run_id, status, dt FROM ops.job_runs"
+    with pytest.raises(ValueError, match=r"partition= names status, by which none of them is "
+                       "partitioned"):
+        compare_with_original(runs, original, query=example_database.query,
+                              partition={"status": "FAILED"})
+
+
+@pytest.mark.needs_example_database
+def test_unchecked_pieces_are_named_and_the_comparison_logged(tmp_path: Path) -> None:
+    from sqlglot_composer import set_admin_log, unchecked_column
+
+    log = tmp_path / "admin_log.md"
+    set_admin_log(log)
+    try:
+        runs = statement(
+            SELECT(job_runs.run_id, AS(unchecked_column("{minutes} DIV 15",
+                                                        minutes=job_runs.duration_mins), "q"),
+                   job_runs.dt),
+            FROM(job_runs),
+            WHERE(equals(job_runs.dt, DAY)),
+        )
+        original = f"SELECT run_id, duration_mins DIV 15 AS q, dt FROM ops.job_runs WHERE dt = '{DAY}'"
+        said = repr(compare_with_original(runs, original, query=example_database.query,
+                                          partition={"dt": DAY}))
+    finally:
+        set_admin_log()
+    assert said.splitlines()[-1] == (
+        "Its Hive written by hand, which the Toolbox can't look inside: "
+        'unchecked_column("{minutes} DIV 15", minutes=job_runs.duration_mins).')
+    assert "Statement with an Unchecked expression" in log.read_text(encoding="utf-8")

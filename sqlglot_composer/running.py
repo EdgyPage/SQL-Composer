@@ -524,7 +524,7 @@ def run_query(s: Statement | UncheckedStatement,
     text = to_hive(s)
     if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
-    result = _sent(s, text, query)
+    result = send_logged(s, text, query)
     refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s)
     if limit is not None:
@@ -572,11 +572,11 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     elif marked == kinds.ADMIN:
         logged_run("Admin statement", s._admin_call, to_hive(s), execute)
     else:
-        _sent(s, to_hive(s), execute)
+        send_logged(s, to_hive(s), execute)
     return None
 
 
-def _sent(s: Statement, text: str, warehouse_call: Callable[[str], object]) -> object:
+def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]) -> object:
     """Send a Statement's Hive through your query or execute. One holding an Unchecked
     expression or an Unchecked derived table adds an entry to the Admin log, as an Unchecked
     statement does: its Hive is partly written by hand."""
