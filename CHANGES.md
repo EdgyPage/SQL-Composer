@@ -28,11 +28,8 @@ in place of a line in every file.
   Project; a Project 7.1 made has none, and is taken to be 7.1.
 - **A Project an older Toolbox last wrote warns** when you import the Toolbox in it, and in
   `project.check()`, saying to run `project.upgrade()`. Nothing is refused: a Statement you run
-<<<<<<< HEAD
   still runs. `project.check()` also says when a newer Toolbox than the one copied in last wrote
   the Project.
-=======
-  still runs.
 - **`first_match` and `mapped`, for an if/else chain as one CASE.**
   `first_match([(condition, value), ...], otherwise=...)` gives each row the value of the first
   condition that holds for it, where `if_else` nested many deep did the same less plainly.
