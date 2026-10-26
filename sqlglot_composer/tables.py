@@ -639,6 +639,8 @@ class Table:
 
     def __repr__(self) -> str:
         kind = "derived" if self._statement is not None else "Table"
+        if is_unchecked(self):
+            kind = "unchecked_derived"
         return f"{kind}({self._name!r}, columns: {', '.join(self._columns)})"
 
     def __str__(self) -> str:
@@ -649,6 +651,21 @@ class Table:
     def __format__(self, spec: str) -> str:
         """Its Hive text, formatted as a str is, so f"{jobs:>20}" pads it."""
         return format(str(self), spec)
+
+
+class UncheckedSelect:
+    """The SELECT of an Unchecked derived table, as unchecked_derived(...) keeps it: its Hive
+    text as written, and the tables the text reads. It stands where a Derived table made by
+    derived(...) keeps its Statement, and no Guard, Warning or Load limit looks inside it."""
+
+    def __init__(self, text: str, tables: list[str]) -> None:
+        self._text = text  # the SELECT, as written, without a last ;
+        self._tables = tables  # each table it reads, as database.name
+
+
+def is_unchecked(table: Table) -> bool:
+    """Whether a table is an Unchecked derived table, made by unchecked_derived(...)."""
+    return isinstance(table._statement, UncheckedSelect)
 
 
 def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
