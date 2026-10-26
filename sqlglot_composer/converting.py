@@ -366,9 +366,10 @@ class _Converter:
         """Note each ${...} in the Hive, such as ${hivevar:day}, kept in it as text."""
         for found in re.finditer(r"\$\{[^}]*\}", self.text):
             finding = Finding(self.text.count("\n", 0, found.start()) + 1, "variable",
-                              f"{found.group()} is kept as written, for Hive's own client to "
-                              "fill in: your query must put its value in before it sends the "
-                              "Hive")
+                              f"{found.group()} is kept as written, and Hive fills it in "
+                              "from a SET line sent first: session_settings() sends the "
+                              "original's; with none, send one with hive_settings(...), or "
+                              "have your query put the value in")
             if finding not in self.result.findings:
                 self.result.findings.append(finding)
 
