@@ -71,7 +71,8 @@ def read_hive(text: str) -> list[exp.Expression]:
 def hive_tokens(text: str) -> list[tuple[str, int]]:
     """Each word and sign of Hive text, in lower case, with where in the text it starts.
 
-    A Conversion finds a piece's line by them where sqlglot notes no places, as before 30."""
+    A Conversion finds a piece's line by them where sqlglot notes no places, as an older one
+    such as 25.24.2 doesn't."""
     return [(token.text.lower(), token.start)
             for token in sqlglot.Dialect.get_or_raise(_DIALECT).tokenize(text)]
 
