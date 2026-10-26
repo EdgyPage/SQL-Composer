@@ -26,6 +26,7 @@ from sqlglot_composer import (
     equals,
     example_database,
     export_lineage,
+    fill_null,
     first_match,
     is_null,
     mapped,
@@ -123,10 +124,34 @@ def test_lineage_traces_every_column_either_reads_and_shows_the_call(tmp_path: P
 def test_a_none_key_is_refused_saying_how_to_label_null_rows() -> None:
     """NULL equals nothing, so CASE status WHEN NULL would never match: fill the NULL in."""
     with pytest.raises(ValueError, match=r"mapped\(job_runs.status, \.\.\.\) was given None as a "
-                       r"key\.[\s\S]*Usual fix:      Fill the NULL in first, and look that up: "
+                       r"key\.[\s\S]*Usual fix:      Fill the NULL in first with a value the "
+                       r"column never holds, and look that up: "
                        r"mapped\(fill_null\(job_runs.status, \"RUNNING\"\)"):
         mapped(job_runs.status, {None: "running"})
     assert GuardRefused  # the Guard equals gives None is equals' own, not mapped's
+
+
+def test_a_none_keys_fix_fills_with_the_columns_own_kind() -> None:
+    """On a number column the filler is a number, so the fix runs as written."""
+    with pytest.raises(ValueError, match=r"mapped\(fill_null\(job_runs.job_id, -1\), "
+                       r"\{\.\.\., -1: \"the label for NULL\"\}\)"):
+        mapped(job_runs.job_id, {None: "x", 1: "y"})
+    followed = mapped(fill_null(job_runs.job_id, -1), {-1: "x", 1: "y"})
+    assert repr(followed).startswith("CASE COALESCE(job_runs.job_id, -1) WHEN -1 THEN 'x'")
+
+
+def test_a_condition_given_as_a_value_names_its_key() -> None:
+    with pytest.raises(TypeError, match="as the value for the key 7, where a value goes"):
+        mapped(job_runs.job_id, {5: "a", 7: equals(job_runs.status, "FAILED")})
+
+
+def test_leave_otherwise_out_is_said_only_when_otherwise_is_in_the_mix() -> None:
+    with pytest.raises(TypeError) as between_pairs:
+        first_match([(equals(job_runs.status, "A"), "a"), (equals(job_runs.status, "B"), 3)])
+    assert "otherwise=" not in str(between_pairs.value)
+    with pytest.raises(TypeError) as with_otherwise:
+        first_match([(equals(job_runs.status, "A"), "a")], otherwise=3)
+    assert "Or leave otherwise= out" in str(with_otherwise.value)
 
 
 def test_a_value_may_be_none_and_otherwise_none_writes_no_else() -> None:

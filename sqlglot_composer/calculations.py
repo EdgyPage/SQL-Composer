@@ -22,6 +22,7 @@ from .tables import (
     literal,
     made_by,
     python_text,
+    type_family,
     value_family,
 )
 from .trees import (
@@ -324,7 +325,8 @@ def first_match(
     written = ", ".join(f"({python_text(condition)}, {python_text(value)})"
                         for condition, value in pairs)
     return _case_column(None, [(condition._tree.copy(), value) for condition, value in pairs],
-                 otherwise, call, f"first_match([{written}]")
+                        otherwise, call, f"first_match([{written}]",
+                        [f"pair {number}'s value" for number in range(1, len(pairs) + 1)])
 
 
 def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
@@ -436,12 +438,15 @@ def mapped(column: Column,
                 given=key, call=call,
             )
         if key is None:
+            # A value the column's own type holds, which its real values aren't likely to be.
+            filler = _NULL_FILLERS.get(type_family(column._type), '"RUNNING"')
             refuse(
                 what=f"{call} was given None as a key.",
                 why="A row whose column is NULL matches no key, since NULL equals nothing in "
                 "Hive, so a None key would never match: those rows get otherwise=.",
-                fix=f'Fill the NULL in first, and look that up: mapped(fill_null('
-                f'{python_text(column)}, "RUNNING"), {{..., "RUNNING": "still running"}}).',
+                fix=f"Fill the NULL in first with a value the column never holds, and look that "
+                f"up: mapped(fill_null({python_text(column)}, {filler}), {{..., {filler}: "
+                '"the label for NULL"}).',
                 error=ValueError,
             )
     keys = [literal(key, call=call, column=column) for key in values]
@@ -449,19 +454,26 @@ def mapped(column: Column,
     written = ", ".join(f"{python_text(key)}: {python_text(value)}"
                         for key, value in values.items())
     return _case_column(column, list(zip(keys, values.values())), otherwise, call,
-                 f"mapped({python_text(column)}, {{{written}}}")
+                        f"mapped({python_text(column)}, {{{written}}}",
+                        [f"the value for the key {python_text(key)}" for key in values])
+
+
+# What fill_null puts in a column's NULLs before mapped looks them up, by the column's type
+# family, in a refusal's fix: a value of the column's own type, unlikely among its real ones.
+_NULL_FILLERS = {"number": "-1", "string": '"RUNNING"', "date": '"1900-01-01"',
+                 "timestamp": '"1900-01-01 00:00:00"', "boolean": "False"}
 
 
 def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherwise: object,
-          call: str, written: str) -> Column:
+                 call: str, written: str, places: list[str]) -> Column:
     """first_match's or mapped's CASE: each pair a WHEN's condition, or the value mapped looks
     `column` up for, and its THEN, the user's value as given; ELSE only when `otherwise` isn't
-    None. `written` is the call as the user wrote it, up to its otherwise=, for the lineage."""
+    None. `written` is the call as the user wrote it, up to its otherwise=, for the lineage, and
+    `places` how a refusal names where each pair's value was given."""
     given = [value for _, value in pairs] + ([otherwise] if otherwise is not None else [])
-    for number, value in enumerate(given, start=1):
+    for place, value in enumerate(given):
         if isinstance(value, Condition):
-            where = ("otherwise=" if number > len(pairs) else f"pair {number}'s value"
-                     if column is None else f"the value for key {number}")
+            where = "otherwise=" if place >= len(pairs) else places[place]
             refuse(
                 what=f"{call.split('(')[0]} was given {python_text(value)} as {where}, where "
                 "a value goes.",
@@ -473,7 +485,7 @@ def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherw
                 given=value, call=call,
             )
     values = [_as_column(value, call) for value in given]
-    _one_type(given, call, "values")
+    _one_type(given, call, "values", otherwise)
     tree = Node("Case", ifs=[Node("If", this=when, true=value._tree.copy())
                              for (when, _), value in zip(pairs, values)])
     if column is not None:
@@ -492,28 +504,32 @@ _FAMILY_WORDS = {"number": "a number", "string": "a string", "date": "a date",
                  "timestamp": "a timestamp", "boolean": "True or False"}
 
 
-def _one_type(given: list[object], call: str, what: str) -> None:
+def _one_type(given: list[object], call: str, what: str, otherwise: object = None) -> None:
     """Refuse `what`, first_match's or mapped's values or mapped's keys, when two of them are of
-    types that can't stand in one column; one whose type isn't known, as NULL's, goes with any."""
+    types that can't stand in one column; one whose type isn't known, as NULL's, goes with any.
+    When `otherwise`, the otherwise= value, is one of the two, the fix says it may be left
+    out."""
     known = [(value, family) for value in given
              if (family := value_family(value)) is not None]
     for value, family in known[1:]:
         first, first_family = known[0]
         if family in COMPARABLE_VALUES[first_family]:
             continue
+        fix = _MIXED_FIX[what]
+        if otherwise is not None and (otherwise is first or otherwise is value):
+            fix += " Or leave otherwise= out, so the rows no pair holds for get NULL."
         refuse(
             what=f"{call.split('(')[0]} gives {what} whose types don't mix: "
             f"{_with_type(first, first_family)}, and {_with_type(value, family)}.",
             why=_MIXED_WHY[what],
-            fix=_MIXED_FIX[what],
+            fix=fix,
         )
 
 
 # What to do instead, for values or for keys.
 _MIXED_FIX = {
     "values": 'Give all the values one kind: all numbers, all text, or all True or False, such '
-    'as "1" in place of 1 beside text. Where one is a column, make the others its kind, or leave '
-    "otherwise= out, so the other rows get NULL.",
+    'as "1" in place of 1 beside text. Where one is a column, make the others its kind.',
     "keys": "Give every key the type of the values the column holds: for a string column, "
     '"1" in place of 1.',
 }
