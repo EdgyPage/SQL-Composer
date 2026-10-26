@@ -19,10 +19,13 @@ from pathlib import Path
 FOLDER = "sqlglot_composer"
 PRODUCT = "sqlglot Composer"
 LIBRARY = "sqlglot"
-# The only files that may import sqlglot.
-LIBRARY_FILES = ("writing.py", "engine.py")
+# The only files that may import sqlglot: writing.py writes Hive with it, engine.py checks it
+# and runs the Example database on it, and converting.py reads someone else's Hive with it,
+# for a Conversion (Toolbox 7.2, ticket 05).
+LIBRARY_FILES = ("writing.py", "engine.py", "converting.py")
 PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clauses.py",
-                "comparisons.py", "conditions.py", "describe.py", "engine.py", "example_database.py", "joins.py",
+                "comparisons.py", "conditions.py", "converting.py", "describe.py", "engine.py",
+                "example_database.py", "joins.py",
                 "keys.py", "kinds.py", "lineage.py", "notebooks.py", "project.py",
                 "project_files.py", "project_templates.py", "public.py", "python_steps.py",
                 "refusals.py", "running.py", "stacking.py", "tables.py", "trees.py",

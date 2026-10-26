@@ -60,6 +60,13 @@ def sql_text(tree: exp.Expression, pretty: bool = False) -> str:
     return tree.sql(dialect=_HIVE, pretty=pretty, unsupported_level=ErrorLevel.RAISE)
 
 
+def read_hive(text: str) -> list[exp.Expression]:
+    """Hive someone wrote, read by sqlglot: each statement in it, in order, empty ones left out.
+    A Conversion reads the Hive it converts with it; sqlglot's ParseError says what it can't
+    read."""
+    return [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
+
+
 def hive_text(node: Node) -> str:
     """A part of a Statement, held in the Toolbox's own tree (trees.py), as Hive on one line."""
     return sql_text(to_sqlglot(node))

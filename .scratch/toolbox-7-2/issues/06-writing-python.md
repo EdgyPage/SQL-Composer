@@ -14,6 +14,11 @@ would have written, in a Table notebook's shape, so the result is code to read, 
 Before writing the tests: show the user one converted sample, the notebook as it will land,
 since the map leaves the notebook's exact shape open.
 
+Settled while building (2026-10-26): ticket 05 writes the Python straight from sqlglot's tree
+(see its "Python first"), so this ticket is the notebook around that Python, the opt-outs found
+by running it, and the round trip. The user is shown the converted sample in the Answer and in
+the how-to (ticket 09), since a goal session doesn't stop to ask.
+
 ## Done when
 
 - A Toolbox function (internal, for ticket 07) writes, from ticket 05's result, the source of a

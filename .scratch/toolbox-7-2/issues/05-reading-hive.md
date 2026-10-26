@@ -18,6 +18,28 @@ Before building: confirm with the user what the map leaves unspecified, whether 
 suggestion) and leading `SET` lines (as `hive_settings(...)`), and that a script of several
 statements is refused, saying to split it.
 
+Settled while building (2026-10-26):
+
+- **The user, mid-build: "make sure we have all the applicable inserts eg insert, insert into,
+  insert overwrite, etc."** So every INSERT form is read, and the converted notebook writes
+  the way the original did: `INSERT INTO` and `INSERT INTO TABLE` become `INSERT_INTO`,
+  `INSERT OVERWRITE [TABLE]` becomes `INSERT_OVERWRITE`; a `PARTITION(...)` keeps its
+  columns, and those given a value, `PARTITION(dt='2026-09-24')`, become `partition={...}`; a
+  column list after the table, `INSERT INTO t (a, b) SELECT ...`, names the SELECT's columns,
+  as Hive fills them by position. Refused, each saying what to do: `INSERT ... VALUES` (rows
+  written into the Hive, kept as an Unchecked statement), `INSERT OVERWRITE [LOCAL] DIRECTORY`
+  (no table to convert into), Hive's FROM-first multi-insert (one query per INSERT), and a
+  script of several queries. `INSERT ... IF NOT EXISTS` is one sqlglot can't read, refused
+  with its message. `SET` lines become the Session settings `HIVE_SETTINGS`.
+- **Python first, objects from it.** Reading Hive into the Toolbox's objects and then writing
+  the objects out as Python (05 then 06) would need every object to remember how it was made,
+  and most don't (only calculations note their call). So the reader writes the Python straight
+  from sqlglot's tree, and the objects are what that Python gives when run: the code and the
+  objects can't disagree, and 06's round trip checks the code. `sqlglot_composer/converting.py`
+  holds it, a third file allowed to import sqlglot, beside writing.py and engine.py, since
+  reading Hive is its whole job. The user wasn't asked: the order is the reader's own business,
+  and what the user sees, a notebook of their own code, is what the map said.
+
 ## Done when
 
 - A Toolbox function (internal, for ticket 07's scan and Conversion) reads one Hive query with
