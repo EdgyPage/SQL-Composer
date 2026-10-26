@@ -492,7 +492,7 @@ WATCHED_JOBS = [1, 2]
 # A label for each status a run can have.
 STATUS_LABELS = {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;, &quot;TEST&quot;: &quot;test run&quot;}</pre>
 <h4><code>runs_of_watched_jobs()</code></h4><pre class="python">def runs_of_watched_jobs() -&gt; Statement:
-    &quot;&quot;&quot;Runs of the watched jobs: is_in reads the list by its name (IN a list).&quot;&quot;&quot;
+    &quot;&quot;&quot;Runs of the watched jobs: is_in takes the list kept in WATCHED_JOBS (IN a list).&quot;&quot;&quot;
     return statement(
         SELECT(job_runs.run_id, job_runs.job_id),
         FROM(job_runs),
@@ -515,7 +515,9 @@ WHERE
     &quot;&quot;&quot;Each watched run&#x27;s status as a label, and its length in words (CASE ... WHEN ...).
 
     mapped looks each status up in STATUS_LABELS. A run still going has no status (NULL),
-    which matches no key, so it gets otherwise=. first_match tries its conditions in order and
+    which matches no key, so it gets otherwise=, as any status the dict doesn&#x27;t hold would; to
+    give NULL a label of its own, mapped&#x27;s docstring fills it in first, with fill_null.
+    first_match tries its conditions in order and
     gives the value of the first that holds: a run of 40 minutes is &quot;long&quot;, though it is more
     than 10 minutes too.
     &quot;&quot;&quot;
@@ -2947,7 +2949,7 @@ GROUP BY
 </section>
 <section class="entry" id="first_match">
 <h3><code>first_match</code></h3>
-<p class="why">Each row&#x27;s value from the first condition that holds for it (CASE WHEN ...).</p>
+<p class="why">The value of the first (condition, value) pair that holds for a row (CASE WHEN).</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id,
            AS(first_match([(is_null(job_runs.status), &quot;still running&quot;),
@@ -2972,7 +2974,7 @@ WHERE
 <pre class="python">first_match([(equals(job_runs.status, &quot;FAILED&quot;), 1)])</pre>
 <p class="label">Hive</p>
 <pre class="output">CASE WHEN job_runs.status = &#x27;FAILED&#x27; THEN 1 END</pre>
-<p>It writes a whole if/else chain as one CASE, however many pairs it has. For one condition, if_else(...) is shorter; where every pair tests one column against a value, mapped(...) reads plainer. Each value is a number, a string, a date, None or a column, and all of them, otherwise= included, are one type, as a column&#x27;s values are: a string beside a number is refused, as is a condition where a value goes.</p>
+<p>It writes a whole if/else chain as one CASE, however many pairs it has. For one condition, if_else(...) is shorter; where every pair tests one column against a value, mapped(...) reads plainer. Each value is a number, a string, a date, True or False, None or a column, and all of them, otherwise= included, are of one kind, as a column&#x27;s values are: numbers, whole or not; text and dates, which Hive compares as text; or True and False. A string beside a number is refused, as is a condition where a value goes.</p>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>length</th></tr>
 <tr><td>101</td><td>short</td></tr>
@@ -2985,7 +2987,7 @@ WHERE
 </section>
 <section class="entry" id="mapped">
 <h3><code>mapped</code></h3>
-<p class="why">A value for each value of a column, looked up in a dict (CASE column WHEN ...).</p>
+<p class="why">A lookup: each row gets the dict&#x27;s value for its column&#x27;s value (CASE x WHEN).</p>
 <pre class="python">print(to_hive(statement(
     SELECT(job_runs.run_id,
            AS(mapped(job_runs.status, {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;},
@@ -2999,8 +3001,13 @@ WHERE
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-24&#x27;</pre>
-<p>Each key of the dict is a value the column may hold, and each row gets the value its column&#x27;s value is the key of. A row whose value is no key gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL. A row whose column is NULL matches no key, since NULL equals nothing, so a None key is refused: first_match([(is_null(column), value), ...]) gives those rows a value of their own. Keep a long dict as a constant at the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.</p>
-<p>It is first_match(...) for the chain that tests one column against a value in each pair, written shorter. Each key is a value of the column&#x27;s own type: a key it can&#x27;t hold, such as &quot;one&quot; for a bigint column, is refused, as equals(...) refuses it. The values follow first_match&#x27;s rule: all one type, otherwise= included, and never a condition.</p>
+<p>Each key of the dict is a value the column may hold, and a row gets the dict&#x27;s value for its column&#x27;s value. A row whose value is no key gets otherwise=; leave otherwise= out, and the Hive has no ELSE, so that row gets NULL. Hive writes the lookup CASE column WHEN key THEN value, which means CASE WHEN column = key THEN value. Keep a long dict as a constant at the top of your script, such as STATUS_LABELS = {...}, and pass it by its name.</p>
+<p>A row whose column is NULL matches no key, since NULL equals nothing, so it gets otherwise=, and a None key is refused. To give those rows a label of their own, fill the NULL in first, and look up what you filled in:</p>
+<pre class="python">mapped(fill_null(job_runs.status, &quot;RUNNING&quot;),
+       {&quot;SUCCESS&quot;: &quot;passed&quot;, &quot;FAILED&quot;: &quot;failed&quot;, &quot;RUNNING&quot;: &quot;still running&quot;})</pre>
+<p class="label">Hive</p>
+<pre class="output">CASE COALESCE(job_runs.status, &#x27;RUNNING&#x27;) WHEN &#x27;SUCCESS&#x27; THEN &#x27;passed&#x27; WHEN &#x27;FAILED&#x27; THEN &#x27;failed&#x27; WHEN &#x27;RUNNING&#x27; THEN &#x27;still running&#x27; END</pre>
+<p>It is first_match(...) for the chain that tests one column against a value in each pair, written shorter. Each key is a value of the column&#x27;s own type: a key it can&#x27;t hold, such as &quot;one&quot; for a bigint column, is refused, as equals(...) refuses it. The values are checked as first_match&#x27;s are: all one type, otherwise= included, and never a condition. A key written twice in the dict is one key to Python, which keeps its last value.</p>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th><th>outcome</th></tr>
 <tr><td>101</td><td>passed</td></tr>
@@ -3008,7 +3015,7 @@ WHERE
 <tr><td>103</td><td>passed</td></tr>
 <tr><td>104</td><td>passed</td></tr>
 </table></div>
-<p class="names">Toolbox names used: <code>mapped</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>to_hive</code></p>
+<p class="names">Toolbox names used: <code>mapped</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>fill_null</code>, <code>to_hive</code></p>
 <p class="names">Worked examples that use it: <a href="#named_lists_and_lookups">Keep a long list and a lookup as constants, and an if/else chain as one CASE.</a></p>
 </section>
 <section class="entry" id="fill_null">

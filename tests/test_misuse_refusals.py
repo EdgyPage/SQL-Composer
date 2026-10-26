@@ -112,10 +112,10 @@ MISUSES = [
     pytest.param(lambda: first_match([("failed", FAILED)]), TypeError,
                  "pair 1 has the condition second", id="first_match_swapped"),
     pytest.param(lambda: first_match([(FAILED, FAILED)]), TypeError,
-                 'was given equals(job_runs.status, "FAILED") where a value goes',
-                 id="first_match_condition_value"),
+                 "was given equals(job_runs.status, \"FAILED\") as pair 1's value, where a "
+                 "value goes", id="first_match_condition_value"),
     pytest.param(lambda: first_match([(FAILED, "failed")], otherwise=FAILED), TypeError,
-                 "where a value goes", id="first_match_condition_otherwise"),
+                 "as otherwise=, where a value goes", id="first_match_condition_otherwise"),
     pytest.param(lambda: first_match([(FAILED, "failed"), (is_null(job_runs.status), 0)]),
                  TypeError, 'gives values whose types don\'t mix: "failed", a string, and 0, '
                  "a number", id="first_match_mixed"),

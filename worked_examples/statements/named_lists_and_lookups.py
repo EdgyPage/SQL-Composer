@@ -22,7 +22,7 @@ STATUS_LABELS = {"SUCCESS": "passed", "FAILED": "failed", "TEST": "test run"}
 
 
 def runs_of_watched_jobs() -> Statement:
-    """Runs of the watched jobs: is_in reads the list by its name (IN a list)."""
+    """Runs of the watched jobs: is_in takes the list kept in WATCHED_JOBS (IN a list)."""
     return statement(
         SELECT(job_runs.run_id, job_runs.job_id),
         FROM(job_runs),
@@ -34,7 +34,9 @@ def labelled_runs() -> Statement:
     """Each watched run's status as a label, and its length in words (CASE ... WHEN ...).
 
     mapped looks each status up in STATUS_LABELS. A run still going has no status (NULL),
-    which matches no key, so it gets otherwise=. first_match tries its conditions in order and
+    which matches no key, so it gets otherwise=, as any status the dict doesn't hold would; to
+    give NULL a label of its own, mapped's docstring fills it in first, with fill_null.
+    first_match tries its conditions in order and
     gives the value of the first that holds: a run of 40 minutes is "long", though it is more
     than 10 minutes too.
     """

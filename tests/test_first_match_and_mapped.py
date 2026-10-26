@@ -120,10 +120,13 @@ def test_lineage_traces_every_column_either_reads_and_shows_the_call(tmp_path: P
             "└─ ops.job_runs.status  (string)\n") in report
 
 
-def test_a_none_key_is_refused_as_equals_refuses_none() -> None:
-    """NULL equals nothing, so CASE status WHEN NULL would never match: the Guard equals runs."""
-    with pytest.raises(GuardRefused, match=r"mapped\(job_runs.status, \.\.\.\) compares with None"):
+def test_a_none_key_is_refused_saying_how_to_label_null_rows() -> None:
+    """NULL equals nothing, so CASE status WHEN NULL would never match: fill the NULL in."""
+    with pytest.raises(ValueError, match=r"mapped\(job_runs.status, \.\.\.\) was given None as a "
+                       r"key\.[\s\S]*Usual fix:      Fill the NULL in first, and look that up: "
+                       r"mapped\(fill_null\(job_runs.status, \"RUNNING\"\)"):
         mapped(job_runs.status, {None: "running"})
+    assert GuardRefused  # the Guard equals gives None is equals' own, not mapped's
 
 
 def test_a_value_may_be_none_and_otherwise_none_writes_no_else() -> None:

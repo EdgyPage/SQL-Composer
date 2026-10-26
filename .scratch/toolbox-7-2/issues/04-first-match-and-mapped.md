@@ -84,3 +84,22 @@ Built 2026-10-26 in a worktree beside ticket 03, for the main session to merge i
 - Not run here, as the brief left them to the main session after the merge: the `code-review`
   skill, the beginner reader (Definition of done 4: the names are new and public) and the drift
   review.
+
+## Reviews
+
+Merged into dev as 3421133 (with 8d35ba6, which took out conflict markers the merge left in
+CHANGES.md); review fixes in the commit after.
+
+- Standards (2026-10-26): no hard breach. Fixed: `calculations._case`, which shared its name
+  with `writing._case`, is `_case_column`; "rule", which the glossary avoids, is gone from
+  mapped's docstring. Answered: the twin refusals and the `_MIXED_WHY`/`_MIXED_FIX` dicts stay,
+  as the plainest form of two messages each; "lookup" and "constant" are plain English, read as
+  such by the drift reviewer too; `_case_column` reads `otherwise` as the last value because it
+  appended it, in the lines just above.
+- Spec (2026-10-26): answered: a string beside a date mixes, as `equals` lets it, since Hive
+  compares dates as text; the extra refusals (a pair the wrong way round, a tuple for the list)
+  each catch a mistake the ticket's "refuses" covers. Fixed: mapped's docstring says a key
+  written twice keeps its last value. The Definition of done is met here, after the merge.
+- Beginner reader: [reports/04-beginner-reader.md](../reports/04-beginner-reader.md); the
+  costliest stop, labelling NULL rows, fixed with mapped's own refusal and a docstring example.
+- Drift: 3421133 and 8d35ba6 clean.
