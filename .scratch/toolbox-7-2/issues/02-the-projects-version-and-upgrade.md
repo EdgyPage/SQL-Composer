@@ -1,7 +1,7 @@
 # The Project's version and project.upgrade()
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 01
 Size: L
 
@@ -58,3 +58,52 @@ New, under "The user's own scripts":
 
 **Project** gains: "and records, in its admin folder, the Toolbox version that last wrote it."
 **Project action**'s list gains upgrading the Project.
+
+## Answer
+
+Built 2026-10-26 on dev (ffd8bde; review, beginner-read and drift fixes in the next commit).
+
+- `admin/project_version.txt`: the version on line 1, then two `#` lines saying what writes it.
+  `project.start()` and each Upgrade step write it. A Project that records none is 7.1 when it
+  holds `warehouse.py` and no `send.py`; otherwise `project.upgrade()` refuses it, saying it is
+  from before 7.0 or lacks `warehouse.py`. A Project 7.0 made looks like one 7.1 made: the
+  docstring and the README's Update step 6 say to do 7.1's "To update from 7.0" first.
+- `sqlglot_composer/upgrades.py`, a new Toolbox file: `STEPS`, one function per version
+  (`to_7_2`), and `Upgrade`, what a step uses: `add_what_start_makes()`, `rewrite(...)` and
+  `mark(...)`. Each file a step changes or marks is kept, as it was, in
+  `admin/removed/<time>-upgrade_<version>/<its path>`: a folder per Upgrade rather than the
+  `<time>-<name>` of the remove actions, so a step's files keep their paths and never clash.
+- `project.upgrade()` runs the steps in turn, each logged in the Admin log as its own Project
+  action, each writing `admin/upgrade_<version>.md` and the version as it goes. Run again it
+  says there is nothing to upgrade. It refuses a Project newer than the Toolbox, and a
+  `project_version.txt` that doesn't hold a version (both beyond the ticket, since going on
+  would write files an older Toolbox can't vouch for).
+- `admin/upgrade.ipynb`, a new admin notebook, is where the next Upgrade runs; a 7.1 Project's
+  first Upgrade adds it, so every message says to run the first one in a new cell of
+  `admin/check_project.ipynb` (beyond the ticket, which named no notebook).
+- `check()` lists each `# UPGRADE` mark left, and says when the Project is behind the Toolbox,
+  ahead of it, or its version can't be read. The import warns when it is behind:
+  `project.warn_if_behind()`, called from `__init__.py`, public in name only because two
+  modules use it, not in `__all__`.
+- The 7.1 to 7.2 step only adds what 7.2's `start()` makes (now `admin/upgrade.ipynb`; ticket
+  07 adds `admin/conversions/` and `admin/convert.ipynb` the same way). Files only Project
+  actions write, such as the Registry, would be rewritten whole with `rewrite(...)`, unmarked;
+  7.2 has none to rewrite.
+- `tests/test_upgrades.py` upgrades the frozen 7.1 Example projects into the current ones, and
+  fails while this version has no step; CLAUDE.md says every version raise ships both. The
+  export copies `admin/project_version.txt` unstamped, as it copies notebooks.
+
+## Reviews
+
+- Standards (2026-10-26): fixed: one `is_upgradable`, `is_older` and `steps_between` in
+  upgrades.py hold the version checks once; `numbers` is `version_numbers`, `FLOOR` is
+  `FIRST_UPGRADABLE`; one `_marked` places a mark; `Upgrade.said()` holds the report line.
+  Answered: `Upgrade` and `STEPS` are the Toolbox's own, never the user's to study; the
+  `complete` callable keeps upgrades.py from importing project.py, which imports it.
+- Spec (2026-10-26): fixed: each step logged on its own; the 7.1 test now needs `warehouse.py`
+  and no `send.py`; CONTEXT's "archiving each file first". Answered above: the archive folder,
+  the refusals, the admin notebook, `.txt` unstamped.
+- Beginner reader: [reports/02-beginner-reader.md](../reports/02-beginner-reader.md); every
+  stop taken but two, as its last section says.
+- Drift: ffd8bde opened D254 to D257 (check()'s and start()'s docstrings, the README's and
+  project.py's `admin/removed/`, how-to 01's list of files), fixed in the next commit.

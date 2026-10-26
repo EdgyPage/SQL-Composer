@@ -51,10 +51,10 @@ def made_by_7_1(root: Path) -> Path:
 
 def previous_version() -> str:
     """The version before this one that a step starts from: the step before this version's,
-    or the floor."""
+    or the first version an Upgrade starts from."""
     earlier = [version for version in upgrades.STEPS
-               if upgrades.numbers(version) < upgrades.numbers(VERSION)]
-    return max(earlier, key=upgrades.numbers, default=upgrades.FLOOR)
+               if upgrades.version_numbers(version) < upgrades.version_numbers(VERSION)]
+    return max(earlier, key=upgrades.version_numbers, default=upgrades.FIRST_UPGRADABLE)
 
 
 # --- The version a Project records ---------------------------------------------------------------
@@ -76,7 +76,7 @@ def test_a_project_at_this_version_has_nothing_to_upgrade(started: Path) -> None
 
 def test_this_version_has_an_upgrade_step() -> None:
     assert VERSION in upgrades.STEPS
-    assert all(upgrades.numbers(version) > upgrades.numbers(upgrades.FLOOR)
+    assert all(upgrades.version_numbers(version) > upgrades.version_numbers(upgrades.FIRST_UPGRADABLE)
                for version in upgrades.STEPS)
 
 
@@ -150,8 +150,36 @@ def test_an_upgrade_run_again_does_nothing(started: Path) -> None:
 def test_a_project_from_before_7_0_is_refused(started: Path) -> None:
     made_by_7_1(started)
     (started / "warehouse.py").rename(started / "send.py")
-    with pytest.raises(ValueError, match="this Project is from before 7.0: it holds send.py"):
+    with pytest.raises(ValueError, match="this Project records no Toolbox version, and holds "
+                       "send.py, so it is from before 7.0"):
         project.upgrade()
+    assert "last written by Toolbox" not in repr(project.check())
+
+
+def test_a_project_with_no_version_and_no_warehouse_py_is_refused(started: Path) -> None:
+    made_by_7_1(started)
+    (started / "warehouse.py").unlink()
+    with pytest.raises(ValueError, match="records no Toolbox version, and holds no "
+                       "warehouse.py, which every Project from 7.0 on holds"):
+        project.upgrade()
+
+
+def test_each_step_is_logged_and_recorded_as_it_runs(started: Path,
+                                                     monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two steps, 7.3 then 7.4, as a Toolbox two versions on would run them."""
+    monkeypatch.setattr(sqlglot_composer, "TOOLBOX_VERSION", "7.4")
+    monkeypatch.setattr(upgrades, "STEPS", {"7.3": lambda step: None,
+                                            "7.4": lambda step: None})
+    upgrades.write_project_version(started, "7.2")
+    assert repr(project.upgrade()).splitlines() == [
+        "Upgraded the Project from 7.2 to 7.4.",
+        "7.3: nothing to change by hand. admin/upgrade_7.3.md lists what it did.",
+        "7.4: nothing to change by hand. admin/upgrade_7.4.md lists what it did."]
+    log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
+    assert log.count("- Call: `project.upgrade()`") == 2
+    assert "wrote admin/project_version.txt: 7.3" in log
+    assert upgrades.project_version(started) == "7.4"
+    assert "from 7.3 to 7.4" in (started / "admin" / "upgrade_7.4.md").read_text(encoding="utf-8")
 
 
 def test_a_project_a_newer_toolbox_wrote_is_refused(started: Path) -> None:
@@ -241,7 +269,33 @@ def test_check_says_a_project_behind_its_toolbox_needs_an_upgrade(started: Path)
     made_by_7_1(started)
     assert repr(project.check()) == (
         f"The Project was last written by Toolbox 7.1, and this Toolbox is {VERSION}: run "
-        "project.upgrade() from a notebook in the Project.")
+        "project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb "
+        "once the Project has one.")
+
+
+def test_check_says_a_newer_toolbox_last_wrote_the_project(started: Path) -> None:
+    upgrades.write_project_version(started, "99.0")
+    assert repr(project.check()) == (
+        f"The Project was last written by Toolbox 99.0, newer than this Toolbox, {VERSION}: copy "
+        "in the 99.0 download of sqlglot_composer, or a newer one.")
+
+
+def test_a_later_mark_above_an_earlier_one_moves_it_down_in_the_checklist(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def two_marks(upgrade: upgrades.Upgrade) -> None:
+        upgrade.mark("references/ops__jobs.py", 3, "the later line")
+        upgrade.mark("references/ops__jobs.py", 1, "the first line")
+
+    (started / "references" / "ops__jobs.py").write_text("a\nb\nc\n", encoding="utf-8")
+    made_by_7_1(started)
+    monkeypatch.setattr(upgrades, "STEPS", {VERSION: two_marks})
+    project.upgrade()
+    checklist = (started / "admin" / f"upgrade_{VERSION}.md").read_text(encoding="utf-8")
+    assert "- [ ] references/ops__jobs.py, line 4: the later line\n" in checklist
+    assert "- [ ] references/ops__jobs.py, line 1: the first line\n" in checklist
+    listed = repr(project.check())
+    assert "references/ops__jobs.py, line 4: # UPGRADE" in listed
+    assert "references/ops__jobs.py, line 1: # UPGRADE" in listed
 
 
 def test_the_import_warns_in_a_project_behind_it(started: Path,

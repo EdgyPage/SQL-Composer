@@ -3855,7 +3855,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; and each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4044,7 +4044,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry and the Admin log, whose first entry is this one. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
 <p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>
@@ -4063,13 +4063,13 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="python">import os</pre>
-<pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # as a Project 7.1 made has none</pre>
+<pre class="python">os.remove(&quot;admin/project_version.txt&quot;)</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Upgraded the Project from 7.1 to 7.2.
 7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.</pre>
-<p>Run it from a notebook in the Project, such as admin/upgrade.ipynb (a Project made by 7.1 has none until its Upgrade adds one), once you have copied in a newer sqlglot_composer and restarted the kernel. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order. A step makes the changes that need no judgement, keeping each file it changes, as it was, in admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark; project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
-<p>A Project with no admin/project_version.txt was made by 7.1, the first version it upgrades from; one from before 7.0, holding send.py, is refused: update it by hand as CHANGES.md says first.</p>
+<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/upgrade.ipynb, which a Project&#x27;s first Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order. A step makes the changes that need no judgement, keeping each file it changes, as it was, in admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark; project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
+<p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 </main>

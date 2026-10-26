@@ -22,7 +22,7 @@ from pathlib import Path
 PROJECT_VERSION = Path("admin") / "project_version.txt"
 # The first version a Project can be upgraded from, and the one a Project that records no
 # version was made by.
-FLOOR = "7.1"
+FIRST_UPGRADABLE = "7.1"
 PROJECT_VERSION_TEXT = (
     "{version}\n"
     "# The Toolbox version that last wrote this Project: project.start() and project.upgrade()\n"
@@ -35,9 +35,26 @@ MARK_LINE = re.compile(r"#\s*UPGRADE (?P<version>\d+\.\d+): (?P<what>.+)")
 NOT_SEARCHED = ("sqlglot_composer", "admin/removed")
 
 
-def numbers(version: str) -> tuple[int, ...]:
+def version_numbers(version: str) -> tuple[int, ...]:
     """A version as numbers to compare, such as (7, 2) for "7.2"."""
     return tuple(int(part) for part in version.split("."))
+
+
+def is_older(version: str, *, than: str) -> bool:
+    """Whether `version` comes before `than`, such as 7.1 before 7.2, and 7.9 before 7.10."""
+    return version_numbers(version) < version_numbers(than)
+
+
+def is_upgradable(version: str) -> bool:
+    """Whether `version` is a version, such as "7.1", an Upgrade can start from."""
+    return (re.fullmatch(r"\d+\.\d+", version) is not None
+            and not is_older(version, than=FIRST_UPGRADABLE))
+
+
+def steps_between(start_from: str, to: str) -> list[str]:
+    """The versions whose steps carry a Project from `start_from` to `to`, oldest first."""
+    return [version for version in sorted(STEPS, key=version_numbers)
+            if is_older(start_from, than=version) and not is_older(to, than=version)]
 
 
 def project_version(root: Path) -> str | None:
@@ -66,7 +83,9 @@ class Upgrade:
                  complete: Callable[[], list[str]]) -> None:
         self.root, self.version, self.archive = root, version, archive
         self.changed: list[str] = []
-        self.marks: list[str] = []
+        # Each mark as [file, cell or None, the line the mark is on, what to change]: a later
+        # mark above it in the same place moves it down.
+        self._marks: list[list[str | int | None]] = []
         self._complete = complete
 
     def add_what_start_makes(self) -> None:
@@ -81,28 +100,35 @@ class Upgrade:
         self.changed.append(f"rewrote {relative}")
 
     def mark(self, relative: str, line: int, what: str, cell: int | None = None) -> None:
-        """Put `# UPGRADE <version>: <what>` above line `line`, counted from 1, of a .py file, or
-        of cell `cell`, counted from 1, of a notebook, at that line's indent, and list it for the
-        checklist. The file as it was is kept in the archive first. A mark moves the lines below
-        it down one, so a step marks a file from its last line up."""
+        """Put `# UPGRADE <version>: <what>` above line `line` of a .py file, or of cell `cell`
+        of a notebook, at that line's indent, and list it for the checklist. Lines and cells
+        count from 1, every cell counted, text cells too, as the file reads before this mark. The
+        file as it was is kept in the archive first. A mark moves the lines below it down one,
+        and the checklist follows each earlier mark it moves."""
         self._keep(relative)
         path = self.root / relative
-        text = MARK.format(version=self.version, what=what)
+        mark = MARK.format(version=self.version, what=what)
         if cell is None:
-            lines = path.read_text(encoding="utf-8").split("\n")
-            lines.insert(line - 1, _indent(lines[line - 1]) + text)
-            path.write_text("\n".join(lines), encoding="utf-8")
-            where = f"{relative}, line {line}"
+            path.write_text(_marked(path.read_text(encoding="utf-8"), line, mark),
+                            encoding="utf-8")
         else:
             notebook = json.loads(path.read_text(encoding="utf-8"))
             source = notebook["cells"][cell - 1]["source"]
-            lines = "".join(source).split("\n") if isinstance(source, list) else source.split("\n")
-            lines.insert(line - 1, _indent(lines[line - 1]) + text)
+            text = _marked("".join(source) if isinstance(source, list) else source, line, mark)
             # As notebooks.write_notebook writes a cell: its lines, each with its own newline.
-            notebook["cells"][cell - 1]["source"] = "\n".join(lines).splitlines(keepends=True)
+            notebook["cells"][cell - 1]["source"] = text.splitlines(keepends=True)
             path.write_text(json.dumps(notebook, indent=1) + "\n", encoding="utf-8")
-            where = f"{relative}, cell {cell}, line {line}"
-        self.marks.append(f"{where}: {what}")
+        for earlier in self._marks:
+            if earlier[:2] == [relative, cell] and earlier[2] >= line:
+                earlier[2] += 1
+        self._marks.append([relative, cell, line, what])
+
+    @property
+    def marks(self) -> list[str]:
+        """Each mark this step left, as the checklist lists it, such as
+        "references/ops__jobs.py, line 12: say which call this is"."""
+        return [f"{relative}{'' if cell is None else f', cell {cell}'}, line {line}: {what}"
+                for relative, cell, line, what in self._marks]
 
     def _keep(self, relative: str) -> None:
         """Copy the file as it is into the archive, unless this step kept it already."""
@@ -111,29 +137,48 @@ class Upgrade:
             kept.parent.mkdir(parents=True, exist_ok=True)
             kept.write_bytes((self.root / relative).read_bytes())
 
-    def checklist(self, before: str, when: str) -> str:
+    @property
+    def checklist_path(self) -> str:
+        """Where this step's checklist goes, such as admin/upgrade_7.2.md."""
+        return f"admin/upgrade_{self.version}.md"
+
+    def said(self) -> str:
+        """What project.upgrade() says of this step, once it has run."""
+        if not self.marks:
+            return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists what "
+                    "it did.")
+        changes = "1 change" if len(self.marks) == 1 else f"{len(self.marks)} changes"
+        return (f"{self.version}: {changes} for you to make, each marked "
+                f"`# UPGRADE {self.version}:`, and listed in {self.checklist_path}.")
+
+    def checklist(self, upgraded_from: str, when: str) -> str:
         """admin/upgrade_<version>.md: what this step did, and a box for each mark it left."""
         lines = [f"# Upgrade to {self.version}", "",
-                 f"project.upgrade() carried this Project from {before} to {self.version} on "
-                 f"{when}.", "", "## Done for you", ""]
-        lines += [f"- {change}" for change in self.changed] or ["- Nothing."]
+                 f"project.upgrade() carried this Project from {upgraded_from} to "
+                 f"{self.version} on {when}.", "", "## Done for you", ""]
+        lines += [f"- {change}" for change in self.changed]
+        lines.append(f"- recorded {self.version} in {PROJECT_VERSION.as_posix()}")
         if self.archive.exists():
-            lines += ["", f"Each file it changed is kept as it was in "
+            lines += ["", f"Each file it changed or marked is kept as it was in "
                       f"{self.archive.relative_to(self.root).as_posix()}/."]
         lines += ["", "## For you to do", ""]
         if self.marks:
-            lines += [f"Each is marked `# UPGRADE {self.version}:` at its line. Make the change, "
-                      "delete the mark, and tick its box. project.check() lists every mark left.",
-                      ""]
+            lines += [f"Each is marked `# UPGRADE {self.version}:` at its line; a notebook's "
+                      "cells are counted from its first, text cells too. Make the change, delete "
+                      "the mark, and tick its box here, writing [x] for [ ]. project.check() lists "
+                      "every mark left.", ""]
             lines += [f"- [ ] {mark}" for mark in self.marks]
         else:
             lines.append(f"Nothing: {self.version} needs nothing changed by hand.")
         return "\n".join(lines) + "\n"
 
 
-def _indent(line: str) -> str:
-    """A line's leading spaces, so a mark sits at the indent of the line it marks."""
-    return line[:len(line) - len(line.lstrip())]
+def _marked(text: str, line: int, mark: str) -> str:
+    """`text` with `mark` put above its line `line`, counted from 1, at that line's indent."""
+    lines = text.split("\n")
+    marked = lines[line - 1]
+    lines.insert(line - 1, marked[:len(marked) - len(marked.lstrip())] + mark)
+    return "\n".join(lines)
 
 
 def marks_in(root: Path, pattern: re.Pattern[str]) -> list[str]:
