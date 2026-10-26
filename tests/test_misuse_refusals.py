@@ -33,11 +33,13 @@ from sqlglot_composer import (
     equals,
     example_database,
     export_lineage,
+    first_match,
     hive_function,
     if_else,
     is_in,
     is_null,
     last_n_days,
+    mapped,
     run_query, run_execute,
     set_load_limits,
     statement,
@@ -45,6 +47,10 @@ from sqlglot_composer import (
     to_hive,
 )
 from sqlglot_composer.example_database import job_owners, job_runs, jobs
+
+FAILED = equals(job_runs.status, "FAILED")
+# A table whose column's type isn't known, so nothing but its keys says what type they are.
+UNTYPED = Table("ops.codes", columns={"code": None})
 
 MISUSES = [
     pytest.param(lambda: LIMIT(0), ValueError, "LIMIT(0) needs a whole number of rows",
@@ -92,6 +98,47 @@ MISUSES = [
     pytest.param(lambda: count_rows(where=5), TypeError, "where=5 isn't a condition",
                  id="count_rows_where_5"),
     pytest.param(lambda: if_else(5, 1, 0), TypeError, "where a condition goes", id="if_else_5"),
+    # Toolbox 7.2, ticket 04: first_match and mapped.
+    pytest.param(lambda: first_match([]), ValueError, "first_match(...) was given an empty list",
+                 id="first_match_empty"),
+    pytest.param(lambda: first_match((FAILED, "failed")), TypeError,
+                 "where a list of (condition, value) pairs goes", id="first_match_one_pair"),
+    pytest.param(lambda: first_match([FAILED]), TypeError,
+                 'pair 1 is equals(job_runs.status, "FAILED"), which isn\'t a (condition, '
+                 "value) pair",
+                 id="first_match_not_a_pair"),
+    pytest.param(lambda: first_match([(5, "failed")]), TypeError,
+                 "pair 1 has 5 where a condition goes", id="first_match_5"),
+    pytest.param(lambda: first_match([("failed", FAILED)]), TypeError,
+                 "pair 1 has the condition second", id="first_match_swapped"),
+    pytest.param(lambda: first_match([(FAILED, FAILED)]), TypeError,
+                 'was given equals(job_runs.status, "FAILED") where a value goes',
+                 id="first_match_condition_value"),
+    pytest.param(lambda: first_match([(FAILED, "failed")], otherwise=FAILED), TypeError,
+                 "where a value goes", id="first_match_condition_otherwise"),
+    pytest.param(lambda: first_match([(FAILED, "failed"), (is_null(job_runs.status), 0)]),
+                 TypeError, 'gives values whose types don\'t mix: "failed", a string, and 0, '
+                 "a number", id="first_match_mixed"),
+    pytest.param(lambda: first_match([(FAILED, job_runs.duration_mins)], otherwise="none"),
+                 TypeError, "job_runs.duration_mins, an int column", id="first_match_mixed_else"),
+    pytest.param(lambda: mapped(job_runs.status, {}), ValueError,
+                 "mapped(job_runs.status, ...) was given an empty dict", id="mapped_empty"),
+    pytest.param(lambda: mapped(job_runs.status, ["FAILED"]), TypeError,
+                 "where a dict of values goes", id="mapped_a_list"),
+    pytest.param(lambda: mapped(5, {"a": 1}), TypeError, "where a column goes", id="mapped_5"),
+    pytest.param(lambda: mapped(job_runs.job_id, {"one": "nightly"}), TypeError,
+                 "compares job_runs.job_id, a bigint column, with 'one'",
+                 id="mapped_key_of_another_type"),
+    pytest.param(lambda: mapped(UNTYPED.code, {1: "one", "b": "bee"}), TypeError,
+                 "gives keys whose types don't mix: 1, a number, and \"b\", a string",
+                 id="mapped_keys_mixed"),
+    pytest.param(lambda: mapped(job_runs.status, {job_runs.status: "same"}), TypeError,
+                 "was given job_runs.status as a key, where a value to look up goes",
+                 id="mapped_column_key"),
+    pytest.param(lambda: mapped(job_runs.status, {"FAILED": "failed", "TEST": 0}), TypeError,
+                 "gives values whose types don't mix", id="mapped_mixed"),
+    pytest.param(lambda: mapped(job_runs.status, {"FAILED": FAILED}), TypeError,
+                 "where a value goes", id="mapped_condition_value"),
     pytest.param(lambda: descending(5), TypeError, "where a column goes", id="descending_5"),
     pytest.param(lambda: hive_function("drop table", jobs.team), ValueError,
                  "isn't a function name", id="hive_function_name"),
