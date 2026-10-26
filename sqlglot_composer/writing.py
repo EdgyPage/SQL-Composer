@@ -10,13 +10,22 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from typing import NamedTuple
 
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import four_part_message
-from .trees import HIVE_ESCAPES, Node, arguments_text, plain_name
+from .trees import (
+    ARITHMETIC,
+    CONNECTORS,
+    HIVE_AGGREGATES,
+    HIVE_ESCAPES,
+    Node,
+    arguments_text,
+    plain_name,
+)
 
 from .engine import INSTALL_NEWER
 
@@ -459,6 +468,146 @@ def _explain(node: Node) -> exp.Command:
     return exp.Command(this="EXPLAIN", expression=hive_statement(node.parts["this"]))
 
 
+# --- Unchecked expressions and Unchecked derived tables ----------------------------------------
+# Their Hive is the user's own text, which sqlglot reads here: to write it into the Statement,
+# and, when it is made, to tell the Toolbox what it holds. The refusals that follow are built
+# in unchecked.py, from refusals.py.
+
+# The kinds of Node an Unchecked expression's placeholder writes in round brackets, so that
+# "{minutes} * 2" filled with duration_mins + 1 is (duration_mins + 1) * 2.
+_BRACKETED = ARITHMETIC | CONNECTORS | {"EQ", "NEQ", "GT", "GTE", "LT", "LTE", "Like", "Is",
+                                         "Not", "Between", "In", "Unchecked"}
+
+# Each text read so far, by its text, so writing a Statement again doesn't read it again.
+_READ = {}
+
+
+def _read_once(text: str) -> list[exp.Expression]:
+    """The statements sqlglot reads Hive text as, read once and kept."""
+    if text not in _READ:
+        _READ[text] = sqlglot.parse(text, read=_DIALECT)
+    return [tree.copy() for tree in _READ[text]]
+
+
+def filled_text(node: Node) -> str:
+    """An Unchecked expression's text, each {name} filled with its column's Hive."""
+    filled = {}
+    for name, column in zip(node.parts["names"], node.parts["columns"]):
+        text = hive_text(column)
+        filled[name] = f"({text})" if column.kind in _BRACKETED else text
+    return node.parts["text"].format(**filled)
+
+
+def _unchecked(node: Node) -> exp.Expression:
+    """An Unchecked expression, as sqlglot reads its text with its columns filled in."""
+    return _read_once("SELECT " + filled_text(node))[0].expressions[0]
+
+
+def _unchecked_select(node: Node) -> exp.Expression:
+    """An Unchecked derived table's SELECT, as sqlglot reads its text."""
+    return _read_once(node.parts["text"])[0]
+
+
+class ExpressionFacts(NamedTuple):
+    """What an Unchecked expression's text holds, read with each placeholder filled with a
+    stand-in column name: what read_unchecked_expression gives back."""
+
+    # Why sqlglot can't read it, in its own words, or None when it can.
+    unreadable: str | None
+    # How many expressions it holds, side by side, as "a, b" holds 2.
+    count: int
+    # Whether it names itself, as "upper(x) AS y" does.
+    named: bool
+    # Whether it reads a table of its own: a sub-query, or a FROM after the expression.
+    reads_a_table: bool
+    # Each column it names itself, as written, rather than through a placeholder.
+    columns: list[str]
+    # The stand-ins it reads as columns: one that isn't among them sits inside quotes.
+    found: list[str]
+    # Whether it adds rows up, outside a window, as percentile(x, 0.5) does.
+    aggregate: bool
+    # Whether it looks across rows through a window, OVER (...).
+    window: bool
+
+
+def read_unchecked_expression(text: str, stand_ins: list[str]) -> ExpressionFacts:
+    """What an Unchecked expression's text holds. `text` has each placeholder filled with
+    its stand-in, a column name of its own, from `stand_ins`."""
+    try:
+        read = _read_once("SELECT " + text)
+    except sqlglot.errors.SqlglotError as error:
+        return ExpressionFacts(_said(error), 0, False, False, [], [], False, False)
+    select = read[0] if len(read) == 1 else None
+    if not isinstance(select, exp.Select):
+        return ExpressionFacts("it isn't one expression", 0, False, True, [], [], False, False)
+    others = [part for part, value in select.args.items() if value and part != "expressions"]
+    named, columns, found = False, [], []
+    for expression in select.expressions:
+        named = named or isinstance(expression, exp.Alias)
+        for column in expression.find_all(exp.Column):
+            names = [part.name for part in column.parts]
+            found += [stand_in for stand_in in stand_ins if stand_in in names]
+            if not set(names) & set(stand_ins):
+                columns.append(sql_text(column))
+    return ExpressionFacts(
+        unreadable=None, count=len(select.expressions), named=named,
+        reads_a_table=bool(others) or select.find(exp.Subquery, exp.Table) is not None,
+        columns=list(dict.fromkeys(columns)), found=found,
+        aggregate=any(_adds_rows_up(node) for node in select.walk()),
+        window=select.find(exp.Window) is not None)
+
+
+def _adds_rows_up(node: exp.Expression) -> bool:
+    """Whether a part of sqlglot's tree adds rows up, outside a window: a function sqlglot
+    knows as one, or one hive_function's list knows by name."""
+    if not isinstance(node, exp.Func) or node.find_ancestor(exp.Window) is not None:
+        return False
+    if isinstance(node, exp.AggFunc):
+        return True
+    name = node.name if isinstance(node, exp.Anonymous) else node.sql_name()
+    return name.lower() in HIVE_AGGREGATES
+
+
+def _said(error: sqlglot.errors.SqlglotError) -> str:
+    """sqlglot's reason it can't read a text, without where it stopped, which counts the
+    characters of the text with its stand-ins in it."""
+    return str(error).splitlines()[0].split(". Line ")[0].rstrip(".")
+
+
+class SelectFacts(NamedTuple):
+    """What an Unchecked derived table's text holds: what read_unchecked_select gives back."""
+
+    # Why it isn't one SELECT: sqlglot's reason it can't read it, or what it is instead; or
+    # None when it is one.
+    not_a_select: str | None
+    # The names of the columns it gives, or None when sqlglot can't tell them all, as from a *.
+    outputs: list[str] | None
+    # The tables it reads, as database.name, in small letters; not the names its own WITH
+    # gives.
+    tables: list[str]
+
+
+def read_unchecked_select(text: str) -> SelectFacts:
+    """What an Unchecked derived table's text holds: one SELECT, its columns and its tables."""
+    try:
+        read = _read_once(text)
+    except sqlglot.errors.SqlglotError as error:
+        return SelectFacts(_said(error), None, [])
+    if len(read) != 1:
+        return SelectFacts(f"it holds {len(read)} statements", None, [])
+    query = read[0]
+    if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except)):
+        return SelectFacts(f"it is {query.key.upper()}, not SELECT", None, [])
+    outputs = list(query.named_selects)
+    if "*" in outputs or "" in outputs:
+        outputs = None
+    own = {cte.alias_or_name.lower() for cte in query.find_all(exp.CTE)}
+    tables = [".".join(part for part in (table.db, table.name) if part).lower()
+              for table in query.find_all(exp.Table)]
+    return SelectFacts(None, outputs,
+                       list(dict.fromkeys(name for name in tables if name not in own)))
+
+
 def _two_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:
     return lambda node: kind(this=_built(node, "this"), expression=_built(node, "expression"))
 
@@ -519,6 +668,8 @@ _REPLAY = {
                                   to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
     "Call": lambda node: _hive_call(node.parts["name"], _all_built(node, "args")),
     "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
+    "Unchecked": _unchecked,
+    "UncheckedSelect": _unchecked_select,
     "Select": _select,
     "Stack": _stack,
     "Tuple": _grouping_set,

@@ -30,7 +30,15 @@ from .clauses import (
 )
 from .conditions import Condition
 from .refusals import refuse
-from .tables import Column, Table, made_by, python_text, readable, type_family
+from .tables import (
+    Column,
+    Table,
+    is_unchecked,
+    made_by,
+    python_text,
+    readable,
+    type_family,
+)
 from .trees import Node, number
 
 # How each Stack is written in Hive.
@@ -646,7 +654,7 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
 def _refuse_writing_subtotals(s: Statement) -> None:
     """Refuse a write whose rows come from subtotals, at any step."""
     for step, where in [(s, "")] + [(table._statement, f" in derived({table._name!r}, ...)")
-                                     for table in derived_tables(s)]:
+                                     for table in derived_tables(s) if not is_unchecked(table)]:
         for part in stack_steps(step):
             if part._grouping_sets is None:
                 continue

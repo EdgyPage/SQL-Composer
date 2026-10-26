@@ -222,7 +222,23 @@ alters or truncates a table only gets a note naming the admin function that does
 one does. Lineage
 shows it as one opaque step. Each one marks something the Toolbox should learn to write. In
 Python, `unchecked_hive(...)` gives back an `UncheckedStatement`, the name a type hint uses.
+Its smaller kin, the Unchecked expression and the Unchecked derived table, sit inside a
+Statement.
 _Avoid_: raw SQL, passthrough, custom query
+
+**Unchecked expression**:
+Hive text the user, or a Conversion, writes in place of one Column or Condition that no Toolbox
+function writes yet, inside an otherwise checked Statement. The Toolbox reads which columns it
+names, each written as a `{name}` placeholder and passed as the Column itself, so Lineage
+traces it, but no Guard looks inside it. In Python, `unchecked_column(...)` and
+`unchecked_condition(...)` give one back.
+_Avoid_: raw expression, SQL snippet, passthrough
+
+**Unchecked derived table**:
+A Derived table whose Statement is Hive text kept as written, with its output columns
+declared, for a piece no Clause function writes yet. It is read like any Derived table and
+shown as one opaque box in Lineage. In Python, `unchecked_derived(...)` gives back a `Table`.
+_Avoid_: raw CTE, unchecked view
 
 **Python step**:
 A change the user makes to data in Python, outside any Statement, and saves to a table
@@ -241,9 +257,10 @@ tables. The admin module is imported by name, apart from the everyday names.
 _Avoid_: one-time action, migration, maintenance
 
 **Admin log**:
-The text record the Toolbox keeps of every Admin statement, Unchecked statement and Project
-action the user has run: when, on which table, the Hive sent or the files changed, from which
-script, and whether it worked. Newest last;
+The text record the Toolbox keeps of every Admin statement, Unchecked statement, Statement
+holding an Unchecked expression or Unchecked derived table, and Project action the user has
+run: when, on which table, the Hive sent or the files changed, from which script, and whether it
+worked. Newest last;
 the Toolbox only ever adds to it.
 _Avoid_: audit trail, history
 
