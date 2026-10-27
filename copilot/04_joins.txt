@@ -86,9 +86,9 @@ block the user can paste into a notebook cell, then a few plain sentences.
    with no match; `count_rows()` would give 1.
 7. The same table twice, or two tables of one name: give one a second name,
    `o = AS(other, "o")`, then use `o.job_id`.
-8. Two opt-outs a user may ask for: `keeps_only_matches=True` lets WHERE test a LEFT_JOIN's
-   table, so the join keeps only matched rows; `broadcast=True` asks Hive to copy a small
-   table to every worker, to join it faster.
+8. Only if the user asks: the opt-out `keeps_only_matches=True` lets WHERE test a
+   LEFT_JOIN's table, so the join keeps only matched rows. `broadcast=True`, no opt-out,
+   asks Hive to copy a small table to every worker, to join it faster.
 
 ## Worked example
 
