@@ -7,10 +7,11 @@ catch it; and an answers file made from the template reads back as it was writte
 from __future__ import annotations
 
 from collections import Counter
+from pathlib import Path
 
 import copilot_eval
 import pytest
-from copilot_eval_tasks import BY_ID, OBJECTIVES, TASKS
+from copilot_eval_tasks import BY_ID, OBJECTIVES, TASKS, Task
 
 
 def fenced(code: str) -> str:
@@ -68,6 +69,19 @@ CONTROLS = [
     pytest.param("T16", fenced(BY_ID["T16"].reference.replace("INSERT_OVERWRITE",
                                                               "INSERT_INTO")),
                  "correct", id="adds_where_it_should_replace"),
+    pytest.param("T05", fenced(
+        "from sqlglot_composer import check_key\nfrom references.ops__jobs import jobs\n"
+        "from warehouse import query\n\nv = check_key(jobs, query=query)\n"),
+                 "correct", id="checks_another_tables_key"),
+    pytest.param("T23", fenced(
+        "from sqlglot_composer import FROM, SELECT, compare_hive, statement, to_hive\n"
+        "from references.ops__jobs import jobs\n\n"
+        "s0 = statement(SELECT(jobs.job_id, jobs.job_name), FROM(jobs))\n"
+        "v = compare_hive(s0, to_hive(s0))\n"), "correct", id="compares_it_with_itself"),
+    pytest.param("T07", fenced("import typing\ntyping.sys.modules\n" + T07), "builds",
+                 id="a_module_reached_through_an_allowed_one"),
+    pytest.param("T07", fenced("import pandas as pd\npd.read_csv('rows.csv')\n" + T07),
+                 "builds", id="a_pandas_reader"),
 ]
 
 
@@ -89,21 +103,32 @@ def test_a_wrong_answer_fails_on_the_check_meant_to_catch_it(
         assert all(getattr(result, one) for one in earlier), result
 
 
-def test_a_star_import_is_noted_but_still_counts_when_it_works() -> None:
+def test_a_star_import_fails_though_its_statement_is_right() -> None:
     reply = fenced("from sqlglot_composer import *\n" + T07.split("\n", 1)[1])
     [result] = copilot_eval.scored({"T07": reply})
-    assert result.star and result.passed
+    assert result.star and result.correct and not result.passed
 
 
-def test_an_answer_that_doesnt_run_what_was_asked_is_noted() -> None:
+def test_an_answer_that_doesnt_run_what_was_asked_fails() -> None:
     reply = fenced(BY_ID["T01"].reference.replace("rows = run_query(s, query)\n", ""))
     [result] = copilot_eval.scored({"T01": reply})
-    assert result.unrun and result.passed
+    assert result.unrun and result.correct and not result.passed
+
+
+def test_while_answers_run_nothing_is_written_outside_their_folder(tmp_path: Path) -> None:
+    inside, outside = tmp_path / "inside", tmp_path / "outside.txt"
+    inside.mkdir()
+    with copilot_eval.answers_kept_in(inside):
+        (inside / "fine.txt").write_text("kept", encoding="utf-8")
+        with pytest.raises(PermissionError, match="may not write"):
+            outside.write_text("refused", encoding="utf-8")
+    outside.write_text("written once the answers have run", encoding="utf-8")
+    assert (inside / "fine.txt").read_text(encoding="utf-8") == "kept"
 
 
 def test_the_template_reads_back_with_a_heading_and_no_answer_for_each_task() -> None:
     header, replies = copilot_eval.read_answers(copilot_eval.template("held_out"))
-    assert set(header) == {"arm", "model", "files"}
+    assert set(header) == {"date", "arm", "model", "files"}
     assert list(replies) == [task.id for task in TASKS if task.split == "held_out"]
     assert all(copilot_eval.answer_code(reply) is None for reply in replies.values())
 
@@ -114,7 +139,7 @@ def test_the_last_python_block_of_a_reply_is_its_answer() -> None:
 
 
 @pytest.mark.parametrize("task", TASKS, ids=lambda task: task.id)
-def test_a_prompt_gives_the_context_and_says_what_to_assign(task: object) -> None:
+def test_a_prompt_gives_the_context_and_says_what_to_assign(task: Task) -> None:
     text = copilot_eval.prompt(task)
     assert task.request in text
     assert copilot_eval.CONTRACT[copilot_eval.GIVES[task.kind]] in text

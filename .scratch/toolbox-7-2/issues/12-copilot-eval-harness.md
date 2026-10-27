@@ -1,7 +1,7 @@
 # The Copilot evaluation: tasks, an offline scorer, and the baseline
 
 Type: task
-Status: in progress
+Status: resolved
 Blocked by: 11
 Size: L
 
@@ -53,9 +53,34 @@ The baseline, dev split, Haiku, 2026-10-27 (`.scratch/copilot-eval/results.md`):
 
 | arm | passed | builds | correct | invented names |
 |---|---|---|---|---|
-| A0, the request alone | 25% | 30% | 25% | 60% of answers |
-| A1, the README's opening | 35% | 50% | 35% | 20% of answers |
+| A0, the request alone | 20% | 30% | 25% | 60% of answers |
+| A1, the README's opening | 30% | 50% | 35% | 20% of answers |
+
+(Scored again after the code review, whose fixes made a star import and an unrun request fail
+a pass; each arm lost one answer that ignored "run it".)
 
 What fails, before any file: SQL's own words as Toolbox names (`COUNT`, `SUM`, `AND`, `CASE`,
 `alias`, `UPPER`, `PARTITION`), names used without an import, a Statement passed where Hive text
 is wanted, and every task of objectives 05 to 08 and 10.
+
+## Reviews
+
+- Code review of 5649bb7 (2026-10-27):
+  - Standards: fixed, the reading an answer passes before it runs could be escaped through an
+    allowed module's own attributes (`typing.sys`, `pd.read_csv`): it now refuses modules
+    such as sys and os reached as attributes, pandas' readers and writers, and `pd.eval`, and
+    while answers run an audit hook refuses a process, a socket and a file written outside
+    their folder, with Python writing no compiled module meanwhile; each escape is a
+    negative control. Fixed: the hints (`Summary` in place of a dict, `TableLogic`, `Task`),
+    `_said` built on the gallery's `what_happened`, one `_quiet()` and one task filter.
+    Answered: kind and split stay strings, as the standards prefer plain values to classes.
+  - Spec: fixed, a check's Verdict must say what the reference's says, and a comparison must
+    quote the request's Hive, so checking another table or comparing a Statement with itself
+    fails (negative controls); a star import and an unrun "run it" fail a pass, and the report
+    and results show both; `send=` is caught only on run_query and run_execute; the template
+    has a `date:` line. Answered: AS on every calculation is held by the Guard, which fails
+    the build; the proxy agent reads its message and writes its answers only, as the Answer
+    says; coverage of scan_hive, convert, export_lineage, explain, Stacks and the Unchecked
+    pieces stays for the files to teach, as running a Project action inside load, which runs
+    the answers, isn't safe to score.
+- Drift: D287 (the scorer's docstring) fixed in the commit after 5649bb7.

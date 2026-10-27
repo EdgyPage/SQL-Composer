@@ -6,51 +6,56 @@ files, by Copilot in its web chat or by a proxy model in a Claude session, each 
 in an answers file, and this scores the replies against the tasks' reference answers.
 
     python tools/copilot_eval.py prompts --split dev
+    python tools/copilot_eval.py proxy C --split dev --objective 03
     python tools/copilot_eval.py template --split dev > answers.md
     python tools/copilot_eval.py score answers.md --record .scratch/copilot-eval/results.md
 
-An answers file starts with its header lines, `arm: C`, `model: haiku`, `files: <hash>`, then
-holds a `## T07` heading for each task, followed by the reply as it came. The last Python code
-block under a heading is the answer.
+An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
+Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
+came. The last Python code block under a heading is the answer.
 
 Each answer is scored on these checks, in order:
 
 - found: there is a code block;
 - parses: it is Python;
-- real names: every name imported from the Toolbox, and every project.x and admin.x, is a
-  public one; a star import is noted;
 - builds: run as a Conversion's logic cell in a stand-in Project, it gives what the task asks
   for (a Statement s, a Table reference t, a Verdict v, or a logic cell's write()) with no
-  Guard or Load limit refusing it;
+  Guard or Load limit refusing it, so every calculation has its AS, as a Guard sees to;
 - runs: it runs on the Example database;
 - correct: it gives the reference's rows (or, for a write, writes them into the same table
   the same way; for Hive the Example database can't run, the same Hive; for a Table
-  reference, the same name, columns, partitions, Key and location; for a check, a Verdict
-  that holds);
-- style: no opt-out or Unchecked piece the reference doesn't need, and a run_query where the
-  request asks to run it.
+  reference, the same name, columns, partitions, Key and location; for a check, the
+  reference's Verdict, of the Hive the request quotes where it quotes one).
 
-An answer passes when it is correct, invents no name and adds no opt-out the reference
-doesn't need.
+An answer passes when it is correct and also: invents no name (every name it imports from the
+Toolbox, and every project.x and admin.x, is public, and it passes no send=), imports no name
+with *, adds no opt-out or Unchecked piece the reference doesn't need, and calls run_query
+where the request asks to run it.
 
-The answers are a model's code, so each is read first: it may import only the Toolbox, the
-Project's own modules, pandas, datetime, math, typing and collections.abc, and may not call
-open, eval, exec, compile, __import__ or the like, or reach a name that starts with two
-underscores. What passes runs through project.load, as a Conversion's logic cell runs, with
-its run_query and run_execute calls taken out, as load refuses a cell that sends Hive. The
-stand-in Project's Table references are the Example database's tables, and its warehouse.py
-sends to the Example database; today is 2026-09-25, as on the how-to page.
+The answers are a model's code. Each is read first: it may import only the Toolbox, the
+Project's own modules, pandas, datetime, math, re, typing, collections and __future__; may not
+use open, eval, exec, compile, __import__, getattr and the like; and may not reach a name that
+starts with two underscores, a module such as sys or os, or pandas' readers and writers. What
+passes runs through project.load, as a Conversion's logic cell runs, each run_query made a read
+of the Example database and each run_execute None, as load refuses a cell that sends Hive.
+While answers run, an audit hook refuses a process, a socket, and a file written outside the
+stand-in Project's temporary folder. The stand-in Project's Table references are the Example
+database's tables, its warehouse.py sends to the Example database, and today is 2026-09-25, as
+on the how-to page.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import contextlib
 import json
 import math
+import os
 import re
 import sys
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -59,8 +64,8 @@ sys.path[:0] = [str(ROOT)]
 
 import sqlglot_composer  # noqa: E402
 from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E402
-from example_gallery import example_setting  # noqa: E402
-from how_to_page import project_on_the_path  # noqa: E402
+from example_gallery import example_setting, what_happened  # noqa: E402
+from how_to_page import project_on_the_path, times_pinned  # noqa: E402
 from sqlglot_composer import (  # noqa: E402
     Statement,
     Table,
@@ -73,6 +78,7 @@ from sqlglot_composer import (  # noqa: E402
     to_hive,
 )
 from sqlglot_composer import admin as admin_module  # noqa: E402
+from sqlglot_composer.project import TableLogic  # noqa: E402
 
 # The Example database's tables, which the stand-in Project has as references/ops__<name>.py.
 EXAMPLE_TABLES = ("jobs", "job_runs", "run_alerts", "scheduler_runs", "job_events",
@@ -81,10 +87,18 @@ EXAMPLE_TABLES = ("jobs", "job_runs", "run_alerts", "scheduler_runs", "job_event
 ALLOWED_MODULES = frozenset({"sqlglot_composer", "references", "building_blocks", "warehouse",
                              "pandas", "datetime", "math", "re", "typing", "collections",
                              "__future__"})
-# The builtins an answer may not call, which reach outside the answer.
+# The builtins an answer may not use, which reach outside the answer.
 FORBIDDEN_NAMES = frozenset({"open", "eval", "exec", "compile", "__import__", "globals",
                              "locals", "vars", "getattr", "setattr", "delattr", "input",
                              "breakpoint", "exit", "quit", "memoryview"})
+# The attributes an answer may not reach: modules an allowed module holds, and pandas' and
+# Python's ways to run text or reach files.
+FORBIDDEN_ATTRIBUTES = frozenset({"sys", "os", "subprocess", "socket", "importlib", "builtins",
+                                  "shutil", "pathlib", "Path", "io", "ctypes", "system",
+                                  "popen", "eval", "exec", "query_engine", "to_csv",
+                                  "to_pickle", "to_parquet", "to_excel", "to_sql", "to_json",
+                                  "to_feather", "to_hdf", "to_html", "to_xml", "to_clipboard",
+                                  "to_stata", "to_orc", "to_latex"})
 # The keywords a user passes to tell a Guard or a Load limit they have checked what it refuses.
 OPT_OUTS = frozenset({"reads_all_partitions", "many_matches", "keeps_only_matches", "adds_up",
                       "sorts_everything", "unproven_key", "returns_all_rows"})
@@ -93,6 +107,10 @@ UNCHECKED = frozenset({"unchecked_hive", "unchecked_column", "unchecked_conditio
 SENDERS = frozenset({"run_query", "run_execute"})
 PUBLIC = frozenset(sqlglot_composer.__all__) | {"project", "admin"}
 MODULE_NAMES = {"project": frozenset(project.__all__), "admin": frozenset(admin_module.__all__)}
+# What an answer may not do while it runs, by the audit event Python raises for it.
+REFUSED_EVENTS = ("os.system", "os.exec", "os.spawn", "os.posix_spawn", "os.startfile",
+                  "os.fork", "subprocess.Popen", "socket.", "urllib.Request", "ctypes.",
+                  "webbrowser.open")
 
 WAREHOUSE = '''"""warehouse - the stand-in Project's two calls, both to the Example database."""
 
@@ -146,8 +164,10 @@ def prompt(task: Task) -> str:
     return "\n".join(lines) + f"\n\n{task.request}\n\n{CONTRACT[GIVES[task.kind]]}"
 
 
-def tasks_of(split: str) -> list[Task]:
-    return [task for task in TASKS if split == "all" or task.split == split]
+def tasks_of(split: str, objective: str | None = None) -> list[Task]:
+    """The tasks of a split, or of every split, and of one objective where one is named."""
+    return [task for task in TASKS if split in ("all", task.split)
+            and objective in (None, task.objective)]
 
 
 # The most text a user loads into a chat before asking, in characters, spaces included.
@@ -210,7 +230,8 @@ def proxy_message(arm: str, tasks: list[Task]) -> str:
 
 def template(split: str) -> str:
     """An answers file to fill in: its header, then a heading and an empty block per task."""
-    head = "arm: <A0, A1, C or R>\nmodel: <the model>\nfiles: <the Copilot files' hash>\n"
+    head = ("date: <YYYY-MM-DD>\narm: <A0, A1, C or R>\nmodel: <the model>\n"
+            "files: <the Copilot files' hash, or none>\n")
     return head + "".join(f"\n## {task.id}\n\n```python\n```\n" for task in tasks_of(split))
 
 
@@ -232,7 +253,7 @@ def answer_code(reply: str) -> str | None:
     return python[-1] if python and python[-1].strip() else None
 
 
-# --- Scoring one answer --------------------------------------------------------------------
+# --- Reading an answer before it runs ------------------------------------------------------
 
 
 @dataclass
@@ -253,7 +274,15 @@ class Score:
 
     @property
     def passed(self) -> bool:
-        return self.correct and not self.invented and not self.needless
+        return (self.correct and not self.invented and not self.needless and not self.star
+                and not self.unrun)
+
+
+def _called(node: ast.Call) -> str:
+    """The name a call is made by: f for f(...) and m.f(...), or nothing."""
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    return node.func.attr if isinstance(node.func, ast.Attribute) else ""
 
 
 def _toolbox_imports(tree: ast.Module) -> tuple[list[str], bool, dict[str, str]]:
@@ -282,7 +311,8 @@ def invented_names(tree: ast.Module) -> tuple[list[str], bool]:
     """Each Toolbox name an answer uses that isn't public, and whether it imports with *."""
     invented, star, bound = _toolbox_imports(tree)
     for node in ast.walk(tree):
-        if isinstance(node, ast.keyword) and node.arg == "send":
+        if isinstance(node, ast.Call) and _called(node) in SENDERS and any(
+                keyword.arg == "send" for keyword in node.keywords):
             invented.append("send=")  # 7.0 replaced it with query and execute
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
             module = bound.get(node.value.id)
@@ -292,58 +322,40 @@ def invented_names(tree: ast.Module) -> tuple[list[str], bool]:
     return sorted(set(invented)), star
 
 
+def _imported_from_outside(node: ast.AST) -> str | None:
+    """The first module an import statement brings in from outside the allowed ones."""
+    if isinstance(node, ast.Import):
+        roots = [alias.name.split(".")[0] for alias in node.names]
+    elif isinstance(node, ast.ImportFrom):
+        roots = [(node.module or "").split(".")[0]] if not node.level else ["."]
+    else:
+        return None
+    return next((root for root in roots if root not in ALLOWED_MODULES), None)
+
+
 def unsafe(tree: ast.Module) -> str | None:
     """What makes an answer unsafe to run, or None: an import from outside the allowed
-    modules, a forbidden builtin, or a name with two underscores in front."""
+    modules, a forbidden builtin, a forbidden attribute, a pandas reader, or a name with two
+    underscores in front."""
     for node in ast.walk(tree):
-        if isinstance(node, ast.Import):
-            roots = [alias.name.split(".")[0] for alias in node.names]
-        elif isinstance(node, ast.ImportFrom):
-            roots = [(node.module or "").split(".")[0]] if not node.level else ["."]
-        else:
-            roots = []
-        outside = [root for root in roots if root not in ALLOWED_MODULES]
+        outside = _imported_from_outside(node)
         if outside:
-            return f"it imports {outside[0]}, which an answer may not"
-        if isinstance(node, ast.Name) and node.id in FORBIDDEN_NAMES:
-            return f"it uses {node.id}, which an answer may not"
+            return f"it imports {outside}, which an answer may not"
         name = node.attr if isinstance(node, ast.Attribute) else (
             node.id if isinstance(node, ast.Name) else "")
+        if isinstance(node, ast.Name) and name in FORBIDDEN_NAMES:
+            return f"it uses {name}, which an answer may not"
+        if isinstance(node, ast.Attribute) and (name in FORBIDDEN_ATTRIBUTES
+                                                or name.startswith("read_")):
+            return f"it reaches .{name}, which an answer may not"
         if name.startswith("__") and name != "__name__":
             return f"it reaches {name}, which an answer may not"
     return None
 
 
-class _SendersOut(ast.NodeTransformer):
-    """Each call to run_query made a call to _scored_read, which reads the Example database
-    the same way, and each run_execute None: load refuses a logic cell that sends Hive, and
-    an answer's code after a read, such as df.sort_values(...), still needs the rows."""
-
-    def visit_Call(self, node: ast.Call) -> ast.AST:
-        self.generic_visit(node)
-        called = node.func.id if isinstance(node.func, ast.Name) else (
-            node.func.attr if isinstance(node.func, ast.Attribute) else "")
-        if called == "run_query":
-            return ast.copy_location(ast.Call(ast.Name("_scored_read", ast.Load()), node.args,
-                                              node.keywords), node)
-        return ast.copy_location(ast.Constant(None), node) if called in SENDERS else node
-
-
-# What a run_query in an answer becomes: the same read, on the Example database.
-_SCORED_READ = '''from sqlglot_composer import example_database as _scored_database
-from sqlglot_composer import to_hive as _scored_hive
-
-
-def _scored_read(statement, *_, **__):
-    return _scored_database.query(_scored_hive(statement))
-'''
-
-
 def calls(tree: ast.Module) -> set[str]:
     """The name of every function an answer calls."""
-    return {node.func.id if isinstance(node.func, ast.Name) else node.func.attr
-            for node in ast.walk(tree) if isinstance(node, ast.Call)
-            and isinstance(node.func, (ast.Name, ast.Attribute))}
+    return {_called(node) for node in ast.walk(tree) if isinstance(node, ast.Call)}
 
 
 def opt_outs(tree: ast.Module) -> set[str]:
@@ -353,8 +365,110 @@ def opt_outs(tree: ast.Module) -> set[str]:
     return passed | (calls(tree) & UNCHECKED)
 
 
-def loaded(code: str, name: str, gives: str) -> tuple[object, object]:
-    """What an answer gives, run as a Conversion's logic cell in the stand-in Project."""
+def quotes(tree: ast.Module, text: str) -> bool:
+    """Whether an answer holds `text` as a string, its spacing aside."""
+    wanted = " ".join(text.split())
+    return any(isinstance(node, ast.Constant) and isinstance(node.value, str)
+               and " ".join(node.value.split()) == wanted for node in ast.walk(tree))
+
+
+# --- Running an answer ---------------------------------------------------------------------
+
+
+class _SendersOut(ast.NodeTransformer):
+    """Each call to run_query made a call to _scored_read, which reads the Example database
+    the same way, and each run_execute None: load refuses a logic cell that sends Hive, and
+    an answer's code after a read, such as df.sort_values(...), still needs the rows."""
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        self.generic_visit(node)
+        if _called(node) == "run_query":
+            return ast.copy_location(ast.Call(ast.Name("_scored_read", ast.Load()), node.args,
+                                              node.keywords), node)
+        return ast.copy_location(ast.Constant(None), node) if _called(node) in SENDERS else node
+
+
+# What a run_query in an answer becomes: the same read, on the Example database.
+_SCORED_READ = '''import pandas as _scored_pandas
+
+from sqlglot_composer import Statement as _ScoredStatement
+from sqlglot_composer import example_database as _scored_database
+from sqlglot_composer import to_hive as _scored_hive
+
+
+def _scored_read(statement: _ScoredStatement, *_: object, **__: object) -> _scored_pandas.DataFrame:
+    return _scored_database.query(_scored_hive(statement))
+'''
+
+# The temporary folder answers run in, while they run; empty otherwise.
+_RUNNING_IN: list[str] = []
+
+
+def _writes(event: str, args: tuple[object, ...]) -> str | None:
+    """The path an audit event writes, or None for one that only reads."""
+    if event == "open" and len(args) >= 3:
+        path, mode, flags = args[:3]
+        writing = (any(letter in mode for letter in "wax+") if isinstance(mode, str)
+                   else isinstance(flags, int) and bool(
+                       flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT)))
+        return os.fsdecode(path) if writing and isinstance(path, (str, bytes)) else None
+    if event in ("os.remove", "os.rename", "os.rmdir", "os.mkdir", "shutil.rmtree"):
+        path = args[0] if args else None
+        return os.fsdecode(path) if isinstance(path, (str, bytes)) else None
+    return None
+
+
+def _refuse_outside(event: str, args: tuple[object, ...]) -> None:
+    """The audit hook: while answers run, refuse a process, a socket, and a file written
+    outside their temporary folder."""
+    if not _RUNNING_IN:
+        return
+    if event.startswith(REFUSED_EVENTS):
+        raise PermissionError(f"an answer may not do {event}")
+    path = _writes(event, args)
+    if path is not None:
+        folder, written = _RUNNING_IN[0], os.path.abspath(path)
+        try:
+            inside = os.path.commonpath([folder, written]) == folder
+        except ValueError:  # on another drive
+            inside = False
+        if not inside:
+            raise PermissionError(f"an answer may not write {written}")
+
+
+_HOOKED: list[bool] = []
+
+
+@contextlib.contextmanager
+def answers_kept_in(folder: Path) -> Iterator[None]:
+    """While it lasts, the audit hook refuses what an answer may not do outside `folder`.
+    Python keeps an audit hook for good, so it is added once and does nothing at other
+    times. Python writes no compiled module meanwhile, which the hook would refuse."""
+    if not _HOOKED:
+        sys.addaudithook(_refuse_outside)
+        _HOOKED.append(True)
+    compiling = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    _RUNNING_IN.append(os.path.abspath(folder))
+    try:
+        yield
+    finally:
+        _RUNNING_IN.clear()
+        sys.dont_write_bytecode = compiling
+
+
+@contextlib.contextmanager
+def _quiet() -> Iterator[None]:
+    """Warnings, such as a RepeatedRowsWarning, left out of the score: a Guard that refuses
+    raises, and a warning only advises."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        yield
+
+
+def loaded(code: str, name: str, gives: str) -> tuple[TableLogic, object]:
+    """An answer's logic, and what it gives, run as a Conversion's logic cell in the stand-in
+    Project. What it gives is a model's, so it may be anything."""
     tree = _SendersOut().visit(ast.parse(code))
     future = [node for node in tree.body
               if isinstance(node, ast.ImportFrom) and node.module == "__future__"]
@@ -369,6 +483,9 @@ def loaded(code: str, name: str, gives: str) -> tuple[object, object]:
     (folder / f"{name}.ipynb").write_text(json.dumps(notebook), encoding="utf-8")
     logic = project.load(name)
     return logic, logic.converted()
+
+
+# --- Checking what an answer gives ---------------------------------------------------------
 
 
 def _value(value: object) -> object:
@@ -412,7 +529,8 @@ def _same_table(answer: object, reference: Table) -> bool:
         getattr(answer, part) == getattr(reference, part) for part in parts)
 
 
-def correct(answer: object, logic: object, reference: object, task: Task) -> bool:
+def correct(answer: object, logic: TableLogic, reference: Statement | Table | Verdict,
+            task: Task) -> bool:
     """Whether an answer gives what the reference gives, by the task's kind."""
     if task.kind in ("read", "convert", "fix"):
         return isinstance(answer, Statement) and rows_of(answer) == rows_of(reference)
@@ -427,7 +545,7 @@ def correct(answer: object, logic: object, reference: object, task: Task) -> boo
                 and to_hive(made).startswith("CREATE"))
     if task.kind == "table":
         return _same_table(answer, reference)
-    return isinstance(answer, Verdict) and bool(answer)
+    return isinstance(answer, Verdict) and bool(answer) and repr(answer) == repr(reference)
 
 
 def gives_the_kind(answer: object, task: Task) -> bool:
@@ -436,30 +554,42 @@ def gives_the_kind(answer: object, task: Task) -> bool:
     return isinstance(answer, kind)
 
 
-def score(task: Task, reply: str, reference: object) -> Score:
-    """One answer, scored check by check against the reference's result."""
-    result = Score(task.id)
-    code = answer_code(reply)
-    if code is None:
-        result.note = "no code block"
-        return result
+def _said(error: Exception) -> str:
+    """An error as a score's note: its kind, and what happened, at most 200 characters."""
+    return f"{type(error).__name__}: {what_happened(error)}"[:200]
+
+
+def _read(task: Task, code: str, result: Score) -> ast.Module | None:
+    """An answer's code read, with the checks reading gives noted on `result`; None when it
+    doesn't parse."""
     result.found = True
     try:
         tree = ast.parse(code)
     except SyntaxError as error:
         result.note = f"doesn't parse: {error.msg}"
-        return result
+        return None
     result.parses = True
     result.invented, result.star = invented_names(tree)
     result.needless = sorted(opt_outs(tree) - opt_outs(ast.parse(task.reference)))
     result.unrun = task.runs_it and "run_query" not in calls(tree)
+    return tree
+
+
+def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Score:
+    """One answer, scored check by check against the reference's result."""
+    result = Score(task.id)
+    code = answer_code(reply)
+    tree = _read(task, code, result) if code is not None else None
+    if code is None:
+        result.note = "no code block"
+    if tree is None:
+        return result
     danger = unsafe(tree)
     if danger:
         result.note = f"not run: {danger}"
         return result
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
+        with _quiet():
             logic, answer = loaded(code, task.id.lower(), GIVES[task.kind])
     except Exception as error:  # a refusal, or the answer's own mistake
         result.note = f"doesn't build: {_said(error)}"
@@ -469,9 +599,9 @@ def score(task: Task, reply: str, reference: object) -> Score:
         result.note = f"gives {type(answer).__name__}, not what the task asks for"
         return result
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            result.correct = correct(answer, logic, reference, task)
+        with _quiet():
+            result.correct = correct(answer, logic, reference, task) and (
+                task.quotes is None or quotes(tree, task.quotes))
         result.runs = True
     except Exception as error:
         result.note = f"doesn't run: {_said(error)}"
@@ -479,13 +609,6 @@ def score(task: Task, reply: str, reference: object) -> Score:
     if not result.correct:
         result.note = "runs, but gives something else"
     return result
-
-
-def _said(error: Exception) -> str:
-    """The first line of an error, or the What happened line of a four-part message."""
-    found = re.search(r"What happened:\s*(.+)", str(error))
-    said = found.group(1) if found else (str(error).strip().splitlines() or [""])[0]
-    return f"{type(error).__name__}: {said.strip()}"[:200]
 
 
 # --- The stand-in Project, and scoring a whole file ----------------------------------------
@@ -520,15 +643,14 @@ def scored_pairs(pairs: list[tuple[str, str]]) -> list[Score]:
     """Each (task id, reply) scored, in one fresh stand-in Project, against its task's
     reference; a task may come more than once."""
     results, references = [], {}
-    with example_setting():
+    with example_setting(), times_pinned():
         folder = Path.cwd()
-        with project_on_the_path(folder):
+        with project_on_the_path(folder), answers_kept_in(folder):
             stand_in(folder)
             for task_id, reply in pairs:
                 task = BY_ID[task_id]
                 if task_id not in references:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
+                    with _quiet():
                         logic, reference = loaded(task.reference,
                                                   f"reference_{task_id.lower()}",
                                                   GIVES[task.kind])
@@ -540,8 +662,26 @@ def scored_pairs(pairs: list[tuple[str, str]]) -> list[Score]:
 CHECKS = ("found", "parses", "builds", "runs", "correct")
 
 
-def summary(results: list[Score]) -> dict[str, object]:
-    """The pass rate, each check's rate, and the pass rate of each objective, in percent."""
+@dataclass
+class Summary:
+    """A run's scores, in percent of its answers, but for the counts."""
+
+    answers: int
+    passed: int
+    found: int
+    parses: int
+    builds: int
+    runs: int
+    correct: int
+    invented: int  # percent of answers with an invented name
+    needless: int  # how many opt-outs or Unchecked pieces no reference needed
+    star: int  # how many answers import with *
+    unrun: int  # how many answers don't run what the request asked to run
+    objectives: dict[str, int]  # the pass rate of each objective
+
+
+def summary(results: list[Score]) -> Summary:
+    """A run's scores: its pass rate, each check's rate, and each objective's pass rate."""
     def rate(values: list[bool]) -> int:
         return round(100 * sum(values) / len(values)) if values else 0
 
@@ -550,16 +690,13 @@ def summary(results: list[Score]) -> dict[str, object]:
         mine = [one for one in results if BY_ID[one.task].objective == objective]
         if mine:
             objectives[objective] = rate([one.passed for one in mine])
-    return {
-        "answers": len(results),
-        "passed": rate([one.passed for one in results]),
+    return Summary(
+        answers=len(results), passed=rate([one.passed for one in results]),
         **{check: rate([getattr(one, check) for one in results]) for check in CHECKS},
-        "invented": rate([bool(one.invented) for one in results]),
-        "needless": sum(len(one.needless) for one in results),
-        "star": sum(one.star for one in results),
-        "unrun": sum(one.unrun for one in results),
-        "objectives": objectives,
-    }
+        invented=rate([bool(one.invented) for one in results]),
+        needless=sum(len(one.needless) for one in results),
+        star=sum(one.star for one in results), unrun=sum(one.unrun for one in results),
+        objectives=objectives)
 
 
 def report(header: dict[str, str], results: list[Score]) -> str:
@@ -568,51 +705,52 @@ def report(header: dict[str, str], results: list[Score]) -> str:
              + " ".join(check for check in CHECKS if getattr(one, check))
              + (f"  invented: {', '.join(one.invented)}" if one.invented else "")
              + (f"  needless: {', '.join(one.needless)}" if one.needless else "")
+             + ("  imports *" if one.star else "") + ("  doesn't run it" if one.unrun else "")
              + (f"  ({one.note})" if one.note else "") for one in results]
     total = summary(results)
     lines.append(f"\n{header.get('arm', '?')} on {header.get('model', '?')}: "
-                 f"{total['passed']}% passed of {total['answers']}; " + ", ".join(
-                     f"{check} {total[check]}%" for check in CHECKS)
-                 + f"; invented names in {total['invented']}%; needless opt-outs "
-                 f"{total['needless']}; per objective {total['objectives']}")
+                 f"{total.passed}% passed of {total.answers}; " + ", ".join(
+                     f"{check} {getattr(total, check)}%" for check in CHECKS)
+                 + f"; invented names in {total.invented}%; needless opt-outs "
+                 f"{total.needless}; star imports {total.star}; not run {total.unrun}; "
+                 f"per objective {total.objectives}")
     return "\n".join(lines)
 
 
 def results_row(header: dict[str, str], split: str, results: list[Score]) -> str:
     """One row of .scratch/copilot-eval/results.md for a scored answers file."""
     total = summary(results)
-    objectives = " ".join(f"{name}:{rate}" for name, rate in total["objectives"].items())
+    objectives = " ".join(f"{name}:{rate}" for name, rate in total.objectives.items())
     return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
             f"{header.get('model', '?')} | {header.get('arm', '?')} | {split} | "
-            f"{total['passed']} | " + " | ".join(str(total[check]) for check in CHECKS)
-            + f" | {total['invented']} | {total['needless']} | {objectives} |")
+            f"{total.passed} | " + " | ".join(str(getattr(total, check)) for check in CHECKS)
+            + f" | {total.invented} | {total.needless} | {total.star} | {total.unrun} | "
+            f"{objectives} |")
+
+
+def _with_task_filters(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    parser.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
+    parser.add_argument("--objective", choices=sorted(OBJECTIVES))
+    return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("prompts", "template"):
-        command = commands.add_parser(name)
-        command.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
-        command.add_argument("--objective", choices=sorted(OBJECTIVES))
-    proxy = commands.add_parser("proxy")
-    proxy.add_argument("arm", choices=sorted(ARMS))
-    proxy.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
-    proxy.add_argument("--objective", choices=sorted(OBJECTIVES))
+    _with_task_filters(commands.add_parser("prompts"))
+    _with_task_filters(commands.add_parser("template"))
+    _with_task_filters(commands.add_parser("proxy")).add_argument("arm", choices=sorted(ARMS))
     scoring = commands.add_parser("score")
     scoring.add_argument("answers", type=Path)
     scoring.add_argument("--record", type=Path)
     given = parser.parse_args(argv)
     if given.command == "prompts":
-        tasks = [task for task in tasks_of(given.split)
-                 if given.objective in (None, task.objective)]
+        tasks = tasks_of(given.split, given.objective)
         print("\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks))
     elif given.command == "template":
         print(template(given.split), end="")
     elif given.command == "proxy":
-        tasks = [task for task in tasks_of(given.split)
-                 if given.objective in (None, task.objective)]
-        print(proxy_message(given.arm, tasks))
+        print(proxy_message(given.arm, tasks_of(given.split, given.objective)))
     else:
         header, replies = read_answers(given.answers.read_text(encoding="utf-8"))
         results = scored(replies)

@@ -22,7 +22,8 @@ A task's kind says what its answer gives and how it is checked:
   reference's rows;
 - table: a Table reference `t`, with the reference's name, columns, partitions, Key and
   location;
-- verdict: a Verdict `v`, from a check, that holds.
+- verdict: a Verdict `v`, from a check, that holds, and says what the reference's says, of the
+  Hive the request quotes where it quotes one.
 """
 
 from __future__ import annotations
@@ -75,6 +76,7 @@ class Task:
     trap: bool = False
     runs_it: bool = False  # the request asks to run it with query
     partition: dict[str, str] | None = None  # for comparing a write's rows
+    quotes: str | None = None  # Hive the request quotes, which the answer must check
 
 
 TASKS = (
@@ -443,7 +445,7 @@ HIVE = "SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'"
 s0 = statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
                WHERE(equals(job_runs.dt, "2026-09-24")))
 v = compare_with_original(s0, HIVE, query=query, partition={"dt": "2026-09-24"})
-''', tables=("job_runs",)),
+''', tables=("job_runs",), quotes="SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'"),
     Task("T23", "08", "dev",
          "My team's Hive was\n\n"
          "select r.job_id, r.job_name from ops.jobs r -- every job\n\n"
@@ -454,7 +456,7 @@ from references.ops__jobs import jobs
 
 s0 = statement(SELECT(jobs.job_id, jobs.job_name), FROM(jobs))
 v = compare_hive(s0, "select r.job_id, r.job_name from ops.jobs r -- every job")
-''', tables=("jobs",)),
+''', tables=("jobs",), quotes="select r.job_id, r.job_name from ops.jobs r -- every job"),
     Task("T24", "08", "held_out",
          "Check, with my query, that ops.job_owners's Key holds from 2026-09-20 to 2026-09-24.",
          "verdict", '''from sqlglot_composer import between, check_key

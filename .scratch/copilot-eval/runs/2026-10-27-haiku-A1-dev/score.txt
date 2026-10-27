@@ -1,4 +1,4 @@
-T01  pass  found parses builds runs correct
+T01  FAIL  found parses builds runs correct  doesn't run it
 T02  pass  found parses builds runs correct
 T04  pass  found parses builds runs correct
 T05  FAIL  found parses  (doesn't build: NameError: name 'COUNT' is not defined)
@@ -19,4 +19,4 @@ T26  pass  found parses builds runs correct
 T28  FAIL  found parses builds runs  (runs, but gives something else)
 T29  FAIL  found parses  (doesn't build: NameError: name 'UPPER' is not defined)
 
-A1 on haiku: 35% passed of 20; found 100%, parses 100%, builds 50%, runs 50%, correct 35%; invented names in 20%; needless opt-outs 0; per objective {'01': 100, '02': 50, '03': 50, '04': 50, '05': 0, '06': 0, '07': 0, '08': 0, '09': 100, '10': 0}
+A1 on haiku: 30% passed of 20; found 100%, parses 100%, builds 50%, runs 50%, correct 35%; invented names in 20%; needless opt-outs 0; star imports 0; not run 1; per objective {'01': 50, '02': 50, '03': 50, '04': 50, '05': 0, '06': 0, '07': 0, '08': 0, '09': 100, '10': 0}
