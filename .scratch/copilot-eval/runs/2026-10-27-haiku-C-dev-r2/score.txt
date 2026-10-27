@@ -1,0 +1,21 @@
+T01  pass  found parses builds runs correct
+T02  pass  found parses builds runs correct
+T04  pass  found parses builds runs correct
+T05  pass  found parses builds runs correct
+T07  pass  found parses builds runs correct
+T08  pass  found parses builds runs correct
+T10  pass  found parses builds runs correct
+T11  pass  found parses builds runs correct
+T13  pass  found parses builds runs correct
+T14  pass  found parses builds runs correct
+T16  pass  found parses builds runs correct
+T17  pass  found parses builds runs correct
+T19  pass  found parses builds runs correct
+T20  pass  found parses builds runs correct
+T22  pass  found parses builds runs correct
+T23  pass  found parses builds runs correct
+T25  pass  found parses builds runs correct
+T26  pass  found parses builds runs correct
+T28  pass  found parses builds runs correct
+T29  pass  found parses builds runs correct
+C on haiku: 100% passed of 20; found 100%, parses 100%, builds 100%, runs 100%, correct 100%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'01': 100, '02': 100, '03': 100, '04': 100, '05': 100, '06': 

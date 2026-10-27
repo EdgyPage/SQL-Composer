@@ -1,0 +1,13 @@
+ops.job_owners: the key (job_id, dt) holds where job_owners.dt BETWEEN '2026-09-20' AND '2026-09-24'.
+T03  pass  found parses builds runs correct
+T06  pass  found parses builds runs correct
+T09  pass  found parses builds runs correct
+T12  pass  found parses builds runs correct
+T15  pass  found parses builds runs correct
+T18  pass  found parses builds runs correct
+T21  pass  found parses builds runs correct
+T24  pass  found parses builds runs correct
+T27  pass  found parses builds runs correct
+T30  pass  found parses builds runs correct
+
+C on haiku: 100% passed of 10; found 100%, parses 100%, builds 100%, runs 100%, correct 100%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'01': 100, '02': 100, '03': 100, '04': 100, '05': 100, '06': 100, '07': 100, '08': 100, '09': 100, '10': 100}

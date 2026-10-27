@@ -1,0 +1,197 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+Before asking anything, the user pasted this as their first message:
+
+<<<
+# Copilot files for sqlglot Composer 7.2: start here
+
+sqlglot Composer 7.2 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
+wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
+you can ask it in plain words.
+
+## How to use them
+
+1. Open a new chat in Copilot.
+2. Paste the one file below that fits what you want to do, as your first message, and send
+   it. If a paste is cut short, attach the file instead.
+3. Then ask. Say which tables to read: paste each one's Table reference, its file in your
+   Project's references/ folder, or say its import line and columns, such as:
+   `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint,
+   job_id bigint, status string, dt string; partitioned by dt; Key run_id.
+4. Run what Copilot gives in your notebook. When the Toolbox refuses it, start a new chat
+   with file 09, paste the code and the whole message, and ask for the fix.
+5. For something else, start a new chat with that file. A chat holds one file at a time.
+
+## Which file
+
+- `01_imports_and_project.txt`: start a Project, import the Toolbox, your Table
+  references and warehouse.py's query and execute, and run a Statement.
+- `02_table_references.txt`: describe a table: add its Table reference, or write one by
+  hand for a Saved table, with its columns, partitions and Key; check its Key.
+- `03_build_a_statement.txt`: read rows: pick columns, filter, count, add up, group, sort,
+  and build in steps with Derived tables.
+- `04_joins.txt`: combine tables with JOIN, LEFT_JOIN and the others.
+- `05_windows_and_subtotals.txt`: a rank or row number in each group, the latest row or top N
+  of each group, the row before, running totals; subtotals; stacking Statements.
+- `06_save_a_table.txt`: write a Saved table: its Table notebook's logic cell, with
+  create(), rows(), preview() and write().
+- `07_convert_hive.txt`: turn Hive someone else wrote into Toolbox code.
+- `08_check_and_compare.txt`: compare a Statement with the Hive it replaces, check a Key, see
+  what is left to do in the Project, follow lineage.
+- `09_fix_a_refusal.txt`: fix code the Toolbox refused.
+- `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
+  Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
+
+## Fitting Copilot
+
+Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
+file fits. Edit a copy if you like, then count it from the download's top folder:
+`python copilot/count_characters.py my_copy.txt` says how many characters it holds and
+whether it fits.
+
+>>>
+
+For each task below, reply with its `## T..` heading and the one file name you would load for it, such as 03_build_a_statement.txt, and nothing else.
+
+## T03
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__run_alerts import run_alerts` gives ops.run_alerts: alert_id bigint, run_id bigint, severity string, dt string; partitioned by dt; Key alert_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Count the alerts in ops.run_alerts on 2026-09-24 for each severity, as columns severity and alerts, and run it with my query.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T06
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Write the Table reference for a new Saved table, mart.team_alerts: columns team string, alerts bigint, high_share double and dt string; partitioned by dt; its Key is team and dt; stored at /data/your_team/mart.db/team_alerts. high_share is a share of a day's alerts, so it must never be added up.
+
+Answer with one Python code block that assigns the Table reference to `t`.
+
+## T09
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+The jobs whose runs from 2026-09-23 to 2026-09-24 took more than 15 minutes on average: job_id and avg_minutes.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T12
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__run_alerts import run_alerts` gives ops.run_alerts: alert_id bigint, run_id bigint, severity string, dt string; partitioned by dt; Key alert_id.
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+The high-severity alerts in ops.run_alerts on 2026-09-24, each with the name of the job whose run raised it (ops.job_runs gives the run's job, ops.jobs the job's name): alert_id and job_name.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T15
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+For each run in ops.job_runs from 2026-09-23 to 2026-09-24, the minutes of the same job's run before it, by run_id: run_id, job_id, duration_mins and minutes_before.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T18
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- references/mart__job_day_runs.py holds:
+
+from sqlglot_composer import Table
+
+job_day_runs = Table(
+    "mart.job_day_runs",
+    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    partitioned_by=["dt"],
+    key=["job_id", "dt"],
+    location="/data/your_team/mart.db/job_day_runs",
+)
+
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Add each job's number of runs in ops.job_runs on 2026-09-23 to my Saved table mart.job_day_runs (from references.mart__job_day_runs import job_day_runs), keeping what it already holds.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T21
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Convert this Hive into Toolbox code:
+
+SELECT j.job_name,
+       CASE j.team WHEN 'data' THEN 'Data' WHEN 'web' THEN 'Web' ELSE 'Other' END AS team_name,
+       r.run_id
+FROM ops.jobs j
+LEFT JOIN ops.job_runs r ON r.job_id = j.job_id AND r.dt = '2026-09-24'
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T24
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_owners import job_owners` gives ops.job_owners: job_id bigint, team string, owner string, dt string; partitioned by dt; Key job_id, dt.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Check, with my query, that ops.job_owners's Key holds from 2026-09-20 to 2026-09-24.
+
+Answer with one Python code block that assigns the check's result to `v`.
+
+## T27
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+I want every job with its runs on 2026-09-24, a job with none kept once, but
+
+s = statement(SELECT(jobs.job_id, job_runs.run_id), FROM(jobs),
+              LEFT_JOIN(job_runs, ON=equals(job_runs.job_id, jobs.job_id)),
+              WHERE(equals(job_runs.dt, "2026-09-24")))
+
+stops with:
+
+GuardRefused:
+  What happened:  WHERE has job_runs.dt = '2026-09-24', a condition on job_runs, which LEFT_JOIN brought in.
+  Usual fix:      Move the condition into LEFT_JOIN(job_runs, ON=...), next to the join condition, so it only decides which rows match.
+
+Fix it.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T30
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Label each run in ops.job_runs on 2026-09-24: "failed" when its status is FAILED, else "slow" when it took more than 25 minutes, else "ok": run_id and label.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.

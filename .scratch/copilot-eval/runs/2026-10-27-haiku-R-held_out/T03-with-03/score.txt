@@ -1,0 +1,3 @@
+T03  pass  found parses builds runs correct
+
+R on haiku: 100% passed of 1; found 100%, parses 100%, builds 100%, runs 100%, correct 100%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'01': 100}
