@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-26 17:35 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-27 11:25 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-26 17:35.
+This is version 7.2, exported 2026-10-27 11:25.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -421,6 +421,18 @@ And two more, for files beside the notebooks:
 - `building_block`: a Derived table several notebooks read, which `new_block` writes into
   `building_blocks`, to fill in.
 
+## Have Copilot write it
+
+`copilot/`, in the download's top folder beside `sqlglot_composer`, holds the Copilot files:
+plain text that teaches Microsoft Copilot the Toolbox, so
+you can ask it in plain words for a Statement, a Table reference, a Table notebook's logic
+cell or a Conversion. Open a new chat, paste the one file for what you want to do as your
+first message, then ask, giving the import line and columns of each table to read.
+`copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
+takes at once, spaces and line breaks included; `copilot/count_characters.py` counts a
+copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
+refuses what would give a wrong number.
+
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as
@@ -476,7 +488,7 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-26 17:35'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-27 11:25'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 

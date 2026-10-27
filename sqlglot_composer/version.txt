@@ -1,5 +1,5 @@
 sqlglot Composer 7.2
-exported 2026-10-26 17:35 from dev commit fc788ce6b555fa46e97435f47060947f24757202
+exported 2026-10-27 11:25 from dev commit 21d1345258acaf3fbac9e5166184cb6da36a49da
 # Each file of this folder, and a code worked out from its contents (its git hash),
 # so the import can warn about a file that differs. Written by the export: don't
 # edit it.
@@ -15,7 +15,7 @@ accfd8a5244a178d263055343d78cc9c32c6a923  conditions.py
 96a65e248f5b94986d0d8672e376ecc97592d573  engine.py
 07a30c1192f1ebd5560f8ab9a7b755bbf1a60402  example_database.py
 032aea6ffec0ad50aba61a83415452cf3685e89e  examples.html
-6e8e92ae32f151066e330d8ee424b99cc5ba8431  how_to.html
+2fbcd32e0ffebe5b222fabb3a96e431618c0b388  how_to.html
 5893d9b8a6b099e9538f061ebfb6fe1942a4c08d  joins.py
 f726916cae7b3258ef3d70196d68119073b58920  keys.py
 371289240f350cef5b9f88f2d98b68a9375e0688  kinds.py
