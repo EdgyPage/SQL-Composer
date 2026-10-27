@@ -108,6 +108,11 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
 - **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
   `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
   days, gave one Statement's rows in place of both; your warehouse was never affected.
+- **The Copilot files, `copilot/`: have Microsoft Copilot write Toolbox code.** Eleven plain
+  text files, each under the 8,000 characters Copilot takes at once: one per objective,
+  such as building a Statement, joins, saving a table, converting Hive or fixing a refusal,
+  and `00_start_here.txt`, which says which to load. Paste one as a chat's first message, then
+  ask. `copilot/count_characters.py` counts a copy you edit, spaces and line breaks included.
 - **sqlglot 30.19.0 or newer, below 31.** The Example database already needed 30.19.0 or
   newer to run queries; now the whole Toolbox does. The Hive it writes is the same as 7.1
   wrote on those versions.
