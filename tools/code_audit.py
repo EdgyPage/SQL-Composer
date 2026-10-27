@@ -115,6 +115,10 @@ AUDITED = (
     Audited("tests/offline_trap.py", "hook", "sys.addaudithook",
             "the network trap every test run installs, which refuses a connection off this "
             "computer"),
+    Audited("tools/copilot_eval.py", "hook", "sys.addaudithook",
+            "the Copilot scorer's guard, which refuses a process, a socket or a file written "
+            "outside its temporary folder while a model's answers run; it only blocks "
+            "(the user's OK, 2026-10-27)"),
 )
 
 

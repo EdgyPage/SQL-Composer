@@ -11,9 +11,9 @@ computer: you copy text into the browser and the replies back by hand.
     .venv/Scripts/python tools/copilot_eval.py template --split held_out > answers-A1.md
     .venv/Scripts/python tools/copilot_eval.py template --split held_out > answers-C.md
 
-In each answers file, fill in its header: `arm: A1` or `arm: C`, `model: copilot-web`, and
-`files:` with the Copilot files' hash, `git rev-parse --short HEAD:copilot` (`none` for A1).
-Add a `date:` line too.
+In each answers file, fill in its header: `date:`, `arm: A1` or `arm: C`,
+`model: copilot-web`, and `files:` with the Copilot files' hash,
+`git rev-parse --short HEAD:copilot` (`none` for A1).
 
 ## 2. Ask Copilot, one fresh chat per task and arm
 

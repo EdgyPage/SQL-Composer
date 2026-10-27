@@ -1,6 +1,6 @@
 ---
 name: copilot-proxy
-description: Stands in for Microsoft Copilot in the Copilot evaluation. Spawn it on a small model with one proxy message (python tools/copilot_eval.py proxy <arm>), saved to a file; it reads that one file and writes its reply to an answers file. It must not read the repo.
+description: Stands in for Microsoft Copilot in the Copilot evaluation. Spawn it on a small model with one proxy message (.venv/Scripts/python tools/copilot_eval.py proxy <arm>), saved to a file; it reads that one file and writes its reply to an answers file. It must not read the repo.
 tools: Read, Write
 model: haiku
 ---
