@@ -365,6 +365,9 @@ def project_on_the_path(folder: Path) -> Iterator[None]:
     The Worked examples have folders of the same names, so a module of those names is put away
     first, `folder` goes first on the path, and afterwards the Project's modules go and the
     others come back: no how-to sees another's references.
+
+    Python writes no `.pyc` meanwhile, so `folder` holds no `__pycache__` the page doesn't
+    show, on any computer.
     """
     def is_the_projects(module: str) -> bool:
         return module.split(".")[0] in PROJECT_MODULES
@@ -372,9 +375,11 @@ def project_on_the_path(folder: Path) -> Iterator[None]:
     put_away = {name: sys.modules.pop(name) for name in list(sys.modules)
                 if is_the_projects(name)}
     sys.path.insert(0, str(folder))
+    writes_bytecode, sys.dont_write_bytecode = sys.dont_write_bytecode, True
     try:
         yield
     finally:
+        sys.dont_write_bytecode = writes_bytecode
         sys.path.remove(str(folder))
         for name in [name for name in sys.modules if is_the_projects(name)]:
             del sys.modules[name]
