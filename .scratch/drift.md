@@ -294,6 +294,7 @@ any item is open.
 - [x] D284 | 031d36a | docstring | `tools/example_gallery.py`'s module docstring (lines 22-23) says a pandas result stands in "Where the Example database can't run a Statement, as it can't run row_number or week_start", but since 031d36a it runs row_number and the gallery shows its rows. Name only week_start, e.g. "as it can't run week_start". - closed by d0122dd
 - [x] D285 | 031d36a | docstring | `tools/how_to_page.py`'s module docstring (lines 56-57) gives "one with row_number or week_start" as a Statement whose Hive the Example database can't run, but since 031d36a it runs row_number. Name week_start alone, e.g. "such as one with week_start". - closed by d0122dd
 - [x] D286 | c26989b | docstring | `sqlglot_composer/engine.py`'s comment on its TYPE_CHECKING imports (lines 21-22) says tables.py "imports writing.py, which imports this file", but c26989b took `from .engine import INSTALL_NEWER` out of writing.py, and neither writing.py nor tables.py imports engine.py now: say why `Table` is imported only for hints as it now stands, or import it plainly if nothing cycles. - closed by 192cca1
+- [x] D287 | 5649bb7 | docstring | `tools/copilot_eval.py`'s module docstring (lines 36-40) says an answer "may import only the Toolbox, the Project's own modules, pandas, datetime, math, typing and collections.abc", but `ALLOWED_MODULES` (line 81) also lets it import `re` (added after a baseline answer used it, as ticket 12 says) and `__future__`, and all of `collections`; and it says the answer runs "with its run_query and run_execute calls taken out", but each run_query call becomes a read of the Example database through `_scored_read` (lines 318-329), and only run_execute becomes None. Name `re` in the list, and say run_query's calls become reads. - closed by fdaea48
 
 ## Reviewed commits
 
@@ -648,3 +649,4 @@ any item is open.
 - d0122dd: clean
 - c26989b: D286
 - 192cca1: clean
+- 5649bb7: D287
