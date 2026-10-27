@@ -16213,7 +16213,7 @@ weekly_events = Table(
 <p>It needs <a href="#start_a_project">Start a Project</a> and <a href="#keep_the_project_in_order">Keep the Project in order</a>.</p>
 <h4>Steps</h4>
 <h5>Start from a Project an older Toolbox wrote</h5>
-<p>Work in your own Project. This page makes one to upgrade: a copy of the Intermediate Example project, with the files 7.2&#x27;s Upgrade adds taken out, so it looks to <code>project.upgrade()</code> like a Project 7.1 left:</p>
+<p>Work in your own Project. This page makes one to upgrade: a copy of the Intermediate Example project, with the files and the folder 7.2&#x27;s Upgrade adds taken out, so it looks to <code>project.upgrade()</code> like a Project 7.1 left:</p>
 <pre class="python">import shutil
 from pathlib import Path
 import sqlglot_composer
@@ -16285,7 +16285,8 @@ tables/mart__team_failures/mart__team_failures.ipynb
 tables/mart__team_failures/original.hql
 warehouse.py</pre>
 <pre class="python">for added in [&quot;admin/project_version.txt&quot;, &quot;admin/upgrade.ipynb&quot;, &quot;admin/convert.ipynb&quot;]:
-    Path(added).unlink()</pre>
+    Path(added).unlink()
+shutil.rmtree(&quot;admin/conversions&quot;, ignore_errors=True)</pre>
 <p>admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has none, and is taken to be 7.1.</p>
 <h5>See that it needs an Upgrade</h5>
 <p>Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before taking the version file out, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
@@ -16421,7 +16422,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.upgrade()`
-- Files: added admin/convert.ipynb; added admin/upgrade.ipynb; wrote admin/upgrade_7.2.md; wrote admin/project_version.txt: 7.2
+- Files: added admin/conversions/; added admin/convert.ipynb; added admin/upgrade.ipynb; wrote admin/upgrade_7.2.md; wrote admin/project_version.txt: 7.2
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
 </details>
@@ -16432,6 +16433,7 @@ project.upgrade() carried this Project from 7.1 to 7.2 on 2026-09-25 09:00:00.
 
 ## Done for you
 
+- added admin/conversions/
 - added admin/convert.ipynb
 - added admin/upgrade.ipynb
 - recorded 7.2 in admin/project_version.txt
@@ -16445,7 +16447,7 @@ Nothing: 7.2 needs nothing changed by hand.</pre>
 <p>It ran the step from each version to the next, here one, and wrote a checklist for each:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_7.2.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 [line for line in checklist.splitlines() if line.startswith((&quot;- &quot;, &quot;Nothing&quot;))]</pre>
-<p class="label">Python shows</p><pre class="output">[&#x27;- added admin/convert.ipynb&#x27;, &#x27;- added admin/upgrade.ipynb&#x27;, &#x27;- recorded 7.2 in admin/project_version.txt&#x27;, &#x27;Nothing: 7.2 needs nothing changed by hand.&#x27;]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;- added admin/conversions/&#x27;, &#x27;- added admin/convert.ipynb&#x27;, &#x27;- added admin/upgrade.ipynb&#x27;, &#x27;- recorded 7.2 in admin/project_version.txt&#x27;, &#x27;Nothing: 7.2 needs nothing changed by hand.&#x27;]</pre>
 <p>Under Done for you, it lists each change it made, and under For you to do, each it left you.</p>
 <p>A version that changes your files lists each change it made, keeps each file as it was in admin/removed/, and marks each change it leaves for you with an <code># UPGRADE</code> comment at its line, with a box on the checklist. Make each change, delete its mark, and tick its box.</p>
 <h4>Check it worked</h4>
