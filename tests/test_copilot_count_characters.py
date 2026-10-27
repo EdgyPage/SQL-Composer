@@ -1,5 +1,5 @@
 """copilot/count_characters.py, which counts each Copilot file against the 8,000 characters
-Copilot takes before a chat (Toolbox 7.2, ticket 13)."""
+Copilot takes at once (Toolbox 7.2, ticket 13)."""
 
 from __future__ import annotations
 
@@ -15,13 +15,15 @@ import count_characters  # noqa: E402
 
 
 def test_every_character_counts_spaces_and_line_breaks_included() -> None:
-    assert count_characters.characters("a b\tc\n") == (6, 7)
-    assert count_characters.characters("") == (0, 0)
+    assert count_characters.characters("a b\tc\n") == 6
+    assert count_characters.characters_on_windows("a b\tc\n") == 7
+    assert count_characters.characters("") == count_characters.characters_on_windows("") == 0
 
 
 def test_a_windows_line_break_counts_two_either_way() -> None:
-    assert count_characters.characters("one\r\ntwo\r\n") == (8, 10)
-    assert count_characters.characters("one\ntwo\n") == (8, 10)
+    for text in ("one\r\ntwo\r\n", "one\ntwo\n"):
+        assert count_characters.characters(text) == 8
+        assert count_characters.characters_on_windows(text) == 10
 
 
 def test_a_file_at_the_limit_passes_and_one_over_fails(tmp_path: Path,
@@ -49,3 +51,9 @@ def test_with_no_argument_it_counts_the_files_beside_it(capsys: pytest.CaptureFi
                                                        ) -> None:
     assert count_characters.main([]) == 0
     assert "00_start_here.txt" in capsys.readouterr().out
+
+
+def test_a_file_that_isnt_there_is_said_and_fails(tmp_path: Path,
+                                                 capsys: pytest.CaptureFixture[str]) -> None:
+    assert count_characters.main([str(tmp_path / "missing.txt")]) == 1
+    assert "missing.txt: no such file" in capsys.readouterr().out

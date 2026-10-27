@@ -33,8 +33,19 @@ answer), and refuses one over 8,000 characters as `copilot/count_characters.py` 
 every character, spaces and line breaks included, and the larger of the count as saved and
 with Windows line breaks.
 
-The counts, files adcab40d:
+The counts, after the reviews' fixes:
 
+    00_start_here.txt: 2,773 characters (2,819 with Windows line breaks), limit 8,000: 5,181 to spare
+    01_imports_and_project.txt: 6,563 characters (6,694 with Windows line breaks), limit 8,000: 1,306 to spare
+    02_table_references.txt: 7,195 characters (7,327 with Windows line breaks), limit 8,000: 673 to spare
+    03_build_a_statement.txt: 7,311 characters (7,467 with Windows line breaks), limit 8,000: 533 to spare
+    04_joins.txt: 7,229 characters (7,369 with Windows line breaks), limit 8,000: 631 to spare
+    05_windows_and_subtotals.txt: 7,128 characters (7,272 with Windows line breaks), limit 8,000: 728 to spare
+    06_save_a_table.txt: 7,381 characters (7,524 with Windows line breaks), limit 8,000: 476 to spare
+    07_convert_hive.txt: 7,458 characters (7,598 with Windows line breaks), limit 8,000: 402 to spare
+    08_check_and_compare.txt: 6,225 characters (6,347 with Windows line breaks), limit 8,000: 1,653 to spare
+    09_fix_a_refusal.txt: 6,846 characters (6,974 with Windows line breaks), limit 8,000: 1,026 to spare
+    10_hand_written_hive_and_functions.txt: 6,937 characters (7,071 with Windows line breaks), limit 8,000: 929 to spare
 
 Settled while building:
 
@@ -55,3 +66,42 @@ Settled while building:
 First measure, arm C on the dev split, Haiku, files 353cbeeb (before the two examples were
 replaced): 100% passed, against 30% for A1 and 20% for A0 (`.scratch/copilot-eval/results.md`).
 Ticket 14 scores the held-out split.
+
+## Reviews
+
+- Beginner reader: [reports/13-beginner-reader.md](../reports/13-beginner-reader.md). Fixed:
+  - 32, 33 (file 06 against the real notebook): 06 now teaches the saved_table Template's
+    shape, READS and rows() with no argument, says run_tables sends the writes with their
+    Session settings first, and sends the dynamic_partitions setting before a write sent by
+    hand. Its second example, a Table reference, went to make room (file 02 has it).
+  - 6 (one file per chat): Always now says to use the names this file shows, and rule 10
+    names every other file by number, for the user to load in a new chat; 05 lists at_most,
+    06 says what Clause and Statement are.
+  - 7 (the partition bound): Always rule 5 says it whole: a value for one of its partition
+    columns, in WHERE for FROM, JOIN and CROSS_JOIN, in ON= for LEFT, SEMI and ANTI, in a
+    Derived table for FULL; 07 says to bound a table the Hive read whole, or ask.
+  - 1, 2, 3, 4 (00 and the counter): Hive is said to be SQL; a Table reference may be pasted
+    whole; "at once" in place of "before a chat", everywhere; the counter is run from the
+    download's top, and a missing file is said and fails.
+  - 5, 18, 19, 21, 27, 29, 36, 39, 44, 46, 47: Always rule 1 and 3, GROUP_BY's text name,
+    keeps_only_matches and broadcast in 04, rows= "looks across", d.n, HIVE and the mark in
+    07, CTE named, "None among the dict's keys", where copilot/ is, the counter's folder.
+  - Answered: the rest are a word met before its file explains it, or an argument no
+    objective needs (returns_all_rows, Table's storage arguments, compute_statistics'
+    columns=); each is in the Names list, and the files may not grow past 8,000 characters
+    to explain every argument.
+- Code review of 221376a (2026-10-27):
+  - Standards: fixed, the shipped counter's `from __future__` import (code a user copies has
+    none), its one-liners and names, two functions in place of a tuple; copilot_files'
+    `named`, its parenthesised test and REPLACED_ARGUMENTS, main's docstring; the tests'
+    docstrings on AVOIDED and HIVE_WORDS; Always rule 5's joins; CLAUDE.md's wrap. Answered:
+    the Always block is repeated by design, each file standing alone; the tests use the
+    scorer's private helpers, as one test tool of another.
+  - Spec: fixed, the counts; the reviews here; held-out leaks: file 10's lookup was T21's
+    (team: data, web), now a region's city; file 09 quoted T27's refusal on its own table and
+    day, now another table. Answered: file 02's Table reference teaches what T06 asks, as the
+    file must, with another table and columns; file 05's lag and 10's first_match are the
+    functions' own uses.
+- Drift: D289 (CONTEXT.md's Clean branch), D290 (the export's docstrings), D291 (copilot/
+  held to the strictest offline level, as user-copied code) fixed in the commit after
+  221376a.

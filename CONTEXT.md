@@ -22,9 +22,9 @@ apart by when they were exported.
 _Avoid_: release, build, hash
 
 **Clean branch**:
-The branch holding only the Toolbox, a copy of the Example projects and the Templates, and their
-README, change notes, license and requirements.txt, generated from the Dev branch and never
-edited by hand.
+The branch holding only the Toolbox, a copy of the Example projects and the Templates, the
+Copilot files, and their README, change notes, license and requirements.txt, generated from the
+Dev branch and never edited by hand.
 _Avoid_: release branch, prod branch, copy branch
 
 **Dev branch**:

@@ -581,8 +581,9 @@ def test_a_dry_run_that_leaves_a_file_behind_is_refused(tmp_path: Path) -> None:
 
 
 NETWORK_REFUSAL = ("The Clean tree holds something that could reach the network, but the "
-                   "Toolbox, its Example projects and its Templates reach nothing but the "
-                   "user's query and execute. tools/offline_policy.py found, as main would "
+                   "Toolbox, its Example projects, its Templates and its Copilot files reach "
+                   "nothing but the user's query and execute. tools/offline_policy.py found, "
+                   "as main would "
                    "hold it, line 1 being the export's stamp where the file has one:\n")
 
 

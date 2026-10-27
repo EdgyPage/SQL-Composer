@@ -15,17 +15,18 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 
 ## In the Project: a Conversion
 
-A Conversion writes the code for the user. In admin/convert.ipynb:
-`project.scan_hive(HIVE)` says what it would make; `project.convert("weekly_events", HIVE,
+A Conversion writes the code for the user. In admin/convert.ipynb, with the Hive pasted as
+`HIVE = """..."""`: `project.scan_hive(HIVE)` says what it would make; `project.convert("weekly_events", HIVE,
 query=query)` writes admin/conversions/weekly_events/; `project.load("weekly_events").converted()`
-gives the Statement; `project.check()` lists each `# CONVERSION:` mark to decide;
+gives the Statement; `project.check()` lists each `# CONVERSION:` mark, a line above each opt-out the original
+needed, for the user to keep or take out;
 `project.finish_conversion("weekly_events", table="mart.weekly_events")` makes it a Saved
 table. Suggest this for a long query; convert a short one by hand, as below.
 
 ## By hand: each Hive part and what it becomes
 
 - `FROM ops.job_runs r`: `r = AS(job_runs, "r")`, then `r.status`.
-- `WITH ev AS (SELECT ...)` or `FROM (SELECT ...) ev`: `ev = derived("ev", statement(...))`,
+- A CTE, `WITH ev AS (SELECT ...)`, or `FROM (SELECT ...) ev`: `ev = derived("ev", statement(...))`,
   then `FROM(ev)`, `ev.job_id`. Keep the name after the bracket.
 - `a = 'x' AND b > 3`: `WHERE(equals(t.a, "x"), more_than(t.b, 3))`; `OR`: `any_of(...)`;
   `IS NULL`: `is_null(...)`; `<>`: `not_equals(...)`; `BETWEEN`: `between(...)`.
@@ -86,5 +87,6 @@ s = statement(
 ## Before you answer
 
 - Same columns, same names, same order as the Hive's SELECT.
-- Every table read is bounded as the Hive bounded it; nothing the Hive didn't read is read.
+- Every partitioned table read is bounded as the Hive bounded it. Where the Hive read one
+  whole, say so, and pass `reads_all_partitions=True` only if the user wants every day.
 - Each part kept as Hive is named in a line after the code.

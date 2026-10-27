@@ -1,17 +1,22 @@
 ## Always
 
 1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only names this file or another Copilot file lists; never make one
-   up. SQL's words are not Toolbox names: there is no COUNT, SUM, AND, CASE or alias.
+   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
+   own words are Toolbox names only where this file writes them as functions, as SELECT and
+   FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
 3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
 4. Write each Condition with a function: equals, not_equals, more_than, less_than,
    at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
    Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table on its partition column, such as dt: in WHERE for
-   FROM and JOIN, inside ON= for LEFT_JOIN. A table without partitions needs no bound.
+5. Bound every read of a partitioned table with a Condition giving a value for one of its
+   partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
+   `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
+   SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
+   table's column bounds nothing. A table with no partitions needs no bound.
 6. ORDER_BY needs LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
@@ -19,5 +24,8 @@
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. When nothing in these files does what is asked, say so, and offer `hive_function` or
-    an Unchecked piece (file 10).
+10. The user loads one Copilot file per chat. When this one doesn't cover what is asked,
+    say so and name the file that does, to load in a new chat: 01 imports and the Project,
+    02 Table references, 03 building a Statement, 04 joins, 05 windows and subtotals, 06
+    saving a table, 07 converting Hive, 08 checking and comparing, 09 fixing a refusal, 10
+    labels, Hive functions and Hive written by hand.

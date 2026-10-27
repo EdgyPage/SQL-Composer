@@ -8,8 +8,8 @@ A test fails while a committed file differs from what this writes.
 
 A user loads one Copilot file into Microsoft Copilot's web chat before asking it for Toolbox
 code: one file for each objective, such as building a Statement or converting Hive, and
-`00_start_here.txt`, which says which to load. Copilot takes at most 8,000 characters before
-a chat, so each file must fit, as `copilot/count_characters.py` counts them, spaces and line
+`00_start_here.txt`, which says which to load. Copilot takes at most 8,000 characters at
+once, so each file must fit, as `copilot/count_characters.py` counts them, spaces and line
 breaks included; this refuses to write one that doesn't.
 
 A source is the file's text, with three kinds of placeholder, each on a line of its own:
@@ -48,13 +48,18 @@ class CopilotFileRefused(Exception):
     file over the limit."""
 
 
+# The modules a {names: ...} list may name from, by the name a file writes before the dot.
+MODULES = {"": sqlglot_composer, "project": project, "admin": admin}
+# The catch-all a Toolbox function keeps for arguments it no longer takes, to say what replaced
+# them: no file lists it.
+REPLACED_ARGUMENTS = "removed"
+
+
 def named(name: str) -> object:
     """The Toolbox's object a name in a {names: ...} list stands for, such as project.convert."""
     module, _, attribute = name.rpartition(".")
-    owner = {"": sqlglot_composer, "project": project, "admin": admin}.get(module)
-    public = {"": sqlglot_composer.__all__, "project": project.__all__,
-              "admin": admin.__all__}.get(module, [])
-    if owner is None or attribute not in public:
+    owner = MODULES.get(module)
+    if owner is None or attribute not in owner.__all__:
         raise CopilotFileRefused(f"{name} isn't a public name of the Toolbox.")
     return getattr(owner, attribute)
 
@@ -70,8 +75,9 @@ def signature(name: str) -> str:
         return name
     shown, keyword_only = [], False
     for parameter in parameters:
-        if parameter.name.startswith("_") or parameter.kind is parameter.VAR_KEYWORD and (
-                parameter.name == "removed"):
+        replaced = (parameter.kind is parameter.VAR_KEYWORD
+                    and parameter.name == REPLACED_ARGUMENTS)
+        if parameter.name.startswith("_") or replaced:
             continue
         if parameter.kind is parameter.KEYWORD_ONLY and not keyword_only:
             shown.append("*")
@@ -105,7 +111,8 @@ def copilot_files() -> dict[str, str]:
     files = {}
     for source in sorted(SOURCES.glob("[0-9][0-9]_*.txt")):
         text = rendered(source.read_text(encoding="utf-8"))
-        most = max(count_characters.characters(text))
+        most = max(count_characters.characters(text),
+                   count_characters.characters_on_windows(text))
         if most > count_characters.LIMIT:
             raise CopilotFileRefused(
                 f"{source.name} comes to {most:,} characters, over the {count_characters.LIMIT:,} "
@@ -115,9 +122,11 @@ def copilot_files() -> dict[str, str]:
 
 
 def main() -> int:
-    for name, text in copilot_files().items():
+    """Write every Copilot file into copilot/."""
+    files = copilot_files()
+    for name, text in files.items():
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")
-    print(f"Wrote {len(copilot_files())} Copilot files in copilot/.")
+    print(f"Wrote {len(files)} Copilot files in copilot/.")
     return 0
 
 

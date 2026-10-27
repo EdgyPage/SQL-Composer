@@ -32,8 +32,9 @@ It then checks what it built:
   `admin/` folder, finding the Toolbox at main's top, and leaves no file behind; a dry run
   prints every table's write and sends nothing;
 - each file is read by `tools/offline_policy.py`, as main would hold it, before anything in it
-  is imported or run: the Toolbox, the Example projects and the Templates, and the README,
-  pages included and Markdown read as pages, so that none of it can reach the network;
+  is imported or run: the Toolbox, the Example projects and the Templates, the Copilot files,
+  and the README, pages included and Markdown and plain text read as pages, so that none of it
+  can reach the network;
 - the folder's `version.txt` names the Toolbox and its version;
 - the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the Example projects
   and the Templates, the Copilot files, `.github/README.md`, `CHANGES.md`, `LICENSE` and
@@ -305,19 +306,20 @@ def open_drift_items(drift_text: str) -> list[str]:
 def check_offline(into: Path, paths: list[str]) -> None:
     """Refuse the Clean tree if a file under `paths`, in `into`, holds anything that could reach
     the network, as `tools/offline_policy.py` reads it under main's path: in the Toolbox, only
-    the reviewed sites in its ALLOWED; in a copy the user takes, nothing. Markdown is read as a
-    page, for what a preview of it would load."""
+    the reviewed sites in its ALLOWED; in a copy the user takes, the Example projects and the
+    Copilot files, nothing. Markdown and plain text are read as pages, for what a preview of
+    one would load, and a Copilot file for a link Copilot might follow."""
     found = offline_policy.scan(into, paths)
     for path in files_in(into):
-        if path.endswith(".md") and any(path == part or path.startswith(f"{part}/")
-                                        for part in paths):
+        if path.endswith((".md", ".txt")) and any(path == part or path.startswith(f"{part}/")
+                                                  for part in paths):
             found += offline_policy.page_findings(
                 (into / path).read_text(encoding="utf-8"), path)
     if found:
         raise ExportRefused(
             "The Clean tree holds something that could reach the network, but the Toolbox, "
-            "its Example projects and its Templates reach nothing but the user's query and "
-            "execute. "
+            "its Example projects, its Templates and its Copilot files reach nothing but the "
+            "user's query and execute. "
             "tools/offline_policy.py found, as main would hold it, line 1 being the export's "
             "stamp where the file has one:\n"
             + "".join(f"  {finding}\n" for finding in found)

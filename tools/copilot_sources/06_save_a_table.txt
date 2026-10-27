@@ -11,7 +11,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Names for this objective, with their arguments
 
-{names: project.new_table, project.load, project.run_tables, Table, create_table, INSERT_OVERWRITE, INSERT_INTO, hive_settings, statement, SELECT, SELECT_DISTINCT, AS, FROM, WHERE, GROUP_BY, equals, count_rows, sum_of, run_query, run_execute, show_hive}
+{names: project.new_table, project.load, project.run_tables, create_table, INSERT_OVERWRITE, INSERT_INTO, hive_settings, statement, SELECT_DISTINCT, AS, count_rows, run_query, run_execute, show_hive}
 
 ## Steps
 
@@ -20,12 +20,14 @@ block the user can paste into a notebook cell, then a few plain sentences.
    references/mart__job_day_events.py. The user fills in the reference's columns and its
    `<LOCATION>` (file 02).
 2. The notebook's logic cell starts with the line `# logic` and holds only imports,
-   constants and functions; nothing in it runs Hive:
+   constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
+   - `READS`, the Condition that picks the rows it reads, such as a day;
    - `create()` returns `create_table(job_day_events, may_exist=True)`;
-   - `rows(...)` returns the list of Clauses that give the rows: SELECT, FROM, WHERE,
+   - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
      GROUP_BY;
-   - `preview()` returns `statement(*rows(...))`, to read before writing;
-   - `write()` returns `statement(INSERT_OVERWRITE(job_day_events), *rows(...))`.
+   - `preview()` returns `statement(*rows())`, to read before writing;
+   - `write()` returns `statement(INSERT_OVERWRITE(job_day_events), *rows())`.
+   `Clause` and `Statement` are the names the hints use.
 3. The write's SELECT gives exactly the Saved table's columns, by name, in its order, the
    partition column last. Name a calculation after its column: `AS(count_rows(), "events")`.
 4. INSERT_OVERWRITE replaces each Partition the rows hold; INSERT_INTO adds the rows to
@@ -33,12 +35,14 @@ block the user can paste into a notebook cell, then a few plain sentences.
    its column left out of SELECT.
 5. A Saved table with a Key takes rows one per Key: GROUP_BY over the Key, SELECT_DISTINCT,
    or a row_number kept at 1 (file 05). Otherwise the write is refused.
-6. Partitions filled from the rows need a Session setting sent first:
-   `run_execute(hive_settings("dynamic_partitions"), execute)`.
-7. The notebook's other cells run it: `run_execute(create(), execute)` once,
-   `run_query(preview(), query)` to look, then `run_execute(write(), execute)`.
-   `show_hive(create(), write())` shows both without sending.
-   `project.run_tables(execute=execute)` writes every Saved table in order.
+6. The notebook's next cell looks: `show_hive([create(), write()])` shows the Hive, any
+   Session setting a write needs first included, and `run_query(preview(), query)` reads
+   the rows. The writes are sent by `project.run_tables(execute=execute)`, in
+   admin/run_tables.ipynb: each Saved table after the tables it reads, its Session settings
+   first.
+7. To send one table by hand: `run_execute(create(), execute)` once, then
+   `run_execute(hive_settings("dynamic_partitions"), execute)`, as a write whose rows fill
+   their Partitions needs, then `run_execute(write(), execute)`.
 8. From another notebook, `project.load("mart.job_day_events")` gives that cell's functions,
    such as its `write()`.
 
@@ -53,43 +57,32 @@ from sqlglot_composer import (AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHER
 from references.mart__job_day_events import job_day_events
 from references.ops__job_events import job_events
 
-DAY = "2026-09-24"
+READS = equals(job_events.dt, "2026-09-24")
 
 
 def create() -> Statement:
     return create_table(job_day_events, may_exist=True)
 
 
-def rows(day: str) -> list[Clause]:
+def rows() -> list[Clause]:
     return [
         SELECT(job_events.job_id, AS(count_rows(), "events"), job_events.dt),
         FROM(job_events),
-        WHERE(equals(job_events.dt, day)),
+        WHERE(READS),
         GROUP_BY(job_events.job_id, job_events.dt),
     ]
 
 
 def preview() -> Statement:
-    return statement(*rows(DAY))
+    return statement(*rows())
 
 
 def write() -> Statement:
-    return statement(INSERT_OVERWRITE(job_day_events), *rows(DAY))
+    return statement(INSERT_OVERWRITE(job_day_events), *rows())
 ```
 
-Its Table reference, references/mart__job_day_events.py:
-
-```python
-from sqlglot_composer import Table
-
-job_day_events = Table(
-    "mart.job_day_events",
-    columns={"job_id": "bigint", "events": "bigint", "dt": "string"},
-    partitioned_by=["dt"],
-    key=["job_id", "dt"],
-    location="/data/your_team/mart.db/job_day_events",
-)
-```
+Its Table reference, references/mart__job_day_events.py, lists job_id bigint, events bigint and
+dt string, partitioned by dt, with Key job_id and dt, and a location (file 02).
 
 ## Do and don't
 
