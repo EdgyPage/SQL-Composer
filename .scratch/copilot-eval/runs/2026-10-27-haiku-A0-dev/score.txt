@@ -1,0 +1,22 @@
+T01  pass  found parses builds runs correct
+T02  pass  found parses builds runs correct
+T04  pass  found parses builds runs correct
+T05  FAIL  found parses  invented: COUNT, alias, greater_than  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T07  FAIL  found parses  invented: AND  (doesn't build: ImportError: cannot import name 'AND' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T08  FAIL  found parses  invented: SUM, alias  (doesn't build: ImportError: cannot import name 'SUM' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T10  pass  found parses builds runs correct
+T11  FAIL  found parses  invented: AND, COUNT, alias  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T13  FAIL  found parses builds runs  (runs, but gives something else)
+T14  FAIL  found parses  invented: COUNT, alias  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T16  FAIL  found parses  invented: COUNT, PARTITION, alias  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T17  FAIL  found parses  invented: COUNT, PARTITION, alias  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T19  FAIL  found parses  invented: AND, COUNT, IN, alias  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T20  FAIL  found parses  invented: CASE, ELSE, SUM, WHEN, alias  (doesn't build: ImportError: cannot import name 'SUM' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T22  FAIL  found parses  (doesn't build: TypeError: example_database.query was given <Statement reading ops.job_runs - print(to_hive(s)) shows its Hive>, which isn't Hive text.)
+T23  FAIL  found parses  (doesn't build: AttributeError: 'Statement' object has no attribute 'to_hive')
+T25  FAIL  found parses  invented: AND  (doesn't build: ImportError: cannot import name 'AND' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T26  pass  found parses builds runs correct
+T28  FAIL  found parses  invented: CASE, ELSE, WHEN, alias  (doesn't build: ImportError: cannot import name 'CASE' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T29  FAIL  found parses  invented: UPPER, alias  (doesn't build: ImportError: cannot import name 'UPPER' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+
+A0 on haiku: 25% passed of 20; found 100%, parses 100%, builds 30%, runs 30%, correct 25%; invented names in 60%; needless opt-outs 0; per objective {'01': 100, '02': 50, '03': 0, '04': 50, '05': 0, '06': 0, '07': 0, '08': 0, '09': 50, '10': 0}

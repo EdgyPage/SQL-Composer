@@ -1,0 +1,421 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+Before asking anything, the user pasted this as their first message:
+
+<<<
+# sqlglot Composer
+
+This is version <!-- VERSION -->.
+
+Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
+SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
+give a wrong number, or read or return too much, and says what to change.
+
+This page is a tutorial in eight steps, one story through one Project: you start it, add your
+tables' Table references, build Statements on them, share Building blocks, save tables of your
+own, follow their Lineage and keep the Project in order. The Starter Example project shows a
+Project much like the one the story leaves, filled in. Each step
+is a short summary of the Getting started how-to of the same name, which walks through it in
+full on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. Every
+example here runs on the Example database, nine made-up tables that ship inside the Toolbox.
+What changed in each version, and how to update from it, is in `CHANGES.md`.
+
+## 1. Start a Project
+
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.12,
+which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
+
+1. Download this branch as a zip and extract it.
+2. Install what the Toolbox needs, at the versions it is tested on: run
+   `pip install -r requirements.txt` in the download's top folder, or, from a notebook,
+   `%pip install -r` followed by the path to that file.
+   - On Python 3.11, numpy 2.5.4 can't install: change its line in `requirements.txt` to
+     `numpy==2.4.6`, which pandas 3.0.6 runs on there, before you run pip.
+   - A package your notebook already has, such as pandas, needn't be installed again: delete
+     its line, so pip doesn't replace it.
+   - The Toolbox works with any sqlglot from 30.19.0 up to (not including) 31.
+     `import sqlglot; print(sqlglot.__version__)` in a notebook shows which you have: keep
+     sqlglot's line, so pip installs the one the Toolbox is tested on, unless yours is in that
+     range.
+3. Make an empty folder for your Project, and copy the whole `sqlglot_composer` folder into
+   it. Keep your own files beside it, never inside it.
+4. Open a notebook in the Project's folder, such as start.ipynb, and lay the folder out with
+   one call:
+
+```python
+>>> from sqlglot_composer import project
+>>> project.start()
+Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: write your two functions, query and execute, in warehouse.py.
+```
+
+Import from `sqlglot_composer`, at its top level, never from a file inside it.
+
+### Every file of a Project
+
+You make three things by hand: the Project's folder, the copied `sqlglot_composer` folder and
+the notebook you run `project.start()` from. Every other file is made by a call of the
+`project` module, a Project action, never by hand in your file explorer: each is logged in the
+Admin log, and the registry lists what it made, so `project.check()` can tell what is missing
+or made by hand.
+
+| Path | Made by | What you fill in |
+|---|---|---|
+| your Project's folder, such as my_project | you, in your file explorer | nothing |
+| `sqlglot_composer/` | you: copied in from the download | nothing: never edit a file inside it |
+| `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
+| `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
+| `warehouse.py` | `project.start()` | your query and execute |
+| `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
+| `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
+| `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
+| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
+| `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
+| `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
+| `references/<db>__<table>.py`, a Table reference per table | `project.add_references([...], query=query)` for a table in the warehouse, or `project.new_table(...)` for a Saved table of your own | its TODO lines, and your own Aliases |
+| `references/<db>.py`, a Database module per Database, such as `references/ops.py` | each Project action that adds or archives a Table reference | nothing: never edit it |
+| `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
+| `building_blocks/<name>.py`, a Building block | `project.new_block("<name>")` | its `<...>` and TODO lines |
+| `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
+| `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
+| `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
+
+### Your query and execute
+
+The Toolbox never connects to anything itself: it writes Hive as text, and hands that text to
+one of two functions of yours, in `warehouse.py`. `query` runs Hive that gives back rows, such
+as a SELECT, and gives them back as a pandas DataFrame; `execute` runs Hive that changes
+something, such as a write, and gives back nothing. You pick which one sends a Statement, by
+calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run
+on the Example database; at work, write them over your team's API, once:
+
+```python
+import pandas as pd
+
+import my_api  # your team's query API
+
+
+def query(hive: str) -> pd.DataFrame:
+    return pd.DataFrame(my_api.query(hive))
+
+
+def execute(hive: str) -> None:
+    my_api.execute(hive)
+```
+
+How-to: [Start a Project](../sqlglot_composer/how_to.html#start_a_project), with what to do when
+your API gives rows without their column names, and the lines a notebook deeper in the Project
+starts with.
+
+## 2. Add your tables' references
+
+A Statement reads a table through its Table reference: a small file in `references/` holding
+the table's columns and their types, its Partitions (the columns it is stored by, such as a day
+or a region) and its Key (the columns that name one row), where it has them.
+`project.add_references` asks each table for its columns, through your query, and writes its
+file, and the Database module of its Database:
+
+```python
+>>> from warehouse import query, execute
+>>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
+
+>>>
+
+Each task below is a separate request the user sends next. Answer each as you would in that chat: reply with its `## T..` heading, then your answer, with the code in a ```python block.
+
+## T01
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Read each job's name and team from ops.jobs, and run it with my query. Import everything you use.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T02
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Using my Database module (from references import ops), list the run_id and status of each run in ops.job_runs on 2026-09-24.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T04
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Write the Table reference for a new Saved table, mart.job_day_runs: columns job_id bigint, runs bigint and dt string; partitioned by dt; its Key is job_id and dt; stored at /data/your_team/mart.db/job_day_runs.
+
+Answer with one Python code block that assigns the Table reference to `t`.
+
+## T05
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Check, with my query, that ops.job_runs's Key holds on 2026-09-24.
+
+Answer with one Python code block that assigns the check's result to `v`.
+
+## T07
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+The failed runs (status FAILED) in ops.job_runs from 2026-09-23 to 2026-09-24: run_id, job_id and duration_mins.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T08
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+The total minutes of each job's runs over every day ops.job_runs holds, all of them: job_id and minutes.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T10
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Each run in ops.job_runs on 2026-09-24 with its job's name from ops.jobs: run_id, job_name and status.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T11
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Every job in ops.jobs with how many runs it had in ops.job_runs on 2026-09-24, 0 for a job with none: job_id, job_name and runs.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T13
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Each job's longest run in ops.job_runs from 2026-09-23 to 2026-09-24, one row per job, the smallest run_id on a tie: job_id, run_id and duration_mins.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T14
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+The runs in ops.job_runs on each day from 2026-09-23 to 2026-09-24, with a total row for both days: dt and runs.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T16
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- references/mart__job_day_runs.py holds:
+
+from sqlglot_composer import Table
+
+job_day_runs = Table(
+    "mart.job_day_runs",
+    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    partitioned_by=["dt"],
+    key=["job_id", "dt"],
+    location="/data/your_team/mart.db/job_day_runs",
+)
+
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Write each job's number of runs in ops.job_runs on 2026-09-24 into my Saved table mart.job_day_runs (from references.mart__job_day_runs import job_day_runs), replacing what that day held.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T17
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- references/mart__job_day_runs.py holds:
+
+from sqlglot_composer import Table
+
+job_day_runs = Table(
+    "mart.job_day_runs",
+    columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+    partitioned_by=["dt"],
+    key=["job_id", "dt"],
+    location="/data/your_team/mart.db/job_day_runs",
+)
+
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Write the logic cell of mart.job_day_runs's Table notebook (from references.mart__job_day_runs import job_day_runs): create(), which makes the table; rows(day), the clauses that count each job's runs in ops.job_runs on that day; preview(), which reads them for DAY = "2026-09-24"; and write(), which replaces DAY's rows.
+
+Answer with one Python code block: the logic cell, its imports and functions.
+
+## T19
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Convert this Hive into Toolbox code:
+
+SELECT r.job_id, COUNT(*) AS runs
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status IN ('FAILED', 'SUCCESS', 'RETRY', 'TEST')
+GROUP BY r.job_id
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T20
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_events import job_events` gives ops.job_events: event_id bigint, job_id bigint, event_type string, minutes int, dt string; partitioned by dt; Key event_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Convert this Hive into Toolbox code:
+
+WITH ev AS (
+  SELECT e.job_id, e.event_type
+  FROM ops.job_events e
+  WHERE e.dt BETWEEN '2026-09-20' AND '2026-09-24'
+)
+SELECT ev.job_id, SUM(CASE WHEN ev.event_type = 'finish' THEN 1 ELSE 0 END) AS finishes
+FROM ev
+GROUP BY ev.job_id
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T22
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+My team's Hive was
+
+SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'
+
+and my Statement is
+
+s0 = statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
+               WHERE(equals(job_runs.dt, "2026-09-24")))
+
+Check, with my query, that the two give the same rows on 2026-09-24.
+
+Answer with one Python code block that assigns the check's result to `v`.
+
+## T23
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+My team's Hive was
+
+select r.job_id, r.job_name from ops.jobs r -- every job
+
+and my Statement is s0 = statement(SELECT(jobs.job_id, jobs.job_name), FROM(jobs)). Check that its Hive is the same query, without running anything.
+
+Answer with one Python code block that assigns the check's result to `v`.
+
+## T25
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+I want the failed runs on 2026-09-24, but
+
+s = statement(SELECT(job_runs.run_id), FROM(job_runs),
+              WHERE(job_runs.status == "FAILED"))
+
+stops with:
+
+TypeError:
+  What happened:  A column was used with Python's ==.
+  Usual fix:      Use equals(column, value).
+
+Fix it.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T26
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+I want the 3 longest runs on 2026-09-24, longest first, but
+
+s = statement(SELECT(job_runs.run_id, job_runs.duration_mins), FROM(job_runs),
+              WHERE(equals(job_runs.dt, "2026-09-24")),
+              ORDER_BY(descending(job_runs.duration_mins)))
+
+stops with:
+
+LoadRefused:
+  What happened:  ORDER_BY has no LIMIT.
+  Usual fix:      Sort in pandas after run_query(...), with df.sort_values(...). For a top N, add LIMIT(n).
+
+Fix it.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T28
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Each job in ops.jobs with a label for its team: data is "Data platform", finance is "Finance", any other team "Other": job_id and team_label.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.
+
+## T29
+
+I work in a sqlglot Composer 7.2 Project. Its references:
+- `from references.ops__jobs import jobs` gives ops.jobs: job_id bigint, job_name string, team string, region string; Key job_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Each job in ops.jobs with its name in capitals, using Hive's upper function: job_id and name_upper.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.

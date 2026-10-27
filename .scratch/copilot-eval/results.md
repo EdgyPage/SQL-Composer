@@ -1,0 +1,12 @@
+# Copilot evaluation results
+
+One row per scored answers file (`tools/copilot_eval.py score ... --record`). Rates are percent
+of the run's answers; needless is a count of opt-outs or Unchecked pieces no reference needed.
+Arms: A0 the request alone; A1 the README's opening, cut to 8,000 characters; C the task's
+Copilot file; R routing by `copilot/00_start_here.txt`. Runs keep their message and answers in
+`runs/`.
+
+| date | files | model | arm | split | passed | found | parses | builds | runs | correct | invented | needless | per objective |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 2026-10-27 | none | haiku | A0 | dev | 25 | 100 | 100 | 30 | 30 | 25 | 60 | 0 | 01:100 02:50 03:0 04:50 05:0 06:0 07:0 08:0 09:50 10:0 |
+| 2026-10-27 | none | haiku | A1 | dev | 35 | 100 | 100 | 50 | 50 | 35 | 20 | 0 | 01:100 02:50 03:50 04:50 05:0 06:0 07:0 08:0 09:100 10:0 |

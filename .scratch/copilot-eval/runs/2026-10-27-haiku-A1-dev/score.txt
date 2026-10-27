@@ -1,0 +1,22 @@
+T01  pass  found parses builds runs correct
+T02  pass  found parses builds runs correct
+T04  pass  found parses builds runs correct
+T05  FAIL  found parses  (doesn't build: NameError: name 'COUNT' is not defined)
+T07  pass  found parses builds runs correct
+T08  FAIL  found parses  (doesn't build: NameError: name 'SUM' is not defined)
+T10  pass  found parses builds runs correct
+T11  FAIL  found parses  invented: COALESCE, COUNT  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T13  FAIL  found parses builds runs  (runs, but gives something else)
+T14  FAIL  found parses  (doesn't build: NameError: name 'COUNT' is not defined)
+T16  FAIL  found parses  invented: COUNT  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T17  FAIL  found parses  invented: COUNT  (doesn't build: ImportError: cannot import name 'COUNT' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T19  FAIL  found parses  invented: COUNT, in_  (doesn't build: ImportError: cannot import name 'in_' from 'sqlglot_composer' (C:\Users\myfir\Code and Repos\SQL-Composer\sqlglot_composer\__init__.py))
+T20  FAIL  found parses builds runs  (runs, but gives something else)
+T22  FAIL  found parses  (gives bool, not what the task asks for)
+T23  FAIL  found parses  (doesn't build: NameError: name 'to_hive' is not defined)
+T25  pass  found parses builds runs correct
+T26  pass  found parses builds runs correct
+T28  FAIL  found parses builds runs  (runs, but gives something else)
+T29  FAIL  found parses  (doesn't build: NameError: name 'UPPER' is not defined)
+
+A1 on haiku: 35% passed of 20; found 100%, parses 100%, builds 50%, runs 50%, correct 35%; invented names in 20%; needless opt-outs 0; per objective {'01': 100, '02': 50, '03': 50, '04': 50, '05': 0, '06': 0, '07': 0, '08': 0, '09': 100, '10': 0}
