@@ -37,6 +37,7 @@ Paste each reply, as it came, under its task's heading in the answers file. Then
     .venv/Scripts/python tools/copilot_eval.py score answers-A1.md --record .scratch/copilot-eval/results.md
     .venv/Scripts/python tools/copilot_eval.py score answers-C.md --record .scratch/copilot-eval/results.md
 
-Each answer is scored found, parses, builds, runs and correct, with any invented name and any
-opt-out the task didn't need; a pass is correct with neither. The files help when C passes at
-least 20 points more of the held-out tasks than A1.
+Each answer is scored found, parses, builds, runs and correct. A pass is correct, and also
+invents no name, imports no name with `*`, adds no opt-out the task didn't need, and calls
+run_query where the request asks to run it. The files help when C passes at least 20 points
+more of the held-out tasks than A1.
