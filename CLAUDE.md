@@ -61,10 +61,9 @@ what each may import. `CHANGES.md`, the change notes, is at the repo's top.
 
 ## Drift
 
-After a commit that touches the Toolbox's folder,
-`worked_examples/`, `example_projects/`, `copilot/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
-`requirements-dev.txt`, the drift
-reviewer looks for anything the commit made untrue and adds one open item per finding to
+After a commit that touches the Toolbox's folder, `worked_examples/`, `example_projects/`,
+`copilot/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or `requirements-dev.txt`, the
+drift reviewer looks for anything the commit made untrue and adds one open item per finding to
 `.scratch/drift.md`. It edits nothing else.
 
 - Fix open items as your next commits. Each fix marks its item `[x]` with the fixing commit.

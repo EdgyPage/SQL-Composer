@@ -24,8 +24,9 @@ refuses; use it only when the user says so, and never to make an error go away.
   LEFT_JOIN, SEMI_JOIN or ANTI_JOIN, the bound goes inside ON=. Matching `t.dt` to another
   table's dt is no bound. Every day, asked for: `reads_all_partitions=True`.
 - "ORDER_BY has no LIMIT.": add `LIMIT(n)` for a top n, or sort the DataFrame in pandas.
-- "WHERE has job_runs.dt = '2026-09-24', a condition on job_runs, which LEFT_JOIN brought
-  in.": move that Condition into `LEFT_JOIN(job_runs, ON=all_of(..., ...))`.
+- "WHERE has job_owners.owner = 'ana', a condition on job_owners, which LEFT_JOIN brought
+  in.": move that Condition into `LEFT_JOIN(job_owners, ON=all_of(..., ...))`, beside the
+  join's own Condition.
 - "SELECT has a calculation with no name: COUNT(*).": name it, `AS(count_rows(), "runs")`.
 - "SELECT has job_runs.status, which GROUP_BY leaves out.": add it to GROUP_BY, or count or
   add it up.

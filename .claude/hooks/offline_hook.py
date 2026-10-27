@@ -57,8 +57,8 @@ from hook_io import deny, plain_line, read_hook_input
 # The policy's strict folders and the kinds of file it reads, known here without it, for when
 # it can't be loaded. A test holds them to `offline_policy.TOOLBOX`, `USER_COPIED` and
 # `READ_FILES`.
-STRICT_FOLDERS = ("sqlglot_composer", "example_projects", "worked_examples")
-USER_COPIED = ("example_projects", "worked_examples")
+STRICT_FOLDERS = ("sqlglot_composer", "example_projects", "worked_examples", "copilot")
+USER_COPIED = ("example_projects", "worked_examples", "copilot")
 READ_FILES = (".py", ".pyw", ".html", ".htm", ".js", ".mjs", ".ipynb")
 WORKTREES = (".claude", "worktrees")
 

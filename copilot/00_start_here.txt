@@ -1,6 +1,6 @@
 # Copilot files for sqlglot Composer 7.2: start here
 
-sqlglot Composer 7.2 writes Hive from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 7.2 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -10,8 +10,8 @@ you can ask it in plain words.
 1. Open a new chat in Copilot.
 2. Paste the one file below that fits what you want to do, as your first message, and send
    it. If a paste is cut short, attach the file instead.
-3. Then ask. Say which tables to read, with the import line and columns of each, as your
-   Table reference in references/ gives them, such as:
+3. Then ask. Say which tables to read: paste each one's Table reference, its file in your
+   Project's references/ folder, or say its import line and columns, such as:
    `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint,
    job_id bigint, status string, dt string; partitioned by dt; Key run_id.
 4. Run what Copilot gives in your notebook. When the Toolbox refuses it, start a new chat
@@ -40,7 +40,7 @@ you can ask it in plain words.
 
 ## Fitting Copilot
 
-Copilot takes at most 8,000 characters before a chat, spaces and line breaks included, and
-each file fits. Edit a copy if you like, then count it:
-`python count_characters.py my_copy.txt` says how many characters it holds and whether it
-fits.
+Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
+file fits. Edit a copy if you like, then count it from the download's top folder:
+`python copilot/count_characters.py my_copy.txt` says how many characters it holds and
+whether it fits.

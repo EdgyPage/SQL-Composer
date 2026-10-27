@@ -13,15 +13,15 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Names for this objective, with their arguments
 
-{names: window, row_number, rank, dense_rank, ntile, lag, lead, first_value, last_value, sum_of, count_rows, descending, derived, rollup, cube, grouping_sets, is_total, UNION_ALL, UNION, INTERSECT, EXCEPT}
+{names: window, at_most, row_number, rank, dense_rank, ntile, lag, lead, first_value, last_value, sum_of, count_rows, descending, derived, rollup, cube, grouping_sets, is_total, UNION_ALL, UNION, INTERSECT, EXCEPT}
 
 ## Steps
 
 1. A Window says which rows each row looks across:
    `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`, the rows of each job, in order;
    several columns as lists; `descending(t.minutes)` for largest first.
-   `rows=(-6, 0)` keeps the 6 rows before and the row itself; `rows=(None, 0)` every row
-   up to it.
+   `rows=(-6, 0)` looks across the 6 rows before and the row itself; `rows=(None, 0)` every
+   row up to it.
 2. Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
    `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
    `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
@@ -30,7 +30,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
 3. Name each with AS, as any calculation.
 4. A window's value can't be tested in the same Statement. Work it out in a Derived table,
    then keep rows in the Statement that reads it: the latest row of each group is the row
-   numbered 1 from the newest; a top 3 is `at_most(d.n, 3)`.
+   numbered 1 from the newest; a top 3 keeps `at_most(d.n, 3)`, where `n` is the number's
+   AS name.
 5. Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
 6. Subtotals go inside GROUP_BY: `GROUP_BY(rollup(t.dt))` adds a total of every day;
    `cube(a, b)` every combination; `grouping_sets(...)` the sets named. `is_total(t.dt)`

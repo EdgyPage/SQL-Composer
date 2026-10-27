@@ -26,7 +26,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
      only those; `count_distinct(t.job_id)` counts different values.
    - `sum_of(t.minutes)`, `average_of(...)`, `min_of(...)`, `max_of(...)`.
    - Every column in SELECT that isn't added up goes in GROUP_BY. A calculation is grouped by
-     its name: `GROUP_BY(t.job_id, "hours")`.
+     its AS name, written as text: `GROUP_BY(t.job_id, "hours")`.
    - HAVING tests a total: `HAVING(more_than(count_rows(), 3))`.
 5. Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
    "running")`. More than two labels: file 10.

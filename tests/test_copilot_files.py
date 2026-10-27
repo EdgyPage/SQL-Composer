@@ -1,9 +1,12 @@
 """The Copilot files, `copilot/` (Toolbox 7.2, ticket 13).
 
 Each file is what tools/copilot_files.py writes from its source, fits the 8,000 characters
-Copilot takes before a chat, spaces and line breaks included, and teaches only what is true:
-every Python block in it runs on the Example database in a stand-in Project, every Toolbox
-name it uses is public, and it names no word the glossary says to avoid in its place.
+Copilot takes at once, spaces and line breaks included, and teaches only what is true:
+every Python block in it runs on the Example database in a stand-in Project (a block calling a
+Project action, which changes the Project, is read and its names checked, not run), every
+Toolbox name it uses is public, and it uses none of the words the glossary avoids that can only
+mean the wrong thing here, AVOIDED below: others, such as "import" or "case", are everyday
+words too.
 """
 
 from __future__ import annotations
@@ -49,7 +52,9 @@ ACTIONS = frozenset(project.__all__) - {"load", "check"}
 # Names the files call that the user's own code defines, or Python has.
 OWN_CALLS = frozenset({"query", "execute", "rows", "preview", "write", "create", "converted",
                        "recent_runs"}) | frozenset(dir(builtins))
-# Hive's own functions, which file 07 quotes from the Hive it converts.
+# Hive's own functions, which file 07 quotes from the Hive it converts: allowed as Hive's
+# words in backticks, so a file writing COUNT(x) as a Toolbox name would pass this test; the
+# block tests, which run the code, are what catch it.
 HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN", "MAX",
                         "ROW_NUMBER"})
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
@@ -80,7 +85,8 @@ def test_the_folder_holds_the_files_and_the_counter_only() -> None:
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
 def test_each_file_fits_what_copilot_takes_spaces_and_line_breaks_included(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    assert max(count_characters.characters(text)) <= count_characters.LIMIT == 8000
+    assert count_characters.characters(text) <= count_characters.LIMIT == 8000
+    assert count_characters.characters_on_windows(text) <= count_characters.LIMIT
 
 
 @pytest.mark.parametrize("path", OBJECTIVE_FILES, ids=lambda path: path.name)
