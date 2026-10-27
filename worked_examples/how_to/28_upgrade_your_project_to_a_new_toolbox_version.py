@@ -22,8 +22,8 @@ It needs [Start a Project](#start_a_project) and [Keep the Project in order](#ke
 ### Start from a Project an older Toolbox wrote
 
 Work in your own Project. This page makes one to upgrade: a copy of the Intermediate Example
-project, with the files 7.2's Upgrade adds taken out, so it looks to `project.upgrade()` like
-a Project 7.1 left:
+project, with the files and the folder 7.2's Upgrade adds taken out, so it looks to
+`project.upgrade()` like a Project 7.1 left:
 
 >>> import shutil
 >>> from pathlib import Path
@@ -32,6 +32,7 @@ a Project 7.1 left:
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 >>> for added in ["admin/project_version.txt", "admin/upgrade.ipynb", "admin/convert.ipynb"]:
 ...     Path(added).unlink()
+>>> shutil.rmtree("admin/conversions", ignore_errors=True)
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
 none, and is taken to be 7.1.
@@ -59,7 +60,7 @@ It ran the step from each version to the next, here one, and wrote a checklist f
 
 >>> checklist = Path("admin/upgrade_7.2.md").read_text(encoding="utf-8")  # -> str
 >>> [line for line in checklist.splitlines() if line.startswith(("- ", "Nothing"))]
-['- added admin/convert.ipynb', '- added admin/upgrade.ipynb', '- recorded 7.2 in admin/project_version.txt', 'Nothing: 7.2 needs nothing changed by hand.']
+['- added admin/conversions/', '- added admin/convert.ipynb', '- added admin/upgrade.ipynb', '- recorded 7.2 in admin/project_version.txt', 'Nothing: 7.2 needs nothing changed by hand.']
 
 Under Done for you, it lists each change it made, and under For you to do, each it left you.
 
