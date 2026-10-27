@@ -131,6 +131,9 @@ howto files".
 - [09 The docs: how-tos, Worked examples and the Example project](issues/09-the-docs.md)
 - [10 Every row of the conversion chart checks out](issues/10-every-row-of-the-conversion-chart.md)
 - [11 sqlglot 30.19.0 at the bottom of the range](issues/11-sqlglot-30-19-at-the-bottom.md)
+- [12 The Copilot evaluation: tasks, an offline scorer, and the baseline](issues/12-copilot-eval-harness.md)
+- [13 The Copilot files, one per objective, each at most 8,000 characters](issues/13-copilot-files.md)
+- [14 The Copilot files tuned on dev, and scored on held-out](issues/14-copilot-eval-rounds.md)
 
 The order is the user's habit from 7.0: one at a time, by number. The real dependencies are in
 each ticket's `Blocked by:`: 02, 03 and 04 need only 01, and could run side by side if the user
