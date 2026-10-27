@@ -242,7 +242,7 @@ from warehouse import query</pre>
 <p>The Project&#x27;s folders are there, and <code>project.check()</code> finds nothing wrong with them: every Table folder, Table reference and Building block the registry lists is there, and none is there that it doesn&#x27;t list.</p>
 <pre class="python">sorted(path.name for path in Path(&quot;.&quot;).iterdir() if path.is_dir())</pre>
 <p class="label">Python shows</p><pre class="output">[&#x27;admin&#x27;, &#x27;building_blocks&#x27;, &#x27;references&#x27;, &#x27;tables&#x27;]</pre>
-<p>In your own Project the list holds <code>sqlglot_composer</code> too, the Toolbox you copied in; this page&#x27;s folder has none.</p>
+<p>In your own Project the list holds <code>sqlglot_composer</code> too, the Toolbox you copied in, and <code>__pycache__/</code>, where Python keeps warehouse.py ready to import once a notebook has imported it; this page&#x27;s folder has neither.</p>
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
 <p>Your query gives back a pandas DataFrame, with the column named as the Hive names it:</p>

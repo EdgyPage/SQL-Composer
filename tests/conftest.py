@@ -12,6 +12,11 @@ A run collects the shared tests directly in `tests/`, sqlglot Composer's own in
 
 Every test runs under the offline trap, `offline_trap`, installed as this file loads: its Python
 refuses any lookup or connection that would leave this computer.
+
+No Python of the run, this one or one it starts, writes a `.pyc`. The code audit reads the
+Toolbox's folder and the other folders that ship, `__pycache__` included, and a how-to's folder
+would list a `__pycache__` its page doesn't show. Some computers set this already, and CI's
+doesn't.
 """
 
 from __future__ import annotations
@@ -21,6 +26,7 @@ import datetime
 import html
 import importlib
 import inspect
+import os
 import re
 import sys
 from collections.abc import Iterator
@@ -42,6 +48,9 @@ if TYPE_CHECKING:
 
 # Every test, and every library a test calls, reaches nothing off this computer.
 offline_trap.install()
+# No .pyc, here or in a Python a test starts.
+sys.dont_write_bytecode = True
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 
 ROOT = Path(__file__).resolve().parent.parent
 TESTS = ROOT / "tests"

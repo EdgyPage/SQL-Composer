@@ -264,8 +264,9 @@ that it doesn't list.
 >>> sorted(path.name for path in Path(".").iterdir() if path.is_dir())
 ['admin', 'building_blocks', 'references', 'tables']
 
-In your own Project the list holds `sqlglot_composer` too, the Toolbox you copied in; this
-page's folder has none.
+In your own Project the list holds `sqlglot_composer` too, the Toolbox you copied in, and
+`__pycache__/`, where Python keeps warehouse.py ready to import once a notebook has imported it;
+this page's folder has neither.
 
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is there.
