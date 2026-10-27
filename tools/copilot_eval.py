@@ -614,9 +614,10 @@ def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Sco
 # --- The stand-in Project, and scoring a whole file ----------------------------------------
 
 
-def stand_in(folder: Path) -> None:
+def stand_in(folder: Path, saved: dict[str, str] | None = None) -> None:
     """A Project in `folder` whose Table references are the Example database's tables, and the
-    writing tasks' Saved tables, and whose warehouse.py sends to the Example database."""
+    writing tasks' Saved tables, and `saved`'s, each Table reference's code by the table's
+    short name, and whose warehouse.py sends to the Example database."""
     project.start()
     (folder / "warehouse.py").write_text(WAREHOUSE, encoding="utf-8")
     references = folder / "references"
@@ -627,7 +628,8 @@ def stand_in(folder: Path) -> None:
     (references / "ops.py").write_text("".join(
         f"from references.ops__{name} import {name}\n" for name in EXAMPLE_TABLES),
         encoding="utf-8")
-    saved = {name: code for task in TASKS for name, code in task.saved.items()}
+    saved = {**{name: code for task in TASKS for name, code in task.saved.items()},
+             **(saved or {})}
     for name, code in saved.items():
         (references / f"mart__{name}.py").write_text(code, encoding="utf-8")
     (references / "mart.py").write_text("".join(

@@ -388,6 +388,17 @@ And two more, for files beside the notebooks:
 - `building_block`: a Derived table several notebooks read, which `new_block` writes into
   `building_blocks`, to fill in.
 
+## Have Copilot write it
+
+`copilot/` holds the Copilot files: plain text that teaches Microsoft Copilot the Toolbox, so
+you can ask it in plain words for a Statement, a Table reference, a Table notebook's logic
+cell or a Conversion. Open a new chat, paste the one file for what you want to do as your
+first message, then ask, giving the import line and columns of each table to read.
+`copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
+takes before a chat, spaces and line breaks included; `copilot/count_characters.py` counts a
+copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
+refuses what would give a wrong number.
+
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as

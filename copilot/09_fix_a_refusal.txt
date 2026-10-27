@@ -1,0 +1,119 @@
+# Copilot file 09: fixing a refusal (sqlglot Composer 7.2)
+
+Objective: fix code the Toolbox refused, keeping what the user asked for.
+Load this file when the user pastes code and a message from the Toolbox, such as a
+GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
+
+You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with the fixed code in one
+Python code block, then a sentence on what changed and why.
+
+## Always
+
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   Never `import *`. Use only names this file or another Copilot file lists; never make one
+   up. SQL's words are not Toolbox names: there is no COUNT, SUM, AND, CASE or alias.
+2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
+   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
+   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
+3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
+4. Write each Condition with a function: equals, not_equals, more_than, less_than,
+   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
+   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
+5. Bound every read of a partitioned table on its partition column, such as dt: in WHERE for
+   FROM and JOIN, inside ON= for LEFT_JOIN. A table without partitions needs no bound.
+6. ORDER_BY needs LIMIT.
+7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
+   `from warehouse import query, execute`. Never call query or execute yourself.
+8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
+   allows, and say why in a comment.
+9. Reach a column as `table.column`, from the user's Table reference:
+   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+10. When nothing in these files does what is asked, say so, and offer `hive_function` or
+    an Unchecked piece (file 10).
+
+## Reading a refusal
+
+Every refusal has four parts: What happened, Why it matters, Usual fix, Opt-out. Follow the
+Usual fix. The Opt-out is a keyword that tells the Toolbox the user has checked what it
+refuses; use it only when the user says so, and never to make an error go away.
+
+## Common refusals, by what happened, and the fix
+
+- "A column was used with Python's ==." (or <, >, and, or): write the Condition with a
+  function: `equals(t.status, "FAILED")`, `more_than(...)`, `all_of(...)`, `any_of(...)`.
+- "FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.": add a
+  bound, `WHERE(equals(job_runs.dt, "2026-09-24"))`, or between, is_in, last_n_days. For a
+  LEFT_JOIN, SEMI_JOIN or ANTI_JOIN, the bound goes inside ON=. Matching `t.dt` to another
+  table's dt is no bound. Every day, asked for: `reads_all_partitions=True`.
+- "ORDER_BY has no LIMIT.": add `LIMIT(n)` for a top n, or sort the DataFrame in pandas.
+- "WHERE has job_runs.dt = '2026-09-24', a condition on job_runs, which LEFT_JOIN brought
+  in.": move that Condition into `LEFT_JOIN(job_runs, ON=all_of(..., ...))`.
+- "SELECT has a calculation with no name: COUNT(*).": name it, `AS(count_rows(), "runs")`.
+- "SELECT has job_runs.status, which GROUP_BY leaves out.": add it to GROUP_BY, or count or
+  add it up.
+- "equals(job_runs.status, None) compares with None.": `is_null(t.status)` or
+  `is_not_null(...)`.
+- "statement(...) has its clauses out of SQL order: FROM, SELECT.": put them in order:
+  SELECT, FROM, joins, WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT; a write's clause first.
+- "JOIN(job_runs) has no ON=.": give ON=, or `CROSS_JOIN(t)` for every row with every row.
+- "RIGHT_JOIN(jobs, ...): the Toolbox doesn't write a RIGHT JOIN.": swap the two tables and
+  use LEFT_JOIN.
+- "... both sides are tables called jobs.": give one a second name, `j2 = AS(jobs, "j2")`.
+- "sum_of(average_of(...)) adds up ..., which is an average.": add up the parts instead,
+  such as a sum and a count, and divide; `adds_up=True` only when it truly adds up.
+- RepeatedRowsWarning, "LEFT_JOIN(job_runs) matches on job_id, but a job_runs row is told
+  apart only by its Key (run_id).": join on the whole Key, or join a Derived table grouped
+  to one row per value; `many_matches=True` only when the repeats are wanted.
+- A write refused for its columns: SELECT exactly the Saved table's columns, by name, the
+  partition column last.
+- A write refused for its Key: give one row per Key, with GROUP_BY over the Key,
+  SELECT_DISTINCT, or a row_number kept at 1.
+- "run_query was given send=, which Toolbox 7.0 replaced.": `run_query(s, query)` for a read,
+  `run_execute(s, execute)` for a write.
+
+## Names for this objective, with their arguments
+
+- equals(column, value)
+- not_equals(column, value)
+- more_than(column, value)
+- less_than(column, value)
+- between(column, low, high)
+- last_n_days(column, n)
+- is_in(column, values)
+- is_null(column)
+- is_not_null(column)
+- all_of(*conditions)
+- any_of(*conditions)
+- AS(expression, name)
+- count_rows(where=None, over=None)
+- LIMIT(n)
+- LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
+- CROSS_JOIN(table, reads_all_partitions=False)
+- derived(name, statement)
+
+## Worked example
+
+Refused with "A column was used with Python's ==." and, once fixed, the partition bound:
+
+```python
+from sqlglot_composer import FROM, SELECT, WHERE, equals, statement
+from references.ops__job_runs import job_runs
+
+s = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+)
+```
+
+## Do and don't
+
+- Do fix every refusal the code would meet, not just the one shown: read the code again
+  against the Always list.
+- Do keep the user's columns, tables and days.
+- Don't reach for an opt-out to silence a refusal; ask the user first.
+
+## Before you answer
+
+- The fixed code passes each item of the Always list.
+- What changed, and why, is said in a sentence.

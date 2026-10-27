@@ -356,6 +356,13 @@ beside them, such as a Table notebook. The Toolbox ships its Templates inside it
 Project keeps its own copies in its admin folder, to edit and add to.
 _Avoid_: skeleton, boilerplate, stub, scaffold, example
 
+**Copilot files**:
+Plain-text files a user loads into Microsoft Copilot before asking it for Toolbox code: one for
+each objective, such as building a Statement or converting Hive, each small enough for Copilot
+to take whole, and one that says which to load. They teach Copilot the Toolbox's names and
+how a Statement is built, so it writes code the user would otherwise write by hand.
+_Avoid_: prompt pack, system prompt, cheat sheet
+
 **Example gallery**:
 The searchable page holding every Worked example, generated from them, which ships in the
 Toolbox.
