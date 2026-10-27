@@ -126,7 +126,7 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 
 # The folders main holds a copy of, to copy and edit, at the paths dev has them. Written out
 # here, not taken from export_clean, so the tests say what main holds on their own.
-COPIED = ["example_projects"]
+COPIED = ["example_projects", "copilot"]
 # The copies with no comment syntax for a stamp, and a Conversion's original.hql, kept as the
 # Hive was given, which main holds as dev does.
 UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql")
@@ -431,7 +431,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(
     assert export_clean.main(["--preview", str(tmp_path / "preview")]) == 0
     assert (tmp_path / "preview" / ".github" / "README.md").is_file()
     assert sorted(path.name for path in (tmp_path / "preview").iterdir()) == [
-        ".github", "CHANGES.md", "LICENSE", "example_projects", "requirements.txt",
+        ".github", "CHANGES.md", "LICENSE", "copilot", "example_projects", "requirements.txt",
         "sqlglot_composer"]
     assert "Nothing was committed" in capsys.readouterr().out
     assert _main_commit(ROOT) == main_before

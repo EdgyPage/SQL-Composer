@@ -14,6 +14,8 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
   stamped with the version alone, for example
   `# sqlglot Composer 7.2 - copy it, then edit your copy`; the Templates ship inside the
   Toolbox, in `sqlglot_composer/project_templates.py`;
+- it copies the Copilot files, `copilot/`, the same way: each .txt as dev holds it, unstamped,
+  as Copilot counts every character, and `count_characters.py` stamped;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
@@ -34,7 +36,8 @@ It then checks what it built:
   pages included and Markdown read as pages, so that none of it can reach the network;
 - the folder's `version.txt` names the Toolbox and its version;
 - the tree holds nothing outside its allowlist: the Toolbox's folder, flat, the Example projects
-  and the Templates, `.github/README.md`, `CHANGES.md`, `LICENSE` and `requirements.txt`.
+  and the Templates, the Copilot files, `.github/README.md`, `CHANGES.md`, `LICENSE` and
+  `requirements.txt`.
 
 Only then does it commit the tree to `main`, as one new commit on top of the old `main`. It
 never checks `main` out and never pushes: pushing `main` is your step.
@@ -82,7 +85,8 @@ VERSION_MARKER = "<!-- VERSION -->"
 CHEAT_SHEET_MARKER = "<!-- CHEAT SHEET -->"
 # The folders main holds a copy of, for the user to copy and edit, at the paths dev has them.
 EXAMPLE_PROJECTS = "example_projects"
-COPIED = (EXAMPLE_PROJECTS,)
+COPILOT = "copilot"
+COPIED = (EXAMPLE_PROJECTS, COPILOT)
 # The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
 # its registry and its Reference sheet, and admin/project_version.txt, read from its first line;
 # and a Conversion's original.hql, kept exactly as the Hive was given.
@@ -329,7 +333,8 @@ def files_in(folder: Path) -> list[str]:
 
 def outside_allowlist(paths: list[str]) -> list[str]:
     """The paths `main` may not hold: it holds the Toolbox's flat folder, the Example projects
-    and the Templates, the README, the change notes, the license and requirements.txt."""
+    and the Templates, the Copilot files, the README, the change notes, the license and
+    requirements.txt."""
     def allowed(path: str) -> bool:
         parts = path.split("/")
         return (path == README or path in ROOT_FILES
@@ -428,8 +433,9 @@ def copied_files(folder: Path) -> list[str]:
 
 
 def build_copies(source: Path, into: Path, stamp: str) -> None:
-    """Write the Example projects into `into`, at dev's paths, stamped. A notebook or a CSV
-    file has no comment to hold a stamp, so it is copied as it is."""
+    """Write the Example projects and the Copilot files into `into`, at dev's paths, stamped. A
+    notebook or a CSV file has no comment to hold a stamp, and a Copilot file is counted
+    character by character, so each is copied as it is."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"

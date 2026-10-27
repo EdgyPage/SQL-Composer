@@ -1,7 +1,8 @@
 # CLAUDE.md - dev branch
 
 This is the **Dev branch** of the Toolbox, where all work happens. `main` is the **Clean
-branch**: the Toolbox (its Templates inside it), a copy of the Example projects, its README,
+branch**: the Toolbox (its Templates inside it), a copy of the Example projects and of the
+Copilot files (`copilot/`), its README,
 `CHANGES.md`, its license (`LICENSE`, MIT No Attribution) and `requirements.txt`, each as dev
 holds it, generated from this branch by `.venv/Scripts/python tools/export_clean.py` and never
 edited or committed to by hand. Each export commits to `main` locally, replacing whatever it
@@ -29,7 +30,10 @@ its Notes before working one of its tickets. Toolbox 7.1 (`run_query` and `run_e
 of `run`, so the user picks the call, and the cleanup after it) is that map's tickets
 09 to 18. Toolbox 7.2 (Conversions of other people's Hive into the user's code, Upgrades that
 carry a Project from one version to the next, and the version in one file) is charted through
-`.scratch/toolbox-7-2/map.md`; read its Notes before working one of its tickets.
+`.scratch/toolbox-7-2/map.md`; read its Notes before working one of its tickets. Its tickets 12
+to 14 add the Copilot files, `copilot/`, which `.venv/Scripts/python tools/copilot_files.py`
+writes from `tools/copilot_sources/`, each at most 8,000 characters, and the evaluation that
+measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says.
 
 ## Checks
 
@@ -58,7 +62,7 @@ what each may import. `CHANGES.md`, the change notes, is at the repo's top.
 ## Drift
 
 After a commit that touches the Toolbox's folder,
-`worked_examples/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
+`worked_examples/`, `example_projects/`, `copilot/`, `docs/`, `CONTEXT.md`, `CLAUDE.md`, `requirements.txt` or
 `requirements-dev.txt`, the drift
 reviewer looks for anything the commit made untrue and adds one open item per finding to
 `.scratch/drift.md`. It edits nothing else.

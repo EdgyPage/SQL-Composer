@@ -1,0 +1,123 @@
+# Copilot file 01: imports and the Project (sqlglot Composer 7.2)
+
+Objective: set up a Project, import what Toolbox code needs, and run a Statement.
+Load this file when the user starts a Project, asks what to import, or asks how to run
+something and see its rows.
+
+You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+block the user can paste into a notebook cell, then a few plain sentences.
+
+## Always
+
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   Never `import *`. Use only names this file or another Copilot file lists; never make one
+   up. SQL's words are not Toolbox names: there is no COUNT, SUM, AND, CASE or alias.
+2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
+   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
+   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
+3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
+4. Write each Condition with a function: equals, not_equals, more_than, less_than,
+   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
+   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
+5. Bound every read of a partitioned table on its partition column, such as dt: in WHERE for
+   FROM and JOIN, inside ON= for LEFT_JOIN. A table without partitions needs no bound.
+6. ORDER_BY needs LIMIT.
+7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
+   `from warehouse import query, execute`. Never call query or execute yourself.
+8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
+   allows, and say why in a comment.
+9. Reach a column as `table.column`, from the user's Table reference:
+   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+10. When nothing in these files does what is asked, say so, and offer `hive_function` or
+    an Unchecked piece (file 10).
+
+## Names for this objective, with their arguments
+
+- project.start()
+- project.add_references(names, *, query=None)
+- project.new_table(name, template='saved_table')
+- project.load(name)
+- statement(*clauses, returns_all_rows=False)
+- SELECT(*columns)
+- FROM(table, reads_all_partitions=False)
+- WHERE(*conditions)
+- equals(column, value)
+- run_query(s, query=None)
+- run_execute(s, execute=None)
+- to_hive(s)
+- show_hive(*statements)
+
+## Steps
+
+1. A Project is a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
+   notebooks. In a notebook there: `from sqlglot_composer import project`, then
+   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
+   warehouse.py.
+2. warehouse.py holds the user's two functions: `query(hive)`, which runs Hive that gives
+   rows and returns a pandas DataFrame, and `execute(hive)`, which runs Hive that changes
+   something and returns nothing. The user writes them for their warehouse; nothing else in
+   the Project reaches it.
+3. Each table read needs a Table reference, a file in references/:
+   `project.add_references(["ops.job_runs"], query=query)` writes references/ops__job_runs.py
+   from the table's own description. The user then fills in its `key=` by hand.
+4. Imports, at the top of a cell:
+   - Toolbox names, each by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   - One table: `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+   - Every table of a database: `from references import ops`, then `ops.job_runs.dt`.
+   - The two calls: `from warehouse import query, execute`.
+   - A Building block: `from building_blocks.recent_runs import recent_runs`.
+5. A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
+   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
+   `import pathlib` and `import sys`.
+6. To run: `rows = run_query(s, query)` gives a DataFrame. `run_execute(s, execute)` sends a
+   write, a CREATE TABLE or a SET line. `print(to_hive(s))` shows the Hive and sends
+   nothing; `show_hive(s)` prints it laid out.
+7. For a Saved table, `project.new_table("mart.job_day_runs")` makes its Table notebook and
+   Table reference: file 06 says what goes in them.
+
+## Worked example
+
+Read the failed runs of one day, run it, and show the Hive:
+
+```python
+from sqlglot_composer import FROM, SELECT, WHERE, equals, run_query, statement, to_hive
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+s = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+)
+print(to_hive(s))
+rows = run_query(s, query)
+```
+
+The same with the Database module, where several tables are read:
+
+```python
+from sqlglot_composer import FROM, SELECT, WHERE, equals, statement
+from references import ops
+
+s = statement(
+    SELECT(ops.job_runs.run_id, ops.job_runs.status),
+    FROM(ops.job_runs),
+    WHERE(equals(ops.job_runs.dt, "2026-09-24")),
+)
+```
+
+## Do and don't
+
+- Do import each name; don't write `from sqlglot_composer import *`.
+- Do call `run_query(s, query)`; don't call `query(s)` or `query(to_hive(s))`.
+- Do send a write with `run_execute`; don't send one with `run_query`.
+- Do read columns from the user's Table reference; don't write table names as text, such
+  as `"ops.job_runs"`, inside a Statement.
+- Don't pass `send=`: 7.0 replaced it with `query` and `execute`.
+
+## Before you answer
+
+- Every name used is imported, and each is in a Copilot file's Names.
+- Each partitioned table read is bounded on its partition column.
+- A read runs with `run_query(s, query)`, a write with `run_execute(s, execute)`.
+- The code is one block the user can paste.
