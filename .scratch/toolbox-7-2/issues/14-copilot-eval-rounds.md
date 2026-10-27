@@ -1,7 +1,7 @@
 # The Copilot files tuned on dev, and scored on held-out
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 13
 Size: M
 
@@ -22,8 +22,8 @@ the results as a design spec for targeted refactors if this is an issue."
   `.scratch/copilot-eval/results.md`, against the thresholds: Haiku C at least 25 points over
   A1 and at least 70%; Sonnet C at least 85%; no objective lower in C than in A1; routing at
   least 90%; invented names in at most 5% of C's answers; at most one needless opt-out in C.
-- The user's manual round in Copilot's web chat, by `docs/copilot-eval.md`: C at least 20
-  points over A1.
+- ~~The user's manual round in Copilot's web chat, by `docs/copilot-eval.md`: C at least 20
+  points over A1.~~ Dropped by the user, 2026-10-27: "ignore testing on copilot".
 - At most three tuning rounds. What still fails after them is written up as a design spec for
   targeted refactors that would make the Toolbox easier for a model to use, as the user asked,
   not tuned further.
@@ -89,5 +89,6 @@ a few rounds. They did, in two, so there is nothing to spec. If a refactor for m
 weighed, the baseline guesses above are where to start: aliases that refuse with the right name,
 such as `COUNT` saying "count_rows", would help a model that has no file.
 
-**Left: the user's manual round** in Copilot's web chat, as `docs/copilot-eval.md` says. Its
-threshold is C at least 20 points over A1. The ticket stays open until it is scored.
+**No round in Copilot itself.** The user dropped it (2026-10-27, "ignore testing on
+copilot"), so the proxies' held-out round is the measure. `docs/copilot-eval.md` still says how
+to run one, for whoever wants to.
