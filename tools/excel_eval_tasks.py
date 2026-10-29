@@ -6,7 +6,7 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 74: 37 on the dev split, which Copilot files 11 and 12 may be tuned on, and 37 held out,
+There are 78: 39 on the dev split, which Copilot files 11 and 12 may be tuned on, and 39 held out,
 scored once per version of the files. Every kind of formula, query or workbook in `COVERAGE`
 has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
@@ -155,6 +155,14 @@ ALERTS_SO_FAR = (
     "alerts AS (SELECT a.alert_id, a.run_id, a.severity, a.dt, r.status, r.job_id, COUNT(*) OVER "
     "(ORDER BY a.run_id RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS alerts_so_far "
     "FROM ops.run_alerts a LEFT JOIN ops.job_runs r ON a.run_id = r.run_id)")
+
+LONG_RUNS = ("long AS (SELECT run_id, dt, duration_mins FROM ops.job_runs WHERE "
+             "duration_mins >= 15)")
+FINANCE_JOBS = "finance AS (SELECT job_id, job_name FROM ops.jobs WHERE team = 'finance')"
+HIGH_ALERTS = ("high AS (SELECT alert_id, run_id, dt FROM ops.run_alerts WHERE severity = "
+               "'high')")
+KNOWN_COSTS = ("known AS (SELECT job_id, cost_cents, dt FROM ops.region_costs WHERE cost_cents "
+               "IS NOT NULL)")
 
 
 DEV = (
@@ -867,6 +875,58 @@ in
                     "BY team",
          "busy_jobs": f"WITH {JOB_TOTALS} SELECT job_id, job_name, runs FROM totals WHERE runs "
                       ">= 3"}),
+    ExcelTask(
+        "X75", "dev", ("loaded_table_final", "query_reads_query", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("long_runs", ("run_id", "dt", "duration_mins", "over"),
+                        "SELECT run_id, dt, duration_mins FROM ops.job_runs WHERE duration_mins "
+                        ">= 15 ORDER BY run_id", {"over": "=[@duration_mins]-15"},
+                        loaded_by="long_runs"),
+             ExcelTable("long_per_day", ("dt", "runs"),
+                        "SELECT dt, COUNT(*) FROM ops.job_runs WHERE duration_mins >= 15 GROUP "
+                        "BY dt ORDER BY dt", loaded_by="long_per_day")),
+            queries=(("long_runs", f"""let
+    Source = {table("job_runs")},
+    Long = Table.SelectRows(Source, each [duration_mins] >= 15),
+    Kept = Table.SelectColumns(Long, {{"run_id", "dt", "duration_mins"}})
+in
+    Kept"""), ("long_per_day", """let
+    Grouped = Table.Group(long_runs, {"dt"}, {{"runs", each Table.RowCount(_), Int64.Type}})
+in
+    Grouped"""))),
+        {"long_runs": f"WITH {LONG_RUNS} SELECT run_id, dt, duration_mins, duration_mins - 15 AS "
+                      "over FROM long",
+         "long_per_day": f"WITH {LONG_RUNS} SELECT dt, COUNT(*) AS runs FROM long GROUP BY dt"}),
+    ExcelTask(
+        "X76", "dev", ("loaded_table_final", "query_reads_query", "several_finals",
+                       "m_inner_join"),
+        FormulaWorkbook(
+            (jobs_table(), runs_table(),
+             ExcelTable("finance_jobs", ("job_id", "job_name", "label"),
+                        "SELECT job_id, job_name FROM ops.jobs WHERE team = 'finance' ORDER BY "
+                        "job_id", {"label": "=UPPER([@job_name])"}, loaded_by="finance_jobs"),
+             ExcelTable("finance_runs", ("run_id", "job_name", "duration_mins"),
+                        "SELECT r.run_id, j.job_name, r.duration_mins FROM ops.job_runs r JOIN "
+                        "ops.jobs j ON r.job_id = j.job_id WHERE j.team = 'finance' ORDER BY "
+                        "r.run_id", loaded_by="finance_runs")),
+            queries=(("finance_jobs", f"""let
+    Source = {table("jobs")},
+    Finance = Table.SelectRows(Source, each [team] = "finance"),
+    Kept = Table.SelectColumns(Finance, {{"job_id", "job_name"}})
+in
+    Kept"""), ("finance_runs", f"""let
+    Runs = {table("job_runs")},
+    Joined = Table.NestedJoin(Runs, {{"job_id"}}, finance_jobs, {{"job_id"}}, "f",
+        JoinKind.Inner),
+    Expanded = Table.ExpandTableColumn(Joined, "f", {{"job_name"}}),
+    Kept = Table.SelectColumns(Expanded, {{"run_id", "job_name", "duration_mins"}})
+in
+    Kept"""))),
+        {"finance_jobs": f"WITH {FINANCE_JOBS} SELECT job_id, job_name, UPPER(job_name) AS label "
+                         "FROM finance",
+         "finance_runs": f"WITH {FINANCE_JOBS} SELECT r.run_id, f.job_name, r.duration_mins "
+                         "FROM ops.job_runs r JOIN finance f ON r.job_id = f.job_id"}),
 )
 
 HELD_OUT = (
@@ -1688,6 +1748,62 @@ in
                       "GROUP BY status",
          "late_alerts": f"WITH {ALERTS_SO_FAR} SELECT alert_id, run_id, alerts_so_far FROM "
                         "alerts WHERE alerts_so_far > 5"}),
+    ExcelTask(
+        "X77", "held_out", ("loaded_table_final", "query_reads_query", "several_finals",
+                            "m_group"),
+        FormulaWorkbook(
+            (ALERT_TABLE,
+             ExcelTable("high_alerts", ("alert_id", "run_id", "dt", "late_run"),
+                        "SELECT alert_id, run_id, dt FROM ops.run_alerts WHERE severity = "
+                        "'high' ORDER BY alert_id", {"late_run": "=[@run_id]>100"},
+                        loaded_by="high_alerts"),
+             ExcelTable("high_per_day", ("dt", "alerts"),
+                        "SELECT dt, COUNT(*) FROM ops.run_alerts WHERE severity = 'high' GROUP "
+                        "BY dt ORDER BY dt", loaded_by="high_per_day")),
+            queries=(("high_alerts", f"""let
+    Source = {table("run_alerts")},
+    High = Table.SelectRows(Source, each [severity] = "high"),
+    Kept = Table.SelectColumns(High, {{"alert_id", "run_id", "dt"}})
+in
+    Kept"""), ("high_per_day", """let
+    Grouped = Table.Group(high_alerts, {"dt"}, {{"alerts", each Table.RowCount(_),
+        Int64.Type}})
+in
+    Grouped"""))),
+        {"high_alerts": f"WITH {HIGH_ALERTS} SELECT alert_id, run_id, dt, run_id > 100 AS "
+                        "late_run FROM high",
+         "high_per_day": f"WITH {HIGH_ALERTS} SELECT dt, COUNT(*) AS alerts FROM high GROUP BY "
+                         "dt"}),
+    ExcelTask(
+        "X78", "held_out", ("loaded_table_final", "query_reads_query", "several_finals",
+                            "total_row", "m_null_test"),
+        FormulaWorkbook(
+            (COSTS_TABLE,
+             ExcelTable("known_costs", ("job_id", "cost_cents", "dt", "dollars"),
+                        "SELECT job_id, cost_cents, dt FROM ops.region_costs WHERE cost_cents "
+                        "IS NOT NULL ORDER BY dt, job_id", {"dollars": "=[@cost_cents]/100"},
+                        loaded_by="known_costs",
+                        totals={"job_id": "Total",
+                                "cost_cents": "=SUBTOTAL(109,known_costs[cost_cents])"}),
+             ExcelTable("cost_per_job", ("job_id", "total_cents"),
+                        "SELECT job_id, SUM(cost_cents) FROM ops.region_costs GROUP BY job_id "
+                        "ORDER BY job_id", loaded_by="cost_per_job")),
+            queries=(("known_costs", f"""let
+    Source = {table("region_costs")},
+    Known = Table.SelectRows(Source, each [cost_cents] <> null),
+    Kept = Table.SelectColumns(Known, {{"job_id", "cost_cents", "dt"}})
+in
+    Kept"""), ("cost_per_job", """let
+    Grouped = Table.Group(known_costs, {"job_id"}, {{"total_cents",
+        each List.Sum([cost_cents]), type number}})
+in
+    Grouped"""))),
+        {"known_costs": f"WITH {KNOWN_COSTS} SELECT job_id, cost_cents, dt, cost_cents / 100 AS "
+                        "dollars FROM known",
+         "known_costs (Total Row)": f"WITH {KNOWN_COSTS} SELECT SUM(cost_cents) AS cost_cents "
+                                    "FROM known",
+         "cost_per_job": f"WITH {KNOWN_COSTS} SELECT job_id, SUM(cost_cents) AS total_cents "
+                         "FROM known GROUP BY job_id"}),
 )
 
 TASKS = DEV + HELD_OUT
