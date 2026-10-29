@@ -76,7 +76,7 @@ def test_each_file_is_what_its_source_writes() -> None:
         assert path.read_text(encoding="utf-8") == written[path.name], path.name
 
 
-def test_the_folder_holds_the_files_the_counter_and_the_template_only() -> None:
+def test_the_folder_holds_the_files_the_counter_and_the_empty_workbook_only() -> None:
     assert sorted(path.name for path in COPILOT.iterdir() if path.name != "__pycache__") == (
         sorted([path.name for path in FILES] + ["count_characters.py", "formula_workbook.xlsx"]))
     assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(11)]

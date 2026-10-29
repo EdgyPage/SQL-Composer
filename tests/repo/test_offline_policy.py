@@ -7,6 +7,7 @@ The repo is read as the hook and the export read it, through `findings_in`, `sca
 
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -317,7 +318,6 @@ MACRO_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.main+xml"
 def workbook(tmp_path: Path, parts: dict[str, str | bytes], main_type: str = WORKBOOK_TYPE,
              path: str = "copilot/w.xlsx") -> Path:
     """A workbook at `path` under `tmp_path`, holding the parts every workbook has and `parts`."""
-    import zipfile
     file = tmp_path / path
     file.parent.mkdir(parents=True, exist_ok=True)
     types = (f'<Types><Override PartName="/xl/workbook.xml" ContentType="{main_type}"/>'
@@ -348,6 +348,13 @@ def test_a_workbook_that_reaches_nothing_has_no_findings(tmp_path: Path) -> None
     ({"xl/worksheets/_rels/sheet1.xml.rels":
       '<Relationships><Relationship Id="rId1" Target="https://example.com" '
       'TargetMode="External"/></Relationships>'}, WORKBOOK_TYPE, "network"),
+    ({"xl/worksheets/_rels/sheet1.xml.rels":
+      "<Relationships><Relationship Id='rId1' Target='x' TargetMode = 'External'/>"
+      "</Relationships>"}, WORKBOOK_TYPE, "network"),
+    ({"xl/worksheets/sheet1.xml":
+      '<worksheet><c r="A1"><f>WEBSERVICE("x")</f></c></worksheet>'}, WORKBOOK_TYPE, "network"),
+    ({"xl/sharedStrings.xml": "<sst><si><t>see https://example.com</t></si></sst>"},
+     WORKBOOK_TYPE, "URL"),
 ])
 def test_a_workbook_with_a_macro_a_connection_or_a_link_out_is_found(
         tmp_path: Path, parts: dict[str, str | bytes], main_type: str, kind: str) -> None:
