@@ -16,7 +16,10 @@ you can ask it in plain words.
    job_id bigint, status string, dt string; partitioned by dt; Key run_id.
 4. Run what Copilot gives in your notebook. When the Toolbox refuses it, start a new chat
    with file 09, paste the code and the whole message, and ask for the fix.
-5. For something else, start a new chat with that file. A chat holds one file at a time.
+5. For something else, start a new chat with that file. A chat holds one file at a time,
+   but for one task: to convert an Excel workbook, attach files 03, 04, 05 and 11 (or
+   paste each as a message of its own), then attach the workbook and ask Copilot to
+   convert it.
 
 ## Which file
 
@@ -37,6 +40,8 @@ you can ask it in plain words.
 - `09_fix_a_refusal.txt`: fix code the Toolbox refused.
 - `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
   Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
+- `11_excel_formula_workbooks.txt`: turn a Formula workbook, an Excel workbook laid out as
+  `formula_workbook.xlsx` shows, into Hive and Toolbox code.
 
 ## Fitting Copilot
 

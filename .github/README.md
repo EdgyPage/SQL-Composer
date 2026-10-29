@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-27 11:25 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-29 04:44 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-27 11:25.
+This is version 7.2, exported 2026-10-29 04:44.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -433,6 +433,24 @@ takes at once, spaces and line breaks included; `copilot/count_characters.py` co
 copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
 refuses what would give a wrong number.
 
+To hand over an Excel workbook's calculations, one chat holds four files:
+
+1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
+   formulas in.
+2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
+   `05_windows_and_subtotals.txt` and `11_excel_formula_workbooks.txt` (or paste each as a
+   message of its own), then attach your workbook and send "Convert this workbook".
+3. Copilot answers with a map: which Tables are sources, the samples of your database's
+   tables, and which are finals, each becoming a query. Check every Table you expected is
+   there.
+4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
+   Fill each in with your database's own names: your Project's `references/` folder has
+   them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
+5. In `admin/convert.ipynb`, give each filled-in query to a Conversion:
+   `project.convert("sales_summary", HIVE, query=query)`, with the query pasted as
+   `HIVE = """..."""`. Its code is checked; Copilot's Python after the Hive is only for
+   reading, and the Conversion's code wins where the two differ.
+
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as
@@ -488,7 +506,7 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-27 11:25'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 04:44'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
