@@ -304,6 +304,8 @@ any item is open.
 - [x] D294 | a3f8fc6 | docstring | `tools/export_clean.py`'s module docstring (lines 17-18) still says the export copies `copilot/` as "each .txt as dev holds it, unstamped, ... and `count_characters.py` stamped", but `build_copies` now also copies `copilot/formula_workbook.xlsx`, which isn't a Copilot file (CONTEXT.md: plain text), byte for byte; add it to that bullet, e.g. "...and `count_characters.py` stamped, and the Formula workbook template, `formula_workbook.xlsx`, byte for byte, since main can't rebuild it;". - closed by 73b966a
 - [x] D295 | a3f8fc6 | glossary | `CHANGES.md` line 116 ("A Formula workbook template, `copilot/formula_workbook.xlsx`"), and the commit's tool, test and export comments, call the shipped empty workbook a "template", but CONTEXT.md's **Template** is the shape of a user's script with placeholders, which "The Toolbox ships ... inside it", and the same 7.2 section of CHANGES.md (line 167) uses "the Templates" in that sense; the .xlsx is neither a script, nor has placeholders, nor ships in the Toolbox, and **Formula workbook** doesn't name the shipped empty one. Add a sentence to **Formula workbook** naming it (e.g. "The Formula workbook template, `copilot/formula_workbook.xlsx`, is an empty one to copy; it isn't a Template"), or call it "an empty Formula workbook" in CHANGES.md line 116. - closed by 73b966a
 
+- [x] D296 | 73b966a | docstring | `tools/offline_policy.py`'s `is_read` (lines 906-907) says it is "Whether reading the repo at `root` reads `file`: a file of a kind it reads", but 73b966a took `WORKBOOK_FILES` out of `READ_FILES` and added them back in `_files` only, so reading the repo (`scan`) reads `copilot/formula_workbook.xlsx` while `is_read` returns False for it. Say what it answers now, e.g. "Whether the hook reads `file` before an edit: a text file of a kind the repo is read for (a workbook is read only by `scan`), in no folder it skips." - closed by df24f0e
+- [x] D297 | 73b966a | glossary | 73b966a settled that the shipped .xlsx is "the empty Formula workbook", not a template (D295, which named a3f8fc6's comments), but `requirements-dev.txt` line 8, which a3f8fc6 wrote, still says "openpyxl builds the Formula workbook template, copilot/'s .xlsx", and `CLAUDE.md` line 38 still calls it "the workbook's template". Change them to "the empty Formula workbook", e.g. "Its tickets 15 to 18 add Copilot file 11, ..., and the empty Formula workbook, built on dev with `openpyxl`". - closed by df24f0e
 ## Reviewed commits
 
 <!-- one line per review: `- <commit>: <items opened>` or `- <commit>: clean` -->
@@ -668,3 +670,4 @@ any item is open.
 - 528d0ec: D293
 - 6cb93c0: clean
 - a3f8fc6: D294, D295
+- 73b966a: D296, D297
