@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-29 14:21 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-29 15:03 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-29 14:21.
+This is version 7.2, exported 2026-10-29 15:03.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -438,7 +438,9 @@ gives you as you would your own code: the Toolbox still refuses what would give 
 To hand over an Excel workbook's calculations, one chat holds five files:
 
 1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
-   formulas in.
+   formulas in. `copilot/examples/` shows three filled in: formulas with a value typed over,
+   a summary Table with a Total Row, and Power Query, whose queries you add by hand as its
+   Power Query sheet says. The last sheet of each, Hive, is the conversion Copilot should give.
 2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
    `05_windows_and_subtotals.txt`, `11_excel_formula_workbooks.txt` and
    `12_excel_power_query.txt` (or paste each as a message of its own), then attach your
@@ -509,7 +511,7 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 14:21'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 15:03'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
