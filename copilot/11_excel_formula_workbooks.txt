@@ -30,16 +30,16 @@ and 05, for the Toolbox code.
    (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
    `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`. Never guess one.
 5. Write each final's Hive in its own ```sql block: each source a table, read for the
-   columns the finals use, each step a CTE, `WITH step AS (...)`, the final's columns in its
-   Table's order, each calculated one named with AS. The rows are a sample: filter only as a
-   formula or query does.
+   columns the finals use; each step a CTE, `WITH step AS (...)`, inside each final's query
+   that reads it, never a block alone; the final's columns in its Table's order, each
+   calculated one named with AS. The rows are a sample: filter only as a formula or query
+   does.
 6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 103 THEN 9
    ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
    that Table, match every typed column of the row, and say there is no Keys row. A Table
    with no value typed over a formula needs none.
-7. A refused formula: `NULL AS its_header`; name it in the map, with why, and for a cell
-   outside a Table say outside and the cell, such as C2. Anything files 11 and 12 don't list
-   is refused too.
+7. A refused formula: `NULL AS its_header`; name it in the map, with why, a cell outside a
+   Table by its address, such as C2. Anything files 11 and 12 don't list is refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
    out of the workbook what you don't want converted; fill in each `<...>`; run
    `project.convert` on the Hive; its checked code wins where the two differ.
@@ -49,15 +49,14 @@ and 05, for the Toolbox code.
 - `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE, AND, OR, NOT as they are.
 - IF as it is. IFS(c1, v1, c2, v2): `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 END`.
   SWITCH(x, "a", 1, 0): `CASE x WHEN 'a' THEN 1 ELSE 0 END`.
-- IFERROR(a / b, 0): COALESCE(a / b, 0), as Hive gives NULL for a divide by 0; IFNA(x, v)
-  and XLOOKUP's fourth argument, v: COALESCE(x, v). ISBLANK(x): x IS NULL.
+- IFERROR(a / b, 0): COALESCE(a / b, 0), as a divide by 0 is NULL; IFNA(x, v) and
+  XLOOKUP's fourth argument, v: COALESCE(x, v). ISBLANK(x): x IS NULL.
 - ROUND, ABS, POWER, SQRT as they are; MOD(a, b): PMOD(a, b); INT: FLOOR; MIN(a, b) and
   MAX(a, b) of one row's cells: LEAST and GREATEST.
 - LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); MID(x, s, n): SUBSTR(x, s, n);
-  LEN: LENGTH; FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a)), as it
-  ignores case; ISNUMBER(FIND(..)): INSTR(..) > 0; SUBSTITUTE: REPLACE; PROPER: INITCAP;
-  CONCATENATE: CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS
-  DOUBLE); UPPER, LOWER, TRIM as they are.
+  LEN: LENGTH; FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a));
+  ISNUMBER(FIND(..)): INSTR(..) > 0; SUBSTITUTE: REPLACE; PROPER: INITCAP; CONCATENATE:
+  CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE).
 - YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE; NOW():
   CURRENT_TIMESTAMP; d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
   DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
