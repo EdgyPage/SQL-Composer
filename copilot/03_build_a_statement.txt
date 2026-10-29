@@ -32,11 +32,12 @@ block the user can paste into a notebook cell, then a few plain sentences.
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat. When this one doesn't cover what is asked,
-    say so and name the file that does, to load in a new chat: 01 imports and the Project,
-    02 Table references, 03 building a Statement, 04 joins, 05 windows and subtotals, 06
-    saving a table, 07 converting Hive, 08 checking and comparing, 09 fixing a refusal, 10
-    labels, Hive functions and Hive written by hand.
+10. The user loads one Copilot file per chat, or for an Excel workbook 11 with 03, 04 and
+    05. When this one doesn't cover what is asked, say so and name the file that does, to
+    load in a new chat: 01 imports and the Project, 02 Table references, 03 building a
+    Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07 converting Hive, 08
+    checking and comparing, 09 fixing a refusal, 10 labels, Hive functions and Hive written
+    by hand, 11 an Excel workbook into Hive.
 
 ## Names for this objective, with their arguments
 

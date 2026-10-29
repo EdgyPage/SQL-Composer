@@ -85,9 +85,9 @@ STEPS = (
     "10. A value someone typed over a formula in one row is converted as it is, for that row. "
     "Find each in the original workbook (Ctrl+` shows formulas, so a typed value stands out) "
     "and type it over the formula in the same row here. Then add a row to the Keys Table: the "
-    "Table's name, and the column or columns that tell its rows apart, separated by commas, "
-    "such as job_runs | run_id, or sales | region, month. A Table with no value typed over a "
-    "formula needs no row in Keys.",
+    "Table's name under table, and under key_columns the column or columns that tell its "
+    "rows apart, separated by commas: job_runs and run_id, or sales and region, month. A "
+    "Table with no value typed over a formula needs no row in Keys.",
     "11. Charts and anything outside a Table are left alone, and Copilot names them. Titles "
     "and notes can stay.",
     "12. Save the workbook, attach it in a Copilot chat with Copilot file 11 loaded (with files "
