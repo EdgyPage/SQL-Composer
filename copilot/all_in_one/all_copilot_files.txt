@@ -1,3 +1,7 @@
+Every Copilot file in one document, for reading or searching them together. It is
+many times the 8,000 characters Copilot takes at once, so it is not for Copilot: there,
+paste or attach the separate files in copilot/, as 00_start_here.txt says.
+
 ===== 00_start_here.txt =====
 
 # Copilot files for sqlglot Composer 7.2: start here

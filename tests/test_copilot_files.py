@@ -84,6 +84,7 @@ def test_the_folder_holds_the_files_the_counter_the_empty_workbook_and_all_in_on
         sorted([path.name for path in FILES]
                + ["all_in_one", "count_characters.py", "formula_workbook.xlsx"]))
     assert [path.name for path in (COPILOT / "all_in_one").iterdir()] == ["all_copilot_files.txt"]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -93,7 +94,6 @@ def test_all_in_one_merges_every_file_in_order() -> None:
         path.name for path in FILES]
     for path in FILES:
         assert path.read_text(encoding="utf-8").rstrip() in text
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)

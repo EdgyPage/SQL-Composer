@@ -18,16 +18,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 COPILOT = ROOT / "copilot"
 MERGED = COPILOT / "all_in_one" / "all_copilot_files.txt"
+# What the document is, at its top, for someone who opens it before the README.
+HEADER = ("Every Copilot file in one document, for reading or searching them together. It is\n"
+          "many times the 8,000 characters Copilot takes at once, so it is not for Copilot: there,\n"
+          "paste or attach the separate files in copilot/, as 00_start_here.txt says.\n\n")
 
 
 def merged() -> str:
     """Every Copilot file, in order, each under a line naming it."""
     parts = [f"===== {path.name} =====\n\n{path.read_text(encoding='utf-8').rstrip()}\n"
              for path in sorted(COPILOT.glob("[0-9][0-9]_*.txt"))]
-    return "\n".join(parts)
+    return HEADER + "\n".join(parts)
 
 
 def main() -> int:
+    """Write the merged document into copilot/all_in_one/."""
     MERGED.parent.mkdir(exist_ok=True)
     MERGED.write_text(merged(), encoding="utf-8", newline="\n")
     print(f"Wrote {MERGED.relative_to(ROOT).as_posix()}.")
