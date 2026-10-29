@@ -13,10 +13,10 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
 ## Steps
 
 1. Follow file 11's steps, reading each query's steps in order, as below.
-2. A query another query or a Table's formula reads is a step, a CTE as file 11's step 5
-   says. A query and the Table it loads are read apart: the query is a step when another
-   query reads it, and the Table, with any formula columns it adds, is a final when nothing
-   reads the Table. A connection-only query nothing reads is left out, and named.
+2. A query another query reads is a step, a CTE as file 11's step 5 says. A query and the
+   Table it loads are two things, as a formula reads the Table, never the query: the Table,
+   its query's rows and any formula columns it adds, is a step when a formula reads it, else
+   a final. A connection-only query nothing reads is left out, and named.
 3. A step this file and file 11 don't list is refused: NULL for each column it makes, or the
    query left out, and named, with why.
 
