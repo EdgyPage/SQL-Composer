@@ -1,7 +1,7 @@
 # Copilot file 11: a Formula workbook into Hive, and a Toolbox draft
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 16
 Size: M
 

@@ -57,6 +57,8 @@ OWN_CALLS = frozenset({"query", "execute", "rows", "preview", "write", "create",
 # block tests, which run the code, are what catch it.
 HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN", "MAX",
                         "ROW_NUMBER"})
+# File 11 turns a Formula workbook into Hive, and loads with files 03, 04 and 05.
+EXCEL_FILE = "11_excel_formula_workbooks.txt"
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
 AVOIDED = ("raw SQL", "guardrail", "predicate", "schema file", "table config", "snippet",
            "boilerplate", "materialized view", "temp table", "set operation", "OVER clause",
@@ -79,7 +81,7 @@ def test_each_file_is_what_its_source_writes() -> None:
 def test_the_folder_holds_the_files_the_counter_and_the_empty_workbook_only() -> None:
     assert sorted(path.name for path in COPILOT.iterdir() if path.name != "__pycache__") == (
         sorted([path.name for path in FILES] + ["count_characters.py", "formula_workbook.xlsx"]))
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(11)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(12)]
 
 
 @pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
@@ -94,11 +96,12 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     assert version in text.splitlines()[0]
-    for part in ("Objective: ", "Load this file when", "## Always",
+    for part in ("Objective: ", "Load this file when",
                  "## Names for this objective, with their arguments", "## Worked example",
                  "## Do and don't", "## Before you answer"):
         assert part in text, part
-    assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
+    if path.name != EXCEL_FILE:  # loaded with files 03, 04 and 05, which hold it
+        assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
 
 
 def test_start_here_names_every_other_file() -> None:
