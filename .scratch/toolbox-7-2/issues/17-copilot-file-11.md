@@ -1,7 +1,7 @@
 # Copilot file 11: a Formula workbook into Hive, and a Toolbox draft
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 16
 Size: M
 
@@ -46,3 +46,46 @@ name, and the Power Query M inside it. So the person attaches the Formula workbo
   examples run on the Example database.
 - `docs/clean-branch-readme.md` and CHANGES.md's 7.2 name file 11 and the template.
 - CLAUDE.md's Definition of done, the beginner reader included.
+
+## Answer
+
+Built 2026-10-29. `copilot/11_excel_formula_workbooks.txt`, from
+`tools/copilot_sources/11_excel_formula_workbooks.txt`, 7,634 characters (7,780 with Windows
+line breaks): Objective, the Names for its Toolbox code, eight Steps, the Formulas, Marks,
+Refused, Left alone and Power Query M lists, a Worked example with its Hive and its Toolbox
+code, Do and don't, and Before you answer. It holds no Always block: it is loaded with files
+03, 04 and 05, which do, and `tests/test_copilot_files.py` holds the other parts. The shared
+rule 10 and `00_start_here.txt` say an Excel workbook is the one load of four files, and list
+file 11. A new test runs each Copilot file's ```sql block on the Example database, once its
+`<database>` is ops.
+
+Settled while building:
+
+- **"Toolbox code", not "draft"**: the glossary keeps "draft" from the Conversion folder.
+- **A source is a Table's typed columns**, and a summary Table a GROUP BY, as ticket 16
+  settled; the glossary's Formula workbook says so.
+- **A refused formula is `NULL AS its_header`**, and anything the file doesn't list is
+  refused too.
+- **The words the scorer looks for are the file's**: "blank", "approximate", "held as text",
+  "Parameters", the source M names, "pivot", "no Keys row", "outside" and the cell.
+
+Reviews, on ef2ee57:
+
+- **Spec** (review-spec): fixed IFS (`CASE WHEN c1 THEN v1 ...`, not `CASE x WHEN`), the pivot
+  keeping NULL as M does, M's `<>` keeping a null, List.Max, List.Min, List.Average and
+  Order.Descending, `[@[Unit Price]]`, the columns each final gives in the map, a source read
+  for the columns the finals use, no Keys row needed without a typed-over value, the words for
+  no Keys row and for a cell outside a Table, a catch-all for what isn't listed, telling the
+  user to take out what they don't want converted, and a test running the Hive example. Kept:
+  MOD as PMOD (they differ only for a negative divisor) and a lookup's LEFT JOIN, which fans
+  out on a repeated key where Excel takes the first; both are rare in a sample.
+- **Standards** (review-standards): no hard violation; "draft" became "Toolbox code". Kept
+  "CTE", which the glossary allows for how a Derived table lands in the string, and the
+  Excel-capitalised "Table", which the Formula workbook entry uses.
+- **Beginner reader** (beginner-reader, opus), advisory. Its costliest three, each fixed in
+  the README template: the four-file load as numbered steps, attaching 03, 04, 05 and 11;
+  where the names for each `<...>` come from (the Project's `references/`, or whoever owns
+  the data); and `project.convert("name", HIVE, query=query)` in `admin/convert.ipynb`, whose
+  code wins over Copilot's. Also taken: checking the map, and the Keys step naming which cell
+  holds what. Not taken: explaining partitions inside file 11, which file 03 does.
+- **Drift**: D298 and D299 (rule 10 and the generator's docstring), fixed in fc512e9.
