@@ -42,10 +42,10 @@ invents no name, imports no name with `*`, adds no opt-out the task didn't need,
 run_query where the request asks to run it. The files help when C passes at least 20 points
 more of the held-out tasks than A1.
 
-## The Excel tasks: Copilot file 11
+## The Excel tasks: Copilot files 11 and 12
 
-File 11 is measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
-`tools/excel_eval.py`): 50 filled-in Formula workbooks, 25 dev and 25 held out. A proxy model
+Files 11 and 12 are measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
+`tools/excel_eval.py`): 66 filled-in Formula workbooks, 33 dev and 33 held out. A proxy model
 reads each workbook as text; in Copilot you attach the workbook itself.
 
 1. Write the held-out workbooks and the answers files:
@@ -62,10 +62,11 @@ reads each workbook as text; in Copilot you attach the workbook itself.
    it with Insert > PivotTable, as the note says. Or build
    your own two or three workbooks with Power Query, outside the repo, and score them by
    reading the replies.
-2. **A0, before the file.** In a new chat, attach the task's workbook and send
+2. **A0, before the files.** In a new chat, attach the task's workbook and send
    `I attached an Excel workbook. Convert its calculations into Hive SQL.`
-3. **C, with the file.** In a new chat, attach `copilot/11_*.txt`, `03_*`, `04_*` and `05_*`
-   (or paste them, one message each), then attach the workbook and send the same request.
+3. **C, with the files.** In a new chat, attach `copilot/11_*.txt`, `12_*`, `03_*`, `04_*`
+   and `05_*` (or paste them, one message each), then attach the workbook and send the same
+   request.
 4. Paste each reply under its task's heading, then score each file:
 
        .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --record .scratch/copilot-eval/results.md

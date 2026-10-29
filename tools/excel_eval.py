@@ -1,10 +1,10 @@
 """Score answers to the Copilot evaluation's Excel tasks: a Formula workbook into Hive, offline.
 
-Copilot file 11 should make Copilot turn a Formula workbook into Hive that gives the workbook's
-rows. This measures it, as `tools/copilot_eval.py` measures the other files: the same tasks
-(`tools/excel_eval_tasks.py`) are answered with and without the files, by Copilot in its web
-chat or by a proxy model, each reply is kept in an answers file, and this scores the replies
-against the tasks' reference Hive.
+Copilot files 11 and 12 should make Copilot turn a Formula workbook into Hive that gives the
+workbook's rows. This measures it, as `tools/copilot_eval.py` measures the other files: the
+same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files, by Copilot in
+its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
+replies against the tasks' reference Hive.
 
     python tools/excel_eval.py prompts --split dev
     python tools/excel_eval.py proxy C --split dev
@@ -78,10 +78,10 @@ COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# File 11, and the Toolbox files its Toolbox code needs, all loaded in one chat.
-EXCEL_FILES = ("11", "03", "04", "05")
+# Files 11 and 12, and the Toolbox files their Toolbox code needs, all loaded in one chat.
+EXCEL_FILES = ("11", "12", "03", "04", "05")
 ARMS = {"A0": "nothing: the request alone",
-        "C": "Copilot file 11, with files 03, 04 and 05 for the Toolbox code"}
+        "C": "Copilot files 11 and 12, with files 03, 04 and 05 for the Toolbox code"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -99,7 +99,8 @@ def tasks_of(split: str) -> list[ExcelTask]:
 
 
 def shared_text(arm: str) -> str | None:
-    """What the person shares before asking: nothing, or file 11 and the Toolbox files."""
+    """What the person shares before asking: nothing, or files 11 and 12 and the Toolbox
+    files."""
     if arm == "A0":
         return None
     return "\n\n".join(path.read_text(encoding="utf-8") for number in EXCEL_FILES

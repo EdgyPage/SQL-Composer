@@ -1,0 +1,141 @@
+# Copilot file 12: a Formula workbook's Power Query and totals into Hive ({version})
+
+Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
+workbook into Hive, with file 11.
+Load this file when the user attaches a workbook and asks for its calculations as Hive or
+Toolbox code, with file 11, which holds the steps, the map and the formulas, and files 03,
+04 and 05.
+
+## Names for this objective, with their arguments
+
+{names: CROSS_JOIN, SEMI_JOIN, ANTI_JOIN, row_number, count_distinct}
+
+## Steps
+
+1. Follow file 11's steps, reading each query's steps in order, as below.
+2. A query another query or a Table's formula reads is a step: a CTE, `WITH q AS (...)`. A
+   query loaded into a Table nothing reads gives that final's rows. A connection-only query
+   nothing reads is left out, and named.
+3. A step this file and file 11 don't list is refused: NULL for each column it makes, or the
+   query left out, and named, with why.
+
+## Reading a table and its rows
+
+- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t. `#date(2026, 9, 1)`:
+  '2026-09-01'.
+- Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's `<>`
+  keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
+  `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
+- Text.Contains([c], "x"), Text.StartsWith, Text.EndsWith: `c LIKE '%x%'`, `'x%'`, `'%x'`,
+  case kept, as M keeps it. `not`: NOT.
+- List.Contains({1, 3}, [c]): `c IN (1, 3)`. List.Contains(u[k], [k]), a row whose k is in
+  another table: `LEFT SEMI JOIN u ON u.k = t.k`; with `not`, the LeftAnti join below.
+- Table.SelectColumns, RemoveColumns, RenameColumns: the SELECT list; TransformColumnTypes:
+  nothing.
+- Table.AddColumn: an expression AS its name, `if c then a else b` as IF(c, a, b).
+  Table.TransformColumns(t, {{"c", Text.Upper}}): UPPER(c) AS c. Table.ReplaceValue(t, null,
+  0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c.
+- M's functions as their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
+  Text.Start(x, n): SUBSTR(x, 1, n); Text.End(x, n): SUBSTR(x, -n); Text.Middle(x, s, n):
+  SUBSTR(x, s + 1, n), as M counts from 0; Number.Round, Number.Abs; Number.Mod: PMOD;
+  Date.Year, Date.Month, Date.Day; Date.AddDays: DATE_ADD; Date.AddMonths: ADD_MONTHS;
+  Date.EndOfMonth: LAST_DAY; Date.StartOfMonth: `CAST(TRUNC(d, 'MM') AS STRING)`.
+
+## Grouping, joining, stacking
+
+- Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum, List.Max, List.Min and
+  List.Average as SUM, MAX, MIN and AVG, List.StandardDeviation as STDDEV_SAMP.
+  List.Count(List.Distinct([c])): COUNT(DISTINCT c), which leaves out NULL where M counts it
+  as a value: say so where c has a blank in the sample.
+- NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
+  RightOuter: LEFT JOIN, the two tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT
+  JOIN u ON t.k = u.k WHERE u.k IS NULL`, t's columns only; RightAnti: the same, swapped.
+  ExpandTableColumn's fourth argument, new names: AS.
+- A NestedJoin on every column, its new column removed, in Table.Distinct: Inner is
+  `INTERSECT`, LeftAnti is `EXCEPT`.
+- Table.AddColumn(t, "u", each u), then expanded: `CROSS JOIN u`.
+- Table.Combine: UNION ALL; inside Table.Distinct, UNION. Table.Distinct alone: SELECT
+  DISTINCT.
+- Table.Unpivot(t, {"a", "b"}, "measure", "amount") or UnpivotOtherColumns: one SELECT per
+  column unpivoted, stacked with UNION ALL, `'a' AS measure, a AS amount`, each with `WHERE
+  a IS NOT NULL`, as M drops a null there.
+
+## A whole column, and the Total Row
+
+- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX: `SUM(v) OVER ()` and so on, COUNTA as
+  COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]): `SUM(a * b) OVER
+  ()`.
+- A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a final
+  of its own, `<Table> (total row)`, one row: a column per total, in order, no label. On a
+  summary whose totals each SUM a SUM or a COUNT, MAX a MAX or MIN a MIN: none of its own,
+  but `GROUP BY a WITH ROLLUP` in the summary's query, the total row's a NULL.
+
+## Order
+
+- Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone: LIMIT.
+- Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY ...)
+  AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
+- A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
+  order; say the order was dropped.
+
+## Marks: convert, and say so
+
+- M reading Sql.Database or a non-workbook source: use the table it names; say which to check.
+- Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
+  the sample, NULL where none, as M leaves it; say the pivot's columns are now fixed.
+
+## Refused, and named
+
+Web.Contents or any web source (leave that query out); Table.AddIndexColumn with no Sort
+before it; Table.FillDown and FillUp; Table.Distinct with a column list; List.Median.
+
+## Worked example
+
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs, loaded into Table
+busy_jobs:
+
+    let
+        Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
+        Ok = Table.SelectRows(Source, each [status] <> null
+            and Text.StartsWith([status], "SUCC")),
+        Grouped = Table.Group(Ok, {"job_id"}, {{"runs", each Table.RowCount(_), Int64.Type}}),
+        Busy = Table.SelectRows(Grouped, each [runs] > 1)
+    in
+        Busy
+
+Sources: job_runs. Finals: busy_jobs (job_id, runs). Fill in: `<database>`.
+
+```sql
+SELECT job_id, COUNT(*) AS runs
+FROM <database>.job_runs
+WHERE status IS NOT NULL AND status LIKE 'SUCC%'
+GROUP BY job_id
+HAVING COUNT(*) > 1
+```
+
+Toolbox code, with `<database>` as ops:
+
+```python
+from sqlglot_composer import (AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, count_rows,
+                              is_not_null, more_than, starts_with, statement)
+from references.ops__job_runs import job_runs
+
+s = statement(
+    SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+    FROM(job_runs, reads_all_partitions=True),  # the query reads every row
+    WHERE(is_not_null(job_runs.status), starts_with(job_runs.status, "SUCC")),
+    GROUP_BY(job_runs.job_id),
+    HAVING(more_than(count_rows(), 1)),
+)
+```
+
+## Do and don't
+
+- Do read each query's steps in order, and a query another reads as a CTE.
+- Don't keep an ORDER BY with no LIMIT, guess a source outside the workbook, or convert a
+  web query.
+
+## Before you answer
+
+- Each query mapped: a step as a CTE, a loaded one as its final's query.
+- Each mark and refusal named.
