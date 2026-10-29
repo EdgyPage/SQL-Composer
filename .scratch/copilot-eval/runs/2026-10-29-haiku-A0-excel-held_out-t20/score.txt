@@ -1,0 +1,37 @@
+X21  FAIL  found parses runs correct  code: none
+X22  FAIL  found parses runs correct  code: none
+X23  FAIL  found parses runs correct  code: none
+X24  FAIL  found parses runs correct  code: none
+X25  FAIL  found parses runs correct  unnamed: as text  code: none
+X26  FAIL  found parses runs correct  code: none
+X27  FAIL  found parses runs correct  code: none
+X28  FAIL  found parses runs correct  code: none
+X29  FAIL  found parses runs  unnamed: key  code: none  (gives something else for region_budgets)
+X30  FAIL  found parses runs  unnamed: PivotTable  code: none  (gives something else for scheduler_runs)
+X31  FAIL  found parses runs  unnamed: outside, Parameters  code: none  (gives something else for jobs)
+X32  FAIL  found parses  unnamed: approximate  code: none  (doesn't run: no such table: ops.by_name)
+X33  FAIL  found parses runs correct  code: none
+X34  FAIL  found parses runs correct  code: none
+X35  FAIL  found parses runs correct  unnamed: Web.Contents  code: none
+X36  FAIL  found parses runs correct  code: none
+X37  FAIL  found parses runs correct  code: none
+X38  FAIL  found parses runs correct  code: none
+X39  FAIL  found parses  invented: ok_runs_loaded, ok_runs_loaded  code: none  (doesn't run: no such table: ops.ok_runs_loaded)
+X40  FAIL  found parses  invented: parameters, value, name, runs_costed  code: none  (doesn't run: no such table: ops.parameters)
+X46  FAIL  found parses  invented: jobs_stats  code: none  (doesn't run: no such table: ops.jobs_stats)
+X47  FAIL  found parses runs correct  code: none
+X48  FAIL  found parses runs correct  code: none
+X49  FAIL  found parses runs correct  code: none
+X50  FAIL  found parses runs correct  code: none
+X59  FAIL  found parses runs correct  code: none
+X60  FAIL  found parses runs  code: none  (gives something else for region_budgets (Total Row))
+X61  FAIL  found parses  code: none  (doesn't run: no such table: ops.by_region)
+X62  FAIL  found parses runs correct  code: none
+X63  FAIL  found parses runs correct  code: none
+X64  FAIL  found parses runs correct  code: none
+X65  FAIL  found parses runs  code: none  (gives something else for run_measures)
+X66  FAIL  found parses  invented: ok_runs_loaded  code: none  (doesn't run: no such table: ops.ok_runs_loaded)
+X69  FAIL  found parses  invented: region_costs_calc, job_totals_calc  code: none  (doesn't run: no such table: ops.job_totals)
+X70  FAIL  found parses  code: none  (doesn't run: no such table: ops.staffed)
+
+A0 on haiku: 0% passed of 35; found 100%, parses 100%, runs 77%, correct 63%, mapped 0%; all named in 83%; invented names in 14%; Toolbox code that parses with no invented name in 0%

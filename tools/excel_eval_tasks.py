@@ -554,7 +554,7 @@ in
                      "OVER () AS share, duration_mins - AVG(duration_mins) OVER () AS vs_avg, "
                      "RANK() OVER (PARTITION BY job_id ORDER BY duration_mins DESC) AS "
                      "rank_in_job FROM ops.job_runs",
-         "job_runs (total row)": "SELECT SUM(duration_mins) AS duration_mins, "
+         "job_runs (Total Row)": "SELECT SUM(duration_mins) AS duration_mins, "
                                  "SUM(duration_mins) / SUM(duration_mins) AS share "
                                  "FROM ops.job_runs"}),
     ExcelTask(
@@ -675,8 +675,9 @@ in
                         "SELECT run_id, job_id FROM ops.scheduler_runs WHERE run_id NOT IN "
                         "(SELECT run_id FROM ops.job_runs) ORDER BY run_id", loaded_by="unrun"),
              ExcelTable("measures", ("run_id", "measure", "amount"),
-                        "SELECT run_id, 'duration_mins', duration_mins FROM ops.job_runs ORDER "
-                        "BY run_id", loaded_by="measures")),
+                        "SELECT run_id, 'duration_mins', duration_mins FROM ops.job_runs UNION "
+                        "ALL SELECT run_id, 'avg_retry_secs', avg_retry_secs FROM ops.job_runs "
+                        "WHERE avg_retry_secs IS NOT NULL ORDER BY run_id", loaded_by="measures")),
             queries=(("job_regions", f"""let
     Jobs = Table.SelectColumns({table("jobs")}, {{"job_id"}}),
     Regions = Table.Distinct(Table.SelectColumns({table("region_budgets")}, {{"region"}})),
@@ -797,7 +798,7 @@ in
     Kept"""))),
         {"by_region": f"WITH {RUNS_BY_REGION} SELECT region, total_mins, runs, total_mins / "
                       "SUM(total_mins) OVER () AS share FROM g",
-         "by_region (total row)": f"WITH {RUNS_BY_REGION} SELECT SUM(total_mins) AS "
+         "by_region (Total Row)": f"WITH {RUNS_BY_REGION} SELECT SUM(total_mins) AS "
                                   "total_mins FROM g",
          "top_runs": f"WITH {RUNS_PLACED} SELECT run_id, job_name, region FROM base ORDER BY "
                      "duration_mins DESC, run_id LIMIT 2"}),
@@ -1283,7 +1284,7 @@ in
                            "SUM(budget_cents) OVER () AS share, budget_cents > AVG(budget_cents) "
                            "OVER () AS above_avg, RANK() OVER (PARTITION BY region ORDER BY "
                            "budget_cents) AS rank_in_region FROM ops.region_budgets",
-         "region_budgets (total row)": "SELECT COUNT(job_id) AS job_id, AVG(budget_cents) AS "
+         "region_budgets (Total Row)": "SELECT COUNT(job_id) AS job_id, AVG(budget_cents) AS "
                                        "budget_cents FROM ops.region_budgets"}),
     ExcelTask(
         "X61", "held_out", ("total_row_rollup", "summary_table", "sumifs", "countifs", "maxifs"),
@@ -1411,7 +1412,9 @@ in
                         loaded_by="ran_as_scheduled"),
              ExcelTable("run_measures", ("run_id", "job_id", "measure", "amount"),
                         "SELECT run_id, job_id, 'duration_mins', duration_mins FROM ops.job_runs "
-                        "ORDER BY run_id", loaded_by="run_measures")),
+                        "UNION ALL SELECT run_id, job_id, 'avg_retry_secs', avg_retry_secs FROM "
+                        "ops.job_runs WHERE avg_retry_secs IS NOT NULL ORDER BY run_id",
+                        loaded_by="run_measures")),
             queries=(("team_regions", f"""let
     Teams = Table.Distinct(Table.SelectColumns({table("jobs")}, {{"team"}})),
     Regions = Table.Distinct(Table.SelectColumns({table("jobs")}, {{"region"}})),
@@ -1480,7 +1483,7 @@ in
                     "duration_mins, dt, SUM(duration_mins) OVER (PARTITION BY job_id ORDER BY dt "
                     "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running, "
                     "duration_mins / SUM(duration_mins) OVER () AS share FROM ok",
-         "ok_runs (total row)": "SELECT SUM(duration_mins) AS duration_mins FROM ops.job_runs "
+         "ok_runs (Total Row)": "SELECT SUM(duration_mins) AS duration_mins FROM ops.job_runs "
                                 "WHERE status IS NOT NULL AND status LIKE 'SUCC%'"}),
     ExcelTask(
         "X69", "held_out", ("combination", "multi_source", "shared_step", "several_finals",
@@ -1506,9 +1509,8 @@ in
                                "total_cents": "=SUBTOTAL(109,job_totals[total_cents])",
                                "over_count": "=SUBTOTAL(109,job_totals[over_count])"}),
             ExcelTable("late_costs", ("job_id", "dt", "running_cost"),
-                       "SELECT job_id, dt, cost_cents FROM ops.region_costs WHERE dt >= "
-                       "'20260922' AND job_id IN (1, 2) ORDER BY job_id, dt",
-                       loaded_by="late_costs")),
+                       f"WITH {COSTS_WITH_BUDGETS} SELECT job_id, dt, running_cost FROM costs "
+                       "WHERE running_cost > 1500 ORDER BY job_id, dt", loaded_by="late_costs")),
             queries=(("late_costs", f"""let
     Source = {table("region_costs")},
     Late = Table.SelectRows(Source, each [running_cost] > 1500),
@@ -1560,7 +1562,7 @@ in
     Top"""))),
         {"owner_load": f"WITH {OWNER_LOAD} SELECT owner, total_mins, runs, total_mins / runs AS "
                        "avg_mins FROM per_owner",
-         "owner_load (total row)": f"WITH {OWNER_LOAD} SELECT SUM(runs) AS runs FROM per_owner",
+         "owner_load (Total Row)": f"WITH {OWNER_LOAD} SELECT SUM(runs) AS runs FROM per_owner",
          "busiest_owner": f"WITH {OWNER_LOAD} SELECT owner, total_mins, runs FROM per_owner ORDER BY "
                           "runs DESC LIMIT 1"}),
 )

@@ -16,7 +16,6 @@ from pathlib import Path
 
 import pytest
 
-
 import code_audit
 import excel_eval
 import offline_policy
@@ -246,5 +245,5 @@ def test_a_total_row_shows_as_one_and_is_a_final_of_its_own(hive: sqlite3.Connec
     task = BY_ID["X52"]
     assert "Total Row: Total |  | =SUBTOTAL(109,job_runs[duration_mins])" in as_text(
         task.workbook)
-    assert "job_runs (total row)" in task.finals
+    assert "job_runs (Total Row)" in task.finals
     assert scored(task, reference_reply(task), hive).passed
