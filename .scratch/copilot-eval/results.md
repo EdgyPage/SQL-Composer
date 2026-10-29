@@ -56,3 +56,14 @@ From a596632 on (ticket 19), each split has 25 tasks, X41 to X50 added, and file
 HAVING, every JoinKind, UNION, MINIFS, the -IF forms and RANK. Dev rounds 1 and 2 are a596632
 and 67b7e92, scored before X41's MINIFS gained a second condition (df822e4); 61c9ca2, after the
 reviews' fixes, was checked on dev once, then scored on held-out.
+
+| 2026-10-29 | 10de2a9 | haiku | C | dev | 94 | 100 | 97 | 97 | 97 | 100 | 100 | 3 | 51 |
+| 2026-10-29 | fac0fd8 | haiku | C | dev | 97 | 100 | 100 | 100 | 100 | 100 | 100 | 3 | 0 |
+| 2026-10-29 | none | haiku | A0 | held_out | 0 | 100 | 100 | 77 | 63 | 0 | 83 | 14 | 0 |
+| 2026-10-29 | fac0fd8 | haiku | C | held_out | 94 | 100 | 97 | 97 | 94 | 100 | 100 | 0 | 97 |
+| 2026-10-29 | none | sonnet | A0 | held_out | 0 | 100 | 100 | 83 | 60 | 0 | 91 | 9 | 0 |
+| 2026-10-29 | fac0fd8 | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+
+From 10de2a9 on (ticket 20), files 11 and 12 are loaded together, and each split has 35 tasks,
+X51 to X70 added. Each run was answered in two halves of about 18 tasks, joined before scoring.
+Dev rounds 1 and 2 are 10de2a9 and fac0fd8; held-out was scored once, on fac0fd8.

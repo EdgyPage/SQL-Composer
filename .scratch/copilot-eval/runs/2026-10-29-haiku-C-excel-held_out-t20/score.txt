@@ -1,0 +1,37 @@
+X21  pass  found parses runs correct mapped  code: parses
+X22  pass  found parses runs correct mapped  code: parses
+X23  pass  found parses runs correct mapped  code: parses
+X24  pass  found parses runs correct mapped  code: none
+X25  pass  found parses runs correct mapped  code: parses
+X26  pass  found parses runs correct mapped  code: parses
+X27  pass  found parses runs correct mapped  code: parses
+X28  pass  found parses runs correct mapped  code: parses
+X29  pass  found parses runs correct mapped  code: parses
+X30  pass  found parses runs correct mapped  code: parses
+X31  pass  found parses runs correct mapped  code: parses
+X32  pass  found parses runs correct mapped  code: parses
+X33  pass  found parses runs correct mapped  code: parses
+X34  pass  found parses runs correct mapped  code: parses
+X35  pass  found parses runs correct mapped  code: parses
+X36  pass  found parses runs correct mapped  code: parses
+X37  pass  found parses runs correct mapped  code: parses
+X38  pass  found parses runs correct mapped  code: parses
+X39  pass  found parses runs correct mapped  code: parses
+X40  pass  found parses runs correct mapped  code: parses
+X46  pass  found parses runs correct mapped  code: parses
+X47  pass  found parses runs correct mapped  code: parses
+X48  pass  found parses runs correct mapped  code: parses
+X49  pass  found parses runs correct mapped  code: parses
+X50  pass  found parses runs correct mapped  code: parses
+X59  pass  found parses runs correct mapped  code: parses
+X60  pass  found parses runs correct mapped  code: parses
+X61  pass  found parses runs correct mapped  code: parses
+X62  pass  found parses runs correct mapped  code: parses
+X63  pass  found parses runs correct mapped  code: parses
+X64  pass  found parses runs correct mapped  code: parses
+X65  pass  found parses runs correct mapped  code: parses
+X66  pass  found parses runs correct mapped  code: parses
+X69  FAIL  found mapped  code: parses  (doesn't parse: Failed to parse any statement following CTE. Line 13, Col: 1.)
+X70  FAIL  found parses runs mapped  code: parses  (gives something else for owner_load)
+
+C on haiku: 94% passed of 35; found 100%, parses 97%, runs 97%, correct 94%, mapped 100%; all named in 100%; invented names in 0%; Toolbox code that parses with no invented name in 97%
