@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-29 11:20 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-29 14:21 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-29 11:20.
+This is version 7.2, exported 2026-10-29 14:21.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -509,7 +509,7 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 11:20'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 14:21'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
