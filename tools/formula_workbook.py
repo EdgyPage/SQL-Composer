@@ -16,19 +16,32 @@ something to half-edit and forget.
 
 It is the one file main ships that main can't rebuild: openpyxl, which writes it, is pinned in
 requirements-dev.txt only, and the export copies the file as dev holds it.
+
+The Copilot evaluation's Excel tasks (`tools/excel_eval_tasks.py`) describe filled-in Formula
+workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's sample
+rows read from the Example database, and `as_text` writes what Copilot reads in it, read back
+from the saved file, for a proxy model, which can't be given a file. openpyxl writes no Power
+Query and no PivotTable, so a workbook's queries are given as their M, and anything else it
+can't write as a note, both in the text alone.
 """
 
 from __future__ import annotations
 
+import io
+import re
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import openpyxl
+from openpyxl.chart import BarChart, Reference
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
+from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path[:0] = [str(ROOT)]
 EMPTY = ROOT / "copilot" / "formula_workbook.xlsx"
 
 # The steps sheet, one paragraph a row. A heading is a line that ends with a colon.
@@ -116,6 +129,191 @@ def contents(workbook: openpyxl.Workbook) -> Contents:
                                     for cell in row if cell.value is not None},
                           "tables": {name: sheet.tables[name].ref for name in sheet.tables}}
             for sheet in workbook.worksheets}
+
+
+# --- A filled-in Formula workbook, for the Copilot evaluation --------------------------------
+
+
+@dataclass(frozen=True)
+class ExcelTable:
+    """One Excel Table of a filled-in Formula workbook, on a sheet of its own name.
+
+    Its columns are `headers`, in order: each one `formulas` names is calculated, by that
+    formula as a person types it (`=[@duration_mins]/60`), and the rest are typed, their rows
+    the rows `rows`, Hive, gives on the Example database, column by column. `typed_over` holds
+    each value typed over a formula, by the row's first typed value and the column's header.
+    `loaded_by` names the Power Query that loads the Table, if one does."""
+
+    name: str
+    headers: tuple[str, ...]
+    rows: str = ""
+    formulas: dict[str, str] = field(default_factory=dict)
+    typed_over: dict[tuple[object, str], object] = field(default_factory=dict)
+    loaded_by: str = ""
+
+
+@dataclass(frozen=True)
+class FormulaWorkbook:
+    """A filled-in Formula workbook: its Tables; its Parameters and Keys rows; its Power
+    Queries, each (name, M); its defined names, each (name, what it refers to); cells outside
+    any Table, each (sheet, cell, value); whether a sheet holds a chart; notes on what openpyxl
+    can't write, such as a PivotTable; and whether its text shows each formula as a person types
+    it (`[@units]`) or as the file holds it (`sales[[#This Row],[units]]`)."""
+
+    tables: tuple[ExcelTable, ...]
+    parameters: tuple[tuple[str, object], ...] = ()
+    keys: tuple[tuple[str, str], ...] = ()
+    queries: tuple[tuple[str, str], ...] = ()
+    defined_names: tuple[tuple[str, str], ...] = ()
+    cells: tuple[tuple[str, str, object], ...] = ()
+    chart: bool = False
+    notes: tuple[str, ...] = ()
+    as_typed: bool = False
+
+
+# Excel's newer functions, which its file holds with the _xlfn. prefix Excel adds.
+NEWER = re.compile(r"(?<![\w.])(XLOOKUP|XMATCH|SWITCH|IFS|MAXIFS|MINIFS|CONCAT|TEXTJOIN|LET|"
+                   r"LAMBDA|RANDARRAY)\(")
+THIS_ROW = re.compile(r"\[@(\[[^\]]+\]|[^\[\]]+)\]")
+HELD_THIS_ROW = re.compile(r"\w+\[\[#This Row\],(\[[^\]]+\])\]")
+
+
+def as_held(formula: str, table: str) -> str:
+    """A formula as a workbook's file holds it: `[@units]` in Table sales written out as
+    `sales[[#This Row],[units]]`, and each newer function with its `_xlfn.` prefix."""
+    def this_row(found: re.Match[str]) -> str:
+        column = found.group(1)
+        return f"{table}[[#This Row],{column if column.startswith('[') else f'[{column}]'}]"
+    return NEWER.sub(r"_xlfn.\1(", THIS_ROW.sub(this_row, formula))
+
+
+def as_typed(formula: str) -> str:
+    """A formula as a person types it, and Excel's formula bar shows it: the reverse of
+    `as_held`."""
+    def this_row(found: re.Match[str]) -> str:
+        column = found.group(1)[1:-1]
+        return f"[@{column}]" if re.fullmatch(r"\w+", column) else f"[@[{column}]]"
+    return HELD_THIS_ROW.sub(this_row, formula.replace("_xlfn.", ""))
+
+
+def _cell_value(value: object) -> object:
+    """A value from the Example database as a cell holds it: a plain number or text, or None
+    for a blank cell."""
+    if value is None or value != value:  # None, or a missing number
+        return None
+    return value.item() if hasattr(value, "item") else value
+
+
+def build(described: FormulaWorkbook) -> openpyxl.Workbook:
+    """The filled-in Formula workbook `described` describes: a copy of the empty one."""
+    workbook = empty_workbook()
+    for title, rows in (("Parameters", described.parameters), ("Keys", described.keys)):
+        sheet = workbook[title]
+        for number, row in enumerate(rows, 2):
+            for column, value in enumerate(row, 1):
+                sheet.cell(row=number, column=column, value=value)
+        sheet.tables[title].ref = f"A1:B{max(len(rows), 1) + 1}"
+    for described_table in described.tables:
+        _add_table(workbook, described_table)
+    for name, refers_to in described.defined_names:
+        workbook.defined_names[name] = DefinedName(name, attr_text=as_held(refers_to, ""))
+    for title, coordinate, value in described.cells:
+        sheet = workbook[title] if title in workbook.sheetnames else workbook.create_sheet(title)
+        sheet[coordinate] = as_held(value, "") if isinstance(value, str) else value
+    if described.chart:
+        _add_chart(workbook, workbook[described.tables[0].name])
+    return workbook
+
+
+def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
+    """One Excel Table on a sheet of its own: its headers, then a row for each of its sample
+    rows, each calculated column holding its formula, or the value typed over it."""
+    from sqlglot_composer import example_database
+
+    sheet = workbook.create_sheet(described.name)
+    typed = [header for header in described.headers if header not in described.formulas]
+    rows = (example_database.query(described.rows).itertuples(index=False)
+            if described.rows else [])
+    for column, header in enumerate(described.headers, 1):
+        sheet.cell(row=1, column=column, value=header)
+    count = 0
+    for count, row in enumerate(rows, 1):
+        values = dict(zip(typed, (_cell_value(value) for value in row), strict=True))
+        first = values[typed[0]] if typed else count
+        for column, header in enumerate(described.headers, 1):
+            if header in values:
+                value = values[header]
+            else:
+                value = described.typed_over.get(
+                    (first, header), as_held(described.formulas[header], described.name))
+            sheet.cell(row=count + 1, column=column, value=value)
+    last = get_column_letter(len(described.headers))
+    sheet.add_table(Table(displayName=described.name, ref=f"A1:{last}{max(count, 1) + 1}"))
+
+
+def _add_chart(workbook: openpyxl.Workbook, sheet: openpyxl.worksheet.worksheet.Worksheet
+               ) -> None:
+    """A bar chart of `sheet`'s first column, on the Summary sheet."""
+    chart = BarChart()
+    chart.add_data(Reference(sheet, min_col=1, min_row=1, max_row=sheet.max_row),
+                   titles_from_data=True)
+    summary = (workbook["Summary"] if "Summary" in workbook.sheetnames
+               else workbook.create_sheet("Summary"))
+    summary.add_chart(chart, "F2")
+
+
+def _shown(value: object, typed: bool) -> str:
+    """A cell's value as text: a formula as held or typed, a whole number with no `.0`."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value).upper()
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, str) and value.startswith("=") and typed:
+        return as_typed(value)
+    return str(value)
+
+
+def as_text(described: FormulaWorkbook) -> str:
+    """What Copilot reads in the filled-in Formula workbook `described`, read back from the file
+    `build` saves: each sheet's Tables, row by row, and its other cells and charts, then the
+    Power Queries, the defined names, and the notes."""
+    saved = io.BytesIO()
+    build(described).save(saved)
+    workbook = openpyxl.load_workbook(io.BytesIO(saved.getvalue()))
+    loaded = {table.name: table.loaded_by for table in described.tables if table.loaded_by}
+    lines = []
+    for sheet in workbook.worksheets:
+        if sheet.title == "Steps":
+            lines.append('Sheet "Steps": the empty Formula workbook\'s steps, as it ships.')
+            continue
+        lines.append(f'Sheet "{sheet.title}"')
+        in_a_table = set()
+        for table in sheet.tables.values():
+            name = table.displayName
+            by = f', loaded by Power Query "{loaded[name]}"' if name in loaded else ""
+            lines.append(f'  Excel Table "{name}", {table.ref}{by}')
+            for number, row in enumerate(sheet[table.ref], 1):
+                in_a_table |= {cell.coordinate for cell in row}
+                shown = " | ".join(_shown(cell.value, described.as_typed) for cell in row)
+                lines.append(f"    {'Headers' if number == 1 else f'Row {number}'}: {shown}")
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.coordinate not in in_a_table and cell.value is not None:
+                    lines.append(f"  {cell.coordinate}: "
+                                 f"{_shown(cell.value, described.as_typed)}")
+        lines += ["  A bar chart" for _ in sheet._charts]
+    loads = {by: table for table, by in loaded.items()}
+    for name, m in described.queries:
+        to = f'loads into Excel Table "{loads[name]}"' if name in loads else "connection only"
+        lines.append(f'Power Query "{name}" ({to}):')
+        lines += [f"    {line}" for line in m.strip().splitlines()]
+    for name, defined in workbook.defined_names.items():
+        lines.append(f"Defined name {name}: "
+                     f"{_shown('=' + defined.attr_text, described.as_typed)[1:]}")
+    lines += [f"Also in the workbook: {note}" for note in described.notes]
+    return "\n".join(lines) + "\n"
 
 
 def main() -> int:

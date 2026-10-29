@@ -35,7 +35,8 @@ to 14 add the Copilot files, `copilot/`, which `.venv/Scripts/python tools/copil
 writes from `tools/copilot_sources/`, each at most 8,000 characters, and the evaluation that
 measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says. Its tickets 15 to 18
 add Copilot file 11, which has Copilot turn a Formula workbook into Hive, and an empty
-Formula workbook to copy, built on dev with `openpyxl`, which only dev installs.
+Formula workbook to copy, built on dev with `openpyxl`, which only dev installs; its own
+evaluation, `tools/excel_eval.py`, is run as the same doc's Excel section says.
 
 ## Checks
 

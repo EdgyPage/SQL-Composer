@@ -41,3 +41,33 @@ Each answer is scored found, parses, builds, runs and correct. A pass is correct
 invents no name, imports no name with `*`, adds no opt-out the task didn't need, and calls
 run_query where the request asks to run it. The files help when C passes at least 20 points
 more of the held-out tasks than A1.
+
+## The Excel tasks: Copilot file 11
+
+File 11 is measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
+`tools/excel_eval.py`): 40 filled-in Formula workbooks, 20 dev and 20 held out. A proxy model
+reads each workbook as text; in Copilot you attach the workbook itself.
+
+1. Write the held-out workbooks and the answers files:
+
+       .venv/Scripts/python tools/excel_eval.py workbooks --split held_out --into excel-round
+       .venv/Scripts/python tools/excel_eval.py template --split held_out > answers-excel-A0.md
+       .venv/Scripts/python tools/excel_eval.py template --split held_out > answers-excel-C.md
+
+   Fill in each header as above, with `arm: A0` or `arm: C`. A workbook whose task has a
+   Power Query (each `Power Query "..."` in `excel_eval.py prompts`) has none in its file,
+   since the tool can't write one: add it in Excel (Data > Get Data > Blank Query, then
+   Advanced Editor), pasting the task's M, and Close & Load to the Table it names. Or build
+   your own two or three workbooks with Power Query, outside the repo, and score them by
+   reading the replies.
+2. **A0, before the file.** In a new chat, attach the task's workbook and send
+   `I attached an Excel workbook. Convert its calculations into Hive SQL.`
+3. **C, with the file.** In a new chat, attach `copilot/11_*.txt`, `03_*`, `04_*` and `05_*`
+   (or paste them, one message each), then attach the workbook and send the same request.
+4. Paste each reply under its task's heading, then score each file:
+
+       .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --record .scratch/copilot-eval/results.md
+
+An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
+Table's rows, it says which Tables are the sources and which the finals, it names what the
+task refuses, marks or leaves alone, and it invents no name. The Toolbox draft is scored apart.
