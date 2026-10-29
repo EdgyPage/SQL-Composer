@@ -1,6 +1,6 @@
 """The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16, 19 and 20).
 
-`tools/excel_eval_tasks.py` holds 66 filled-in Formula workbooks, 33 dev and 33 held out, with
+`tools/excel_eval_tasks.py` holds 70 filled-in Formula workbooks, 35 dev and 35 held out, with
 everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
 SQLite holding the Example database's rows. Every task's reference, written as a reply would
 be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and the
@@ -58,9 +58,9 @@ def scored(task: ExcelTask, reply: str, hive: sqlite3.Connection) -> excel_eval.
     return excel_eval.score(task, reply, hive, excel_eval.reference_rows(hive, task))
 
 
-def test_there_are_66_tasks_33_on_each_split_each_covering_everything() -> None:
-    assert len(BY_ID) == len(TASKS) == 66
-    assert Counter(task.split for task in TASKS) == {"dev": 33, "held_out": 33}
+def test_there_are_70_tasks_35_on_each_split_each_covering_everything() -> None:
+    assert len(BY_ID) == len(TASKS) == 70
+    assert Counter(task.split for task in TASKS) == {"dev": 35, "held_out": 35}
     for split in ("dev", "held_out"):
         covered = {kind for task in TASKS if task.split == split for kind in task.covers}
         assert [kind for kind in COVERAGE if kind not in covered] == [], split
@@ -204,7 +204,7 @@ def test_a_template_reads_back_as_empty_replies() -> None:
 def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:
     written = excel_eval.write_workbooks("dev", tmp_path)
     assert [path.name for path in written] == [f"x{n:02d}.xlsx" for n in (
-        *range(1, 21), *range(41, 46), *range(51, 59))]
+        *range(1, 21), *range(41, 46), *range(51, 59), 67, 68)]
 
 
 def test_the_stand_in_hive_has_hives_date_functions_and_pmod(hive: sqlite3.Connection) -> None:
