@@ -50,6 +50,11 @@ STEPS = (
     "Copilot reads this workbook and writes Hive, the SQL your team's database runs, without "
     "anyone explaining what the workbook is for. Make a copy of this file for each piece of "
     "work.",
+    "The Parameters and Keys sheets:",
+    "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, its "
+    "name under name and its value under value (step 6). Keys is only for a Table where a value "
+    "was typed over a formula: it names the columns that tell that Table's rows apart, so "
+    "Copilot can find the row (step 10). Both start empty, and stay empty if you need neither.",
     "Your data:",
     "1. For each table of raw data the work starts from, paste a sample on a sheet of its own, "
     "as values only (Home > Paste > Paste Values): one header row, one row per record, no blank "
@@ -96,6 +101,20 @@ STEPS = (
 )
 # The Tables whose headers are fixed, each on a sheet of its own name.
 TABLES = {"Parameters": ("name", "value"), "Keys": ("table", "key_columns")}
+# What each of those Tables is for, beside it on its sheet, for someone who opens the sheet
+# before reading the steps.
+NOTES = {
+    "Parameters": "Parameters: the fixed values your formulas use, one row each. Put its name "
+                  "under name and the value under value, such as tax_rate and 0.2, then read it "
+                  "by name in a formula: XLOOKUP(\"tax_rate\", Parameters[name], "
+                  "Parameters[value]). Leave the Table empty if no formula uses a fixed value. "
+                  "See step 6 on the Steps sheet.",
+    "Keys": "Keys: only for a Table where a value was typed over a formula in one row. Add a "
+            "row: that Table's name under table, and under key_columns the column or columns "
+            "that tell its rows apart, separated by commas, such as job_runs and run_id. "
+            "Copilot uses them to find the row. A Table with no value typed over a formula "
+            "needs no row here. See step 10 on the Steps sheet.",
+}
 # What a person sees in a workbook, sheet by sheet: its cells' values by place, and each of
 # its Tables' places.
 Contents = dict[str, dict[str, dict[str, object]]]
@@ -121,6 +140,10 @@ def empty_workbook() -> openpyxl.Workbook:
         table = Table(displayName=name, ref=f"A1:{get_column_letter(len(headers))}2")
         table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True)
         sheet.add_table(table)
+        # A column apart from the Table, so a row added to it never reaches the note.
+        note = sheet.cell(row=1, column=len(headers) + 2, value=NOTES[name])
+        note.alignment = Alignment(wrap_text=True, vertical="top")
+        sheet.column_dimensions[note.column_letter].width = 60
     return workbook
 
 
