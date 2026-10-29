@@ -13,5 +13,5 @@ prompt names a message file and an answers file.
    know. Read no other file and run nothing: the measurement holds only if your answers come
    from the message alone.
 3. Write your whole reply to the answers file, once, starting with the header lines the prompt
-   gives, then a `## T..` heading per task with your answer under it, the code in a
-   ```python block.
+   gives, then the task's heading (`## T..`, or `## X..` for a workbook) per task with your
+   answer under it, as the message asks: Python in a ```python block, SQL in a ```sql block.

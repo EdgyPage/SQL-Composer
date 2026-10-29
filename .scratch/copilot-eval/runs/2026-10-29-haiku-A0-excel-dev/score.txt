@@ -1,0 +1,22 @@
+X01  FAIL  found parses runs correct  draft: none
+X02  FAIL  found parses runs correct  draft: none
+X03  FAIL  found parses runs correct  draft: none
+X04  FAIL  found parses runs correct  draft: none
+X05  FAIL  found parses runs correct  draft: none
+X06  FAIL  found parses runs correct  draft: none
+X07  FAIL  found parses runs correct  draft: none
+X08  FAIL  found parses runs correct  draft: none
+X09  FAIL  found parses  unnamed: blank  draft: none  (doesn't run: no such table: ops.parameters)
+X10  FAIL  found parses  unnamed: key  draft: none  (doesn't run: wrong number of arguments to function RANDOM())
+X11  FAIL  found parses runs  unnamed: outside  draft: none  (gives something else for job_runs)
+X12  FAIL  found parses runs  unnamed: OFFSET, Parameters  draft: none  (gives something else for job_runs)
+X13  FAIL  found parses runs  draft: none  (gives something else for job_runs)
+X14  FAIL  found parses runs correct  draft: none
+X15  FAIL  found parses runs correct  draft: none
+X16  FAIL  found parses runs correct  draft: none
+X17  FAIL  found parses runs correct  draft: none
+X18  FAIL  found parses runs correct  draft: none
+X19  FAIL  found parses runs correct  unnamed: Web.Contents  draft: none
+X20  FAIL  found parses runs correct  draft: none
+
+A0 on haiku: 0% passed of 20; found 100%, parses 100%, runs 90%, correct 75%, mapped 0%; all named in 75%; invented names in 0%; a draft that parses with no invented name in 0%
