@@ -1,7 +1,7 @@
 # The Formula workbook template, and the code audit reading an .xlsx
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 14
 Size: M
 
@@ -41,6 +41,7 @@ inside one rather than exempting it. The user: "no macros".
 - `tools/offline_policy.py` reads the .xlsx's XML parts too, so a URL in one is found.
 - `tools/export_clean.py` copies the .xlsx to main unstamped, as it copies the .txt files, and
   `tests/repo/test_export_clean.py` expects it.
-- CONTEXT.md's **Formula workbook**, written while grilling, is committed with this ticket.
+- CONTEXT.md's **Formula workbook**, written while grilling, was committed ahead of this ticket
+  (6cb93c0), to close D293.
 - CLAUDE.md's Definition of done, the beginner reader included: the steps sheet is something a
   beginner reads.

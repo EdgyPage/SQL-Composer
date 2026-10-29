@@ -200,7 +200,7 @@ asks, though all three touch CHANGES.md.
 - `.claude/hooks/drift-reviewer.md`'s version item (01).
 - `docs/clean-branch-readme.md`, the how-tos, the gallery and the Intermediate Example project
   (09, and wherever an earlier ticket breaks one).
-- CONTEXT.md's Formula workbook, written while grilling (15); `requirements-dev.txt`, the code
+- CONTEXT.md's Formula workbook, written while grilling (6cb93c0); `requirements-dev.txt`, the code
   audit and the export (15); `docs/copilot-eval.md` (16, 18); the README and CHANGES.md (17).
 
 ## Decisions so far
