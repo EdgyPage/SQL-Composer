@@ -47,7 +47,11 @@ MEDIAN, and dynamic arrays.
 
 - New tasks written and committed before files 11 and 12 change: 8 dev (X51 to X58) and 8
   held out (X59 to X66), each new kind in each split; the workbook builder writes a Total
-  Row; the stand-in Hive runs the new Hive functions and ROLLUP.
+  Row; the stand-in Hive runs the new Hive functions and ROLLUP. And, as the user asked
+  while they were written, "be sure the tasks have all the cases eg ctes, multiplae data
+  references, multiple table endpoints, etc.": 2 more each (X67, X68; X69, X70), each with
+  three source Tables, a step two finals read, several finals, a Total Row, and formulas and
+  Power Query together.
 - Files 11 and 12, each at most 8,000 characters in both counts; the loads, the README, rule
   10, `docs/copilot-eval.md`, CHANGES.md and the tests name both.
 - At most two tuning rounds on dev, Haiku, arm C; one held-out round on the final files, Haiku

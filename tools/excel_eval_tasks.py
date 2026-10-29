@@ -6,7 +6,7 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 66: 33 on the dev split, which Copilot files 11 and 12 may be tuned on, and 33 held out,
+There are 70: 35 on the dev split, which Copilot files 11 and 12 may be tuned on, and 35 held out,
 scored once per version of the files. Every kind of formula, query or workbook in `COVERAGE`
 has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
@@ -51,8 +51,8 @@ COVERAGE = (
     "m_text_filter", "m_in_list", "m_null_test", "m_semi", "m_cross", "m_index",
     "m_count_distinct", "m_sort_only", "m_except_intersect", "m_replace_null", "m_unpivot",
     "m_functions",
-    # several at once
-    "combination",
+    # several at once: several sources, a step two finals read
+    "combination", "multi_source", "shared_step",
 )
 
 
@@ -112,6 +112,33 @@ BUDGET_TABLE = ExcelTable("region_budgets", BUDGETS, rows("region_budgets", BUDG
 COSTS_TABLE = ExcelTable("region_costs", COSTS, rows("region_costs", COSTS, "dt, job_id"))
 PIVOT_NOTE = ('a PivotTable on sheet "Pivot", from Table job_runs: rows job_id, values Sum of '
               "duration_mins")
+
+
+# The steps four combined workbooks share, each a CTE the reference Hive reads more than once.
+RUNS_WITH_ALERTS = (
+    "runs AS (SELECT r.run_id, r.job_id, r.duration_mins, r.dt, j.team, COALESCE(a.n, 0) AS "
+    "alerts, SUM(r.duration_mins) OVER (PARTITION BY r.job_id ORDER BY r.dt RANGE BETWEEN "
+    "UNBOUNDED PRECEDING AND CURRENT ROW) AS running_mins FROM ops.job_runs r LEFT JOIN ops.jobs "
+    "j ON r.job_id = j.job_id LEFT JOIN (SELECT run_id, COUNT(*) AS n FROM ops.run_alerts GROUP "
+    "BY run_id) a ON r.run_id = a.run_id)")
+RUNS_PLACED = (
+    "base AS (SELECT r.run_id, r.job_id, r.duration_mins, j.job_name, b.region FROM ops.job_runs "
+    "r JOIN ops.jobs j ON r.job_id = j.job_id LEFT JOIN ops.region_budgets b ON r.job_id = "
+    "b.job_id)")
+RUNS_BY_REGION = (
+    RUNS_PLACED + ", g AS (SELECT region, SUM(duration_mins) AS total_mins, COUNT(*) AS runs "
+    "FROM base GROUP BY region HAVING COUNT(*) >= 2)")
+COSTS_WITH_BUDGETS = (
+    "costs AS (SELECT c.job_id, c.cost_cents, c.region, c.dt, j.job_name, b.budget_cents AS "
+    "budget, COALESCE(c.cost_cents, 0) > b.budget_cents AS over_budget, SUM(c.cost_cents) OVER "
+    "(PARTITION BY c.job_id ORDER BY c.dt RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "
+    "running_cost FROM ops.region_costs c LEFT JOIN ops.jobs j ON c.job_id = j.job_id LEFT JOIN "
+    "ops.region_budgets b ON c.job_id = b.job_id)")
+OWNER_LOAD = (
+    "staffed AS (SELECT j.job_id, j.job_name, o.owner FROM ops.jobs j JOIN (SELECT DISTINCT "
+    "job_id, owner FROM ops.job_owners) o ON j.job_id = o.job_id WHERE o.owner IS NOT NULL), "
+    "per_owner AS (SELECT s.owner, SUM(r.duration_mins) AS total_mins, COUNT(*) AS runs FROM "
+    "staffed s LEFT JOIN ops.job_runs r ON s.job_id = r.job_id GROUP BY s.owner)")
 
 
 DEV = (
@@ -693,6 +720,87 @@ in
                      "ops.job_runs UNION ALL SELECT run_id, 'avg_retry_secs', avg_retry_secs "
                      "FROM ops.job_runs WHERE avg_retry_secs IS NOT NULL"},
         marks=(("order", "sort"),)),
+    ExcelTask(
+        "X67", "dev", ("combination", "multi_source", "shared_step", "several_finals", "chain",
+                       "running_total", "total_row_rollup"),
+        FormulaWorkbook((
+            runs_table(("run_id", "job_id", "duration_mins", "dt"), formulas={
+                "team": "=XLOOKUP([@job_id],jobs[job_id],jobs[team])",
+                "alerts": "=COUNTIF(run_alerts[run_id],[@run_id])",
+                "running_mins": '=SUMIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],'
+                                'job_runs[dt],"<="&[@dt])'}),
+            jobs_table(), ALERT_TABLE,
+            ExcelTable("by_team", ("team", "total_mins", "alerted_runs"),
+                       "SELECT DISTINCT j.team FROM ops.job_runs r LEFT JOIN ops.jobs j ON "
+                       "r.job_id = j.job_id ORDER BY j.team", {
+                           "total_mins": "=SUMIFS(job_runs[duration_mins],job_runs[team],"
+                                         "[@team])",
+                           "alerted_runs": '=COUNTIFS(job_runs[team],[@team],job_runs[alerts],'
+                                           '">0")'},
+                       totals={"team": "Total",
+                               "total_mins": "=SUBTOTAL(109,by_team[total_mins])",
+                               "alerted_runs": "=SUBTOTAL(109,by_team[alerted_runs])"}),
+            ExcelTable("noisy_runs", ("run_id", "team", "alerts", "running_mins"),
+                       f"WITH {RUNS_WITH_ALERTS} SELECT run_id, team, alerts, running_mins "
+                       "FROM runs WHERE alerts >= 2 ORDER BY run_id", loaded_by="noisy_runs")),
+            queries=(("noisy_runs", f"""let
+    Source = {table("job_runs")},
+    Noisy = Table.SelectRows(Source, each [alerts] >= 2),
+    Kept = Table.SelectColumns(Noisy, {{"run_id", "team", "alerts", "running_mins"}})
+in
+    Kept"""),)),
+        {"by_team": f"WITH {RUNS_WITH_ALERTS} SELECT team, SUM(duration_mins) AS total_mins, "
+                    "COUNT(CASE WHEN alerts > 0 THEN 1 END) AS alerted_runs FROM runs GROUP BY team "
+                    "WITH ROLLUP",
+         "noisy_runs": f"WITH {RUNS_WITH_ALERTS} SELECT run_id, team, alerts, running_mins FROM "
+                       "runs WHERE alerts >= 2"}),
+    ExcelTask(
+        "X68", "dev", ("combination", "multi_source", "shared_step", "several_finals",
+                       "query_reads_query", "connection_only", "total_row", "whole_column",
+                       "m_having"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(), BUDGET_TABLE,
+             ExcelTable("by_region", ("region", "total_mins", "runs", "share"),
+                        "SELECT b.region, SUM(r.duration_mins), COUNT(*) FROM ops.job_runs r "
+                        "JOIN ops.jobs j ON r.job_id = j.job_id LEFT JOIN ops.region_budgets b "
+                        "ON r.job_id = b.job_id GROUP BY b.region ORDER BY b.region",
+                        {"share": "=[@total_mins]/SUM(by_region[total_mins])"},
+                        loaded_by="by_region",
+                        totals={"region": "Total",
+                                "total_mins": "=SUBTOTAL(109,by_region[total_mins])"}),
+             ExcelTable("top_runs", ("run_id", "job_name", "region"),
+                        "SELECT r.run_id, j.job_name, b.region FROM ops.job_runs r JOIN ops.jobs "
+                        "j ON r.job_id = j.job_id LEFT JOIN ops.region_budgets b ON r.job_id = "
+                        "b.job_id WHERE r.run_id IN (104, 97) ORDER BY r.duration_mins DESC, "
+                        "r.run_id", loaded_by="top_runs")),
+            queries=(("base", f"""let
+    Runs = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Budgets = {table("region_budgets")},
+    Named = Table.ExpandTableColumn(Table.NestedJoin(Runs, {{"job_id"}}, Jobs, {{"job_id"}},
+        "j", JoinKind.Inner), "j", {{"job_name"}}),
+    Placed = Table.ExpandTableColumn(Table.NestedJoin(Named, {{"job_id"}}, Budgets,
+        {{"job_id"}}, "b", JoinKind.LeftOuter), "b", {{"region"}})
+in
+    Placed"""), ("by_region", """let
+    Grouped = Table.Group(base, {"region"}, {
+        {"total_mins", each List.Sum([duration_mins]), type number},
+        {"runs", each Table.RowCount(_), Int64.Type}}),
+    Kept = Table.SelectRows(Grouped, each [runs] >= 2)
+in
+    Kept"""), ("top_runs", """let
+    Sorted = Table.Sort(base, {{"duration_mins", Order.Descending}, {"run_id",
+        Order.Ascending}}),
+    Top = Table.FirstN(Sorted, 2),
+    Kept = Table.SelectColumns(Top, {"run_id", "job_name", "region"})
+in
+    Kept"""))),
+        {"by_region": f"WITH {RUNS_BY_REGION} SELECT region, total_mins, runs, total_mins / "
+                      "SUM(total_mins) OVER () AS share FROM g",
+         "by_region (total row)": f"WITH {RUNS_BY_REGION} SELECT SUM(total_mins) AS "
+                                  "total_mins FROM g",
+         "top_runs": f"WITH {RUNS_PLACED} SELECT run_id, job_name, region FROM base ORDER BY "
+                     "duration_mins DESC, run_id LIMIT 2"}),
 )
 
 HELD_OUT = (
@@ -1374,6 +1482,87 @@ in
                     "duration_mins / SUM(duration_mins) OVER () AS share FROM ok",
          "ok_runs (total row)": "SELECT SUM(duration_mins) AS duration_mins FROM ops.job_runs "
                                 "WHERE status IS NOT NULL AND status LIKE 'SUCC%'"}),
+    ExcelTask(
+        "X69", "held_out", ("combination", "multi_source", "shared_step", "several_finals",
+                            "chain", "running_total", "total_row_rollup", "mark_blank"),
+        FormulaWorkbook((
+            ExcelTable("region_costs", (*COSTS, "job_name", "budget", "over_budget",
+                                        "running_cost"),
+                       rows("region_costs", COSTS, "dt, job_id"), {
+                           "job_name": "=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])",
+                           "budget": "=XLOOKUP([@job_id],region_budgets[job_id],"
+                                     "region_budgets[budget_cents])",
+                           "over_budget": "=[@cost_cents]>[@budget]",
+                           "running_cost": '=SUMIFS(region_costs[cost_cents],region_costs[job_id],'
+                                           '[@job_id],region_costs[dt],"<="&[@dt])'}),
+            jobs_table(), BUDGET_TABLE,
+            ExcelTable("job_totals", ("job_id", "total_cents", "over_count"),
+                       "SELECT DISTINCT job_id FROM ops.region_costs ORDER BY job_id", {
+                           "total_cents": "=SUMIFS(region_costs[cost_cents],"
+                                          "region_costs[job_id],[@job_id])",
+                           "over_count": "=COUNTIFS(region_costs[job_id],[@job_id],"
+                                         "region_costs[over_budget],TRUE)"},
+                       totals={"job_id": "Total",
+                               "total_cents": "=SUBTOTAL(109,job_totals[total_cents])",
+                               "over_count": "=SUBTOTAL(109,job_totals[over_count])"}),
+            ExcelTable("late_costs", ("job_id", "dt", "running_cost"),
+                       "SELECT job_id, dt, cost_cents FROM ops.region_costs WHERE dt >= "
+                       "'20260922' AND job_id IN (1, 2) ORDER BY job_id, dt",
+                       loaded_by="late_costs")),
+            queries=(("late_costs", f"""let
+    Source = {table("region_costs")},
+    Late = Table.SelectRows(Source, each [running_cost] > 1500),
+    Kept = Table.SelectColumns(Late, {{"job_id", "dt", "running_cost"}})
+in
+    Kept"""),)),
+        {"job_totals": f"WITH {COSTS_WITH_BUDGETS} SELECT job_id, SUM(cost_cents) AS "
+                       "total_cents, COUNT(CASE WHEN over_budget THEN 1 END) AS over_count FROM "
+                       "costs GROUP BY job_id WITH ROLLUP",
+         "late_costs": f"WITH {COSTS_WITH_BUDGETS} SELECT job_id, dt, running_cost FROM costs "
+                       "WHERE running_cost > 1500"},
+        marks=(("blank", "empty"),)),
+    ExcelTask(
+        "X70", "held_out", ("combination", "multi_source", "shared_step", "several_finals",
+                            "query_reads_query", "connection_only", "total_row",
+                            "m_null_test", "m_distinct"),
+        FormulaWorkbook(
+            (jobs_table(), OWNER_TABLE, runs_table(),
+             ExcelTable("owner_load", ("owner", "total_mins", "runs", "avg_mins"),
+                        "SELECT owner, SUM(duration_mins), COUNT(*) FROM (SELECT DISTINCT "
+                        "o.job_id, o.owner FROM ops.job_owners o WHERE o.owner IS NOT NULL) s "
+                        "LEFT JOIN ops.job_runs r ON s.job_id = r.job_id GROUP BY owner ORDER BY "
+                        "owner", {"avg_mins": "=[@total_mins]/[@runs]"}, loaded_by="owner_load",
+                        totals={"owner": "Total", "runs": "=SUBTOTAL(109,owner_load[runs])"}),
+             ExcelTable("busiest_owner", ("owner", "total_mins", "runs"),
+                        "SELECT owner, SUM(duration_mins), COUNT(*) FROM (SELECT DISTINCT "
+                        "o.job_id, o.owner FROM ops.job_owners o WHERE o.owner = 'ana') s LEFT "
+                        "JOIN ops.job_runs r ON s.job_id = r.job_id GROUP BY owner",
+                        loaded_by="busiest_owner")),
+            queries=(("staffed", f"""let
+    Jobs = Table.SelectColumns({table("jobs")}, {{"job_id", "job_name"}}),
+    Owners = Table.Distinct(Table.SelectColumns({table("job_owners")}, {{"job_id", "owner"}})),
+    Joined = Table.NestedJoin(Jobs, {{"job_id"}}, Owners, {{"job_id"}}, "o", JoinKind.Inner),
+    Expanded = Table.ExpandTableColumn(Joined, "o", {{"owner"}}),
+    Named = Table.SelectRows(Expanded, each [owner] <> null)
+in
+    Named"""), ("owner_load", f"""let
+    Runs = {table("job_runs")},
+    Joined = Table.NestedJoin(staffed, {{"job_id"}}, Runs, {{"job_id"}}, "r", JoinKind.LeftOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "r", {{"duration_mins"}}),
+    Grouped = Table.Group(Expanded, {{"owner"}}, {{
+        {{"total_mins", each List.Sum([duration_mins]), type number}},
+        {{"runs", each Table.RowCount(_), Int64.Type}}}})
+in
+    Grouped"""), ("busiest_owner", """let
+    Sorted = Table.Sort(owner_load, {{"runs", Order.Descending}}),
+    Top = Table.FirstN(Sorted, 1)
+in
+    Top"""))),
+        {"owner_load": f"WITH {OWNER_LOAD} SELECT owner, total_mins, runs, total_mins / runs AS "
+                       "avg_mins FROM per_owner",
+         "owner_load (total row)": f"WITH {OWNER_LOAD} SELECT SUM(runs) AS runs FROM per_owner",
+         "busiest_owner": f"WITH {OWNER_LOAD} SELECT owner, total_mins, runs FROM per_owner ORDER BY "
+                          "runs DESC LIMIT 1"}),
 )
 
 TASKS = DEV + HELD_OUT
