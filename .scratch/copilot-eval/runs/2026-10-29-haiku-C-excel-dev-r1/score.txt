@@ -1,0 +1,22 @@
+X01  pass  found parses runs correct mapped  code: parses
+X02  pass  found parses runs correct mapped  code: parses
+X03  pass  found parses runs correct mapped  code: parses
+X04  pass  found parses runs correct mapped  code: parses
+X05  pass  found parses runs correct mapped  code: parses
+X06  pass  found parses runs correct mapped  code: parses
+X07  pass  found parses runs correct mapped  code: parses
+X08  FAIL  found parses runs mapped  code: parses  (gives something else for by_job)
+X09  pass  found parses runs correct mapped  code: parses
+X10  pass  found parses runs correct mapped  code: parses
+X11  pass  found parses runs correct mapped  code: parses
+X12  pass  found parses runs correct mapped  code: parses
+X13  pass  found parses runs correct mapped  code: parses
+X14  pass  found parses runs correct mapped  code: parses
+X15  pass  found parses runs correct mapped  code: parses
+X16  pass  found parses runs correct mapped  code: parses
+X17  pass  found parses runs correct mapped  code: parses
+X18  pass  found parses runs correct mapped  code: parses
+X19  pass  found parses runs correct mapped  code: parses
+X20  pass  found parses runs correct mapped  code: parses
+
+C on haiku: 95% passed of 20; found 100%, parses 100%, runs 100%, correct 95%, mapped 100%; all named in 100%; invented names in 0%; Toolbox code that parses with no invented name in 100%
