@@ -67,3 +67,15 @@ reviews' fixes, was checked on dev once, then scored on held-out.
 From 10de2a9 on (ticket 20), files 11 and 12 are loaded together, and each split has 35 tasks,
 X51 to X70 added. Each run was answered in two halves of about 18 tasks, joined before scoring.
 Dev rounds 1 and 2 are 10de2a9 and fac0fd8; held-out was scored once, on fac0fd8.
+
+| 2026-10-29 | aa75911 | haiku | C | dev | 97 | 100 | 100 | 100 | 100 | 100 | 100 | 3 | 51 |
+| 2026-10-29 | 6fc91ff | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | 6fc91ff | haiku | C | held_out | 97 | 100 | 100 | 100 | 97 | 100 | 100 | 0 | 0 |
+| 2026-10-29 | 6fc91ff | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 51 |
+| 2026-10-29 | f80b90b | haiku | C | dev | 97 | 100 | 100 | 100 | 100 | 100 | 100 | 3 | 49 |
+| 2026-10-29 | f80b90b | haiku | C | held_out | 92 | 100 | 100 | 100 | 95 | 100 | 100 | 3 | 46 |
+| 2026-10-29 | f80b90b | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+
+Ticket 21, from 02f8d5e on, has 37 tasks a split, X71 to X74 added. Dev rounds 1 and 2 are
+aa75911 and 6fc91ff, held-out scored on 6fc91ff; then f80b90b, the reviews' wording and
+UPPER, LOWER and TRIM put back, checked on dev and scored on held-out once.
