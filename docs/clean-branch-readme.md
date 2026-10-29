@@ -400,13 +400,14 @@ takes at once, spaces and line breaks included; `copilot/count_characters.py` co
 copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
 refuses what would give a wrong number.
 
-To hand over an Excel workbook's calculations, one chat holds four files:
+To hand over an Excel workbook's calculations, one chat holds five files:
 
 1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
    formulas in.
 2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
-   `05_windows_and_subtotals.txt` and `11_excel_formula_workbooks.txt` (or paste each as a
-   message of its own), then attach your workbook and send "Convert this workbook".
+   `05_windows_and_subtotals.txt`, `11_excel_formula_workbooks.txt` and
+   `12_excel_power_query.txt` (or paste each as a message of its own), then attach your
+   workbook and send "Convert this workbook".
 3. Copilot answers with a map: which Tables are sources, the samples of your database's
    tables, and which are finals, each becoming a query. Check every Table you expected is
    there.

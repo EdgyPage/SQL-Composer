@@ -108,7 +108,7 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
 - **The Example database stacks two reads of one table right.** A `UNION_ALL`, `UNION`,
   `INTERSECT` or `EXCEPT` of two Statements reading the same table, such as `job_runs` on two
   days, gave one Statement's rows in place of both; your warehouse was never affected.
-- **The Copilot files, `copilot/`: have Microsoft Copilot write Toolbox code.** Twelve plain
+- **The Copilot files, `copilot/`: have Microsoft Copilot write Toolbox code.** Thirteen plain
   text files, each under the 8,000 characters Copilot takes at once: one per objective,
   such as building a Statement, joins, saving a table, converting Hive, fixing a refusal or
   turning an Excel workbook into Hive, and `00_start_here.txt`, which says which to load.
@@ -117,8 +117,8 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   move a spreadsheet's data and formulas into, so Copilot can read them as SQL: a sheet of
   steps, and two empty Excel Tables, `Parameters` for fixed values and `Keys` for a Table where
   a value was typed over a formula. Attach your copy in a chat with
-  `copilot/11_excel_formula_workbooks.txt` and files 03, 04 and 05 loaded, and Copilot writes
-  its Hive.
+  `copilot/11_excel_formula_workbooks.txt`, `12_excel_power_query.txt` and files 03, 04 and
+  05 loaded, and Copilot writes its Hive.
 - **sqlglot 30.19.0 or newer, below 31.** The Example database already needed 30.19.0 or
   newer to run queries; now the whole Toolbox does. The Hive it writes is the same as 7.1
   wrote on those versions.
