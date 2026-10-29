@@ -19,7 +19,7 @@ and 05, for the Toolbox code.
 2. Map it. A Table's typed columns, not loaded by a query, stand for a database table of the
    Table's name: a source. A Table whose only typed columns are what its SUMIFS or COUNTIFS
    match on (`[@job_id]` against `runs[job_id]`) is a summary: a GROUP BY of the Table it
-   reads. A query, or a Table another Table or query reads, is a step. A Table nothing reads
+   reads. A Table or query another Table or query reads is a step. A Table nothing reads
    is a final: one query each. Parameters and Keys are none.
 3. Start the reply with the map: Sources, Steps, Finals and the columns each final gives;
    then each value typed over a formula, each mark, each refusal, what was left alone, and
