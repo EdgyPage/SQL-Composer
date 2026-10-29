@@ -57,7 +57,9 @@ reads each workbook as text; in Copilot you attach the workbook itself.
    Fill in each header as above, with `arm: A0` or `arm: C`. A workbook whose task has a
    Power Query (each `Power Query "..."` in `excel_eval.py prompts`) has none in its file,
    since the tool can't write one: add it in Excel (Data > Get Data > Blank Query, then
-   Advanced Editor), pasting the task's M, and Close & Load to the Table it names. A task
+   Advanced Editor), pasting the task's M. Excel can't load a query into a Table that is
+   already there, so delete the typed-in Table the query loads, then Close & Load To > Table
+   at A1 of its sheet, and type its formula columns again beside the loaded rows. A task
    whose text ends `Also in the workbook: a PivotTable ...` has none in its file either: add
    it with Insert > PivotTable, as the note says. Or build
    your own two or three workbooks with Power Query, outside the repo, and score them by
