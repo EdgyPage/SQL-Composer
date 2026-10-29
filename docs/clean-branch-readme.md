@@ -400,12 +400,23 @@ takes at once, spaces and line breaks included; `copilot/count_characters.py` co
 copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
 refuses what would give a wrong number.
 
-To hand over an Excel workbook's calculations, copy `copilot/formula_workbook.xlsx` and
-follow its Steps sheet to move the data and formulas in. Then, in a new chat, load
-`copilot/11_excel_formula_workbooks.txt` with files 03, 04 and 05, attach the workbook and
-ask Copilot to convert it. It answers with a map of the workbook, Hive for each final Table
-with a `<...>` for each name to fill in, and a Toolbox draft; give the Hive, filled in, to a
-Conversion (`project.convert`), whose code is checked.
+To hand over an Excel workbook's calculations, one chat holds four files:
+
+1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
+   formulas in.
+2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
+   `05_windows_and_subtotals.txt` and `11_excel_formula_workbooks.txt` (or paste each as a
+   message of its own), then attach your workbook and send "Convert this workbook".
+3. Copilot answers with a map: which Tables are sources, the samples of your database's
+   tables, and which are finals, each becoming a query. Check every Table you expected is
+   there.
+4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
+   Fill each in with your database's own names: your Project's `references/` folder has
+   them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
+5. In `admin/convert.ipynb`, give each filled-in query to a Conversion:
+   `project.convert("sales_summary", HIVE, query=query)`, with the query pasted as
+   `HIVE = """..."""`. Its code is checked; Copilot's Python after the Hive is only for
+   reading, and the Conversion's code wins where the two differ.
 
 ## Update
 
