@@ -35,6 +35,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "copilot")]
 
 import count_characters  # noqa: E402
 import formula_workbook  # noqa: E402
+import merge_copilot_files  # noqa: E402
 import toolbox_registry  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
@@ -125,11 +126,13 @@ def copilot_files() -> dict[str, str]:
 
 
 def main() -> int:
-    """Write every Copilot file into copilot/, and the empty Formula workbook."""
+    """Write every Copilot file into copilot/, the document that merges them, and the empty
+    Formula workbook."""
     files = copilot_files()
     for name, text in files.items():
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {len(files)} Copilot files in copilot/.")
+    merge_copilot_files.main()
     return formula_workbook.main()
 
 

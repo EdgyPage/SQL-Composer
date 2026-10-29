@@ -112,7 +112,9 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   text files, each under the 8,000 characters Copilot takes at once: one per objective,
   such as building a Statement, joins, saving a table, converting Hive, fixing a refusal or
   turning an Excel workbook into Hive, and `00_start_here.txt`, which says which to load.
-  Paste one as a chat's first message, then ask. `copilot/count_characters.py` counts a copy you edit, spaces and line breaks included.
+  Paste one as a chat's first message, then ask. `copilot/count_characters.py` counts a copy you edit, spaces and line breaks included,
+  and `copilot/all_in_one/all_copilot_files.txt` holds them all in one document, for reading or
+  searching together.
 - **An empty Formula workbook, `copilot/formula_workbook.xlsx`.** An Excel workbook to copy and
   move a spreadsheet's data and formulas into, so Copilot can read them as SQL: a sheet of
   steps, and two empty Excel Tables, `Parameters` for fixed values and `Keys` for a Table where
