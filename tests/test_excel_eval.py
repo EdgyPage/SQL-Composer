@@ -1,6 +1,6 @@
-"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, ticket 16).
+"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16 and 19).
 
-`tools/excel_eval_tasks.py` holds 40 filled-in Formula workbooks, 20 dev and 20 held out, with
+`tools/excel_eval_tasks.py` holds 50 filled-in Formula workbooks, 25 dev and 25 held out, with
 everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
 SQLite holding the Example database's rows. Every task's reference, written as a reply would
 be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and the
@@ -57,9 +57,9 @@ def scored(task: ExcelTask, reply: str, hive: sqlite3.Connection) -> excel_eval.
     return excel_eval.score(task, reply, hive, excel_eval.reference_rows(hive, task))
 
 
-def test_there_are_40_tasks_20_on_each_split_each_covering_everything() -> None:
-    assert len(BY_ID) == len(TASKS) == 40
-    assert Counter(task.split for task in TASKS) == {"dev": 20, "held_out": 20}
+def test_there_are_50_tasks_25_on_each_split_each_covering_everything() -> None:
+    assert len(BY_ID) == len(TASKS) == 50
+    assert Counter(task.split for task in TASKS) == {"dev": 25, "held_out": 25}
     for split in ("dev", "held_out"):
         covered = {kind for task in TASKS if task.split == split for kind in task.covers}
         assert [kind for kind in COVERAGE if kind not in covered] == [], split
@@ -100,6 +100,8 @@ def test_the_text_shows_formulas_as_held_or_as_typed_and_a_value_typed_over() ->
     assert "=_xlfn.XLOOKUP(job_runs[[#This Row],[job_id]],jobs[job_id],jobs[team])" in held
     assert "Row 4: 97 | 3 | 30 | 8 | =_xlfn.XLOOKUP" in held and "| 100" in held
     assert "=[@[Duration (mins)]]/60" in typed
+    newer = as_text(BY_ID["X46"].workbook)
+    assert "=_xlfn.RANK.EQ(" in newer and "=_xlfn.MINIFS(" in newer and "=COUNTIF(" in newer
 
 
 @pytest.mark.parametrize(("task_id", "wrong", "fails_on"), [
@@ -198,7 +200,8 @@ def test_a_template_reads_back_as_empty_replies() -> None:
 
 def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:
     written = excel_eval.write_workbooks("dev", tmp_path)
-    assert [path.name for path in written] == [f"x{n:02d}.xlsx" for n in range(1, 21)]
+    assert [path.name for path in written] == [f"x{n:02d}.xlsx" for n in (*range(1, 21),
+                                                                          *range(41, 46))]
 
 
 def test_the_stand_in_hive_has_hives_date_functions_and_pmod(hive: sqlite3.Connection) -> None:

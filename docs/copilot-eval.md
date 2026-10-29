@@ -45,7 +45,7 @@ more of the held-out tasks than A1.
 ## The Excel tasks: Copilot file 11
 
 File 11 is measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
-`tools/excel_eval.py`): 40 filled-in Formula workbooks, 20 dev and 20 held out. A proxy model
+`tools/excel_eval.py`): 50 filled-in Formula workbooks, 25 dev and 25 held out. A proxy model
 reads each workbook as text; in Copilot you attach the workbook itself.
 
 1. Write the held-out workbooks and the answers files:
