@@ -142,7 +142,8 @@ class ExcelTable:
     formula as a person types it (`=[@duration_mins]/60`), and the rest are typed, their rows
     the rows `rows`, Hive, gives on the Example database, column by column. `typed_over` holds
     each value typed over a formula, by the row's first typed value and the column's header.
-    `loaded_by` names the Power Query that loads the Table, if one does."""
+    `loaded_by` names the Power Query that loads the Table, if one does. `totals` is its Total
+    Row, if it has one: each cell's value or formula, as the file holds it, by header."""
 
     name: str
     headers: tuple[str, ...]
@@ -150,6 +151,7 @@ class ExcelTable:
     formulas: dict[str, str] = field(default_factory=dict)
     typed_over: dict[tuple[object, str], object] = field(default_factory=dict)
     loaded_by: str = ""
+    totals: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -172,8 +174,8 @@ class FormulaWorkbook:
 
 
 # Excel's newer functions, which its file holds with the _xlfn. prefix Excel adds.
-NEWER = re.compile(r"(?<![\w.])(XLOOKUP|XMATCH|SWITCH|IFS|MAXIFS|MINIFS|RANK\.EQ|CONCAT|TEXTJOIN|LET|"
-                   r"LAMBDA|RANDARRAY)\(")
+NEWER = re.compile(r"(?<![\w.])(XLOOKUP|XMATCH|SWITCH|IFS|MAXIFS|MINIFS|RANK\.EQ|STDEV\.S|"
+                   r"VAR\.S|CONCAT|TEXTJOIN|LET|LAMBDA|RANDARRAY)\(")
 THIS_ROW = re.compile(r"\[@(\[[^\]]+\]|[^\[\]]+)\]")
 HELD_THIS_ROW = re.compile(r"\w+\[\[#This Row\],(\[[^\]]+\])\]")
 
@@ -249,8 +251,14 @@ def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
                 value = described.typed_over.get(
                     (first, header), as_held(described.formulas[header], described.name))
             sheet.cell(row=count + 1, column=column, value=value)
+    count = max(count, 1)
+    if described.totals:
+        count += 1
+        for column, header in enumerate(described.headers, 1):
+            sheet.cell(row=count + 1, column=column, value=described.totals.get(header))
     last = get_column_letter(len(described.headers))
-    sheet.add_table(Table(displayName=described.name, ref=f"A1:{last}{max(count, 1) + 1}"))
+    sheet.add_table(Table(displayName=described.name, ref=f"A1:{last}{count + 1}",
+                          totalsRowCount=1 if described.totals else None))
 
 
 def _add_chart(workbook: openpyxl.Workbook, sheet: openpyxl.worksheet.worksheet.Worksheet
@@ -296,10 +304,14 @@ def as_text(described: FormulaWorkbook) -> str:
             name = table.displayName
             by = f', loaded by Power Query "{loaded[name]}"' if name in loaded else ""
             lines.append(f'  Excel Table "{name}", {table.ref}{by}')
-            for number, row in enumerate(sheet[table.ref], 1):
+            rows = sheet[table.ref]
+            for number, row in enumerate(rows, 1):
                 in_a_table |= {cell.coordinate for cell in row}
                 shown = " | ".join(_shown(cell.value, described.as_typed) for cell in row)
-                lines.append(f"    {'Headers' if number == 1 else f'Row {number}'}: {shown}")
+                label = ("Headers" if number == 1 else
+                         "Total Row" if table.totalsRowCount and number == len(rows) else
+                         f"Row {number}")
+                lines.append(f"    {label}: {shown}")
         for row in sheet.iter_rows():
             for cell in row:
                 if cell.coordinate not in in_a_table and cell.value is not None:

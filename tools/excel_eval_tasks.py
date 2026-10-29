@@ -6,7 +6,7 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 50: 25 on the dev split, which Copilot file 11 may be tuned on, and 25 held out,
+There are 66: 33 on the dev split, which Copilot files 11 and 12 may be tuned on, and 33 held out,
 scored once per version of the files. Every kind of formula, query or workbook in `COVERAGE`
 has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
@@ -30,7 +30,9 @@ COVERAGE = (
     # formulas that convert
     "arithmetic", "if", "switch", "iferror", "and_or", "round_math", "text", "dates", "xlookup",
     "vlookup", "index_match", "sumifs", "countifs", "averageifs", "maxifs", "minifs",
-    "single_ifs", "rank",
+    "single_ifs", "rank", "criteria_ops", "criteria_wildcard", "running_total",
+    "countifs_rank", "whole_column", "total_row", "total_row_rollup", "dates_more",
+    "week_month_start", "text_more", "everyday", "stdev_var", "sumproduct",
     "long_form", "short_form", "summary_table", "parameters",
     # formulas that convert with a mark
     "mark_blank", "mark_approximate", "mark_text_date", "mark_defined_name",
@@ -46,6 +48,9 @@ COVERAGE = (
     "m_select_add", "m_group", "m_join", "m_sort_first", "m_combine", "m_columns",
     "m_mark_source", "m_mark_pivot", "m_refused_web", "m_having", "m_min_average",
     "m_inner_join", "m_right_join", "m_full_join", "m_anti_join", "m_union", "m_distinct",
+    "m_text_filter", "m_in_list", "m_null_test", "m_semi", "m_cross", "m_index",
+    "m_count_distinct", "m_sort_only", "m_except_intersect", "m_replace_null", "m_unpivot",
+    "m_functions",
     # several at once
     "combination",
 )
@@ -77,6 +82,8 @@ JOBS = ("job_id", "job_name", "team", "region")
 ALERTS = ("alert_id", "run_id", "severity", "dt")
 SCHEDULED = ("run_id", "job_id", "dt")
 OWNERS = ("job_id", "team", "owner", "dt")
+BUDGETS = ("job_id", "budget_cents", "region")
+COSTS = ("job_id", "cost_cents", "region", "dt")
 
 
 def rows(source: str, columns: tuple[str, ...], order: str = "") -> str:
@@ -101,6 +108,8 @@ def jobs_table(columns: tuple[str, ...] = JOBS, formulas: dict[str, str] | None 
 ALERT_TABLE = ExcelTable("run_alerts", ALERTS, rows("run_alerts", ALERTS))
 SCHEDULED_TABLE = ExcelTable("scheduler_runs", SCHEDULED, rows("scheduler_runs", SCHEDULED))
 OWNER_TABLE = ExcelTable("job_owners", OWNERS, rows("job_owners", OWNERS, "dt, job_id"))
+BUDGET_TABLE = ExcelTable("region_budgets", BUDGETS, rows("region_budgets", BUDGETS))
+COSTS_TABLE = ExcelTable("region_costs", COSTS, rows("region_costs", COSTS, "dt, job_id"))
 PIVOT_NOTE = ('a PivotTable on sheet "Pivot", from Table job_runs: rows job_id, values Sum of '
               "duration_mins")
 
@@ -487,6 +496,203 @@ in
                      "ops.scheduler_runs",
          "matched": "SELECT s.run_id, s.job_id, s.dt, r.status FROM ops.scheduler_runs s FULL "
                     "OUTER JOIN ops.job_runs r ON s.run_id = r.run_id"}),
+    ExcelTask(
+        "X51", "dev", ("criteria_ops", "criteria_wildcard", "running_total", "short_form"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "status", "duration_mins", "dt"), formulas={
+            "long_in_job": '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[duration_mins],">15")',
+            "not_ok": '=COUNTIFS(job_runs[status],"<>SUCCESS")',
+            "failed_in_job": '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"*ail*")',
+            "running_mins": '=SUMIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],'
+                            'job_runs[dt],"<="&[@dt])'}),), as_typed=True),
+        {"job_runs": "SELECT run_id, job_id, status, duration_mins, dt, COUNT(CASE WHEN "
+                     "duration_mins > 15 THEN 1 END) OVER (PARTITION BY job_id) AS long_in_job, "
+                     "COUNT(CASE WHEN status <> 'SUCCESS' OR status IS NULL THEN 1 END) OVER () "
+                     "AS not_ok, COUNT(CASE WHEN LOWER(status) LIKE '%ail%' THEN 1 END) OVER "
+                     "(PARTITION BY job_id) AS failed_in_job, SUM(duration_mins) OVER (PARTITION "
+                     "BY job_id ORDER BY dt RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS "
+                     "running_mins FROM ops.job_runs"}),
+    ExcelTask(
+        "X52", "dev", ("whole_column", "countifs_rank", "total_row", "long_form"),
+        FormulaWorkbook((ExcelTable(
+            "job_runs", ("run_id", "job_id", "duration_mins", "share", "vs_avg", "rank_in_job"),
+            rows("job_runs", ("run_id", "job_id", "duration_mins")), {
+                "share": "=[@duration_mins]/SUM(job_runs[duration_mins])",
+                "vs_avg": "=[@duration_mins]-AVERAGE(job_runs[duration_mins])",
+                "rank_in_job": '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[duration_mins],'
+                               '">"&[@duration_mins])+1'},
+            totals={"run_id": "Total",
+                    "duration_mins": "=SUBTOTAL(109,job_runs[duration_mins])",
+                    "share": "=SUBTOTAL(109,job_runs[share])"}),)),
+        {"job_runs": "SELECT run_id, job_id, duration_mins, duration_mins / SUM(duration_mins) "
+                     "OVER () AS share, duration_mins - AVG(duration_mins) OVER () AS vs_avg, "
+                     "RANK() OVER (PARTITION BY job_id ORDER BY duration_mins DESC) AS "
+                     "rank_in_job FROM ops.job_runs",
+         "job_runs (total row)": "SELECT SUM(duration_mins) AS duration_mins, "
+                                 "SUM(duration_mins) / SUM(duration_mins) AS share "
+                                 "FROM ops.job_runs"}),
+    ExcelTask(
+        "X53", "dev", ("total_row_rollup", "summary_table", "sumifs", "countifs", "maxifs"),
+        FormulaWorkbook((
+            runs_table(),
+            ExcelTable("by_job", ("job_id", "total_mins", "runs", "longest"),
+                       "SELECT DISTINCT job_id FROM ops.job_runs ORDER BY job_id", {
+                           "total_mins": "=SUMIFS(job_runs[duration_mins],job_runs[job_id],"
+                                         "[@job_id])",
+                           "runs": "=COUNTIFS(job_runs[job_id],[@job_id])",
+                           "longest": "=MAXIFS(job_runs[duration_mins],job_runs[job_id],"
+                                      "[@job_id])"},
+                       totals={"job_id": "Total",
+                               "total_mins": "=SUBTOTAL(109,by_job[total_mins])",
+                               "runs": "=SUBTOTAL(109,by_job[runs])",
+                               "longest": "=SUBTOTAL(104,by_job[longest])"}))),
+        {"by_job": "SELECT job_id, SUM(duration_mins) AS total_mins, COUNT(*) AS runs, "
+                   "MAX(duration_mins) AS longest FROM ops.job_runs GROUP BY job_id WITH ROLLUP"}),
+    ExcelTask(
+        "X54", "dev", ("dates_more", "week_month_start", "short_form"),
+        FormulaWorkbook((runs_table(("run_id", "dt"), formulas={
+            "month_end": "=EOMONTH([@dt],0)",
+            "a_month_on": "=EDATE([@dt],1)",
+            "due": "=[@dt]+7",
+            "week_of": "=[@dt]-WEEKDAY([@dt],2)+1",
+            "month_of": "=DATE(YEAR([@dt]),MONTH([@dt]),1)",
+            "weekday": "=WEEKDAY([@dt])",
+            "label": '=TEXT([@dt],"yyyy-mm")'}),), as_typed=True),
+        {"job_runs": "SELECT run_id, dt, LAST_DAY(dt) AS month_end, ADD_MONTHS(dt, 1) AS "
+                     "a_month_on, DATE_ADD(dt, 7) AS due, CAST(NEXT_DAY(DATE_ADD(dt, 7 * -1), "
+                     "'MO') AS STRING) AS week_of, CAST(TRUNC(dt, 'MM') AS STRING) AS month_of, "
+                     "DAYOFWEEK(dt) AS weekday, DATE_FORMAT(dt, 'yyyy-MM') AS label "
+                     "FROM ops.job_runs"}),
+    ExcelTask(
+        "X55", "dev", ("text_more", "long_form"),
+        FormulaWorkbook((jobs_table(formulas={
+            "title": '=PROPER(SUBSTITUTE([@job_name],"_"," "))',
+            "tag": '=TEXTJOIN("/",TRUE,[@team],[@region])',
+            "code": '=CONCATENATE([@region],"-",[@job_id])',
+            "has_sync": '=ISNUMBER(SEARCH("SYNC",[@job_name]))',
+            "tens": '=VALUE([@job_id]&"0")'}),)),
+        {"jobs": "SELECT job_id, job_name, team, region, INITCAP(REPLACE(job_name, '_', ' ')) AS "
+                 "title, CONCAT_WS('/', team, region) AS tag, CONCAT(region, '-', job_id) AS "
+                 "code, INSTR(LOWER(job_name), 'sync') > 0 AS has_sync, CAST(CONCAT(job_id, "
+                 "'0') AS DOUBLE) AS tens FROM ops.jobs"}),
+    ExcelTask(
+        "X56", "dev", ("everyday", "stdev_var", "sumproduct", "whole_column"),
+        FormulaWorkbook((
+            runs_table(("run_id", "job_id", "status", "duration_mins", "avg_retry_secs"),
+                       formulas={
+                           "no_status": "=ISBLANK([@status])",
+                           "weeks": "=INT([@duration_mins]/7)",
+                           "at_least_20": "=MAX([@duration_mins],20)",
+                           "spread": "=STDEV.S(job_runs[duration_mins])",
+                           "weighted": "=SUMPRODUCT(job_runs[duration_mins],"
+                                       "job_runs[avg_retry_secs])",
+                           "scheduled_on": '=XLOOKUP([@run_id],scheduler_runs[run_id],'
+                                           'scheduler_runs[dt],"unscheduled")'}),
+            SCHEDULED_TABLE)),
+        {"job_runs": "SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, "
+                     "r.status IS NULL AS no_status, FLOOR(r.duration_mins / 7) AS weeks, "
+                     "GREATEST(r.duration_mins, 20) AS at_least_20, STDDEV_SAMP(r.duration_mins) "
+                     "OVER () AS spread, SUM(r.duration_mins * r.avg_retry_secs) OVER () AS "
+                     "weighted, COALESCE(s.dt, 'unscheduled') AS scheduled_on FROM ops.job_runs r "
+                     "LEFT JOIN ops.scheduler_runs s ON r.run_id = s.run_id"}),
+    ExcelTask(
+        "X57", "dev", ("m_text_filter", "m_in_list", "m_null_test", "m_semi", "m_replace_null",
+                       "m_functions", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(),
+             ExcelTable("picked", ("run_id", "job_id", "status", "avg_retry_secs", "status_lc"),
+                        "SELECT run_id, job_id, status, COALESCE(avg_retry_secs, 0), "
+                        "LOWER(status) FROM ops.job_runs WHERE job_id IN (1, 2) AND (status IS "
+                        "NULL OR status LIKE 'S%') ORDER BY run_id", loaded_by="picked"),
+             ExcelTable("ran_jobs", JOBS,
+                        "SELECT job_id, job_name, team, region FROM ops.jobs WHERE job_id IN "
+                        "(SELECT job_id FROM ops.job_runs) AND job_name LIKE '%a%' ORDER BY job_id",
+                        loaded_by="ran_jobs")),
+            queries=(("picked", f"""let
+    Source = {table("job_runs")},
+    Picked = Table.SelectRows(Source, each List.Contains({{1, 2}}, [job_id])
+        and ([status] = null or Text.StartsWith([status], "S"))),
+    Filled = Table.ReplaceValue(Picked, null, 0, Replacer.ReplaceValue, {{"avg_retry_secs"}}),
+    Lower = Table.AddColumn(Filled, "status_lc", each Text.Lower([status]), type text),
+    Kept = Table.SelectColumns(Lower, {{"run_id", "job_id", "status", "avg_retry_secs",
+        "status_lc"}})
+in
+    Kept"""), ("ran_jobs", f"""let
+    Jobs = {table("jobs")},
+    Runs = {table("job_runs")},
+    Ran = Table.SelectRows(Jobs, each List.Contains(Runs[job_id], [job_id])
+        and Text.Contains([job_name], "a"))
+in
+    Ran"""))),
+        {"picked": "SELECT run_id, job_id, status, COALESCE(avg_retry_secs, 0) AS "
+                   "avg_retry_secs, LOWER(status) AS status_lc FROM ops.job_runs WHERE job_id IN "
+                   "(1, 2) AND (status IS NULL OR status LIKE 'S%')",
+         "ran_jobs": "SELECT j.job_id, j.job_name, j.team, j.region FROM ops.jobs j LEFT SEMI "
+                     "JOIN ops.job_runs r ON r.job_id = j.job_id WHERE j.job_name LIKE '%a%'"}),
+    ExcelTask(
+        "X58", "dev", ("m_cross", "m_index", "m_count_distinct", "m_sort_only",
+                       "m_except_intersect", "m_unpivot", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(), SCHEDULED_TABLE, BUDGET_TABLE,
+             ExcelTable("job_regions", ("job_id", "region"),
+                        "SELECT j.job_id, r.region FROM ops.jobs j CROSS JOIN (SELECT DISTINCT "
+                        "region FROM ops.region_budgets) r ORDER BY j.job_id, r.region",
+                        loaded_by="job_regions"),
+             ExcelTable("numbered", ("run_id", "dt", "duration_mins", "n"),
+                        "SELECT run_id, dt, duration_mins, ROW_NUMBER() OVER (ORDER BY "
+                        "duration_mins DESC, run_id) FROM ops.job_runs ORDER BY duration_mins "
+                        "DESC, run_id", loaded_by="numbered"),
+             ExcelTable("days_per_job", ("job_id", "days"),
+                        "SELECT job_id, COUNT(DISTINCT dt) FROM ops.job_runs GROUP BY job_id "
+                        "ORDER BY job_id", loaded_by="days_per_job"),
+             ExcelTable("unrun", ("run_id", "job_id"),
+                        "SELECT run_id, job_id FROM ops.scheduler_runs WHERE run_id NOT IN "
+                        "(SELECT run_id FROM ops.job_runs) ORDER BY run_id", loaded_by="unrun"),
+             ExcelTable("measures", ("run_id", "measure", "amount"),
+                        "SELECT run_id, 'duration_mins', duration_mins FROM ops.job_runs ORDER "
+                        "BY run_id", loaded_by="measures")),
+            queries=(("job_regions", f"""let
+    Jobs = Table.SelectColumns({table("jobs")}, {{"job_id"}}),
+    Regions = Table.Distinct(Table.SelectColumns({table("region_budgets")}, {{"region"}})),
+    Paired = Table.AddColumn(Jobs, "r", each Regions),
+    Expanded = Table.ExpandTableColumn(Paired, "r", {{"region"}})
+in
+    Expanded"""), ("numbered", f"""let
+    Source = Table.SelectColumns({table("job_runs")}, {{"run_id", "dt", "duration_mins"}}),
+    Sorted = Table.Sort(Source, {{{{"duration_mins", Order.Descending}}, {{"run_id",
+        Order.Ascending}}}}),
+    Numbered = Table.AddIndexColumn(Sorted, "n", 1, 1)
+in
+    Numbered"""), ("days_per_job", f"""let
+    Source = {table("job_runs")},
+    Grouped = Table.Group(Source, {{"job_id"}}, {{{{"days", each List.Count(List.Distinct([dt])),
+        Int64.Type}}}}),
+    Sorted = Table.Sort(Grouped, {{{{"days", Order.Descending}}}})
+in
+    Sorted"""), ("unrun", f"""let
+    Scheduled = Table.SelectColumns({table("scheduler_runs")}, {{"run_id", "job_id"}}),
+    Runs = Table.SelectColumns({table("job_runs")}, {{"run_id", "job_id"}}),
+    Missing = Table.NestedJoin(Scheduled, {{"run_id", "job_id"}}, Runs, {{"run_id", "job_id"}},
+        "r", JoinKind.LeftAnti),
+    Unique = Table.Distinct(Table.RemoveColumns(Missing, {{"r"}}))
+in
+    Unique"""), ("measures", f"""let
+    Source = Table.SelectColumns({table("job_runs")}, {{"run_id", "duration_mins",
+        "avg_retry_secs"}}),
+    Long = Table.UnpivotOtherColumns(Source, {{"run_id"}}, "measure", "amount")
+in
+    Long"""))),
+        {"job_regions": "SELECT j.job_id, r.region FROM ops.jobs j CROSS JOIN (SELECT DISTINCT "
+                        "region FROM ops.region_budgets) r",
+         "numbered": "SELECT run_id, dt, duration_mins, ROW_NUMBER() OVER (ORDER BY "
+                     "duration_mins DESC, run_id) AS n FROM ops.job_runs",
+         "days_per_job": "SELECT job_id, COUNT(DISTINCT dt) AS days FROM ops.job_runs GROUP BY "
+                         "job_id",
+         "unrun": "SELECT run_id, job_id FROM ops.scheduler_runs EXCEPT SELECT run_id, job_id "
+                  "FROM ops.job_runs",
+         "measures": "SELECT run_id, 'duration_mins' AS measure, duration_mins AS amount FROM "
+                     "ops.job_runs UNION ALL SELECT run_id, 'avg_retry_secs', avg_retry_secs "
+                     "FROM ops.job_runs WHERE avg_retry_secs IS NOT NULL"},
+        marks=(("order", "sort"),)),
 )
 
 HELD_OUT = (
@@ -929,6 +1135,245 @@ in
         {"owners": "WITH owners AS (SELECT DISTINCT job_id, owner FROM ops.job_owners) SELECT "
                    "o.job_id, o.owner, j.job_name, RANK() OVER (ORDER BY o.job_id DESC) AS "
                    "newest_first FROM owners o LEFT JOIN ops.jobs j ON o.job_id = j.job_id"}),
+    ExcelTask(
+        "X59", "held_out", ("criteria_ops", "criteria_wildcard", "running_total", "long_form",
+                            "several_finals"),
+        FormulaWorkbook((
+            jobs_table(("job_id", "job_name"), formulas={
+                "long_runs": '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[duration_mins],'
+                             '">=20")',
+                "failed_mins": '=SUMIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],'
+                               'job_runs[status],"f*")',
+                "not_test": '=COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"<>TEST")'}),
+            runs_table(),
+            ExcelTable("run_alerts", (*ALERTS, "alerts_so_far"), rows("run_alerts", ALERTS),
+                       {"alerts_so_far": '=COUNTIFS(run_alerts[run_id],"<="&[@run_id])'}))),
+        {"jobs": "SELECT j.job_id, j.job_name, COALESCE(s.long_runs, 0) AS long_runs, "
+                 "COALESCE(s.failed_mins, 0) AS failed_mins, COALESCE(s.not_test, 0) AS not_test "
+                 "FROM ops.jobs j LEFT JOIN (SELECT job_id, COUNT(CASE WHEN duration_mins >= 20 "
+                 "THEN 1 END) AS long_runs, SUM(CASE WHEN LOWER(status) LIKE 'f%' THEN "
+                 "duration_mins END) AS failed_mins, COUNT(CASE WHEN status <> 'TEST' OR status "
+                 "IS NULL THEN 1 END) AS not_test FROM ops.job_runs GROUP BY job_id) s ON "
+                 "j.job_id = s.job_id",
+         "run_alerts": "SELECT alert_id, run_id, severity, dt, COUNT(*) OVER (ORDER BY run_id "
+                       "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS alerts_so_far "
+                       "FROM ops.run_alerts"}),
+    ExcelTask(
+        "X60", "held_out", ("whole_column", "countifs_rank", "total_row", "short_form"),
+        FormulaWorkbook((ExcelTable(
+            "region_budgets", ("job_id", "budget_cents", "region", "share", "above_avg",
+                               "rank_in_region"),
+            rows("region_budgets", BUDGETS), {
+                "share": "=[@budget_cents]/SUM(region_budgets[budget_cents])",
+                "above_avg": "=[@budget_cents]>AVERAGE(region_budgets[budget_cents])",
+                "rank_in_region": '=COUNTIFS(region_budgets[region],[@region],'
+                                  'region_budgets[budget_cents],"<"&[@budget_cents])+1'},
+            totals={"job_id": "=SUBTOTAL(103,region_budgets[job_id])",
+                    "budget_cents": "=SUBTOTAL(101,region_budgets[budget_cents])",
+                    "region": "Total"}),), as_typed=True),
+        {"region_budgets": "SELECT job_id, budget_cents, region, budget_cents / "
+                           "SUM(budget_cents) OVER () AS share, budget_cents > AVG(budget_cents) "
+                           "OVER () AS above_avg, RANK() OVER (PARTITION BY region ORDER BY "
+                           "budget_cents) AS rank_in_region FROM ops.region_budgets",
+         "region_budgets (total row)": "SELECT COUNT(job_id) AS job_id, AVG(budget_cents) AS "
+                                       "budget_cents FROM ops.region_budgets"}),
+    ExcelTask(
+        "X61", "held_out", ("total_row_rollup", "summary_table", "sumifs", "countifs", "maxifs"),
+        FormulaWorkbook((
+            COSTS_TABLE,
+            ExcelTable("by_region", ("region", "total_cents", "entries", "priciest"),
+                       "SELECT DISTINCT region FROM ops.region_costs ORDER BY region", {
+                           "total_cents": "=SUMIFS(region_costs[cost_cents],"
+                                          "region_costs[region],[@region])",
+                           "entries": "=COUNTIFS(region_costs[region],[@region])",
+                           "priciest": "=MAXIFS(region_costs[cost_cents],region_costs[region],"
+                                       "[@region])"},
+                       totals={"region": "Total",
+                               "total_cents": "=SUBTOTAL(109,by_region[total_cents])",
+                               "entries": "=SUBTOTAL(109,by_region[entries])",
+                               "priciest": "=SUBTOTAL(104,by_region[priciest])"}))),
+        {"by_region": "SELECT region, SUM(cost_cents) AS total_cents, COUNT(*) AS entries, "
+                      "MAX(cost_cents) AS priciest FROM ops.region_costs GROUP BY region WITH "
+                      "ROLLUP"}),
+    ExcelTask(
+        "X62", "held_out", ("dates_more", "week_month_start", "text_more", "long_form"),
+        FormulaWorkbook((ExcelTable(
+            "team_notes", ("team", "note", "written_on", "week_of", "month_end", "month_of",
+                           "months_in", "three_before", "who", "short"),
+            rows("team_notes", ("team", "note", "written_on"), "written_on, team"), {
+                "week_of": "=[@written_on]-WEEKDAY([@written_on],2)+1",
+                "month_end": "=EOMONTH([@written_on],0)",
+                "month_of": "=EOMONTH([@written_on],-1)+1",
+                "months_in": '=DATEDIF(DATE(2026,1,1),[@written_on],"m")',
+                "three_before": "=[@written_on]-3",
+                "who": "=PROPER([@team])",
+                "short": '=TEXTJOIN(": ",TRUE,[@team],LEFT([@note],5))'}),)),
+        {"team_notes": "SELECT team, note, written_on, CAST(NEXT_DAY(DATE_ADD(written_on, 7 * "
+                       "-1), 'MO') AS STRING) AS week_of, LAST_DAY(written_on) AS month_end, "
+                       "CAST(TRUNC(written_on, 'MM') AS STRING) AS month_of, "
+                       "FLOOR(MONTHS_BETWEEN(written_on, '2026-01-01')) AS months_in, "
+                       "DATE_SUB(written_on, 3) AS three_before, INITCAP(team) AS who, "
+                       "CONCAT_WS(': ', team, SUBSTR(note, 1, 5)) AS short FROM ops.team_notes"}),
+    ExcelTask(
+        "X63", "held_out", ("everyday", "stdev_var", "sumproduct", "text_more", "mark_blank"),
+        FormulaWorkbook((
+            runs_table(("run_id", "job_id", "status", "duration_mins", "avg_retry_secs"),
+                       formulas={
+                           "no_retry": "=ISBLANK([@avg_retry_secs])",
+                           "quarters": "=INT([@duration_mins]/4)",
+                           "capped": "=MIN([@duration_mins],25)",
+                           "variance": "=VAR.S(job_runs[duration_mins])",
+                           "weighted": "=SUMPRODUCT(job_runs[duration_mins],job_runs[job_id])",
+                           "scheduled_job": "=XLOOKUP([@run_id],scheduler_runs[run_id],"
+                                            "scheduler_runs[job_id],-1)",
+                           "label": '=CONCATENATE("run ",[@run_id])',
+                           "succeeded": '=ISNUMBER(SEARCH("cess",[@status]))'}),
+            SCHEDULED_TABLE)),
+        {"job_runs": "SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, "
+                     "r.avg_retry_secs IS NULL AS no_retry, FLOOR(r.duration_mins / 4) AS "
+                     "quarters, LEAST(r.duration_mins, 25) AS capped, VAR_SAMP(r.duration_mins) "
+                     "OVER () AS variance, SUM(r.duration_mins * r.job_id) OVER () AS weighted, "
+                     "COALESCE(s.job_id, -1) AS scheduled_job, CONCAT('run ', r.run_id) AS label, "
+                     "INSTR(LOWER(COALESCE(r.status, '')), 'cess') > 0 AS succeeded FROM "
+                     "ops.job_runs r LEFT JOIN ops.scheduler_runs s ON r.run_id = s.run_id"},
+        marks=(("blank", "empty"),)),
+    ExcelTask(
+        "X64", "held_out", ("m_text_filter", "m_in_list", "m_null_test", "m_semi",
+                            "m_replace_null", "m_functions", "several_finals"),
+        FormulaWorkbook(
+            (jobs_table(), COSTS_TABLE,
+             ExcelTable("picked_costs", ("job_id", "cost_cents", "region", "size"),
+                        "SELECT job_id, cost_cents, UPPER(region), IF(cost_cents >= 200, 'big', "
+                        "'small') FROM ops.region_costs WHERE cost_cents IS NOT NULL AND job_id "
+                        "IN (1, 3) ORDER BY dt, job_id", loaded_by="picked_costs"),
+             ExcelTable("costed_jobs", JOBS,
+                        "SELECT job_id, job_name, team, region FROM ops.jobs WHERE job_id IN "
+                        "(SELECT job_id FROM ops.region_costs) AND NOT job_name LIKE 'n%' ORDER "
+                        "BY job_id", loaded_by="costed_jobs"),
+             ExcelTable("costs_filled", ("job_id", "cost_cents", "dt", "day"),
+                        "SELECT job_id, COALESCE(cost_cents, 0), dt, SUBSTR(dt, -2) FROM "
+                        "ops.region_costs ORDER BY dt, job_id", loaded_by="costs_filled")),
+            queries=(("picked_costs", f"""let
+    Source = {table("region_costs")},
+    Kept = Table.SelectRows(Source, each [cost_cents] <> null and List.Contains({{1, 3}},
+        [job_id])),
+    Upper = Table.TransformColumns(Kept, {{{{"region", Text.Upper}}}}),
+    Sized = Table.AddColumn(Upper, "size", each if [cost_cents] >= 200 then "big" else "small"),
+    Out = Table.SelectColumns(Sized, {{"job_id", "cost_cents", "region", "size"}})
+in
+    Out"""), ("costed_jobs", f"""let
+    Jobs = {table("jobs")},
+    Costs = {table("region_costs")},
+    Costed = Table.SelectRows(Jobs, each List.Contains(Costs[job_id], [job_id])
+        and not Text.StartsWith([job_name], "n"))
+in
+    Costed"""), ("costs_filled", f"""let
+    Source = Table.SelectColumns({table("region_costs")}, {{"job_id", "cost_cents", "dt"}}),
+    Filled = Table.ReplaceValue(Source, null, 0, Replacer.ReplaceValue, {{"cost_cents"}}),
+    Day = Table.AddColumn(Filled, "day", each Text.End([dt], 2))
+in
+    Day"""))),
+        {"picked_costs": "SELECT job_id, cost_cents, UPPER(region) AS region, IF(cost_cents >= "
+                         "200, 'big', 'small') AS size FROM ops.region_costs WHERE cost_cents IS "
+                         "NOT NULL AND job_id IN (1, 3)",
+         "costed_jobs": "SELECT j.job_id, j.job_name, j.team, j.region FROM ops.jobs j LEFT SEMI "
+                        "JOIN ops.region_costs c ON c.job_id = j.job_id WHERE NOT j.job_name "
+                        "LIKE 'n%'",
+         "costs_filled": "SELECT job_id, COALESCE(cost_cents, 0) AS cost_cents, dt, SUBSTR(dt, "
+                         "-2) AS day FROM ops.region_costs"}),
+    ExcelTask(
+        "X65", "held_out", ("m_cross", "m_index", "m_count_distinct", "m_sort_only",
+                            "m_except_intersect", "m_unpivot", "several_finals"),
+        FormulaWorkbook(
+            (jobs_table(), BUDGET_TABLE, OWNER_TABLE, SCHEDULED_TABLE, runs_table(),
+             ExcelTable("team_regions", ("team", "region"),
+                        "SELECT t.team, r.region FROM (SELECT DISTINCT team FROM ops.jobs) t "
+                        "CROSS JOIN (SELECT DISTINCT region FROM ops.jobs) r ORDER BY t.team, "
+                        "r.region", loaded_by="team_regions"),
+             ExcelTable("budget_places", (*BUDGETS, "place"),
+                        "SELECT job_id, budget_cents, region, ROW_NUMBER() OVER (ORDER BY "
+                        "budget_cents DESC) FROM ops.region_budgets ORDER BY budget_cents DESC",
+                        loaded_by="budget_places"),
+             ExcelTable("jobs_per_team", ("team", "jobs"),
+                        "SELECT team, COUNT(DISTINCT job_id) FROM ops.job_owners GROUP BY team "
+                        "ORDER BY team", loaded_by="jobs_per_team"),
+             ExcelTable("ran_as_scheduled", ("run_id", "dt"),
+                        "SELECT run_id, dt FROM ops.scheduler_runs WHERE run_id IN (SELECT "
+                        "run_id FROM ops.job_runs) ORDER BY run_id",
+                        loaded_by="ran_as_scheduled"),
+             ExcelTable("run_measures", ("run_id", "job_id", "measure", "amount"),
+                        "SELECT run_id, job_id, 'duration_mins', duration_mins FROM ops.job_runs "
+                        "ORDER BY run_id", loaded_by="run_measures")),
+            queries=(("team_regions", f"""let
+    Teams = Table.Distinct(Table.SelectColumns({table("jobs")}, {{"team"}})),
+    Regions = Table.Distinct(Table.SelectColumns({table("jobs")}, {{"region"}})),
+    Paired = Table.AddColumn(Teams, "r", each Regions),
+    Expanded = Table.ExpandTableColumn(Paired, "r", {{"region"}}),
+    Sorted = Table.Sort(Expanded, {{{{"team", Order.Ascending}}}})
+in
+    Sorted"""), ("budget_places", f"""let
+    Sorted = Table.Sort({table("region_budgets")}, {{{{"budget_cents", Order.Descending}}}}),
+    Placed = Table.AddIndexColumn(Sorted, "place", 1, 1)
+in
+    Placed"""), ("jobs_per_team", f"""let
+    Source = {table("job_owners")},
+    Grouped = Table.Group(Source, {{"team"}}, {{{{"jobs", each List.Count(List.Distinct(
+        [job_id])), Int64.Type}}}})
+in
+    Grouped"""), ("ran_as_scheduled", f"""let
+    Scheduled = Table.SelectColumns({table("scheduler_runs")}, {{"run_id", "dt"}}),
+    Runs = Table.SelectColumns({table("job_runs")}, {{"run_id", "dt"}}),
+    Both = Table.NestedJoin(Scheduled, {{"run_id", "dt"}}, Runs, {{"run_id", "dt"}}, "r",
+        JoinKind.Inner),
+    Unique = Table.Distinct(Table.RemoveColumns(Both, {{"r"}}))
+in
+    Unique"""), ("run_measures", f"""let
+    Source = Table.SelectColumns({table("job_runs")}, {{"run_id", "job_id", "duration_mins",
+        "avg_retry_secs"}}),
+    Long = Table.Unpivot(Source, {{"duration_mins", "avg_retry_secs"}}, "measure", "amount")
+in
+    Long"""))),
+        {"team_regions": "SELECT t.team, r.region FROM (SELECT DISTINCT team FROM ops.jobs) t "
+                         "CROSS JOIN (SELECT DISTINCT region FROM ops.jobs) r",
+         "budget_places": "SELECT job_id, budget_cents, region, ROW_NUMBER() OVER (ORDER BY "
+                          "budget_cents DESC) AS place FROM ops.region_budgets",
+         "jobs_per_team": "SELECT team, COUNT(DISTINCT job_id) AS jobs FROM ops.job_owners "
+                          "GROUP BY team",
+         "ran_as_scheduled": "SELECT run_id, dt FROM ops.scheduler_runs INTERSECT SELECT "
+                             "run_id, dt FROM ops.job_runs",
+         "run_measures": "SELECT run_id, job_id, 'duration_mins' AS measure, duration_mins AS "
+                         "amount FROM ops.job_runs UNION ALL SELECT run_id, job_id, "
+                         "'avg_retry_secs', avg_retry_secs FROM ops.job_runs WHERE "
+                         "avg_retry_secs IS NOT NULL"},
+        marks=(("order", "sort"),)),
+    ExcelTask(
+        "X66", "held_out", ("combination", "running_total", "whole_column", "total_row",
+                            "m_text_filter", "m_null_test"),
+        FormulaWorkbook(
+            (runs_table(),
+             ExcelTable("ok_runs", ("run_id", "job_id", "duration_mins", "dt", "running",
+                                    "share"),
+                        "SELECT run_id, job_id, duration_mins, dt FROM ops.job_runs WHERE status "
+                        "LIKE 'SUCC%' ORDER BY run_id", {
+                            "running": '=SUMIFS(ok_runs[duration_mins],ok_runs[job_id],'
+                                       '[@job_id],ok_runs[dt],"<="&[@dt])',
+                            "share": "=[@duration_mins]/SUM(ok_runs[duration_mins])"},
+                        loaded_by="ok_runs",
+                        totals={"run_id": "Total",
+                                "duration_mins": "=SUBTOTAL(109,ok_runs[duration_mins])"})),
+            queries=(("ok_runs", f"""let
+    Source = {table("job_runs")},
+    Ok = Table.SelectRows(Source, each [status] <> null and Text.StartsWith([status], "SUCC")),
+    Kept = Table.SelectColumns(Ok, {{"run_id", "job_id", "duration_mins", "dt"}})
+in
+    Kept"""),)),
+        {"ok_runs": "WITH ok AS (SELECT run_id, job_id, duration_mins, dt FROM ops.job_runs "
+                    "WHERE status IS NOT NULL AND status LIKE 'SUCC%') SELECT run_id, job_id, "
+                    "duration_mins, dt, SUM(duration_mins) OVER (PARTITION BY job_id ORDER BY dt "
+                    "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running, "
+                    "duration_mins / SUM(duration_mins) OVER () AS share FROM ok",
+         "ok_runs (total row)": "SELECT SUM(duration_mins) AS duration_mins FROM ops.job_runs "
+                                "WHERE status IS NOT NULL AND status LIKE 'SUCC%'"}),
 )
 
 TASKS = DEV + HELD_OUT

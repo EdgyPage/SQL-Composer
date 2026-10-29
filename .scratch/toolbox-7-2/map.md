@@ -183,6 +183,7 @@ enough to make code for it. sql conversion has more utility." Tickets 15 to 18.
 - [17 Copilot file 11: a Formula workbook into Hive, and a Toolbox draft](issues/17-copilot-file-11.md)
 - [18 File 11 tuned on dev, scored on held-out, and a manual round in Copilot](issues/18-excel-eval-rounds.md)
 - [19 File 11 reaches the clauses Excel has a clean source for](issues/19-file-11-more-clauses.md)
+- [20 File 11 split in two, and every Toolbox clause with an Excel analog](issues/20-file-11-split-and-every-analog.md)
 
 The order is the user's habit from 7.0: one at a time, by number. The real dependencies are in
 each ticket's `Blocked by:`: 02, 03 and 04 need only 01, and could run side by side if the user
@@ -202,7 +203,7 @@ asks, though all three touch CHANGES.md.
 - `docs/clean-branch-readme.md`, the how-tos, the gallery and the Intermediate Example project
   (09, and wherever an earlier ticket breaks one).
 - CONTEXT.md's Formula workbook, written while grilling (6cb93c0); `requirements-dev.txt`, the code
-  audit and the export (15); `docs/copilot-eval.md` (16, 18); the README and CHANGES.md (17); file 11 and its tasks (19).
+  audit and the export (15); `docs/copilot-eval.md` (16, 18); the README and CHANGES.md (17); file 11 and its tasks (19); files 11 and 12, the README's Excel steps, rule 10 and CHANGES.md (20).
 
 ## Decisions so far
 
