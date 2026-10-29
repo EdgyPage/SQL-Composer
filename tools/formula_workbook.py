@@ -12,7 +12,8 @@ Excel Tables, each calculation in a Table's formulas or a Power Query step, and 
 a Table of their own. A person copies this empty one and moves a presentation workbook's data
 and formulas into the copy. It holds the steps and the two Tables whose headers are fixed,
 Parameters and Keys, empty: no data Table, no formula and no row, since a filled-in example is
-something to half-edit and forget.
+something to half-edit and forget. Filled-in examples are files of their own, in
+`copilot/examples/`, which `tools/formula_workbook_examples.py` builds.
 
 It is the one file main ships that main can't rebuild: openpyxl, which writes it, is pinned in
 requirements-dev.txt only, and the export copies the file as dev holds it.
