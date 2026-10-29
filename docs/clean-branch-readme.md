@@ -400,6 +400,13 @@ takes at once, spaces and line breaks included; `copilot/count_characters.py` co
 copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
 refuses what would give a wrong number.
 
+To hand over an Excel workbook's calculations, copy `copilot/formula_workbook.xlsx` and
+follow its Steps sheet to move the data and formulas in. Then, in a new chat, load
+`copilot/11_excel_formula_workbooks.txt` with files 03, 04 and 05, attach the workbook and
+ask Copilot to convert it. It answers with a map of the workbook, Hive for each final Table
+with a `<...>` for each name to fill in, and a Toolbox draft; give the Hive, filled in, to a
+Conversion (`project.convert`), whose code is checked.
+
 ## Update
 
 1. Note which version you have: `sqlglot_composer.VERSION` says, such as

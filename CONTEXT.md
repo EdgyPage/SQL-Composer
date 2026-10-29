@@ -366,8 +366,9 @@ _Avoid_: prompt pack, system prompt, cheat sheet
 **Formula workbook**:
 An Excel workbook laid out so its formulas can be read as SQL: a sample of raw data in Excel
 Tables, each calculation in a Table's formulas or a Power Query step, and fixed values in a Table
-of their own. Which Tables are sources and which are final is read from what reads what, never
-declared, and the Tables keep whatever names they have. A person moves a presentation workbook's
+of their own. A Table's typed columns stand for the database table it samples; which Tables
+are final is read from what reads what, never declared; and the Tables keep whatever names they
+have. A person moves a presentation workbook's
 data and formulas into one, so Copilot can turn it into Hive without anyone explaining the
 workbook.
 _Avoid_: state table, Excel template, mapping sheet

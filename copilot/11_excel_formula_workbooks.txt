@@ -1,0 +1,137 @@
+# Copilot file 11: a Formula workbook into Hive (sqlglot Composer 7.2)
+
+Objective: turn an attached Excel workbook's calculations into Hive, a query per final
+Table, then into a Toolbox draft.
+Load this file when the user attaches a workbook and asks for its calculations as Hive or
+Toolbox code. Load files 03, 04 and 05 in the same chat, for the draft.
+
+## Names for this objective, with their arguments
+
+- derived(name, statement)
+- if_else(condition, then, otherwise)
+- first_match(cases, otherwise=None)
+- fill_null(column, value)
+
+## Steps
+
+1. Read every sheet: each Excel Table (name, headers, rows), each formula, each Power Query's
+   M, the Parameters and Keys Tables, defined names. `[@units]` and, as the file holds it,
+   `sales[[#This Row],[units]]` are the same; `_xlfn.` is only Excel's prefix.
+2. Map it. A Table's typed columns, not loaded by a query, stand for a database table of the
+   Table's name: a source. A Table whose only typed columns are what its SUMIFS or COUNTIFS
+   match on (`[@job_id]` against `runs[job_id]`) is a summary: a GROUP BY of the Table it
+   reads. A query, or a Table another Table or query reads, is a step. A Table nothing reads
+   is a final: one query each. Parameters and Keys are neither.
+3. Start the reply with the map: Sources, Steps, Finals; then each value typed over a
+   formula, each mark, each refusal, what was left alone, and each `<...>` to fill in.
+4. Names: write a database as `<database>`; keep a Table name or header that is a plain name
+   (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
+   `<unit_price>`, Table `Sales Data` is `<database>.<sales_data>`. Never guess one.
+5. Write each final's Hive in a ```sql block: each source a table, each step a CTE, `WITH
+   step AS (...)`, the final's columns in its Table's order, each calculated one named with
+   AS. The rows are a sample: filter only as a formula or query does.
+6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 97 THEN 100
+   ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
+   that Table, match every typed column of the row, and say so.
+7. A refused formula: `NULL AS its_header`, and name it in the map, with why.
+8. Then the Toolbox draft in a ```python block, by files 03, 04 and 05, and say: run
+   `project.convert` on the Hive, once each `<...>` is filled in; its code is checked and
+   wins where the two differ.
+
+## Formulas
+
+- `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE, AND, OR, NOT as they are.
+- IF(c, a, b): IF(c, a, b). IFS and SWITCH: `CASE x WHEN 'a' THEN 1 ... ELSE 0 END`.
+- IFERROR(a / b, 0): COALESCE(a / b, 0), as Hive gives NULL for a divide by 0.
+- ROUND, ABS, POWER, SQRT as they are; MOD(a, b): PMOD(a, b).
+- LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); MID(x, s, n): SUBSTR(x, s, n);
+  LEN: LENGTH; FIND(a, x): INSTR(x, a); SUBSTITUTE: REPLACE; UPPER, LOWER, TRIM as they are.
+- YEAR, MONTH, DAY as they are; DATEDIF(a, b, "d"): DATEDIFF(b, a); TODAY(): CURRENT_DATE;
+  DATE(2026,9,1): '2026-09-01'.
+- XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
+  `LEFT JOIN t ON k = t.a`, then t.b.
+- SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
+  ELSE 0 END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS
+  total FROM t WHERE s = 'x' GROUP BY a)`, and COALESCE(total, 0), as Excel gives 0 where
+  nothing matches. COUNTIFS: COUNT(*), with COALESCE too; AVERAGEIFS: AVG; MAXIFS: MAX.
+- XLOOKUP("rate", Parameters[name], Parameters[value]): the value, 0.5.
+
+## Marks: convert, and say so
+
+- A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank in a
+  column a formula reads, wrap it: COALESCE(x, 0), or COALESCE(x, ''); say "blank".
+- VLOOKUP or MATCH with TRUE or 1 is approximate: convert it exactly, and say it was
+  approximate.
+- A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
+  '-', SUBSTR(dt, 7, 2))`, and say the date is text.
+- A defined name for a cell outside a Table: use its value, and say to move it into
+  Parameters.
+- M reading Sql.Database or any source but this workbook: use the table it names, and say
+  which to check.
+- Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS high` column per
+  value in the sample; say the pivot's columns are now fixed.
+
+## Refused: NULL in its place, and named
+
+INDIRECT, OFFSET, RAND, RANDBETWEEN; a reference to a cell outside a Table that isn't a
+defined name; a LAMBDA, or a defined name holding a formula; a formula reading its own
+column (circular); Web.Contents or any online source (leave that query out).
+
+## Left alone, and named
+
+Charts, PivotTables, and cells outside a Table.
+
+## Power Query M
+
+`Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t. Table.SelectRows: WHERE;
+Table.AddColumn: an expression AS its name; SelectColumns, RemoveColumns and RenameColumns:
+the SELECT list; TransformColumnTypes: nothing; Table.Group: GROUP BY, with
+Table.RowCount(_) as COUNT(*), List.Sum as SUM; NestedJoin then ExpandTableColumn: a LEFT
+JOIN (JoinKind.Inner: JOIN); Table.Sort then FirstN: ORDER BY ... LIMIT; Table.Combine:
+UNION ALL; Table.Distinct: SELECT DISTINCT. A query another reads is a CTE.
+
+## Worked example
+
+Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed
+over as 9 where run_id is 103, and job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`;
+Table jobs (job_id, job_name); Keys holds job_runs | run_id.
+
+Sources: job_runs, jobs. Finals: job_runs. Typed over: hours where run_id is 103. Fill in:
+`<database>`.
+
+```sql
+SELECT r.run_id, r.job_id, r.duration_mins,
+       CASE WHEN r.run_id = 103 THEN 9 ELSE r.duration_mins / 60 END AS hours,
+       j.job_name
+FROM <database>.job_runs r
+LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
+```
+
+The draft, once `<database>` is ops:
+
+```python
+from sqlglot_composer import AS, FROM, LEFT_JOIN, SELECT, equals, first_match, statement
+from references.ops__job_runs import job_runs
+from references.ops__jobs import jobs
+
+r, j = AS(job_runs, "r"), AS(jobs, "j")
+s = statement(
+    SELECT(r.run_id, r.job_id, r.duration_mins,
+           AS(first_match([(equals(r.run_id, 103), 9)], otherwise=r.duration_mins / 60),
+              "hours"), j.job_name),
+    FROM(r, reads_all_partitions=True),  # the workbook's formulas read every row
+    LEFT_JOIN(j, ON=equals(r.job_id, j.job_id)),
+)
+```
+
+## Do and don't
+
+- Do keep every final column, in order, even a refused one, as NULL.
+- Don't drop a value typed over a formula, or a row or column the workbook holds.
+- Don't filter on dates the sample happens to hold, or guess a database.
+
+## Before you answer
+
+- The map comes first, and names each final Table.
+- One query per final; each `<...>` listed to fill in.
+- Each mark and each refusal named.
