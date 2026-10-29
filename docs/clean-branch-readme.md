@@ -406,8 +406,8 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 
 1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
    formulas in. `copilot/examples/` shows three filled in: formulas with a value typed over,
-   a summary Table with a Total Row, and Power Query. The last sheet of each, Hive, is the
-   conversion Copilot should give.
+   a summary Table with a Total Row, and Power Query, whose queries you add by hand as its
+   Power Query sheet says. The last sheet of each, Hive, is the conversion Copilot should give.
 2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
    `05_windows_and_subtotals.txt`, `11_excel_formula_workbooks.txt` and
    `12_excel_power_query.txt` (or paste each as a message of its own), then attach your

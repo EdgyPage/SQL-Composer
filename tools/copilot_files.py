@@ -134,8 +134,7 @@ def main() -> int:
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {len(files)} Copilot files in copilot/.")
     merge_copilot_files.main()
-    formula_workbook.main()
-    return formula_workbook_examples.main()
+    return formula_workbook.main() or formula_workbook_examples.main()
 
 
 if __name__ == "__main__":

@@ -77,8 +77,8 @@ EXAMPLES: dict[str, tuple[ExcelTask, str]] = {
                    "ROLLUP"}),
         "Sources: job_runs. Finals: by_job (job_id, total_mins, runs, failed, longest), a "
         "summary: a GROUP BY of job_runs. Its Total Row adds up sums and counts and takes the "
-        "MAX of the MAXes, so it is the summary's WITH ROLLUP row, its job_id NULL. Fill in: "
-        "<database>."),
+        "MAX of the MAXes, so it is the Subtotal row WITH ROLLUP adds, its job_id NULL. Fill "
+        "in: <database>."),
     "03_power_query.xlsx": (ExcelTask(
         "E03", "example", (),
         FormulaWorkbook(
@@ -104,18 +104,22 @@ in
                     "AS hours\nFROM ok",
          "ok_by_job": f"WITH {OK_RUNS}\nSELECT job_id, SUM(duration_mins) AS total_mins\nFROM ok"
                       "\nGROUP BY job_id"}),
-        "Sources: job_runs. Steps: query ok_runs, a CTE in each final that reads it, as query "
-        "ok_by_job reads it. Finals: Table ok_runs (run_id, job_id, duration_mins, hours), its "
-        "query's rows and its formula column, as no formula reads that Table; Table ok_by_job "
-        "(job_id, total_mins). Fill in: <database>."),
+        "Sources: job_runs. Steps: query ok_runs, as query ok_by_job reads it, so it is a CTE "
+        "in each final's query. Finals: Table ok_runs (run_id, job_id, duration_mins, hours): "
+        "query ok_by_job reads the query, not the Table, and no formula reads the Table, so it "
+        "is a final, its query's rows and its hours column; Table ok_by_job (job_id, "
+        "total_mins). Fill in: <database>."),
 }
 
 POWER_QUERY_STEPS = (
-    "This example's Power Queries, which the tool that made this file can't save in it. To see "
-    "the workbook as it should be, add each in Excel: Data > Get Data > From Other Sources > "
-    "Blank Query, Home > Advanced Editor, paste its M, name it as below, then Close & Load To > "
-    "Only Create Connection. Then, in the Queries & Connections pane, right-click it, Load To, "
-    "and pick the existing Table of its name, which it then fills.")
+    "This example's Power Queries, which the tool that made this file can't save in it, so the "
+    "Tables ok_runs and ok_by_job hold the rows the queries give, typed in. To see the workbook "
+    "as it should be, add each query in Excel, in order: Data > Get Data > From Other Sources > "
+    "Blank Query, Home > Advanced Editor, paste its M below, and name it as below. On the sheet "
+    "of its name, delete the typed-in Table (select it and press Delete, then delete the empty "
+    "Table), then Home > Close & Load To > Table, at A1 of that sheet. For ok_runs, type the "
+    "formula column again beside the loaded rows: hours, =[@duration_mins]/60. Excel keeps it "
+    "when the query refreshes.")
 
 
 def shown(sql: str) -> str:
@@ -127,33 +131,42 @@ def example_workbook(task: ExcelTask, map_text: str) -> openpyxl.Workbook:
     """An example: the filled-in Formula workbook, its Power Queries if it has any, and the Hive
     files 11 and 12 turn it into."""
     workbook = build(task.workbook)
-    wrap = Alignment(wrap_text=True, vertical="top")
     if task.workbook.queries:
-        queries = workbook.create_sheet("Power Query")
-        queries.column_dimensions["A"].width = 100
-        queries.cell(row=1, column=1, value=POWER_QUERY_STEPS).alignment = wrap
-        row = 3
-        for name, m in task.workbook.queries:
-            queries.cell(row=row, column=1, value=f"Query {name}:").font = Font(bold=True)
-            cell = queries.cell(row=row + 1, column=1, value=m)
-            cell.alignment, cell.font = wrap, Font(name="Consolas")
-            row += 3
-    hive = workbook.create_sheet("Hive")
-    hive.column_dimensions["A"].width = 100
-    hive.cell(row=1, column=1, value="The Hive this workbook converts to").font = Font(
-        bold=True, size=14)
-    hive.cell(row=2, column=1, value=(
-        "What Copilot gives with files 11 and 12 loaded: the map, then a query per final. Fill "
-        "in <database> with your database's name. Delete this sheet before you try the "
-        "workbook on Copilot yourself.")).alignment = wrap
-    hive.cell(row=4, column=1, value=map_text).alignment = wrap
-    row = 6
-    for name, sql in task.finals.items():
-        hive.cell(row=row, column=1, value=f"{name}:").font = Font(bold=True)
-        cell = hive.cell(row=row + 1, column=1, value=shown(sql))
+        _sheet_of_code(workbook, "Power Query", [POWER_QUERY_STEPS],
+                       [(f"Query {name}:", m) for name, m in task.workbook.queries])
+    hive = _sheet_of_code(workbook, "Hive", [
+        "What Copilot gives with files 11, 12, 03, 04 and 05 loaded: the map, then a query per "
+        "final. Fill in <database> with your database's name. Delete this sheet, and the Power "
+        "Query sheet if there is one, before you try the workbook on Copilot yourself.",
+        map_text],
+        [(f"{name}:", shown(sql)) for name, sql in task.finals.items()])
+    hive.insert_rows(1)
+    hive["A1"] = "The Hive this workbook converts to"
+    hive["A1"].font = Font(bold=True, size=14)
+    return workbook
+
+
+# A sheet of text and code: its one column's width, in characters.
+WIDTH = 100
+
+
+def _sheet_of_code(workbook: openpyxl.Workbook, title: str, paragraphs: list[str],
+                   blocks: list[tuple[str, str]]) -> openpyxl.worksheet.worksheet.Worksheet:
+    """A sheet of one wide column: the paragraphs, a blank row after each, then each block's
+    label in bold over its code in a fixed-width font, a blank row after each."""
+    sheet = workbook.create_sheet(title)
+    sheet.column_dimensions["A"].width = WIDTH
+    wrap = Alignment(wrap_text=True, vertical="top")
+    row = 1
+    for paragraph in paragraphs:
+        sheet.cell(row=row, column=1, value=paragraph).alignment = wrap
+        row += 2
+    for label, code in blocks:
+        sheet.cell(row=row, column=1, value=label).font = Font(bold=True)
+        cell = sheet.cell(row=row + 1, column=1, value=code)
         cell.alignment, cell.font = wrap, Font(name="Consolas")
         row += 3
-    return workbook
+    return sheet
 
 
 def main() -> int:
