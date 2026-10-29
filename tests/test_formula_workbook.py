@@ -35,12 +35,24 @@ def test_it_holds_the_steps_and_two_empty_tables(committed: openpyxl.Workbook) -
     tables = {name: (sheet.title, sheet.tables[name].ref) for sheet in committed.worksheets
               for name in sheet.tables}
     assert tables == {"Parameters": ("Parameters", "A1:B2"), "Keys": ("Keys", "A1:B2")}
-    headers = {sheet.title: [cell.value for cell in sheet[1]]
+    headers = {sheet.title: [sheet["A1"].value, sheet["B1"].value]
                for sheet in committed.worksheets[1:]}
     assert headers == {"Parameters": ["name", "value"], "Keys": ["table", "key_columns"]}
     for sheet in committed.worksheets[1:]:
         assert [cell.value for row in sheet.iter_rows(min_row=2) for cell in row
                 if cell.value is not None] == [], sheet.title
+
+
+def test_each_tables_sheet_says_what_it_is_for_beside_it(committed: openpyxl.Workbook) -> None:
+    for sheet in committed.worksheets[1:]:
+        note = sheet["D1"].value
+        assert note.startswith(f"{sheet.title}: "), sheet.title
+        assert [cell.coordinate for row in sheet.iter_rows() for cell in row
+                if cell.value is not None] == ["A1", "B1", "D1"], sheet.title
+    steps = [cell.value for row in committed["Steps"].iter_rows() for cell in row]
+    about = steps.index("The Parameters and Keys sheets:")
+    assert about < steps.index("Your data:")
+    assert "Parameters holds" in steps[about + 1] and "Keys is" in steps[about + 1]
 
 
 def test_no_cell_holds_a_formula(committed: openpyxl.Workbook) -> None:
