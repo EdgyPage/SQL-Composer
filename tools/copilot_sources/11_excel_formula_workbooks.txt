@@ -19,8 +19,8 @@ and 05, for the Toolbox code.
 2. Map it. A Table's typed columns, not loaded by a query, stand for a database table of the
    Table's name: a source. A Table whose only typed columns are what its SUMIFS or COUNTIFS
    match on (`[@job_id]` against `runs[job_id]`) is a summary: a GROUP BY of the Table it
-   reads. A Table or query another Table or query reads is a step. A Table nothing reads
-   is a final: one query each. Parameters and Keys are none.
+   reads. A Table with formulas, or a query, that another Table or query reads is a step.
+   A Table nothing reads is a final: one query each. Parameters and Keys are none.
 3. Start the reply with the map: Sources, Steps, Finals and the columns each final gives;
    then each value typed over a formula, each mark, each refusal, what was left alone, and
    each `<...>` to fill in.
@@ -28,16 +28,16 @@ and 05, for the Toolbox code.
    (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
    `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`. Never guess one.
 5. Write each final's Hive in its own ```sql block: each source a table, read for the
-   columns the finals use; each step a CTE, `WITH step AS (...)`, inside each final's query
-   that reads it, never a block alone; the final's columns in its Table's order, each
+   columns the finals use; each step a CTE inside each final's query that reads it, never a
+   block alone; the final's columns in its Table's order, each
    calculated one named with AS. The rows are a sample: filter only as a formula or query
    does.
 6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 103 THEN 9
    ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
    that Table, match every typed column of the row, and say there is no Keys row. A Table
    with no value typed over a formula needs none.
-7. A refused formula: `NULL AS its_header`; name it in the map, with why, a cell outside a
-   Table by its address, such as C2. Anything files 11 and 12 don't list is refused too.
+7. A refused formula: `NULL AS its_header`; name it in the map, with why, and a cell outside
+   a Table it reads by its address, such as C2. Anything files 11 and 12 don't list is refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
    out of the workbook what you don't want converted; fill in each `<...>`; run
    `project.convert` on the Hive; its checked code wins where the two differ.
@@ -54,9 +54,10 @@ and 05, for the Toolbox code.
 - LEFT(x, n): SUBSTR(x, 1, n); RIGHT(x, n): SUBSTR(x, -n); MID(x, s, n): SUBSTR(x, s, n);
   LEN: LENGTH; FIND(a, x): INSTR(x, a); SEARCH(a, x): INSTR(LOWER(x), LOWER(a));
   ISNUMBER(FIND(..)): INSTR(..) > 0; SUBSTITUTE: REPLACE; PROPER: INITCAP; CONCATENATE:
-  CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE).
-- YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE; NOW():
-  CURRENT_TIMESTAMP; d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
+  CONCAT; TEXTJOIN(",", TRUE, a, b): CONCAT_WS(',', a, b); VALUE(x): CAST(x AS DOUBLE);
+  UPPER, LOWER, TRIM as they are.
+- YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE;
+  d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
   DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
   EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
   one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
