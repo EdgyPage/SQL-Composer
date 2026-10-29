@@ -20,6 +20,13 @@ examine every single file change when the line is just a version number change")
 map was asked for, "documentation on how to actually use the conversions in the examples and
 howto files".
 
+Then, with 7.2 exported (2026-10-28), a third thing, grilled the same day: Excel workbooks
+into Hive, so others "can take over their work without getting me as involved in being 'the
+doer'". The user weighed it against the repo's upkeep, "something that is too small will not be
+useful, something that is too large becomes a distraction to maintain", and chose a Copilot
+file over Toolbox code: "While the excel conversion is useful, it's not going to happen often
+enough to make code for it. sql conversion has more utility." Tickets 15 to 18.
+
 ## Notes
 
 ### The version
@@ -108,6 +115,43 @@ howto files".
   notebook has a cell that compares their rows through the user's `query`, with a `where=` on
   the partitions, reporting the rows that differ.
 
+### Excel workbooks into Hive (tickets 15 to 18)
+
+- **A Copilot file, no Toolbox code.** Copilot writes Hive, and the person's existing Conversion
+  (`convert`) turns it into checked Toolbox code: Copilot does only Excel into SQL. Copilot also
+  writes a Toolbox draft to read; `convert`'s code wins where they differ. Nothing in the
+  Toolbox's folder changes, so it ships as 7.2, exported again (the user's call).
+- **The Formula workbook** (CONTEXT.md): a sample of raw data in Excel Tables, calculations in a
+  Table's formulas or a Power Query step, fixed values in `Parameters`. Tables keep their own
+  names, with no naming rule: Copilot writes what it can't know as `<...>`, the Toolbox's
+  placeholder, and the person fills each in before `convert`. A header that isn't a valid
+  Python name is rewritten in snake_case inside `<...>`; a valid one passes through.
+- **Direction is read, never declared**: a source is a Table nothing loads and that reads no
+  other Table; a step is a query or a Table another reads; a final Table is one nothing reads,
+  and each becomes its own query. Columns no final Table uses drop out. Copilot answers with
+  this map first.
+- **Whatever is in the workbook converts.** A typed-over cell becomes a `CASE` on the row's Key,
+  from a `Keys` Table needed only for a column that has one; the user: "I want the users to get
+  out of the habit of hand correcting things", and "If the user doesn't want it converted, then
+  it shouldn't be in the conversion file. I don't want to maintain modal operations."
+- **Three lists, for formulas and for M**: what converts with no knowledge of what the
+  workbook is for, what converts with a mark (blank as 0, approximate `VLOOKUP`, text dates, a
+  source other than the workbook, a pivot), and what is refused and named, never guessed
+  (`INDIRECT`, `OFFSET`, `RAND`, `Web.Contents`, a circular reference). PivotTables, charts and
+  anything outside a Table are presentation, ignored and named.
+- **Power Query M converts when it's there**, and isn't required. The user: "I don't want to
+  force m, but m is a LOT easier to design and get copilot development on".
+- **Loading**: the 8,000-character limit stays, as a standard for a file a person can read, and
+  Copilot may be assumed to have every file. `00_start_here.txt` keeps "one file per chat",
+  with Excel the one exception: `11` with `03`, `04` and `05`.
+- **The template is the one file main can't rebuild**: built on dev with `openpyxl`, which only
+  dev installs, and shipped as `copilot/formula_workbook.xlsx`, with empty `Parameters` and `Keys`
+  Tables and a sheet of steps. The code audit reads inside an .xlsx and refuses macros, data
+  connections and links to other workbooks.
+- **Tested hard**: about 40 tasks, 20 held-out, each case alone and in combinations; 95% on
+  held-out for Haiku and Sonnet; at most two tuning rounds, then a design spec. Workbooks with
+  M are the user's, built by hand for the manual round and kept outside the repo.
+
 ### The docs
 
 - **Every new public name opens its docstring with a Worked example**, as 7.0 set.
@@ -134,6 +178,10 @@ howto files".
 - [12 The Copilot evaluation: tasks, an offline scorer, and the baseline](issues/12-copilot-eval-harness.md)
 - [13 The Copilot files, one per objective, each at most 8,000 characters](issues/13-copilot-files.md)
 - [14 The Copilot files tuned on dev, and scored on held-out](issues/14-copilot-eval-rounds.md)
+- [15 The Formula workbook template, and the code audit reading an .xlsx](issues/15-formula-workbook-template.md)
+- [16 The Excel evaluation: about 40 workbook tasks, a Hive scorer, and the baseline](issues/16-excel-eval-tasks.md)
+- [17 Copilot file 11: a Formula workbook into Hive, and a Toolbox draft](issues/17-copilot-file-11.md)
+- [18 File 11 tuned on dev, scored on held-out, and a manual round in Copilot](issues/18-excel-eval-rounds.md)
 
 The order is the user's habit from 7.0: one at a time, by number. The real dependencies are in
 each ticket's `Blocked by:`: 02, 03 and 04 need only 01, and could run side by side if the user
@@ -152,6 +200,8 @@ asks, though all three touch CHANGES.md.
 - `.claude/hooks/drift-reviewer.md`'s version item (01).
 - `docs/clean-branch-readme.md`, the how-tos, the gallery and the Intermediate Example project
   (09, and wherever an earlier ticket breaks one).
+- CONTEXT.md's Formula workbook, written while grilling (15); `requirements-dev.txt`, the code
+  audit and the export (15); `docs/copilot-eval.md` (16, 18); the README and CHANGES.md (17).
 
 ## Decisions so far
 
@@ -206,3 +256,7 @@ ticket 07's Answer, shown in how-to "Convert someone else's Hive" for the user t
 - A Conversion choosing Building blocks, Aliases or a Key; converting into an existing Table
   folder; one Conversion of several queries.
 - Stopping the import on a file whose hash doesn't match.
+- Toolbox code that reads an .xlsx; a builder for Power Query's storage, so dev could write M
+  into a workbook; checking Copilot's Hive against the workbook's own computed values (back
+  only if the manual round shows translation errors); changing "one file per chat" for the
+  other Copilot files.

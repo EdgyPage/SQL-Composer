@@ -33,7 +33,9 @@ carry a Project from one version to the next, and the version in one file) is ch
 `.scratch/toolbox-7-2/map.md`; read its Notes before working one of its tickets. Its tickets 12
 to 14 add the Copilot files, `copilot/`, which `.venv/Scripts/python tools/copilot_files.py`
 writes from `tools/copilot_sources/`, each at most 8,000 characters, and the evaluation that
-measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says.
+measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says. Its tickets 15 to 18
+add Copilot file 11, which has Copilot turn a Formula workbook into Hive, and the workbook's
+template, built on dev with `openpyxl`, which only dev installs.
 
 ## Checks
 
