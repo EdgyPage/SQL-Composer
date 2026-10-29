@@ -1,7 +1,7 @@
 # File 11 split in two, and every Toolbox clause with an Excel analog
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 19
 Size: L
 

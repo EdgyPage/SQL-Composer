@@ -79,3 +79,15 @@ Dev rounds 1 and 2 are 10de2a9 and fac0fd8; held-out was scored once, on fac0fd8
 Ticket 21, from 02f8d5e on, has 37 tasks a split, X71 to X74 added. Dev rounds 1 and 2 are
 aa75911 and 6fc91ff, held-out scored on 6fc91ff; then f80b90b, the reviews' wording and
 UPPER, LOWER and TRIM put back, checked on dev and scored on held-out once.
+
+| 2026-10-29 | fa48987 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 49 |
+| 2026-10-29 | 423bc80 | haiku | C | dev | 87 | 100 | 100 | 100 | 90 | 100 | 100 | 3 | 51 |
+| 2026-10-29 | 423bc80 | haiku | C | held_out | 92 | 100 | 97 | 97 | 92 | 100 | 100 | 0 | 0 |
+| 2026-10-29 | 423bc80 | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | 5df4678 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-10-29 | 5df4678 | haiku | C | held_out | 87 | 100 | 100 | 100 | 87 | 97 | 100 | 0 | 51 |
+| 2026-10-29 | 5df4678 | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+
+Ticket 22, from efc21d8 on, has 39 tasks a split, X75 to X78 added. Dev round 1 is fa48987, the
+example; round 2 and held-out are 423bc80, the beginner reader's wording; then 5df4678, which puts
+back "a formula reads", checked on dev and scored on held-out once.

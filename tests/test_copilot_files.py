@@ -32,6 +32,7 @@ COPILOT = ROOT / "copilot"
 sys.path.insert(0, str(COPILOT))
 
 import count_characters  # noqa: E402
+import merge_copilot_files  # noqa: E402
 
 FILES = sorted(COPILOT.glob("*.txt"))
 OBJECTIVE_FILES = [path for path in FILES if not path.name.startswith("00_")]
@@ -78,9 +79,20 @@ def test_each_file_is_what_its_source_writes() -> None:
         assert path.read_text(encoding="utf-8") == written[path.name], path.name
 
 
-def test_the_folder_holds_the_files_the_counter_and_the_empty_workbook_only() -> None:
+def test_the_folder_holds_the_files_the_counter_the_empty_workbook_and_all_in_one() -> None:
     assert sorted(path.name for path in COPILOT.iterdir() if path.name != "__pycache__") == (
-        sorted([path.name for path in FILES] + ["count_characters.py", "formula_workbook.xlsx"]))
+        sorted([path.name for path in FILES]
+               + ["all_in_one", "count_characters.py", "formula_workbook.xlsx"]))
+    assert [path.name for path in (COPILOT / "all_in_one").iterdir()] == ["all_copilot_files.txt"]
+
+
+def test_all_in_one_merges_every_file_in_order() -> None:
+    text = merge_copilot_files.MERGED.read_text(encoding="utf-8")
+    assert text == merge_copilot_files.merged()
+    assert [line[6:-6] for line in text.splitlines() if line.startswith("===== ")] == [
+        path.name for path in FILES]
+    for path in FILES:
+        assert path.read_text(encoding="utf-8").rstrip() in text
     assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
 
 

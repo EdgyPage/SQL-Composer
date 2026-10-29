@@ -1,7 +1,7 @@
 # Files 11 and 12: the two held-out misses fixed, and held-out scored again
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 20
 Size: S
 

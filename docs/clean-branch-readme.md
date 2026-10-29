@@ -397,8 +397,9 @@ cell or a Conversion. Open a new chat, paste the one file for what you want to d
 first message, then ask, giving the import line and columns of each table to read.
 `copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
 takes at once, spaces and line breaks included; `copilot/count_characters.py` counts a
-copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
-refuses what would give a wrong number.
+copy you edit. `copilot/all_in_one/all_copilot_files.txt` holds every file in one document,
+for reading or searching them together; it is far too long to load at once. Run what Copilot
+gives you as you would your own code: the Toolbox still refuses what would give a wrong number.
 
 To hand over an Excel workbook's calculations, one chat holds five files:
 

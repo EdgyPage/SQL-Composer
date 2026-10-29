@@ -32,7 +32,8 @@ of `run`, so the user picks the call, and the cleanup after it) is that map's ti
 carry a Project from one version to the next, and the version in one file) is charted through
 `.scratch/toolbox-7-2/map.md`; read its Notes before working one of its tickets. Its tickets 12
 to 14 add the Copilot files, `copilot/`, which `.venv/Scripts/python tools/copilot_files.py`
-writes from `tools/copilot_sources/`, each at most 8,000 characters, and the evaluation that
+writes from `tools/copilot_sources/`, each at most 8,000 characters, with every file merged into
+`copilot/all_in_one/all_copilot_files.txt` by `tools/merge_copilot_files.py`, and the evaluation that
 measures them, `tools/copilot_eval.py`, run as `docs/copilot-eval.md` says. Its tickets 15 to 18
 add Copilot file 11, which has Copilot turn a Formula workbook into Hive (ticket 20 splits it,
 its Power Query and totals into file 12), and an empty
