@@ -120,7 +120,8 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   steps, and two empty Excel Tables, `Parameters` for fixed values and `Keys` for a Table where
   a value was typed over a formula. Attach your copy in a chat with
   `copilot/11_excel_formula_workbooks.txt`, `12_excel_power_query.txt` and files 03, 04 and
-  05 loaded, and Copilot writes its Hive.
+  05 loaded, and Copilot writes its Hive. `copilot/examples/` holds three filled in, each
+  with a last sheet, Hive, giving the conversion it should get.
 - **sqlglot 30.19.0 or newer, below 31.** The Example database already needed 30.19.0 or
   newer to run queries; now the whole Toolbox does. The Hive it writes is the same as 7.1
   wrote on those versions.
