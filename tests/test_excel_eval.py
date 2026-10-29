@@ -1,6 +1,6 @@
-"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16 and 19).
+"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16, 19 and 20).
 
-`tools/excel_eval_tasks.py` holds 50 filled-in Formula workbooks, 25 dev and 25 held out, with
+`tools/excel_eval_tasks.py` holds 66 filled-in Formula workbooks, 33 dev and 33 held out, with
 everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
 SQLite holding the Example database's rows. Every task's reference, written as a reply would
 be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and the
@@ -15,6 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+
 
 import code_audit
 import excel_eval
@@ -57,9 +58,9 @@ def scored(task: ExcelTask, reply: str, hive: sqlite3.Connection) -> excel_eval.
     return excel_eval.score(task, reply, hive, excel_eval.reference_rows(hive, task))
 
 
-def test_there_are_50_tasks_25_on_each_split_each_covering_everything() -> None:
-    assert len(BY_ID) == len(TASKS) == 50
-    assert Counter(task.split for task in TASKS) == {"dev": 25, "held_out": 25}
+def test_there_are_66_tasks_33_on_each_split_each_covering_everything() -> None:
+    assert len(BY_ID) == len(TASKS) == 66
+    assert Counter(task.split for task in TASKS) == {"dev": 33, "held_out": 33}
     for split in ("dev", "held_out"):
         covered = {kind for task in TASKS if task.split == split for kind in task.covers}
         assert [kind for kind in COVERAGE if kind not in covered] == [], split
@@ -77,6 +78,8 @@ def test_the_stand_in_hive_gives_the_example_databases_rows(
         task: ExcelTask, hive: sqlite3.Connection) -> None:
     expected = excel_eval.reference_rows(hive, task)
     for name, sql in task.finals.items():
+        if "ROLLUP" in sql:  # its executor reads WITH ROLLUP as a plain GROUP BY
+            continue
         try:
             frame = example_database.query(sql)
         except RuntimeError:  # its executor has no date functions
@@ -200,10 +203,48 @@ def test_a_template_reads_back_as_empty_replies() -> None:
 
 def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:
     written = excel_eval.write_workbooks("dev", tmp_path)
-    assert [path.name for path in written] == [f"x{n:02d}.xlsx" for n in (*range(1, 21),
-                                                                          *range(41, 46))]
+    assert [path.name for path in written] == [f"x{n:02d}.xlsx" for n in (
+        *range(1, 21), *range(41, 46), *range(51, 59))]
 
 
 def test_the_stand_in_hive_has_hives_date_functions_and_pmod(hive: sqlite3.Connection) -> None:
     assert hive.execute("SELECT MONTH('2026-09-24'), YEAR('2026-09-24'), DAY('2026-09-24'), "
                         "PMOD(-7, 3), MONTH('soon')").fetchone() == (9, 2026, 24, 2, None)
+
+
+def stand_in(hive: sqlite3.Connection, sql: str) -> list[tuple[object, ...]]:
+    return hive.execute(excel_eval.as_sqlite(excel_eval.queries(sql)[0])).fetchall()
+
+
+def test_the_stand_in_hive_runs_hives_functions_sqlite_lacks(hive: sqlite3.Connection) -> None:
+    assert stand_in(hive, "SELECT LAST_DAY('2026-02-14'), ADD_MONTHS('2026-01-31', 1), "
+                          "ADD_MONTHS('2026-09-14', 1), MONTHS_BETWEEN('2026-11-20', "
+                          "'2026-09-14'), DAYOFWEEK('2026-09-13'), DAYOFWEEK(NULL)") == [
+        ("2026-02-28", "2026-02-28", "2026-10-14", 2.19354839, 1, None)]
+    assert stand_in(hive, "SELECT CAST(NEXT_DAY(DATE_ADD('2026-09-16', 7 * -1), 'MO') AS "
+                          "STRING), CAST(TRUNC('2026-09-16', 'MM') AS STRING), "
+                          "DATE_SUB('2026-09-16', 3), DATE_FORMAT('2026-09-16', 'yyyy-MM-dd'), "
+                          "INITCAP('nightly LOAD'), CONCAT_WS('/', 'a', NULL, 'b'), "
+                          "REPEAT('ab', 2)") == [
+        ("2026-09-14", "2026-09-01", "2026-09-13", "2026-09-16", "Nightly Load", "a/b", "abab")]
+    assert stand_in(hive, "SELECT ROUND(VAR_SAMP(duration_mins), 2), ROUND(STDDEV_SAMP("
+                          "avg_retry_secs), 2) FROM ops.job_runs") == [(127.25, 3.02)]
+    assert stand_in(hive, "SELECT DISTINCT ROUND(STDDEV_SAMP(duration_mins) OVER (), 2) "
+                          "FROM ops.job_runs") == [(11.28,)]
+
+
+def test_a_rollup_or_grouping_sets_runs_as_one_group_by_per_set(
+        hive: sqlite3.Connection) -> None:
+    totals = [(1, 67, 4), (2, 53, 3), (3, 60, 2), (None, 180, 9)]
+    for group_by in ("job_id WITH ROLLUP", "ROLLUP(job_id)", "job_id GROUPING SETS (job_id, ())"):
+        assert sorted(stand_in(hive, "WITH r AS (SELECT * FROM ops.job_runs) SELECT job_id, "
+                                     f"SUM(duration_mins), COUNT(*) FROM r GROUP BY {group_by}"),
+                      key=repr) == sorted(totals, key=repr), group_by
+
+
+def test_a_total_row_shows_as_one_and_is_a_final_of_its_own(hive: sqlite3.Connection) -> None:
+    task = BY_ID["X52"]
+    assert "Total Row: Total |  | =SUBTOTAL(109,job_runs[duration_mins])" in as_text(
+        task.workbook)
+    assert "job_runs (total row)" in task.finals
+    assert scored(task, reference_reply(task), hive).passed

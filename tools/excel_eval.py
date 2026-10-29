@@ -39,18 +39,23 @@ whether there is any, whether it parses once its `<...>` are filled, and the Too
 invents.
 
 The stand-in Hive is SQLite, which Python has, holding the Example database's tables in a
-database named `ops`, each query turned from Hive into SQLite by sqlglot, with Hive's `MONTH`,
-`YEAR`, `DAY` and `PMOD` added. The Example database's own executor has no date functions, and a test
-holds the two to the same rows on every reference the executor can run. It is only ever read:
-it lives in memory, and nothing is written to it after it is filled.
+database named `ops`, each query turned from Hive into SQLite by sqlglot. Hive's functions
+SQLite lacks, such as `MONTH`, `PMOD`, `LAST_DAY` and `STDDEV_SAMP`, are added as Python
+functions, and a GROUP BY's ROLLUP or GROUPING SETS is run as a UNION ALL of one GROUP BY per
+set. The Example database's own executor has no date functions, and a test holds the two to the
+same rows on every reference the executor can run. It is only ever read: it lives in memory,
+and nothing is written to it after it is filled.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import calendar
 import datetime
+import functools
 import logging
+import math
 import re
 import sqlite3
 import sys
@@ -227,7 +232,7 @@ def resolved(query: exp.Query, task: ExcelTask, placed: set[str]) -> tuple[str, 
             invented.append(column.name)
         if squashed(column.name) in names:
             column.set("this", exp.to_identifier(names[squashed(column.name)]))
-    return query.sql(dialect="sqlite"), invented
+    return as_sqlite(query), invented
 
 
 # --- The stand-in Hive ---------------------------------------------------------------------
@@ -259,6 +264,11 @@ def stand_in_hive() -> sqlite3.Connection:
                            ("DAYOFMONTH", "day")):
         hive.create_function(function, 1, _date_part(part), deterministic=True)
     hive.create_function("PMOD", 2, _positive_remainder, deterministic=True)
+    for name, function in HIVE_FUNCTIONS.items():
+        hive.create_function(name, -1, _null_safe(function), deterministic=True)
+    hive.create_function("HIVE_CONCAT_WS", -1, _concat_ws, deterministic=True)
+    for name, kind in (("HIVE_STDDEV_SAMP", "stddev"), ("HIVE_VAR_SAMP", "variance")):
+        hive.create_window_function(name, 1, functools.partial(_Spread, kind))
     return hive
 
 
@@ -267,6 +277,208 @@ def _positive_remainder(number: float | None, by: float | None) -> float | None:
     if number is None or not by:
         return None
     return number % by
+
+
+def _day(value: object) -> datetime.date:
+    return datetime.date.fromisoformat(str(value)[:10])
+
+
+def _last_day(day: datetime.date) -> datetime.date:
+    return day.replace(day=calendar.monthrange(day.year, day.month)[1])
+
+
+def _add_months(value: object, months: object) -> str:
+    """Hive's ADD_MONTHS: the same day `months` months on, the month's last day if there is
+    no such day or the date is its month's last."""
+    day = _day(value)
+    month = day.month - 1 + int(months)
+    moved = datetime.date(day.year + month // 12, month % 12 + 1, 1)
+    end = _last_day(moved)
+    return str(end if day == _last_day(day) else moved.replace(day=min(day.day, end.day)))
+
+
+def _months_between(later: object, earlier: object) -> float:
+    """Hive's MONTHS_BETWEEN: whole months, and each day's difference as 1/31 of one, unless
+    the days of the month match or both are their month's last."""
+    a, b = _day(later), _day(earlier)
+    months = (a.year - b.year) * 12 + a.month - b.month
+    if a.day == b.day or (a == _last_day(a) and b == _last_day(b)):
+        return float(months)
+    return round(months + (a.day - b.day) / 31, 8)
+
+
+def _next_day(value: object, weekday: object) -> str:
+    """Hive's NEXT_DAY: the first date after this one that falls on `weekday`, such as 'MO'."""
+    day = _day(value)
+    target = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"].index(str(weekday)[:2].upper())
+    return str(day + datetime.timedelta(days=(target - day.weekday() - 1) % 7 + 1))
+
+
+def _trunc(value: object, unit: object) -> str:
+    """Hive's TRUNC of a date: its month's first day, or its year's."""
+    day = _day(value)
+    yearly = str(unit).upper() in ("YEAR", "YYYY", "YY")
+    return str(day.replace(month=1, day=1) if yearly else day.replace(day=1))
+
+
+def _date_format(value: object, pattern: object) -> str:
+    """Hive's DATE_FORMAT, its pattern as sqlglot reads it: Python's, a stray 'strict' after
+    each part."""
+    return _day(value).strftime(str(pattern).replace("strict", ""))
+
+
+# Hive's functions SQLite lacks, by the name each has in the stand-in Hive. Each gives NULL for
+# a NULL argument, as Hive's does.
+HIVE_FUNCTIONS: dict[str, Callable[..., object]] = {
+    "HIVE_LAST_DAY": lambda value: str(_last_day(_day(value))),
+    "HIVE_ADD_MONTHS": _add_months,
+    "HIVE_MONTHS_BETWEEN": _months_between,
+    "HIVE_DAYOFWEEK": lambda value: _day(value).isoweekday() % 7 + 1,
+    "HIVE_NEXT_DAY": _next_day,
+    "HIVE_DATE_ADD": lambda value, days: str(_day(value) + datetime.timedelta(days=int(days))),
+    "HIVE_TRUNC": _trunc,
+    "HIVE_DATE_FORMAT": _date_format,
+    "HIVE_INITCAP": lambda text: " ".join(word[:1].upper() + word[1:].lower()
+                                          for word in str(text).split(" ")),
+    "HIVE_REPEAT": lambda text, times: str(text) * int(times),
+}
+
+
+def _null_safe(function: Callable[..., object]) -> Callable[..., object]:
+    def call(*values: object) -> object:
+        if any(value is None for value in values):
+            return None
+        try:
+            return function(*values)
+        except ValueError:  # not a date
+            return None
+    return call
+
+
+def _concat_ws(separator: object, *values: object) -> str | None:
+    """Hive's CONCAT_WS: the values that aren't NULL, joined by the separator."""
+    if separator is None:
+        return None
+    return str(separator).join(_text(value) for value in values if value is not None)
+
+
+def _text(value: object) -> str:
+    return str(int(value)) if isinstance(value, float) and value.is_integer() else str(value)
+
+
+class _Spread:
+    """Hive's STDDEV_SAMP or VAR_SAMP, as an aggregate or over a window, NULLs left out."""
+
+    def __init__(self, kind: str) -> None:
+        self.kind, self.values = kind, []
+
+    def step(self, value: float | None) -> None:
+        if value is not None:
+            self.values.append(value)
+
+    def inverse(self, value: float | None) -> None:
+        if value is not None:
+            self.values.remove(value)
+
+    def value(self) -> float | None:
+        if len(self.values) < 2:
+            return None
+        mean = sum(self.values) / len(self.values)
+        variance = sum((value - mean) ** 2 for value in self.values) / (len(self.values) - 1)
+        return math.sqrt(variance) if self.kind == "stddev" else variance
+
+    def finalize(self) -> float | None:
+        return self.value()
+
+
+# sqlglot's node for each Hive function the stand-in Hive runs as a function of its own: the
+# function's name there, and the node's arguments in Hive's order.
+AS_STAND_IN: dict[type[exp.Expression], tuple[str, tuple[str, ...]]] = {
+    exp.LastDay: ("HIVE_LAST_DAY", ("this",)),
+    exp.AddMonths: ("HIVE_ADD_MONTHS", ("this", "expression")),
+    exp.MonthsBetween: ("HIVE_MONTHS_BETWEEN", ("this", "expression")),
+    exp.DayOfWeek: ("HIVE_DAYOFWEEK", ("this",)),
+    exp.NextDay: ("HIVE_NEXT_DAY", ("this", "expression")),
+    exp.TsOrDsAdd: ("HIVE_DATE_ADD", ("this", "expression")),
+    exp.TimestampTrunc: ("HIVE_TRUNC", ("this", "unit")),
+    exp.DateTrunc: ("HIVE_TRUNC", ("this", "unit")),
+    exp.Initcap: ("HIVE_INITCAP", ("this",)),
+    exp.Repeat: ("HIVE_REPEAT", ("this", "times")),
+    exp.StddevSamp: ("HIVE_STDDEV_SAMP", ("this",)),
+    exp.Stddev: ("HIVE_STDDEV_SAMP", ("this",)),
+    exp.Variance: ("HIVE_VAR_SAMP", ("this",)),
+}
+
+
+def _stand_in_call(node: exp.Expression) -> exp.Expression:
+    """A Hive function SQLite lacks, as a call to the stand-in Hive's function for it."""
+    if isinstance(node, exp.TimeToStr):
+        inner = node.this.this if isinstance(node.this, exp.TimeStrToTime) else node.this
+        return exp.Anonymous(this="HIVE_DATE_FORMAT",
+                             expressions=[inner.transform(_stand_in_call), node.args["format"]])
+    if isinstance(node, exp.ConcatWs):
+        return exp.Anonymous(this="HIVE_CONCAT_WS",
+                             expressions=[part.transform(_stand_in_call)
+                                          for part in node.expressions])
+    if type(node) not in AS_STAND_IN:
+        return node
+    name, parts = AS_STAND_IN[type(node)]
+    arguments = []
+    for part in parts:
+        argument = node.args.get(part)
+        if isinstance(argument, exp.Var):  # TRUNC's unit, such as MM
+            argument = exp.Literal.string(argument.name)
+        if argument is not None:  # a function inside, such as DATE_ADD in NEXT_DAY, too
+            arguments.append(argument.transform(_stand_in_call))
+    return exp.Anonymous(this=name, expressions=arguments)
+
+
+def _grouping_sets(group: exp.Group) -> list[list[exp.Expression]] | None:
+    """The sets a GROUP BY with ROLLUP or GROUPING SETS groups by, or None for a plain one:
+    `WITH ROLLUP` after its columns, or `ROLLUP(...)` among them."""
+    columns, rolled = [], bool(group.args.get("rollup"))
+    for item in [*group.expressions, *group.args.get("rollup", [])]:
+        rolled |= isinstance(item, exp.Rollup)
+        columns += list(item.expressions) if isinstance(item, exp.Rollup) else [item]
+    if rolled:
+        return [columns[:size] for size in range(len(columns), -1, -1)]
+    if group.args.get("grouping_sets"):
+        return [list(item.expressions) if isinstance(item, exp.Tuple) else [item]
+                for sets in group.args["grouping_sets"] for item in sets.expressions]
+    return None
+
+
+def _one_group_by_per_set(select: exp.Expression) -> exp.Expression:
+    """A SELECT whose GROUP BY has ROLLUP or GROUPING SETS, as the UNION ALL of one GROUP BY
+    per set, each column grouped by in another set NULL, as Hive gives it."""
+    group = select.args.get("group") if isinstance(select, exp.Select) else None
+    sets = _grouping_sets(group) if group else None
+    if sets is None:
+        return select
+    every = {column.sql() for kept in sets for column in kept}
+    with_ = select.args.get("with_")
+    parts = []
+    for kept in sets:
+        part = select.copy()
+        part.set("with_", None)
+        dropped = every - {column.sql() for column in kept}
+        for item in part.expressions:
+            for column in list(item.find_all(exp.Column)):
+                if column.sql() in dropped and not column.find_ancestor(exp.AggFunc):
+                    column.replace(exp.Null())
+        part.set("group", exp.Group(expressions=[column.copy() for column in kept])
+                 if kept else None)
+        parts.append(part)
+    stacked = functools.reduce(lambda a, b: exp.union(a, b, distinct=False), parts)
+    if with_:
+        stacked.set("with_", with_)
+    return stacked
+
+
+def as_sqlite(query: exp.Expression) -> str:
+    """A query in Hive, as sqlglot reads it, as the stand-in Hive runs it."""
+    query = query.transform(_one_group_by_per_set).transform(_stand_in_call)
+    return query.sql(dialect="sqlite")
 
 
 def _normal(value: object) -> object:
@@ -288,7 +500,7 @@ def rows_of(hive: sqlite3.Connection, sql: str) -> list[tuple[object, ...]]:
 def reference_rows(hive: sqlite3.Connection, task: ExcelTask
                    ) -> dict[str, list[tuple[object, ...]]]:
     """Each final Table's reference rows, by its name."""
-    return {name: rows_of(hive, sqlglot.transpile(sql, read="hive", write="sqlite")[0])
+    return {name: rows_of(hive, as_sqlite(sqlglot.parse_one(sql, read="hive")))
             for name, sql in task.finals.items()}
 
 
@@ -315,6 +527,10 @@ class ExcelScore:
         return self.correct and self.mapped and not self.unnamed and not self.invented
 
 
+# A final Table's Total Row, which is a query of its own, as `finals` names it.
+TOTAL_ROW = " (total row)"
+
+
 def sources(task: ExcelTask) -> list[str]:
     """The workbook's Tables of sample rows from a database table: each Table no query loads
     that isn't a summary, whose rows are what it groups by."""
@@ -326,8 +542,9 @@ def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
     """Whether the reply's map, before its first query, says which Tables are the sources and
     which the finals, naming each."""
     before = BLOCK.split(reply, maxsplit=1)[0].lower()
+    finals = [name.removesuffix(TOTAL_ROW) for name in task.finals]
     return ("source" in before and "final" in before
-            and all(name.lower() in before for name in [*sources(task), *task.finals]))
+            and all(name.lower() in before for name in [*sources(task), *finals]))
 
 
 def _toolbox_code(reply: str) -> str:
