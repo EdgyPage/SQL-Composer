@@ -241,6 +241,12 @@ asks, though all three touch CHANGES.md.
   the range is 30.19.0 up to (not including) 31, CI runs the pin alone, and what only older
   sqlglot needed is gone; the multi-INSERT fallback stays for 30.19.0.
 
+- [15 The Formula workbook template, and the code audit reading an .xlsx](issues/15-formula-workbook-template.md):
+  `copilot/formula_workbook.xlsx`, "the empty Formula workbook", built by
+  `tools/formula_workbook.py` with dev-only openpyxl and copied byte for byte; the offline
+  policy refuses a workbook's macros, connections, Power Query and links out, and the code
+  audit reads each part inside it.
+
 ## Not yet specified
 
 Nothing left. Both items once here were settled while building, the goal being to build

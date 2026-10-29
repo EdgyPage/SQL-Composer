@@ -46,8 +46,10 @@ string).
 
 A workbook (`.xlsx`, `.xlsm`) is opened as the zip it is and its parts read, never run, for what
 Excel would run or fetch: a macro, an embedded object or control, or a macro-enabled workbook is
-dynamic code; a data connection, a query table, a Power Query, a link to another workbook, or any
-link out of it is network.
+dynamic code; a data connection, a query table, a Power Query, a link to another workbook, any
+link out of it, or a formula that fetches or links out (`WEBSERVICE`, `HYPERLINK`) is network;
+and a URL typed into a cell or a formula is a URL. Only `scan` reads one, from its bytes: the hook
+judges an edit's text, and nothing edits a workbook so.
 
 What is allowed depends on the folder, strictest first:
 
@@ -159,7 +161,13 @@ NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff
 PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
 WORKBOOK_FILES = (".xlsx", ".xlsm")
-READ_FILES = PYTHON_FILES + PAGE_FILES + WORKBOOK_FILES + (".ipynb",)
+# In a workbook's parts: a relationship to something outside it, the text a person typed (a
+# cell's text or a formula), a formula that fetches or links out, and a URL in typed text.
+EXTERNAL_TARGET = re.compile(r"""TargetMode\s*=\s*["']External["']""", re.IGNORECASE)
+TYPED_TEXT = re.compile(r"<(?:\w+:)?(?:t|f)(?:\s[^>]*)?>([^<]*)</(?:\w+:)?(?:t|f)>")
+LINKING_FORMULA = re.compile(r"\b(WEBSERVICE|HYPERLINK|FILTERXML|RTD|IMAGE)\s*\(")
+URL_TYPED = re.compile(URL_START + r"\S+", re.IGNORECASE)
+READ_FILES = PYTHON_FILES + PAGE_FILES + (".ipynb",)
 
 
 @dataclass(frozen=True)
@@ -381,25 +389,31 @@ def workbook_findings(data: bytes, path: str, allowed: tuple[Allowed, ...] = ALL
 
 
 def _part_findings(name: str, part: bytes) -> list[tuple[str, str]]:
-    """Each (kind, what) one part of a workbook is a finding of."""
+    """Each (kind, what) one part of a workbook is a finding of: by the part's name, or what it
+    holds. Every part holds the URIs of its XML namespaces, which nothing fetches, so only the
+    text a person typed, in a cell or a formula, is read for a URL."""
     text = part.decode("utf-8", errors="replace")
-    if name.lower().endswith("vbaproject.bin"):
+    lower = name.lower()
+    if lower.endswith("vbaproject.bin"):
         return [("dynamic code", "a macro project, code Excel runs")]
-    if name.startswith(("xl/embeddings/", "xl/activeX/")):
+    if lower.startswith(("xl/embeddings/", "xl/activex/")):
         return [("dynamic code", "an embedded object or control, which can run code")]
-    if name == "[Content_Types].xml" and "macroEnabled" in text:
+    if lower == "[content_types].xml" and "macroenabled" in text.lower():
         return [("dynamic code", "a macro-enabled workbook")]
-    if name == "xl/connections.xml":
+    if lower == "xl/connections.xml":
         return [("network", "a data connection, which fetches data from outside the workbook")]
-    if name.startswith("xl/queryTables/"):
+    if lower.startswith("xl/querytables/"):
         return [("network", "a query table, which a data connection fills")]
-    if name.startswith("xl/externalLinks/"):
+    if lower.startswith("xl/externallinks/"):
         return [("network", "a link to another workbook")]
-    if name.startswith("customXml/") and "DataMashup" in text:
+    if lower.startswith("customxml/") and "DataMashup" in text:
         return [("network", "a Power Query, which can fetch data from outside the workbook")]
-    if name.endswith(".rels") and 'TargetMode="External"' in text:
+    if lower.endswith(".rels") and EXTERNAL_TARGET.search(text):
         return [("network", "a link out of the workbook")]
-    return []
+    typed = " ".join(TYPED_TEXT.findall(text))
+    found = [("network", f"a formula calling {function}, which fetches or links out")
+             for function in sorted(set(LINKING_FORMULA.findall(typed.upper())))]
+    return found + [("URL", f"a URL a person typed: {url}") for url in URL_TYPED.findall(typed)]
 
 
 def _not_allowed(found: list[Finding], path: str, allowed: tuple[Allowed, ...]
@@ -884,7 +898,7 @@ def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
             subfolders[:] = sorted(name for name in subfolders
                                    if not not_read(Path(folder, name), root))
             files += [Path(folder, name) for name in sorted(names)
-                      if name.lower().endswith(READ_FILES)]
+                      if name.lower().endswith(READ_FILES + WORKBOOK_FILES)]
     return files
 
 

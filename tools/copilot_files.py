@@ -123,7 +123,7 @@ def copilot_files() -> dict[str, str]:
 
 
 def main() -> int:
-    """Write every Copilot file into copilot/, and the Formula workbook template."""
+    """Write every Copilot file into copilot/, and the empty Formula workbook."""
     files = copilot_files()
     for name, text in files.items():
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")

@@ -1,4 +1,4 @@
-"""The Formula workbook template, `copilot/formula_workbook.xlsx` (Toolbox 7.2, ticket 15).
+"""The empty Formula workbook, `copilot/formula_workbook.xlsx` (Toolbox 7.2, ticket 15).
 
 main can't rebuild it: tools/formula_workbook.py builds it with openpyxl, which only dev
 installs, and the export copies the file. It holds a sheet of steps and two empty Excel Tables,
@@ -14,20 +14,20 @@ import pytest
 import formula_workbook
 from test_copilot_files import AVOIDED
 
-TEMPLATE = formula_workbook.TEMPLATE
+EMPTY = formula_workbook.EMPTY
 # The glossary's words to avoid for a Formula workbook.
 NOT_ITS_NAME = ("state table", "Excel template", "mapping sheet")
 
 
 @pytest.fixture(scope="module")
 def committed() -> openpyxl.Workbook:
-    return openpyxl.load_workbook(TEMPLATE)
+    return openpyxl.load_workbook(EMPTY)
 
 
-def test_the_template_is_what_the_tool_builds(committed: openpyxl.Workbook) -> None:
+def test_it_is_what_the_tool_builds(committed: openpyxl.Workbook) -> None:
     # Compared by what a person sees, not by bytes: a zip's times change with every build.
     assert formula_workbook.contents(committed) == formula_workbook.contents(
-        formula_workbook.template())
+        formula_workbook.empty_workbook())
 
 
 def test_it_holds_the_steps_and_two_empty_tables(committed: openpyxl.Workbook) -> None:

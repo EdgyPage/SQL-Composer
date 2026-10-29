@@ -130,7 +130,7 @@ COPIED = ["example_projects", "copilot"]
 # The copies with no comment syntax for a stamp, and a Conversion's original.hql, kept as the
 # Hive was given, which main holds as dev does.
 UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx")
-# The copies that aren't text, the Formula workbook template: main holds dev's bytes.
+# The copies that aren't text, the empty Formula workbook: main holds dev's bytes.
 BINARY = (".xlsx",)
 
 

@@ -59,7 +59,7 @@ from hook_io import deny, plain_line, read_hook_input
 # `READ_FILES`.
 STRICT_FOLDERS = ("sqlglot_composer", "example_projects", "worked_examples", "copilot")
 USER_COPIED = ("example_projects", "worked_examples", "copilot")
-READ_FILES = (".py", ".pyw", ".html", ".htm", ".js", ".mjs", ".xlsx", ".xlsm", ".ipynb")
+READ_FILES = (".py", ".pyw", ".html", ".htm", ".js", ".mjs", ".ipynb")
 WORKTREES = (".claude", "worktrees")
 
 # Claude Code matches an Edit's straight quotes to curly ones in the file.
