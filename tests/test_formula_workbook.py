@@ -13,6 +13,7 @@ import openpyxl
 import pytest
 
 import excel_eval
+import excel_eval_tasks
 import formula_workbook
 import formula_workbook_examples
 from test_copilot_files import AVOIDED
@@ -86,6 +87,55 @@ def test_each_example_is_what_the_tool_builds_and_its_hive_runs(name: str) -> No
         assert "ops." not in formula_workbook_examples.shown(sql)
     rows = excel_eval.reference_rows(excel_eval.stand_in_hive(), task)
     assert all(rows.values()), rows
+
+
+def _what_excel_would_repair(workbook: openpyxl.Workbook) -> list[str]:
+    """Each place a Table's definition disagrees with its cells, which Excel "repairs" on
+    opening by dropping the Table: its columns must be its headers, its filter must stop above
+    its Total Row, and each Total Row cell must be what its column says, a label or a function."""
+    found = []
+    for sheet in workbook.worksheets:
+        for table in sheet.tables.values():
+            rows = sheet[table.ref]
+            where = f"{sheet.title}!{table.displayName}"
+            if [column.name for column in table.tableColumns] != [cell.value for cell in rows[0]]:
+                found.append(f"{where}: its columns aren't its headers")
+            totals = rows[-1] if table.totalsRowCount else ()
+            data = rows[:-1] if totals else rows
+            if table.autoFilter.ref != f"{data[0][0].coordinate}:{data[-1][-1].coordinate}":
+                found.append(f"{where}: its filter is {table.autoFilter.ref}")
+            for column, cell in zip(table.tableColumns, totals):
+                function = column.totalsRowFunction
+                held = (f"={column.totalsRowFormula.attr_text}" if function == "custom" else
+                        f"=SUBTOTAL({formula_workbook.SUBTOTAL_CODES[function]},"
+                        f"{table.displayName}[{column.name}])" if function else
+                        column.totalsRowLabel)
+                if cell.value != held:
+                    found.append(f"{where}: {cell.coordinate} is {cell.value!r}, its column "
+                                 f"says {held!r}")
+    return found
+
+
+@pytest.mark.parametrize("name", list(formula_workbook_examples.EXAMPLES))
+def test_excel_opens_each_example_without_a_repair(name: str) -> None:
+    assert _what_excel_would_repair(
+        openpyxl.load_workbook(formula_workbook_examples.EXAMPLES_FOLDER / name)) == []
+
+
+def test_excel_would_open_each_eval_workbook_without_a_repair() -> None:
+    found = {task.id: _what_excel_would_repair(formula_workbook.build(task.workbook))
+             for task in excel_eval_tasks.TASKS}
+    assert {task: problems for task, problems in found.items() if problems} == {}
+
+
+def test_a_total_row_cell_that_is_not_a_subtotal_of_its_column_is_custom() -> None:
+    built = formula_workbook.build(formula_workbook.FormulaWorkbook((
+        formula_workbook.ExcelTable("t", ("a", "b"), "SELECT 1 AS a", {"b": "=[@a]*2"},
+                                    totals={"a": "=SUBTOTAL(109,t[b])", "b": "=MAX(t[b])"}),)))
+    columns = built["t"].tables["t"].tableColumns
+    assert [(c.totalsRowFunction, c.totalsRowFormula.attr_text) for c in columns] == [
+        ("custom", "SUBTOTAL(109,t[b])"), ("custom", "MAX(t[b])")]
+    assert _what_excel_would_repair(built) == []
 
 
 def test_the_examples_start_from_the_empty_workbook(committed: openpyxl.Workbook) -> None:

@@ -110,3 +110,23 @@ another query reads its query (X70). Each has a one-line fix there.
 
 **Left:** the user's call on the two fixes in the misses file, which would need a new round;
 then push dev, CI, and the export to main.
+
+**After the export: a Total Row Excel drops (2026-10-29).** The user found example 2,
+`02_summary_and_total_row.xlsx`, lost its summary. Excel won't open it without a repair, and
+the repair drops Table by_job. `build` wrote the Total Row's cells, but the Table's columns
+didn't declare them, and its filter reached into the Total Row. The fix: `new_table` declares
+each column as Excel does: a label, `sum` or `max` for a SUBTOTAL of the column itself, or
+`custom` with the formula. The filter now stops above the Total Row. `contents` compares
+those declarations, so a committed workbook whose Table is wrong fails its test. A new test
+checks every example and all 78 eval workbooks the way Excel reads a Table. Excel 16 opened
+each example and the empty workbook with no repair, and calculated every formula to the
+Hive's rows.
+Reviews of the fix:
+- Standards (sonnet). Taken: the Total Row's row number is named, and the test no longer
+  shadows `id`. Answered: "Total Row" is Excel's own name, as this ticket settled. The test
+  rebuilds each cell from `SUBTOTAL_CODES` on purpose, to read a Table as Excel would.
+  `declared`'s loose hint is only a comparison key.
+- Spec (sonnet). The SUBTOTAL codes check out, none of the eval workbooks mismatch, and
+  `as_text` is unchanged. Not taken: `calculatedColumnFormula`, which would let a row added
+  to a Table fill its formulas. Excel opens the Tables and calculates them without it.
+  Also not taken: a refusal for a `totals` key that names no header.
