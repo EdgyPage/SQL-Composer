@@ -1,7 +1,7 @@
 # File 11 tuned on dev, scored on held-out, and a manual round in Copilot
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 17
 Size: M
 

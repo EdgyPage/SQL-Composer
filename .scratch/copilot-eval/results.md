@@ -33,8 +33,8 @@ Each proxy read `copilot/00_start_here.txt` and named the one file it would load
 
 One row per scored answers file. Arms: A0 the workbook alone; C file 11 with files 03, 04 and
 05. "named" is the share of answers that name every refused piece, mark and thing left alone;
-"draft ok" the share whose Toolbox draft parses and invents no name.
+"code ok" the share whose Toolbox code parses and invents no name.
 
-| date | files | model | arm | split | passed | found | parses | runs | correct | mapped | named | invented | draft ok |
+| date | files | model | arm | split | passed | found | parses | runs | correct | mapped | named | invented | code ok |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 2026-10-29 | none | haiku | A0 | dev | 0 | 100 | 100 | 90 | 75 | 0 | 70 | 5 | 0 |

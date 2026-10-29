@@ -72,4 +72,4 @@ reads each workbook as text; in Copilot you attach the workbook itself.
 
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
 Table's rows, it says which Tables are the sources and which the finals, it names what the
-task refuses, marks or leaves alone, and it invents no name. The Toolbox draft is scored apart.
+task refuses, marks or leaves alone, and it invents no name. The Toolbox code is scored apart.

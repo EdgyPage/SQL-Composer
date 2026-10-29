@@ -33,8 +33,10 @@ Each answer is scored on these checks, in order:
 An answer passes when it is correct, mapped and named, and invents no name: every table,
 database and column it names without `<...>` is one the workbook gives (a Table, a header, a
 query, a name its M quotes, a defined name or a Parameter), or one its own query defines; a
-database it writes itself, as `ops.job_runs` where the workbook names no `ops`, is a guess. The Toolbox draft, the last Python block, is scored apart and decides nothing: whether
-there is one, whether it parses once its `<...>` are filled, and the Toolbox names it invents.
+database it writes itself, as `ops.job_runs` where the workbook names no `ops`, is a guess.
+The Toolbox code after the Hive, the last Python block, is scored apart and decides nothing:
+whether there is any, whether it parses once its `<...>` are filled, and the Toolbox names it
+invents.
 
 The stand-in Hive is SQLite, which Python has, holding the Example database's tables in a
 database named `ops`, each query turned from Hive into SQLite by sqlglot, with Hive's `MONTH`,
@@ -71,10 +73,10 @@ COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# File 11, and the Toolbox files its draft needs, all loaded in one chat.
+# File 11, and the Toolbox files its Toolbox code needs, all loaded in one chat.
 EXCEL_FILES = ("11", "03", "04", "05")
 ARMS = {"A0": "nothing: the request alone",
-        "C": "Copilot file 11, with files 03, 04 and 05 for the Toolbox draft"}
+        "C": "Copilot file 11, with files 03, 04 and 05 for the Toolbox code"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -295,7 +297,7 @@ def reference_rows(hive: sqlite3.Connection, task: ExcelTask
 
 @dataclass
 class ExcelScore:
-    """How one answer did on each check, and on the Toolbox draft."""
+    """How one answer did on each check, and on its Toolbox code."""
 
     task: str
     found: bool = False
@@ -305,7 +307,7 @@ class ExcelScore:
     mapped: bool = False
     unnamed: list[str] = field(default_factory=list)
     invented: list[str] = field(default_factory=list)
-    draft: str = "none"  # "none", "parses", "doesn't parse", or the names it invents
+    code: str = "none"  # its Toolbox code: "none", "parses", "doesn't parse", or names it invents
     note: str = ""
 
     @property
@@ -328,7 +330,7 @@ def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
             and all(name.lower() in before for name in [*sources(task), *task.finals]))
 
 
-def _draft(reply: str) -> str:
+def _toolbox_code(reply: str) -> str:
     code = blocks(reply, ("python", "py"))
     if not code:
         return "none"
@@ -343,7 +345,7 @@ def _draft(reply: str) -> str:
 def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
           expected: dict[str, list[tuple[object, ...]]]) -> ExcelScore:
     """One answer, scored check by check against the reference rows of each final Table."""
-    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task), draft=_draft(reply))
+    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task), code=_toolbox_code(reply))
     prose = BLOCK.sub("", reply).lower()
     result.unnamed = [group[0] for group in (*task.refused, *task.marks, *task.ignored)
                       if not any(word.lower() in prose for word in group)]
@@ -397,7 +399,7 @@ def report(header: dict[str, str], results: list[ExcelScore]) -> str:
              + " ".join(check for check in CHECKS if getattr(one, check))
              + (f"  unnamed: {', '.join(one.unnamed)}" if one.unnamed else "")
              + (f"  invented: {', '.join(one.invented)}" if one.invented else "")
-             + f"  draft: {one.draft}" + (f"  ({one.note})" if one.note else "")
+             + f"  code: {one.code}" + (f"  ({one.note})" if one.note else "")
              for one in results]
     lines.append(f"\n{header.get('arm', '?')} on {header.get('model', '?')}: "
                  f"{_rate([one.passed for one in results])}% passed of {len(results)}; "
@@ -405,8 +407,8 @@ def report(header: dict[str, str], results: list[ExcelScore]) -> str:
                              for check in CHECKS)
                  + f"; all named in {_rate([not one.unnamed for one in results])}%; "
                  f"invented names in {_rate([bool(one.invented) for one in results])}%; "
-                 f"a draft that parses with no invented name in "
-                 f"{_rate([one.draft == 'parses' for one in results])}%")
+                 f"Toolbox code that parses with no invented name in "
+                 f"{_rate([one.code == 'parses' for one in results])}%")
     return "\n".join(lines)
 
 
@@ -416,7 +418,7 @@ def results_row(header: dict[str, str], split: str, results: list[ExcelScore]) -
     rates += [_rate([getattr(one, check) for one in results]) for check in CHECKS]
     rates += [_rate([not one.unnamed for one in results]),
               _rate([bool(one.invented) for one in results]),
-              _rate([one.draft == "parses" for one in results])]
+              _rate([one.code == "parses" for one in results])]
     return (f"| {header.get('date', '?')} | {header.get('files', '?')} | "
             f"{header.get('model', '?')} | {header.get('arm', '?')} | {split} | "
             + " | ".join(str(rate) for rate in rates) + " |")
