@@ -1,5 +1,5 @@
 sqlglot Composer 7.2
-exported 2026-10-29 11:20 from dev commit 0f52df08624e6a20f622190176027461c995e6f8
+exported 2026-10-29 14:21 from dev commit 10cfdc622bd61d04d64042cd123a66a8a87894c1
 # Each file of this folder, and a code worked out from its contents (its git hash),
 # so the import can warn about a file that differs. Written by the export: don't
 # edit it.
