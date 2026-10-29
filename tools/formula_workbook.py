@@ -172,7 +172,7 @@ class FormulaWorkbook:
 
 
 # Excel's newer functions, which its file holds with the _xlfn. prefix Excel adds.
-NEWER = re.compile(r"(?<![\w.])(XLOOKUP|XMATCH|SWITCH|IFS|MAXIFS|MINIFS|CONCAT|TEXTJOIN|LET|"
+NEWER = re.compile(r"(?<![\w.])(XLOOKUP|XMATCH|SWITCH|IFS|MAXIFS|MINIFS|RANK\.EQ|CONCAT|TEXTJOIN|LET|"
                    r"LAMBDA|RANDARRAY)\(")
 THIS_ROW = re.compile(r"\[@(\[[^\]]+\]|[^\[\]]+)\]")
 HELD_THIS_ROW = re.compile(r"\w+\[\[#This Row\],(\[[^\]]+\])\]")

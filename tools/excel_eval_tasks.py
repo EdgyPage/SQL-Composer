@@ -6,7 +6,7 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 40: 20 on the dev split, which Copilot file 11 may be tuned on, and 20 held out,
+There are 50: 25 on the dev split, which Copilot file 11 may be tuned on, and 25 held out,
 scored once per version of the files. Every kind of formula, query or workbook in `COVERAGE`
 has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
@@ -29,7 +29,8 @@ from formula_workbook import ExcelTable, FormulaWorkbook
 COVERAGE = (
     # formulas that convert
     "arithmetic", "if", "switch", "iferror", "and_or", "round_math", "text", "dates", "xlookup",
-    "vlookup", "index_match", "sumifs", "countifs", "averageifs", "maxifs",
+    "vlookup", "index_match", "sumifs", "countifs", "averageifs", "maxifs", "minifs",
+    "single_ifs", "rank",
     "long_form", "short_form", "summary_table", "parameters",
     # formulas that convert with a mark
     "mark_blank", "mark_approximate", "mark_text_date", "mark_defined_name",
@@ -43,7 +44,8 @@ COVERAGE = (
     "ignored_pivot", "ignored_chart", "names",
     # Power Query
     "m_select_add", "m_group", "m_join", "m_sort_first", "m_combine", "m_columns",
-    "m_mark_source", "m_mark_pivot", "m_refused_web",
+    "m_mark_source", "m_mark_pivot", "m_refused_web", "m_having", "m_min_average",
+    "m_inner_join", "m_right_join", "m_full_join", "m_anti_join", "m_union", "m_distinct",
     # several at once
     "combination",
 )
@@ -74,6 +76,7 @@ RUNS = ("run_id", "job_id", "status", "duration_mins", "avg_retry_secs", "dt")
 JOBS = ("job_id", "job_name", "team", "region")
 ALERTS = ("alert_id", "run_id", "severity", "dt")
 SCHEDULED = ("run_id", "job_id", "dt")
+OWNERS = ("job_id", "team", "owner", "dt")
 
 
 def rows(source: str, columns: tuple[str, ...], order: str = "") -> str:
@@ -97,6 +100,7 @@ def jobs_table(columns: tuple[str, ...] = JOBS, formulas: dict[str, str] | None 
 
 ALERT_TABLE = ExcelTable("run_alerts", ALERTS, rows("run_alerts", ALERTS))
 SCHEDULED_TABLE = ExcelTable("scheduler_runs", SCHEDULED, rows("scheduler_runs", SCHEDULED))
+OWNER_TABLE = ExcelTable("job_owners", OWNERS, rows("job_owners", OWNERS, "dt, job_id"))
 PIVOT_NOTE = ('a PivotTable on sheet "Pivot", from Table job_runs: rows job_id, values Sum of '
               "duration_mins")
 
@@ -366,6 +370,121 @@ in
                         "SUM(CASE WHEN severity = 'low' THEN 1 END) AS low FROM ops.run_alerts "
                         "WHERE run_id IN (97, 101) GROUP BY run_id"},
         marks=(("pivot",),)),
+    ExcelTask(
+        "X41", "dev", ("rank", "minifs", "single_ifs", "short_form"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "duration_mins"), formulas={
+            "longest_first": "=RANK.EQ([@duration_mins],job_runs[duration_mins])",
+            "job_shortest": "=MINIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])",
+            "job_total": "=SUMIF(job_runs[job_id],[@job_id],job_runs[duration_mins])"}),),
+            as_typed=True),
+        {"job_runs": "SELECT run_id, job_id, duration_mins, RANK() OVER (ORDER BY duration_mins "
+                     "DESC) AS longest_first, MIN(duration_mins) OVER (PARTITION BY job_id) AS "
+                     "job_shortest, SUM(duration_mins) OVER (PARTITION BY job_id) AS job_total "
+                     "FROM ops.job_runs"}),
+    ExcelTask(
+        "X42", "dev", ("single_ifs", "rank", "iferror", "long_form", "combination"),
+        FormulaWorkbook((
+            jobs_table(("job_id", "job_name"), formulas={
+                "runs": "=COUNTIF(job_runs[job_id],[@job_id])",
+                "avg_mins": "=IFERROR(AVERAGEIF(job_runs[job_id],[@job_id],"
+                            "job_runs[duration_mins]),0)",
+                "id_order": "=RANK.EQ([@job_id],jobs[job_id],1)"}),
+            runs_table())),
+        {"jobs": "SELECT j.job_id, j.job_name, COALESCE(s.runs, 0) AS runs, COALESCE(s.avg_mins, "
+                 "0) AS avg_mins, RANK() OVER (ORDER BY j.job_id) AS id_order FROM ops.jobs j "
+                 "LEFT JOIN (SELECT job_id, COUNT(*) AS runs, AVG(duration_mins) AS avg_mins "
+                 "FROM ops.job_runs GROUP BY job_id) s ON j.job_id = s.job_id"}),
+    ExcelTask(
+        "X43", "dev", ("m_having", "m_min_average", "m_inner_join", "m_distinct",
+                       "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(),
+             ExcelTable("busy_teams", ("team", "runs", "shortest", "avg_mins"),
+                        "SELECT j.team, COUNT(*), MIN(r.duration_mins), AVG(r.duration_mins) FROM "
+                        "ops.job_runs r JOIN ops.jobs j ON r.job_id = j.job_id GROUP BY j.team "
+                        "HAVING COUNT(*) > 4 ORDER BY j.team", loaded_by="busy_teams"),
+             ExcelTable("statuses", ("job_id", "status"),
+                        "SELECT DISTINCT job_id, status FROM ops.job_runs ORDER BY job_id, status",
+                        loaded_by="statuses")),
+            queries=(("busy_teams", f"""let
+    Source = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Joined = Table.NestedJoin(Source, {{"job_id"}}, Jobs, {{"job_id"}}, "j", JoinKind.Inner),
+    Expanded = Table.ExpandTableColumn(Joined, "j", {{"team"}}),
+    Grouped = Table.Group(Expanded, {{"team"}}, {{
+        {{"runs", each Table.RowCount(_), Int64.Type}},
+        {{"shortest", each List.Min([duration_mins]), type number}},
+        {{"avg_mins", each List.Average([duration_mins]), type number}}}}),
+    Busy = Table.SelectRows(Grouped, each [runs] > 4)
+in
+    Busy"""), ("statuses", f"""let
+    Source = {table("job_runs")},
+    Kept = Table.SelectColumns(Source, {{"job_id", "status"}}),
+    Unique = Table.Distinct(Kept)
+in
+    Unique"""))),
+        {"busy_teams": "SELECT j.team, COUNT(*) AS runs, MIN(r.duration_mins) AS shortest, "
+                       "AVG(r.duration_mins) AS avg_mins FROM ops.job_runs r JOIN ops.jobs j ON "
+                       "r.job_id = j.job_id GROUP BY j.team HAVING COUNT(*) > 4",
+         "statuses": "SELECT DISTINCT job_id, status FROM ops.job_runs"}),
+    ExcelTask(
+        "X44", "dev", ("m_right_join", "m_anti_join", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(), SCHEDULED_TABLE,
+             ExcelTable("jobs_with_runs", ("run_id", "job_name"),
+                        "SELECT r.run_id, j.job_name FROM ops.job_runs r RIGHT JOIN ops.jobs j ON "
+                        "r.job_id = j.job_id ORDER BY j.job_name, r.run_id",
+                        loaded_by="jobs_with_runs"),
+             ExcelTable("never_scheduled", ("job_id", "job_name", "team"),
+                        "SELECT j.job_id, j.job_name, j.team FROM ops.jobs j LEFT JOIN "
+                        "ops.scheduler_runs s ON j.job_id = s.job_id WHERE s.job_id IS NULL "
+                        "ORDER BY j.job_id", loaded_by="never_scheduled")),
+            queries=(("jobs_with_runs", f"""let
+    Runs = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Joined = Table.NestedJoin(Runs, {{"job_id"}}, Jobs, {{"job_id"}}, "j", JoinKind.RightOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "j", {{"job_name"}}),
+    Kept = Table.SelectColumns(Expanded, {{"run_id", "job_name"}})
+in
+    Kept"""), ("never_scheduled", f"""let
+    Jobs = {table("jobs")},
+    Scheduled = {table("scheduler_runs")},
+    Unscheduled = Table.NestedJoin(Jobs, {{"job_id"}}, Scheduled, {{"job_id"}}, "s",
+        JoinKind.LeftAnti),
+    Kept = Table.SelectColumns(Unscheduled, {{"job_id", "job_name", "team"}})
+in
+    Kept"""))),
+        {"jobs_with_runs": "SELECT r.run_id, j.job_name FROM ops.job_runs r RIGHT JOIN ops.jobs j "
+                           "ON r.job_id = j.job_id",
+         "never_scheduled": "SELECT j.job_id, j.job_name, j.team FROM ops.jobs j LEFT JOIN "
+                            "ops.scheduler_runs s ON j.job_id = s.job_id WHERE s.job_id IS NULL"}),
+    ExcelTask(
+        "X45", "dev", ("m_full_join", "m_union", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), SCHEDULED_TABLE,
+             ExcelTable("run_days", ("run_id", "dt"),
+                        "SELECT run_id, dt FROM ops.job_runs UNION SELECT run_id, dt FROM "
+                        "ops.scheduler_runs ORDER BY run_id", loaded_by="run_days"),
+             ExcelTable("matched", (*SCHEDULED, "status"),
+                        "SELECT s.run_id, s.job_id, s.dt, r.status FROM ops.scheduler_runs s FULL "
+                        "OUTER JOIN ops.job_runs r ON s.run_id = r.run_id ORDER BY s.run_id",
+                        loaded_by="matched")),
+            queries=(("run_days", f"""let
+    Runs = Table.SelectColumns({table("job_runs")}, {{"run_id", "dt"}}),
+    Scheduled = Table.SelectColumns({table("scheduler_runs")}, {{"run_id", "dt"}}),
+    Unique = Table.Distinct(Table.Combine({{Runs, Scheduled}}))
+in
+    Unique"""), ("matched", f"""let
+    Scheduled = {table("scheduler_runs")},
+    Runs = {table("job_runs")},
+    Joined = Table.NestedJoin(Scheduled, {{"run_id"}}, Runs, {{"run_id"}}, "r", JoinKind.FullOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "r", {{"status"}})
+in
+    Expanded"""))),
+        {"run_days": "SELECT run_id, dt FROM ops.job_runs UNION SELECT run_id, dt FROM "
+                     "ops.scheduler_runs",
+         "matched": "SELECT s.run_id, s.job_id, s.dt, r.status FROM ops.scheduler_runs s FULL "
+                    "OUTER JOIN ops.job_runs r ON s.run_id = r.run_id"}),
 )
 
 HELD_OUT = (
@@ -687,6 +806,127 @@ in
                        "r.run_id"},
         names={"Runs": "job_runs", "Run": "run_id", "Job": "job_id", "Mins": "duration_mins"},
         ignored=(("PivotTable", "pivot table"),)),
+    ExcelTask(
+        "X46", "held_out", ("minifs", "single_ifs", "rank", "long_form", "combination"),
+        FormulaWorkbook((
+            jobs_table(("job_id", "job_name", "team"), formulas={
+                "shortest": "=MINIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])",
+                "runs": "=COUNTIF(job_runs[job_id],[@job_id])",
+                "busiest": "=RANK.EQ([@runs],jobs[runs])"}),
+            runs_table())),
+        {"jobs": "WITH s AS (SELECT j.job_id, j.job_name, j.team, COALESCE(m.shortest, 0) AS "
+                 "shortest, COALESCE(m.runs, 0) AS runs FROM ops.jobs j LEFT JOIN (SELECT job_id, "
+                 "MIN(duration_mins) AS shortest, COUNT(*) AS runs FROM ops.job_runs GROUP BY "
+                 "job_id) m ON j.job_id = m.job_id) SELECT job_id, job_name, team, shortest, runs, "
+                 "RANK() OVER (ORDER BY runs DESC) AS busiest FROM s"}),
+    ExcelTask(
+        "X47", "held_out", ("rank", "single_ifs", "short_form"),
+        FormulaWorkbook((ExcelTable(
+            "region_budgets", ("job_id", "budget_cents", "region", "cheapest_first",
+                               "region_total", "region_avg"),
+            rows("region_budgets", ("job_id", "budget_cents", "region")), {
+                "cheapest_first": "=RANK.EQ([@budget_cents],region_budgets[budget_cents],1)",
+                "region_total": "=SUMIF(region_budgets[region],[@region],"
+                                "region_budgets[budget_cents])",
+                "region_avg": "=AVERAGEIF(region_budgets[region],[@region],"
+                              "region_budgets[budget_cents])"}),), as_typed=True),
+        {"region_budgets": "SELECT job_id, budget_cents, region, RANK() OVER (ORDER BY "
+                           "budget_cents) AS cheapest_first, SUM(budget_cents) OVER (PARTITION BY "
+                           "region) AS region_total, AVG(budget_cents) OVER (PARTITION BY region) "
+                           "AS region_avg FROM ops.region_budgets"}),
+    ExcelTask(
+        "X48", "held_out", ("m_having", "m_min_average", "m_inner_join", "m_anti_join",
+                            "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(), ALERT_TABLE,
+             ExcelTable("quiet_runs", ("run_id", "job_id", "status"),
+                        "SELECT r.run_id, r.job_id, r.status FROM ops.job_runs r LEFT JOIN "
+                        "ops.run_alerts a ON r.run_id = a.run_id WHERE a.run_id IS NULL ORDER BY "
+                        "r.run_id", loaded_by="quiet_runs"),
+             ExcelTable("slow_regions", ("region", "avg_mins", "fastest"),
+                        "SELECT j.region, AVG(r.duration_mins), MIN(r.duration_mins) FROM "
+                        "ops.job_runs r JOIN ops.jobs j ON r.job_id = j.job_id GROUP BY j.region "
+                        "HAVING AVG(r.duration_mins) >= 20 ORDER BY j.region",
+                        loaded_by="slow_regions")),
+            queries=(("quiet_runs", f"""let
+    Runs = {table("job_runs")},
+    Alerts = {table("run_alerts")},
+    Quiet = Table.NestedJoin(Runs, {{"run_id"}}, Alerts, {{"run_id"}}, "a", JoinKind.LeftAnti),
+    Kept = Table.SelectColumns(Quiet, {{"run_id", "job_id", "status"}})
+in
+    Kept"""), ("slow_regions", f"""let
+    Runs = {table("job_runs")},
+    Jobs = {table("jobs")},
+    Joined = Table.NestedJoin(Runs, {{"job_id"}}, Jobs, {{"job_id"}}, "j", JoinKind.Inner),
+    Expanded = Table.ExpandTableColumn(Joined, "j", {{"region"}}),
+    Grouped = Table.Group(Expanded, {{"region"}}, {{
+        {{"avg_mins", each List.Average([duration_mins]), type number}},
+        {{"fastest", each List.Min([duration_mins]), type number}}}}),
+    Slow = Table.SelectRows(Grouped, each [avg_mins] >= 20)
+in
+    Slow"""))),
+        {"quiet_runs": "SELECT r.run_id, r.job_id, r.status FROM ops.job_runs r LEFT JOIN "
+                       "ops.run_alerts a ON r.run_id = a.run_id WHERE a.run_id IS NULL",
+         "slow_regions": "SELECT j.region, AVG(r.duration_mins) AS avg_mins, MIN(r.duration_mins) "
+                         "AS fastest FROM ops.job_runs r JOIN ops.jobs j ON r.job_id = j.job_id "
+                         "GROUP BY j.region HAVING AVG(r.duration_mins) >= 20"}),
+    ExcelTask(
+        "X49", "held_out", ("m_right_join", "m_full_join", "m_union", "several_finals"),
+        FormulaWorkbook(
+            (runs_table(), jobs_table(), ALERT_TABLE, SCHEDULED_TABLE, OWNER_TABLE,
+             ExcelTable("alert_status", ("alert_id", "severity", "status"),
+                        "SELECT a.alert_id, a.severity, r.status FROM ops.run_alerts a RIGHT JOIN "
+                        "ops.job_runs r ON a.run_id = r.run_id ORDER BY r.run_id, a.alert_id",
+                        loaded_by="alert_status"),
+             ExcelTable("run_check", ("run_id", "status", "scheduled_run"),
+                        "SELECT r.run_id, r.status, s.run_id FROM ops.job_runs r FULL OUTER JOIN "
+                        "ops.scheduler_runs s ON r.run_id = s.run_id ORDER BY s.run_id",
+                        loaded_by="run_check"),
+             ExcelTable("teams", ("team",),
+                        "SELECT team FROM ops.jobs UNION SELECT team FROM ops.job_owners ORDER BY "
+                        "team", loaded_by="teams")),
+            queries=(("alert_status", f"""let
+    Alerts = {table("run_alerts")},
+    Runs = {table("job_runs")},
+    Joined = Table.NestedJoin(Alerts, {{"run_id"}}, Runs, {{"run_id"}}, "r", JoinKind.RightOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "r", {{"status"}}),
+    Kept = Table.SelectColumns(Expanded, {{"alert_id", "severity", "status"}})
+in
+    Kept"""), ("run_check", f"""let
+    Runs = Table.SelectColumns({table("job_runs")}, {{"run_id", "status"}}),
+    Scheduled = {table("scheduler_runs")},
+    Joined = Table.NestedJoin(Runs, {{"run_id"}}, Scheduled, {{"run_id"}}, "s", JoinKind.FullOuter),
+    Expanded = Table.ExpandTableColumn(Joined, "s", {{"run_id"}}, {{"scheduled_run"}})
+in
+    Expanded"""), ("teams", f"""let
+    FromJobs = Table.SelectColumns({table("jobs")}, {{"team"}}),
+    FromOwners = Table.SelectColumns({table("job_owners")}, {{"team"}}),
+    Unique = Table.Distinct(Table.Combine({{FromJobs, FromOwners}}))
+in
+    Unique"""))),
+        {"alert_status": "SELECT a.alert_id, a.severity, r.status FROM ops.run_alerts a RIGHT "
+                         "JOIN ops.job_runs r ON a.run_id = r.run_id",
+         "run_check": "SELECT r.run_id, r.status, s.run_id AS scheduled_run FROM ops.job_runs r "
+                      "FULL OUTER JOIN ops.scheduler_runs s ON r.run_id = s.run_id",
+         "teams": "SELECT team FROM ops.jobs UNION SELECT team FROM ops.job_owners"}),
+    ExcelTask(
+        "X50", "held_out", ("m_distinct", "rank", "xlookup", "combination"),
+        FormulaWorkbook(
+            (OWNER_TABLE, jobs_table(),
+             ExcelTable("owners", ("job_id", "owner", "job_name", "newest_first"),
+                        "SELECT DISTINCT job_id, owner FROM ops.job_owners ORDER BY job_id, owner",
+                        {"job_name": "=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])",
+                         "newest_first": "=RANK.EQ([@job_id],owners[job_id])"},
+                        loaded_by="owners")),
+            queries=(("owners", f"""let
+    Source = {table("job_owners")},
+    Kept = Table.SelectColumns(Source, {{"job_id", "owner"}}),
+    Unique = Table.Distinct(Kept)
+in
+    Unique"""),)),
+        {"owners": "WITH owners AS (SELECT DISTINCT job_id, owner FROM ops.job_owners) SELECT "
+                   "o.job_id, o.owner, j.job_name, RANK() OVER (ORDER BY o.job_id DESC) AS "
+                   "newest_first FROM owners o LEFT JOIN ops.jobs j ON o.job_id = j.job_id"}),
 )
 
 TASKS = DEV + HELD_OUT
