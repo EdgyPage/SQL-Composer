@@ -306,6 +306,8 @@ any item is open.
 
 - [x] D296 | 73b966a | docstring | `tools/offline_policy.py`'s `is_read` (lines 906-907) says it is "Whether reading the repo at `root` reads `file`: a file of a kind it reads", but 73b966a took `WORKBOOK_FILES` out of `READ_FILES` and added them back in `_files` only, so reading the repo (`scan`) reads `copilot/formula_workbook.xlsx` while `is_read` returns False for it. Say what it answers now, e.g. "Whether the hook reads `file` before an edit: a text file of a kind the repo is read for (a workbook is read only by `scan`), in no folder it skips." - closed by df24f0e
 - [x] D297 | 73b966a | glossary | 73b966a settled that the shipped .xlsx is "the empty Formula workbook", not a template (D295, which named a3f8fc6's comments), but `requirements-dev.txt` line 8, which a3f8fc6 wrote, still says "openpyxl builds the Formula workbook template, copilot/'s .xlsx", and `CLAUDE.md` line 38 still calls it "the workbook's template". Change them to "the empty Formula workbook", e.g. "Its tickets 15 to 18 add Copilot file 11, ..., and the empty Formula workbook, built on dev with `openpyxl`". - closed by df24f0e
+- [x] D298 | ef2ee57 | docstring | `tools/copilot_sources/_always.txt` rule 10 (lines 31-35, and so line 35 or so of each of `copilot/01_*` to `10_*`) still says "The user loads one Copilot file per chat" and lists the files to name as 01 to 10, but since ef2ee57 file 11 is loaded in one chat with files 03, 04 and 05 (`00_start_here.txt` step 5, the README template's Copilot section), so in that chat the rule is untrue, and a chat holding 03, 04 or 05 that is asked about an Excel workbook is never pointed to file 11. Say one file per chat but for a workbook, which loads 11 with 03, 04 and 05, and add "11 an Excel Formula workbook into Hive" to the list - closed by fc512e9
+- [x] D299 | ef2ee57 | docstring | `tools/copilot_files.py`'s module docstring says "A user loads one Copilot file into Microsoft Copilot's web chat" (line 9) and that `{always}` is "the block every objective file shares" (line 18), but since ef2ee57 file 11, an objective file, has no `{always}` (it loads with 03, 04 and 05, which hold it, as `tests/test_copilot_files.py`'s EXCEL_FILE exception says) and is loaded with three others. Say every objective file but 11, and that a workbook loads 11 with 03, 04 and 05 - closed by fc512e9
 ## Reviewed commits
 
 <!-- one line per review: `- <commit>: <items opened>` or `- <commit>: clean` -->
@@ -674,3 +676,4 @@ any item is open.
 - df24f0e: clean
 - 7f649da: clean
 - e7be983: clean
+- ef2ee57: D298, D299
