@@ -136,6 +136,10 @@ s = statement(
 )
 ```
 
+When query ok loads Table ok, which adds hours `=[@duration_mins]/60`, and query by_job reads
+query ok: Steps: query ok. Finals: Table ok, with hours, and by_job, each a query holding `WITH
+ok AS (...)`, Table ok's ending `SELECT ..., duration_mins / 60 AS hours FROM ok`.
+
 A value typed over a formula, file 11's step 6, in Toolbox code: `AS(first_match([(equals(
 r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(job_runs, "r")`.
 
