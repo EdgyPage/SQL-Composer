@@ -44,3 +44,15 @@ One row per scored answers file. Arms: A0 the workbook alone; C file 11 with fil
 | 2026-10-29 | 44f6c5d | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
 | 2026-10-29 | none | sonnet | A0 | held_out | 0 | 100 | 95 | 75 | 60 | 0 | 70 | 10 | 0 |
 | 2026-10-29 | 44f6c5d | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | a596632 | haiku | C | dev | 84 | 100 | 84 | 84 | 84 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | 67b7e92 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-10-29 | 61c9ca2 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | none | haiku | A0 | held_out | 0 | 100 | 100 | 76 | 68 | 0 | 80 | 12 | 0 |
+| 2026-10-29 | 61c9ca2 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+| 2026-10-29 | none | sonnet | A0 | held_out | 0 | 100 | 100 | 84 | 64 | 0 | 84 | 20 | 0 |
+| 2026-10-29 | 61c9ca2 | sonnet | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 100 |
+
+From a596632 on (ticket 19), each split has 25 tasks, X41 to X50 added, and file 11 maps
+HAVING, every JoinKind, UNION, MINIFS, the -IF forms and RANK. Dev rounds 1 and 2 are a596632
+and 67b7e92, scored before X41's MINIFS gained a second condition (df822e4); 61c9ca2, after the
+reviews' fixes, was checked on dev once, then scored on held-out.
