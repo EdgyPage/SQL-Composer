@@ -192,3 +192,13 @@ def ran() -> dict[tuple[str, int], str | None]:
 def test_every_block_runs_on_the_example_database(
         ran: dict[tuple[str, int], str | None], name: str, number: int, code: str) -> None:
     assert ran[(name, number)] is None
+
+
+HIVE_BLOCK = re.compile(r"```sql\n(.*?)```", re.DOTALL)
+
+
+@pytest.mark.parametrize("path", FILES, ids=lambda path: path.name)
+def test_every_hive_block_runs_on_the_example_database_once_filled_in(path: Path) -> None:
+    for hive in HIVE_BLOCK.findall(path.read_text(encoding="utf-8")):
+        assert not sqlglot_composer.example_database.query(
+            hive.replace("<database>", "ops")).empty

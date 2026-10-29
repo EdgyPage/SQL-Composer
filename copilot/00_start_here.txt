@@ -41,7 +41,7 @@ you can ask it in plain words.
 - `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
   Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
 - `11_excel_formula_workbooks.txt`: turn a Formula workbook, an Excel workbook laid out as
-  `formula_workbook.xlsx` shows, into Hive and a Toolbox draft.
+  `formula_workbook.xlsx` shows, into Hive and Toolbox code.
 
 ## Fitting Copilot
 

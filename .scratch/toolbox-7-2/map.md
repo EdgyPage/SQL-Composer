@@ -250,6 +250,10 @@ asks, though all three touch CHANGES.md.
   40 workbooks, X01 to X40, every kind in each split; scored on SQLite holding the Example
   database's rows; a source is a Table's typed columns; A0 on dev, Haiku: 0% passed, 75%
   correct, 0% mapped.
+- [17 Copilot file 11: a Formula workbook into Hive, and a Toolbox draft](issues/17-copilot-file-11.md):
+  `copilot/11_excel_formula_workbooks.txt`, loaded with 03, 04 and 05; the map first, Hive
+  per final with `<...>`, refused formulas as NULL, then Toolbox code for `project.convert`
+  to check.
 
 ## Not yet specified
 
