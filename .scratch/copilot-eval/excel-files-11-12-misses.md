@@ -48,3 +48,13 @@ would change it, and it should not recur in Copilot.
 - Excel's inequality criteria skip text cells, and the sample's dates are text: in a real
   workbook, `"<="&[@dt]` over text dates counts nothing. The tasks hold the dates as text, as
   the Example database does, and the references read the criteria as a person meant them.
+
+## After ticket 21
+
+Cause 1 is fixed: file 11's step 5 says it for every step, and X69, X72 and X74 pass since.
+Cause 2 is not, for Haiku: with either wording, aa75911's ("read apart") or f80b90b's ("a formula
+reads the Table, never the query"), Haiku took held-out X73's loaded Table for a step, and on
+f80b90b X70's too. The query and its Table share a name, which Haiku reads as one thing. The
+next fix to try is an example, not a rule: file 12's worked example, or a short one in its step
+2, showing query q loading Table q, query r reading query q, and Table q a final of its own,
+scored on new held-out tasks.
