@@ -5,7 +5,7 @@
 #
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.
 # pytest, ruff, coverage and openpyxl are for `dev` only; coverage is read by
-# tools/usage_report.py, and openpyxl builds the Formula workbook template, copilot/'s .xlsx.
+# tools/usage_report.py, and openpyxl builds the empty Formula workbook, copilot/'s .xlsx.
 
 # sqlglot Composer's pin, the one CI runs. It supports sqlglot 30.19.0 up to (not including) 31.
 sqlglot==30.23.0

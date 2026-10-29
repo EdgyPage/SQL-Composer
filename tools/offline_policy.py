@@ -903,8 +903,9 @@ def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:
 
 
 def is_read(root: Path, file: Path) -> bool:
-    """Whether reading the repo at `root` reads `file`: a file of a kind it reads, in no folder
-    it skips. The hook asks this of a file before an edit, which may not exist yet."""
+    """Whether the hook reads `file` in the repo at `root`, before an edit, which may not exist
+    yet: a text file of a kind it reads, in no folder it skips. `scan` also reads a workbook,
+    from its bytes, which no edit writes."""
     if not file.name.lower().endswith(READ_FILES):
         return False
     return not any(not_read(folder, root) for folder in file.parents if root in folder.parents)
