@@ -1,0 +1,27 @@
+X01  pass  found parses runs correct mapped  code: parses
+X02  pass  found parses runs correct mapped  code: parses
+X03  pass  found parses runs correct mapped  code: parses
+X04  pass  found parses runs correct mapped  code: parses
+X05  FAIL  found mapped  code: parses  (doesn't parse: Invalid expression / Unexpected token. Line 8, Col: 6.)
+X06  pass  found parses runs correct mapped  code: parses
+X07  pass  found parses runs correct mapped  code: parses
+X08  pass  found parses runs correct mapped  code: parses
+X09  pass  found parses runs correct mapped  code: parses
+X10  pass  found parses runs correct mapped  code: parses
+X11  pass  found parses runs correct mapped  code: parses
+X12  pass  found parses runs correct mapped  code: parses
+X13  pass  found parses runs correct mapped  code: parses
+X14  pass  found parses runs correct mapped  code: parses
+X15  pass  found parses runs correct mapped  code: parses
+X16  pass  found parses runs correct mapped  code: parses
+X17  pass  found parses runs correct mapped  code: parses
+X18  pass  found parses runs correct mapped  code: parses
+X19  pass  found parses runs correct mapped  code: parses
+X20  pass  found parses runs correct mapped  code: parses
+X41  pass  found parses runs correct mapped  code: parses
+X42  pass  found parses runs correct mapped  code: parses
+X43  FAIL  found mapped  code: parses  (doesn't parse: Invalid expression / Unexpected token. Line 10, Col: 6.)
+X44  FAIL  found mapped  code: parses  (doesn't parse: Invalid expression / Unexpected token. Line 7, Col: 6.)
+X45  FAIL  found mapped  code: parses  (doesn't parse: Invalid expression / Unexpected token. Line 9, Col: 6.)
+
+C on haiku: 84% passed of 25; found 100%, parses 84%, runs 84%, correct 84%, mapped 100%; all named in 100%; invented names in 0%; Toolbox code that parses with no invented name in 100%

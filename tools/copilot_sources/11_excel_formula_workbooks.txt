@@ -25,7 +25,7 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
 4. Names: write a database as `<database>`; keep a Table name or header that is a plain name
    (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
    `<unit_price>`, Table `Sales Data` is `<database>.<sales_data>`. Never guess one.
-5. Write each final's Hive in a ```sql block: each source a table, read for the columns the
+5. Write each final's Hive in its own ```sql block: each source a table, read for the columns the
    finals use, each step a CTE, the final's columns in its Table's
    order, each calculated one named with AS. The rows are a sample: filter only as a formula
    or query does.
@@ -96,8 +96,8 @@ Table.Group, HAVING. Table.AddColumn: an expression AS its name; SelectColumns, 
 RenameColumns: the SELECT list; TransformColumnTypes: nothing; Table.Group: GROUP BY, with
 Table.RowCount(_), List.Sum, List.Max, List.Min, List.Average as COUNT(*), SUM, MAX, MIN, AVG.
 NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter, LEFT JOIN; Inner, JOIN; RightOuter,
-RIGHT JOIN; FullOuter, FULL OUTER JOIN; LeftAnti, `LEFT JOIN t ON k = t.k WHERE t.k IS NULL`,
-keeping the first table's columns. Table.Sort then FirstN: ORDER BY ... LIMIT,
+LEFT JOIN, tables swapped; FullOuter, FULL OUTER JOIN; LeftAnti, `LEFT JOIN t ON k = t.k WHERE
+t.k IS NULL`, the first table's columns. Table.Sort then FirstN: ORDER BY ... LIMIT,
 Order.Descending as DESC. Table.Combine: UNION ALL; in Table.Distinct, UNION. Table.Distinct
 alone: SELECT DISTINCT. A query another reads is a CTE.
 
@@ -117,7 +117,7 @@ FROM <database>.job_runs r
 LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
 ```
 
-The Toolbox code, once `<database>` is ops:
+Toolbox code, with `<database>` as ops:
 
 ```python
 from sqlglot_composer import AS, FROM, LEFT_JOIN, SELECT, equals, first_match, statement
@@ -141,5 +141,5 @@ s = statement(
 
 ## Before you answer
 
-- The map first, naming each source and final; one query per final.
+- The map first, naming each source and final; a ```sql block per final.
 - Each `<...>`, mark and refusal named.

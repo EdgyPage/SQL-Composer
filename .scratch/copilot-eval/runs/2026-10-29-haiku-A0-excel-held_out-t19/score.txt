@@ -1,0 +1,27 @@
+X21  FAIL  found parses runs correct  code: none
+X22  FAIL  found parses runs correct  code: none
+X23  FAIL  found parses runs correct  code: none
+X24  FAIL  found parses runs correct  code: none
+X25  FAIL  found parses runs correct  unnamed: as text  code: none
+X26  FAIL  found parses runs correct  code: none
+X27  FAIL  found parses runs correct  code: none
+X28  FAIL  found parses runs correct  code: none
+X29  FAIL  found parses  unnamed: key  invented: parameters, value, name  code: none  (doesn't run: no such table: ops.parameters)
+X30  FAIL  found parses runs  code: none  (gives something else for scheduler_runs)
+X31  FAIL  found parses runs  unnamed: outside  code: none  (gives something else for jobs)
+X32  FAIL  found parses  invented: job_runs_named  code: none  (doesn't run: no such table: ops.by_name)
+X33  FAIL  found parses runs correct  unnamed: Sql.Database  code: none
+X34  FAIL  found parses  code: none  (doesn't run: no such table: ops.runs_with_team)
+X35  FAIL  found parses runs correct  unnamed: Web.Contents  code: none
+X36  FAIL  found parses runs correct  code: none
+X37  FAIL  found parses runs correct  code: none
+X38  FAIL  found parses runs correct  code: none
+X39  FAIL  found parses  code: none  (doesn't run: no such table: ops.ok_runs)
+X40  FAIL  found parses  invented: parameters, value, name, runs_costed  code: none  (doesn't run: no such table: ops.parameters)
+X46  FAIL  found parses runs correct  code: none
+X47  FAIL  found parses runs correct  code: none
+X48  FAIL  found parses runs correct  code: none
+X49  FAIL  found parses runs correct  code: none
+X50  FAIL  found parses  code: none  (doesn't run: no such table: ops.owners)
+
+A0 on haiku: 0% passed of 25; found 100%, parses 100%, runs 76%, correct 68%, mapped 0%; all named in 80%; invented names in 12%; Toolbox code that parses with no invented name in 0%
