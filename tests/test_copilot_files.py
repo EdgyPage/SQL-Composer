@@ -79,10 +79,11 @@ def test_each_file_is_what_its_source_writes() -> None:
         assert path.read_text(encoding="utf-8") == written[path.name], path.name
 
 
-def test_the_folder_holds_the_files_the_counter_the_empty_workbook_and_all_in_one() -> None:
+def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -> None:
     assert sorted(path.name for path in COPILOT.iterdir() if path.name != "__pycache__") == (
         sorted([path.name for path in FILES]
-               + ["all_in_one", "count_characters.py", "formula_workbook.xlsx"]))
+               + ["all_in_one", "count_characters.py", "examples", "formula_workbook.xlsx"]))
+    assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert [path.name for path in (COPILOT / "all_in_one").iterdir()] == ["all_copilot_files.txt"]
     assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
 

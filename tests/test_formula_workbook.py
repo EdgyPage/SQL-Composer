@@ -1,4 +1,5 @@
-"""The empty Formula workbook, `copilot/formula_workbook.xlsx` (Toolbox 7.2, ticket 15).
+"""The empty Formula workbook, `copilot/formula_workbook.xlsx` (Toolbox 7.2, ticket 15), and the
+examples of it filled in, `copilot/examples/`, each with the Hive it converts to.
 
 main can't rebuild it: tools/formula_workbook.py builds it with openpyxl, which only dev
 installs, and the export copies the file. It holds a sheet of steps and two empty Excel Tables,
@@ -11,7 +12,9 @@ from __future__ import annotations
 import openpyxl
 import pytest
 
+import excel_eval
 import formula_workbook
+import formula_workbook_examples
 from test_copilot_files import AVOIDED
 
 EMPTY = formula_workbook.EMPTY
@@ -66,3 +69,29 @@ def test_the_steps_use_no_word_the_glossary_avoids(committed: openpyxl.Workbook)
     text = "\n".join(str(cell.value) for row in committed["Steps"].iter_rows() for cell in row
                      if cell.value is not None)
     assert [word for word in (*AVOIDED, *NOT_ITS_NAME) if word.lower() in text.lower()] == []
+
+
+@pytest.mark.parametrize("name", list(formula_workbook_examples.EXAMPLES))
+def test_each_example_is_what_the_tool_builds_and_its_hive_runs(name: str) -> None:
+    task, map_text = formula_workbook_examples.EXAMPLES[name]
+    committed = openpyxl.load_workbook(formula_workbook_examples.EXAMPLES_FOLDER / name)
+    assert formula_workbook.contents(committed) == formula_workbook.contents(
+        formula_workbook_examples.example_workbook(task, map_text))
+    assert committed.sheetnames[:3] == ["Steps", "Parameters", "Keys"]
+    assert committed.sheetnames[-1] == "Hive"
+    assert ("Power Query" in committed.sheetnames) == bool(task.workbook.queries)
+    shown = [cell.value for row in committed["Hive"].iter_rows() for cell in row]
+    for sql in task.finals.values():
+        assert formula_workbook_examples.shown(sql) in shown
+        assert "ops." not in formula_workbook_examples.shown(sql)
+    rows = excel_eval.reference_rows(excel_eval.stand_in_hive(), task)
+    assert all(rows.values()), rows
+
+
+def test_the_examples_start_from_the_empty_workbook(committed: openpyxl.Workbook) -> None:
+    for name in formula_workbook_examples.EXAMPLES:
+        example = openpyxl.load_workbook(formula_workbook_examples.EXAMPLES_FOLDER / name)
+        assert [cell.value for row in example["Steps"].iter_rows() for cell in row] == [
+            cell.value for row in committed["Steps"].iter_rows() for cell in row], name
+        for title in ("Parameters", "Keys"):
+            assert example[title]["D1"].value == committed[title]["D1"].value, name
