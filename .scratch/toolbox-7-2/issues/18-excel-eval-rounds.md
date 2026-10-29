@@ -84,4 +84,6 @@ Every proxy threshold holds, so no design spec is needed.
 
 - The user's manual round in Copilot's web chat, as `docs/copilot-eval.md`'s Excel section
   says: about 6 held-out workbooks attached, 2 or 3 with Power Query built by hand.
-- Push dev, so CI runs on tickets 15 to 18; then export to main as 7.2 again.
+- Pushing main, the user's step. Dev was pushed at 7cbeb19, CI run 77 passed on it, and main
+  was exported from it as 7.2 again (db0e54a), not pushed. If the manual round changes file
+  11, export again.
