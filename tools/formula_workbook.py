@@ -54,7 +54,8 @@ STEPS = (
     "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, its "
     "name under name and its value under value (step 6). Keys is only for a Table where a value "
     "was typed over a formula: it names the columns that tell that Table's rows apart, so "
-    "Copilot can find the row (step 10). Both start empty, and stay empty if you need neither.",
+    "Copilot can find the row the typed value belongs to (step 10). Both start empty, and stay "
+    "empty if you need neither.",
     "Your data:",
     "1. For each table of raw data the work starts from, paste a sample on a sheet of its own, "
     "as values only (Home > Paste > Paste Values): one header row, one row per record, no blank "
@@ -75,9 +76,10 @@ STEPS = (
     "products[name]). A summary of totals, such as a block of SUMIFS cells or a PivotTable, is "
     "rebuilt as a Table of its own: a column for what it groups by, one row per group, and a "
     "SUMIFS column for each figure.",
-    "6. Move each fixed value a formula uses into the Parameters Table, one row a value, whether "
-    "it was typed in a cell such as $B$3 or inside a formula such as *0.2, and read it by name: "
-    "=XLOOKUP(\"tax_rate\", Parameters[name], Parameters[value]).",
+    "6. Move each fixed value a formula uses into the Parameters Table, one row per value, "
+    "whether it was typed in a cell such as $B$3 or inside a formula such as *0.2, and change "
+    "the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "
+    "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%.",
     "7. Power Query, if you use it, can do a calculation instead of a formula: Data > From "
     "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new Table. "
     "Copilot reads its steps, and the new Table converts like any other. Skip this step if you "
@@ -90,10 +92,13 @@ STEPS = (
     "formula. Whatever is left in a Table converts.",
     "10. A value someone typed over a formula in one row is converted as it is, for that row. "
     "Find each in the original workbook (Ctrl+` shows formulas, so a typed value stands out) "
-    "and type it over the formula in the same row here. Then add a row to the Keys Table: the "
-    "Table's name under table, and under key_columns the column or columns that tell its "
-    "rows apart, separated by commas: job_runs and run_id, or sales and region, month. A "
-    "Table with no value typed over a formula needs no row in Keys.",
+    "and type it over the formula in the same row here, making sure your sample holds that row. "
+    "Then add one row to the Keys Table for that Table, however many values were typed over in "
+    "it: the Table's name under table, and under key_columns the typed column or columns that "
+    "tell its rows apart, separated by commas. For example, job_runs with run_id; or sales with "
+    "region, month. If no column tells the rows apart, leave the Table out of Keys: Copilot then "
+    "matches the row on all its typed columns. A Table with no value typed over a formula "
+    "needs no row in Keys.",
     "11. Charts and anything outside a Table are left alone, and Copilot names them. Titles "
     "and notes can stay.",
     "12. Save the workbook, attach it in a Copilot chat with Copilot files 11 and 12 loaded "
@@ -104,15 +109,17 @@ TABLES = {"Parameters": ("name", "value"), "Keys": ("table", "key_columns")}
 # What each of those Tables is for, beside it on its sheet, for someone who opens the sheet
 # before reading the steps.
 NOTES = {
-    "Parameters": "Parameters: the fixed values your formulas use, one row each. Put its name "
-                  "under name and the value under value, such as tax_rate and 0.2, then read it "
-                  "by name in a formula: XLOOKUP(\"tax_rate\", Parameters[name], "
-                  "Parameters[value]). Leave the Table empty if no formula uses a fixed value. "
-                  "See step 6 on the Steps sheet.",
-    "Keys": "Keys: only for a Table where a value was typed over a formula in one row. Add a "
-            "row: that Table's name under table, and under key_columns the column or columns "
-            "that tell its rows apart, separated by commas, such as job_runs and run_id. "
-            "Copilot uses them to find the row. A Table with no value typed over a formula "
+    "Parameters": "Parameters: the fixed values your formulas use, one row per value. Put its "
+                  "name under name and the value under value, such as tax_rate and 0.2 (a plain "
+                  "number, not 20%), then read it by name in a formula: XLOOKUP(\"tax_rate\", "
+                  "Parameters[name], Parameters[value]). Leave the Table empty if no formula "
+                  "uses a fixed value. See step 6 on the Steps sheet.",
+    "Keys": "Keys: only for a Table where a value was typed over a formula. Add one row for "
+            "that Table, however many values were typed over in it: the Table's name under "
+            "table, and under key_columns the typed column or columns that tell its rows apart, "
+            "separated by commas, such as job_runs with run_id, or sales with region, month. "
+            "Copilot uses them to find the row a typed value belongs to. If no column tells "
+            "the rows apart, leave the Table out. A Table with no value typed over a formula "
             "needs no row here. See step 10 on the Steps sheet.",
 }
 # What a person sees in a workbook, sheet by sheet: its cells' values by place, and each of
