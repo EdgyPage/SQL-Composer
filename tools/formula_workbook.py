@@ -40,7 +40,8 @@ from openpyxl.chart import BarChart, Reference
 from openpyxl.styles import Alignment, Font
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
-from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.worksheet.filters import AutoFilter
+from openpyxl.worksheet.table import Table, TableColumn, TableFormula, TableStyleInfo
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
@@ -125,8 +126,11 @@ NOTES = {
             "needs no row here. See step 10 on the Steps sheet.",
 }
 # What a person sees in a workbook, sheet by sheet: its cells' values by place, and each of
-# its Tables' places.
+# its Tables' places, as `declared` gives them.
 Contents = dict[str, dict[str, dict[str, object]]]
+# Each function a Total Row offers, by the SUBTOTAL code its cell holds: 109 adds up the column.
+SUBTOTAL_CODES = {"average": 101, "countNums": 102, "count": 103, "max": 104, "min": 105,
+                  "stdDev": 107, "sum": 109, "var": 110}
 
 
 def empty_workbook() -> openpyxl.Workbook:
@@ -146,7 +150,7 @@ def empty_workbook() -> openpyxl.Workbook:
             sheet.cell(row=1, column=column, value=header)
             sheet.column_dimensions[get_column_letter(column)].width = 24
         # Excel needs a row under the headers, left empty here.
-        table = Table(displayName=name, ref=f"A1:{get_column_letter(len(headers))}2")
+        table = new_table(name, headers, 1)
         table.tableStyleInfo = TableStyleInfo(name="TableStyleMedium2", showRowStripes=True)
         sheet.add_table(table)
         # A column apart from the Table, so a row added to it never reaches the note.
@@ -156,11 +160,48 @@ def empty_workbook() -> openpyxl.Workbook:
     return workbook
 
 
+def new_table(name: str, headers: tuple[str, ...], rows: int,
+              totals: dict[str, str] | None = None) -> Table:
+    """Table `name`, its `headers` over `rows` rows, then a Total Row if `totals` gives one, by
+    header, declared as Excel declares one: Excel opens a Table whose Total Row its columns
+    don't declare, or whose filter reaches into it, as a file to repair, and drops the Table."""
+    last = get_column_letter(len(headers))
+    table = Table(displayName=name, ref=f"A1:{last}{rows + 1 + bool(totals)}",
+                  autoFilter=AutoFilter(ref=f"A1:{last}{rows + 1}"),
+                  tableColumns=[TableColumn(id=number, name=header)
+                                for number, header in enumerate(headers, 1)])
+    if totals:
+        table.totalsRowCount = 1
+        for column in table.tableColumns:
+            value = totals.get(column.name)
+            if value is None:
+                continue
+            if not value.startswith("="):
+                column.totalsRowLabel = value
+                continue
+            column.totalsRowFunction = next(
+                (function for function, code in SUBTOTAL_CODES.items()
+                 if value == f"=SUBTOTAL({code},{name}[{column.name}])"), "custom")
+            if column.totalsRowFunction == "custom":
+                column.totalsRowFormula = TableFormula(attr_text=value[1:])
+    return table
+
+
+def declared(table: Table) -> tuple[object, ...]:
+    """A Table as its file declares it: its place, its filter's, and each column's name and
+    Total Row label, function or formula."""
+    return (table.ref, table.autoFilter.ref if table.autoFilter else None,
+            tuple((column.name, column.totalsRowLabel, column.totalsRowFunction,
+                   column.totalsRowFormula.attr_text if column.totalsRowFormula else None)
+                  for column in table.tableColumns))
+
+
 def contents(workbook: openpyxl.Workbook) -> Contents:
-    """What a person sees in a workbook: each sheet's cells by place, and each Table's place."""
+    """What a person sees in a workbook: each sheet's cells by place, and each Table as its file
+    declares it."""
     return {sheet.title: {"cells": {cell.coordinate: cell.value for row in sheet.iter_rows()
                                     for cell in row if cell.value is not None},
-                          "tables": {name: sheet.tables[name].ref for name in sheet.tables}}
+                          "tables": {name: declared(sheet.tables[name]) for name in sheet.tables}}
             for sheet in workbook.worksheets}
 
 
@@ -286,12 +327,10 @@ def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
             sheet.cell(row=count + 1, column=column, value=value)
     count = max(count, 1)
     if described.totals:
-        count += 1
+        total_row = count + 2  # under the headers and the rows
         for column, header in enumerate(described.headers, 1):
-            sheet.cell(row=count + 1, column=column, value=described.totals.get(header))
-    last = get_column_letter(len(described.headers))
-    sheet.add_table(Table(displayName=described.name, ref=f"A1:{last}{count + 1}",
-                          totalsRowCount=1 if described.totals else None))
+            sheet.cell(row=total_row, column=column, value=described.totals.get(header))
+    sheet.add_table(new_table(described.name, described.headers, count, described.totals))
 
 
 def _add_chart(workbook: openpyxl.Workbook, sheet: openpyxl.worksheet.worksheet.Worksheet
