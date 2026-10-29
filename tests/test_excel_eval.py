@@ -1,7 +1,7 @@
 """The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, ticket 16).
 
 `tools/excel_eval_tasks.py` holds 40 filled-in Formula workbooks, 20 dev and 20 held out, with
-each case in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
+everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
 SQLite holding the Example database's rows. Every task's reference, written as a reply would
 be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and the
 stand-in Hive gives the Example database's own rows wherever its executor can run a reference.
@@ -19,7 +19,7 @@ import pytest
 import code_audit
 import excel_eval
 import offline_policy
-from excel_eval_tasks import BY_ID, CASES, TASKS, ExcelTask
+from excel_eval_tasks import BY_ID, COVERAGE, TASKS, ExcelTask
 from formula_workbook import as_text, build
 from sqlglot_composer import example_database
 
@@ -48,7 +48,8 @@ def reference_reply(task: ExcelTask, hives: dict[str, str] | None = None) -> str
     named = "; ".join(group[0] for group in (*task.refused, *task.marks, *task.ignored))
     queries = "".join(f"```sql\n{in_brackets(sql, task)}\n```\n"
                       for sql in (hives or task.finals).values())
-    return (f"Sources: the Tables of sample rows. Final: {', '.join(task.finals)}.\n"
+    return (f"Sources: {', '.join(excel_eval.sources(task))}. "
+            f"Final: {', '.join(task.finals)}.\n"
             f"Notes: {named}.\n\n{queries}")
 
 
@@ -56,13 +57,13 @@ def scored(task: ExcelTask, reply: str, hive: sqlite3.Connection) -> excel_eval.
     return excel_eval.score(task, reply, hive, excel_eval.reference_rows(hive, task))
 
 
-def test_there_are_40_tasks_20_on_each_split_with_every_case_in_each() -> None:
+def test_there_are_40_tasks_20_on_each_split_each_covering_everything() -> None:
     assert len(BY_ID) == len(TASKS) == 40
     assert Counter(task.split for task in TASKS) == {"dev": 20, "held_out": 20}
     for split in ("dev", "held_out"):
-        covered = {case for task in TASKS if task.split == split for case in task.cases}
-        assert [case for case in CASES if case not in covered] == [], split
-    assert {case for task in TASKS for case in task.cases} <= set(CASES)
+        covered = {kind for task in TASKS if task.split == split for kind in task.covers}
+        assert [kind for kind in COVERAGE if kind not in covered] == [], split
+    assert {kind for task in TASKS for kind in task.covers} <= set(COVERAGE)
 
 
 @pytest.mark.parametrize("task", TASKS, ids=lambda task: task.id)
@@ -129,6 +130,9 @@ def test_a_guessed_database_or_a_made_up_column_is_invented(hive: sqlite3.Connec
     guessed = scored(task, reference_reply(task).replace("<database>.<job_runs>",
                                                          "warehouse.job_runs"), hive)
     assert "warehouse.job_runs" in guessed.invented and not guessed.passed
+    ops = scored(task, reference_reply(task).replace("<database>.<job_runs>", "ops.job_runs"),
+                 hive)
+    assert "ops.job_runs" in ops.invented and not ops.passed
     made_up = scored(task, reference_reply(task, {"job_runs": task.finals["job_runs"].replace(
         "duration_mins / 60", "run_minutes / 60")}), hive)
     assert "run_minutes" in made_up.invented and not made_up.runs
@@ -156,8 +160,19 @@ def test_a_reply_with_no_map_or_that_names_nothing_fails(hive: sqlite3.Connectio
     task = BY_ID["X12"]
     no_map = scored(task, reference_reply(task).replace("Final:", "Then:"), hive)
     assert not no_map.mapped and not no_map.passed
+    no_source = scored(BY_ID["X06"], reference_reply(BY_ID["X06"]).replace(", jobs.", "."),
+                       hive)
+    assert not no_source.mapped
     unnamed = scored(task, reference_reply(task).replace("OFFSET", "it"), hive)
     assert unnamed.unnamed == ["OFFSET"] and not unnamed.passed
+
+
+def test_a_name_counts_only_in_the_replys_words_not_its_code(
+        hive: sqlite3.Connection) -> None:
+    # X05's SQL holds DATEDIFF and SUBSTR(dt, ...), but the mark is that the date is text.
+    task = BY_ID["X05"]
+    result = scored(task, reference_reply(task).replace("as text", "noted"), hive)
+    assert result.unnamed == ["as text"] and not result.passed
 
 
 def test_no_sql_block_is_not_found(hive: sqlite3.Connection) -> None:
@@ -188,4 +203,4 @@ def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:
 
 def test_the_stand_in_hive_has_hives_date_functions_and_pmod(hive: sqlite3.Connection) -> None:
     assert hive.execute("SELECT MONTH('2026-09-24'), YEAR('2026-09-24'), DAY('2026-09-24'), "
-                        "PMOD(-7, 3), MONTH('20260924')").fetchone() == (9, 2026, 24, 2, None)
+                        "PMOD(-7, 3), MONTH('soon')").fetchone() == (9, 2026, 24, 2, None)
