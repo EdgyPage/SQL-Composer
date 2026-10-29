@@ -38,7 +38,7 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
    refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
    out of the workbook what you don't want converted; fill in each `<...>`; run
-   `project.convert` on the Hive, whose checked code wins where the two differ.
+   `project.convert` on the Hive; its checked code wins where the two differ.
 
 ## Formulas
 
@@ -54,12 +54,11 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
 - XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b.
 - SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
-  ELSE 0 END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS
-  total FROM t WHERE s = 'x' GROUP BY a)`, and COALESCE(total, 0), as Excel gives 0 where
+  END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
+  FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
   nothing matches. COUNTIFS: COUNT(*), MAXIFS: MAX, MINIFS: MIN, each with COALESCE too;
-  AVERAGEIFS: AVG, without.
-- SUMIF(t[a], [@a], t[v]), COUNTIF, AVERAGEIF: the -IFS form with one match, summed column
-  last.
+  AVERAGEIFS: AVG, left NULL.
+- SUMIF and AVERAGEIF(t[a], [@a], t[v]), COUNTIF(t[a], [@a]): the -IFS form, one match.
 - RANK.EQ(x, t[x]) or RANK: `RANK() OVER (ORDER BY x DESC)`; with 1 as a third argument, ASC.
 - XLOOKUP("rate", Parameters[name], Parameters[value]): the value, 0.5.
 
@@ -67,14 +66,14 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
 
 - A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank in a
   column a formula reads, wrap it: COALESCE(x, 0), or COALESCE(x, ''); say "blank". Not
-  inside an -IF or -IFS: they skip a blank, as SUM, AVG, MIN and MAX skip NULL.
+  inside an -IF(S) form: they skip a blank, as SUM, AVG, MIN and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: convert it exactly, and say it was
   approximate.
 - A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
   '-', SUBSTR(dt, 7, 2))`, and say the date is held as text.
 - A defined name for a cell outside a Table: use its value, and say to move it into
   Parameters.
-- M reading Sql.Database or another source: use the table it names; say which to check.
+- M reading Sql.Database or a non-workbook source: use the table it names; say which to check.
 - Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
   the sample, NULL where none, as M leaves it; say the pivot's columns are now fixed.
 
@@ -82,7 +81,7 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
 
 INDIRECT, OFFSET, RAND, RANDBETWEEN; a reference to a cell outside a Table that isn't a
 defined name; a LAMBDA, or a defined name holding a formula; a formula reading its own
-column (circular); Web.Contents or any online source (leave that query out).
+column (circular); Web.Contents or any web source (leave that query out).
 
 ## Left alone, and named
 
@@ -91,15 +90,15 @@ Charts, PivotTables, and cells outside a Table.
 ## Power Query M
 
 `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t. Table.SelectRows: WHERE, where
-M's `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`; on a
-Table.Group, HAVING. Table.AddColumn: an expression AS its name; SelectColumns, RemoveColumns,
-RenameColumns: the SELECT list; TransformColumnTypes: nothing; Table.Group: GROUP BY, with
-Table.RowCount(_), List.Sum, List.Max, List.Min, List.Average as COUNT(*), SUM, MAX, MIN, AVG.
-NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter, LEFT JOIN; Inner, JOIN; RightOuter,
-LEFT JOIN, tables swapped; FullOuter, FULL OUTER JOIN; LeftAnti, `LEFT JOIN t ON k = t.k WHERE
-t.k IS NULL`, the first table's columns. Table.Sort then FirstN: ORDER BY ... LIMIT,
-Order.Descending as DESC. Table.Combine: UNION ALL; in Table.Distinct, UNION. Table.Distinct
-alone: SELECT DISTINCT. A query another reads is a CTE.
+M's `<>` keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`; after a
+Table.Group, HAVING, repeating the aggregate. Table.AddColumn: an expression AS its name;
+SelectColumns, RemoveColumns, RenameColumns: the SELECT list; TransformColumnTypes: nothing;
+Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum as SUM, so too Max, Min and
+Average. NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
+RightOuter: LEFT JOIN, tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT JOIN t ON
+k = t.k WHERE t.k IS NULL`, the first table's columns. Table.Sort then FirstN: ORDER BY ...
+LIMIT, Order.Descending as DESC. Table.Combine: UNION ALL; inside Table.Distinct, UNION.
+Table.Distinct alone: SELECT DISTINCT. A query another reads is a CTE.
 
 ## Worked example
 
@@ -129,7 +128,7 @@ s = statement(
     SELECT(r.run_id, r.job_id, r.duration_mins,
            AS(first_match([(equals(r.run_id, 103), 9)], otherwise=r.duration_mins / 60),
               "hours"), j.job_name),
-    FROM(r, reads_all_partitions=True),
+    FROM(r, reads_all_partitions=True),  # every row
     LEFT_JOIN(j, ON=equals(r.job_id, j.job_id)),
 )
 ```
@@ -137,7 +136,7 @@ s = statement(
 ## Do and don't
 
 - Do keep every final column in order, a refused one as NULL, and every row a final holds.
-- Don't drop a value typed over a formula, filter on dates the sample holds, or guess a name.
+- Don't drop a value typed over a formula, filter to the sample's dates, or guess a name.
 
 ## Before you answer
 
