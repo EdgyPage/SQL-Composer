@@ -15,8 +15,9 @@ Parameters and Keys, empty: no data Table, no formula and no row, since a filled
 something to half-edit and forget. Filled-in examples are files of their own, in
 `copilot/examples/`, which `tools/formula_workbook_examples.py` builds.
 
-It is the one file main ships that main can't rebuild: openpyxl, which writes it, is pinned in
-requirements-dev.txt only, and the export copies the file as dev holds it.
+It and the examples beside it are the files main ships but can't rebuild: openpyxl, which
+writes them, is pinned in requirements-dev.txt only, and the export copies them as dev holds
+them.
 
 The Copilot evaluation's Excel tasks (`tools/excel_eval_tasks.py`) describe filled-in Formula
 workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's sample

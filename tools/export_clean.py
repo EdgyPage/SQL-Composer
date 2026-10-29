@@ -16,7 +16,8 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
   Toolbox, in `sqlglot_composer/project_templates.py`;
 - it copies the Copilot files, `copilot/`, the same way: each .txt as dev holds it, unstamped,
   as Copilot counts every character, `count_characters.py` stamped, and the empty Formula
-  workbook, `formula_workbook.xlsx`, byte for byte, as main can't rebuild it;
+  workbook, `formula_workbook.xlsx`, and the examples of it, `examples/*.xlsx`, byte for byte,
+  as main can't rebuild them;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
@@ -93,8 +94,8 @@ COPIED = (EXAMPLE_PROJECTS, COPILOT)
 # its registry and its Reference sheet, and admin/project_version.txt, read from its first line;
 # and a Conversion's original.hql, kept exactly as the Hive was given.
 UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx")
-# The copies that aren't text: the empty Formula workbook, which main can't rebuild, since
-# openpyxl, which builds it, is dev's alone.
+# The copies that aren't text: the empty Formula workbook and its examples, which main can't
+# rebuild, since openpyxl, which builds them, is dev's alone.
 BINARY = (".xlsx",)
 # The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"

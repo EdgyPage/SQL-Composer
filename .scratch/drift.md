@@ -310,6 +310,8 @@ any item is open.
 - [x] D299 | ef2ee57 | docstring | `tools/copilot_files.py`'s module docstring says "A user loads one Copilot file into Microsoft Copilot's web chat" (line 9) and that `{always}` is "the block every objective file shares" (line 18), but since ef2ee57 file 11, an objective file, has no `{always}` (it loads with 03, 04 and 05, which hold it, as `tests/test_copilot_files.py`'s EXCEL_FILE exception says) and is loaded with three others. Say every objective file but 11, and that a workbook loads 11 with 03, 04 and 05 - closed by fc512e9
 - [x] D300 | 10de2a9 | docstring | the empty Formula workbook's Steps sheet, step 12 (`tools/formula_workbook.py` lines 93-94, and so `copilot/formula_workbook.xlsx`, which the README template's step 1 says to follow), still says "attach it in a Copilot chat with Copilot file 11 loaded (with files 03, 04 and 05)", but since 10de2a9 a workbook's chat loads five files, 11 and 12 with 03, 04 and 05 (`00_start_here.txt` step 5, rule 10, the README template, CHANGES.md), and without file 12 its Power Query and Total Rows are refused. Say "with Copilot files 11 and 12 loaded (with files 03, 04 and 05)", and rewrite the committed workbook from it - closed by fac0fd8
 - [x] D301 | 10de2a9 | docstring | `docs/copilot-eval.md` line 48, rewritten here, says the Excel tasks are "66 filled-in Formula workbooks, 33 dev and 33 held out", but `tools/excel_eval_tasks.py` holds 70, 35 dev and 35 held out (its own docstring, line 9, says so; X67 to X70 came in 09aeb34). Say "70 filled-in Formula workbooks, 35 dev and 35 held out" - closed by fac0fd8
+- [ ] D302 | 6efe769 | docstring | `tools/formula_workbook.py` line 18, in the docstring this commit edited, still says the empty workbook "is the one file main ships that main can't rebuild", but main now also ships `copilot/examples/*.xlsx`, which `tools/formula_workbook_examples.py` builds with openpyxl on dev only and the export copies as dev holds them. Say it is one of the files main ships but can't rebuild, with the examples beside it.
+- [ ] D303 | 6efe769 | docstring | `tools/export_clean.py` names only the empty Formula workbook as the Copilot copy that isn't text: its docstring (lines 17-19, "and the empty Formula workbook, `formula_workbook.xlsx`, byte for byte, as main can't rebuild it") and the comment above `BINARY` (lines 96-97, "The copies that aren't text: the empty Formula workbook"). The export now also copies `copilot/examples/*.xlsx` byte for byte, as main can't rebuild them either; name them in both places.
 ## Reviewed commits
 
 <!-- one line per review: `- <commit>: <items opened>` or `- <commit>: clean` -->
@@ -701,3 +703,4 @@ any item is open.
 - 960e89f: clean
 - af38fdf: clean
 - cd12c5e: clean
+- 6efe769: D302, D303
