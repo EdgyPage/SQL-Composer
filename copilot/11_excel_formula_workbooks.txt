@@ -66,7 +66,8 @@ Toolbox code. Load files 03, 04 and 05 in the same chat, for the Toolbox code.
 ## Marks: convert, and say so
 
 - A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank in a
-  column a formula reads, wrap it: COALESCE(x, 0), or COALESCE(x, ''); say "blank".
+  column a formula reads, wrap it: COALESCE(x, 0), or COALESCE(x, ''); say "blank". Not
+  inside SUMIFS, AVERAGEIFS or MAXIFS: they skip a blank, as SUM, AVG and MAX skip NULL.
 - VLOOKUP or MATCH with TRUE or 1 is approximate: convert it exactly, and say it was
   approximate.
 - A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
