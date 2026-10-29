@@ -300,6 +300,7 @@ any item is open.
 - [x] D290 | 221376a | docstring | `tools/export_clean.py` now reads `copilot/` with the offline policy (`check_offline(into, list(COPIED))`, line 526), but its module docstring (lines 34-36) still lists what is read as "the Toolbox, the Example projects and the Templates, and the README", and `check_offline`'s refusal (lines 318-320) still says "the Toolbox, its Example projects and its Templates reach nothing but the user's query and execute". Name the Copilot files in both. - closed by dc95f36
 - [x] D291 | 221376a | docstring | `check_offline`'s docstring (`tools/export_clean.py` lines 306-309) says a file is held to "in a copy the user takes, nothing", and `tools/offline_policy.py`'s docstring (lines 48-53) gives user-copied code that tier "since users copy these files into their own work", but `copilot/count_characters.py`, which 221376a ships for the user to run on a copy they edit, isn't in `USER_COPIED` (line 147), so it is read under "everything else", where a URL in a string passes. Either add `copilot` to `USER_COPIED` and the docstring's list, or say in both docstrings that the Copilot files are held to the looser tier. - closed by dc95f36
 - [x] D292 | dc95f36 | docstring | `tools/copilot_sources/04_joins.txt` step 8 (line 44, and `copilot/04_joins.txt` line 89, which it writes) calls `broadcast=True` one of "Two opt-outs a user may ask for", but broadcast= relaxes no Guard, Warning or Load limit: it asks for a Map join (CONTEXT.md's **Map join**), only a True or False is checked (`joins.py` `need_broadcast_true_or_false`), and `tools/copilot_eval.py`'s `OPT_OUTS` (line 103) leaves it out, so read with `_always.txt` rule 8 it tells Copilot to treat it as one. Call only `keeps_only_matches=True` the opt-out, and `broadcast=True` a request a user may make, e.g. "An opt-out and a request a user may ask for: ...". - closed by 6183982
+- [x] D293 | 528d0ec | glossary | since 528d0ec `CLAUDE.md` (lines 36-38: "Copilot file 11, which has Copilot turn a Formula workbook into Hive") and the 7.2 map's Notes use "Formula workbook" as a domain word, and the map's Notes cite it as "(CONTEXT.md)", but the committed `CONTEXT.md` has no **Formula workbook** entry (the entry is only in the working tree, uncommitted). Commit the entry, next to **Copilot files**. - closed by 6cb93c0
 
 ## Reviewed commits
 
@@ -662,3 +663,4 @@ any item is open.
 - 6183982: clean
 - a6a3887: clean
 - d09e39e: clean
+- 528d0ec: D293
