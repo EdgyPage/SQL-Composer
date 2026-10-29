@@ -180,14 +180,14 @@ def test_no_sql_block_is_not_found(hive: sqlite3.Connection) -> None:
     assert not result.found and not result.passed
 
 
-def test_the_draft_is_scored_apart(hive: sqlite3.Connection) -> None:
+def test_the_toolbox_code_is_scored_apart(hive: sqlite3.Connection) -> None:
     task = BY_ID["X01"]
-    draft = ("\n```python\nfrom sqlglot_composer import SELECT, FROM, statement\n"
+    code = ("\n```python\nfrom sqlglot_composer import SELECT, FROM, statement\n"
              "from references.<database>__job_runs import job_runs\n```\n")
-    assert scored(task, reference_reply(task) + draft, hive).draft == "parses"
-    invented = draft.replace("SELECT, FROM", "SELECT, FROM, select_columns")
+    assert scored(task, reference_reply(task) + code, hive).code == "parses"
+    invented = code.replace("SELECT, FROM", "SELECT, FROM, select_columns")
     result = scored(task, reference_reply(task) + invented, hive)
-    assert result.draft == "select_columns" and result.passed
+    assert result.code == "select_columns" and result.passed
 
 
 def test_a_template_reads_back_as_empty_replies() -> None:
