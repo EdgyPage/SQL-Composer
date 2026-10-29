@@ -22,7 +22,7 @@ and 05, for the Toolbox code.
    Table's name: a source. A Table whose only typed columns are what its SUMIFS or COUNTIFS
    match on (`[@job_id]` against `runs[job_id]`) is a summary: a GROUP BY of the Table it
    reads. A query, or a Table another Table or query reads, is a step. A Table nothing reads
-   is a final: one query each. Parameters and Keys are neither.
+   is a final: one query each. Parameters and Keys are none.
 3. Start the reply with the map: Sources, Steps, Finals and the columns each final gives;
    then each value typed over a formula, each mark, each refusal, what was left alone, and
    each `<...>` to fill in.
@@ -33,7 +33,7 @@ and 05, for the Toolbox code.
    columns the finals use, each step a CTE, `WITH step AS (...)`, the final's columns in its
    Table's order, each calculated one named with AS. The rows are a sample: filter only as a
    formula or query does.
-6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 97 THEN 100
+6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 103 THEN 9
    ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
    that Table, match every typed column of the row, and say there is no Keys row. A Table
    with no value typed over a formula needs none.
@@ -60,15 +60,15 @@ and 05, for the Toolbox code.
   DOUBLE); UPPER, LOWER, TRIM as they are.
 - YEAR, MONTH, DAY as they are; DATE(2026,9,1): '2026-09-01'; TODAY(): CURRENT_DATE; NOW():
   CURRENT_TIMESTAMP; d + n, d - n: DATE_ADD(d, n), DATE_SUB(d, n); DATEDIF(a, b, "d"):
-  DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": the same / 12; EOMONTH(d, 0):
-  LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n); WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"):
-  DATE_FORMAT(d, 'yyyy-MM'), Excel's month mm as MM.
+  DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
+  EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
+  one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
 - As month_start and week_start write them: DATE(YEAR(d), MONTH(d), 1) or EOMONTH(d, -1)+1:
   `CAST(TRUNC(d, 'MM') AS STRING)`; d-WEEKDAY(d,2)+1: `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1),
   'MO') AS STRING)`.
 - XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b. XLOOKUP("rate", Parameters[name], Parameters[value]):
-  the value, 0.5.
+  its value.
 - SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
   END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
   FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where

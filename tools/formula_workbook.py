@@ -77,8 +77,9 @@ STEPS = (
     "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new Table. "
     "Copilot reads its steps, and the new Table converts like any other. Skip this step if you "
     "don't use Power Query.",
-    "8. A formula that reads the row above, such as a running total, or a cell outside a Table, "
-    "can't be read as SQL: Copilot names it and leaves its column empty for you to finish.",
+    "8. A formula that reads the row above, or a cell outside a Table, can't be read as SQL: "
+    "Copilot names it and leaves its column empty for you to finish. Write a running total "
+    "as =SUMIFS(t[v], t[d], \"<=\"&[@d]), which Copilot can read.",
     "Before you hand it over:",
     "9. Take out anything you don't want converted: a Table, a column, a value typed over a "
     "formula. Whatever is left in a Table converts.",
@@ -90,8 +91,8 @@ STEPS = (
     "Table with no value typed over a formula needs no row in Keys.",
     "11. Charts and anything outside a Table are left alone, and Copilot names them. Titles "
     "and notes can stay.",
-    "12. Save the workbook, attach it in a Copilot chat with Copilot file 11 loaded (with files "
-    "03, 04 and 05), and ask Copilot to convert it.",
+    "12. Save the workbook, attach it in a Copilot chat with Copilot files 11 and 12 loaded "
+    "(with files 03, 04 and 05), and ask Copilot to convert it.",
 )
 # The Tables whose headers are fixed, each on a sheet of its own name.
 TABLES = {"Parameters": ("name", "value"), "Keys": ("table", "key_columns")}

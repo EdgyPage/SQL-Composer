@@ -8,13 +8,14 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
 
 ## Names for this objective, with their arguments
 
-{names: CROSS_JOIN, SEMI_JOIN, ANTI_JOIN, row_number, count_distinct}
+{names: SEMI_JOIN, CROSS_JOIN, rollup, row_number, count_distinct}
 
 ## Steps
 
 1. Follow file 11's steps, reading each query's steps in order, as below.
-2. A query another query or a Table's formula reads is a step: a CTE, `WITH q AS (...)`. A
-   query loaded into a Table nothing reads gives that final's rows. A connection-only query
+2. A query another query or a Table's formula reads is a step: a CTE, `WITH q AS (...)`,
+   inside each final's query that reads it, never a ```sql block of its own. A query loaded
+   into a Table nothing reads gives that final's rows. A connection-only query
    nothing reads is left out, and named.
 3. A step this file and file 11 don't list is refused: NULL for each column it makes, or the
    query left out, and named, with why.
@@ -37,9 +38,12 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
   0, Replacer.ReplaceValue, {"c"}): COALESCE(c, 0) AS c.
 - M's functions as their twins in file 11: Text.Upper, Text.Lower, Text.Trim, Text.Length;
   Text.Start(x, n): SUBSTR(x, 1, n); Text.End(x, n): SUBSTR(x, -n); Text.Middle(x, s, n):
-  SUBSTR(x, s + 1, n), as M counts from 0; Number.Round, Number.Abs; Number.Mod: PMOD;
+  SUBSTR(x, s + 1, n), as M counts from 0; Text.Replace: REPLACE; Text.Proper: INITCAP;
+  Text.Combine({a, b}, ","): CONCAT_WS(',', a, b); Number.Round: BROUND, as M rounds a half
+  to even; Number.RoundDown, RoundUp: FLOOR, CEIL; Number.Abs: ABS; Number.Mod: PMOD;
   Date.Year, Date.Month, Date.Day; Date.AddDays: DATE_ADD; Date.AddMonths: ADD_MONTHS;
-  Date.EndOfMonth: LAST_DAY; Date.StartOfMonth: `CAST(TRUNC(d, 'MM') AS STRING)`.
+  Date.AddYears(d, n): ADD_MONTHS(d, 12 * n); Date.EndOfMonth: LAST_DAY;
+  Date.StartOfMonth: `CAST(TRUNC(d, 'MM') AS STRING)`.
 
 ## Grouping, joining, stacking
 
@@ -65,10 +69,12 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
 - SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX: `SUM(v) OVER ()` and so on, COUNTA as
   COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]): `SUM(a * b) OVER
   ()`.
-- A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a final
-  of its own, `<Table> (total row)`, one row: a column per total, in order, no label. On a
-  summary whose totals each SUM a SUM or a COUNT, MAX a MAX or MIN a MIN: none of its own,
-  but `GROUP BY a WITH ROLLUP` in the summary's query, the total row's a NULL.
+- A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a
+  query of its own, one row, a column per total, in order, with no label; name it in the map
+  as `<Table> (Total Row)`.
+- But a summary Table's Total Row whose totals only add up SUMs or COUNTs, or take the MAX of
+  MAXes or MIN of MINs, needs no query of its own: the summary's query ends `GROUP BY a WITH
+  ROLLUP`, which adds the total as one more row, its a NULL (a Subtotal row).
 
 ## Order
 
@@ -82,7 +88,8 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
 
 - M reading Sql.Database or a non-workbook source: use the table it names; say which to check.
 - Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
-  the sample, NULL where none, as M leaves it; say the pivot's columns are now fixed.
+  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; say
+  the pivot's columns are now fixed.
 
 ## Refused, and named
 
@@ -122,12 +129,15 @@ from references.ops__job_runs import job_runs
 
 s = statement(
     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
-    FROM(job_runs, reads_all_partitions=True),  # the query reads every row
+    FROM(job_runs, reads_all_partitions=True),  # a workbook's query reads every row
     WHERE(is_not_null(job_runs.status), starts_with(job_runs.status, "SUCC")),
     GROUP_BY(job_runs.job_id),
     HAVING(more_than(count_rows(), 1)),
 )
 ```
+
+A value typed over a formula, file 11's step 6, in Toolbox code: `AS(first_match([(equals(
+r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(job_runs, "r")`.
 
 ## Do and don't
 

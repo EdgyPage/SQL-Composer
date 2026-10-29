@@ -315,11 +315,12 @@ def _next_day(value: object, weekday: object) -> str:
     return str(day + datetime.timedelta(days=(target - day.weekday() - 1) % 7 + 1))
 
 
-def _trunc(value: object, unit: object) -> str:
-    """Hive's TRUNC of a date: its month's first day, or its year's."""
-    day = _day(value)
-    yearly = str(unit).upper() in ("YEAR", "YYYY", "YY")
-    return str(day.replace(month=1, day=1) if yearly else day.replace(day=1))
+def _trunc(value: object, unit: object) -> str | None:
+    """Hive's TRUNC of a date: its month's first day, or its year's; NULL for another unit."""
+    day, unit = _day(value), str(unit).upper()
+    if unit in ("YEAR", "YYYY", "YY"):
+        return str(day.replace(month=1, day=1))
+    return str(day.replace(day=1)) if unit in ("MONTH", "MON", "MM") else None
 
 
 def _date_format(value: object, pattern: object) -> str:
@@ -406,7 +407,6 @@ AS_STAND_IN: dict[type[exp.Expression], tuple[str, tuple[str, ...]]] = {
     exp.Initcap: ("HIVE_INITCAP", ("this",)),
     exp.Repeat: ("HIVE_REPEAT", ("this", "times")),
     exp.StddevSamp: ("HIVE_STDDEV_SAMP", ("this",)),
-    exp.Stddev: ("HIVE_STDDEV_SAMP", ("this",)),
     exp.Variance: ("HIVE_VAR_SAMP", ("this",)),
 }
 
@@ -529,7 +529,7 @@ class ExcelScore:
 
 
 # A final Table's Total Row, which is a query of its own, as `finals` names it.
-TOTAL_ROW = " (total row)"
+TOTAL_ROW = " (Total Row)"
 
 
 def sources(task: ExcelTask) -> list[str]:
