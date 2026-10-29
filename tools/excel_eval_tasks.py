@@ -372,14 +372,16 @@ in
         marks=(("pivot",),)),
     ExcelTask(
         "X41", "dev", ("rank", "minifs", "single_ifs", "short_form"),
-        FormulaWorkbook((runs_table(("run_id", "job_id", "duration_mins"), formulas={
+        FormulaWorkbook((runs_table(("run_id", "job_id", "status", "duration_mins"), formulas={
             "longest_first": "=RANK.EQ([@duration_mins],job_runs[duration_mins])",
-            "job_shortest": "=MINIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])",
+            "shortest_ok": '=MINIFS(job_runs[duration_mins],job_runs[job_id],[@job_id],'
+                           'job_runs[status],"SUCCESS")',
             "job_total": "=SUMIF(job_runs[job_id],[@job_id],job_runs[duration_mins])"}),),
             as_typed=True),
-        {"job_runs": "SELECT run_id, job_id, duration_mins, RANK() OVER (ORDER BY duration_mins "
-                     "DESC) AS longest_first, MIN(duration_mins) OVER (PARTITION BY job_id) AS "
-                     "job_shortest, SUM(duration_mins) OVER (PARTITION BY job_id) AS job_total "
+        {"job_runs": "SELECT run_id, job_id, status, duration_mins, RANK() OVER (ORDER BY "
+                     "duration_mins DESC) AS longest_first, MIN(CASE WHEN status = 'SUCCESS' "
+                     "THEN duration_mins END) OVER (PARTITION BY job_id) AS shortest_ok, "
+                     "SUM(duration_mins) OVER (PARTITION BY job_id) AS job_total "
                      "FROM ops.job_runs"}),
     ExcelTask(
         "X42", "dev", ("single_ifs", "rank", "iferror", "long_form", "combination"),
