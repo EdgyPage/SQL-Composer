@@ -7,8 +7,9 @@ are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sa
 from the Example database, so every reference runs.
 
 There are 40: 20 on the dev split, which Copilot file 11 may be tuned on, and 20 held out,
-scored once per version of the files. Every case in `CASES` has a task of its own in each split,
-and each split has tasks that combine several (`combination`).
+scored once per version of the files. Every kind of formula, query or workbook in `COVERAGE`
+has a task of its own in each split, and each split has tasks that combine several
+(`combination`).
 
 What a reply must do besides give the rows: name each refused piece (`refused`), each mark
 (`marks`) and each thing left alone (`ignored`), each by any of its words, since a reply may
@@ -24,8 +25,8 @@ from dataclasses import dataclass, field
 
 from formula_workbook import ExcelTable, FormulaWorkbook
 
-# Each case a task covers, so that both splits cover all of them.
-CASES = (
+# Each kind of formula, query or workbook a task covers, so that both splits cover all of them.
+COVERAGE = (
     # formulas that convert
     "arithmetic", "if", "switch", "iferror", "and_or", "round_math", "text", "dates", "xlookup",
     "vlookup", "index_match", "sumifs", "countifs", "averageifs", "maxifs",
@@ -54,7 +55,7 @@ class ExcelTask:
 
     id: str
     split: str  # "dev" or "held_out"
-    cases: tuple[str, ...]
+    covers: tuple[str, ...]
     workbook: FormulaWorkbook
     finals: dict[str, str]  # each final Table, by its name in the workbook: its Hive
     names: dict[str, str] = field(default_factory=dict)  # a workbook's name: the Hive's
@@ -80,16 +81,18 @@ def rows(source: str, columns: tuple[str, ...], order: str = "") -> str:
     return f"SELECT {', '.join(columns)} FROM ops.{source} ORDER BY {order or columns[0]}"
 
 
-def runs_table(columns: tuple[str, ...] = RUNS, **given: object) -> ExcelTable:
-    """A Table of job_runs' sample rows, with the formulas and typed-over values `given`."""
-    formulas = given.pop("formulas", {})
-    return ExcelTable("job_runs", (*columns, *formulas), rows("job_runs", columns),
-                      formulas, **given)
+def runs_table(columns: tuple[str, ...] = RUNS, formulas: dict[str, str] | None = None,
+               typed_over: dict[tuple[object, str], object] | None = None) -> ExcelTable:
+    """A Table of job_runs' sample rows, `columns` of them, then a column for each formula."""
+    return ExcelTable("job_runs", (*columns, *(formulas or {})), rows("job_runs", columns),
+                      formulas or {}, typed_over or {})
 
 
-def jobs_table(columns: tuple[str, ...] = JOBS, **given: object) -> ExcelTable:
-    formulas = given.pop("formulas", {})
-    return ExcelTable("jobs", (*columns, *formulas), rows("jobs", columns), formulas, **given)
+def jobs_table(columns: tuple[str, ...] = JOBS, formulas: dict[str, str] | None = None,
+               typed_over: dict[tuple[object, str], object] | None = None) -> ExcelTable:
+    """A Table of jobs' sample rows, `columns` of them, then a column for each formula."""
+    return ExcelTable("jobs", (*columns, *(formulas or {})), rows("jobs", columns),
+                      formulas or {}, typed_over or {})
 
 
 ALERT_TABLE = ExcelTable("run_alerts", ALERTS, rows("run_alerts", ALERTS))
@@ -150,7 +153,7 @@ DEV = (
                      "days_since FROM ops.job_runs",
          "region_costs": "SELECT job_id, cost_cents, region, dt, CONCAT(SUBSTR(dt, 1, 4), '-', "
                          "SUBSTR(dt, 5, 2), '-', SUBSTR(dt, 7, 2)) AS day FROM ops.region_costs"},
-        marks=(("date",),)),
+        marks=(("as text", "is text", "text date"),)),
     ExcelTask(
         "X06", "dev", ("xlookup", "countifs", "long_form"),
         FormulaWorkbook((
@@ -359,9 +362,9 @@ in
     Pivoted = Table.Pivot(Counted, List.Distinct(Counted[severity]), "severity", "n", List.Sum)
 in
     Pivoted"""),)),
-        {"alert_pivot": "SELECT run_id, SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS "
-                        "high, SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) AS low FROM "
-                        "ops.run_alerts WHERE run_id IN (97, 101) GROUP BY run_id"},
+        {"alert_pivot": "SELECT run_id, SUM(CASE WHEN severity = 'high' THEN 1 END) AS high, "
+                        "SUM(CASE WHEN severity = 'low' THEN 1 END) AS low FROM ops.run_alerts "
+                        "WHERE run_id IN (97, 101) GROUP BY run_id"},
         marks=(("pivot",),)),
 )
 
@@ -423,7 +426,7 @@ HELD_OUT = (
                     "FROM ops.region_budgets"},
         names={"Costs": "region_costs", "Budgets": "region_budgets", "Job": "job_id",
                "Cost (cents)": "cost_cents", "Day Key": "dt", "Budget": "budget_cents"},
-        marks=(("date",),)),
+        marks=(("as text", "is text", "text date"),)),
     ExcelTask(
         "X26", "held_out", ("xlookup", "vlookup", "averageifs", "chain"),
         FormulaWorkbook((
@@ -535,7 +538,8 @@ HELD_OUT = (
 in
     Kept"""),)),
         {"slow_runs": "SELECT run_id, duration_mins, duration_mins - 20 AS over_by FROM "
-                      "ops.job_runs WHERE duration_mins >= 20 AND status <> 'TEST'"},
+                      "ops.job_runs WHERE duration_mins >= 20 AND (status <> 'TEST' OR status "
+                      "IS NULL)"},
         marks=(("Sql.Database",),)),
     ExcelTask(
         "X34", "held_out", ("m_group", "m_join", "query_reads_query", "connection_only"),
@@ -600,8 +604,8 @@ in
     Pivoted = Table.Pivot(Counted, List.Distinct(Counted[severity]), "severity", "n", List.Sum)
 in
     Pivoted"""),)),
-        {"severity_by_day": "SELECT dt, SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS "
-                            "high, SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) AS low FROM "
+        {"severity_by_day": "SELECT dt, SUM(CASE WHEN severity = 'high' THEN 1 END) AS high, "
+                            "SUM(CASE WHEN severity = 'low' THEN 1 END) AS low FROM "
                             "ops.run_alerts GROUP BY dt",
          "job_runs": "SELECT r.run_id, r.status, COALESCE(a.n, 0) AS alerts FROM ops.job_runs r "
                      "LEFT JOIN (SELECT run_id, COUNT(*) AS n FROM ops.run_alerts GROUP BY "

@@ -228,6 +228,8 @@ def build(described: FormulaWorkbook) -> openpyxl.Workbook:
 def _add_table(workbook: openpyxl.Workbook, described: ExcelTable) -> None:
     """One Excel Table on a sheet of its own: its headers, then a row for each of its sample
     rows, each calculated column holding its formula, or the value typed over it."""
+    # Only a filled-in workbook reads the Example database: the empty one, which
+    # copilot_files.py builds, needs nothing of the Toolbox's.
     from sqlglot_composer import example_database
 
     sheet = workbook.create_sheet(described.name)
@@ -317,8 +319,13 @@ def as_text(described: FormulaWorkbook) -> str:
 
 
 def main() -> int:
-    """Write the empty Formula workbook into copilot/."""
-    empty_workbook().save(EMPTY)
+    """Write the empty Formula workbook into copilot/, unless it already holds what this
+    builds: a new build differs in its bytes, its zip's times, though nothing in it does."""
+    built = empty_workbook()
+    if EMPTY.exists() and contents(openpyxl.load_workbook(EMPTY)) == contents(built):
+        print(f"{EMPTY.relative_to(ROOT).as_posix()} is up to date.")
+        return 0
+    built.save(EMPTY)
     print(f"Wrote {EMPTY.relative_to(ROOT).as_posix()}.")
     return 0
 

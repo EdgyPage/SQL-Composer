@@ -246,6 +246,10 @@ asks, though all three touch CHANGES.md.
   `tools/formula_workbook.py` with dev-only openpyxl and copied byte for byte; the offline
   policy refuses a workbook's macros, connections, Power Query and links out, and the code
   audit reads each part inside it.
+- [16 The Excel evaluation: about 40 workbook tasks, a Hive scorer, and the baseline](issues/16-excel-eval-tasks.md):
+  40 workbooks, X01 to X40, every kind in each split; scored on SQLite holding the Example
+  database's rows; a source is a Table's typed columns; A0 on dev, Haiku: 0% passed, 75%
+  correct, 0% mapped.
 
 ## Not yet specified
 

@@ -37,4 +37,4 @@ One row per scored answers file. Arms: A0 the workbook alone; C file 11 with fil
 
 | date | files | model | arm | split | passed | found | parses | runs | correct | mapped | named | invented | draft ok |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2026-10-29 | none | haiku | A0 | dev | 0 | 100 | 100 | 90 | 75 | 0 | 75 | 0 | 0 |
+| 2026-10-29 | none | haiku | A0 | dev | 0 | 100 | 100 | 90 | 75 | 0 | 70 | 5 | 0 |

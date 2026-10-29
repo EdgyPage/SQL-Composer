@@ -25,14 +25,15 @@ Each answer is scored on these checks, in order:
 - runs: each runs on the stand-in Hive;
 - correct: for each final Table, one query gives its reference's rows, column by column in the
   Table's order, whatever the columns are called;
-- mapped: before the first query, the reply names each final Table, and says which are the
-  sources and which the finals;
-- named: the reply names each refused piece, each mark and each thing left alone that the task
-  lists, by any of its words.
+- mapped: before the first query, the reply says which Tables are the sources and which the
+  finals, naming each source Table of sample rows and each final;
+- named: the reply's words, outside its code, name each refused piece, each mark and each
+  thing left alone that the task lists, by any of its words.
 
 An answer passes when it is correct, mapped and named, and invents no name: every table,
-database and column it names without `<...>` is in the workbook, or is a name its own query
-defines. The Toolbox draft, the last Python block, is scored apart and decides nothing: whether
+database and column it names without `<...>` is one the workbook gives (a Table, a header, a
+query, a name its M quotes, a defined name or a Parameter), or one its own query defines; a
+database it writes itself, as `ops.job_runs` where the workbook names no `ops`, is a guess. The Toolbox draft, the last Python block, is scored apart and decides nothing: whether
 there is one, whether it parses once its `<...>` are filled, and the Toolbox names it invents.
 
 The stand-in Hive is SQLite, which Python has, holding the Example database's tables in a
@@ -135,7 +136,13 @@ SQL_LANGUAGES = ("sql", "hive", "hiveql", "hql")
 # aren't spaces, so `a < b AND c > d` is no placeholder.
 PLACEHOLDER = re.compile(r"<([^\s<>](?:[^<>\n]{0,58}[^\s<>])?)>")
 DATABASE_PLACEHOLDER = re.compile(PLACEHOLDER.pattern + r"(?=\s*\.)")
-FILLED_DATABASE = "ops"
+# A `<database>` the person filled in, told apart from a database the reply wrote itself; the
+# stand-in Hive then reads every table from `ops`.
+FILLED_DATABASE = "filled_in_database"
+STAND_IN_DATABASE = "ops"
+# In Power Query M: a name in quotes, and one in square brackets, each read apart, as a
+# bracket may hold quotes: [Schema = "ops", Item = "job_runs"].
+M_NAMES = (re.compile(r'"([^"\n]+)"'), re.compile(r"\[([^\[\]\n\"]+)\]"))
 
 
 def blocks(reply: str, languages: tuple[str, ...]) -> list[str]:
@@ -180,17 +187,27 @@ def _defined(query: exp.Query) -> set[str]:
                if node.alias})
 
 
-def resolved(query: exp.Query, task: ExcelTask, text: str, placed: set[str]
-             ) -> tuple[str, list[str]]:
+def workbook_names(task: ExcelTask) -> set[str]:
+    """Every name the workbook gives, squashed: its Tables' and their headers, its queries'
+    and each name their M quotes or brackets, its defined names, and its Parameters'."""
+    workbook = task.workbook
+    names = {name for table in workbook.tables for name in (table.name, *table.headers)}
+    names |= {name for name, _ in (*workbook.queries, *workbook.defined_names,
+                                   *workbook.parameters)}
+    names |= {name for _, m in workbook.queries
+              for pattern in M_NAMES for name in pattern.findall(m)}
+    return {squashed(name) for name in names}
+
+
+def resolved(query: exp.Query, task: ExcelTask, placed: set[str]) -> tuple[str, list[str]]:
     """A query as the stand-in Hive runs it, each table in `ops` and each workbook name the
-    Hive's, and each name it invents: one that isn't in the workbook, isn't one the person
-    filled in, and isn't the query's own."""
+    Hive's, and each name it invents: one the workbook doesn't give, the person didn't fill in
+    and the query doesn't define."""
     names = {squashed(given): hive for given, hive in task.names.items()}
-    in_the_workbook = squashed(text)
-    own = _defined(query) | {squashed(name) for name in placed}
+    given = workbook_names(task) | _defined(query) | {squashed(name) for name in placed}
 
     def known(name: str) -> bool:
-        return squashed(name) in own or squashed(name) in in_the_workbook
+        return squashed(name) in given
 
     invented = []
     ctes = {cte.alias for cte in query.find_all(exp.CTE)}
@@ -201,7 +218,7 @@ def resolved(query: exp.Query, task: ExcelTask, text: str, placed: set[str]
             continue
         if not known(table.name):
             invented.append(table.name)
-        table.set("db", exp.to_identifier(FILLED_DATABASE))
+        table.set("db", exp.to_identifier(STAND_IN_DATABASE))
         table.set("this", exp.to_identifier(names.get(squashed(table.name), table.name)))
     for column in query.find_all(exp.Column):
         if not known(column.name) and column.name not in invented:
@@ -266,7 +283,8 @@ def rows_of(hive: sqlite3.Connection, sql: str) -> list[tuple[object, ...]]:
                   key=repr)
 
 
-def reference_rows(hive: sqlite3.Connection, task: ExcelTask) -> dict[str, list[tuple]]:
+def reference_rows(hive: sqlite3.Connection, task: ExcelTask
+                   ) -> dict[str, list[tuple[object, ...]]]:
     """Each final Table's reference rows, by its name."""
     return {name: rows_of(hive, sqlglot.transpile(sql, read="hive", write="sqlite")[0])
             for name, sql in task.finals.items()}
@@ -295,10 +313,19 @@ class ExcelScore:
         return self.correct and self.mapped and not self.unnamed and not self.invented
 
 
-def _mapped(reply: str, task: ExcelTask) -> bool:
+def sources(task: ExcelTask) -> list[str]:
+    """The workbook's Tables of sample rows from a database table: each Table no query loads
+    that isn't a summary, whose rows are what it groups by."""
+    return [table.name for table in task.workbook.tables
+            if not table.loaded_by and not table.rows.startswith("SELECT DISTINCT")]
+
+
+def names_sources_and_finals(reply: str, task: ExcelTask) -> bool:
+    """Whether the reply's map, before its first query, says which Tables are the sources and
+    which the finals, naming each."""
     before = BLOCK.split(reply, maxsplit=1)[0].lower()
     return ("source" in before and "final" in before
-            and all(name.lower() in before for name in task.finals))
+            and all(name.lower() in before for name in [*sources(task), *task.finals]))
 
 
 def _draft(reply: str) -> str:
@@ -314,24 +341,23 @@ def _draft(reply: str) -> str:
 
 
 def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
-          expected: dict[str, list[tuple]]) -> ExcelScore:
+          expected: dict[str, list[tuple[object, ...]]]) -> ExcelScore:
     """One answer, scored check by check against the reference rows of each final Table."""
-    result = ExcelScore(task.id, mapped=_mapped(reply, task), draft=_draft(reply))
-    lowered = reply.lower()
+    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task), draft=_draft(reply))
+    prose = BLOCK.sub("", reply).lower()
     result.unnamed = [group[0] for group in (*task.refused, *task.marks, *task.ignored)
-                      if not any(word.lower() in lowered for word in group)]
+                      if not any(word.lower() in prose for word in group)]
     code = blocks(reply, SQL_LANGUAGES)
     result.found = bool(code)
     if not code:
         result.note = "no SQL block"
         return result
-    text = as_text(task.workbook)
     got = []
     try:
         for sql in code:
             sql, placed = filled(sql, task)
             for query in queries(sql):
-                runnable, invented = resolved(query, task, text, placed)
+                runnable, invented = resolved(query, task, placed)
                 result.invented += [name for name in invented if name not in result.invented]
                 got.append(runnable)
     except sqlglot.errors.ParseError as error:
