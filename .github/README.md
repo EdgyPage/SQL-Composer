@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-29 08:45 - generated from dev, do not edit -->
+<!-- sqlglot Composer 7.2, exported 2026-10-29 11:20 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-29 08:45.
+This is version 7.2, exported 2026-10-29 11:20.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
@@ -430,16 +430,19 @@ cell or a Conversion. Open a new chat, paste the one file for what you want to d
 first message, then ask, giving the import line and columns of each table to read.
 `copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
 takes at once, spaces and line breaks included; `copilot/count_characters.py` counts a
-copy you edit. Run what Copilot gives you as you would your own code: the Toolbox still
-refuses what would give a wrong number.
+copy you edit. `copilot/all_in_one/all_copilot_files.txt` holds every file in one document,
+for reading or searching them together, not for Copilot: it is many times the 8,000
+characters, so in Copilot paste or attach the separate files. Run what Copilot
+gives you as you would your own code: the Toolbox still refuses what would give a wrong number.
 
-To hand over an Excel workbook's calculations, one chat holds four files:
+To hand over an Excel workbook's calculations, one chat holds five files:
 
 1. Copy `copilot/formula_workbook.xlsx` and follow its Steps sheet to move the data and
    formulas in.
 2. In a new chat, attach `copilot/03_build_a_statement.txt`, `04_joins.txt`,
-   `05_windows_and_subtotals.txt` and `11_excel_formula_workbooks.txt` (or paste each as a
-   message of its own), then attach your workbook and send "Convert this workbook".
+   `05_windows_and_subtotals.txt`, `11_excel_formula_workbooks.txt` and
+   `12_excel_power_query.txt` (or paste each as a message of its own), then attach your
+   workbook and send "Convert this workbook".
 3. Copilot answers with a map: which Tables are sources, the samples of your database's
    tables, and which are finals, each becoming a query. Check every Table you expected is
    there.
@@ -506,7 +509,7 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 Write Hive SQL as Python, one clause function per SQL clause.
 
 - `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 08:45'` - the full text, which also says when this copy was exported.
+- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 11:20'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
