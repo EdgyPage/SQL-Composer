@@ -44,6 +44,11 @@ page, `external_references`: a source, a stylesheet, a fetch, a form, a link off
 meta refresh), and a script that runs text as code (`eval`, `new Function`, `setTimeout` given a
 string).
 
+A workbook (`.xlsx`, `.xlsm`) is opened as the zip it is and its parts read, never run, for what
+Excel would run or fetch: a macro, an embedded object or control, or a macro-enabled workbook is
+dynamic code; a data connection, a query table, a Power Query, a link to another workbook, or any
+link out of it is network.
+
 What is allowed depends on the folder, strictest first:
 
 - **user-copied code** (`example_projects/`, `worked_examples/`, `copilot/`): nothing at all,
@@ -76,6 +81,7 @@ import os
 import re
 import sys
 import tokenize
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
@@ -152,7 +158,8 @@ NOT_READ = frozenset({".git", ".scratch", "__pycache__", ".pytest_cache", ".ruff
 # A `.pyw` is a Python file that Windows runs without a console, and imports like a `.py`.
 PYTHON_FILES = (".py", ".pyw")
 PAGE_FILES = (".html", ".htm", ".js", ".mjs")
-READ_FILES = PYTHON_FILES + PAGE_FILES + (".ipynb",)
+WORKBOOK_FILES = (".xlsx", ".xlsm")
+READ_FILES = PYTHON_FILES + PAGE_FILES + WORKBOOK_FILES + (".ipynb",)
 
 
 @dataclass(frozen=True)
@@ -355,7 +362,50 @@ def findings_in(text: str, path: str, allowed: tuple[Allowed, ...] = ALLOWED) ->
     is allowed, and its suffix how the text is read. A file of any other kind has no findings.
     """
     path = _repo_path(path)
-    found = _found(text, path)
+    return _not_allowed(_found(text, path), path, allowed)
+
+
+def workbook_findings(data: bytes, path: str, allowed: tuple[Allowed, ...] = ALLOWED
+                      ) -> list[Finding]:
+    """Each part of a workbook's bytes, read as the file at `path` in the repo, that Excel would
+    run or that reaches outside the workbook, which `allowed` doesn't cover."""
+    path = _repo_path(path)
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as workbook:
+            parts = {name: workbook.read(name) for name in workbook.namelist()}
+    except zipfile.BadZipFile:
+        return [Finding(path, 0, "unreadable", "it doesn't open as a workbook, which is a zip")]
+    found = [Finding(path, 0, kind, f"{name}: {what}", name=name)
+             for name, part in parts.items() for kind, what in _part_findings(name, part)]
+    return _not_allowed(found, path, allowed)
+
+
+def _part_findings(name: str, part: bytes) -> list[tuple[str, str]]:
+    """Each (kind, what) one part of a workbook is a finding of."""
+    text = part.decode("utf-8", errors="replace")
+    if name.lower().endswith("vbaproject.bin"):
+        return [("dynamic code", "a macro project, code Excel runs")]
+    if name.startswith(("xl/embeddings/", "xl/activeX/")):
+        return [("dynamic code", "an embedded object or control, which can run code")]
+    if name == "[Content_Types].xml" and "macroEnabled" in text:
+        return [("dynamic code", "a macro-enabled workbook")]
+    if name == "xl/connections.xml":
+        return [("network", "a data connection, which fetches data from outside the workbook")]
+    if name.startswith("xl/queryTables/"):
+        return [("network", "a query table, which a data connection fills")]
+    if name.startswith("xl/externalLinks/"):
+        return [("network", "a link to another workbook")]
+    if name.startswith("customXml/") and "DataMashup" in text:
+        return [("network", "a Power Query, which can fetch data from outside the workbook")]
+    if name.endswith(".rels") and 'TargetMode="External"' in text:
+        return [("network", "a link out of the workbook")]
+    return []
+
+
+def _not_allowed(found: list[Finding], path: str, allowed: tuple[Allowed, ...]
+                 ) -> list[Finding]:
+    """The findings in the file at `path` that `allowed` doesn't cover: all of them in
+    user-copied code."""
     if scope_of(path) == "user-copied":
         return found
     return [finding for finding in found if not any(entry.matches(finding) for entry in allowed)]
@@ -791,7 +841,9 @@ def scan(root: Path = ROOT, paths: list[str | Path] | None = None,
     `root`, or absolute), that `allowed` doesn't cover."""
     found = []
     for file in _files(root, paths):
-        if file.is_file():
+        if file.is_file() and file.name.lower().endswith(WORKBOOK_FILES):
+            found += workbook_findings(file.read_bytes(), _path_from(root, file), allowed)
+        elif file.is_file():
             found += findings_in(_text(file), _path_from(root, file), allowed)
         else:
             found.append(Finding(_path_from(root, file), 0, "unreadable",

@@ -306,3 +306,62 @@ def test_the_command_line_prints_each_finding_and_fails(
     clean = tmp_path / "clean.py"
     clean.write_text("import json\n", encoding="utf-8")
     assert offline_policy.main(["offline_policy.py", str(clean)]) == 0
+
+
+# --- A workbook ------------------------------------------------------------------------------------
+
+WORKBOOK_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+MACRO_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.main+xml"
+
+
+def workbook(tmp_path: Path, parts: dict[str, str | bytes], main_type: str = WORKBOOK_TYPE,
+             path: str = "copilot/w.xlsx") -> Path:
+    """A workbook at `path` under `tmp_path`, holding the parts every workbook has and `parts`."""
+    import zipfile
+    file = tmp_path / path
+    file.parent.mkdir(parents=True, exist_ok=True)
+    types = (f'<Types><Override PartName="/xl/workbook.xml" ContentType="{main_type}"/>'
+             "</Types>")
+    with zipfile.ZipFile(file, "w") as written:
+        written.writestr("[Content_Types].xml", types)
+        written.writestr("xl/workbook.xml", "<workbook><sheets/></workbook>")
+        for name, data in parts.items():
+            written.writestr(name, data)
+    return file
+
+
+def test_a_workbook_that_reaches_nothing_has_no_findings(tmp_path: Path) -> None:
+    workbook(tmp_path, {"xl/worksheets/sheet1.xml": "<worksheet/>",
+                        "xl/tables/table1.xml": '<table name="Keys" ref="A1:B2"/>'})
+    assert scan(tmp_path) == []
+
+
+@pytest.mark.parametrize(("parts", "main_type", "kind"), [
+    ({"xl/vbaProject.bin": b"Attribute VB_Name"}, WORKBOOK_TYPE, "dynamic code"),
+    ({}, MACRO_TYPE, "dynamic code"),
+    ({"xl/embeddings/oleObject1.bin": b"x"}, WORKBOOK_TYPE, "dynamic code"),
+    ({"xl/activeX/activeX1.xml": "<ax/>"}, WORKBOOK_TYPE, "dynamic code"),
+    ({"xl/connections.xml": "<connections/>"}, WORKBOOK_TYPE, "network"),
+    ({"xl/queryTables/queryTable1.xml": "<queryTable/>"}, WORKBOOK_TYPE, "network"),
+    ({"xl/externalLinks/externalLink1.xml": "<externalLink/>"}, WORKBOOK_TYPE, "network"),
+    ({"customXml/item1.xml": "<DataMashup/>"}, WORKBOOK_TYPE, "network"),
+    ({"xl/worksheets/_rels/sheet1.xml.rels":
+      '<Relationships><Relationship Id="rId1" Target="https://example.com" '
+      'TargetMode="External"/></Relationships>'}, WORKBOOK_TYPE, "network"),
+])
+def test_a_workbook_with_a_macro_a_connection_or_a_link_out_is_found(
+        tmp_path: Path, parts: dict[str, str | bytes], main_type: str, kind: str) -> None:
+    workbook(tmp_path, parts, main_type)
+    found = scan(tmp_path)
+    assert [finding.kind for finding in found] == [kind]
+    assert found[0].path == "copilot/w.xlsx"
+
+
+def test_a_workbook_is_read_in_any_folder(tmp_path: Path) -> None:
+    workbook(tmp_path, {"xl/connections.xml": "<connections/>"}, path="tools/w.xlsx")
+    assert [finding.kind for finding in scan(tmp_path)] == ["network"]
+
+
+def test_a_workbook_that_isnt_one_cant_be_read(tmp_path: Path) -> None:
+    (tmp_path / "w.xlsx").write_bytes(b"not a zip")
+    assert [finding.kind for finding in scan(tmp_path)] == ["unreadable"]

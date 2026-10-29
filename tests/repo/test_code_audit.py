@@ -191,3 +191,21 @@ def test_the_command_line_prints_each_finding_and_fails(
     (tmp_path / "x.md").write_text(f"a{RLO}\n", encoding="utf-8")
     assert code_audit.main(["code_audit.py", "--root", str(tmp_path)]) == 1
     assert "x.md:1 hidden text" in capsys.readouterr().out
+
+
+def test_a_workbook_is_read_part_by_part(tmp_path: Path) -> None:
+    import zipfile
+    with zipfile.ZipFile(tmp_path / "w.xlsx", "w") as written:
+        written.writestr("xl/sharedStrings.xml", f"<sst><si><t>a{RLO}</t></si></sst>")
+        written.writestr("xl/worksheets/sheet1.xml", f"<worksheet>{BLOB}</worksheet>")
+    found = code_audit.audit(tmp_path, audited=())
+    assert sorted((finding.path, finding.kind) for finding in found) == [
+        ("w.xlsx/xl/sharedStrings.xml", "hidden text"),
+        ("w.xlsx/xl/worksheets/sheet1.xml", "encoded payload")]
+
+
+def test_a_clean_workbook_is_not_found(tmp_path: Path) -> None:
+    import zipfile
+    with zipfile.ZipFile(tmp_path / "w.xlsx", "w") as written:
+        written.writestr("xl/workbook.xml", "<workbook/>")
+    assert code_audit.audit(tmp_path, audited=()) == []

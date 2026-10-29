@@ -91,7 +91,10 @@ COPIED = (EXAMPLE_PROJECTS, COPILOT)
 # The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
 # its registry and its Reference sheet, and admin/project_version.txt, read from its first line;
 # and a Conversion's original.hql, kept exactly as the Hive was given.
-UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql")
+UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx")
+# The copies that aren't text: the Formula workbook template, which main can't rebuild, since
+# openpyxl, which builds it, is dev's alone.
+BINARY = (".xlsx",)
 # The how-tos, which how_to.html is written from, and which the README lists.
 HOW_TOS = "worked_examples/how_to"
 HOW_TOS_MARKER = "<!-- HOW-TOS -->"
@@ -437,13 +440,17 @@ def copied_files(folder: Path) -> list[str]:
 def build_copies(source: Path, into: Path, stamp: str) -> None:
     """Write the Example projects and the Copilot files into `into`, at dev's paths, stamped. A
     notebook or a CSV file has no comment to hold a stamp, and a Copilot file is counted
-    character by character, so each is copied as it is."""
+    character by character, so each is copied as it is, and the Formula workbook template,
+    which isn't text, byte for byte."""
     for folder in COPIED:
         for relative in copied_files(source / folder):
             where = f"{folder}/{relative}"
-            text = (source / folder / relative).read_text(encoding="utf-8")
             target = into / folder / relative
             target.parent.mkdir(parents=True, exist_ok=True)
+            if relative.endswith(BINARY):
+                target.write_bytes((source / folder / relative).read_bytes())
+                continue
+            text = (source / folder / relative).read_text(encoding="utf-8")
             if not relative.endswith(UNSTAMPED):
                 text = stamped(where, text, stamp)
             target.write_text(text, encoding="utf-8", newline="\n")
