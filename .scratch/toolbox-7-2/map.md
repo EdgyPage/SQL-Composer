@@ -255,6 +255,10 @@ asks, though all three touch CHANGES.md.
   `copilot/11_excel_formula_workbooks.txt`, loaded with 03, 04 and 05; the map first, Hive
   per final with `<...>`, refused formulas as NULL, then Toolbox code for `project.convert`
   to check.
+- [19 File 11 reaches the clauses Excel has a clean source for](issues/19-file-11-more-clauses.md):
+  HAVING, every JoinKind (RightOuter as a swapped LEFT JOIN), UNION, MINIFS, SUMIF, COUNTIF,
+  AVERAGEIF and RANK.EQ; X41 to X50; Haiku and Sonnet 100% on held-out with the file, 0%
+  without; splitting file 11 in two is the user's offer for when it next grows.
 
 ## Not yet specified
 

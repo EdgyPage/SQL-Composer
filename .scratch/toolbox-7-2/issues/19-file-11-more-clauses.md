@@ -41,3 +41,60 @@ stay out; INSERT is file 06's.
   the drift review are clean; CI passes; exported to main again.
 
 ## Answer
+
+Built 2026-10-29.
+
+**Tasks first.** X41 to X50 (6c805c8) were committed before file 11 changed (a596632): 5 dev, 5
+held out, each new kind in each split: `rank`, `minifs`, `single_ifs`, and `m_having`,
+`m_min_average`, `m_inner_join`, `m_right_join`, `m_full_join`, `m_anti_join`, `m_union`,
+`m_distinct`. RANK.EQ is held with Excel's `_xlfn.` prefix. Every new reference runs on the
+stand-in Hive and on the Example database's executor alike.
+
+**File 11** maps each, at 7,992 characters with Windows line breaks. To fit, its names list
+keeps only `first_match`, since file 03, loaded with it, lists `derived`, `if_else` and
+`fill_null`; the M paragraph names List.Min and List.Average as "so too Max, Min and Average";
+and step 5 no longer shows `WITH step AS (...)`. A RightOuter is written as a LEFT JOIN with
+the tables swapped, as `project.convert` reads no RIGHT JOIN and `RIGHT_JOIN` refuses one;
+the references for X44 and X49 keep RIGHT JOIN, which gives the same rows.
+
+**Rounds** (`.scratch/copilot-eval/results.md`):
+
+| run | files | passed |
+|---|---|---|
+| dev round 1, Haiku C | a596632 | 84: X05, X43, X44, X45 put two finals' queries in one sql block with no `;` |
+| dev round 2, Haiku C, after a sql block per final (67b7e92) | 67b7e92 | 100 |
+| dev check, Haiku C, after the reviews' fixes and X41's second condition | 61c9ca2 | 100 |
+| held-out, Haiku A0 / C | none / 61c9ca2 | 0 / 100 |
+| held-out, Sonnet A0 / C | none / 61c9ca2 | 0 / 100 |
+
+Every ticket 18 threshold holds: Haiku and Sonnet C 100%, Haiku C +100 over A0, every
+typed-over value reproduced, nothing refused guessed, no name invented. Without file 11, both
+models gave the right rows for all five new held-out workbooks but X50 (Haiku): the new
+clauses aren't hard for them; what they miss is the map, as before.
+
+**Reviews.**
+
+- Standards (sonnet): no hard violation. Taken: the worked example's comment on
+  `reads_all_partitions` is back (`# every row`), and "inside Table.Distinct, UNION" reads
+  more plainly. The tasks' repeated SQL follows X01 to X40, and the repo's "no abstraction"
+  rule keeps it.
+- Spec (sonnet): nothing missing. Taken: HAVING repeats the aggregate, as Hive may not read a
+  SELECT alias there; SUMIF, AVERAGEIF and COUNTIF each show their arguments. Answered: Excel
+  ranks ascending for any nonzero third argument, and file 11 shows 1, the one people write;
+  `Table.Distinct(t, {"col"})`, one row per listed column, is neither mapping, so it is
+  refused as anything unlisted is.
+- Beginner reader (opus): its costliest stop was a real bug. The own-Table SUMIFS form ended
+  `ELSE 0`, so MINIFS, MAXIFS or AVERAGEIFS written the same way counted a row failing another
+  condition as 0. It now ends `END`, either form takes COALESCE(.., 0), and AVERAGEIFS is left
+  NULL (61c9ca2); dev X41's MINIFS gained a second condition to hold it (df822e4). Also taken,
+  at no length: "a non-workbook source" is converted and only "any web source" refused;
+  JoinKind maps with colons; "an -IF(S) form"; "filter to the sample's dates"; "its checked
+  code wins". Not taken, for want of room: `[@x]` in RANK.EQ's example, and a note on ranking
+  a calculated column.
+- Drift: 6c805c8, a596632, 67b7e92 and 61c9ca2 clean.
+
+The user offered (2026-10-29) to let file 11 grow and split in two if that helps; not needed
+while it passes, and the place for the next addition: formulas in one file, Power Query M in
+the other.
+
+**Left:** push dev, CI on it, then export to main as 7.2 again.
