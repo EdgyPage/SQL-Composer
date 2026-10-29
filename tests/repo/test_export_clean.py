@@ -129,7 +129,9 @@ def test_a_file_line_that_repeats_its_only_name_line_is_left_out(clean: Path) ->
 COPIED = ["example_projects", "copilot"]
 # The copies with no comment syntax for a stamp, and a Conversion's original.hql, kept as the
 # Hive was given, which main holds as dev does.
-UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql")
+UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx")
+# The copies that aren't text, the Formula workbook template: main holds dev's bytes.
+BINARY = (".xlsx",)
 
 
 def copied_files(folder: str) -> list[str]:
@@ -454,6 +456,10 @@ def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
 def test_below_the_stamp_each_copy_is_devs_own(clean: Path) -> None:
     for folder in COPIED:
         for relative in copied_files(folder):
+            if relative.endswith(BINARY):
+                assert ((clean / folder / relative).read_bytes()
+                        == (ROOT / folder / relative).read_bytes()), relative
+                continue
             exported = (clean / folder / relative).read_text(encoding="utf-8")
             if not relative.endswith(UNSTAMPED):
                 exported = exported.split("\n", 1)[1]

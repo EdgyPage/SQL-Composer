@@ -32,6 +32,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT), str(ROOT / "copilot")]
 
 import count_characters  # noqa: E402
+import formula_workbook  # noqa: E402
 import toolbox_registry  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
@@ -122,12 +123,12 @@ def copilot_files() -> dict[str, str]:
 
 
 def main() -> int:
-    """Write every Copilot file into copilot/."""
+    """Write every Copilot file into copilot/, and the Formula workbook template."""
     files = copilot_files()
     for name, text in files.items():
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {len(files)} Copilot files in copilot/.")
-    return 0
+    return formula_workbook.main()
 
 
 if __name__ == "__main__":

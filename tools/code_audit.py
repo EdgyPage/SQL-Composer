@@ -7,7 +7,8 @@ tracker's notes in `.scratch/` among them:
 - **hidden text:** a character that shows nothing or shows something else: bidi controls,
   zero-width characters, NUL and the other control characters besides tab and line ends, and a
   Cyrillic or Greek letter inside a word of Latin ones, which looks like the Latin letter;
-- **not UTF-8:** a file that doesn't read as UTF-8 text;
+- **not UTF-8:** a file that doesn't read as UTF-8 text; a workbook (`.xlsx`, `.xlsm`) is a zip,
+  so each part inside it is read as a file of its own, at `<workbook>/<part>`;
 - **encoded payload:** a long run of base64, hex or `\\x..` escapes, which could hold code to
   decode and run, and, in Python, a decoder: `base64`, `binascii`, `zlib`, `gzip`, `bz2`,
   `lzma`, `codecs.decode`, `bytes.fromhex`;
@@ -42,11 +43,13 @@ reviewed sites, to check a sample.
 from __future__ import annotations
 
 import ast
+import io
 import json
 import os
 import re
 import sys
 import unicodedata
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -158,15 +161,30 @@ def read_files(root: Path) -> list[Path]:
 def findings_in_file(root: Path, file: Path) -> list[Finding]:
     path = file.relative_to(root).as_posix()
     data = file.read_bytes()
+    if file.suffix.lower() in offline_policy.WORKBOOK_FILES and zipfile.is_zipfile(file):
+        return workbook_findings(root, data, path)
+    return findings_in_text(root, data, path, file.suffix)
+
+
+def workbook_findings(root: Path, data: bytes, path: str) -> list[Finding]:
+    """Each finding in a workbook's parts, each read as a file at `<path>/<part>`. The offline
+    policy reads the same parts for what Excel would run or fetch."""
+    with zipfile.ZipFile(io.BytesIO(data)) as workbook:
+        return [finding for name in workbook.namelist()
+                for finding in findings_in_text(root, workbook.read(name), f"{path}/{name}",
+                                                Path(name).suffix)]
+
+
+def findings_in_text(root: Path, data: bytes, path: str, suffix: str) -> list[Finding]:
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError as error:
         return [Finding(path, data.count(b"\n", 0, error.start) + 1, "not UTF-8",
                         f"byte {data[error.start]:#04x} doesn't read as UTF-8")]
     found = hidden_text(text, path) + encoded_runs(text, path)
-    if file.suffix == ".py":
+    if suffix == ".py":
         found += python_findings(text, path)
-    if file.suffix == ".ipynb":
+    if suffix == ".ipynb":
         found += notebook_findings(text, path)
     found += config_findings(root, text, path)
     return found

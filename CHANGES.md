@@ -113,6 +113,10 @@ Toolbox's version in one place, its folder's `version.txt`, in place of a line i
   such as building a Statement, joins, saving a table, converting Hive or fixing a refusal,
   and `00_start_here.txt`, which says which to load. Paste one as a chat's first message, then
   ask. `copilot/count_characters.py` counts a copy you edit, spaces and line breaks included.
+- **A Formula workbook template, `copilot/formula_workbook.xlsx`.** An Excel workbook to move a
+  spreadsheet's data and formulas into, so Copilot can read them as SQL: a sheet of steps, and
+  two empty Tables, `Parameters` for fixed values and `Keys` for a Table where a value was
+  typed over a formula.
 - **sqlglot 30.19.0 or newer, below 31.** The Example database already needed 30.19.0 or
   newer to run queries; now the whole Toolbox does. The Hive it writes is the same as 7.1
   wrote on those versions.
