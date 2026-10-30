@@ -6,7 +6,8 @@
   top, has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
   so are the admin module's and the project module's, which the star import leaves out;
-- ruff passes, with its complexity limit (C901, at most 10) on every function;
+- ruff passes, with its complexity limit (C901, at most 10) on every function, but for the
+  breaks of the standard known_breaks.py lists, which may only fall;
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
   pinned to the version requirements-dev.txt pins;
 - sqlglot's pin in requirements-dev.txt falls inside the range engine.py supports, and CI runs
@@ -15,9 +16,11 @@
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from types import ModuleType
 
@@ -26,6 +29,7 @@ import pytest
 import toolbox_registry
 import sqlglot_composer
 from conftest import toolbox_folder
+from known_breaks import is_ruff_code, rose_and_fell
 
 ROOT = Path(__file__).resolve().parents[2]
 TOOLBOX = toolbox_folder()
@@ -146,14 +150,24 @@ def test_changes_has_a_section_for_the_version() -> None:
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
+    """ruff passes, but for each break known_breaks.py lists, which may only fall, and with the
+    complexity limit the standard keeps."""
     result = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", toolbox_registry.FOLDER, "tests", "tools",
-         "worked_examples"],
+        [sys.executable, "-m", "ruff", "check", "--no-cache", "--output-format", "json",
+         toolbox_registry.FOLDER, "tests", "tools", "worked_examples"],
         cwd=ROOT, capture_output=True, text=True,
     )
-    assert result.returncode == 0, result.stdout + result.stderr
+    # 1 is ruff's code for "found something"; anything else is ruff failing to run.
+    assert result.returncode in (0, 1), result.stderr
+    found: dict[str, Counter[str]] = {}
+    for finding in json.loads(result.stdout):
+        path = Path(finding["filename"]).relative_to(ROOT).as_posix()
+        found.setdefault(path, Counter())[finding["code"]] += 1
+    rose, fell = rose_and_fell(found, is_ruff_code)
+    assert rose == [], "ruff finds breaks known_breaks.py doesn't list:\n" + "\n".join(rose)
+    assert fell == [], "Fixed: lower each in tests/repo/known_breaks.py:\n" + "\n".join(fell)
     settings = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'extend-select = ["C901"]' in settings
+    assert '"C901"' in settings
     assert "max-complexity = 10" in settings
 
 

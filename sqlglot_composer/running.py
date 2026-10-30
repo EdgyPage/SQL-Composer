@@ -573,7 +573,6 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
         logged_run("Admin statement", s._admin_call, to_hive(s), execute)
     else:
         send_logged(s, to_hive(s), execute)
-    return None
 
 
 def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object],

@@ -588,10 +588,8 @@ class Table:
         self._key = _names(key, "key") or None
         self._does_not_add_up = _names(does_not_add_up, "does_not_add_up")
         self._statement = None
-        self._not_adding_up_because = {
-            column: "listed in does_not_add_up in its Table reference"
-            for column in self._does_not_add_up
-        }
+        self._not_adding_up_because = dict.fromkeys(
+            self._does_not_add_up, "listed in does_not_add_up in its Table reference")
         self._partitioned_by = _names(partitioned_by, "partitioned_by")
         self._bucketed_by = _names(bucketed_by, "bucketed_by")
         self._sorted_by = _names(sorted_by, "sorted_by")

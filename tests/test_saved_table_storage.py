@@ -290,7 +290,7 @@ def formatted(location: str | None = "hdfs://namenode:8020/data/your_team/mart.d
     """A stand-in for `query` at work, holding mart.daily_runs, or `name`, as DESCRIBE
     FORMATTED describes it, printed the way `way` names (by default Hive 3's), at
     `location`, or listing none when it is None."""
-    columns = {"job_id": "bigint", "runs": "bigint", **{column: "string" for column in partitions}}
+    columns = {"job_id": "bigint", "runs": "bigint", **dict.fromkeys(partitions, "string")}
     return StandIn(Description(
         name, columns, partitioned_by=list(partitions), location=location, managed=managed,
         stored_as=stored_as, buckets=buckets, bucketed_by=list(bucketed_by),
