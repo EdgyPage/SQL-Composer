@@ -39,7 +39,11 @@ add Copilot file 11, which has Copilot turn a Formula workbook into Hive (ticket
 its Power Query and totals into file 12), and an empty
 Formula workbook to copy, built on dev with `openpyxl`, which only dev installs, with filled-in
 examples in `copilot/examples/` that `tools/formula_workbook_examples.py` builds; its own
-evaluation, `tools/excel_eval.py`, is run as the same doc's Excel section says.
+evaluation, `tools/excel_eval.py`, is run as the same doc's Excel section says. Toolbox 8.0 (a
+coding standard, a refactor of the Toolbox and `tools/` to it with no version raise, then
+Workflows: Conversions of many scripts into the user's Dev Database, Promotion to their Prod
+Database, and every Project action taking one or many) is charted through
+`.scratch/toolbox-8/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
