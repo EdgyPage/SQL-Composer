@@ -39,6 +39,7 @@ import pytest
 
 import toolbox_registry as registry
 import offline_trap
+import snapshot_recorder
 
 # Only the hints name these: the Toolbox is imported through toolbox_module(), after the
 # offline trap is in place, so its import self-check runs in its turn.
@@ -308,3 +309,24 @@ def admin_log_where_it_starts(tmp_path_factory: pytest.TempPathFactory) -> Itera
     toolbox_module().set_admin_log(tmp_path_factory.mktemp("admin_log") / "admin_log.md")
     yield
     toolbox_module().set_admin_log()
+
+
+@pytest.fixture(scope="session")
+def snapshot_known(tmp_path_factory: pytest.TempPathFactory) -> Iterator[set[str]]:
+    """The snapshot's hashes, read once, with the recorder in place for the whole run; and, when
+    SNAPSHOT_WRITE=1 is set, known.txt written as the run made it (snapshot_recorder.py)."""
+    snapshot_recorder.install(toolbox_module, str(tmp_path_factory.getbasetemp()))
+    yield snapshot_recorder.known_hashes()
+    if snapshot_recorder.WRITING:
+        snapshot_recorder.write_known()
+
+
+@pytest.fixture(autouse=True)
+def nothing_a_user_sees_changed(snapshot_known: set[str]) -> Iterator[None]:
+    """Each test makes only Hive, messages, reports and rows the snapshot knows (Toolbox 8.0,
+    ticket 02)."""
+    yield
+    unknown = snapshot_recorder.unknown_texts(snapshot_known)
+    if unknown:
+        pytest.fail("The Toolbox showed what tests/snapshot/known.txt doesn't know:\n\n"
+                    + "\n\n".join(unknown[:3]), pytrace=False)

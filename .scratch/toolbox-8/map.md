@@ -271,6 +271,9 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   Simple over short, the job table (`shared.*`), names and plain expressions in standards.md;
   ruff adds E501, SIM, C4, RET and three PLR limits; the tree test and ruff count against
   `tests/repo/known_breaks.py`, by file and rule, which only shrinks; long lines wait for phase 2.
+- [02 The snapshot of every Hive string and refusal message](issues/02-the-snapshot.md): recorded
+  while the suite runs, at the four places the Toolbox makes text; `tests/snapshot/known.txt`
+  holds 4,399 hashes, and `SNAPSHOT_WRITE=1` writes it, a deliberate act.
 
 ## Not yet specified
 
