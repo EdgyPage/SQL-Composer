@@ -49,3 +49,28 @@ list and keep it in step. It costs no measurable time.
 `show_hive` isn't wrapped. It reads its caller's variable names from the calling frame, so a
 wrapper breaks it. Its Hive is recorded through `sql_text`, and its headings are pinned by
 `tests/test_show_hive.py`.
+
+Reviews:
+- **Standards (sonnet).** Taken: names that say what they hold or do
+  (`texts_made_by_this_test`, `recorded_function`, `take_unknown_texts`, `package`), a true
+  hint for the rows, and one way to record what a class prints, used for both
+  `ProjectReport` and `Verdict`. Not taken: the module's lists are shared state, which is what
+  a recorder is.
+- **Spec (sonnet).** Taken:
+  - `show_hive`'s whole printed text is recorded, through `print` as the `running` module calls
+    it, so headings, Session settings, Unchecked statements and Python steps are covered;
+  - `check_key`'s and the comparisons' `Verdict`s are recorded;
+  - times and memory addresses are written as placeholders only in prose (messages, printed
+    text, reports), never in Hive or rows;
+  - `SNAPSHOT_WRITE=1` refuses unless the whole suite ran and passed;
+  - a whole run without it fails on a hash no test made, so a text that stopped appearing is
+    caught too.
+
+  Answered:
+  - Text a Project action writes into files (notebooks, Table references) is pinned by the
+    tests that read those files back, not by the snapshot.
+  - A copy of the Toolbox imported fresh in a subprocess is pinned by its own test's
+    assertions.
+
+  The snapshot was written again, now 4,653 hashes, from the same code as before, the commit
+  before ticket 03.
