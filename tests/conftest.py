@@ -312,21 +312,35 @@ def admin_log_where_it_starts(tmp_path_factory: pytest.TempPathFactory) -> Itera
 
 
 @pytest.fixture(scope="session")
-def snapshot_known(tmp_path_factory: pytest.TempPathFactory) -> Iterator[set[str]]:
-    """The snapshot's hashes, read once, with the recorder in place for the whole run; and, when
-    SNAPSHOT_WRITE=1 is set, known.txt written as the run made it (snapshot_recorder.py)."""
+def snapshot_known(request: pytest.FixtureRequest,
+                   tmp_path_factory: pytest.TempPathFactory) -> Iterator[set[str]]:
+    """The snapshot's hashes, read once, with the recorder in place for the whole run. At the
+    run's end, when it ran the whole suite and every test passed: with SNAPSHOT_WRITE=1 set,
+    known.txt is written as the run made it, and without it, a hash no test made fails the run,
+    since something a user saw is gone (snapshot_recorder.py)."""
     snapshot_recorder.install(toolbox_module, str(tmp_path_factory.getbasetemp()))
-    yield snapshot_recorder.known_hashes()
+    known = snapshot_recorder.known_hashes()
+    yield known
+    whole = snapshot_recorder.is_the_whole_suite(
+        request.config.args, request.config.option.keyword, request.config.option.markexpr,
+        request.session.testsfailed)
     if snapshot_recorder.WRITING:
+        if not whole:
+            pytest.fail("SNAPSHOT_WRITE=1 writes tests/snapshot/known.txt only from a run of "
+                        "the whole suite in which every test passed.", pytrace=False)
         snapshot_recorder.write_known()
+    elif whole and known - snapshot_recorder.hashes_made_in_this_run:
+        gone = len(known - snapshot_recorder.hashes_made_in_this_run)
+        pytest.fail(f"{gone} of tests/snapshot/known.txt's texts no test made: something the "
+                    "Toolbox showed its user is gone.", pytrace=False)
 
 
 @pytest.fixture(autouse=True)
 def nothing_a_user_sees_changed(snapshot_known: set[str]) -> Iterator[None]:
-    """Each test makes only Hive, messages, reports and rows the snapshot knows (Toolbox 8.0,
-    ticket 02)."""
+    """Each test makes only Hive, messages, printed text, reports and rows the snapshot knows
+    (Toolbox 8.0, ticket 02)."""
     yield
-    unknown = snapshot_recorder.unknown_texts(snapshot_known)
+    unknown = snapshot_recorder.take_unknown_texts(snapshot_known)
     if unknown:
         pytest.fail("The Toolbox showed what tests/snapshot/known.txt doesn't know:\n\n"
                     + "\n\n".join(unknown[:3]), pytrace=False)

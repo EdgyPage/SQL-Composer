@@ -1,26 +1,34 @@
 """The snapshot of what the Toolbox shows its user, held while Toolbox 8.0's refactor runs.
 
-Phase 2 changes nothing a user sees: no Hive, no refusal or warning message, no report a
-Project action prints, no rows the Example database gives. The suite pins much of that, but not
-all, so every test also records what the Toolbox makes at the four places it makes it:
+Phase 2 changes nothing a user sees: no Hive, no refusal or warning message, no text it prints,
+no report a Project action or a check gives, no rows the Example database gives. The suite pins
+much of that, but not all, so every test also records what the Toolbox makes, where it makes
+it:
 
 - `_four_part_message`, every refusal and warning message;
-- `writing.sql_text`, every Hive string, which `show_hive` prints too (it reads its caller's
-  variable names from the calling frame, so it isn't wrapped itself);
-- `ProjectReport`, every Project action's report;
+- `writing.sql_text`, every Hive string a Statement is written as;
+- `print`, as the `running` module calls it, every text `show_hive` prints, headings, Session
+  settings, Unchecked statements and Python steps included (show_hive itself isn't wrapped:
+  it reads its caller's variable names from the calling frame);
+- `ProjectReport` and `Verdict`, every Project action's report and every check's verdict, as
+  each prints;
 - `example_database.query`, every set of rows, as CSV.
 
-Each is kept as a short hash in `tests/snapshot/known.txt`, after the run's own temp folders,
-times and memory addresses are written as `<tmp>`, `<time>` and `<address>`. A test that makes
-one the file doesn't know fails, naming it: the refactor changed something a user sees.
+Each is kept as a short hash in `tests/snapshot/known.txt`. Before it is hashed, the run's temp
+folders are written as `<tmp>` everywhere; in a message, printed text or report, its times and
+memory addresses are written as `<time>` and `<address>` too, but never in Hive or rows, where a
+changed time would be a real change. A test that makes a text the file doesn't know fails,
+showing it. A run of the whole suite also fails on a hash no test made: something a user saw
+is gone.
 
 Writing the file again is a deliberate act, which its commit message says, never part of a
-refactor: run the whole suite with `SNAPSHOT_WRITE=1` set, and the file becomes what that run
-made.
+refactor: run the whole suite, every test passing, with `SNAPSHOT_WRITE=1` set. A run of part
+of the suite, or one with a failure, is refused, since it would write only what it made.
 """
 
 from __future__ import annotations
 
+import builtins
 import functools
 import hashlib
 import os
@@ -31,46 +39,60 @@ from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
 
+import pandas as pd
+
 KNOWN = Path(__file__).resolve().parent / "snapshot" / "known.txt"
+TESTS = Path(__file__).resolve().parent
 WRITING = os.environ.get("SNAPSHOT_WRITE") == "1"
 # A time as the Toolbox writes one: 2026-10-30 17:51, or 20261030-175142 in a folder's name.
 TIME = re.compile(r"\d{4}-\d{2}-\d{2}[ T_]\d{2}[:\-.]\d{2}([:\-.]\d{2}(\.\d+)?)?"
                   r"|\b\d{8}-\d{6}\b")
-ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
+ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{6,}\b")
+# The kinds of text that are prose a user reads, where a time or an address can change run to
+# run; Hive and rows are kept exactly.
+PROSE = frozenset({"message", "printed", "report"})
 
-made: list[tuple[str, str]] = []
-made_in_the_whole_run: set[str] = set()
+# What this test made so far: each text, by the kind of place that made it.
+texts_made_by_this_test: list[tuple[str, str]] = []
+hashes_made_in_this_run: set[str] = set()
 temp_folders: list[str] = []
 
 
-def plain_text(text: str) -> str:
+def text_as_kept(kind: str, text: str) -> str:
     """`text` with what changes from run to run written as a placeholder."""
     for folder in temp_folders:
         for spelling in (folder, folder.replace("\\", "/"), folder.replace("\\", "\\\\")):
             text = text.replace(spelling, "<tmp>")
-    text = TIME.sub("<time>", text)
-    return ADDRESS.sub("<address>", text)
+    if kind in PROSE:
+        text = ADDRESS.sub("<address>", TIME.sub("<time>", text))
+    return text
 
 
-def hash_of(text: str) -> str:
+def hash_of(kind: str, text: str) -> str:
     """The short hash known.txt keeps for one text."""
-    return hashlib.sha256(plain_text(text).encode("utf-8")).hexdigest()[:20]
+    return hashlib.sha256(text_as_kept(kind, text).encode("utf-8")).hexdigest()[:20]
 
 
-def recording(where: str, function: Callable[..., object],
-              text_of: Callable[[object], str]) -> Callable[..., object]:
-    """`function`, recording the text of what it returns, by the place it was made."""
+def recorded_function(kind: str, function: Callable[..., object],
+                      text_of: Callable[[object], str]) -> Callable[..., object]:
+    """`function`, recording the text of what it returns as a text of kind `kind`."""
     @functools.wraps(function)
     def recorded(*args: object, **kwargs: object) -> object:
         value = function(*args, **kwargs)
-        made.append((where, text_of(value)))
+        texts_made_by_this_test.append((kind, text_of(value)))
         return value
     return recorded
 
 
-def rows_as_text(rows: object) -> str:
+def rows_as_text(rows: pd.DataFrame) -> str:
     """A DataFrame of rows as CSV, the text the snapshot keeps for it."""
     return rows.to_csv(index=False)
+
+
+def recorded_print(*values: object, sep: str = " ", **kwargs: object) -> None:
+    """`print`, recording what it prints."""
+    texts_made_by_this_test.append(("printed", sep.join(str(value) for value in values)))
+    builtins.print(*values, sep=sep, **kwargs)
 
 
 def replace_everywhere(original: object, replacement: object) -> None:
@@ -84,26 +106,32 @@ def replace_everywhere(original: object, replacement: object) -> None:
                 setattr(module, name, replacement)
 
 
+def record_each_printed(kind: type) -> None:
+    """Record the text each instance of `kind` prints as, once it is made."""
+    original_init = kind.__init__
+
+    @functools.wraps(original_init)
+    def recorded_init(self, *args: object, **kwargs: object) -> None:
+        original_init(self, *args, **kwargs)
+        texts_made_by_this_test.append(("report", repr(self)))
+
+    kind.__init__ = recorded_init
+
+
 def install(toolbox: Callable[[str], ModuleType], basetemp: str) -> None:
-    """Record at each of the four places, once per run."""
+    """Record at each place the Toolbox makes what a user sees, once per run."""
     temp_folders.extend([basetemp, tempfile.gettempdir()])
-    folder = toolbox("")
-    places = (
-        (folder, "_four_part_message", str),
-        (toolbox("writing"), "sql_text", str),
-        (toolbox("example_database"), "query", rows_as_text),
-    )
-    for module, name, text_of in places:
+    package = toolbox("")
+    for module, name, kind, text_of in (
+        (package, "_four_part_message", "message", str),
+        (toolbox("writing"), "sql_text", "hive", str),
+        (toolbox("example_database"), "query", "rows", rows_as_text),
+    ):
         original = getattr(module, name)
-        replace_everywhere(original, recording(f"{module.__name__}.{name}", original, text_of))
-    report = toolbox("project").ProjectReport
-    original_init = report.__init__
-
-    def recorded_init(self: object, lines: list[str]) -> None:
-        original_init(self, lines)
-        made.append(("ProjectReport", "\n".join(lines)))
-
-    report.__init__ = recorded_init
+        replace_everywhere(original, recorded_function(kind, original, text_of))
+    toolbox("running").print = recorded_print
+    record_each_printed(toolbox("project").ProjectReport)
+    record_each_printed(toolbox("tables").Verdict)
 
 
 def known_hashes() -> set[str]:
@@ -113,21 +141,28 @@ def known_hashes() -> set[str]:
     return set(KNOWN.read_text(encoding="utf-8").split())
 
 
-def unknown_texts(known: set[str]) -> list[str]:
-    """What this test made that known.txt doesn't know, each with the place it was made; and,
-    when the file is being written, nothing, as each hash is kept for it instead."""
+def take_unknown_texts(known: set[str]) -> list[str]:
+    """Take what this test made, keep each hash for the run, and give back each text known.txt
+    doesn't know, with the kind of place that made it: none, when the file is being written."""
     found = []
-    for where, text in made:
-        digest = hash_of(text)
-        made_in_the_whole_run.add(digest)
+    for kind, text in texts_made_by_this_test:
+        digest = hash_of(kind, text)
+        hashes_made_in_this_run.add(digest)
         if digest not in known and not WRITING:
-            found.append(f"{where} made:\n{plain_text(text)}")
-    made.clear()
+            found.append(f"A {kind} text:\n{text_as_kept(kind, text)}")
+    texts_made_by_this_test.clear()
     return found
+
+
+def is_the_whole_suite(args: list[str], keyword: str, markers: str, failed: int) -> bool:
+    """Whether a run read every test, and every one passed: the only run whose hashes are the
+    whole snapshot."""
+    every_test = all(Path(arg).resolve() == TESTS for arg in args)
+    return every_test and not keyword and not markers and failed == 0
 
 
 def write_known() -> None:
     """known.txt, as this run made it: one hash per line, sorted."""
     KNOWN.parent.mkdir(exist_ok=True)
-    KNOWN.write_text("".join(f"{digest}\n" for digest in sorted(made_in_the_whole_run)),
+    KNOWN.write_text("".join(f"{digest}\n" for digest in sorted(hashes_made_in_this_run)),
                      encoding="utf-8")
