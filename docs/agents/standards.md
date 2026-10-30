@@ -1,8 +1,9 @@
 # Standards
 
-What the code reviewer judges on `dev`. It holds only what no test can check: anything a test
-can hold lives in `pytest`, and isn't repeated here. The `code-review` skill reads this file as
-the repo's coding standards.
+What the code reviewer judges on `dev`. It holds what no test can check: anything a test can
+hold lives in `pytest`, and isn't spelled out here. One paragraph, at the end of "Simple over
+short", only names the rules ruff and `tests/repo/test_standard.py` hold, so the reviewer knows
+what to skip. The `code-review` skill reads this file as the repo's coding standards.
 
 ## Simple over short
 
