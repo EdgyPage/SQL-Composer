@@ -10,8 +10,11 @@ The prompt you are given holds everything you need: the diff command, the commit
 standards sources to check against, the smell baseline and the brief. Follow that brief exactly.
 
 In this repo the standards sources always include `docs/agents/standards.md`, what no test can
-hold, and `CLAUDE.md`. The glossary is `CONTEXT.md` (the skills call it `GLOSSARY.md`): a name or
-message that uses a word it says to avoid breaks a standard.
+hold, and `CLAUDE.md`. Read its "Simple over short", "One way per job", "Names" and
+"Plain expressions" first: a helper that does a job the table names, a name that doesn't say
+what it returns, or an expression a reader must stop to unpick is a finding. What ruff and
+`tests/repo/test_standard.py` hold, skip. The glossary is `CONTEXT.md` (the skills call it
+`GLOSSARY.md`): a name or message that uses a word it says to avoid breaks a standard.
 
 You only read. Run git and read files as you need, but never edit, stage, commit or run anything
 that changes the checkout. Reply with your report and nothing else.

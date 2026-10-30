@@ -4,6 +4,64 @@ What the code reviewer judges on `dev`. It holds only what no test can check: an
 can hold lives in `pytest`, and isn't repeated here. The `code-review` skill reads this file as
 the repo's coding standards.
 
+## Simple over short
+
+Write the version a reader follows in one pass, even when it takes more lines. Share a function
+only when the same job recurs and the function's name says the whole job; otherwise repeat the
+plain code. Where fewer lines and plainer code pull apart, plainer wins: the aim is less code to
+review that the reviewer understands, not less code.
+
+Which code follows what:
+
+- **Code a user reads and copies** (the Worked examples, the how-tos, the Templates, the Example
+  projects' sources) keeps "No abstraction to study first" below, repetition and all.
+- **The Toolbox's insides and `tools/`** follow "One way per job" too: a job done in two places
+  is done by one function.
+
+ruff (as `pyproject.toml` selects) and `tests/repo/test_standard.py` hold every rule of this
+file that a test can: a function body of at most 50 lines, its docstring left out; no
+conditional expression inside another; no `next(...)` with a default; a comprehension with one
+`for`, at most one `if` and no comprehension inside it; no walrus; a lambda only as a `key=`;
+a private function or class at a Toolbox file's top named as no other Toolbox file
+names one. Each break known when the rules were turned on is
+in `tests/repo/known_breaks.py`, which may only shrink. What follows here is what only a reader
+can judge.
+
+## One way per job
+
+Each recurring job of the Toolbox has one function, and every place that does the job calls it.
+Toolbox 8.0's ticket 03 builds the `shared` module; until it lands, this table is its plan:
+
+| Job | The one function |
+|---|---|
+| A list in prose: "a, b and c" | `shared.in_words` |
+| A count and its noun: "1 table", "2 tables" | `shared.counted` |
+| A value written as Python, for code the Toolbox writes | `shared.python_literal` |
+| A table's name split into its Database and its table | `shared.split_table_name` |
+| A list with its repeats dropped, in order | `shared.once` |
+| A refusal, with its four parts | `refusals.refuse` |
+
+A new recurring job gets a row here and its function in the Toolbox's `shared` module, in the
+same change. Before writing a helper, look here: "use the table's function" is a finding.
+
+## Names
+
+- A function that only returns a value is named for what it returns: `refusal_text`,
+  `kept_and_dropped_rows`, `body_lines`. One that acts (writes a file, sends, refuses, changes
+  what it is given) starts with a verb: `write_notebook`, `refuse`, `add_references`.
+- A name says what its value is, with no word left to guess: not `_held`, `_said`, `_plain`,
+  `_kept` or `_ran`, but what is held, said or kept.
+- A prefix means one thing everywhere: `read_` reads a file; `check_` returns nothing and
+  refuses on a failure; `is_` and `has_` return a bool.
+- Public names keep theirs; renaming one is a ticket's decision ("No new public name without a
+  ticket").
+
+## Plain expressions
+
+- `or` and `and` give a bool, but `x or default` where `x` may be None or empty. No test can
+  tell a bool from a value, so this one is the reader's.
+- A conditional expression a reader must stop to unpick is an `if`, even one the test passes.
+
 ## Beginner readability
 
 The Toolbox's user is Python-first and new to SQL. Read every change as they would, on first
@@ -19,7 +77,8 @@ says to avoid. A new domain word is added to the glossary in the same change, or
 
 No class hierarchy, decorator, metaclass, registry or other machinery the user has to learn
 before they can use a function. A plain function with plain arguments wins over a cleverer
-shape, even at the cost of some repetition.
+shape, and in code a user copies, even at the cost of some repetition ("Simple over short" says
+where the Toolbox's insides share a function instead).
 
 ## Type hints
 

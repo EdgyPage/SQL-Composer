@@ -267,6 +267,11 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Decisions so far
 
+- [01 The standard, the ruff rules, and the test with its shrinking list](issues/01-the-standard.md):
+  Simple over short, the job table (`shared.*`), names and plain expressions in standards.md;
+  ruff adds E501, SIM, C4, RET and three PLR limits; the tree test and ruff count against
+  `tests/repo/known_breaks.py`, by file and rule, which only shrinks; long lines wait for phase 2.
+
 ## Not yet specified
 
 - Which partition a compare uses when the original has none in common with the dev copy (16).

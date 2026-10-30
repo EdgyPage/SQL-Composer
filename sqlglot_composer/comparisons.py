@@ -287,7 +287,7 @@ def _kept(statement: Statement, partition: object, columns: list[str], call: str
         )
     tables = _partitioned_tables(statement)
     _need_known_names(partition, columns, tables, call)
-    outputs = dict((name, column) for column, name in statement._outputs)
+    outputs = {name: column for column, name in statement._outputs}
     kept, bounded = [], []
     for name, value in partition.items():
         if value is None or isinstance(value, Column):

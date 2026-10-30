@@ -26,7 +26,15 @@ extend-exclude = ["example_projects/*/admin/templates", "tools/example_project_s
                   "tests/upgrade_from"]
 
 [tool.ruff.lint]
-extend-select = ["C901"]
+# The standard's rules ruff can hold (docs/agents/standards.md, Toolbox 8.0 ticket 01): line
+# length, simpler forms, comprehensions, returns, and how many branches, returns and statements
+# a function has. A break known when they were turned on is listed, by file, in
+# tests/repo/known_breaks.py, which may only shrink.
+extend-select = ["C901", "E501", "SIM", "C4", "RET", "PLR0911", "PLR0912", "PLR0915"]
+# SIM108 asks for a conditional expression in place of an if/else, the reverse of simple over
+# short. SIM905 asks for a word list as a long list literal. SIM300 reads an UPPERCASE name as a
+# constant and turns a plain comparison round. RET503 doesn't know refuse() never returns.
+ignore = ["SIM108", "SIM905", "SIM300", "RET503"]
 
 [tool.ruff.lint.per-file-ignores]
 # Its examples are commented out until you choose one, so its imports stand unused till then.
