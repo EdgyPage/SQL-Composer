@@ -14,7 +14,7 @@ Toolbox 8.0 takes each Workflow's fiddling to nothing.
 
 ## convert
 
-Steps: 0 file step, 3 permission, 1 decision, 0 fiddling.
+Steps: 0 file step, 5 permission, 1 decision, 0 fiddling.
 
 Starts from: Hive scripts, your Dev Database's name, read access to the sources.
 
@@ -33,14 +33,24 @@ flowchart TD
     class s1 decision
     t4 --> s1
     s1 --> t5
-    s2[["3. Create each table once, from its notebook's create() cell, then write each in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]
+    s2[["3. Create each table in dev: for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)"]]
     class s2 permission
     t5 --> s2
     s2 --> t6
-    s3[["4. Compare each table with its original, in its notebook's compare cells"]]
+    s3[["4. Seed each table that reads itself, once, from its original: for table in project.batch_tables(NAME, seeded=True):
+    run_execute(project.load(table).seed(), execute)"]]
     class s3 permission
     t6 --> s3
     s3 --> t7
+    s4[["5. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]
+    class s4 permission
+    t7 --> s4
+    s4 --> t8
+    s5[["6. Compare each table with its original, in its notebook's compare cells"]]
+    class s5 permission
+    t8 --> s5
+    s5 --> t9
     t0("Hive scripts")
     class t0 thing
     t1("your Dev Database's name")
@@ -53,10 +63,14 @@ flowchart TD
     class t4 thing
     t5("each decision made")
     class t5 thing
-    t6("each written in dev")
+    t6("each made in dev")
     class t6 thing
-    t7("each compared with its original")
+    t7("each seeded")
     class t7 thing
+    t8("each written in dev")
+    class t8 thing
+    t9("each compared with its original")
+    class t9 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
@@ -134,7 +148,9 @@ flowchart TD
     t1 --> s2
     t4 --> s2
     s2 --> t5
-    s3[["4. Create each once, from its notebook's create() cell, then write each in dev: project.run_tables(tables=TABLES, execute=execute)"]]
+    s3[["4. Create and write each in dev: for table in TABLES:
+    run_execute(project.load(table).create(), execute)
+project.run_tables(tables=TABLES, execute=execute)"]]
     class s3 permission
     t5 --> s3
     t3 --> s3

@@ -1234,7 +1234,8 @@ def table_reference_text(name: str, columns: dict[str, str], partitions: list[st
                          location: str | None = None) -> str:
     """A Table reference file's text for a table whose columns and types are known without
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
-    descriptions, and stored_as= and location= when the CREATE gave them."""
+    descriptions, stored_as= when the CREATE gave it, and location=: the CREATE's, or None
+    with a TODO to fill in."""
     variable = _reference_variable(split_table_name(name)[1])
     storage = {}
     if stored_as is not None:

@@ -35,6 +35,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   CREATE; a table they only create gets its Table reference alone. What reads it after its
   write reads that copy; the original tables are never touched.
   `admin/workflows/convert/<name>/batch.md` lists what each statement became.
+- **Many in, many out.** A FROM with several INSERTs gives a Saved table per target, each
+  reading the shared FROM. Several writes to one table give one Saved table, its write
+  stacking each piece's query in script order with UNION ALL, each filter kept; a later
+  INSERT OVERWRITE replaces the writes before it. A table whose write reads itself, as an
+  incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
+  its dev copy once, and the convert Workflow seeds it before its first write.
 - **A Conversion makes its Saved tables itself.** `project.convert` writes each table's Table
   folder and Table reference at once, one query alone too, as `<dev>.<name>`:
   `finish_conversion` is gone. Each Table folder's `conversion/` keeps the statement as the

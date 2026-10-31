@@ -1452,7 +1452,7 @@ def batch_statements(scripts: list[tuple[str, str]], database: str,
     statements = []
     for script, text in scripts:
         for line, piece in split_statements(text):
-            statements.append(_read_statement(script, line, piece, database))
+            statements += _read_statements(script, line, piece, database)
     queries = [each for each in statements if each.kind == QUERY]
     rest = [each for each in statements if each.kind not in (SETTING, QUERY)]
     alone = len(queries) == 1 and not rest and query_table is not None
@@ -1463,6 +1463,26 @@ def batch_statements(scripts: list[tuple[str, str]], database: str,
         else:
             each.kind = OTHER
     return statements
+
+
+def _read_statements(script: str, line: int, text: str,
+                     database: str) -> list[BatchStatement]:
+    """One statement as a batch reads it: a FROM with several INSERTs as a write per target,
+    each reading the shared FROM; any other as itself."""
+    statement = _read_statement(script, line, text, database)
+    if not isinstance(statement.tree, exp.MultitableInserts):
+        return [statement]
+    source = statement.tree.args["source"]
+    writes = []
+    for each in statement.tree.expressions:
+        insert = each.copy()
+        insert.expression.from_(source.copy(), copy=False)
+        write = BatchStatement(script, line, text, insert, INSERT,
+                               note="was one target of a FROM with several INSERTs")
+        write.table = _full_name(_target(insert), database)
+        write.reads = _tables_it_reads(insert, write.table, database)
+        writes.append(write)
+    return writes
 
 
 def _read_statement(script: str, line: int, text: str, database: str) -> BatchStatement:
@@ -1667,6 +1687,97 @@ def _is_later_in_its_script(statements: list[BatchStatement], writer: int,
     """Whether a write comes after a read of its table in the same script: the read is of
     the table as it was, so the write needn't come first."""
     return writer > reader and statements[writer].script == statements[reader].script
+
+
+def is_overwrite(statement: BatchStatement) -> bool:
+    """Whether a write replaces what its table held: a CREATE ... AS, a query alone, or an
+    INSERT OVERWRITE."""
+    return statement.kind != INSERT or bool(statement.tree.args.get("overwrite"))
+
+
+def static_partition(statement: BatchStatement) -> dict[str, str]:
+    """The partition columns a write gives a value in its PARTITION(...), and each value's
+    Hive."""
+    if statement.kind != INSERT:
+        return {}
+    partition = statement.tree.this.args.get("partition")
+    if partition is None:
+        return {}
+    values = {}
+    for part in partition.expressions:
+        if isinstance(part, exp.EQ):
+            values[part.this.name.lower()] = sql_text(part.expression)
+    return values
+
+
+def stacked_hive(texts: list[str]) -> str:
+    """Several writes to one table, each an INSERT's Hive, as one write: the first one's
+    INSERT, its query the UNION ALL of each one's, in order. Where a piece gives a partition
+    column a value, each piece gives it as a column of its rows instead, so the one write
+    fills each Partition from its rows. A piece with its own CTEs is a sub-query of its own."""
+    inserts = [read_hive(text)[0] for text in texts]
+    static = [_static_values(each) for each in inserts]
+    queries = []
+    for number, (insert, values) in enumerate(zip(inserts, static, strict=True), 1):
+        query = insert.expression.copy()
+        if insert.args.get("with_") is not None:
+            query.set("with_", insert.args["with_"].copy())
+            query = exp.select("*").from_(query.subquery(f"piece_{number}"))
+        for name, value in values.items():
+            query = query.select(exp.alias_(value.copy(), name), copy=False)
+        queries.append(query)
+    # Hive fills a table's columns by place, and a Stack matches them by name: each piece
+    # names its columns as the first does.
+    named = queries[0].named_selects
+    for query in queries[1:]:
+        if isinstance(query, exp.Select) and len(query.expressions) == len(named):
+            renamed = []
+            for each, name in zip(query.expressions, named, strict=True):
+                renamed.append(exp.alias_(each.unalias(), name))
+            query.set("expressions", renamed)
+    stacked = queries[0]
+    for query in queries[1:]:
+        stacked = exp.union(stacked, query, distinct=False)
+    first = inserts[0].copy()
+    first.set("with_", None)
+    if any(static):
+        names = []
+        for values in static:
+            names += values
+        names = list(dict.fromkeys(names))
+        first.this.set("partition", exp.Partition(
+            expressions=[exp.column(name) for name in names]))
+    first.set("expression", stacked)
+    return sql_text(first)
+
+
+def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
+    """An INSERT's PARTITION(...) values, by column."""
+    partition = insert.this.args.get("partition")
+    if partition is None:
+        return {}
+    values = {}
+    for part in partition.expressions:
+        if isinstance(part, exp.EQ):
+            values[part.this.name.lower()] = part.expression
+    return values
+
+
+def with_seed(logic: str, seed_hive: str) -> str:
+    """A Table notebook's logic with seed(): the Hive that copies the original's rows into
+    the dev copy once, before the first write, for a table that reads itself."""
+    lines = logic.rstrip("\n").split("\n")
+    at = _after_imports(lines)
+    lines[at:at] = ["from sqlglot_composer import UncheckedStatement, unchecked_hive  "
+                    "# for seed()"]
+    return "\n".join(lines + [
+        "",
+        "",
+        "def seed() -> UncheckedStatement:",
+        '    """Copy the original\'s rows into this dev copy once, before its first write():',
+        '    the table reads itself, and in dev starts empty."""',
+        f"    return unchecked_hive({python_literal(seed_hive)})",
+    ]) + "\n"
 
 
 def reads_itself(statement: BatchStatement, database: str) -> bool:

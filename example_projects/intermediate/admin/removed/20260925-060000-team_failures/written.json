@@ -9,6 +9,7 @@
   "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
   "tables/mart__team_failures/mart__team_failures.ipynb": "41555b5996dae6961114d737341e23a9ff91b3d150fc7df8cdc46147301257d8"
  },
+ "seeded": [],
  "tables": [
   "mart.team_failures"
  ]
