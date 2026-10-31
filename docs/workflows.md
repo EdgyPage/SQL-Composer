@@ -38,7 +38,8 @@ flowchart TD
     class s2 permission
     t5 --> s2
     s2 --> t6
-    s3[["4. Seed each table that reads itself, once, from its original: for table in project.batch_tables(NAME, seeded=True):
+    s3[["4. Seed each table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
+for table in project.batch_tables(NAME, seeded=True):
     run_execute(project.load(table).seed(), execute)"]]
     class s3 permission
     t6 --> s3

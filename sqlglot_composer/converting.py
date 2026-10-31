@@ -99,6 +99,7 @@ class ConvertedQuery:
     names: set[str] = field(default_factory=set)  # the Toolbox names it uses
     databases: set[str] = field(default_factory=set)  # the Databases it imports
     findings: list[Finding] = field(default_factory=list)
+    kept_whole: bool = False  # the whole query stayed an Unchecked statement
 
     def logic(self) -> str:
         """The Python of the whole Conversion, as its notebook's logic cell holds it: its
@@ -144,34 +145,28 @@ class ConvertedQuery:
 
 
 def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
-                      static_partition: dict[str, str]) -> str:
+                      static_partition: dict[str, str], whole_hive: str | None = None) -> str:
     """A converted query's logic, `logic`, with each opt-out convert added, made a Table
     notebook's: the Saved table's own Table reference, `short`, imported, and create(),
     preview() and write(), as the saved_table Template has them. write() writes `saved_table`
-    as the original's INSERT did,
-    `write` (INSERT_OVERWRITE when it had none), with its static partition values; through
-    rows() when the logic has one, else through converted() as a Derived table."""
-    mode = write or "INSERT_OVERWRITE"
-    given = ""
-    if static_partition:
-        values = ", ".join(f"{python_literal(name)}: {value}"
-                           for name, value in static_partition.items())
-        given = f", partition={{{values}}}"
+    as the original's INSERT did, `write` (INSERT_OVERWRITE when it had none), with its static
+    partition values: through rows() when the logic has one, else through converted() as a
+    Derived table; or, when the whole query stayed an Unchecked statement, as `whole_hive`,
+    the INSERT's Hive, an Unchecked statement too."""
     stem = saved_table.replace(".", "__", 1)
-    imports = [f"from sqlglot_composer import {mode}, create_table  # for create() and write()",
+    imports = ["from sqlglot_composer import create_table  # for create()",
                f"from references.{stem} import {short}  "
                "# the Saved table's own Table reference"]
-    if re.search(r"^def rows\(", logic, re.MULTILINE):
-        body = [f"    return statement({mode}({short}{given}), *rows())"]
-    else:
-        imports.insert(1, "from sqlglot_composer import FROM, SELECT, all_columns, derived")
-        body = ['    made = derived("converted", converted())',
-                f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
-                "FROM(made))"]
+    returns, body = _write_body(logic, short, write, static_partition, whole_hive)
+    imports.insert(1, f"from sqlglot_composer import {', '.join(sorted(returns))}  "
+                      "# for write()")
     lines = logic.rstrip("\n").split("\n")
     at = _after_imports(lines)
     lines[at:at] = imports
     docstring = f"Save the rows into {saved_table}, as the original's INSERT did."
+    if whole_hive is not None:
+        docstring = (f"Save the rows into {saved_table}, as the original's INSERT did: kept "
+                     "as Hive,\n    as converted() is.")
     if re.search(r"^def session_settings\(", logic, re.MULTILINE):
         # run_tables sends only writes, so the SET lines are sent by hand, as the docstring
         # says.
@@ -190,10 +185,34 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         "    return converted()",
         "",
         "",
-        "def write() -> Statement:",
+        f"def write() -> {returns[0]}:",
         f'    """{docstring}"""',
         *body,
     ]) + "\n"
+
+
+def _write_body(logic: str, short: str, write: str | None, static_partition: dict[str, str],
+                whole_hive: str | None) -> tuple[list[str], list[str]]:
+    """What a Saved table's write() gives and the names it needs, the type it gives first,
+    and its body's lines."""
+    if whole_hive is not None:
+        return (["UncheckedStatement", "unchecked_hive"],
+                [f"    return unchecked_hive({python_literal(whole_hive)})"])
+    mode = write
+    if mode is None:
+        mode = "INSERT_OVERWRITE"
+    given = ""
+    if static_partition:
+        values = ", ".join(f"{python_literal(name)}: {value}"
+                           for name, value in static_partition.items())
+        given = f", partition={{{values}}}"
+    if re.search(r"^def rows\(", logic, re.MULTILINE):
+        return (["Statement", mode, "statement"],
+                [f"    return statement({mode}({short}{given}), *rows())"])
+    return (["Statement", "FROM", "SELECT", "all_columns", "derived", mode, "statement"],
+            ['    made = derived("converted", converted())',
+             f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
+             "FROM(made))"])
 
 
 def _after_imports(lines: list[str]) -> int:
@@ -1348,6 +1367,7 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
                                             f"the whole query stays an Unchecked statement, "
                                             f"unchecked_hive(...): {why}")]
         result.query = f"{converter.use('unchecked_hive')}({python_literal(sql_text(whole))})"
+        result.kept_whole = True
     if result.settings:
         result.constants.insert(0, ("HIVE_SETTINGS", "{\"converted\": {\n" + "".join(
             f"    {python_literal(name)}: {python_literal(value)},\n"
@@ -1700,29 +1720,23 @@ def static_partition(statement: BatchStatement) -> dict[str, str]:
     Hive."""
     if statement.kind != INSERT:
         return {}
-    partition = statement.tree.this.args.get("partition")
-    if partition is None:
-        return {}
-    values = {}
-    for part in partition.expressions:
-        if isinstance(part, exp.EQ):
-            values[part.this.name.lower()] = sql_text(part.expression)
-    return values
+    return {name: sql_text(value) for name, value in _static_values(statement.tree).items()}
 
 
 def stacked_hive(texts: list[str]) -> str:
     """Several writes to one table, each an INSERT's Hive, as one write: the first one's
     INSERT, its query the UNION ALL of each one's, in order. Where a piece gives a partition
     column a value, each piece gives it as a column of its rows instead, so the one write
-    fills each Partition from its rows. A piece with its own CTEs is a sub-query of its own."""
+    fills each Partition from its rows. Each piece's CTEs go in the one WITH at its top; one
+    named as a CTE of a piece before it is named <name>_<its piece's number>, and its piece
+    reads it so."""
     inserts = [read_hive(text)[0] for text in texts]
-    static = [_static_values(each) for each in inserts]
+    static_values = [_static_values(each) for each in inserts]
+    ctes: list[exp.CTE] = []
     queries = []
-    for number, (insert, values) in enumerate(zip(inserts, static, strict=True), 1):
+    for number, (insert, values) in enumerate(zip(inserts, static_values, strict=True), 1):
         query = insert.expression.copy()
-        if insert.args.get("with_") is not None:
-            query.set("with_", insert.args["with_"].copy())
-            query = exp.select("*").from_(query.subquery(f"piece_{number}"))
+        ctes += _ctes_taken_off(insert, query, {cte.alias.lower() for cte in ctes}, number)
         for name, value in values.items():
             query = query.select(exp.alias_(value.copy(), name), copy=False)
         queries.append(query)
@@ -1740,15 +1754,52 @@ def stacked_hive(texts: list[str]) -> str:
         stacked = exp.union(stacked, query, distinct=False)
     first = inserts[0].copy()
     first.set("with_", None)
-    if any(static):
+    if any(static_values):
         names = []
-        for values in static:
+        for values in static_values:
             names += values
         names = list(dict.fromkeys(names))
         first.this.set("partition", exp.Partition(
             expressions=[exp.column(name) for name in names]))
     first.set("expression", stacked)
+    if ctes:
+        first.set("with_", exp.With(expressions=ctes))
     return sql_text(first)
+
+
+def _ctes_taken_off(insert: exp.Expression, query: exp.Expression, taken: set[str],
+                    number: int) -> list[exp.CTE]:
+    """A stacked piece's CTEs, taken off its query, `query`, to go at the top of the one
+    write: each named as one in `taken` renamed <name>_<number>, and the piece's query and
+    its later CTEs reading it by that name."""
+    with_ = query.args.get("with_")
+    if with_ is None:
+        with_ = insert.args.get("with_")
+    query.set("with_", None)
+    if with_ is None:
+        return []
+    ctes = [cte.copy() for cte in with_.expressions]
+    renamed = {}
+    for cte in ctes:
+        if cte.alias.lower() in taken:
+            new_name = f"{cte.alias}_{number}"
+            renamed[cte.alias.lower()] = new_name
+            cte.set("alias", exp.TableAlias(this=exp.to_identifier(new_name)))
+    for tree in [query, *(cte.this for cte in ctes)]:
+        _read_by_new_names(tree, renamed)
+    return ctes
+
+
+def _read_by_new_names(tree: exp.Expression, renamed: dict[str, str]) -> None:
+    """Have `tree` read each CTE `renamed` names, old to new, by its new name, still called by
+    its old one, so the columns it names through it are still found."""
+    for table in tree.find_all(exp.Table):
+        new = renamed.get(table.name.lower())
+        if table.db or new is None:
+            continue
+        if not table.alias:
+            table.set("alias", exp.TableAlias(this=exp.to_identifier(table.name)))
+        table.set("this", exp.to_identifier(new))
 
 
 def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
@@ -1767,9 +1818,10 @@ def with_seed(logic: str, seed_hive: str) -> str:
     """A Table notebook's logic with seed(): the Hive that copies the original's rows into
     the dev copy once, before the first write, for a table that reads itself."""
     lines = logic.rstrip("\n").split("\n")
-    at = _after_imports(lines)
-    lines[at:at] = ["from sqlglot_composer import UncheckedStatement, unchecked_hive  "
-                    "# for seed()"]
+    imported = "from sqlglot_composer import UncheckedStatement, unchecked_hive"
+    if not any(line.startswith(imported) for line in lines):
+        at = _after_imports(lines)
+        lines[at:at] = [f"{imported}  # for seed()"]
     return "\n".join(lines + [
         "",
         "",

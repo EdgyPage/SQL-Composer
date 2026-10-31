@@ -15653,7 +15653,7 @@ Found:
                       rename={&quot;ops_reports.weekly_events&quot;: &quot;weekly_events&quot;}))</pre>
 <p class="label">Python prints</p><pre class="output">Converted weekly_events: 1 script, 2 statements, into 1 Saved table in mart: mart.weekly_events.
 admin/workflows/convert/weekly_events/batch.md lists each statement, in the order they run, and what it became.
-Next: tick each box of each table&#x27;s conversion/checklist.md, then write each table with project.run_tables(tables=[...], execute=execute).</pre>
+Next: tick each box of each table&#x27;s conversion/checklist.md, then run the convert Workflow&#x27;s next steps, in admin/workflows/convert/convert.ipynb: create each table in dev, seed each that reads itself, and write each.</pre>
 <p class="label">It writes 12 files</p>
 <pre class="file">admin/admin_log.md
 admin/registry.csv
@@ -15676,7 +15676,7 @@ print(to_hive(table.preview()).splitlines()[0])</pre>
 <p>The original joins ops.job_owners on its partition column, dt, matched with the other table&#x27;s, which the Load limit can&#x27;t tell bounds it, so the Conversion added the opt-out the original&#x27;s join needs, reads_all_partitions=True on that JOIN, with a mark on the line above it: &quot;# CONVERSION: reads_all_partitions=True, as the original did; check it&quot;. <code>project.check()</code> lists each mark left, and each batch&#x27;s next step:</p>
 <pre class="python">print(project.check())</pre>
 <p class="label">Python prints</p><pre class="output">Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it, or change what made it needed, such as a WHERE on the partition column or a key= in a Table reference, and take it off; then delete its mark.
-  tables/mart__weekly_events/mart__weekly_events.ipynb, cell 3, line 90: # CONVERSION: reads_all_partitions=True, as the original did; check it
+  tables/mart__weekly_events/mart__weekly_events.ipynb, cell 3, line 91: # CONVERSION: reads_all_partitions=True, as the original did; check it
 The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
   admin/workflows/convert/convert.ipynb, weekly_events: 2. Tick each box of each table&#x27;s checklist. It is a decision, yours to make</pre>
 <p>An opt-out is a keyword that tells a Guard or a Load limit you have checked what it refuses. Here the other table holds five days only, so the join reads only those: keep the opt-out, and delete the mark. At work, ask how many Partitions the join reads: if it reads too many, add a WHERE on o.dt to bound it, and take the opt-out off. Then tick its box in tables/mart__weekly_events/conversion/checklist.md, which has a box for each decision only you can make: each mark, each column type neither the query nor DESCRIBE of the original told, location=, the Key, the SET lines to send first, and each piece kept as Hive.</p>

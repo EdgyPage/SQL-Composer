@@ -201,7 +201,7 @@ WORKFLOW_PATH_LINES = [
     "import sys",
     "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))  # the Project: three up",
     "",
-    "from sqlglot_composer import admin, project, run_execute, show_hive",
+    "from sqlglot_composer import admin, hive_settings, project, run_execute, show_hive",
     "from warehouse import query, execute",
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
@@ -1609,8 +1609,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     Added Table references, from DESCRIBE: references/ops__job_runs.py.
     admin/workflows/convert/failed_runs/batch.md lists each statement, in the order they run,
     and what it became.
-    Next: tick each box of each table's conversion/checklist.md, then write each table with
-    project.run_tables(tables=[...], execute=execute).
+    Next: tick each box of each table's conversion/checklist.md, then run the convert
+    Workflow's next steps, in admin/workflows/convert/convert.ipynb: create each table in dev,
+    seed each that reads itself, and write each.
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -1621,14 +1622,17 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
 
     It splits each script into its statements and orders them by what reads what, refusing two
     tables in different scripts that read each other. Each table the batch writes becomes a
-    Saved table in dev (each target of a FROM with several INSERTs, its own; several writes to
-    one table, one, its write stacking their queries in script order with UNION ALL), named
-    <table>_<its database>, such as mart_dev.weekly_events_ops_reports, or the name
-    rename={"ops_reports.weekly_events": "weekly"} gives it; one query alone, which writes no
-    table, becomes mart_dev.<name>. Two tables with one name in dev are refused, naming both,
-    before anything is written. A statement that reads a table the batch writes before it reads
-    its copy in dev; one that reads it before its write, in the same script, reads it as it was;
-    a table it only reads keeps its name, and gets a Table reference from DESCRIBE.
+    Saved table in dev. A FROM with several INSERTs, FROM t INSERT ... SELECT ... INSERT ...
+    SELECT ..., gives each target a Saved table of its own. Several writes to one table give it
+    one write, their queries stacked in script order with UNION ALL, each naming its columns as
+    the first does: a later INSERT OVERWRITE of the same Partition replaces the writes before
+    it, and writes to different Partitions are all kept. Each is named <table>_<its database>,
+    such as mart_dev.weekly_events_ops_reports, or the name rename={"ops_reports.weekly_events":
+    "weekly"} gives it; one query alone, which writes no table, becomes mart_dev.<name>. Two
+    tables with one name in dev are refused, naming both, before anything is written. A
+    statement that reads a table the batch writes before it reads its copy in dev; one that
+    reads it before its write, in the same script, reads it as it was; a table it only reads
+    keeps its name, and gets a Table reference from DESCRIBE.
 
     Each table in dev gets its Table folder, its notebook's logic cell building the same query
     from the Toolbox's own functions, with create(), preview() and write(): each CTE a Derived
@@ -1641,11 +1645,11 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     the original, and STORED AS and LOCATION from its CREATE; a table the scripts create and
     never write gets its Table reference alone. A table whose write reads itself, as an
     incremental INSERT does, gets seed() in its notebook, which copies the original's rows into
-    its dev copy once, before its first write. Its folder's conversion/ keeps statement.hql, the
-    statement as its script wrote it; in_dev.hql, the Hive its logic was built from; scan.md,
-    what it found and how the two compare; and checklist.md, a box for each thing only you can
-    decide, such as each mark and its location=. A table it can't make is named, with why, and
-    the rest are still made.
+    its dev copy once, before its first write. Its folder's conversion/ keeps statement.hql,
+    each statement of its write as its script wrote it; in_dev.hql, the Hive its logic was built
+    from; scan.md, what it found and how the two compare; and checklist.md, a box for each thing
+    only you can decide, such as each mark and its location=. A table it can't make is named,
+    with why, and the rest are still made.
 
     The batch keeps its scripts, batch.md, what each statement became, and written.json, each
     file it wrote, in admin/workflows/convert/<name>/: a SET line becomes the Session settings
@@ -1902,11 +1906,18 @@ def _described_columns(table: str, query: Callable[[str], pd.DataFrame]) -> dict
         return {}
 
 
+# A write's part in its table's write, as batch.md tells it: the first, one stacked after
+# it, or one a later INSERT OVERWRITE replaces.
+_FIRST = "first"
+_STACKED = "stacked"
+_REPLACED = "replaced"
+
+
 def _result_of(statement: converting.BatchStatement, part: str,
                ordered: list[converting.BatchStatement], names: dict[str, str],
                database: str) -> str:
     """What one statement became, as batch.md says it: `part` is a write's in its table's
-    write, "first", "piece" or "replaced", or "" for one its table's notebook doesn't make."""
+    write, _FIRST, _STACKED or _REPLACED, or "" for one its table's notebook doesn't make."""
     if statement.kind in converting.WRITES:
         return _write_result(statement, part, ordered, names, database)
     if statement.kind == converting.CREATE:
@@ -1925,14 +1936,14 @@ def _write_result(statement: converting.BatchStatement, part: str,
                   database: str) -> str:
     """What one write became, as batch.md says it, by its part in its table's write."""
     table = names[statement.table]
-    if part == "first":
+    if part == _FIRST:
         note = ""
         if statement.note:
             note = f" ({statement.note})"
         return f"{table}, written by its notebook{note}"
-    if part == "piece":
-        return f"a piece of {table}'s write, stacked after the one before it with UNION ALL"
-    if part == "replaced":
+    if part == _STACKED:
+        return f"stacked into {table}'s write after the one before it, with UNION ALL"
+    if part == _REPLACED:
         return f"nothing: a later INSERT OVERWRITE of {table} replaces it"
     return (f"a write to {table} its notebook doesn't make, kept as Hive: "
             f"{_kept_hive(statement, ordered, names, database)}")
@@ -1958,16 +1969,18 @@ def _first_words(text: str) -> str:
 def _convert_one_table(files: _BatchFiles, table: str, batch: str,
                        ordered: list[converting.BatchStatement], names: dict[str, str],
                        query: Callable[[str], pd.DataFrame] | None, database: str) -> str:
-    """Make one table a batch writes a Saved table in dev: its Table folder, with its logic,
-    built from its first write, and its conversion/ folder, and its Table reference: what went
-    wrong, or "" when nothing did."""
+    """Make one table a batch writes a Saved table in dev: its Table reference, first when
+    its query reads its own table; its Table folder, its logic built from its write, each piece
+    of it stacked with UNION ALL, with seed() when it reads itself; and its conversion/ folder:
+    what went wrong, or "" when nothing did."""
     writes = _writes_to(ordered, table)
     if not writes:
         _write_reference_of_a_create_alone(files, table, ordered, names)
         return ""
     pieces = _pieces_of(writes)
     first = pieces[0]
-    text = _hive_of_pieces(table, pieces, ordered, names, database)
+    write_hive = _write_of_pieces(table, pieces, ordered, names, database)
+    text = _settings_before(first, ordered) + write_hive
     dev = names[table]
     seeded = any(converting.reads_itself(each, database) for each in pieces)
     if seeded:
@@ -1986,39 +1999,43 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
         return ("neither its query nor DESCRIBE of the original names a column, so it can't "
                 "have a Table reference: it is kept as Hive in batch.md")
     guessed = [column for column, kind in columns.items() if not kind]
-    columns = {column: kind or "string" for column, kind in columns.items()}
     files.marks[dev] = opt_outs
     storage = _storage_from_create(table, ordered)
-    _write_table_reference(files, dev, columns, partitions, storage)
-    _write_table_files(files, dev, batch, pieces, text, hive_read, logic, partitions, seeded)
+    _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage)
+    seed_hive = None
+    if seeded:
+        seed_hive = _seed_hive(table, dev, partitions)
+        files.seeded.append(dev)
+    whole_hive = None
+    if hive_read.kept_whole:
+        whole_hive = write_hive
+    _write_table_files(files, dev, batch, hive_read, logic, seed_hive, whole_hive)
     scan = _scan_lines(text, hive_read) + [f"Opt-out added, marked # CONVERSION: at its line: "
                                            f"{opt_out}" for opt_out in opt_outs]
     scan += _hive_compared(built, text, stopped)
     items = _checklist_items(dev, opt_outs, guessed, storage, hive_read, stopped)
     if seeded:
-        items.insert(0, "Seed it once, before its first write: it reads its own table, which "
-                     "in dev starts empty, so its seed() copies the original's rows: "
-                     f'run_execute(project.load("{dev}").seed(), execute), as the convert '
-                     "Workflow's seed step does.")
+        items.append("Agree to seed it: its write reads its own table, which in dev starts "
+                     "empty, so the convert Workflow's step 4, after it creates the table, "
+                     "copies every Partition of the original's rows into it once, with its "
+                     "seed(). Tick once you agree that copy is the right start.")
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
 
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
-                       pieces: list[converting.BatchStatement], text: str,
                        hive_read: converting.ConvertedQuery, logic: str,
-                       partitions: list[str], seeded: bool) -> None:
-    """Write a dev table's notebook, its logic a Saved table's, with seed() when it reads
-    itself, and its lineage/ folder."""
+                       seed_hive: str | None, whole_hive: str | None) -> None:
+    """Write a dev table's notebook, its logic a Saved table's, with seed() running
+    `seed_hive` when it reads itself, and write() kept as Hive, `whole_hive`, when its query
+    is; and its lineage/ folder."""
     stem = TABLE_FOLDER.stem(dev)
     short = split_table_name(dev)[1]
     table_logic = converting.saved_table_logic(logic, dev, short, hive_read.write,
-                                               hive_read.static_partition)
-    if seeded:
-        table_logic = converting.with_seed(table_logic,
-                                           _seed_hive(pieces[0].table, dev, partitions))
-        files.seeded.append(dev)
+                                               hive_read.static_partition, whole_hive)
+    if seed_hive is not None:
+        table_logic = converting.with_seed(table_logic, seed_hive)
     files.write_notebook(table_notebook(stem),
                          _converted_table_cells(dev, batch, table_logic, hive_read))
     (TABLE_FOLDER.path(files.root, stem) / "lineage").mkdir(parents=True, exist_ok=True)
@@ -2154,8 +2171,8 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
     and its rows in the Reference sheet."""
     return [
         ("markdown", f"# {dev}\n\nA Saved table the batch {batch} made, with "
-         f"project.convert(...), from the statement in `{CONVERSION}/{STATEMENT}`, as its "
-         "script wrote it. Its logic cell builds the same query from the Toolbox's own "
+         f"project.convert(...), from the statements in `{CONVERSION}/{STATEMENT}`, as "
+         "its script wrote them. Its logic cell builds the same query from the Toolbox's own "
          "functions, with create(), preview() and write(). Tick each box of "
          f"`{CONVERSION}/{CHECKLIST}`, then run the cells top to bottom. The cells comparing "
          "it with the original stay until you delete them."),
@@ -2211,23 +2228,29 @@ def _pieces_of(writes: list[converting.BatchStatement]) -> list[converting.Batch
     return writes[last:]
 
 
-def _hive_of_pieces(table: str, pieces: list[converting.BatchStatement],
-                    ordered: list[converting.BatchStatement], names: dict[str, str],
-                    database: str) -> str:
-    """The Hive a table's notebook is built from: the SET lines before its first piece in
-    its script, then its write, each piece with the names it reads in dev, stacked with UNION
-    ALL when there are several. A TRUNCATE before the first makes it an INSERT OVERWRITE."""
+def _settings_before(first: converting.BatchStatement,
+                     ordered: list[converting.BatchStatement]) -> str:
+    """The SET lines before a table's first write in its script, each ending in ;."""
+    earlier = [each for each in ordered[:ordered.index(first)] if each.script == first.script]
+    return "".join(f"{each.text};\n" for each in earlier if each.kind == converting.SETTING)
+
+
+def _write_of_pieces(table: str, pieces: list[converting.BatchStatement],
+                     ordered: list[converting.BatchStatement], names: dict[str, str],
+                     database: str) -> str:
+    """A table's write as its notebook is built from it: each piece with the names it reads
+    in dev, stacked with UNION ALL when there are several. A TRUNCATE before the first in its
+    script makes it an INSERT OVERWRITE."""
     first = pieces[0]
     earlier = [each for each in ordered[:ordered.index(first)] if each.script == first.script]
     truncated = any(each.table == table and each.note == converting.TRUNCATED
                     for each in earlier)
-    settings = [f"{each.text};\n" for each in earlier if each.kind == converting.SETTING]
     texts = [converting.insert_hive(each, converting.names_by_then(ordered, each, names),
                                     database, truncated and each is first)
              for each in pieces]
     if len(texts) == 1:
-        return "".join(settings) + texts[0]
-    return "".join(settings) + converting.stacked_hive(texts)
+        return texts[0]
+    return converting.stacked_hive(texts)
 
 
 def _write_first_reference(files: _BatchFiles, table: str, dev: str,
@@ -2239,9 +2262,18 @@ def _write_first_reference(files: _BatchFiles, table: str, dev: str,
     SELECT gives, as "string" until convert writes it again with the types its query tells."""
     columns, partitions = _batch_columns(table, ordered, first, None, query)
     if columns:
-        _write_table_reference(files, dev, {column: kind or "string"
-                                            for column, kind in columns.items()},
-                               partitions, _storage_from_create(table, ordered))
+        _write_table_reference(files, dev, _untyped_as_string(columns), partitions,
+                               _storage_from_create(table, ordered))
+
+
+def _untyped_as_string(columns: dict[str, str]) -> dict[str, str]:
+    """A table's columns and types, "string" for each whose type nothing told ("")."""
+    typed = {}
+    for column, kind in columns.items():
+        typed[column] = kind
+        if kind == "":
+            typed[column] = "string"
+    return typed
 
 
 def _seed_hive(table: str, dev: str, partitions: list[str]) -> str:
@@ -2328,10 +2360,10 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
     for table, copy in names.items():
         if copy in made:
             pieces = _pieces_of(_writes_to(ordered, table))
-            parts.update({id(each): "piece" for each in pieces[1:]})
-            parts[id(pieces[0])] = "first"
+            parts.update({id(each): _STACKED for each in pieces[1:]})
+            parts[id(pieces[0])] = _FIRST
             for each in _writes_to(ordered, table):
-                parts.setdefault(id(each), "replaced")
+                parts.setdefault(id(each), _REPLACED)
     for number, statement in enumerate(ordered, 1):
         result = _result_of(statement, parts.get(id(statement), ""), ordered, names,
                             database)
@@ -2384,8 +2416,9 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
-    lines.append(f"Next: tick each box of each table's {CONVERSION}/{CHECKLIST}, then write "
-                 "each table with project.run_tables(tables=[...], execute=execute).")
+    lines.append(f"Next: tick each box of each table's {CONVERSION}/{CHECKLIST}, then run the "
+                 "convert Workflow's next steps, in admin/workflows/convert/convert.ipynb: "
+                 "create each table in dev, seed each that reads itself, and write each.")
     return lines
 
 
