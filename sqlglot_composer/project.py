@@ -199,7 +199,7 @@ for name in sorted({row["table"] for row in rows}):
                   partitioned_by=partitions, key=key or None)
     found = check_table_reference(table, query=query)
     print(found)
-    database, short = split_table_name(name)
+    database, _, short = name.rpartition(".")
     if not key:
         print(f"{name} has no Key, so there is no Key to check.")
     elif not found.ok:
