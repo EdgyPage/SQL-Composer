@@ -126,8 +126,9 @@ _Avoid_: migration, port, conversion, update script
 A Project action that reads Hive someone else wrote, one query or one or more scripts, and
 writes the user's own code for it. Each table the scripts write becomes a Saved table in the
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
-that copy; one query alone becomes a Saved table named for the batch, and in a batch of
-several scripts, each script that holds one query alone a Saved table named for its file.
+that copy; a Staging table may instead be folded into the tables that read it. One query
+alone becomes a Saved table named for the batch, and in a batch of several scripts, each
+script that holds one query alone a Saved table named for its file.
 Each gets its Table folder, whose notebook's Statement gives the same rows, its Table
 reference, and a checklist of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
 pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
@@ -248,7 +249,7 @@ _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what 
 
 **Staging table**:
 A table a long script writes with a CREATE TABLE ... AS SELECT only so a statement after it can
-read it, as a temporary table, or a scratch table the script DROPs at its end. A Conversion
+read it, as a temporary table, or one the script DROPs later. A Conversion
 folds one, its query a Derived table in each table that reads it, or keeps it a Saved table of
 its own, as the user chooses: folded is proposed for a temporary or DROPped one.
 _Avoid_: temp table, scratch table, intermediate table

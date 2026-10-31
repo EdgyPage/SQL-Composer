@@ -121,7 +121,7 @@ for table in project.promoted_tables(TABLES, seeded=True):
 
 ## new_table
 
-Steps: 1 file step, 2 permission, 2 decision, 0 fiddling.
+Steps: 3 file step, 2 permission, 2 decision, 0 fiddling.
 
 Starts from: the tables' names, what each table should hold.
 
@@ -130,35 +130,41 @@ Ends with: a dev Table folder whose logic loads, written in dev, its Table refer
 ```mermaid
 flowchart TD
     s0["1. Make each Table folder: project.new_table(TABLES)"]:::files_only
-    s1{"2. Fill in each Table reference, in references/, and save it"}:::your_decision
-    s2{"3. Write each table's logic in its Table notebook, and save it: for table in TABLES:
-    project.load(table).write()  #35; says what stops it, if anything does"}:::your_decision
-    s3[["4. Check each table's rows with preview(), which writes nothing: for table in TABLES:
+    s1{"2. Write each table's logic in its Table notebook, and save it: for table in TABLES:
+    project.load(table).preview()  #35; says what stops it, if anything does"}:::your_decision
+    s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES)"]:::files_only
+    s3{"4. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s4["5. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s5[["6. Check each table's rows with preview(), which writes nothing: for table in TABLES:
     print(run_query(project.load(table).preview(), query))"]]:::warehouse_call
-    s4[["5. Create and write each in dev: for table in TABLES:
+    s6[["7. Create and write each in dev: for table in TABLES:
     run_execute(project.load(table).create(), execute)
 project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
     t0("the tables' names"):::thing
     t1("a Table folder"):::thing
-    t2("its Table reference to fill in"):::thing
-    t3("its Table reference"):::thing
-    t4("what each table should hold"):::thing
-    t5("a dev Table folder whose logic loads"):::thing
-    t6("its rows, checked"):::thing
-    t7("written in dev"):::thing
+    t2("what each table should hold"):::thing
+    t3("its logic"):::thing
+    t4("its Table reference"):::thing
+    t5("each answer in the decisions cell"):::thing
+    t6("a dev Table folder whose logic loads"):::thing
+    t7("its rows, checked"):::thing
+    t8("written in dev"):::thing
     t0 --> s0
     s0 --> t1
-    s0 --> t2
+    t1 --> s1
     t2 --> s1
     s1 --> t3
-    t1 --> s2
-    t4 --> s2
-    s2 --> t5
-    t5 --> s3
-    s3 --> t6
-    t6 --> s4
-    t3 --> s4
-    s4 --> t7
+    t3 --> s2
+    s2 --> t4
+    t4 --> s3
+    s3 --> t5
+    t5 --> s4
+    s4 --> t6
+    t6 --> s5
+    s5 --> t7
+    t7 --> s6
+    t4 --> s6
+    s6 --> t8
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a

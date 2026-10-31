@@ -35,6 +35,13 @@ from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Statement, statemen
 from sqlglot_composer.example_database import jobs
 from references.mart__daily_runs import daily_runs
 
+PARTITIONED_BY = []
+
+
+def preview() -> Statement:
+    """Each job's team."""
+    return statement(SELECT(jobs.job_id, jobs.team), FROM(jobs))
+
 
 def write() -> Statement:
     """Save each job's team."""
@@ -67,21 +74,21 @@ def logic_written(root: Path, logic: str) -> None:
     path.write_bytes(notebooks.notebook_bytes(cells))
 
 
-def test_new_tables_logic_step_is_done_once_its_statement_loads(started: Path) -> None:
+def test_new_tables_logic_step_is_done_once_its_preview_builds(started: Path) -> None:
     project.new_table(TABLE)
     inputs = {"TABLES": [TABLE]}
-    assert not workflows.every_logic_loads(started, inputs)
+    assert not workflows.every_preview_builds(started, inputs)
     logic_written(started, LOGIC.replace("SELECT(jobs.job_id, jobs.team)", "SELECT(jobs.nope)"))
-    assert not workflows.every_logic_loads(started, inputs)
+    assert not workflows.every_preview_builds(started, inputs)
     logic_written(started, LOGIC)
-    assert workflows.every_logic_loads(started, inputs)
+    assert workflows.every_preview_builds(started, inputs)
 
 
 def test_new_table_checks_its_rows_with_preview_before_it_writes() -> None:
     names = [step.name for step in workflows.NEW_TABLE.steps]
     assert names.index("Check each table's rows with preview(), which writes nothing") < (
         names.index("Create and write each in dev"))
-    preview = workflows.NEW_TABLE.steps[3]
+    preview = next(step for step in workflows.NEW_TABLE.steps if step.reads_only)
     assert "run_query(project.load(table).preview(), query)" in preview.call
 
 
@@ -113,20 +120,36 @@ def test_the_check_is_run_before_the_send_from_the_hive_show_hive_prints() -> No
     assert "project.table_reference(TABLE)" in steps[0].call
 
 
-def test_a_table_reference_is_filled_in_with_its_docstring_still_naming_placeholders(
+def test_a_table_reference_is_written_once_its_columns_are_with_its_docstring_unchanged(
         started: Path) -> None:
     project.new_table(TABLE)
     inputs = {"TABLES": [TABLE]}
     path = started / "references" / "mart__daily_runs.py"
     text = path.read_text(encoding="utf-8")
+    assert not workflows.every_reference_from_logic(started, inputs)
     code_starts = text.index("from sqlglot_composer import Table")
-    docstring = text[:code_starts].replace("TODO:", "Done:")
     filled = REFERENCE[REFERENCE.index("from sqlglot_composer import Table"):]
-    path.write_text(docstring + filled, encoding="utf-8")
-    assert "<COLUMN>" in path.read_text(encoding="utf-8")
-    assert workflows.every_reference_filled_in(started, inputs)
-    path.write_text(text, encoding="utf-8")
-    assert not workflows.every_reference_filled_in(started, inputs)
+    path.write_text(text[:code_starts] + filled, encoding="utf-8")
+    assert "<COLUMNS>" in path.read_text(encoding="utf-8")  # its docstring still says it
+    assert workflows.every_reference_from_logic(started, inputs)
+
+
+def test_reference_from_logic_writes_the_columns_preview_gives(started: Path) -> None:
+    project.new_table(TABLE)
+    path = started / "references" / "mart__daily_runs.py"
+    as_new_table_wrote_it = path.read_text(encoding="utf-8")
+    logic_written(started, LOGIC)
+    path.write_text(as_new_table_wrote_it, encoding="utf-8")
+    said = repr(project.reference_from_logic(TABLE))
+    assert "Wrote references/mart__daily_runs.py from its logic: job_id and team." in said
+    written = (started / "references" / "mart__daily_runs.py").read_text(encoding="utf-8")
+    assert '"job_id": "bigint",' in written and '"team": "string",' in written
+
+
+def test_reference_from_logic_keeps_one_whose_columns_you_wrote(started: Path) -> None:
+    project.new_table(TABLE)
+    logic_written(started, LOGIC)
+    assert "Kept references/mart__daily_runs.py" in repr(project.reference_from_logic(TABLE))
 
 
 def test_a_step_no_file_tells_of_says_so(started: Path) -> None:
@@ -152,9 +175,9 @@ def test_a_step_that_only_reads_waits_on_nothing_and_is_named_beside_the_next(
         "TABLES = []", "TABLES = ['mart.daily_runs']"), encoding="utf-8")
     workflows = toolbox_module("workflows")
     workflow = workflows.NEW_TABLE
-    preview = workflow.steps[3]
-    assert preview.reads_only
-    assert workflows.read_before(workflow, workflow.steps[4]) is preview
+    preview = next(step for step in workflow.steps if step.reads_only)
+    after = workflow.steps[workflow.steps.index(preview) + 1]
+    assert workflows.read_before(workflow, after) is preview
     # Its logic loads, as a filled-in notebook's does: preview is passed over.
     inputs = workflows.given_inputs(started, workflow)
     skipped = workflows.next_step(started, workflow, inputs)

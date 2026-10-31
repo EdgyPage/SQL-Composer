@@ -458,3 +458,16 @@ def test_a_filled_in_name_is_not_marked(open_in_7_2: Path) -> None:
     lines = databases.read_text(encoding="utf-8").split("\n")
     assert [line for line in lines if line.startswith("# UPGRADE")] == [
         f"# UPGRADE {VERSION}: fill in your Prod Database's name"]
+
+
+def test_a_template_you_changed_is_marked_and_one_as_written_is_written_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "7.2" / "starter", copy)
+    changed = copy / "admin" / "templates" / "quality_checks.py"
+    changed.write_text(changed.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert "# UPGRADE 8.0: new_table now writes" in changed.read_text(encoding="utf-8")
+    written = (copy / "admin" / "templates" / "saved_table.py").read_text(encoding="utf-8")
+    assert "PARTITIONED_BY = [" in written

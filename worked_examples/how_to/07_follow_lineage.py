@@ -192,7 +192,7 @@ project's:
 >>> project.new_table("mart.daily_job_runs")
 Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
 
 The file `references/mart__daily_job_runs.py`, after you fill it in:
 
@@ -310,7 +310,7 @@ on the Example database:
 >>> project.new_table("mart.team_day")
 Made tables/mart__team_day/: mart__team_day.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__team_day.py: fill in its <...> and TODO lines.
+Wrote references/mart__team_day.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.daily_job_runs.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
@@ -471,7 +471,7 @@ changes and saves. Make the Table folder as usual, then write over the Template'
 >>> project.new_table("mart.run_speed")
 Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__run_speed.py: fill in its <...> and TODO lines.
+Wrote references/mart__run_speed.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.daily_job_runs and
     mart.team_day.
 Restart the kernel of a notebook that imported references, to see a table added since.

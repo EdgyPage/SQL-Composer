@@ -242,39 +242,26 @@ def logic_reading(root: Path, name: str, lines: str) -> TableLogic:
     return project.load(name)
 
 
-def filled_reference(**more: str) -> str:
-    """The Saved table's Table reference Template, filled in for mart.daily_runs."""
-    text = SAVED_TABLE_REFERENCE
-    for placeholder, value in {"<DB>": "mart", "<TABLE>": "daily_runs",
-                               "<NAME>": "mart__daily_runs", "<COLUMN>": '"job_id"',
-                               "<COLUMN_TYPE>": '"bigint"',
-                               "<LOCATION>": '"/data/your_team/mart.db/daily_runs"',
-                               **more}.items():
-        text = text.replace(placeholder, value)
-    return text
-
-
-def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) -> None:
-    (started / "references" / "mart__daily_runs.py").write_text(filled_reference(),
-                                                                 encoding="utf-8")
+def test_the_saved_table_reference_template_is_a_table_before_its_columns_are_written(
+        started: Path) -> None:
+    project.new_table("mart.daily_runs")
     logic = logic_reading(started, "mart.reader", "from references.mart__daily_runs import "
                           "daily_runs\n\n\ndef table():\n    return daily_runs\n")
     table = logic.table()
-    assert repr(table) == "Table('mart.daily_runs', columns: job_id)"
-    # Neither partitioned nor keyed until you say so.
+    assert repr(table) == "Table('mart.daily_runs', columns: <COLUMNS>)"
+    # Neither partitioned nor keyed until project.reference_from_logic says.
     assert table._partitioned_by == [] and table._key is None
 
 
-def test_the_saved_table_reference_template_takes_any_partition_column(started: Path) -> None:
-    text = filled_reference().replace(
-        '        "job_id": "bigint",',
-        '        "job_id": "bigint",\n        "region": "string",'
-    ).replace("partitioned_by=[],", 'partitioned_by=["region"],').replace(
-        "key=None,", 'key=["job_id", "region"],')
-    (started / "references" / "mart__daily_runs.py").write_text(text, encoding="utf-8")
-    logic = logic_reading(started, "mart.reader", "from references.mart__daily_runs import "
-                          "daily_runs\n\n\ndef table():\n    return daily_runs\n")
-    assert logic.table()._partitioned_by == ["region"]
+def test_reference_from_logic_takes_the_logics_partition_columns_and_key(started: Path) -> None:
+    filled_notebook(started, "saved_table", "mart.daily_runs", FILLS["saved_table"])
+    reference = started / "references" / "mart__daily_runs.py"
+    reference.write_text(SAVED_TABLE_REFERENCE.replace("<DB>", "mart").replace(
+        "<TABLE>", "daily_runs").replace("<NAME>", "mart__daily_runs"), encoding="utf-8")
+    project.reference_from_logic("mart.daily_runs")
+    written = reference.read_text(encoding="utf-8")
+    assert '    partitioned_by=["dt"],' in written
+    assert '    key=["job_id", "dt"],' in written
 
 
 def test_the_building_block_template_filled_in_is_a_derived_table(started: Path) -> None:

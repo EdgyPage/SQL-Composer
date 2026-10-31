@@ -36,6 +36,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   convert Workflow runs the batch its names cell names, and NAME may be a list of batches
   converted already. `project.do_next()`, the cell before, still runs only the steps that
   change files.
+- **A new table's Table reference is written from its logic.** new_table's steps run
+  logic first: once its logic cell runs, `project.reference_from_logic(TABLES)` writes the
+  table's Table reference, its columns and types from `preview()`, its partition columns
+  from the logic's new `PARTITIONED_BY` line, and the Key its query makes, proposed; its
+  location is a Decision, answered in the decisions cell. You type no column or type. A
+  Table reference whose columns you wrote yourself is kept.
 - **A long script's staging table is folded.** A staging table is one a CREATE TABLE ...
   AS SELECT of the batch writes and a statement after it reads. `project.convert` folds a
   temporary one, or one a DROP later in its script removes, into each table that reads it,

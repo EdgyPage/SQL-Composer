@@ -54,7 +54,7 @@ its names cell; calling it from any notebook of the Project does the same:
 >>> project.new_table("mart.alerts_per_severity")
 Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__alerts_per_severity.py: fill in its <...> and TODO lines.
+Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writes it.
 
 It made four things, and listed two of them, the Table folder and the Table reference, in the
 registry:
@@ -104,24 +104,24 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     #   - `<COUNT_NAME>`: the name of the count it saves, in quotes, such as `"runs"`;
     #   - `<PARTITION_COLUMN>`: the column of the table it reads that fills this table's partition
     #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
-    #     naming `<PARTITION_COLUMN>` instead.
+    #     of rows() naming `<PARTITION_COLUMN>`, and write `PARTITIONED_BY = []`, instead.
     #
-    # Then fill in this table's Table reference, `references/mart__alerts_per_severity.py`: its `<...>` and TODO
-    # lines.
+    # Then save it: `project.reference_from_logic("mart.alerts_per_severity")`, a new_table Workflow step,
+    # writes its Table reference, `references/mart__alerts_per_severity.py`, from the logic, for you to answer.
     # It lists the columns write() saves, in the order its SELECT gives them: here
     # <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint", and
-    # last its partition column, if it has one, also named in partitioned_by=[...]. Its Key is
-    # the column each row is for, and the partition column if it has one, such as
+    # last its partition column, if it has one, as PARTITIONED_BY names it. Its Key, proposed from
+    # the query, is the column each row is for, and the partition column if it has one, such as
     # key=["job_id", "region"].
     #
     # TODO: say in one line what one row of mart.alerts_per_severity is.
     #
     # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-    # It is partitioned however its Table reference says, or not at all.
+    # It is partitioned as PARTITIONED_BY says, or not at all.
     #
     # Made by `project.new_table("mart.alerts_per_severity")` from
     # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
-    # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
+    # mart__alerts_per_severity. Run the cells top to bottom once its Table reference is written from the logic.
     #
     # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
     # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
@@ -151,6 +151,9 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     # The rows write() reads: change it to write others. A condition that calls something other
     # than equals, such as between or is_in, needs it added to the import above.
     READS = <READS>
+
+    # This table's partition columns, in the order its SELECT gives them, last: [] for none.
+    PARTITIONED_BY = ["<PARTITION_COLUMN>"]
 
 
     def create() -> Statement:
@@ -332,40 +335,36 @@ The notebook has five code cells, run top to bottom:
 
 ### Fill in its Table reference, beside it
 
-Open references/mart__alerts_per_severity.py in your editor and fill it in beside the
-notebook: it describes the table the notebook's write() fills. This is it as
-`project.new_table` wrote it, from the saved_table_reference Template:
+references/mart__alerts_per_severity.py describes the table the notebook's write() fills.
+This is it as `project.new_table` wrote it, from the saved_table_reference Template, to stand
+in until the logic is written: then `project.reference_from_logic("mart.alerts_per_severity")`,
+the new_table Workflow's step, writes it from the logic, its columns, partition columns and Key,
+leaving its location= for you to answer. Here you write it yourself instead, as the Starter
+Example project did, a file it then keeps as yours:
 
 The file `references/mart__alerts_per_severity.py`, as project.new_table wrote it:
 
     \"\"\"mart.alerts_per_severity - TODO: say in one line what one row is.
 
-    Fill in every <...> below, brackets and all: Python stops at one left in. They are:
-        <COLUMN> and <COLUMN_TYPE>: a column write() saves and its Hive type, each in quotes,
-            such as "job_id" and "bigint". Copy the line for each column, in the order write()
-            saves them, its partition columns last.
-        <LOCATION>: the table's own folder, in quotes, such as "/data/your_team/mart.db/alerts_per_severity".
-    Then partitioned_by= and key=, and the TODO lines.
+    project.reference_from_logic("mart.alerts_per_severity") writes this file again from the table's logic,
+    filling in what is left. They are:
+        <COLUMNS>: the columns write() saves and their types, from its logic's preview().
 
     Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-    project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-    table's Table reference is filled in by hand, since the table doesn't exist until its
-    notebook's create() makes it from this file. Its notebook's text cell says which columns it
-    lists, and its Key.
+    project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+    until the table's logic is written: then project.reference_from_logic writes it again, its
+    columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+    query makes. A Saved table doesn't exist until its notebook's create() makes it from this
+    file, so nothing can be asked of it: its logic says what it holds.
     \"\"\"
 
     from sqlglot_composer import Table
 
     alerts_per_severity = Table(
         "mart.alerts_per_severity",
-        columns={
-            <COLUMN>: <COLUMN_TYPE>,  # a line per column write() saves, its partition columns last
-        },
-        partitioned_by=[],  # its partition columns, in order, such as ["region"]: [] for none
-        key=None,  # the columns whose values name one row, such as ["job_id"]: None if none do
-        location=<LOCATION>,  # its own folder, in quotes
-        descriptions={},  # optional: {"column": "what it holds"}, for the Reference sheet
+        columns={"<COLUMNS>": "string"},  # project.reference_from_logic writes them, from the logic
+        location=None,  # TODO: its own folder, such as "/data/your_team/mart.db/alerts_per_severity"
     )
 
     # --- Aliases ------------------------------------------------------------------------------
@@ -382,8 +381,8 @@ The file `references/mart__alerts_per_severity.py`, as project.new_table wrote i
 It has no `does_not_add_up=`, which the Table references `project.add_references` writes have:
 the Template's table saves counts, which add up, so it is left out and taken as empty. Add
 `does_not_add_up=[...]` yourself if your table saves an average, a ratio or a distinct count.
-Type over each `<...>`, and fill in the TODO lines, as here, the file as it is in the Starter
-Example project:
+Write each column, its partition columns, Key and location=, and the TODO lines, as here,
+the file as it is in the Starter Example project:
 
 The file `references/mart__alerts_per_severity.py`, after you fill it in:
 

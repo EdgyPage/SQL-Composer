@@ -1401,7 +1401,7 @@ TEMPORARY = "was a temporary table"
 FOLDED = ("folded into {readers}: a Derived table there, never created, written, compared or "
           "promoted")
 KEPT = ("kept a Saved table: a statement reading it can't take its query as a Derived table, "
-        "such as one kept as Hive")
+        "such as one sqlglot couldn't read, or a query alone among other statements")
 TRUNCATED = "nothing: the write after it replaces every row"
 PARTITIONED = "nothing: write() adds each Partition it writes"
 
@@ -1988,8 +1988,8 @@ KEEP = "keep"
 
 def staging_tables(statements: list[BatchStatement]) -> dict[str, str]:
     """Each staging table of a batch, with the choice proposed for it: a table one CREATE ...
-    AS writes and a statement after it reads. Fold is proposed for a temporary table, or a
-    scratch table, one a DROP later in its script removes; keep for the rest."""
+    AS writes and a statement after it reads. Fold is proposed for a temporary table, or one a
+    DROP later in its script removes; keep for the rest."""
     found = {}
     for each in statements:
         if each.kind != CREATE_AS or each.tree is None or each.tree.args.get("kind") == "VIEW":
@@ -2044,7 +2044,8 @@ def fold_staging(statements: list[BatchStatement], choices: dict[str, str],
             _fold_into(reader, table, query, database)
         read_by = [reader.table or "a query" for reader in readers]
         note = FOLDED.format(readers=in_words(read_by))
-        for each in [writer, *readers_after(statements, writer)]:
+        # Its DROPs too, before its CREATE as well as after: it has no Saved table to make new.
+        for each in statements:
             if each.table == table and each.kind in (CREATE_AS, NOTHING):
                 each.kind, each.note = NOTHING, note
         folded.append(table)

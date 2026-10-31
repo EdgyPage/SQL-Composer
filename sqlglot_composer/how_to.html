@@ -2759,7 +2759,7 @@ run_alerts = Table(
 <pre class="python">project.new_table(&quot;mart.alerts_per_severity&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__alerts_per_severity.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -2790,32 +2790,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__alerts_per_severity.py</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.alerts_per_severity&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 alerts_per_severity = Table(
     &quot;mart.alerts_per_severity&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -2858,24 +2851,24 @@ alerts_per_severity = Table(
 #   - `&lt;COUNT_NAME&gt;`: the name of the count it saves, in quotes, such as `&quot;runs&quot;`;
 #   - `&lt;PARTITION_COLUMN&gt;`: the column of the table it reads that fills this table&#x27;s partition
 #     column, such as `dt` or `region`. If this table isn&#x27;t partitioned, delete the two lines
-#     naming `&lt;PARTITION_COLUMN&gt;` instead.
+#     of rows() naming `&lt;PARTITION_COLUMN&gt;`, and write `PARTITIONED_BY = []`, instead.
 #
-# Then fill in this table&#x27;s Table reference, `references/mart__alerts_per_severity.py`: its `&lt;...&gt;` and TODO
-# lines.
+# Then save it: `project.reference_from_logic(&quot;mart.alerts_per_severity&quot;)`, a new_table Workflow step,
+# writes its Table reference, `references/mart__alerts_per_severity.py`, from the logic, for you to answer.
 # It lists the columns write() saves, in the order its SELECT gives them: here
 # &lt;GROUP_COLUMN&gt;, typed as the table read types it, then &lt;COUNT_NAME&gt;, a count, &quot;bigint&quot;, and
-# last its partition column, if it has one, also named in partitioned_by=[...]. Its Key is
-# the column each row is for, and the partition column if it has one, such as
+# last its partition column, if it has one, as PARTITIONED_BY names it. Its Key, proposed from
+# the query, is the column each row is for, and the partition column if it has one, such as
 # key=[&quot;job_id&quot;, &quot;region&quot;].
 #
 # TODO: say in one line what one row of mart.alerts_per_severity is.
 #
 # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-# It is partitioned however its Table reference says, or not at all.
+# It is partitioned as PARTITIONED_BY says, or not at all.
 #
 # Made by `project.new_table(&quot;mart.alerts_per_severity&quot;)` from
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file&#x27;s name,
-# mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
+# mart__alerts_per_severity. Run the cells top to bottom once its Table reference is written from the logic.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
@@ -2905,6 +2898,9 @@ from references.&lt;SOURCE_NAME&gt; import &lt;SOURCE_TABLE&gt;
 # The rows write() reads: change it to write others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.
 READS = &lt;READS&gt;
+
+# This table&#x27;s partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = [&quot;&lt;PARTITION_COLUMN&gt;&quot;]
 
 
 def create() -&gt; Statement:
@@ -3058,36 +3054,29 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p>The notebook has five code cells, run top to bottom:</p>
 <p>1. the path lines and imports, as in <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, READS, and four functions, each giving a Statement and running nothing: create, rows, preview and write. <code>rows()</code> holds the clauses preview and write share, so the rows you check are the rows you save; 3. try it: each step&#x27;s Hive, then the rows; 4. its Lineage, as <a href="#follow_lineage">Follow lineage</a> shows; 5. its rows in the Reference sheet, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h5>Fill in its Table reference, beside it</h5>
-<p>Open references/mart__alerts_per_severity.py in your editor and fill it in beside the notebook: it describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template:</p>
+<p>references/mart__alerts_per_severity.py describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template, to stand in until the logic is written: then <code>project.reference_from_logic(&quot;mart.alerts_per_severity&quot;)</code>, the new_table Workflow&#x27;s step, writes it from the logic, its columns, partition columns and Key, leaving its location= for you to answer. Here you write it yourself instead, as the Starter Example project did, a file it then keeps as yours:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, as <code>project.new_table</code> wrote it</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.alerts_per_severity&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 alerts_per_severity = Table(
     &quot;mart.alerts_per_severity&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -3100,7 +3089,7 @@ alerts_per_severity = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
-<p>It has no <code>does_not_add_up=</code>, which the Table references <code>project.add_references</code> writes have: the Template&#x27;s table saves counts, which add up, so it is left out and taken as empty. Add <code>does_not_add_up=[...]</code> yourself if your table saves an average, a ratio or a distinct count. Type over each <code>&lt;...&gt;</code>, and fill in the TODO lines, as here, the file as it is in the Starter Example project:</p>
+<p>It has no <code>does_not_add_up=</code>, which the Table references <code>project.add_references</code> writes have: the Template&#x27;s table saves counts, which add up, so it is left out and taken as empty. Add <code>does_not_add_up=[...]</code> yourself if your table saves an average, a ratio or a distinct count. Write each column, its partition columns, Key and location=, and the TODO lines, as here, the file as it is in the Starter Example project:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, after you fill it in</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - one row per severity and day: the alerts raised.
 
@@ -3788,7 +3777,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -3826,32 +3815,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__daily_job_runs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.daily_job_runs - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.daily_job_runs&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 daily_job_runs = Table(
     &quot;mart.daily_job_runs&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/daily_job_runs&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -4120,7 +4102,7 @@ Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4,
 <pre class="python">project.new_table(&quot;mart.team_day&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__team_day/: mart__team_day.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__team_day.py: fill in its &lt;...&gt; and TODO lines.
+Wrote references/mart__team_day.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.daily_job_runs.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
@@ -4205,32 +4187,25 @@ def __dir__() -&gt; list[str]:
 <p class="label">It writes references/mart__team_day.py</p>
 <pre class="python">&quot;&quot;&quot;mart.team_day - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/team_day&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.team_day&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 team_day = Table(
     &quot;mart.team_day&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/team_day&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -4660,7 +4635,7 @@ execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt)
 <pre class="python">project.new_table(&quot;mart.run_speed&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__run_speed.py: fill in its &lt;...&gt; and TODO lines.
+Wrote references/mart__run_speed.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.daily_job_runs and mart.team_day.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
@@ -4755,32 +4730,25 @@ def __dir__() -&gt; list[str]:
 <p class="label">It writes references/mart__run_speed.py</p>
 <pre class="python">&quot;&quot;&quot;mart.run_speed - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/run_speed&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.run_speed&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 run_speed = Table(
     &quot;mart.run_speed&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/run_speed&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -5396,7 +5364,7 @@ def runs_per_job(reads: Condition) -&gt; Table:  # named as its file is
 <pre class="python">project.new_table(&quot;mart.alerts_per_severity&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__alerts_per_severity.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -5434,32 +5402,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__alerts_per_severity.py</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.alerts_per_severity&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 alerts_per_severity = Table(
     &quot;mart.alerts_per_severity&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/alerts_per_severity&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -5753,7 +5714,7 @@ Notes:
 <pre class="python">project.new_table(&quot;mart.job_minutes&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__job_minutes/: mart__job_minutes.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_minutes.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__job_minutes.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -5807,32 +5768,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__job_minutes.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_minutes - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/job_minutes&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.job_minutes&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 job_minutes = Table(
     &quot;mart.job_minutes&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/job_minutes&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -6313,7 +6267,7 @@ tables/mart__fail_history/mart__fail_history.ipynb</pre>
 ## Each statement, in the order they run
 
 1. daily.hql line 1, `SET hive.exec.parallel=true`: the Session settings of the writes after it in its script
-2. daily.hql line 2, `DROP TABLE IF EXISTS ops_reports.failed_runs`: nothing: the Saved table&#x27;s create() makes it new
+2. daily.hql line 2, `DROP TABLE IF EXISTS ops_reports.failed_runs`: folded into ops_reports.fail_history: a Derived table there, never created, written, compared or promoted
 3. daily.hql line 3, `CREATE TEMPORARY TABLE ops_reports.failed_runs AS SELECT r.run_id, r.job_id, ...`: folded into ops_reports.fail_history: a Derived table there, never created, written, compared or promoted
 4. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerts_by_severity_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
 5. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerted_runs_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
@@ -6431,7 +6385,7 @@ alerted_runs_ops_reports = Table(
         &quot;dt&quot;: &quot;string&quot;,
     },
     partitioned_by=[&quot;dt&quot;],
-    key=[&quot;run_id&quot;, &quot;dt&quot;],  # proposed by project.convert from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
+    key=[&quot;run_id&quot;, &quot;dt&quot;],  # proposed from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
     location=&quot;/data/mart.db/alerted_runs_ops_reports&quot;,
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 )
@@ -6458,7 +6412,7 @@ alerts_by_severity_ops_reports = Table(
         &quot;dt&quot;: &quot;string&quot;,
     },
     partitioned_by=[&quot;dt&quot;],
-    key=[&quot;severity&quot;, &quot;dt&quot;],  # proposed by project.convert from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
+    key=[&quot;severity&quot;, &quot;dt&quot;],  # proposed from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
     location=&quot;/data/mart.db/alerts_by_severity_ops_reports&quot;,
     does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 )
@@ -11515,7 +11469,7 @@ from warehouse import query, execute
 project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_region_costs.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
@@ -11648,32 +11602,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__job_region_costs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_region_costs - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/job_region_costs&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.job_region_costs&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 job_region_costs = Table(
     &quot;mart.job_region_costs&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/job_region_costs&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -11851,7 +11798,7 @@ GROUP BY
 <pre class="python">project.new_table(&quot;mart.event_facts&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__event_facts/: mart__event_facts.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__event_facts.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__event_facts.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <details><summary>Show its 134 lines</summary>
 <pre class="file"># Admin log
@@ -11992,32 +11939,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__event_facts.py</p>
 <pre class="python">&quot;&quot;&quot;mart.event_facts - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/event_facts&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.event_facts&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 event_facts = Table(
     &quot;mart.event_facts&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/event_facts&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -12251,7 +12191,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 <pre class="python">project.new_table(&quot;mart.job_day_events&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__job_day_events/: mart__job_day_events.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_day_events.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
@@ -12384,32 +12324,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__job_day_events.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/job_day_events&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.job_day_events&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 job_day_events = Table(
     &quot;mart.job_day_events&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/job_day_events&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -14723,7 +14656,7 @@ changed</pre>
 <pre class="python">project.new_table(&quot;mart.run_speed&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__run_speed.py: fill in its &lt;...&gt; and TODO lines.</pre>
+Wrote references/mart__run_speed.py: project.reference_from_logic writes it.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
@@ -14863,32 +14796,25 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 <p class="label">It writes references/mart__run_speed.py</p>
 <pre class="python">&quot;&quot;&quot;mart.run_speed - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/run_speed&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.run_speed&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 run_speed = Table(
     &quot;mart.run_speed&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/run_speed&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -15005,7 +14931,7 @@ speed_step</pre>
 <pre class="python">project.new_table(&quot;mart.slow_runs&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__slow_runs.py: fill in its &lt;...&gt; and TODO lines.
+Wrote references/mart__slow_runs.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
@@ -15203,32 +15129,25 @@ def __dir__() -&gt; list[str]:
 <p class="label">It writes references/mart__slow_runs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.slow_runs - TODO: say in one line what one row is.
 
-Fill in every &lt;...&gt; below, brackets and all: Python stops at one left in. They are:
-    &lt;COLUMN&gt; and &lt;COLUMN_TYPE&gt;: a column write() saves and its Hive type, each in quotes,
-        such as &quot;job_id&quot; and &quot;bigint&quot;. Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    &lt;LOCATION&gt;: the table&#x27;s own folder, in quotes, such as &quot;/data/your_team/mart.db/slow_runs&quot;.
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic(&quot;mart.slow_runs&quot;) writes this file again from the table&#x27;s logic,
+filling in what is left. They are:
+    &lt;COLUMNS&gt;: the columns write() saves and their types, from its logic&#x27;s preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table&#x27;s logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn&#x27;t exist until its notebook&#x27;s create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
 
 slow_runs = Table(
     &quot;mart.slow_runs&quot;,
-    columns={
-        &lt;COLUMN&gt;: &lt;COLUMN_TYPE&gt;,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as [&quot;region&quot;]: [] for none
-    key=None,  # the columns whose values name one row, such as [&quot;job_id&quot;]: None if none do
-    location=&lt;LOCATION&gt;,  # its own folder, in quotes
-    descriptions={},  # optional: {&quot;column&quot;: &quot;what it holds&quot;}, for the Reference sheet
+    columns={&quot;&lt;COLUMNS&gt;&quot;: &quot;string&quot;},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as &quot;/data/your_team/mart.db/slow_runs&quot;
 )
 
 # --- Aliases ------------------------------------------------------------------------------
@@ -16613,31 +16532,37 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
     s0[&quot;1. Make each Table folder&quot;]:::files_only
-    s1{&quot;2. Fill in each Table reference, in references/, and save it&quot;}:::your_decision
-    s2{&quot;3. Write each table&#x27;s logic in its Table notebook, and save it&quot;}:::your_decision
-    s3[[&quot;4. Check each table&#x27;s rows with preview(), which writes nothing&quot;]]:::warehouse_call
-    s4[[&quot;5. Create and write each in dev&quot;]]:::warehouse_call
+    s1{&quot;2. Write each table&#x27;s logic in its Table notebook, and save it&quot;}:::your_decision
+    s2[&quot;3. Write each Table reference from its logic&quot;]:::files_only
+    s3{&quot;4. Answer each table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
+    s4[&quot;5. Write each answer into its table&#x27;s Table reference&quot;]:::files_only
+    s5[[&quot;6. Check each table&#x27;s rows with preview(), which writes nothing&quot;]]:::warehouse_call
+    s6[[&quot;7. Create and write each in dev&quot;]]:::warehouse_call
     t0(&quot;the tables&#x27; names&quot;):::thing
     t1(&quot;a Table folder&quot;):::thing
-    t2(&quot;its Table reference to fill in&quot;):::thing
-    t3(&quot;its Table reference&quot;):::thing
-    t4(&quot;what each table should hold&quot;):::thing
-    t5(&quot;a dev Table folder whose logic loads&quot;):::thing
-    t6(&quot;its rows, checked&quot;):::thing
-    t7(&quot;written in dev&quot;):::thing
+    t2(&quot;what each table should hold&quot;):::thing
+    t3(&quot;its logic&quot;):::thing
+    t4(&quot;its Table reference&quot;):::thing
+    t5(&quot;each answer in the decisions cell&quot;):::thing
+    t6(&quot;a dev Table folder whose logic loads&quot;):::thing
+    t7(&quot;its rows, checked&quot;):::thing
+    t8(&quot;written in dev&quot;):::thing
     t0 --&gt; s0
     s0 --&gt; t1
-    s0 --&gt; t2
+    t1 --&gt; s1
     t2 --&gt; s1
     s1 --&gt; t3
-    t1 --&gt; s2
-    t4 --&gt; s2
-    s2 --&gt; t5
-    t5 --&gt; s3
-    s3 --&gt; t6
-    t6 --&gt; s4
-    t3 --&gt; s4
-    s4 --&gt; t7
+    t3 --&gt; s2
+    s2 --&gt; t4
+    t4 --&gt; s3
+    s3 --&gt; t5
+    t5 --&gt; s4
+    s4 --&gt; t6
+    t6 --&gt; s5
+    s5 --&gt; t7
+    t7 --&gt; s6
+    t4 --&gt; s6
+    s6 --&gt; t8
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -16646,16 +16571,27 @@ flowchart TD
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
 TABLES = []</pre>
+<p>Its decisions cell, beside it, where you answer each open Decision:</p>
+<pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
+# project.check() writes it, such as
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
+#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
+# &quot;key&quot;: None says no columns name one row. project.check() names each one open;
+# a Key project.convert proposed is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Make each Table folder (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.new_table(TABLES)</pre>
-<ul><li>2. Fill in each Table reference, in references/, and save it (it is a decision, yours to make).</li><li>3. Write each table&#x27;s logic in its Table notebook, and save it (it is a decision, yours to make).</li></ul>
+<ul><li>2. Write each table&#x27;s logic in its Table notebook, and save it (it is a decision, yours to make).</li></ul>
 <pre class="python">for table in TABLES:
-    project.load(table).write()  # says what stops it, if anything does</pre>
-<ul><li>4. Check each table&#x27;s rows with preview(), which writes nothing (it is a call to the warehouse, yours to run).</li></ul>
+    project.load(table).preview()  # says what stops it, if anything does</pre>
+<ul><li>3. Write each Table reference from its logic (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.reference_from_logic(TABLES)</pre>
+<ul><li>4. Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>5. Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.write_decisions(DECISIONS)</pre>
+<ul><li>6. Check each table&#x27;s rows with preview(), which writes nothing (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">for table in TABLES:
     print(run_query(project.load(table).preview(), query))</pre>
-<ul><li>5. Create and write each in dev (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>7. Create and write each in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">for table in TABLES:
     run_execute(project.load(table).create(), execute)
 project.run_tables(tables=TABLES, execute=execute)</pre>

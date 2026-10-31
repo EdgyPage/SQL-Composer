@@ -44,7 +44,7 @@ as [Save a table](#save_a_table) shows:
 >>> project.new_table("mart.job_region_costs")
 Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_region_costs.py: fill in its <...> and TODO lines.
+Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.
 
 Its Table reference, filled in, says how the table is stored. Each line is explained below:
 
@@ -225,7 +225,7 @@ such a table, joined on job_id every run:
 >>> project.new_table("mart.event_facts")
 Made tables/mart__event_facts/: mart__event_facts.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__event_facts.py: fill in its <...> and TODO lines.
+Wrote references/mart__event_facts.py: project.reference_from_logic writes it.
 
 The file `references/mart__event_facts.py`, after you fill it in:
 

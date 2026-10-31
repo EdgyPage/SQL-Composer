@@ -56,7 +56,7 @@ fill in its <...> and TODO lines.
 >>> project.new_table("mart.alerts_per_severity")
 Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__alerts_per_severity.py: fill in its <...> and TODO lines.
+Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writes it.
 
 The file `references/ops__jobs.py`, after you fill it in:
 
@@ -299,7 +299,7 @@ numbers already:
 >>> project.new_table("mart.job_minutes")
 Made tables/mart__job_minutes/: mart__job_minutes.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_minutes.py: fill in its <...> and TODO lines.
+Wrote references/mart__job_minutes.py: project.reference_from_logic writes it.
 
 `project.remove_table`, from admin/remove.ipynb, moves the Table folder, whole, into
 admin/removed/, named by the time, and marks its registry row removed.

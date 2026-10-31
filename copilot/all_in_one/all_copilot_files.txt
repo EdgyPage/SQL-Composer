@@ -1792,29 +1792,27 @@ r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(j
 # Copilot file 13: the Workflows (sqlglot Composer 8.0)
 
 Objective: take the user through a whole job, step by step, from its Workflow notebook.
-Load this file when the user asks how to do a job end to end: convert Hive, promote tables
-to prod, make a Saved table, add Table references, upgrade, or change a Saved table.
-
-You write the steps for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with the steps left,
-each its cell, in order. For the Python inside a step, the user loads that step's file.
+Load this file when the user asks how to do a job end to end: convert Hive, promote to prod,
+make a Saved table, add Table references, upgrade, or change a Saved table. You write the
+steps for sqlglot Composer 8.0, a Toolbox that writes Hive: the steps left, each its cell, in order.
+For the Python inside a step, the user loads that step's file.
 
 ## Names for this objective, with their arguments
 
 - project.check()
-- project.do_next(workflow=None)
+- project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partition=None)
 - project.promote(tables, *, rename=None)
-- project.promoted_tables(tables, seeded=False)
 
 ## How a Workflow runs
 
 Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
-cell and saves it; then `project.check()` names the next step of each Workflow started, and
-`project.do_next()` runs the steps it can, up to the first it can't. A step that is a call
-to the warehouse or a decision is the user's: give its cell, never run it for them. Names in
-capitals, such as NAME and TABLES, are the names cell's. DEV and PROD, the Dev and Prod
-Databases, are set once in admin/databases.py.
+cell (NAME, TABLES: the names in capitals) and its decisions cell, DECISIONS, and saves it.
+Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
+left, up to the first only the user can do, and `dry_run=True` sends nothing.
+`project.check()` names the next step. A Decision is the user's: never answer it for them.
+DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
 
 ## convert: someone else's Hive into Saved tables in dev
 
@@ -1898,20 +1896,30 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
        project.new_table(TABLES)
 
-2. Fill in each Table reference, in references/, and save it (it is a decision, yours to make).
-3. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
 
        for table in TABLES:
-           project.load(table).write()  # says what stops it, if anything does
+           project.load(table).preview()  # says what stops it, if anything does
 
-4. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
+3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
+   it for you).
+
+       project.reference_from_logic(TABLES)
+
+4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+5. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
 
        for table in TABLES:
            print(run_query(project.load(table).preview(), query))
 
-5. Create and write each in dev (it is a call to the warehouse, yours to run).
+7. Create and write each in dev (it is a call to the warehouse, yours to run).
 
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
@@ -1984,4 +1992,3 @@ project.convert(NAME, None, files=FILES, query=query, database="default")
 
 - Name the Workflow and the step the user is at; give each later step's cell as it is.
 - Never invent a step or a call: only those listed here.
-- A step `project.check()` names again after it ran is one no file tells of: go on.

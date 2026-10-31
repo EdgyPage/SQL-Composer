@@ -114,7 +114,7 @@ The table the rows go to is a Saved table like any other, here mart.run_speed, m
 >>> project.new_table("mart.run_speed")
 Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__run_speed.py: fill in its <...> and TODO lines.
+Wrote references/mart__run_speed.py: project.reference_from_logic writes it.
 
 The file `references/mart__run_speed.py`, after you fill it in:
 
@@ -240,7 +240,7 @@ from mart.run_speed:
 >>> project.new_table("mart.slow_runs")
 Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__slow_runs.py: fill in its <...> and TODO lines.
+Wrote references/mart__slow_runs.py: project.reference_from_logic writes it.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns,
     mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes,
     mart.run_speed, mart.team_days and mart.team_failures.
