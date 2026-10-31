@@ -36,21 +36,15 @@ notebooks = toolbox_module("notebooks")
 # what Toolbox 8.1 removes, one ticket at a time. A journey may make no other, and must make
 # every one listed for each Workflow it runs.
 KNOWN_FIDDLING = {
-    "convert": (
-        "fill in location= in each Table reference",
-        "choose each Key in its Table reference",
-        "delete each # CONVERSION: mark",
-        "tick each box of each checklist",
-    ),
+    # Its Decisions are answered in the decisions cell, which is typing, not a hand edit.
+    "convert": (),
     # Its prod copies' locations follow the dev ones, their database's folder renamed.
     "promote": (),
     "new_table": (
         "fill in the Table reference's <...>",
         "fill in the logic's <...>",
     ),
-    "references": (
-        "fill in each TODO line",
-    ),
+    "references": (),
     # The Admin statement is the change itself, a decision the user writes (8.1's Q15).
     "change_a_saved_table": (
         "write the Admin statement's where=",
@@ -90,7 +84,9 @@ class Journey:
         started.hand_edits.setdefault(workflow, [])
 
     def type_names(self, **values: object) -> None:
-        """Type each name into the names cell, and save the notebook, as the user does."""
+        """Type each name into the names cell, or the decisions cell, and save the notebook,
+        as the user does; once its cell has run, the name holds the new value, as when the
+        user runs the cell they changed."""
         typed_names = set()
         for number, (kind, text) in enumerate(notebooks.read_cells(self.notebook), 1):
             if kind != "code":
@@ -101,6 +97,9 @@ class Journey:
                 notebooks.write_cell_text(self.notebook, number, "\n".join(typed))
                 typed_names |= {name for name in values for line in lines
                                 if line.startswith(f"{name} =")}
+                if number <= self.cells_run:
+                    self.scope.update({name: value for name, value in values.items()
+                                       if any(line.startswith(f"{name} =") for line in lines)})
         assert typed_names == set(values), f"no names cell holds {set(values) - typed_names}"
 
     def run_to(self, step: int | None = None) -> None:
@@ -211,38 +210,12 @@ def _location(table: str) -> str:
     return "/data/team/" + table.replace(".", ".db/", 1)
 
 
-def _fill_in_each_location(root: Path, tables: list[str]) -> None:
-    for table in tables:
-        _fill_in(_reference(root, table), r"location=None,[^\n]*",
-                 f'location="{_location(table)}",')
-
-
-def _choose_each_key(root: Path, keys: dict[str, list[str]]) -> None:
-    for table, key in keys.items():
-        _fill_in(_reference(root, table), r"key=None,[^\n]*", f"key={key!r},")
-
-
-def _delete_each_conversion_mark(root: Path, tables: list[str]) -> None:
-    for table in tables:
-        _delete_lines_holding(_notebook(root, table), "# CONVERSION:")
-
-
-def _tick_each_box(root: Path, tables: list[str]) -> None:
-    for table in tables:
-        _fill_in(root / "tables" / _stem(table) / "conversion" / "checklist.md", r"- \[ \]",
-                 "- [x]")
-
-
-def _decide_each_box(journey: Journey, tables: list[str], keys: dict[str, list[str]]) -> None:
-    """The convert Workflow's step 2, as 8.0 has the user do it: each box's thing, then the
-    box."""
-    root = journey.started.root
-    journey.make_by_hand("fill in location= in each Table reference",
-                         _fill_in_each_location, root, tables)
-    journey.make_by_hand("choose each Key in its Table reference", _choose_each_key, root, keys)
-    journey.make_by_hand("delete each # CONVERSION: mark",
-                         _delete_each_conversion_mark, root, tables)
-    journey.make_by_hand("tick each box of each checklist", _tick_each_box, root, tables)
+def _answer_each_decision(journey: Journey, tables: list[str],
+                          keys: dict[str, list[str]]) -> None:
+    """The convert Workflow's decision step: each table's location and Key, typed into the
+    decisions cell, which the next step writes into its Table reference."""
+    journey.type_names(DECISIONS={table: {"location": _location(table),
+                                          "key": keys.get(table)} for table in tables})
 
 
 # --- convert, then promote --------------------------------------------------------------------
@@ -293,7 +266,7 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
     for table in tables:
         assert _reference(started.root, table).is_file(), (
             f"convert made no Table reference for {table}")
-    _decide_each_box(journey, tables, keys)
+    _answer_each_decision(journey, tables, keys)
     journey.run_to()
     finished = started.root / "admin" / "workflows" / "convert" / "finished" / "weekly"
     assert finished.is_dir(), "the Batch isn't finished: a compare didn't pass"
@@ -404,7 +377,8 @@ def _drop_one_partition(text: str) -> str:
 def test_references(started: Started) -> None:
     _run_references(started, "ops.job_events", ["event_id"])
     references = started.root / "references"
-    assert "key=['event_id']" in (references / "ops__job_events.py").read_text(encoding="utf-8")
+    written = (references / "ops__job_events.py").read_text(encoding="utf-8")
+    assert 'key=["event_id"],' in written
     assert "job_events" in (references / "ops.py").read_text(encoding="utf-8")
     assert "ops.job_events" in (references / "reference_sheet.csv").read_text(encoding="utf-8")
 
@@ -415,15 +389,8 @@ def _run_references(started: Started, table: str, key: list[str]) -> None:
     journey = started.journey("references")
     journey.type_names(TABLES=[table])
     journey.run_to(1)
-    journey.make_by_hand("fill in each TODO line", _fill_in_todo_lines,
-                         _reference(started.root, table), key)
+    journey.type_names(DECISIONS={table: {"key": key}})
     journey.run_to()
-
-
-def _fill_in_todo_lines(reference: Path, key: list[str]) -> None:
-    _fill_in(reference, r"TODO: say in one line what one row is\.", "one row of the table.")
-    _fill_in(reference, r"key=None,[^\n]*", f"key={key!r},")
-    _fill_in(reference, r"does_not_add_up=\[\],[^\n]*", "does_not_add_up=[],")
 
 
 # --- upgrade ----------------------------------------------------------------------------------

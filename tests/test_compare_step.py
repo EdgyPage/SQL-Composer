@@ -168,7 +168,7 @@ def test_a_batch_cant_be_named_finished(started: Path) -> None:
 
 
 def test_the_workflows_compare_step_calls_compare_batch(started: Path) -> None:
-    assert ('failed: 2. Tick each box' in repr(project.check()))
+    assert "failed: 2. Answer each table's open Decisions" in repr(project.check())
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert step.call == "project.compare_batch(NAME, query=query)"
 

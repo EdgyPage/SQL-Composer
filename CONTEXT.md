@@ -54,8 +54,8 @@ _Avoid_: live, production schema
 The user's choice to carry one or more Saved tables from the Dev Database to the Prod
 Database: a prod copy of each table's code, each prod copy reading the prod copies of the
 others promoted with it. The dev table stays the source: a change is made in dev and promoted
-again, never in the prod copy. A table is promoted only once it is filled in, each box of
-its checklist ticked and, for a Conversion's table, compared, and with each dev table it reads.
+again, never in the prod copy. A table is promoted only once each of its Decisions is made
+and, for a Conversion's table, it is compared, and with each dev table it reads.
 _Avoid_: deploy, release, convert to prod, publish
 
 ### The user's own scripts
@@ -98,12 +98,21 @@ _Avoid_: admin statement, migration, setup step
 **Workflow**:
 An ordered list of steps that takes a Project from its start materials, what the user brings,
 to one end goal, such as converting scripts or promoting tables. The user names its inputs,
-the start materials it works on, such as the tables, once, in its notebook's names cell.
+the start materials it works on, such as the tables, once, in its notebook's names cell, and
+answers each Decision a step waits on in its decisions cell, beside it.
 Each step touches only files
 (or only prints), makes a call to the Warehouse the user makes on purpose, asks a decision only
 the user can make, or is fiddling: a step done by hand though the code already knows the
 answer, which the Toolbox works to remove.
 _Avoid_: wizard, menu, pipeline, recipe, playbook
+
+**Decision**:
+One thing about one table that only the user decides, which the table's files show made or
+not: its location, its Key, a column type the Toolbox could only guess, or a `<...>` left to
+fill in. The user answers each in a Workflow's decisions cell, and a step writes each answer
+into the table's Table reference; a Workflow's step that waits on Decisions is done once
+each is made. A Decision is never ticked by hand: the files say whether it is made.
+_Avoid_: box, checklist item, TODO
 
 **Upgrade**:
 A Project action that carries a Project's files from the Toolbox version that last wrote them

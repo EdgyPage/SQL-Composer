@@ -371,7 +371,8 @@ def test_a_type_neither_its_query_nor_describe_tells_is_named_to_check(started: 
     convert_script(
         started, "CREATE TABLE ops_reports.labels AS SELECT j.job_id, "
                  "CASE WHEN j.team = 'a' THEN 'x' ELSE 'y' END AS label FROM ops.jobs j;\n")
-    assert '- [ ] Check the type of label in references/mart_dev__labels_ops_reports.py' in (
+    assert ('- types: label\'s type, written "string" as a guess, in '
+            "references/mart_dev__labels_ops_reports.py") in (
         checklist(started, "mart_dev.labels_ops_reports"))
 
 
@@ -387,7 +388,8 @@ def test_each_table_keeps_its_statement_its_scan_and_its_checklist(started: Path
         encoding="utf-8")
     assert (conversion / "scan.md").is_file()
     items = checklist(started, "mart_dev.failed_runs_ops_reports")
-    assert "- [ ] Fill in location= in references/mart_dev__failed_runs_ops_reports.py" in items
+    assert ("- location: the folder its files go in, in "
+            "references/mart_dev__failed_runs_ops_reports.py") in items
     assert "SET lines" not in items
 
 
@@ -436,16 +438,15 @@ def test_a_creates_stored_as_reaches_its_table_reference(started: Path, batch: s
     assert 'stored_as="ORC"' in reference(started, "mart_dev.fails_per_job_ops_reports")
 
 
-def test_check_names_the_batchs_next_step_and_ticking_the_boxes_moves_it_on(
+def test_check_names_the_batchs_next_step_and_answering_the_decisions_moves_it_on(
         started: Path, batch: str) -> None:
     said = repr(project.check())
-    assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Tick each box of each "
-            "table's checklist") in said
-    for stem in ("mart_dev__failed_runs_ops_reports", "mart_dev__fails_per_job_ops_reports"):
-        path = started / "tables" / stem / "conversion" / "checklist.md"
-        path.write_text(path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
-                        encoding="utf-8")
-    assert "ops_reports: 3. Create each table in dev" in repr(project.check())
+    assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Answer each table's open "
+            "Decisions in the decisions cell") in said
+    assert "mart_dev.failed_runs_ops_reports: location: the folder its files go in" in said
+    project.write_decisions({table: {"location": f"/data/{table}", "key": None}
+                             for table in project.batch_tables("ops_reports")})
+    assert "ops_reports: 4. Create each table in dev" in repr(project.check())
 
 
 # --- What ticket 14's review found -----------------------------------------------------------
@@ -459,7 +460,7 @@ def test_a_write_that_cant_convert_is_still_made_and_the_batch_goes_on(started: 
                  "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
     assert "mart_dev.tot_ops_reports" in report
     assert '"run_id": "string"' in reference(started, "mart_dev.bad_ops_reports")
-    assert "- [ ] Check the type of run_id" in checklist(started, "mart_dev.bad_ops_reports")
+    assert "- types: run_id's type" in checklist(started, "mart_dev.bad_ops_reports")
 
 
 def test_a_fresh_reference_for_one_you_changed_leaves_your_references_alone(
@@ -487,17 +488,18 @@ def test_a_batch_run_again_keeps_each_box_you_ticked(started: Path, batch: str) 
     assert not (batch_folder(started) / "fresh").exists()
 
 
-def test_a_batch_that_only_creates_has_no_box_to_tick(started: Path) -> None:
+def test_a_table_the_batch_only_creates_asks_its_decisions_too(started: Path) -> None:
     convert_script(started, "CREATE TABLE ops_reports.lonely (a INT);\n")
     said = repr(project.check())
-    assert "script: 2. Tick each box" not in said
-    assert "script: 3. Create each table in dev" in said
+    assert "script: 2. Answer each table's open Decisions" in said
+    assert "mart_dev.lonely_ops_reports: location: the folder its files go in" in said
 
 
-def test_a_checklist_deleted_is_not_taken_as_ticked(started: Path, batch: str) -> None:
+def test_a_checklist_deleted_changes_no_decision(started: Path, batch: str) -> None:
+    # A checklist is a view of the Decisions, which the Table reference holds.
     for stem in ("mart_dev__failed_runs_ops_reports", "mart_dev__fails_per_job_ops_reports"):
         (started / "tables" / stem / "conversion" / "checklist.md").unlink()
-    assert "ops_reports: 2. Tick each box" in repr(project.check())
+    assert "ops_reports: 2. Answer each table's open Decisions" in repr(project.check())
 
 
 def test_batch_md_lists_each_tables_marks(started: Path) -> None:
@@ -506,7 +508,7 @@ def test_batch_md_lists_each_tables_marks(started: Path) -> None:
                             "WHERE r.dt = '2026-09-24';\n")
     index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
         encoding="utf-8")
-    assert "  - # CONVERSION: JOIN(j, many_matches=True), a box on its checklist" in index
+    assert "  - # CONVERSION: JOIN(j, many_matches=True), a note on its checklist" in index
 
 
 # --- Many in, many out (ticket 15) -----------------------------------------------------------
@@ -567,7 +569,7 @@ def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None
     assert project.batch_tables("script", seeded=True) == ["mart_dev.grows_ops_reports"]
     # Its write reads its own copy in dev, which the seed fills first.
     assert "FROM mart_dev.grows_ops_reports" in to_hive(logic.preview())
-    assert "- [ ] Agree to seed it: its write reads its own table" in (
+    assert "- Its write reads its own table, which in dev starts empty" in (
         checklist(started, "mart_dev.grows_ops_reports"))
 
 
@@ -617,18 +619,16 @@ def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path
     write = to_hive(project.load(dev).write())
     assert write.startswith("INSERT INTO mart_dev.inc_ops_reports PARTITION(dt = '2026-09-24')")
     assert "FROM mart_dev.inc_ops_reports AS i" in write
-    box = started / "tables" / "mart_dev__inc_ops_reports" / "conversion" / "checklist.md"
-    box.write_text(box.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
-                   encoding="utf-8")
+    project.write_decisions({dev: {"key": None}})
     run_execute(project.load(dev).create(), example_database.execute)
     said = repr(project.check())
-    assert "script: 4. Seed each table" in said
+    assert "script: 5. Seed each table" in said
     assert 'run_execute(hive_settings("dynamic_partitions"), execute)' in said
     run_execute(hive_settings("dynamic_partitions"), example_database.execute)
     run_execute(project.load(dev).seed(), example_database.execute)
-    assert "script: 5. Write each table in dev" in repr(project.check())
+    assert "script: 6. Write each table in dev" in repr(project.check())
     project.run_tables(tables=project.batch_tables("script"), execute=example_database.execute)
-    assert "script: 6. Compare each table" in repr(project.check())
+    assert "script: 7. Compare each table" in repr(project.check())
 
 
 def test_a_later_overwrite_replaces_only_its_own_partitions_writes(started: Path) -> None:

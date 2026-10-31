@@ -1,9 +1,11 @@
 # Checklist: mart.team_failures
 
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
+Written again each time its Decisions are written: don't tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
 
-- [x] Decide the `# CONVERSION:` mark for JOIN(o, reads_all_partitions=True), in the logic cell: keep it, as the original did, or change what made it needed; then delete the mark.
-- [x] Check the type of team_name in references/mart__team_failures.py: it is written "string", since neither its query nor DESCRIBE of the original told it.
-- [x] Check the type of fails in references/mart__team_failures.py: it is written "string", since neither its query nor DESCRIBE of the original told it.
-- [x] Fill in location= in references/mart__team_failures.py: the folder its files go in.
-- [x] Choose its Key in references/mart__team_failures.py, or leave key=None if no columns name one row.
+## Open Decisions
+
+None: each Decision in references/mart__team_failures.py is made.
+
+## Notes, which block nothing
+
+- The `# CONVERSION:` mark for JOIN(o, reads_all_partitions=True), in the logic cell, keeps what the original did; change what made it needed only if you want to, and the compare step checks the rows either way.

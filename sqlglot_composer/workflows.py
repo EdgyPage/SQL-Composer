@@ -32,6 +32,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from . import decisions
 from .project_files import table_stem
 from .shared import escaped_literal
 from .unchecked import SENT
@@ -64,13 +65,12 @@ PROMOTED = WORKFLOWS_FOLDER / "promote" / "promoted.json"
 COMPARED = "compare.md"
 PASSED = "Passed: "
 COMPARED_AT = "Compared at "
-# A converted table's own folder, in its Table folder, its checklist there, and a box on it
-# not yet ticked.
+# A converted table's own folder, in its Table folder, and its checklist there, a view of its
+# open Decisions.
 CONVERSION = "conversion"
 CHECKLIST = "checklist.md"
-OPEN_BOX = "- [ ] "
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
-PLACEHOLDER = re.compile(r"<[A-Z][A-Z_]*>")
+PLACEHOLDER = decisions.PLACEHOLDER_WORD
 
 @dataclass(frozen=True)
 class Input:
@@ -99,6 +99,8 @@ class Step:
     call: str = ""
     done: Callable[[Path, dict[str, object]], bool] | None = None
     run: Callable[[dict[str, object]], ProjectReport] | None = None
+    # A decision step's kinds of Decision, which you answer in the decisions cell.
+    decides: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -201,27 +203,105 @@ def reference_path(root: Path, table: str) -> Path:
     return root / "references" / f"{table_stem(table)}.py"
 
 
-def every_reference_filled_in(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table's Table reference holds no TODO: line and no placeholder left in its
-    code; its docstring may still name the placeholders, as a Template's says what each was."""
-    for table in names_in(inputs, "TABLES"):
-        text = file_text(reference_path(root, table))
-        if not text or "TODO:" in text or PLACEHOLDER.search(code_of(text)):
+# The decisions cell's name, the code cell beside the names cell of a Workflow whose step
+# waits on Decisions.
+DECISIONS = "DECISIONS"
+# The kinds of Decision each Workflow's decision step waits on.
+DEV_DECISIONS = decisions.ANSWERED_KINDS
+PROD_DECISIONS = (decisions.LOCATION,)
+SOURCE_DECISIONS = (decisions.KEY,)
+
+
+def open_decisions_of(root: Path, tables: list[str],
+                      kinds: tuple[str, ...]) -> list[decisions.Decision]:
+    """Each Decision of `kinds` the Table references of `tables` leave open, table by table."""
+    found = []
+    for table in tables:
+        found += decisions.open_decisions(file_text(reference_path(root, table)), table,
+                                          kinds)
+    return found
+
+
+def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ...],
+                             inputs: dict[str, object]) -> bool:
+    """Whether the decisions cell answers each Decision of `kinds` the tables leave open."""
+    answers = inputs.get(DECISIONS)
+    if not isinstance(answers, dict):
+        answers = {}
+    for decision in open_decisions_of(root, tables, kinds):
+        answer = answers.get(decision.table)
+        if not isinstance(answer, dict) or not decisions.is_answered(decision, answer):
             return False
-    return bool(names_in(inputs, "TABLES"))
+    return bool(tables)
 
 
-def code_of(text: str) -> str:
-    """A Python file's text but its module docstring; all of it when it doesn't parse yet, as
-    a placeholder left in its code stops Python."""
-    try:
-        tree = ast.parse(text)
-    except SyntaxError:
-        return text
-    docstring = ast.get_docstring(tree, clean=False)
-    if docstring is None:
-        return text
-    return "\n".join(text.split("\n")[tree.body[0].end_lineno:])
+def _every_decision_made(root: Path, tables: list[str], kinds: tuple[str, ...]) -> bool:
+    """Whether the tables' Table references leave no Decision of `kinds` open."""
+    if not tables or not all(reference_path(root, table).is_file() for table in tables):
+        return False
+    return not open_decisions_of(root, tables, kinds)
+
+
+def every_dev_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the decisions cell answers each Decision the batch's tables leave open."""
+    return every_batch_converted(root, inputs) and _every_decision_answered(
+        root, names_in(inputs, "TABLES"), DEV_DECISIONS, inputs)
+
+
+def every_dev_decision_made(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the batch's tables' Table references leave no Decision open."""
+    return every_batch_converted(root, inputs) and _every_decision_made(
+        root, names_in(inputs, "TABLES"), DEV_DECISIONS)
+
+
+def every_prod_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the decisions cell answers each Decision the prod copies leave open."""
+    return _every_decision_answered(root, names_in(prod_inputs(root, inputs), "TABLES"),
+                                    PROD_DECISIONS, inputs)
+
+
+def every_prod_decision_made(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the prod copies' Table references leave no Decision open."""
+    return _every_decision_made(root, names_in(prod_inputs(root, inputs), "TABLES"),
+                                PROD_DECISIONS)
+
+
+def every_source_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the decisions cell answers each Key the tables' Table references leave open."""
+    return _every_decision_answered(root, names_in(inputs, "TABLES"), SOURCE_DECISIONS,
+                                    inputs)
+
+
+def every_source_decision_made(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the tables' Table references leave no Key open."""
+    return _every_decision_made(root, names_in(inputs, "TABLES"), SOURCE_DECISIONS)
+
+
+def every_reference_filled_in(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each new table's Table reference leaves no Decision open: no <...> left in its
+    code, its location= filled in. Its docstring may still name the placeholders, as a
+    Template's says what each was, and a TODO line waits on nothing."""
+    return _every_decision_made(root, names_in(inputs, "TABLES"), decisions.KINDS)
+
+
+def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object],
+                        step: Step) -> list[decisions.Decision]:
+    """Each Decision a decision step waits on, for the tables of its Workflow's instance: the
+    prod copies' for promote."""
+    if not step.decides:
+        return []
+    if workflow.name == "promote":
+        inputs = prod_inputs(root, inputs)
+    return open_decisions_of(root, names_in(inputs, "TABLES"), step.decides)
+
+
+def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
+    """The step that writes each answer of the decisions cell into its table's Table
+    reference."""
+    from . import project  # project.py imports this file
+
+    answers = inputs.get(DECISIONS)
+    return project.write_decisions(answers if isinstance(answers, dict) else {})
 
 
 def every_logic_loads(root: Path, inputs: dict[str, object]) -> bool:
@@ -240,20 +320,6 @@ def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
     if not isinstance(name, str) or not name:
         return False
     return (root / BATCHES / name / BATCH_LIST).is_file()
-
-
-def every_box_ticked(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether every box is ticked of the checklist of each table TABLES names that has a
-    Table folder; a checklist missing from one is not, nor are those of a batch not yet
-    converted."""
-    if not every_batch_converted(root, inputs):
-        return False
-    for table in names_in(inputs, "TABLES"):
-        folder = root / "tables" / table_stem(table)
-        checklist = folder / CONVERSION / CHECKLIST
-        if folder.is_dir() and (not checklist.is_file() or OPEN_BOX in file_text(checklist)):
-            return False
-    return True
 
 
 def batch_instances(root: Path) -> list[dict[str, object]]:
@@ -355,13 +421,6 @@ def every_table_promoted(root: Path, inputs: dict[str, object]) -> bool:
     """Whether each dev table TABLES names has its prod copy's Table folder."""
     prods = names_in(prod_inputs(root, inputs), "TABLES")
     return bool(prods) and all((root / "tables" / table_stem(prod)).is_dir() for prod in prods)
-
-
-def every_prod_location_filled(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each prod copy's Table reference names its folder, location=."""
-    prods = names_in(prod_inputs(root, inputs), "TABLES")
-    return bool(prods) and all("location=None" not in file_text(reference_path(root, prod))
-                               for prod in prods)
 
 
 def every_prod_table_created(root: Path, inputs: dict[str, object]) -> bool:
@@ -473,16 +532,21 @@ CONVERT = Workflow(
     "convert",
     start_materials=("Hive scripts", "your Dev Database's name", "read access to the sources"),
     end_artifacts=("a dev Table folder per table the scripts write", "each written in dev",
-                   "each compared with its original", "each decision made"),
+                   "each compared with its original", "each answer written in"),
     steps=(
         Step("Convert the scripts: each table they write a Saved table in dev", PERMISSION,
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
-             ("a dev Table folder per table the scripts write", "a checklist per table"),
+             ("a dev Table folder per table the scripts write", "a Table reference per table"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)",
              every_batch_converted),
-        Step("Tick each box of each table's checklist", DECISION,
-             ("a checklist per table",), ("each decision made",), done=every_box_ticked),
-        Step("Create each table in dev", PERMISSION, ("each decision made",),
+        Step("Answer each table's open Decisions in the decisions cell", DECISION,
+             ("a Table reference per table",), ("each answer in the decisions cell",),
+             done=every_dev_decision_answered, decides=DEV_DECISIONS),
+        Step("Write each answer into its table's Table reference", FILE_STEP,
+             ("each answer in the decisions cell",), ("each answer written in",),
+             "project.write_decisions(DECISIONS)", every_dev_decision_made,
+             write_the_decisions),
+        Step("Create each table in dev", PERMISSION, ("each answer written in",),
              ("each made in dev",),
              "for table in project.batch_tables(NAME):\n"
              "    run_execute(project.load(table).create(), execute)", every_table_created),
@@ -507,7 +571,7 @@ CONVERT = Workflow(
             Input("DATABASE", "default", "the database of a table the Hive names without one")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
-    "folder and a checklist.",
+    "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",
     databases=("DEV",),
     instances=batch_instances,
 )
@@ -515,20 +579,24 @@ CONVERT = Workflow(
 # Promote dev tables to prod, project.promote's copies reading each other's.
 PROMOTE = Workflow(
     "promote",
-    start_materials=("dev Table folders, each box ticked and compared",
+    start_materials=("dev Table folders, each Decision made and compared",
                      "your Prod Database's name"),
     end_artifacts=("prod Table folders", "each written in prod"),
     steps=(
         Step("Promote each table: a prod copy of its folder and Table reference",
              FILE_STEP,
-             ("dev Table folders, each box ticked and compared",
+             ("dev Table folders, each Decision made and compared",
               "your Prod Database's name"),
              ("prod Table folders", "prod Table references"), "project.promote(TABLES)",
              every_table_promoted,
              promote_tables),
-        Step("Fill in each prod Table reference's location=", DECISION,
-             ("prod Table references",), ("each with its location=",),
-             done=every_prod_location_filled),
+        Step("Answer each prod table's open Decisions in the decisions cell", DECISION,
+             ("prod Table references",), ("each answer in the decisions cell",),
+             done=every_prod_decision_answered, decides=PROD_DECISIONS),
+        Step("Write each answer into its prod table's Table reference", FILE_STEP,
+             ("each answer in the decisions cell",), ("each with its location=",),
+             "project.write_decisions(DECISIONS)", every_prod_decision_made,
+             write_the_decisions),
         Step("Create each table in prod", PERMISSION, ("each with its location=",),
              ("each made in prod",),
              "for table in project.promoted_tables(TABLES):\n"
@@ -594,9 +662,13 @@ REFERENCES = Workflow(
         Step("Write the Table references from DESCRIBE", PERMISSION,
              ("table names your query can DESCRIBE",), ("Table references with TODO lines",),
              "project.add_references(TABLES, query=query)", every_reference_written),
-        Step("Fill in each TODO line and Alias", DECISION,
-             ("Table references with TODO lines",), ("filled-in Table references",),
-             done=every_reference_filled_in),
+        Step("Answer each table's open Decisions in the decisions cell", DECISION,
+             ("Table references with TODO lines",), ("each answer in the decisions cell",),
+             done=every_source_decision_answered, decides=SOURCE_DECISIONS),
+        Step("Write each answer into its table's Table reference", FILE_STEP,
+             ("each answer in the decisions cell",), ("filled-in Table references",),
+             "project.write_decisions(DECISIONS)", every_source_decision_made,
+             write_the_decisions),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("filled-in Table references",),
              ("the Reference sheet", "the Database modules"),
@@ -668,6 +740,14 @@ def inputs_cell(workflow: Workflow) -> str:
     return "\n".join(lines)
 
 
+# The decisions cell of a Workflow whose step waits on Decisions.
+DECISIONS_CELL = (
+    f"{DECISIONS} = {{}}  # your answer to each open Decision, by the table's name as\n"
+    "# project.check() writes it, such as\n"
+    '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
+    '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
+    '# "key": None says no columns name one row. project.check() names each one open')
+
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
              PERMISSION: "is a call to the warehouse, yours to run",
@@ -700,6 +780,8 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
     cells = [("markdown", about), ("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
+    if any(step.decides for step in workflow.steps):
+        cells.append(("code", DECISIONS_CELL))
     for number, step in enumerate(workflow.steps, 1):
         cells.append(("markdown", step_cell(number, workflow, step)))
         if step.call:
@@ -711,18 +793,23 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
 
 def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
     """A Workflow's inputs, as its notebook's names cell holds them: each name given a
-    plain value there. A value that isn't plain Python, or a notebook that isn't there, gives
-    none."""
+    plain value there, and its decisions cell's DECISIONS, when it has one. A value that isn't
+    plain Python, or a notebook that isn't there, gives none."""
     text = file_text(notebook_path(root, workflow))
     if not text or not workflow.inputs:
         return {}
     names = {each.name for each in workflow.inputs}
     first_line = f"{workflow.inputs[0].name} ="
+    given: dict[str, object] = {}
     for cell in json.loads(text).get("cells", []):
         source = "".join(cell.get("source", []))
-        if cell.get("cell_type") == "code" and source.startswith(first_line):
-            return _plain_assignments(source, names)
-    return {}
+        if cell.get("cell_type") != "code":
+            continue
+        if source.startswith(first_line):
+            given.update(_plain_assignments(source, names))
+        elif source.startswith(f"{DECISIONS} ="):
+            given.update(_plain_assignments(source, {DECISIONS}))
+    return given
 
 
 def _plain_assignments(source: str, names: set[str]) -> dict[str, object]:
@@ -770,7 +857,9 @@ def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
     named = {each.get("NAME") for each in found}
     if started is not None and started.get("NAME") not in named:
         found.insert(0, started)
-    return found
+    # Each instance reads the one decisions cell, which answers by table.
+    answers = given_inputs(root, workflow).get(DECISIONS, {})
+    return [{**each, DECISIONS: answers} for each in found]
 
 
 def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:

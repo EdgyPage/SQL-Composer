@@ -47,29 +47,31 @@ round corners something a step needs or makes.
 ### The convert Workflow
 
 Turns Hive someone else wrote, one query or a batch of scripts, into your own code: each table
-the scripts write becomes a Saved table in your Dev Database, with its Table folder and a
-checklist.
+the scripts write becomes a Saved table in your Dev Database, with its Table folder, and what
+only you can decide of it, a Decision, answered in the decisions cell.
 
 Its chart, drawn from the steps of its notebook, admin/workflows/convert/convert.ipynb:
 
 ```mermaid
 flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev"]]:::warehouse_call
-    s1{"2. Tick each box of each table's checklist"}:::your_decision
-    s2[["3. Create each table in dev"]]:::warehouse_call
-    s3[["4. Seed each table that reads itself, once, from its original"]]:::warehouse_call
-    s4[["5. Write each table in dev"]]:::warehouse_call
-    s5[["6. Compare each table with its original"]]:::warehouse_call
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference"]:::files_only
+    s3[["4. Create each table in dev"]]:::warehouse_call
+    s4[["5. Seed each table that reads itself, once, from its original"]]:::warehouse_call
+    s5[["6. Write each table in dev"]]:::warehouse_call
+    s6[["7. Compare each table with its original"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
     t3("a dev Table folder per table the scripts write"):::thing
-    t4("a checklist per table"):::thing
-    t5("each decision made"):::thing
-    t6("each made in dev"):::thing
-    t7("each seeded"):::thing
-    t8("each written in dev"):::thing
-    t9("each compared with its original"):::thing
+    t4("a Table reference per table"):::thing
+    t5("each answer in the decisions cell"):::thing
+    t6("each answer written in"):::thing
+    t7("each made in dev"):::thing
+    t8("each seeded"):::thing
+    t9("each written in dev"):::thing
+    t10("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -85,6 +87,9 @@ flowchart TD
     s4 --> t8
     t8 --> s5
     s5 --> t9
+    t9 --> s6
+    s6 --> t10
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -101,6 +106,14 @@ Its names cell, which you fill in and save first:
     # the database of a table the Hive names without one
     DATABASE = 'default'
 
+Its decisions cell, beside it, where you answer each open Decision:
+
+    DECISIONS = {}  # your answer to each open Decision, by the table's name as
+    # project.check() writes it, such as
+    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    # "key": None says no columns name one row. project.check() names each one open
+
 Its steps:
 
 - 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
@@ -108,24 +121,29 @@ Its steps:
 
     project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
 
-- 2. Tick each box of each table's checklist (it is a decision, yours to make).
-- 3. Create each table in dev (it is a call to the warehouse, yours to run).
+- 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+- 3. Write each answer into its table's Table reference (it changes only files, so
+  project.do_next() runs it for you).
+
+    project.write_decisions(DECISIONS)
+
+- 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
     for table in project.batch_tables(NAME):
         run_execute(project.load(table).create(), execute)
 
-- 4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+- 5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
   yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.batch_tables(NAME, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 5. Write each table in dev (it is a call to the warehouse, yours to run).
+- 6. Write each table in dev (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-- 6. Compare each table with its original (it is a call to the warehouse, yours to run).
+- 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
     project.compare_batch(NAME, query=query)
 
@@ -139,18 +157,20 @@ Its chart, drawn from the steps of its notebook, admin/workflows/promote/promote
 ```mermaid
 flowchart TD
     s0["1. Promote each table: a prod copy of its folder and Table reference"]:::files_only
-    s1{"2. Fill in each prod Table reference's location="}:::your_decision
-    s2[["3. Create each table in prod"]]:::warehouse_call
-    s3[["4. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
-    s4[["5. Write each table in prod"]]:::warehouse_call
-    t0("dev Table folders, each box ticked and compared"):::thing
+    s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its prod table's Table reference"]:::files_only
+    s3[["4. Create each table in prod"]]:::warehouse_call
+    s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
+    s5[["6. Write each table in prod"]]:::warehouse_call
+    t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
     t3("prod Table references"):::thing
-    t4("each with its location="):::thing
-    t5("each made in prod"):::thing
-    t6("each seeded in prod"):::thing
-    t7("each written in prod"):::thing
+    t4("each answer in the decisions cell"):::thing
+    t5("each with its location="):::thing
+    t6("each made in prod"):::thing
+    t7("each seeded in prod"):::thing
+    t8("each written in prod"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -163,6 +183,8 @@ flowchart TD
     s3 --> t6
     t6 --> s4
     s4 --> t7
+    t7 --> s5
+    s5 --> t8
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -175,6 +197,14 @@ Its names cell, which you fill in and save first:
     # ["mart_dev.daily_job_runs"]
     TABLES = []
 
+Its decisions cell, beside it, where you answer each open Decision:
+
+    DECISIONS = {}  # your answer to each open Decision, by the table's name as
+    # project.check() writes it, such as
+    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    # "key": None says no columns name one row. project.check() names each one open
+
 Its steps:
 
 - 1. Promote each table: a prod copy of its folder and Table reference (it changes only files,
@@ -182,20 +212,26 @@ Its steps:
 
     project.promote(TABLES)
 
-- 2. Fill in each prod Table reference's location= (it is a decision, yours to make).
-- 3. Create each table in prod (it is a call to the warehouse, yours to run).
+- 2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+  make).
+- 3. Write each answer into its prod table's Table reference (it changes only files, so
+  project.do_next() runs it for you).
+
+    project.write_decisions(DECISIONS)
+
+- 4. Create each table in prod (it is a call to the warehouse, yours to run).
 
     for table in project.promoted_tables(TABLES):
         run_execute(project.load(table).create(), execute)
 
-- 4. Seed each prod table that reads itself, once, from its original (it is a call to the
+- 5. Seed each prod table that reads itself, once, from its original (it is a call to the
   warehouse, yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.promoted_tables(TABLES, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 5. Write each table in prod (it is a call to the warehouse, yours to run).
+- 6. Write each table in prod (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
@@ -282,20 +318,24 @@ Its chart, drawn from the steps of its notebook, admin/workflows/references/refe
 ```mermaid
 flowchart TD
     s0[["1. Write the Table references from DESCRIBE"]]:::warehouse_call
-    s1{"2. Fill in each TODO line and Alias"}:::your_decision
-    s2["3. Refresh the Reference sheet and the Database modules"]:::files_only
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference"]:::files_only
+    s3["4. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("table names your query can DESCRIBE"):::thing
     t1("Table references with TODO lines"):::thing
-    t2("filled-in Table references"):::thing
-    t3("the Reference sheet"):::thing
-    t4("the Database modules"):::thing
+    t2("each answer in the decisions cell"):::thing
+    t3("filled-in Table references"):::thing
+    t4("the Reference sheet"):::thing
+    t5("the Database modules"):::thing
     t0 --> s0
     s0 --> t1
     t1 --> s1
     s1 --> t2
     t2 --> s2
     s2 --> t3
-    s2 --> t4
+    t3 --> s3
+    s3 --> t4
+    s3 --> t5
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -307,14 +347,27 @@ Its names cell, which you fill in and save first:
     # the tables, by their names in the warehouse, such as ["mart.daily_job_runs"]
     TABLES = []
 
+Its decisions cell, beside it, where you answer each open Decision:
+
+    DECISIONS = {}  # your answer to each open Decision, by the table's name as
+    # project.check() writes it, such as
+    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    # "key": None says no columns name one row. project.check() names each one open
+
 Its steps:
 
 - 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
 
     project.add_references(TABLES, query=query)
 
-- 2. Fill in each TODO line and Alias (it is a decision, yours to make).
-- 3. Refresh the Reference sheet and the Database modules (it changes only files, so
+- 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+- 3. Write each answer into its table's Table reference (it changes only files, so
+  project.do_next() runs it for you).
+
+    project.write_decisions(DECISIONS)
+
+- 4. Refresh the Reference sheet and the Database modules (it changes only files, so
   project.do_next() runs it for you).
 
     project.refresh_reference_sheet(TABLES)

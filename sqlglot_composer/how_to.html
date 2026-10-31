@@ -153,7 +153,7 @@ admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <h5>Know every file of a Project</h5>
 <p>Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action, and never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, below.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it; then run each step&#x27;s cell in turn, or <code>project.do_next()</code>, which runs the steps it can for you, those that change only files, up to the first it can&#x27;t. <code>project.check()</code> names the next step.</li><li>admin/databases.py, the names of your Dev Database and Prod Database: <code>project.start()</code>. You fill in the two names, DEV and PROD.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its scripts as given and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You tick each box of its tables&#x27; checklists, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, below.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it; then run each step&#x27;s cell in turn, or <code>project.do_next()</code>, which runs the steps it can for you, those that change only files, up to the first it can&#x27;t. <code>project.check()</code> names the next step.</li><li>admin/databases.py, the names of your Dev Database and Prod Database: <code>project.start()</code>. You fill in the two names, DEV and PROD.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its scripts as given and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -6269,7 +6269,7 @@ print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &qu
                       database=&quot;ops&quot;, rename={&quot;ops_reports.fail_history&quot;: &quot;fail_history&quot;}))</pre>
 <p class="label">Python prints</p><pre class="output">Converted ops_reports: 2 scripts, 7 statements, into 4 Saved tables in mart: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
-Next: tick each box of each table&#x27;s conversion/checklist.md, then run the convert Workflow&#x27;s next steps, in admin/workflows/convert/convert.ipynb: create each table in dev, seed each that reads itself, write each, and compare each with its original.</pre>
+Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, seed each that reads itself, write each, and compare each with its original.</pre>
 <p class="label">It writes 31 files</p>
 <pre class="file">admin/admin_log.md
 admin/registry.csv
@@ -6303,7 +6303,7 @@ tables/mart__failed_runs_ops_reports/conversion/scan.md
 tables/mart__failed_runs_ops_reports/conversion/statement.hql
 tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
 <pre class="python">os.chdir(&quot;../../..&quot;)  # back to the Project&#x27;s folder, where the rest of this page runs</pre>
-<p>The scripts&#x27; order doesn&#x27;t matter: the batch orders each statement by what reads what. Each table the scripts write is a Saved table in mart, with its Table folder, its Table reference and a checklist: the temporary table too, which the weekly script reads, so it is made first. The FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line become nothing and the Session settings of the writes after them. admin/workflows/convert/ops_reports/batch.md lists what each statement became:</p>
+<p>The scripts&#x27; order doesn&#x27;t matter: the batch orders each statement by what reads what. Each table the scripts write is a Saved table in mart, with its Table folder, its Table reference and its Decisions to answer: the temporary table too, which the weekly script reads, so it is made first. The FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line become nothing and the Session settings of the writes after them. admin/workflows/convert/ops_reports/batch.md lists what each statement became:</p>
 <pre class="python">print(Path(&quot;admin/workflows/convert/ops_reports/batch.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
 <p class="label">Python prints</p><pre class="output"># Batch ops_reports
 
@@ -6326,177 +6326,45 @@ tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
 6. weekly.hql line 1, `CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIG...`: the columns, types and Partitions of mart.fail_history&#x27;s Table reference
 7. weekly.hql line 3, `INSERT INTO TABLE ops_reports.fail_history PARTITION (dt=&#x27;2026-09-24&#x27;) SELECT...`: mart.fail_history, written by its notebook</pre>
 <p>Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). mart.fail_history&#x27;s stays Hive, whole, an Unchecked statement: its WHERE holds a query, NOT IN (SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too, which copies the original&#x27;s rows into it once, before its first write.</p>
-<h5>Decide each box</h5>
-<p>Each table&#x27;s conversion/checklist.md has a box for each decision only you can make:</p>
-<pre class="python">print(Path(&quot;tables/mart__fail_history/conversion/checklist.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
-<p class="label">Python prints</p><pre class="output"># Checklist: mart.fail_history
-
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
-
-- [ ] Fill in location= in references/mart__fail_history.py: the folder its files go in.
-- [ ] Choose its Key in references/mart__fail_history.py, or leave key=None if no columns name one row.
-- [ ] Make each unchecked_ piece a Toolbox function where you can.
-- [ ] Agree to seed it: its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s step 4, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(). Tick once you agree that copy is the right start.</pre>
-<p>Fill in each Table reference&#x27;s location=, the folder its files go in, which your platform team names, and its Key, then tick each box. This page stands in for your edits:</p>
-<pre class="python">for path in Path(&quot;references&quot;).glob(&quot;mart__*.py&quot;):
-    text = path.read_text(encoding=&quot;utf-8&quot;)
-    if &quot;location=None,&quot; in text:
-        _ = path.write_text(text.replace(&quot;location=None,&quot;, f&#x27;location=&quot;/data/mart.db/{path.stem}&quot;,&#x27;), encoding=&quot;utf-8&quot;)</pre>
-<p class="label">It writes references/mart__alerted_runs_ops_reports.py</p>
-<pre class="python">&quot;&quot;&quot;mart.alerted_runs_ops_reports - TODO: say in one line what one row is.&quot;&quot;&quot;
-from sqlglot_composer import Table
-
-alerted_runs_ops_reports = Table(
-    &quot;mart.alerted_runs_ops_reports&quot;,
-    columns={
-        &quot;run_id&quot;: &quot;bigint&quot;,
-        &quot;alerts&quot;: &quot;bigint&quot;,
-        &quot;dt&quot;: &quot;string&quot;,
-    },
-    partitioned_by=[&quot;dt&quot;],
-    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;run_id&quot;]
-    location=&quot;/data/mart.db/mart__alerted_runs_ops_reports&quot;,  # TODO: its own folder, such as &quot;/data/your_team/mart_dev.db/this_table&quot;
-    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)
-
-# --- Aliases ------------------------------------------------------------------------------
-# Your own names for this table&#x27;s columns and conditions, written by hand below.
-# Import one beside the table: from references.mart__alerted_runs_ops_reports import alerted_runs_ops_reports, &lt;alias&gt;
-#
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
-# get back, still call the column by its own name. To rename an output, use AS(...).
-#     &lt;alias&gt; = alerted_runs_ops_reports.alerts
-# A condition Alias names a condition on this table alone, for WHERE or
-# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
-#     &lt;alias&gt; = equals(alerted_runs_ops_reports.alerts, &lt;value&gt;)</pre>
-<p class="label">It writes references/mart__alerts_by_severity_ops_reports.py</p>
-<pre class="python">&quot;&quot;&quot;mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.&quot;&quot;&quot;
-from sqlglot_composer import Table
-
-alerts_by_severity_ops_reports = Table(
-    &quot;mart.alerts_by_severity_ops_reports&quot;,
-    columns={
-        &quot;severity&quot;: &quot;string&quot;,
-        &quot;alerts&quot;: &quot;bigint&quot;,
-        &quot;dt&quot;: &quot;string&quot;,
-    },
-    partitioned_by=[&quot;dt&quot;],
-    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;severity&quot;]
-    location=&quot;/data/mart.db/mart__alerts_by_severity_ops_reports&quot;,  # TODO: its own folder, such as &quot;/data/your_team/mart_dev.db/this_table&quot;
-    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)
-
-# --- Aliases ------------------------------------------------------------------------------
-# Your own names for this table&#x27;s columns and conditions, written by hand below.
-# Import one beside the table: from references.mart__alerts_by_severity_ops_reports import alerts_by_severity_ops_reports, &lt;alias&gt;
-#
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
-# get back, still call the column by its own name. To rename an output, use AS(...).
-#     &lt;alias&gt; = alerts_by_severity_ops_reports.severity
-# A condition Alias names a condition on this table alone, for WHERE or
-# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
-#     &lt;alias&gt; = equals(alerts_by_severity_ops_reports.severity, &lt;value&gt;)</pre>
-<p class="label">It writes references/mart__fail_history.py</p>
-<pre class="python">&quot;&quot;&quot;mart.fail_history - TODO: say in one line what one row is.&quot;&quot;&quot;
-from sqlglot_composer import Table
-
-fail_history = Table(
-    &quot;mart.fail_history&quot;,
-    columns={
-        &quot;job_id&quot;: &quot;bigint&quot;,
-        &quot;fails&quot;: &quot;bigint&quot;,
-        &quot;dt&quot;: &quot;string&quot;,
-    },
-    partitioned_by=[&quot;dt&quot;],
-    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;job_id&quot;]
-    location=&quot;/data/mart.db/mart__fail_history&quot;,  # TODO: its own folder, such as &quot;/data/your_team/mart_dev.db/this_table&quot;
-    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-    stored_as=&quot;ORC&quot;,
-)
-
-# --- Aliases ------------------------------------------------------------------------------
-# Your own names for this table&#x27;s columns and conditions, written by hand below.
-# Import one beside the table: from references.mart__fail_history import fail_history, &lt;alias&gt;
-#
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
-# get back, still call the column by its own name. To rename an output, use AS(...).
-#     &lt;alias&gt; = fail_history.fails
-# A condition Alias names a condition on this table alone, for WHERE or
-# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
-#     &lt;alias&gt; = equals(fail_history.fails, &lt;value&gt;)</pre>
-<p class="label">It writes references/mart__failed_runs_ops_reports.py</p>
-<pre class="python">&quot;&quot;&quot;mart.failed_runs_ops_reports - TODO: say in one line what one row is.&quot;&quot;&quot;
-from sqlglot_composer import Table
-
-failed_runs_ops_reports = Table(
-    &quot;mart.failed_runs_ops_reports&quot;,
-    columns={
-        &quot;run_id&quot;: &quot;bigint&quot;,
-        &quot;job_id&quot;: &quot;bigint&quot;,
-        &quot;dt&quot;: &quot;string&quot;,
-    },
-    key=None,  # TODO: the columns that pick out one row, such as key=[&quot;run_id&quot;]
-    location=&quot;/data/mart.db/mart__failed_runs_ops_reports&quot;,  # TODO: its own folder, such as &quot;/data/your_team/mart_dev.db/this_table&quot;
-    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
-)
-
-# --- Aliases ------------------------------------------------------------------------------
-# Your own names for this table&#x27;s columns and conditions, written by hand below.
-# Import one beside the table: from references.mart__failed_runs_ops_reports import failed_runs_ops_reports, &lt;alias&gt;
-#
-# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
-# get back, still call the column by its own name. To rename an output, use AS(...).
-#     &lt;alias&gt; = failed_runs_ops_reports.dt
-# A condition Alias names a condition on this table alone, for WHERE or
-# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
-#     &lt;alias&gt; = equals(failed_runs_ops_reports.dt, &lt;value&gt;)</pre>
-<pre class="python">for path in Path(&quot;tables&quot;).glob(&quot;*/conversion/checklist.md&quot;):
-    _ = path.write_text(path.read_text(encoding=&quot;utf-8&quot;).replace(&quot;- [ ] &quot;, &quot;- [x] &quot;), encoding=&quot;utf-8&quot;)</pre>
-<p class="label">It writes tables/mart__alerted_runs_ops_reports/conversion/checklist.md</p>
-<pre class="file"># Checklist: mart.alerted_runs_ops_reports
-
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
-
-- [x] Check the type of dt in references/mart__alerted_runs_ops_reports.py: it is written &quot;string&quot;, since neither its query nor DESCRIBE of the original told it.
-- [x] Fill in location= in references/mart__alerted_runs_ops_reports.py: the folder its files go in.
-- [x] Choose its Key in references/mart__alerted_runs_ops_reports.py, or leave key=None if no columns name one row.
-
-Note: the original was one target of a FROM with several INSERTs.</pre>
-<p class="label">It writes tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md</p>
-<pre class="file"># Checklist: mart.alerts_by_severity_ops_reports
-
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
-
-- [x] Check the type of dt in references/mart__alerts_by_severity_ops_reports.py: it is written &quot;string&quot;, since neither its query nor DESCRIBE of the original told it.
-- [x] Fill in location= in references/mart__alerts_by_severity_ops_reports.py: the folder its files go in.
-- [x] Choose its Key in references/mart__alerts_by_severity_ops_reports.py, or leave key=None if no columns name one row.
-
-Note: the original was one target of a FROM with several INSERTs.</pre>
-<p class="label">It writes tables/mart__fail_history/conversion/checklist.md</p>
-<pre class="file"># Checklist: mart.fail_history
-
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
-
-- [x] Fill in location= in references/mart__fail_history.py: the folder its files go in.
-- [x] Choose its Key in references/mart__fail_history.py, or leave key=None if no columns name one row.
-- [x] Make each unchecked_ piece a Toolbox function where you can.
-- [x] Agree to seed it: its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s step 4, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(). Tick once you agree that copy is the right start.</pre>
-<p class="label">It writes tables/mart__failed_runs_ops_reports/conversion/checklist.md</p>
-<pre class="file"># Checklist: mart.failed_runs_ops_reports
-
-Tick each box, [x], once it is done: the convert Workflow waits on every box.
-
-- [x] Fill in location= in references/mart__failed_runs_ops_reports.py: the folder its files go in.
-- [x] Choose its Key in references/mart__failed_runs_ops_reports.py, or leave key=None if no columns name one row.
-
-Note: the original was a temporary table.</pre>
-<p><code>project.check()</code> names the batch&#x27;s next step in the Workflow:</p>
+<h5>Answer each table&#x27;s Decisions</h5>
+<p>What only you can decide of a table is a Decision: here each table&#x27;s location=, the folder its files go in, which your platform team names, and its Key, the columns whose values name one row. Each table&#x27;s conversion/checklist.md lists its open Decisions, and project.check() names each one:</p>
+<pre class="python">checklist = Path(&quot;tables/mart__fail_history/conversion/checklist.md&quot;)
+text = checklist.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
+print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].strip())</pre>
+<p class="label">Python prints</p><pre class="output">- key: the columns whose values name one row, or None when none do, in references/mart__fail_history.py
+- location: the folder its files go in, in references/mart__fail_history.py</pre>
+<p>Answer each in the convert Workflow notebook&#x27;s decisions cell, DECISIONS, by each table&#x27;s name as project.check() writes it, and run its next step, which writes each answer into the table&#x27;s Table reference: you open no Table reference, and tick nothing. &quot;key&quot;: None says no columns name one row. This page stands in for the two cells:</p>
+<pre class="python">DECISIONS = {table: {&quot;location&quot;: f&quot;/data/mart.db/{table.split(&#x27;.&#x27;)[1]}&quot;, &quot;key&quot;: None}
+             for table in project.batch_tables(&quot;ops_reports&quot;)}</pre>
+<p>Two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type to answer too: the day as text, &quot;string&quot;.</p>
+<pre class="python">for table in [&quot;mart.alerts_by_severity_ops_reports&quot;, &quot;mart.alerted_runs_ops_reports&quot;]:
+    DECISIONS[table][&quot;types&quot;] = {&quot;dt&quot;: &quot;string&quot;}
+print(project.write_decisions(DECISIONS))</pre>
+<p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__failed_runs_ops_reports.py.
+Each Decision of mart.failed_runs_ops_reports is made.
+Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+Each Decision of mart.alerts_by_severity_ops_reports is made.
+Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+Each Decision of mart.alerted_runs_ops_reports is made.
+Wrote 2 answers into references/mart__fail_history.py.
+Each Decision of mart.fail_history is made.</pre>
+<p class="label">It writes 9 files</p>
+<pre class="file">admin/admin_log.md
+references/mart__alerted_runs_ops_reports.py
+references/mart__alerts_by_severity_ops_reports.py
+references/mart__fail_history.py
+references/mart__failed_runs_ops_reports.py
+tables/mart__alerted_runs_ops_reports/conversion/checklist.md
+tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md
+tables/mart__fail_history/conversion/checklist.md
+tables/mart__failed_runs_ops_reports/conversion/checklist.md</pre>
+<p><code>project.check()</code> names the batch&#x27;s next step in the Workflow, the first call to the warehouse:</p>
 <pre class="python">print(project.check())</pre>
 <p class="label">Python prints</p><pre class="output">The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
-  admin/workflows/convert/convert.ipynb, ops_reports: 3. Create each table in dev. It is a call to the warehouse, yours to run: for table in project.batch_tables(&quot;ops_reports&quot;):
+  admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. It is a call to the warehouse, yours to run: for table in project.batch_tables(&quot;ops_reports&quot;):
     run_execute(project.load(table).create(), execute)</pre>
 <h5>Create, seed and write each table in dev</h5>
-<p>Steps 3 to 5 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. The write step sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
+<p>Steps 4 to 6 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. The write step sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
 <pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;):
     run_execute(project.load(table).create(), execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.failed_runs_ops_reports (
@@ -6567,7 +6435,7 @@ INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.jo
 ```</pre>
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
 <h5>Compare each with its original</h5>
-<p>Step 6 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
+<p>Step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
 <pre class="python">print(project.compare_batch(&quot;ops_reports&quot;, query=query))</pre>
 <p class="label">Python prints</p><pre class="output">mart.alerted_runs_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
 mart.alerts_by_severity_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
@@ -6637,6 +6505,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.convert(&quot;ops_reports&quot;, ...)`
 - Tables named: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
 - Files: converted 2 scripts into 4 Saved tables; wrote admin/workflows/convert/ops_reports/
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
+- Files: wrote references/mart__failed_runs_ops_reports.py; wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
@@ -6719,10 +6595,10 @@ except ValueError as refused:
 <h4>Check it worked</h4>
 <p>Each table&#x27;s conversion/compare.md starts &quot;Passed:&quot;, <code>project.check()</code> names no step of the batch, which is in admin/workflows/convert/finished/, and the promote Workflow writes each in prod.</p>
 <h4>Common mistakes</h4>
-<ul><li>**Converting one script at a time.** A table one script writes and another reads is made once, and read in dev, only when both are in one batch: give them together, with <code>files=</code>.</li><li>**Leaving a box.** The Workflow waits on every box of every checklist: each is a decision only you can make, such as a table&#x27;s folder or a seed.</li><li>**Promoting before comparing.** promote refuses a table whose compare hasn&#x27;t passed, so prod never gets rows that differ from the original&#x27;s.</li></ul>
+<ul><li>**Converting one script at a time.** A table one script writes and another reads is made once, and read in dev, only when both are in one batch: give them together, with <code>files=</code>.</li><li>**Leaving a Decision open.** The Workflow waits on each table&#x27;s open Decisions, each one only you can make, such as a table&#x27;s folder: project.check() names each.</li><li>**Promoting before comparing.** promote refuses a table whose compare hasn&#x27;t passed, so prod never gets rows that differ from the original&#x27;s.</li></ul>
 <h4>Next</h4>
 <ul><li><a href="#follow_a_workflow">Follow a Workflow</a>: every Workflow&#x27;s steps, drawn and listed.</li><li><a href="#hand_written_hive_with_your_table_references">Hand-written Hive with your Table references</a>: the Unchecked pieces a Conversion leaves, and how to replace them.</li></ul>
-<p class="names">Toolbox names used: <code>run_execute</code>, <code>hive_settings</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code></p>
+<p class="names">Toolbox names used: <code>run_execute</code>, <code>hive_settings</code>, <code>project.check</code>, <code>project.load</code>, <code>project.run_tables</code>, <code>project.convert</code>, <code>project.batch_tables</code>, <code>project.compare_batch</code>, <code>project.promote</code>, <code>project.write_decisions</code></p>
 </section>
 <h2 id="intermediate">Intermediate</h2>
 <section class="entry" id="describe_a_table_by_hand">
@@ -6852,6 +6728,7 @@ job_day = Table(
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -6957,6 +6834,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -6970,6 +6855,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: registered references/mart__job_day.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
@@ -10030,6 +9916,7 @@ run_changes = Table(
 )</pre>
 <pre class="python">_ = project.register(&quot;mart.run_changes&quot;)</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -10135,6 +10022,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -10148,6 +10043,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: registered references/mart__run_changes.py; wrote references/mart.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart.py</p>
 <pre class="python">&quot;&quot;&quot;mart - a Database: written by the Project actions, never by hand.
 
@@ -11456,6 +11352,7 @@ project.new_table(&quot;mart.job_region_costs&quot;)</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -11561,6 +11458,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -11574,6 +11479,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__job_region_costs/ (mart__job_region_costs.ipynb, lineage/); created references/mart__job_region_costs.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__job_region_costs.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_region_costs - TODO: say in one line what one row is.
 
@@ -11782,7 +11688,7 @@ GROUP BY
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 126 lines</summary>
+<details><summary>Show its 134 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -11883,6 +11789,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.convert(&quot;team_failures&quot;, ...)`
 - Tables named: mart.team_failures
 - Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -12174,6 +12088,7 @@ job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_no
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -12279,6 +12194,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -12292,6 +12215,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created tables/mart__job_day_events/ (mart__job_day_events.ipynb, lineage/); created references/mart__job_day_events.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/mart__job_day_events.py</p>
 <pre class="python">&quot;&quot;&quot;mart.job_day_events - TODO: say in one line what one row is.
 
@@ -12907,6 +12831,7 @@ project.add_references([&quot;ops.job_runs&quot;, &quot;ops.scheduler_runs&quot;
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13012,6 +12937,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -13025,6 +12958,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__job_runs.py; created references/ops__scheduler_runs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -13789,6 +13723,7 @@ project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -13894,6 +13829,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -13907,6 +13850,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__jobs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -14381,6 +14325,7 @@ job_events = ops.job_events  # -&gt; Table</pre>
 <p class="label">Python shows</p><pre class="output">Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 125 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14486,6 +14431,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -14498,6 +14451,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created building_blocks/run_speed.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes building_blocks/run_speed.py</p>
 <pre class="python">&quot;&quot;&quot;run_speed - TODO: say in one line what one row of it is.
 
@@ -14606,7 +14560,7 @@ changed</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 125 lines</summary>
+<details><summary>Show its 133 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14707,6 +14661,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.convert(&quot;team_failures&quot;, ...)`
 - Tables named: mart.team_failures
 - Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14882,7 +14844,7 @@ Wrote references/mart__slow_runs.py: fill in its &lt;...&gt; and TODO lines.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
-<details><summary>Show its 133 lines</summary>
+<details><summary>Show its 141 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -14983,6 +14945,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Call: `project.convert(&quot;team_failures&quot;, ...)`
 - Tables named: mart.team_failures
 - Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15521,6 +15491,7 @@ project.add_references([&quot;ops.jobs&quot;], query=query)</pre>
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
 <p class="label">It writes admin/admin_log.md</p>
+<details><summary>Show its 126 lines</summary>
 <pre class="file"># Admin log
 
 Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
@@ -15626,6 +15597,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch(&quot;team_failures&quot;)`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
@@ -15639,6 +15618,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 - Files: created references/ops__jobs.py; wrote references/ops.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
+</details>
 <p class="label">It writes references/ops.py</p>
 <pre class="python">&quot;&quot;&quot;ops - a Database: written by the Project actions, never by hand.
 
@@ -16301,26 +16281,28 @@ warehouse.py</pre>
 from warehouse import query, execute</pre>
 <p>In each chart, a plain box is a step that changes only files, or only prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with round corners something a step needs or makes.</p>
 <h5>The convert Workflow</h5>
-<p>Turns Hive someone else wrote, one query or a batch of scripts, into your own code: each table the scripts write becomes a Saved table in your Dev Database, with its Table folder and a checklist.</p>
+<p>Turns Hive someone else wrote, one query or a batch of scripts, into your own code: each table the scripts write becomes a Saved table in your Dev Database, with its Table folder, and what only you can decide of it, a Decision, answered in the decisions cell.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/convert/convert.ipynb:</p>
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
     s0[[&quot;1. Convert the scripts: each table they write a Saved table in dev&quot;]]:::warehouse_call
-    s1{&quot;2. Tick each box of each table&#x27;s checklist&quot;}:::your_decision
-    s2[[&quot;3. Create each table in dev&quot;]]:::warehouse_call
-    s3[[&quot;4. Seed each table that reads itself, once, from its original&quot;]]:::warehouse_call
-    s4[[&quot;5. Write each table in dev&quot;]]:::warehouse_call
-    s5[[&quot;6. Compare each table with its original&quot;]]:::warehouse_call
+    s1{&quot;2. Answer each table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
+    s2[&quot;3. Write each answer into its table&#x27;s Table reference&quot;]:::files_only
+    s3[[&quot;4. Create each table in dev&quot;]]:::warehouse_call
+    s4[[&quot;5. Seed each table that reads itself, once, from its original&quot;]]:::warehouse_call
+    s5[[&quot;6. Write each table in dev&quot;]]:::warehouse_call
+    s6[[&quot;7. Compare each table with its original&quot;]]:::warehouse_call
     t0(&quot;Hive scripts&quot;):::thing
     t1(&quot;your Dev Database&#x27;s name&quot;):::thing
     t2(&quot;read access to the sources&quot;):::thing
     t3(&quot;a dev Table folder per table the scripts write&quot;):::thing
-    t4(&quot;a checklist per table&quot;):::thing
-    t5(&quot;each decision made&quot;):::thing
-    t6(&quot;each made in dev&quot;):::thing
-    t7(&quot;each seeded&quot;):::thing
-    t8(&quot;each written in dev&quot;):::thing
-    t9(&quot;each compared with its original&quot;):::thing
+    t4(&quot;a Table reference per table&quot;):::thing
+    t5(&quot;each answer in the decisions cell&quot;):::thing
+    t6(&quot;each answer written in&quot;):::thing
+    t7(&quot;each made in dev&quot;):::thing
+    t8(&quot;each seeded&quot;):::thing
+    t9(&quot;each written in dev&quot;):::thing
+    t10(&quot;each compared with its original&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     t2 --&gt; s0
@@ -16336,6 +16318,9 @@ flowchart TD
     s4 --&gt; t8
     t8 --&gt; s5
     s5 --&gt; t9
+    t9 --&gt; s6
+    s6 --&gt; t10
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -16349,19 +16334,27 @@ FILES = []
 HIVE = None
 # the database of a table the Hive names without one
 DATABASE = &#x27;default&#x27;</pre>
+<p>Its decisions cell, beside it, where you answer each open Decision:</p>
+<pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
+# project.check() writes it, such as
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
+#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
+# &quot;key&quot;: None says no columns name one row. project.check() names each one open</pre>
 <p>Its steps:</p>
 <ul><li>1. Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)</pre>
-<ul><li>2. Tick each box of each table&#x27;s checklist (it is a decision, yours to make).</li><li>3. Create each table in dev (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>2. Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>3. Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.write_decisions(DECISIONS)</pre>
+<ul><li>4. Create each table in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)</pre>
-<ul><li>4. Seed each table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>5. Seed each table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
 for table in project.batch_tables(NAME, seeded=True):
     run_execute(project.load(table).seed(), execute)</pre>
-<ul><li>5. Write each table in dev (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>6. Write each table in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
-<ul><li>6. Compare each table with its original (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>7. Compare each table with its original (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.compare_batch(NAME, query=query)</pre>
 <h5>The promote Workflow</h5>
 <p>Carries Saved tables from your Dev Database to your Prod Database.</p>
@@ -16369,18 +16362,20 @@ for table in project.batch_tables(NAME, seeded=True):
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
     s0[&quot;1. Promote each table: a prod copy of its folder and Table reference&quot;]:::files_only
-    s1{&quot;2. Fill in each prod Table reference&#x27;s location=&quot;}:::your_decision
-    s2[[&quot;3. Create each table in prod&quot;]]:::warehouse_call
-    s3[[&quot;4. Seed each prod table that reads itself, once, from its original&quot;]]:::warehouse_call
-    s4[[&quot;5. Write each table in prod&quot;]]:::warehouse_call
-    t0(&quot;dev Table folders, each box ticked and compared&quot;):::thing
+    s1{&quot;2. Answer each prod table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
+    s2[&quot;3. Write each answer into its prod table&#x27;s Table reference&quot;]:::files_only
+    s3[[&quot;4. Create each table in prod&quot;]]:::warehouse_call
+    s4[[&quot;5. Seed each prod table that reads itself, once, from its original&quot;]]:::warehouse_call
+    s5[[&quot;6. Write each table in prod&quot;]]:::warehouse_call
+    t0(&quot;dev Table folders, each Decision made and compared&quot;):::thing
     t1(&quot;your Prod Database&#x27;s name&quot;):::thing
     t2(&quot;prod Table folders&quot;):::thing
     t3(&quot;prod Table references&quot;):::thing
-    t4(&quot;each with its location=&quot;):::thing
-    t5(&quot;each made in prod&quot;):::thing
-    t6(&quot;each seeded in prod&quot;):::thing
-    t7(&quot;each written in prod&quot;):::thing
+    t4(&quot;each answer in the decisions cell&quot;):::thing
+    t5(&quot;each with its location=&quot;):::thing
+    t6(&quot;each made in prod&quot;):::thing
+    t7(&quot;each seeded in prod&quot;):::thing
+    t8(&quot;each written in prod&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     s0 --&gt; t2
@@ -16393,6 +16388,8 @@ flowchart TD
     s3 --&gt; t6
     t6 --&gt; s4
     s4 --&gt; t7
+    t7 --&gt; s5
+    s5 --&gt; t8
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -16402,17 +16399,25 @@ flowchart TD
 <pre class="python"># the dev tables, by their names in your Dev Database, such as
 # [&quot;mart_dev.daily_job_runs&quot;]
 TABLES = []</pre>
+<p>Its decisions cell, beside it, where you answer each open Decision:</p>
+<pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
+# project.check() writes it, such as
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
+#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
+# &quot;key&quot;: None says no columns name one row. project.check() names each one open</pre>
 <p>Its steps:</p>
 <ul><li>1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.promote(TABLES)</pre>
-<ul><li>2. Fill in each prod Table reference&#x27;s location= (it is a decision, yours to make).</li><li>3. Create each table in prod (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>2. Answer each prod table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>3. Write each answer into its prod table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.write_decisions(DECISIONS)</pre>
+<ul><li>4. Create each table in prod (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)</pre>
-<ul><li>4. Seed each prod table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>5. Seed each prod table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
 for table in project.promoted_tables(TABLES, seeded=True):
     run_execute(project.load(table).seed(), execute)</pre>
-<ul><li>5. Write each table in prod (it is a call to the warehouse, yours to run).</li></ul>
+<ul><li>6. Write each table in prod (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)</pre>
 <h5>The new_table Workflow</h5>
 <p>Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
@@ -16472,20 +16477,24 @@ project.run_tables(tables=TABLES, execute=execute)</pre>
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
     s0[[&quot;1. Write the Table references from DESCRIBE&quot;]]:::warehouse_call
-    s1{&quot;2. Fill in each TODO line and Alias&quot;}:::your_decision
-    s2[&quot;3. Refresh the Reference sheet and the Database modules&quot;]:::files_only
+    s1{&quot;2. Answer each table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
+    s2[&quot;3. Write each answer into its table&#x27;s Table reference&quot;]:::files_only
+    s3[&quot;4. Refresh the Reference sheet and the Database modules&quot;]:::files_only
     t0(&quot;table names your query can DESCRIBE&quot;):::thing
     t1(&quot;Table references with TODO lines&quot;):::thing
-    t2(&quot;filled-in Table references&quot;):::thing
-    t3(&quot;the Reference sheet&quot;):::thing
-    t4(&quot;the Database modules&quot;):::thing
+    t2(&quot;each answer in the decisions cell&quot;):::thing
+    t3(&quot;filled-in Table references&quot;):::thing
+    t4(&quot;the Reference sheet&quot;):::thing
+    t5(&quot;the Database modules&quot;):::thing
     t0 --&gt; s0
     s0 --&gt; t1
     t1 --&gt; s1
     s1 --&gt; t2
     t2 --&gt; s2
     s2 --&gt; t3
-    s2 --&gt; t4
+    t3 --&gt; s3
+    s3 --&gt; t4
+    s3 --&gt; t5
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -16494,10 +16503,18 @@ flowchart TD
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
 TABLES = []</pre>
+<p>Its decisions cell, beside it, where you answer each open Decision:</p>
+<pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
+# project.check() writes it, such as
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
+#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
+# &quot;key&quot;: None says no columns name one row. project.check() names each one open</pre>
 <p>Its steps:</p>
 <ul><li>1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.add_references(TABLES, query=query)</pre>
-<ul><li>2. Fill in each TODO line and Alias (it is a decision, yours to make).</li><li>3. Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ul>
+<ul><li>2. Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>3. Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.write_decisions(DECISIONS)</pre>
+<ul><li>4. Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.refresh_reference_sheet(TABLES)</pre>
 <h5>The upgrade Workflow</h5>
 <p>Carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel.</p>

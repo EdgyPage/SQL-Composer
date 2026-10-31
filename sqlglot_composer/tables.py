@@ -26,6 +26,7 @@ import numpy as np
 import pandas as pd
 
 from . import _FOLDER, describe, kinds
+from .decisions import GUESSED
 from .shared import escaped_literal, python_literal, split_table_name
 from .writing import hive_text, readable_text
 from .refusals import (
@@ -1231,16 +1232,20 @@ ALIASES_HEADING = "# --- Aliases " + "-" * 78
 
 def table_reference_text(name: str, columns: dict[str, str], partitions: list[str],
                          module: str, stored_as: str | None = None,
-                         location: str | None = None) -> str:
+                         location: str | None = None, guessed: tuple[str, ...] = ()) -> str:
     """A Table reference file's text for a table whose columns and types are known without
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
     descriptions, stored_as= when the CREATE gave it, and location=: the CREATE's, or None
-    with a TODO to fill in."""
+    with a TODO to fill in. Each column `guessed` names, written "string" since nothing told
+    its type, has a TODO saying so: a guessed-type Decision."""
     variable = _reference_variable(split_table_name(name)[1])
     storage = {}
     if stored_as is not None:
         storage["stored_as"] = stored_as
     text = _reference_text(name, variable, columns, {}, partitions, module, storage)
+    for column in guessed:
+        line = f"        {escaped_literal(column)}: {escaped_literal(columns[column])},"
+        text = text.replace(line + "\n", line + GUESSED + "\n", 1)
     # location= after key=, filled in when the CREATE gave it, else None with a TODO: a Table
     # reference with no location is a table someone else owns, which writes refuse.
     line = f"    location={escaped_literal(location)},"

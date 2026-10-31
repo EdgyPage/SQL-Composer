@@ -6,6 +6,16 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 8.1 is being built on dev; this section grows with it, and ships when it is done.
 
+- **Decisions, answered in the Workflow's notebook.** What only you can decide of a table,
+  its location, its Key, or a column type a Conversion could only guess, is a Decision: you
+  answer each in the notebook's new decisions cell, `DECISIONS = {"mart_dev.weekly_ops":
+  {"location": "/data/...", "key": ["job_id"]}}`, and the next step,
+  `project.write_decisions(DECISIONS)`, writes each answer into the table's Table reference.
+  You no longer open a Table reference to fill it in, nor tick a box: a Conversion's
+  `checklist.md` is now written again each time, listing the open Decisions, and the convert,
+  promote and references Workflows each wait on the Decisions themselves. `project.check()`
+  names each one open. A `# CONVERSION:` mark is a note that blocks nothing: the compare step
+  checks the rows.
 - **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
   Session settings, its logic's `session_settings()`, before its write: a Conversion's
   checklist no longer asks you to send the original's SET lines by hand.

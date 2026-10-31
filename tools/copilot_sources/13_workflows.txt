@@ -63,7 +63,7 @@ project.convert(NAME, None, files=FILES, query=query, database="default")
 ## Do and don't
 
 - Do give each step's cell as listed, with the user's names in it.
-- Don't skip a decision, such as ticking a checklist: say what it asks of the user.
+- Don't skip a Decision, such as a table's location: say what it asks of the user, to answer in the decisions cell.
 - Don't promote a table before its compare has passed.
 
 ## Before you answer
