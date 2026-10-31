@@ -70,22 +70,23 @@ HIVE_RESERVED = frozenset(
 
 # The functions hive_function may be given by name that turn many rows into one, as SUM and
 # COUNT do: Hive's, and those other SQL warehouses have, most of which are Hive's too (the last
-# five lines, the newest).
+# six lines, the newest).
 HIVE_AGGREGATES = frozenset(
-    """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or bit_xor
-    bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set context_ngrams
-    corr count count_if count_min_sketch covar_pop covar_samp every first first_value grouping
-    grouping_id
+    """any any_value approx_count_distinct approx_percentile array_agg avg bit_and bit_or
+    bit_xor bitmap_construct_agg bitmap_or_agg bool_and bool_or collect_list collect_set
+    context_ngrams corr count count_if count_min_sketch covar_pop covar_samp every first
+    first_value grouping grouping_id
     histogram_numeric hll_sketch_agg hll_union_agg kurtosis last last_value listagg max max_by
-    mean median min min_by mode ngrams percentile percentile_approx percentile_cont percentile_disc
-    regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx regr_sxy regr_syy
-    skewness some std stddev stddev_pop stddev_samp string_agg sum try_avg try_sum var_pop
-    var_samp variance
-    approx_top_k approx_top_k_accumulate approx_top_k_combine bitmap_and_agg kll_merge_agg_bigint
-    kll_merge_agg_double kll_merge_agg_float kll_sketch_agg_bigint kll_sketch_agg_double
-    kll_sketch_agg_float measure theta_intersection_agg theta_sketch_agg theta_union_agg
-    tuple_intersection_agg_double tuple_intersection_agg_integer tuple_sketch_agg_double
-    tuple_sketch_agg_integer tuple_union_agg_double tuple_union_agg_integer
+    mean median min min_by mode ngrams percentile percentile_approx percentile_cont
+    percentile_disc regr_avgx regr_avgy regr_count regr_intercept regr_r2 regr_slope regr_sxx
+    regr_sxy regr_syy skewness some std stddev stddev_pop stddev_samp string_agg sum try_avg
+    try_sum var_pop var_samp variance
+    approx_top_k approx_top_k_accumulate approx_top_k_combine bitmap_and_agg
+    kll_merge_agg_bigint kll_merge_agg_double kll_merge_agg_float kll_sketch_agg_bigint
+    kll_sketch_agg_double kll_sketch_agg_float measure theta_intersection_agg theta_sketch_agg
+    theta_union_agg tuple_intersection_agg_double tuple_intersection_agg_integer
+    tuple_sketch_agg_double tuple_sketch_agg_integer tuple_union_agg_double
+    tuple_union_agg_integer
     """.split()
 )
 
@@ -183,7 +184,7 @@ def _after_type(text: str) -> str | None:
             return None
         return rest[sizes.end():]
     if word in ("array", "map", "struct"):
-        return _after_held(word, rest)
+        return _after_inner_types(word, rest)
     return rest
 
 
@@ -191,33 +192,39 @@ def _sizes_fit(word: str, size: str, scale: str | None) -> bool:
     """Whether Hive takes these sizes: decimal(precision,scale), with the scale no
     more than the precision, or varchar(length) or char(length)."""
     if word == "decimal":
-        return scale is not None and 1 <= int(size) <= _LARGEST[word] and int(scale) <= int(size)
+        return (scale is not None and 1 <= int(size) <= _LARGEST[word]
+                and int(scale) <= int(size))
     return scale is None and 1 <= int(size) <= _LARGEST[word]
 
 
-def _after_held(word: str, text: str) -> str | None:
+def _after_inner_types(word: str, text: str) -> str | None:
     """What follows the <...> of an array, a map or a struct, or None when it isn't right."""
     if not text.startswith("<"):
         return None
     rest, count = text, 0
     while rest[:1] in ("<", ","):
-        rest = rest[1:]
-        if word == "struct":
-            rest = _after_field_name(rest)
-            if rest is None:
-                return None
-        elif word == "map" and count == 0 and re.match(r"\s*(array|map|struct)\b", rest):
-            return None  # A map's key is a single value, not an array, a map or a struct.
-        rest = _after_type(rest)
+        rest = _after_inner_type(word, rest[1:], count)
         if rest is None:
             return None
-        rest = rest.lstrip()
         count += 1
-    if not rest.startswith(">"):
-        return None
-    if word == "struct" or count == _HOLDS[word]:
+    if rest.startswith(">") and (word == "struct" or count == _HOLDS[word]):
         return rest[1:]
     return None
+
+
+def _after_inner_type(word: str, text: str, count: int) -> str | None:
+    """What follows one type inside an array's, a map's or a struct's <...>, which holds
+    `count` types before it, a struct's "name:" first; or None when it isn't right."""
+    if word == "struct":
+        text = _after_field_name(text)
+        if text is None:
+            return None
+    elif word == "map" and count == 0 and re.match(r"\s*(array|map|struct)\b", text):
+        return None  # A map's key is a single value, not an array, a map or a struct.
+    rest = _after_type(text)
+    if rest is None:
+        return None
+    return rest.lstrip()
 
 
 def _after_field_name(text: str) -> str | None:
@@ -385,11 +392,15 @@ class Node:
 
     def __eq__(self, other: object) -> bool:
         return (isinstance(other, Node) and self.kind == other.kind
-                and _compared(self.parts) == _compared(other.parts))
+                and _parts_compared(self.parts) == _parts_compared(other.parts))
 
     def copy(self) -> Node:
         """A copy of the whole tree, notes included, that can be changed on its own."""
-        return self._with_stand_ins(lambda node: None, top=True)
+
+        def none_swapped(node: Node) -> None:
+            """No Node is swapped, so each is copied."""
+
+        return self._with_stand_ins(none_swapped, top=True)
 
     def set(self, part: str, value: object) -> None:
         """Set one part, which must be one this kind of Node has."""
@@ -405,13 +416,17 @@ class Node:
             elif isinstance(value, list):
                 yield from (item for item in value if isinstance(item, Node))
 
-    def walk(self) -> Iterator[Node]:
-        """This Node and every Node under it, breadth first: level by level, in order."""
+    def walk(self, not_inside: str | None = None) -> Iterator[Node]:
+        """This Node and every Node under it, breadth first: level by level, in order. A Node
+        of the kind `not_inside` names is given, but not the Nodes it holds.
+
+        Each search of a tree in this file walks it with this, or with find_all."""
         waiting = deque([self])
         while waiting:
             node = waiting.popleft()
             yield node
-            waiting.extend(node.children())
+            if node.kind != not_inside:
+                waiting.extend(node.children())
 
     def find_all(self, *kinds: str) -> Iterator[Node]:
         """Every Node of these kinds in the tree, in the order walk() finds them."""
@@ -473,7 +488,7 @@ class Node:
         return self.parts.get("table") or ""
 
 
-def _compared(parts: dict[str, object]) -> dict[str, object]:
+def _parts_compared(parts: dict[str, object]) -> dict[str, object]:
     """The parts that make two Nodes equal: those holding something.
 
     None, False and an empty list count as left out, so an Ordered with desc=False equals one
@@ -497,7 +512,8 @@ def number(text: str, is_float: bool = False) -> Node:
 
 
 def combined(kind: str, nodes: list[Node]) -> Node:
-    """Conditions joined with AND or OR, left to right, each AND or OR inside put in brackets."""
+    """Conditions joined with AND or OR, left to right, each AND or OR inside put in
+    brackets."""
     first, *rest = nodes
     if rest:
         first = _bracketed_connector(first)
@@ -515,7 +531,10 @@ def and_parts(tree: Node) -> list[Node]:
     all_of(...), joined the same way."""
     if tree.kind != "And":
         return [tree]
-    return [part for side in tree.flatten() for part in and_parts(side)]
+    parts = []
+    for side in tree.flatten():
+        parts += and_parts(side)
+    return parts
 
 
 def is_aggregate(node: Node) -> bool:
@@ -528,34 +547,31 @@ def is_aggregate(node: Node) -> bool:
 def has_aggregate(node: Node) -> bool:
     """True when the tree adds rows up (COUNT, SUM, ...) outside a window: a sum over a
     window, SUM(...) OVER (...), gives each row a value of its own, and adds no rows up."""
-    if node.kind == "Window":
-        return False
-    return is_aggregate(node) or any(has_aggregate(child) for child in node.children())
+    return any(is_aggregate(one) for one in node.walk(not_inside="Window"))
 
 
 def has_window(node: Node) -> bool:
     """True when the tree looks across rows through a window, as ROW_NUMBER() OVER (...), or
     an Unchecked expression's text does."""
-    if node.kind == "Window" or (node.kind == "Unchecked" and node.parts["window"]):
-        return True
-    return any(has_window(child) for child in node.children())
+    for one in node.walk():
+        if one.kind == "Window" or (one.kind == "Unchecked" and one.parts["window"]):
+            return True
+    return False
 
 
 def checked_columns(node: Node) -> set[tuple[str, str]]:
     """(table alias, column) of each column the tree reads outside any Unchecked expression,
     where the Guards can see what is done with it."""
-    if node.kind == "Unchecked":
-        return set()
-    if node.kind == "Column":
-        return {(node.table, node.name)}
-    return set().union(*(checked_columns(child) for child in node.children()))
+    return {(one.table, one.name) for one in node.walk(not_inside="Unchecked")
+            if one.kind == "Column"}
 
 
 def unchecked_columns(node: Node) -> set[tuple[str, str]]:
     """(table alias, column) of each column the tree reads only inside an Unchecked
     expression, which no Guard can look inside."""
-    inside = {(column.table, column.name) for unchecked in node.find_all("Unchecked")
-              for column in unchecked.find_all("Column")}
+    inside = set()
+    for unchecked in node.find_all("Unchecked"):
+        inside |= {(column.table, column.name) for column in unchecked.find_all("Column")}
     return inside - checked_columns(node)
 
 
