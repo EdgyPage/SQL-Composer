@@ -118,6 +118,8 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path) -> None:
     report = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
     assert report == ("Wrote 1 answer into references/ops__job_runs.py.\n"
+                      "ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which "
+                      "waits on nothing: fill it in when you like.\n"
                       "Each Decision of ops.job_runs is made.")
     reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
     assert '    key=["run_id"],' in reference

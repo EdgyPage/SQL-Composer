@@ -1204,10 +1204,11 @@ def check() -> ProjectReport:
         lines.append(version_line)
     converted = upgrades.marks_in(root, converting.CONVERSION_MARK_LINE)
     if converted:
-        lines.append("Marked by project.convert(...) for you to check: decide each opt-out "
-                     "the original took: keep it, or change what made it needed, such as a "
-                     "WHERE on the partition column or a key= in a Table reference, and take "
-                     "it off; then delete its mark.")
+        lines.append("Noted by project.convert(...), which blocks nothing: each opt-out "
+                     "keeps what the original did, and the compare step checks the rows. "
+                     "Change what made one needed only if you want to, such as a WHERE on the "
+                     "partition column or a key= in a Table reference, then take it off and "
+                     "delete its mark.")
         lines += [f"  {mark}" for mark in converted]
     marks = upgrades.marks_in(root, upgrades.MARK_LINE)
     if marks:
@@ -1290,6 +1291,11 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     if step.done is None:
         said += ("\n    No file tells when it is done, so this names it until a later step is "
                  "done: once you have, go on.")
+    read = workflows.read_before(workflow, step)
+    if read is not None:
+        number_read = workflow.steps.index(read) + 1
+        said += (f"\n    Before it, read what step {number_read} prints, which waits on "
+                 f"nothing: {workflows.ready_call(read.call, inputs)}")
     waited_on = workflows.decisions_waited_on(root, workflow, inputs, step)
     if waited_on:
         said += ("\n    Answer each in its decisions cell, DECISIONS, by the table's name as "
@@ -2264,8 +2270,9 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
          f"project.convert(...), from the statements in `{CONVERSION}/{STATEMENT}`, as "
          "its script wrote them. Its logic cell builds the same query from the Toolbox's own "
          "functions, with create(), preview() and write(). Answer its open Decisions, "
-         f"which `{CONVERSION}/{CHECKLIST}` lists, in the convert Workflow's notebook, "
-         f"`{CONVERSION}/{CHECKLIST}`, then run the cells top to bottom. The cells comparing "
+         f"which `{CONVERSION}/{CHECKLIST}` lists, in the decisions cell of the convert "
+         "Workflow's notebook, `admin/workflows/convert/convert.ipynb`, then run the cells "
+         "top to bottom. The cells comparing "
          "it with the original stay until you delete them."),
         ("code", "import pathlib\nimport sys\n"
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up\n\n"
@@ -2704,6 +2711,8 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     >>> _ = project.add_references("ops.job_runs", query=example_database.query)
     >>> print(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
     Wrote 1 answer into references/ops__job_runs.py.
+    ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on nothing: fill
+    it in when you like.
     Each Decision of ops.job_runs is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
@@ -2740,6 +2749,13 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
         lines += [f"{table}: {each}." for each in answered.unwritten]
         _write_checklist_again(root, table)
         still_open = decisions.open_decisions(answered.text, table)
+        todos = decisions.todo_lines(answered.text)
+        if todos:
+            lines.append(f"{table}: {counted(len(todos), 'TODO line')} left in "
+                         f"{REFERENCE.shown(stem)}, which "
+                         f"{singular_or_plural(len(todos), 'waits', 'wait')} on "
+                         f"nothing: fill {singular_or_plural(len(todos), 'it', 'each')} in "
+                         "when you like.")
         lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
         if not still_open:
             lines.append(f"Each Decision of {table} is made.")

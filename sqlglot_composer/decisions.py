@@ -141,6 +141,13 @@ def _subject_of(kind: str, line: str) -> str:
     return ""
 
 
+def todo_lines(text: str) -> list[str]:
+    """Each TODO: line of a Table reference's code that is no Decision, such as
+    does_not_add_up=: it waits on nothing."""
+    return [line.strip() for line in code_of(text).split("\n")
+            if "TODO:" in line and not kind_of(line) and not line.strip().startswith("#")]
+
+
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
     """Whether a table's answer in the decisions cell answers this Decision."""
     if decision.kind == GUESSED_TYPE:

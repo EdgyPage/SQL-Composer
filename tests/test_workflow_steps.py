@@ -141,3 +141,29 @@ def test_a_step_no_file_tells_of_says_so(started: Path) -> None:
     assert "2. Print its Hive" in said
     assert "No file tells when it is done" in said
 
+
+# --- What stops blocking (Toolbox 8.1, ticket 05) -------------------------------------------
+
+
+def test_a_step_that_only_reads_waits_on_nothing_and_is_named_beside_the_next(
+        started: Path) -> None:
+    notebook = started / "admin" / "workflows" / "new_table" / "new_table.ipynb"
+    notebook.write_text(notebook.read_text(encoding="utf-8").replace(
+        "TABLES = []", "TABLES = ['mart.daily_runs']"), encoding="utf-8")
+    workflows = toolbox_module("workflows")
+    workflow = workflows.NEW_TABLE
+    preview = workflow.steps[3]
+    assert preview.reads_only
+    assert workflows.read_before(workflow, workflow.steps[4]) is preview
+    # Its logic loads, as a filled-in notebook's does: preview is passed over.
+    inputs = workflows.given_inputs(started, workflow)
+    skipped = workflows.next_step(started, workflow, inputs)
+    assert skipped is not preview
+
+
+def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None:
+    project.add_references("ops.job_runs", query=toolbox_module("example_database").query)
+    said = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
+    assert ("ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on "
+            "nothing: fill it in when you like.") in said
+    assert "Each Decision of ops.job_runs is made." in said

@@ -154,7 +154,7 @@ def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path,
     checklist = conversion_file(started, "job_outcomes", "checklist.md")
     assert "- The `# CONVERSION:` mark for JOIN(j, many_matches=True)" in checklist
     said = repr(project.check())
-    assert "Marked by project.convert(...) for you to check" in said
+    assert "Noted by project.convert(...), which blocks nothing" in said
     assert "# CONVERSION: many_matches=True, as the original did; check it" in said
 
 
