@@ -813,7 +813,8 @@ And two more, for files beside the notebooks:
 `copilot/`, in the download's top folder beside `sqlglot_composer`, holds the Copilot files:
 plain text that teaches Microsoft Copilot the Toolbox, so
 you can ask it in plain words for a Statement, a Table reference, a Table notebook's logic
-cell or a Conversion. Open a new chat, paste the one file for what you want to do as your
+cell or a Conversion, or for a whole job's steps: `copilot/13_workflows.txt` lists each
+Workflow's, from the steps its notebook runs. Open a new chat, paste the one file for what you want to do as your
 first message, then ask, giving the import line and columns of each table to read.
 `copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
 takes at once, spaces and line breaks included; `copilot/count_characters.py` counts a
@@ -829,8 +830,8 @@ The path from a workbook to prod:
 flowchart TD
     workbook("a Formula workbook")
     copilot{{"Copilot, given files 03, 04, 05, 11 and 12: the workbook as Hive"}}
-    scripts("its Hive, each name in angle brackets filled in")
-    convert["the convert Workflow: project.convert(NAME, HIVE)"]
+    scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
+    convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     dev[["each table created, seeded and written in dev"]]
     compare[["project.compare_batch: each against its original"]]
     promote["project.promote: each copied to prod"]
@@ -841,9 +842,9 @@ flowchart TD
 1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is.
 2. Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the workbook as Hive, a
    query for each final Table.
-3. Fill in each name it writes in angle brackets, then give each query to the convert Workflow,
-   its names cell holding NAME and HIVE, DEV filled in.
-       project.convert("budget", HIVE)
+3. Fill in each name it writes in angle brackets, save each query as a .hql file, and convert
+   them as one batch in the convert Workflow, DEV filled in.
+       project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 4. Tick each checklist, then create, seed and write each table in dev, as the Workflow's steps
    say.
 5. Compare each with its original.
@@ -868,10 +869,11 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
-5. In `admin/workflows/convert/convert.ipynb`, give each filled-in query to a Conversion:
-   name it in the names cell, `NAME = "sales_summary"`, paste the query as
-   `HIVE = """..."""`, and run the notebook's `project.convert(...)` cell. Its code is checked; Copilot's Python after the Hive is only for
-   reading, and the Conversion's code wins where the two differ.
+5. Save each filled-in query as a .hql file in your Project's folder, then convert them as
+   one batch in `admin/workflows/convert/convert.ipynb`: name the batch and its files in the
+   names cell, `NAME = "sales_summary"` and `FILES = ["sales.hql", "regions.hql"]`, with DEV
+   filled in in `admin/databases.py`, and run its steps. Its code is checked; Copilot's Python
+   after the Hive is only for reading, and the Conversion's code wins where the two differ.
 
 ## Update
 

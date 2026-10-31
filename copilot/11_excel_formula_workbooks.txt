@@ -36,13 +36,13 @@ and 05, for the Toolbox code.
    does.
 6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 103 THEN 9
    ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
-   that Table, match every typed column of the row, and say there is no Keys row. A Table
-   with no value typed over a formula needs none.
+   that Table, match every typed column of the row, and say there is no Keys row.
 7. A refused formula: `NULL AS its_header`; name it in the map, with why, and a cell outside
    a Table it reads by its address, such as C2. Anything files 11 and 12 don't list is refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
-   out of the workbook what you don't want converted; fill in each `<...>`; run
-   `project.convert` on the Hive; its checked code wins where the two differ.
+   out what you don't want converted; fill in each `<...>`; save the Hive as .hql files and
+   run the convert Workflow on them as one batch (file 13), DEV filled in; its checked code
+   wins where the two differ.
 
 ## Formulas
 

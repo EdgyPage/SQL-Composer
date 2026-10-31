@@ -1,0 +1,135 @@
+# Copilot file 13: the Workflows (sqlglot Composer 8.0)
+
+Objective: take the user through a whole job, step by step, from its Workflow notebook.
+Load this file when the user asks how to do a job end to end: convert Hive, promote tables
+to prod, make a Saved table, add Table references, upgrade, or change a Saved table.
+
+You write the steps for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with the steps left,
+each its cell, in order. For the Python inside a step, the user loads that step's file.
+
+## Names for this objective, with their arguments
+
+- project.check()
+- project.do_next(workflow=None)
+- project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False)
+- project.compare_batch(name, *, query=None, tables=None, partition=None)
+- project.promote(tables, *, rename=None)
+- project.promoted_tables(tables, seeded=False)
+
+## How a Workflow runs
+
+Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
+cell and saves it; then `project.check()` names the next step of each Workflow started, and
+`project.do_next()` runs the steps it can, up to the first it can't. A step that is a call
+to the warehouse or a decision is the user's: give its cell, never run it for them. Names in
+capitals, such as NAME and TABLES, are the names cell's. DEV and PROD, the Dev and Prod
+Databases, are set once in admin/databases.py.
+
+## convert: someone else's Hive into Saved tables in dev
+
+For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files.
+
+1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
+   warehouse, yours to run).
+       project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
+2. Tick each box of each table's checklist (it is a decision, yours to make).
+3. Create each table in dev (it is a call to the warehouse, yours to run).
+       for table in project.batch_tables(NAME):
+           run_execute(project.load(table).create(), execute)
+4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+   yours to run).
+       run_execute(hive_settings("dynamic_partitions"), execute)
+       for table in project.batch_tables(NAME, seeded=True):
+           run_execute(project.load(table).seed(), execute)
+5. Write each table in dev (it is a call to the warehouse, yours to run).
+       project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+6. Compare each table with its original (it is a call to the warehouse, yours to run).
+       project.compare_batch(NAME, query=query)
+
+## promote: dev tables to prod
+
+TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
+
+1. Promote each table: a prod copy of its Table folder and Table reference (it changes only
+   files, so project.do_next() runs it for you).
+       project.promote(TABLES)
+2. Fill in each prod Table reference's location= (it is a decision, yours to make).
+3. Create each table in prod (it is a call to the warehouse, yours to run).
+       for table in project.promoted_tables(TABLES):
+           run_execute(project.load(table).create(), execute)
+4. Seed each prod table that reads itself, once, from its original (it is a call to the
+   warehouse, yours to run).
+       run_execute(hive_settings("dynamic_partitions"), execute)
+       for table in project.promoted_tables(TABLES, seeded=True):
+           run_execute(project.load(table).seed(), execute)
+5. Write each table in prod (it is a call to the warehouse, yours to run).
+       project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
+## new_table: a Saved table of your own
+
+1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
+       project.new_table(TABLES)
+2. Fill in each Table reference, in references/, and save it (it is a decision, yours to make).
+3. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+   make).
+       for table in TABLES:
+           project.load(table).write()  # says what stops it, if anything does
+4. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
+   yours to run).
+       for table in TABLES:
+           print(run_query(project.load(table).preview(), query))
+5. Create and write each in dev (it is a call to the warehouse, yours to run).
+       for table in TABLES:
+           run_execute(project.load(table).create(), execute)
+       project.run_tables(tables=TABLES, execute=execute)
+
+## references: Table references for tables you read
+
+1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+       project.add_references(TABLES, query=query)
+2. Fill in each TODO line and Alias (it is a decision, yours to make).
+3. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+       project.refresh_reference_sheet(TABLES)
+
+## upgrade: a new Toolbox copied in
+
+1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+       project.upgrade()
+2. Make each change an # UPGRADE mark asks for, and tick its box (it is a decision, yours to
+   make).
+
+## change_a_saved_table: an Admin statement on a Saved table
+
+1. Write the Admin statement for the change (it is a decision, yours to make).
+       table = project.table_reference(TABLE)
+       change = admin.drop_partitions(table, where=...)  # or another: help(admin)
+2. Print its Hive, and run the check its Check first line names (it changes only files, or only
+   prints: run its cell).
+       show_hive(change)
+3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
+   warehouse, yours to run).
+       run_execute(change, execute)
+
+## Worked example
+
+The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
+convert notebook's names cell, then its first step's cell:
+
+```python
+NAME = "ops_reports"
+FILES = ["daily.hql", "weekly.hql"]
+project.convert(NAME, None, files=FILES, query=query, database="default")
+```
+
+## Do and don't
+
+- Do give each step's cell as listed, with the user's names in it.
+- Don't skip a decision, such as ticking a checklist: say what it asks of the user.
+- Don't promote a table before its compare has passed.
+
+## Before you answer
+
+- Name the Workflow and the step the user is at; give each later step's cell as it is.
+- Never invent a step or a call: only those listed here.
+- A step `project.check()` names again after it ran is one no file tells of: go on.

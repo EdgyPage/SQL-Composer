@@ -11,19 +11,19 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 
 ## Names for this objective, with their arguments
 
-{names: project.scan_hive, project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, fill_null, is_in, count_rows, count_distinct, sum_of, hive_function, unchecked_column, hive_settings}
+{names: project.convert, project.load, project.check, compare_with_original, derived, AS, mapped, first_match, if_else, fill_null, is_in, count_rows, count_distinct, sum_of, hive_function, unchecked_column, hive_settings}
 
 ## In the Project: a Conversion
 
-A Conversion writes the code for the user. In admin/workflows/convert/convert.ipynb, with
-DEV filled in in admin/databases.py and the Hive pasted as `HIVE = """..."""`:
-`project.scan_hive(HIVE)` says what one query would make; `project.convert("weekly_events", HIVE,
-query=query)` makes each table the Hive writes a Saved table in the Dev Database, with its Table
-folder, Table reference and a checklist, and one query alone `<dev>.weekly_events`;
-`files=[...]` takes several scripts; `project.load("mart_dev.weekly_events").preview()` gives
-the Statement; `project.check()` lists each `# CONVERSION:` mark, a line above each opt-out the
-original needed, for the user to keep or take out. Suggest this for any script; convert a short
-query by hand, as below.
+For any Hive, one query or scripts of any length, the convert Workflow writes the code
+(file 13): in admin/workflows/convert/convert.ipynb, DEV filled in in admin/databases.py,
+`project.convert("weekly_events", HIVE, query=query)`, or `files=[...]` for scripts, makes each
+table the Hive writes a Saved table in the Dev Database, with its Table folder, Table
+reference and a checklist, and one query alone `<dev>.weekly_events`;
+`project.load("mart_dev.weekly_events").preview()` gives the Statement; `project.check()` lists
+each `# CONVERSION:` mark, above each opt-out the original needed. Its later steps write each
+in dev, compare each with the table it copies, and promote them. Convert by hand, as below,
+only to explain a piece.
 
 ## By hand: each Hive part and what it becomes
 

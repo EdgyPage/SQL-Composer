@@ -374,7 +374,7 @@ s = statement(
          partition={"dt": "2026-09-23"}),
     # --- 07 converting Hive -----------------------------------------------------------------
     Task("T19", "07", "dev",
-         "Convert this Hive into Toolbox code:\n\n"
+         "Show me, piece by piece, this Hive as Toolbox code:\n\n"
          "SELECT r.job_id, COUNT(*) AS runs\n"
          "FROM ops.job_runs r\n"
          "WHERE r.dt = '2026-09-24' AND r.status IN ('FAILED', 'SUCCESS', 'RETRY', 'TEST')\n"
@@ -394,7 +394,7 @@ s = statement(
 )
 ''', tables=("job_runs",)),
     Task("T20", "07", "dev",
-         "Convert this Hive into Toolbox code:\n\n"
+         "Show me, piece by piece, this Hive as Toolbox code:\n\n"
          "WITH ev AS (\n"
          "  SELECT e.job_id, e.event_type\n"
          "  FROM ops.job_events e\n"
@@ -421,7 +421,7 @@ s = statement(
 )
 ''', tables=("job_events",)),
     Task("T21", "07", "held_out",
-         "Convert this Hive into Toolbox code:\n\n"
+         "Show me, piece by piece, this Hive as Toolbox code:\n\n"
          "SELECT j.job_name,\n"
          "       CASE j.team WHEN 'data' THEN 'Data' WHEN 'web' THEN 'Web' ELSE 'Other' END "
          "AS team_name,\n"

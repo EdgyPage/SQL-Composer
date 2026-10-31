@@ -23,9 +23,10 @@ block the user can paste into a notebook cell, then a few plain sentences.
    functions over it: `query(hive)` calls `conn.query`, which runs Hive that gives rows and
    returns a pandas DataFrame, and `execute(hive)` calls `conn.execute`, which runs Hive that
    changes something and returns nothing. Nothing else in the Project reaches the warehouse.
-3. Each table read needs a Table reference, a file in references/:
-   `project.add_references(["ops.job_runs"], query=query)` writes references/ops__job_runs.py
-   from the table's own description. The user then fills in its `key=` by hand.
+3. Each table read needs a Table reference, a file in references/. The references Workflow,
+   admin/workflows/references/references.ipynb, runs
+   `project.add_references(["ops.job_runs"], query=query)`, which writes
+   references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
 4. Imports, at the top of a cell:
    - Toolbox names, each by name: `from sqlglot_composer import FROM, SELECT, statement`.
    - One table: `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
@@ -38,8 +39,10 @@ block the user can paste into a notebook cell, then a few plain sentences.
 6. To run: `rows = run_query(s, query)` gives a DataFrame. `run_execute(s, execute)` sends a
    write, a CREATE TABLE or a SET line. `print(to_hive(s))` shows the Hive and sends
    nothing; `show_hive(s)` prints it laid out.
-7. For a Saved table, `project.new_table("mart.job_day_runs")` makes its Table notebook and
-   Table reference: file 06 says what goes in them.
+7. For a Saved table, the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
+   `project.new_table("mart.job_day_runs")`, its Table notebook and Table reference: file 06
+   says what goes in them. Each job has a Workflow notebook: `project.check()` names each one's
+   next step, `project.do_next()` runs those it can, and file 13 lists their steps.
 
 ## Worked example
 

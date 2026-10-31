@@ -44,6 +44,9 @@ you can ask it in plain words.
   `formula_workbook.xlsx` shows, into Hive and Toolbox code: its steps and formulas.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
   Rows, loaded with file 11.
+- `13_workflows.txt`: a whole job, step by step, from its Workflow notebook in
+  admin/workflows/: converting Hive, promoting to prod, a new Saved table, Table references,
+  an upgrade, a change to a Saved table.
 
 ## Fitting Copilot
 
