@@ -6337,7 +6337,7 @@ Tick each box, [x], once it is done: the convert Workflow waits on every box.
 - [ ] Choose its Key in references/mart__fail_history.py, or leave key=None if no columns name one row.
 - [ ] Make each unchecked_ piece a Toolbox function where you can.
 - [ ] Agree to seed it: its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s step 4, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(). Tick once you agree that copy is the right start.</pre>
-<p>Fill in each Table reference&#x27;s location=, the folder its files go in, which your platform team names, and its Key, then tick each box. Three tables&#x27; checklists ask you to send the original&#x27;s SET line, hive.exec.parallel, before their write: it makes Hive faster and changes no row, so tick it, and send it at work if you want it, as its box says. This page stands in for your edits:</p>
+<p>Fill in each Table reference&#x27;s location=, the folder its files go in, which your platform team names, and its Key, then tick each box. This page stands in for your edits:</p>
 <pre class="python">for path in Path(&quot;references&quot;).glob(&quot;mart__*.py&quot;):
     text = path.read_text(encoding=&quot;utf-8&quot;)
     if &quot;location=None,&quot; in text:
@@ -6460,7 +6460,6 @@ Tick each box, [x], once it is done: the convert Workflow waits on every box.
 - [x] Check the type of dt in references/mart__alerted_runs_ops_reports.py: it is written &quot;string&quot;, since neither its query nor DESCRIBE of the original told it.
 - [x] Fill in location= in references/mart__alerted_runs_ops_reports.py: the folder its files go in.
 - [x] Choose its Key in references/mart__alerted_runs_ops_reports.py, or leave key=None if no columns name one row.
-- [x] Send the original&#x27;s SET lines before you write it, as it sent them: run_execute(project.load(&quot;mart.alerted_runs_ops_reports&quot;).session_settings(), execute), then run_tables.
 
 Note: the original was one target of a FROM with several INSERTs.</pre>
 <p class="label">It writes tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md</p>
@@ -6471,7 +6470,6 @@ Tick each box, [x], once it is done: the convert Workflow waits on every box.
 - [x] Check the type of dt in references/mart__alerts_by_severity_ops_reports.py: it is written &quot;string&quot;, since neither its query nor DESCRIBE of the original told it.
 - [x] Fill in location= in references/mart__alerts_by_severity_ops_reports.py: the folder its files go in.
 - [x] Choose its Key in references/mart__alerts_by_severity_ops_reports.py, or leave key=None if no columns name one row.
-- [x] Send the original&#x27;s SET lines before you write it, as it sent them: run_execute(project.load(&quot;mart.alerts_by_severity_ops_reports&quot;).session_settings(), execute), then run_tables.
 
 Note: the original was one target of a FROM with several INSERTs.</pre>
 <p class="label">It writes tables/mart__fail_history/conversion/checklist.md</p>
@@ -6490,7 +6488,6 @@ Tick each box, [x], once it is done: the convert Workflow waits on every box.
 
 - [x] Fill in location= in references/mart__failed_runs_ops_reports.py: the folder its files go in.
 - [x] Choose its Key in references/mart__failed_runs_ops_reports.py, or leave key=None if no columns name one row.
-- [x] Send the original&#x27;s SET lines before you write it, as it sent them: run_execute(project.load(&quot;mart.failed_runs_ops_reports&quot;).session_settings(), execute), then run_tables.
 
 Note: the original was a temporary table.</pre>
 <p><code>project.check()</code> names the batch&#x27;s next step in the Workflow:</p>
@@ -6499,7 +6496,7 @@ Note: the original was a temporary table.</pre>
   admin/workflows/convert/convert.ipynb, ops_reports: 3. Create each table in dev. It is a call to the warehouse, yours to run: for table in project.batch_tables(&quot;ops_reports&quot;):
     run_execute(project.load(table).create(), execute)</pre>
 <h5>Create, seed and write each table in dev</h5>
-<p>Steps 3 to 5 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
+<p>Steps 3 to 5 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. The write step sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
 <pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;):
     run_execute(project.load(table).create(), execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.failed_runs_ops_reports (
@@ -6530,10 +6527,13 @@ INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_report
 ```</pre>
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
 <pre class="python">print(project.run_tables(tables=project.batch_tables(&quot;ops_reports&quot;), execute=execute))</pre>
-<p class="label">Python prints</p><pre class="output">execute: INSERT OVERWRITE TABLE mart.failed_runs_ops_reports
+<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.parallel=true
+execute: INSERT OVERWRITE TABLE mart.failed_runs_ops_reports
 1 of 4: mart.failed_runs_ops_reports         worked
+execute: SET hive.exec.parallel=true
 execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
 2 of 4: mart.alerts_by_severity_ops_reports  worked
+execute: SET hive.exec.parallel=true
 execute: INSERT OVERWRITE TABLE mart.alerted_runs_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
 3 of 4: mart.alerted_runs_ops_reports        worked
 execute: INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM mart.failed_runs_ops_reports AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id

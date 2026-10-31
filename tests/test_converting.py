@@ -370,8 +370,9 @@ def test_a_hive_variable_stays_as_text_and_a_finding_says_so() -> None:
     assert 'equals(job_runs.dt, "${hivevar:day}")' in done.query
     assert found(done, "variable") == [
         "line 2: ${hivevar:day} is kept as written, and Hive fills it in from a SET line sent "
-        "first: session_settings() sends the original's; with none, send one with "
-        "hive_settings(...), or have your query put the value in"]
+        "first: session_settings() holds the original's, which project.run_tables sends "
+        "before the write; with none, send one with hive_settings(...), or have your query "
+        "put the value in"]
 
 
 # --- Every table read, and the line each finding is on ----------------------------------------
@@ -408,11 +409,11 @@ def test_several_set_lines_are_one_finding() -> None:
         "session_settings() gives"]
 
 
-def test_a_saved_tables_write_says_to_send_the_set_lines_first() -> None:
+def test_a_saved_tables_write_says_run_tables_sends_the_set_lines_first() -> None:
     logic = convert_query("SET hive.exec.parallel=true;\nSELECT job_id FROM ops.jobs").logic()
     written = converting.saved_table_logic(logic, "mart.t", "t", None, {})
-    assert "    Send session_settings() first, as the original sent its SET lines" in written
-    assert "Send session_settings()" not in converting.saved_table_logic(
+    assert "    project.run_tables sends session_settings() first, as the original" in written
+    assert "session_settings() first" not in converting.saved_table_logic(
         convert_query("SELECT job_id FROM ops.jobs").logic(), "mart.t", "t", None, {})
 
 

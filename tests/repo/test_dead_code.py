@@ -51,6 +51,7 @@ PRIVATE_SEAMS = {
     ("example_database", "_TABLES"): "the Example database's tables, which tests describe",
     ("example_database", "_is_query"): "tested on its own, as the query refusal's rule",
     ("example_database", "_sorts_itself"): "tested on its own, as the sort rule",
+    ("example_database", "_in_order"): "the Workflow journeys' warehouse sorts rows as it does",
     ("running", "_self_check"): "swapped out by a test to show nothing unchecked is sent",
     ("tables", "_SET_IT"): "a fix text a test checks against the admin module",
     ("unchecked", "_ALTERED_BY"): "fix texts a test checks against the admin module",
