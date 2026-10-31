@@ -29,9 +29,15 @@ ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 # What each Example project gained by hand in this version, which no Upgrade makes, left out of
 # the comparison: 8.0's READMEs, the starter's saying to set conn, your connection (ticket 21),
-# and the intermediate's naming the convert Workflow's notebook (ticket 12). Empty it when the
-# next version's frozen copy holds them.
-GAINED_BY_HAND = {"intermediate": ("README.md",), "starter": ("README.md",)}
+# and the intermediate's naming the convert Workflow's notebook (ticket 12); DEV, filled in in
+# admin/databases.py; and the intermediate's Conversion, made again the 8.0 way, as a batch
+# whose Saved table's folder keeps conversion/ (ticket 14). Empty it when the next version's
+# frozen copy holds them.
+GAINED_BY_HAND = {
+    "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
+                     "references/mart__team_failures.py", "tables/mart__team_failures/"),
+    "starter": ("README.md", "admin/databases.py"),
+}
 # What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
 # check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and
 # a notebook written while it is open is saved over. Empty it with GAINED_BY_HAND.

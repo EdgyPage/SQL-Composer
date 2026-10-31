@@ -299,7 +299,7 @@ def test_run_tables_prints_each_write_writers_first(
     headings = [line.split(": ", 1)[1] for line in capsys.readouterr().out.splitlines()
                 if re.match(r"-- \d+ of \d+: ", line)]
     tables = [table for table, _ in example_project.SAVED_TABLES[name]] + [
-        table for _, table in example_project.CONVERSIONS[name]]
+        table for _, _, table in example_project.CONVERSIONS[name]]
     assert sorted(set(headings)) == sorted(tables)
     assert headings.index(reader) > max(len(headings) - 1 - headings[::-1].index(table)
                                         for table in read)

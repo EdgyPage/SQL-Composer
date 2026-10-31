@@ -1230,12 +1230,21 @@ ALIASES_HEADING = "# --- Aliases " + "-" * 78
 
 
 def table_reference_text(name: str, columns: dict[str, str], partitions: list[str],
-                         module: str) -> str:
+                         module: str, stored_as: str | None = None,
+                         location: str | None = None) -> str:
     """A Table reference file's text for a table whose columns and types are known without
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
-    descriptions."""
+    descriptions, and stored_as= and location= when the CREATE gave them."""
     variable = _reference_variable(split_table_name(name)[1])
-    return _reference_text(name, variable, columns, {}, partitions, module)
+    text = _reference_text(name, variable, columns, {}, partitions, module)
+    storage = ""
+    if stored_as is not None:
+        storage += f"    stored_as={escaped_literal(stored_as)},\n"
+    if location is not None:
+        storage += f"    location={escaped_literal(location)},\n"
+    # They go just after key=, which every reference has.
+    at = text.index("    does_not_add_up=")
+    return text[:at] + storage + text[at:]
 
 
 def _reference_text(name: str, variable: str, columns: dict[str, str],

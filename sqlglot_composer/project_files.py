@@ -113,14 +113,13 @@ BUILDING_BLOCK = FileKind(
     "runs_per_job.py", writes_databases=False)
 # Every kind, in the order check() and register() name them.
 KINDS = (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK)
-# A Conversion folder, which only project.convert makes, so register() never adopts one and
-# check() names it on its own: one in progress until finish_conversion or remove_conversion
-# archives it.
+# A Conversion folder, a batch's index, which only project.convert makes, so register()
+# never adopts one: the scripts as given, what each statement became, and what it wrote.
 CONVERSION_FOLDER = FileKind(
-    kind="conversion_folder", label="Conversion folder", folder="admin/conversions",
+    kind="conversion_folder", label="Conversion folder", folder="admin/workflows/convert",
     is_folder=True, by_table=False, remover="remove_conversion",
-    named_as="the folders in admin/conversions/ are named as the Conversion is, such as "
-    "team_runs", writes_databases=False)
+    named_as="the folders in admin/workflows/convert/ are named as the batch is, such as "
+    "weekly", writes_databases=False)
 
 
 def table_stem(name: str) -> str:

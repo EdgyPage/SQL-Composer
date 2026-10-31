@@ -92,8 +92,9 @@ COPILOT = "copilot"
 COPIED = (EXAMPLE_PROJECTS, COPILOT)
 # The files of an Example project with no comment syntax for a stamp: a Project's notebooks,
 # its registry and its Reference sheet, and admin/project_version.txt, read from its first line;
-# and a Conversion's original.hql, kept exactly as the Hive was given.
-UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx")
+# a Conversion's .hql files, kept exactly as the Hive was given; and a batch's written.json,
+# its record of what it wrote, which its Workflow reads.
+UNSTAMPED = (".ipynb", ".csv", ".txt", ".hql", ".xlsx", ".json")
 # The copies that aren't text: the empty Formula workbook and its examples, which main can't
 # rebuild, since openpyxl, which builds them, is dev's alone.
 BINARY = (".xlsx",)

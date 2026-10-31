@@ -5,8 +5,8 @@ For: Intermediate
 ## Goal
 
 Turn a long query of Hive someone else wrote, with its CTEs, its lists pasted in by hand and its
-if/else chains, into your own code: a Table notebook whose logic builds the same query from the
-Toolbox's functions, checked against the original, then saved as a table of your own. That is a
+if/else chains, into your own code: a Saved table in your Dev Database whose notebook's logic
+builds the same query from the Toolbox's functions, checked against the original. That is a
 Conversion. What no Toolbox function writes yet stays Hive, at the smallest size it can, so you
 get the rest converted rather than none of it.
 
@@ -36,7 +36,7 @@ Work in a copy of the Intermediate Example project, at its top, as
 ### Paste the Hive in
 
 Open admin/workflows/convert/convert.ipynb, which `project.start()` wrote, and fill in its
-names cell: the Conversion's name as NAME, and the Hive as HIVE, between triple quotes. Set
+names cell: the batch's name as NAME, and the Hive as HIVE, between triple quotes. Set
 DATABASE there too: a table the Hive names without its
 database, such as job_events, is taken to be in it. This Hive names each table's database,
 so the calls below leave database= out.
@@ -105,25 +105,30 @@ first: write() sends only the query.
 
 ### Convert it
 
-Give the Conversion a name of its own, a plain lowercase one: the Saved table's name is yours
-to choose when you finish it.
+Give the batch a name of its own, a plain lowercase one. DEV, in admin/databases.py, names
+your Dev Database, where each table the Hive writes becomes a Saved table of yours: in the
+Intermediate Example project it is mart. The Hive writes ops_reports.weekly_events, which would
+be mart.weekly_events_ops_reports, its database at the end; `rename=` names it as you choose:
 
->>> print(project.convert("weekly_events", HIVE, query=query))
-Converted weekly_events: 25 lines of Hive into
-    admin/conversions/weekly_events/weekly_events.ipynb.
-1 piece kept as Hive, 3 named constants, 1 opt-out marked # CONVERSION: for you to check:
-    JOIN(o, reads_all_partitions=True).
-Its Hive and the original's: The Statement's Hive and the original are the same query, once both
-    are written out the same way.
-admin/conversions/weekly_events/scan.md lists what it found, line by line.
+>>> print(project.convert("weekly_events", HIVE, query=query,
+...                       rename={"ops_reports.weekly_events": "weekly_events"}))
+Converted weekly_events: 1 script, 2 statements, into 1 Saved table in mart: mart.weekly_events.
+admin/workflows/convert/weekly_events/batch.md lists each statement, in the order they run, and
+    what it became.
+Next: tick each box of each table's conversion/checklist.md, then write each table with
+    project.run_tables(tables=[...], execute=execute).
 
-Open admin/conversions/weekly_events/weekly_events.ipynb. Its logic cell holds your code: the
-list and the lookup as constants at the top, each CTE a Derived table, and rows(), the clauses
-of the query, which converted() builds. `project.load` runs that cell from anywhere in the
-Project, as it does a Table notebook's:
+Both tables it reads have Table references in this Project already; one that has none gets
+one, through your query, and the report names it.
 
->>> logic = project.load("weekly_events")  # -> TableLogic
->>> print(to_hive(logic.converted()).splitlines()[0])
+Open tables/mart__weekly_events/mart__weekly_events.ipynb. Its logic cell holds your code: the
+list and the lookup as constants at the top, each CTE a Derived table, rows(), the clauses of
+the query, and create(), preview() and write(). Beside it, conversion/ keeps statement.hql, the
+Hive as the script wrote it, scan.md, what the scan found, and checklist.md. `project.load` runs
+the logic cell from anywhere in the Project:
+
+>>> table = project.load("mart.weekly_events")  # -> TableLogic
+>>> print(to_hive(table.preview()).splitlines()[0])
 WITH ev AS (
 
 ### Decide each mark
@@ -132,78 +137,54 @@ The original joins ops.job_owners on its partition column, dt, matched with the 
 which the Load limit can't tell bounds it, so the Conversion added the opt-out the original's
 join needs, reads_all_partitions=True on that JOIN, with a mark on the line above it:
 "# CONVERSION: reads_all_partitions=True, as the original did; check it". `project.check()`
-lists each mark left:
+lists each mark left, and each batch's next step:
 
 >>> print(project.check())
-Conversions not finished yet: finish each with project.finish_conversion(...), or archive it
-    with project.remove_conversion(...):
-  admin/conversions/weekly_events/
 Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it,
     or change what made it needed, such as a WHERE on the partition column or a key= in a Table
     reference, and take it off; then delete its mark.
-  admin/conversions/weekly_events/weekly_events.ipynb, cell 3, line ...: # CONVERSION:
+  tables/mart__weekly_events/mart__weekly_events.ipynb, cell 3, line ...: # CONVERSION:
       reads_all_partitions=True, as the original did; check it
+The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
+  admin/workflows/convert/convert.ipynb, weekly_events: 2. Tick each box of each table's
+      checklist. It is a decision, yours to make
 
 An opt-out is a keyword that tells a Guard or a Load limit you have checked what it refuses.
 Here the other table holds five days only, so the join reads only those: keep the opt-out, and
 delete the mark. At work, ask how many Partitions the join reads: if it reads too many, add a
-WHERE on o.dt to bound it, and take the opt-out off.
+WHERE on o.dt to bound it, and take the opt-out off. Then tick its box in
+tables/mart__weekly_events/conversion/checklist.md, which has a box for each decision only you
+can make: each mark, each column type neither the query nor DESCRIBE of the original told,
+location=, the Key, the SET lines to send first, and each piece kept as Hive.
 
 ### Compare it with the original
 
 The notebook's cells compare the two: their Hive, always, and their rows, through your query,
 on one Partition:
 
->>> print(compare_with_original(logic.converted(), HIVE, query=query,
+>>> print(compare_with_original(table.preview(), HIVE, query=query,
 ...                             partition={"dt": "2026-09-24"}))
 The Statement and the original give the same rows where dt = '2026-09-24': 2 rows each.
 The Statement holds Hive written by hand, which the Toolbox can't look inside:
     unchecked_column("{minutes} DIV 60", minutes=p.minutes). The rows match, so it gives what
     the original gives here.
 
-### Finish it
+### Fill in its Table reference
 
-When it gives the rows you want, finish it under the name of a Saved table of yours:
+Its Table reference, references/mart__weekly_events.py, lists the columns the query gives,
+`partitioned_by=["dt"]`, from the original's PARTITION(...), and a type for each column: the
+one the Toolbox knows, or "string", with a box on the checklist to check it, as DESCRIBE of
+the other team's table shows. Fill in the rest: its location=, its Key and its TODO lines.
+This page stands in for your edit:
 
->>> print(project.finish_conversion("weekly_events", table="mart.weekly_events"))
-Finished the Conversion weekly_events as mart.weekly_events:
-    tables/mart__weekly_events/mart__weekly_events.ipynb, and its Table reference,
-    references/mart__weekly_events.py.
-Fill in references/mart__weekly_events.py: its <LOCATION>, any <COLUMN_TYPE>, key=, and its TODO
-    lines; then run the notebook's create() and write().
-The Conversion folder is archived, kept as it was, in admin/removed/...-weekly_events/.
+>>> reference = Path("references/mart__weekly_events.py")
+>>> _ = reference.write_text(reference.read_text(encoding="utf-8").replace(
+...     "    key=None,", '    location="/data/mart.db/weekly_events", key=["job_id", "dt"],'),
+...     encoding="utf-8")
 
-Its Table reference lists the columns the query gives, the types the Toolbox knows, and
-`partitioned_by=["dt"]`, from the original's PARTITION(...). Fill in the rest: each
-<COLUMN_TYPE> is a column whose type the Toolbox can't tell, such as a CASE's, so write the Hive
-type it holds, as DESCRIBE of the other team's table shows.
-
-The file `references/mart__weekly_events.py`, after you fill it in:
-
-    \"\"\"mart.weekly_events - one row per job and day: its events, fails and load.\"\"\"
-
-    from sqlglot_composer import Table
-
-    weekly_events = Table(
-        "mart.weekly_events",
-        columns={
-            "team": "string",
-            "team_name": "string",
-            "job_id": "bigint",
-            "fails": "bigint",
-            "load": "string",
-            "hours": "int",
-            "owner": "string",
-            "dt": "string",
-        },
-        partitioned_by=["dt"],
-        key=["job_id", "dt"],
-        location="/data/mart.db/weekly_events",
-    )
-
-Its notebook's write() writes the table as the original's INSERT did. It keeps the original's
-days, as written: to write the last few days on each run, make them a Building block, as the
-Intermediate Example project's days_rewritten.py does. Its INSERT line:
+Its notebook's write() writes the table as the original's INSERT did, into mart. It keeps the
+original's days, as written: to write the last few days on each run, make them a Building
+block, as the Intermediate Example project's days_rewritten.py does. Its INSERT line:
 
 >>> table = project.load("mart.weekly_events")  # -> TableLogic
 >>> [line for line in to_hive(table.write()).splitlines() if line.startswith("INSERT")]
@@ -211,8 +192,9 @@ Intermediate Example project's days_rewritten.py does. Its INSERT line:
 
 ## Check it worked
 
-`compare_with_original` says the two give the same rows on a Partition you choose, and
-`project.check()` lists no `# CONVERSION:` mark and no Conversion not finished.
+`compare_with_original` says the two give the same rows on a Partition you choose,
+`project.check()` lists no `# CONVERSION:` mark, and each box of the table's checklist is
+ticked.
 
 ## Common mistakes
 

@@ -35,6 +35,16 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   CREATE; a table they only create gets its Table reference alone. What reads it after its
   write reads that copy; the original tables are never touched.
   `admin/workflows/convert/<name>/batch.md` lists what each statement became.
+- **A Conversion makes its Saved tables itself.** `project.convert` writes each table's Table
+  folder and Table reference at once, one query alone too, as `<dev>.<name>`:
+  `finish_conversion` is gone. Each Table folder's `conversion/` keeps the statement as the
+  script wrote it, the scan, and `checklist.md`, a box for each thing only you can decide:
+  each `# CONVERSION:` mark, each column type it couldn't tell, `location=`, the Key, the SET
+  lines to send first. A CREATE's STORED AS and LOCATION reach the Table reference. The
+  convert Workflow's notebook names the next step of each batch, and waits on every box.
+- **Running a Conversion again is safe.** It writes afresh each file still as it wrote it,
+  keeps one you changed and writes the fresh one beside it, named `.new`; with
+  `overwrite=True` it writes over each, kept as it was in `admin/removed/`.
 
 ### To update from 7.2
 

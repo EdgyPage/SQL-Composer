@@ -96,23 +96,15 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 06:00:00, Project action
 
 - Call: `project.convert("team_failures", ...)`
-- Tables named: ops.job_events, ops.job_owners
-- Files: created admin/conversions/team_failures/ (original.hql, scan.md, team_failures.ipynb); added JOIN(o, reads_all_partitions=True)
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.new_table("mart.team_failures")`
-- Tables named: mart.team_failures
-- Files: created tables/mart__team_failures/ (mart__team_failures.ipynb, lineage/); created references/mart__team_failures.py; wrote references/mart.py
-- Script: a notebook, at commit nogit
-- Result: worked
-
-## 2026-09-25 06:00:00, Project action
-
-- Call: `project.finish_conversion("team_failures", table="mart.team_failures")`
-- Tables named: mart.team_failures
-- Files: wrote tables/mart__team_failures/mart__team_failures.ipynb from admin/conversions/team_failures/team_failures.ipynb; wrote references/mart__team_failures.py; copied original.hql into tables/mart__team_failures/; moved admin/conversions/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.remove_conversion("team_failures")`
+- Tables named: team_failures
+- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked

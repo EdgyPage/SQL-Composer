@@ -1364,10 +1364,15 @@ INSERT = "insert"  # INSERT OVERWRITE or INTO: a Saved table, its logic the quer
 SETTING = "setting"  # SET: the Session settings of the writes after it in its script
 NOTHING = "nothing"  # DROP, TRUNCATE, ADD PARTITION, MSCK REPAIR: the Saved table does it
 OTHER = "other"  # anything else, or what sqlglot can't read: an Unchecked statement
-WRITES = (CREATE_AS, INSERT)
+QUERY = "query"  # a query alone, the only statement: a Saved table named for the batch
+WRITES = (CREATE_AS, INSERT, QUERY)
 # The kinds that make a table of the batch, and those that name one.
-MAKES = (CREATE_AS, CREATE, INSERT)
+MAKES = (CREATE_AS, CREATE, INSERT, QUERY)
 NAMES_A_TABLE = (CREATE_AS, CREATE, INSERT, NOTHING)
+# The trees a query alone may be.
+_QUERIES = (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)
+# The file formats a Table reference's stored_as= takes, as a CREATE's STORED AS names them.
+_STORED_AS = ("ORC", "PARQUET")
 # Why a statement the Saved table does itself becomes nothing, its note.
 DROPPED = "nothing: the Saved table's create() makes it new"
 TRUNCATED = "nothing: the write after it replaces every row"
@@ -1437,14 +1442,24 @@ def _without_comments(text: str) -> str:
     return re.sub(r"--[^\n]*", "", text)
 
 
-def batch_statements(scripts: list[tuple[str, str]], database: str) -> list[BatchStatement]:
+def batch_statements(scripts: list[tuple[str, str]], database: str,
+                     query_table: str | None = None) -> list[BatchStatement]:
     """Each statement of each script, `scripts` as (its name, its text), in the order given:
     what it is, what it writes and what it reads. A table named without its database is in
-    `database`."""
+    `database`. A query alone, the only statement but SET lines, writes `query_table`; a query
+    among other statements writes nothing, and is listed as Hive."""
     statements = []
     for script, text in scripts:
         for line, piece in split_statements(text):
             statements.append(_read_statement(script, line, piece, database))
+    queries = [each for each in statements if each.kind == QUERY]
+    rest = [each for each in statements if each.kind not in (SETTING, QUERY)]
+    for each in queries:
+        if len(queries) == 1 and not rest and query_table:
+            each.table = query_table
+            each.reads = _tables_it_reads(each.tree, None, database)
+        else:
+            each.kind = OTHER
     return statements
 
 
@@ -1477,6 +1492,8 @@ def _kind(tree: exp.Expression) -> str:
         return _create_kind(tree)
     if isinstance(tree, exp.Insert) and isinstance(_target(tree), exp.Table):
         return INSERT
+    if isinstance(tree, _QUERIES):
+        return QUERY
     if _is_one_a_saved_table_does(tree):
         return NOTHING
     return OTHER
@@ -1576,6 +1593,9 @@ def dev_names(statements: list[BatchStatement], dev: str,
             continue
         database, short = split_table_name(table)
         name = f"{dev}.{rename.get(table, f'{short}_{database}')}"
+        if statement.kind == QUERY:
+            # A query alone is named for the batch, which names no database of its own.
+            name = f"{dev}.{rename.get(table, short)}"
         if name in taken:
             raise ConversionRefused(
                 f"{taken[name]} and {table} are both {name} in the Dev Database: rename one "
@@ -1692,9 +1712,11 @@ def insert_hive(statement: BatchStatement, names: dict[str, str], database: str,
     an INSERT INTO makes it; each table `names` holds named as its copy in dev, those the
     batch writes before it, as names_by_then gives them."""
     swapped = read_hive(with_dev_names(statement, names, database))[0]
+    written = exp.to_table(names[statement.table])
     if statement.kind == CREATE_AS:
-        written = exp.to_table(names[statement.table])
         return sql_text(exp.Insert(this=written, expression=swapped.expression, overwrite=True))
+    if statement.kind == QUERY:
+        return sql_text(exp.Insert(this=written, expression=swapped, overwrite=True))
     if overwrite:
         swapped.set("overwrite", True)
     return sql_text(swapped)
@@ -1714,6 +1736,19 @@ def created_columns(statement: BatchStatement) -> tuple[dict[str, str], list[str
                 columns[column.name.lower()] = sql_text(column.args["kind"]).lower()
                 partitions.append(column.name.lower())
     return columns, partitions
+
+
+def created_storage(statement: BatchStatement) -> dict[str, str]:
+    """What a CREATE says of the table's files, as a Table reference's arguments: stored_as,
+    from STORED AS ORC or PARQUET, and location, from LOCATION; each only when it says it."""
+    storage = {}
+    for each in statement.tree.find_all(exp.FileFormatProperty):
+        stored_as = each.name.upper()
+        if stored_as in _STORED_AS:
+            storage["stored_as"] = stored_as
+    for each in statement.tree.find_all(exp.LocationProperty):
+        storage["location"] = each.this.name
+    return storage
 
 
 def insert_partitions(statement: BatchStatement) -> list[str]:

@@ -62,6 +62,11 @@ def batch(started: Path) -> str:
                                 query=example_database.query, database="ops"))
 
 
+def checklist(root: Path, table: str) -> str:
+    stem = table.replace(".", "__")
+    return (root / "tables" / stem / "conversion" / "checklist.md").read_text(encoding="utf-8")
+
+
 def batch_folder(root: Path) -> Path:
     return root / "admin" / "workflows" / "convert" / "ops_reports"
 
@@ -200,10 +205,11 @@ def test_two_tables_with_one_dev_name_are_refused_until_one_is_renamed(started: 
     assert (started / "tables" / "mart_dev__x_a_other").is_dir()
 
 
-def test_one_query_still_converts_as_one(started: Path) -> None:
+def test_one_query_alone_is_a_saved_table_named_for_the_batch(started: Path) -> None:
     project.convert("failed", "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
                     query=example_database.query)
-    assert (started / "admin" / "conversions" / "failed" / "failed.ipynb").is_file()
+    assert (started / "tables" / "mart_dev__failed" / "mart_dev__failed.ipynb").is_file()
+    assert '"run_id": "bigint"' in reference(started, "mart_dev.failed")
 
 
 # --- What the spec review found -------------------------------------------------------------
@@ -299,18 +305,77 @@ def test_a_rename_of_a_table_the_scripts_dont_write_is_refused(started: Path) ->
     assert not batch_folder(started).exists()
 
 
-def test_a_batch_run_again_is_refused_before_anything_is_written(started: Path,
-                                                                batch: str) -> None:
-    with pytest.raises(FileExistsError, match="mart_dev.failed_runs_ops_reports"):
-        project.convert("again", files=["daily.hql", "weekly.hql"],
-                        query=example_database.query, database="ops")
-    assert not (started / "admin" / "conversions" / "failed_runs_ops_reports").exists()
-    assert not (started / "admin" / "workflows" / "convert" / "again").exists()
+def test_a_batch_run_again_writes_afresh_only_what_you_left_as_it_wrote_it(
+        started: Path, batch: str) -> None:
+    stem = "mart_dev__failed_runs_ops_reports"
+    notebook = started / "tables" / stem / f"{stem}.ipynb"
+    kept = notebook.read_text(encoding="utf-8").replace("# Try it", "# Mine, tried")
+    notebook.write_text(kept, encoding="utf-8")
+    report = repr(project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                                  query=example_database.query, database="ops"))
+    assert notebook.read_text(encoding="utf-8") == kept
+    assert (started / "tables" / stem / f"{stem}.new.ipynb").is_file()
+    assert f"tables/{stem}/{stem}.new.ipynb" in report
+    # A file left as the batch wrote it is written afresh, nothing beside it.
+    assert not (started / "references" / f"{stem}.new.py").exists()
+
+
+def test_a_batch_run_again_with_overwrite_keeps_each_file_it_writes_over(
+        started: Path, batch: str) -> None:
+    stem = "mart_dev__failed_runs_ops_reports"
+    notebook = started / "tables" / stem / f"{stem}.ipynb"
+    notebook.write_text(notebook.read_text(encoding="utf-8").replace("# Try it", "# Mine"),
+                        encoding="utf-8")
+    project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                    query=example_database.query, database="ops", overwrite=True)
+    assert "# Mine" not in notebook.read_text(encoding="utf-8")
+    removed = started / "admin" / "removed"
+    archived = list(removed.glob(f"*-ops_reports/tables/{stem}/*.ipynb"))
+    assert len(archived) == 1 and "# Mine" in archived[0].read_text(encoding="utf-8")
 
 
 def test_a_type_neither_its_query_nor_describe_tells_is_named_to_check(started: Path) -> None:
-    report = convert_script(
+    convert_script(
         started, "CREATE TABLE ops_reports.labels AS SELECT j.job_id, "
                  "CASE WHEN j.team = 'a' THEN 'x' ELSE 'y' END AS label FROM ops.jobs j;\n")
-    assert 'Types to check, each written as "string"' in report
-    assert "mart_dev.labels_ops_reports.label" in report
+    assert '- [ ] Check the type of label in references/mart_dev__labels_ops_reports.py' in (
+        checklist(started, "mart_dev.labels_ops_reports"))
+
+
+# --- Table folders, written directly (ticket 14) ----------------------------------------------
+
+
+def test_each_table_keeps_its_statement_its_scan_and_its_checklist(started: Path,
+                                                                  batch: str) -> None:
+    conversion = started / "tables" / "mart_dev__failed_runs_ops_reports" / "conversion"
+    statement = (conversion / "statement.hql").read_text(encoding="utf-8")
+    assert statement.startswith("CREATE TABLE ops_reports.failed_runs AS")
+    assert "mart_dev.failed_runs_ops_reports" in (conversion / "in_dev.hql").read_text(
+        encoding="utf-8")
+    assert (conversion / "scan.md").is_file()
+    items = checklist(started, "mart_dev.failed_runs_ops_reports")
+    assert "- [ ] Fill in location= in references/mart_dev__failed_runs_ops_reports.py" in items
+    assert "- [ ] Send session_settings() before write()" in items
+
+
+def test_no_conversion_the_user_never_made_shows(started: Path, batch: str) -> None:
+    assert not (started / "admin" / "removed").exists()
+    log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
+    assert "finish_conversion" not in log and "new_table" not in log
+    assert "finish_conversion" not in logic(started, "mart_dev.failed_runs_ops_reports")
+
+
+def test_a_creates_stored_as_reaches_its_table_reference(started: Path, batch: str) -> None:
+    assert 'stored_as="ORC"' in reference(started, "mart_dev.fails_per_job_ops_reports")
+
+
+def test_check_names_the_batchs_next_step_and_ticking_the_boxes_moves_it_on(
+        started: Path, batch: str) -> None:
+    said = repr(project.check())
+    assert ("admin/workflows/convert/convert.ipynb, ops_reports: 2. Tick each box of each "
+            "table's checklist") in said
+    for stem in ("mart_dev__failed_runs_ops_reports", "mart_dev__fails_per_job_ops_reports"):
+        path = started / "tables" / stem / "conversion" / "checklist.md"
+        path.write_text(path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
+                        encoding="utf-8")
+    assert "ops_reports: 3. Create and write each table in dev" in repr(project.check())

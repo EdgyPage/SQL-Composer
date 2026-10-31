@@ -102,7 +102,18 @@ def template_cells(text: str) -> list[tuple[str, str]]:
 
 def write_notebook(path: Path, cells: list[tuple[str, str]]) -> None:
     """Write a Jupyter notebook as the plain JSON Jupyter reads, its cells not yet run."""
-    notebook = {
+    _write_json(path, _notebook_of(cells))
+
+
+def notebook_bytes(cells: list[tuple[str, str]]) -> bytes:
+    """A notebook's file as bytes, as a batch writes and hashes it: the JSON write_notebook
+    writes, its lines ending in a newline alone."""
+    return (json.dumps(_notebook_of(cells), indent=1) + "\n").encode("utf-8")
+
+
+def _notebook_of(cells: list[tuple[str, str]]) -> dict[str, object]:
+    """A notebook's JSON, its cells not yet run."""
+    return {
         "cells": [_cell_json(kind, text) for kind, text in cells],
         "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python",
                                     "name": "python3"},
@@ -110,7 +121,6 @@ def write_notebook(path: Path, cells: list[tuple[str, str]]) -> None:
         "nbformat": 4,
         "nbformat_minor": 4,
     }
-    _write_json(path, notebook)
 
 
 def write_cell_text(path: Path, number: int, text: str) -> None:

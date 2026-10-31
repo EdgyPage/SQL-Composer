@@ -96,7 +96,7 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 7.2, ticket 02: upgrade carries a Project to a newer Toolbox.
                  "upgrade",
                  # Toolbox 7.2, ticket 07: a Conversion, from scan to Saved table.
-                 "scan_hive", "convert", "finish_conversion", "remove_conversion",
+                 "scan_hive", "convert", "remove_conversion",
                  # Toolbox 8.0, ticket 12: do_next runs a Workflow's next file steps.
                  "do_next"]
 

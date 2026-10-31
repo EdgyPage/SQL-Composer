@@ -68,7 +68,7 @@ or made by hand.
 | `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` and `project.run_tables` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
-| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| `admin/workflows/convert/<name>/`, a Conversion folder per batch of someone else's Hive you convert: its scripts as given, and what each statement became | `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows; it makes each table the Hive writes a Saved table in your Dev Database | each box of each table's `conversion/checklist.md` |
 | an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
@@ -79,7 +79,7 @@ or made by hand.
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
-| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)`, and `project.upgrade()` and `project.convert(..., overwrite=True)`, which keep each file as it was before they change it | nothing |
 
 ### Your query and execute
 

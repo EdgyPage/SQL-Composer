@@ -1,4 +1,3 @@
--- Events and failures per team and day, as the ops team wrote it
 WITH ev AS (
   SELECT e.job_id, e.dt, e.event_type
   FROM ops.job_events e
@@ -18,4 +17,4 @@ SELECT p.team,
        p.events,
        p.fails,
        p.dt
-FROM per_team p
+FROM per_team p;

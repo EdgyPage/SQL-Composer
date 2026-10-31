@@ -1,10 +1,11 @@
 """The conversion chart: other people's Hive of each common shape, converted and checked both
 ways on the Intermediate Example project (Toolbox 7.2, ticket 10).
 
-Each query is converted with project.convert, as a user converts one, then checked as
-how-to 27 checks one: its Hive is the original's, once both are written out the same way, on
-every sqlglot the Toolbox takes; and its rows are the original's on a Partition that has rows,
-through the Example database. A query a Conversion can't take is refused, saying what to do.
+Each query is converted with project.convert, as a user converts one, into a Saved table in the
+Project's Dev Database, mart, then checked as how-to 27 checks one: its Hive is the original's,
+once both are written out the same way, on every sqlglot the Toolbox takes; and its rows are the
+original's on a Partition that has rows, through the Example database. A query a Conversion
+can't take is refused, saying what to do.
 """
 
 from __future__ import annotations
@@ -78,6 +79,16 @@ SELECT c.job_id, c.cost_cents, c.dt FROM ops.region_costs c WHERE c.dt = '202609
 }
 
 
+# The Saved table each query becomes in mart: the batch's name, but where its INSERT names the
+# table it writes, <table>_<its database>.
+MADE = {"costs_by_region": "region_totals_ops_reports"}
+
+
+def made(name: str) -> str:
+    """The short name of the Saved table a chart query becomes in mart."""
+    return MADE.get(name, name)
+
+
 @pytest.fixture
 def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """A copy of the Intermediate Example project, worked in at its top, as how-to 27 does."""
@@ -94,9 +105,11 @@ def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 def test_each_query_of_the_chart_converts_to_the_same_hive(intermediate: Path,
                                                            name: str) -> None:
     """Its tables have Table references in the Project, so it needs no query."""
-    said = repr(project.convert(name, CHART[name][0]))
+    project.convert(name, CHART[name][0])
+    conversion = intermediate / "tables" / f"mart__{made(name)}" / "conversion"
+    scan = (conversion / "scan.md").read_text(encoding="utf-8")
     assert ("Its Hive and the original's: The Statement's Hive and the original are the same "
-            "query, once both are written out the same way.") in said, said
+            "query, once both are written out the same way.") in scan, scan
 
 
 @pytest.mark.parametrize("name", list(CHART))
@@ -104,7 +117,7 @@ def test_each_query_of_the_chart_converts_to_the_same_rows(intermediate: Path,
                                                            name: str) -> None:
     hive, day = CHART[name]
     project.convert(name, hive, query=example_database.query)
-    verdict = compare_with_original(project.load(name).converted(), hive,
+    verdict = compare_with_original(project.load(f"mart.{made(name)}").preview(), hive,
                                     query=example_database.query, partition={"dt": day})
     assert verdict.ok, verdict
     rows = re.search(r": (\d+) rows? each\.", repr(verdict))
@@ -114,7 +127,7 @@ def test_each_query_of_the_chart_converts_to_the_same_rows(intermediate: Path,
 def test_the_window_and_the_query_in_brackets_convert_as_you_would_write_them(
         intermediate: Path) -> None:
     project.convert("latest_event", CHART["latest_event"][0])
-    logic = (intermediate / "admin" / "conversions" / "latest_event" / "latest_event.ipynb"
+    logic = (intermediate / "tables" / "mart__latest_event" / "mart__latest_event.ipynb"
              ).read_text(encoding="utf-8")
     assert 'ranked = derived(\\"ranked\\", statement(' in logic
     assert "row_number(over=window(PARTITION_BY=[e.job_id], ORDER_BY=[descending(e.minutes)" \

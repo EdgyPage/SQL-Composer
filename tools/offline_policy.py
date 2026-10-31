@@ -235,10 +235,11 @@ TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which t
                         "network under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
     # The Toolbox.
-    Allowed("sqlglot_composer/project.py", "load", "dynamic code", "exec",
+    Allowed("sqlglot_composer/project.py", "run_logic", "dynamic code", "exec",
             "runs a Table notebook's logic cell, which only imports and defines, to give its "
-            "functions; load refuses a cell that calls run_query or run_execute (the user's "
-            "OK, 2026-10-21)"),
+            "functions, for load, which refuses a cell that calls run_query or run_execute "
+            "(the user's OK, 2026-10-21), and for convert, on the logic it has just written "
+            "(moved from load, the user's OK, 2026-10-31)"),
     # The dev hooks.
     Allowed(".claude/hooks/drift_list.py", "<module>", "process", "subprocess", IMPORTS_GIT),
     Allowed(".claude/hooks/drift_list.py", "git", "process", "subprocess.run", GIT),

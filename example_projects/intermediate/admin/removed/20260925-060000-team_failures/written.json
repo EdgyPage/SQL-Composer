@@ -1,0 +1,15 @@
+{
+ "files": {
+  "admin/workflows/convert/team_failures/batch.md": "7f69cd538d26d1a32f7557b2a94fd8f80cd12535e8a80c468143f8e81044a4ed",
+  "admin/workflows/convert/team_failures/scripts/team_failures.hql": "309cec5b1a3a10f19b3c513a1736e8972465714abe4b5b458b0d0fc4e86a592a",
+  "references/mart__team_failures.py": "e97646b0f96dfc45d2c55c6ff8dd321a761d8d3f1fb8a86c384c0de2301a894f",
+  "tables/mart__team_failures/conversion/checklist.md": "de159a0ced7ef35f0d345df809f87f683c4514fd2417249b243f61b5753f018e",
+  "tables/mart__team_failures/conversion/in_dev.hql": "11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766",
+  "tables/mart__team_failures/conversion/scan.md": "b7bbfabb4925333d2e88a22e4e675e4c7aa30d21d2fd9cae4ff5506432d2fa51",
+  "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
+  "tables/mart__team_failures/mart__team_failures.ipynb": "59ad07180c79fcbcb948312712e3d1b7abb00dd17cf619b05f4adb1a17d9c359"
+ },
+ "tables": [
+  "mart.team_failures"
+ ]
+}

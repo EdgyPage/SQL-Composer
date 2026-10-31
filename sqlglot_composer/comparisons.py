@@ -542,6 +542,6 @@ def _need_statement_and_original(statement: object, original: object, call: str,
             what=f"{call}: original is {given}, where the text of the original Hive goes.",
             why="It compares the Statement with that Hive, read from the text.",
             fix='Pass the text itself, such as a .hql file\'s, read with '
-            'Path("original.hql").read_text().',
+            'Path("conversion/in_dev.hql").read_text().',
             given=original, call=call,
         )
