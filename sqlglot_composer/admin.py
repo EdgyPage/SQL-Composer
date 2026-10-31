@@ -33,7 +33,7 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
-from .shared import counted, in_words, python_literal
+from .shared import counted, escaped_literal, in_words
 from .tables import (
     FILE_FORMATS,
     PURGE,
@@ -444,7 +444,7 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
             what=f"{call}: {untyped[0]} has no type: its line in the Table reference says "
             "None.",
             why="Hive needs each new column's type to add it.",
-            fix=f'Give it its Hive type, such as {python_literal(untyped[0])}: "string".',
+            fix=f'Give it its Hive type, such as {escaped_literal(untyped[0])}: "string".',
             error=ValueError,
         )
     return new

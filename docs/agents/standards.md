@@ -39,6 +39,7 @@ refusal, and every place that does the job calls it:
 | A count and its noun: "1 table", "2 tables" | `shared.counted` |
 | A word that agrees with a count: "is" or "are", "it" or "them" | `shared.singular_or_plural` |
 | A value written as Python, for code the Toolbox writes | `shared.python_literal` |
+| The same, in a Table reference or its messages, each letter outside ASCII escaped | `shared.escaped_literal` |
 | A table's name split into its Database and its table | `shared.split_table_name` |
 | A list with its repeats dropped, in order | `list(dict.fromkeys(items))`, Python's own |
 | A refusal, with its four parts | `refusals.refuse` |

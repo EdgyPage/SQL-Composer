@@ -39,6 +39,15 @@ def python_literal(value: object) -> str:
     return repr(value)
 
 
+def escaped_literal(value: object) -> str:
+    """A value written as Python as a Table reference and its messages write it: as
+    python_literal does, but with each letter outside ASCII as an escape, as they always
+    have."""
+    if isinstance(value, str):
+        return json.dumps(value)
+    return repr(value)
+
+
 def split_table_name(name: str) -> tuple[str, str]:
     """A table's name split into its Database and its table: "ops.jobs" gives ("ops", "jobs"),
     and a name with no Database gives ("", its name)."""
