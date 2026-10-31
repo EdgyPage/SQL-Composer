@@ -49,10 +49,12 @@ Built 2026-10-30, on 997c432.
   - `_check_purge`, which returned text, is now `_purge_check_first`.
   - In `tables`: `_said` is now `_error_lines`, `_columns_of` is `_table_columns`,
     `_no_operator` is `_refuse_operator` and `_names_once` is `_check_names_once`.
-  - In `unchecked`: `_call` is now `_settings_call`, `_value` is `_setting_value` and
+  - In `unchecked`: `_call` is now `_settings_call`, `_value` is `_set_line_value` (named so at the merge, since ticket 06 gave `converting.py` a
+    `_setting_value`) and
     `_check_key` is `_check_declared_key`.
   - In `python_steps`: `_columns_read` is now `_table_columns_read`, `_need_a_function` is
-    `_check_a_function` and `_not_derived` is `_check_not_derived`.
+    `_check_a_function` and `_not_derived` is `_check_step_table_not_derived` (named so at the
+    merge, since ticket 05 gave `clauses.py` a `_check_not_derived`).
 - **One way per job:** `add_columns`' "it/them" and "its/their" now use
   `shared.singular_or_plural`.
 - **Nothing a user sees changed.** The whole suite passes, with the snapshot checked after every
