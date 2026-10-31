@@ -92,13 +92,14 @@ def _table_column(tree: Node) -> tuple[str, str] | None:
     return None
 
 
-def _table_columns(entries: list[tuple[str, Node]]) -> set[tuple[str, str]]:
+def _entries_table_columns(entries: list[tuple[str, Node]]) -> set[tuple[str, str]]:
     """(table alias, column) of each entry, (output name, tree), that is a column of a
     table."""
     columns = set()
     for _, tree in entries:
-        if _table_column(tree):
-            columns.add(_table_column(tree))
+        column = _table_column(tree)
+        if column:
+            columns.add(column)
     return columns
 
 
@@ -219,7 +220,7 @@ def _names_less_decided(entries: list[tuple[str, Node]], facts: _ColumnFacts) ->
     kept = list(entries)
     for entry in reversed(entries):
         others = [other for other in kept if other is not entry]
-        if facts.is_tree_decided(entry[1], facts.decided(_table_columns(others))):
+        if facts.is_tree_decided(entry[1], facts.decided(_entries_table_columns(others))):
             kept = others
     return [name for name, _ in kept]
 
@@ -299,7 +300,7 @@ def _grouped_keys(s: Statement, facts: _ColumnFacts) -> Keys:
             entries.append((match[0], group._tree))
         else:
             left_out.append(group._tree)
-    known = facts.decided(_table_columns(entries))
+    known = facts.decided(_entries_table_columns(entries))
     for tree in left_out:
         if not facts.is_tree_decided(tree, known):
             return Keys([], f"GROUP_BY groups by {hive_text(tree)}, which SELECT leaves out")
@@ -308,11 +309,11 @@ def _grouped_keys(s: Statement, facts: _ColumnFacts) -> Keys:
             if name not in names and _table_column(tree) in facts.held_to_one_value]
     held += [tree.name for tree in left_out if _table_column(tree) in facts.held_to_one_value]
     why = (f"GROUP_BY makes one row for each {_names_or_nothing(names + held)}"
-           f"{_held_to_one_value(held)}")
+           f"{_held_columns_text(held)}")
     return Keys([Found(names, why, "not one for each")], None)
 
 
-def _held_to_one_value(columns: list[str]) -> str:
+def _held_columns_text(columns: list[str]) -> str:
     """What a reason adds for the columns of a Key held to one value, as equals(...) in WHERE
     holds one."""
     if not columns:
@@ -388,7 +389,7 @@ def _kept_table_keys(first: Table, added: list[tuple[str, str]], joins: list[str
         elif missing is None:
             held = [column for column in key
                     if (first._alias, column) in facts.held_to_one_value]
-            found.append(Found(names, told_apart + _held_to_one_value(held), "not by"))
+            found.append(Found(names, told_apart + _held_columns_text(held), "not by"))
         elif lost is None and missing in added:
             lost = joins[0]
         elif lost is None:
@@ -459,11 +460,11 @@ def why_key_unproven(s: Statement) -> str | None:
     if any(set(found.names) <= set(wanted) for found in keys.found):
         return None
     if not keys.found:
-        return _why_no_key_found(keys.lost, wanted)
-    return _why_other_key_found(keys.found[0], wanted)
+        return _why_unproven_with_no_key(keys.lost, wanted)
+    return _why_unproven_with_another_key(keys.found[0], wanted)
 
 
-def _why_no_key_found(lost: str, wanted: list[str]) -> str:
+def _why_unproven_with_no_key(lost: str, wanted: list[str]) -> str:
     """Why a write's rows aren't shown to have a Key, when the Toolbox sees no Key at all:
     where it was lost."""
     if not wanted:
@@ -471,7 +472,7 @@ def _why_no_key_found(lost: str, wanted: list[str]) -> str:
     return f"{lost}, so nothing makes its rows one for each {_names_or_nothing(wanted)}"
 
 
-def _why_other_key_found(first: Found, wanted: list[str]) -> str:
+def _why_unproven_with_another_key(first: Found, wanted: list[str]) -> str:
     """Why a write's rows aren't shown to have a Key, when the Toolbox sees another Key:
     how its rows are told apart instead."""
     if not first.instead:

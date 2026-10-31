@@ -127,7 +127,7 @@ def _bounds_of(column: Column) -> frozenset[tuple[str, str]]:
 
 
 def _comparison(name: str, kind: str, column: object, value: object,
-             bounds: bool = True) -> Condition:
+                bounds: bool = True) -> Condition:
     """A comparison of a column with one value. `bounds` says whether it holds the column to
     some values, as at_least(...) does and not_equals(...) doesn't."""
     call = f"{name}({python_text(column)}, ...)"
@@ -233,7 +233,7 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
     made_by(tree, "between", column, low, high)
     if isinstance(low, Column) or isinstance(high, Column):
         return Condition(tree)
-    if _are_comparable(low, high) and low > high:
+    if _is_comparable_pair(low, high) and low > high:
         refuse(
             what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
             why="No value is both at least the first and at most the second, so this would "
@@ -244,7 +244,7 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
     return Condition(tree, bounds=_bounds_of(column))
 
 
-def _are_comparable(low: object, high: object) -> bool:
+def _is_comparable_pair(low: object, high: object) -> bool:
     """Whether between's two ends compare as Hive compares them: two numbers, two dates, or
     two strings, which Hive compares as text, as Python does."""
     if isinstance(low, bool) or isinstance(high, bool):
