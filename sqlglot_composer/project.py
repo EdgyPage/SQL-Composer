@@ -2819,8 +2819,8 @@ def _names_in_list(names: object, call: str) -> list[str]:
             what=f"{call} was given an empty list, where a name or a list of names goes.",
             why="It does its job for each name, in turn: one name as text, or several in a "
             "list.",
-            fix=f'Give one name, such as {call}("mart.daily_job_runs"), or a list of them, '
-            f'such as {call}(["mart.daily_job_runs", "mart.weekly_job_runs"]).',
+            fix=f"Give {call} one name, as text in quotes, or a list of names in square "
+            "brackets, each in quotes.",
             given=names, call=call,
         )
     for name in names:
@@ -2828,7 +2828,7 @@ def _names_in_list(names: object, call: str) -> list[str]:
             refuse(
                 what=f"{call} was given a list holding {name!r}, where each item is a name.",
                 why="It does its job for each name, in turn, and a name is text.",
-                fix="Write each name in quotes, such as \"mart.daily_job_runs\".",
+                fix="Write each name in the list as text, in quotes.",
                 given=name, call=call,
             )
     return list(names)
