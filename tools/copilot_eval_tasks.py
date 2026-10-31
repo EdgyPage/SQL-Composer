@@ -106,7 +106,8 @@ s = statement(
     Task("T03", "01", "held_out",
          "Count the alerts in ops.run_alerts on 2026-09-24 for each severity, as columns "
          "severity and alerts, and run it with my query.",
-         "read", '''from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, equals, run_query, statement
+         "read", "from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, "
+                 '''equals, run_query, statement
 from references.ops__run_alerts import run_alerts
 from warehouse import query
 
@@ -185,7 +186,8 @@ s = statement(
     Task("T09", "03", "held_out",
          "The jobs whose runs from 2026-09-23 to 2026-09-24 took more than 15 minutes on "
          "average: job_id and avg_minutes.",
-         "read", '''from sqlglot_composer import AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, average_of, between, more_than, statement
+         "read", "from sqlglot_composer import AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, "
+                 '''average_of, between, more_than, statement
 from references.ops__job_runs import job_runs
 
 s = statement(
@@ -214,7 +216,8 @@ s = statement(
     Task("T11", "04", "dev",
          "Every job in ops.jobs with how many runs it had in ops.job_runs on 2026-09-24, 0 for "
          "a job with none: job_id, job_name and runs.",
-         "read", '''from sqlglot_composer import AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, all_of, count_distinct, equals, statement
+         "read", "from sqlglot_composer import AS, FROM, GROUP_BY, LEFT_JOIN, SELECT, all_of, "
+                 '''count_distinct, equals, statement
 from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 
@@ -230,7 +233,8 @@ s = statement(
          "The high-severity alerts in ops.run_alerts on 2026-09-24, each with the name of the "
          "job whose run raised it (ops.job_runs gives the run's job, ops.jobs the job's name): "
          "alert_id and job_name.",
-         "read", '''from sqlglot_composer import FROM, JOIN, SELECT, WHERE, all_of, equals, statement
+         "read", "from sqlglot_composer import FROM, JOIN, SELECT, WHERE, all_of, equals, "
+                 '''statement
 from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 from references.ops__run_alerts import run_alerts
@@ -248,7 +252,8 @@ s = statement(
     Task("T13", "05", "dev",
          "Each job's longest run in ops.job_runs from 2026-09-23 to 2026-09-24, one row per "
          "job, the smallest run_id on a tie: job_id, run_id and duration_mins.",
-         "read", '''from sqlglot_composer import AS, FROM, SELECT, WHERE, between, derived, descending, equals, row_number, statement
+         "read", "from sqlglot_composer import AS, FROM, SELECT, WHERE, between, derived, "
+                 '''descending, equals, row_number, statement
 from references.ops__job_runs import job_runs
 
 numbered = derived("numbered", statement(
@@ -268,7 +273,8 @@ s = statement(
     Task("T14", "05", "dev",
          "The runs in ops.job_runs on each day from 2026-09-23 to 2026-09-24, with a total "
          "row for both days: dt and runs.",
-         "hive", '''from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, count_rows, rollup, statement
+         "hive", "from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, "
+                 '''count_rows, rollup, statement
 from references.ops__job_runs import job_runs
 
 s = statement(
@@ -281,7 +287,8 @@ s = statement(
     Task("T15", "05", "held_out",
          "For each run in ops.job_runs from 2026-09-23 to 2026-09-24, the minutes of the same "
          "job's run before it, by run_id: run_id, job_id, duration_mins and minutes_before.",
-         "read", '''from sqlglot_composer import AS, FROM, SELECT, WHERE, between, lag, statement, window
+         "read", "from sqlglot_composer import AS, FROM, SELECT, WHERE, between, lag, "
+                 '''statement, window
 from references.ops__job_runs import job_runs
 
 s = statement(
@@ -298,7 +305,8 @@ s = statement(
          "Write each job's number of runs in ops.job_runs on 2026-09-24 into my Saved table "
          "mart.job_day_runs (from references.mart__job_day_runs import job_day_runs), "
          "replacing what that day held.",
-         "write", '''from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, count_rows, equals, statement
+         "write", "from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''WHERE, count_rows, equals, statement
 from references.mart__job_day_runs import job_day_runs
 from references.ops__job_runs import job_runs
 
@@ -317,7 +325,8 @@ s = statement(
          "table; rows(day), the clauses that count each job's runs in ops.job_runs on that "
          "day; preview(), which reads them for DAY = \"2026-09-24\"; and write(), which "
          "replaces DAY's rows.",
-         "logic", '''from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, WHERE, Clause, Statement, count_rows, create_table, equals, statement
+         "logic", "from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_OVERWRITE, SELECT, "
+                  '''WHERE, Clause, Statement, count_rows, create_table, equals, statement
 from references.mart__job_day_runs import job_day_runs
 from references.ops__job_runs import job_runs
 
@@ -349,7 +358,8 @@ def write() -> Statement:
          "Add each job's number of runs in ops.job_runs on 2026-09-23 to my Saved table "
          "mart.job_day_runs (from references.mart__job_day_runs import job_day_runs), keeping "
          "what it already holds.",
-         "write", '''from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_INTO, SELECT, WHERE, count_rows, equals, statement
+         "write", "from sqlglot_composer import AS, FROM, GROUP_BY, INSERT_INTO, SELECT, "
+                  '''WHERE, count_rows, equals, statement
 from references.mart__job_day_runs import job_day_runs
 from references.ops__job_runs import job_runs
 
@@ -369,7 +379,8 @@ s = statement(
          "FROM ops.job_runs r\n"
          "WHERE r.dt = '2026-09-24' AND r.status IN ('FAILED', 'SUCCESS', 'RETRY', 'TEST')\n"
          "GROUP BY r.job_id",
-         "convert", '''from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, equals, is_in, statement
+         "convert", "from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, "
+                    '''count_rows, equals, is_in, statement
 from references.ops__job_runs import job_runs
 
 STATUS_VALUES = ["FAILED", "SUCCESS", "RETRY", "TEST"]
@@ -389,10 +400,12 @@ s = statement(
          "  FROM ops.job_events e\n"
          "  WHERE e.dt BETWEEN '2026-09-20' AND '2026-09-24'\n"
          ")\n"
-         "SELECT ev.job_id, SUM(CASE WHEN ev.event_type = 'finish' THEN 1 ELSE 0 END) AS finishes\n"
+         "SELECT ev.job_id, SUM(CASE WHEN ev.event_type = 'finish' THEN 1 ELSE 0 END) "
+         "AS finishes\n"
          "FROM ev\n"
          "GROUP BY ev.job_id",
-         "convert", '''from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, derived, equals, if_else, statement, sum_of
+         "convert", "from sqlglot_composer import AS, FROM, GROUP_BY, SELECT, WHERE, between, "
+                    '''derived, equals, if_else, statement, sum_of
 from references.ops__job_events import job_events
 
 e = AS(job_events, "e")
@@ -410,11 +423,13 @@ s = statement(
     Task("T21", "07", "held_out",
          "Convert this Hive into Toolbox code:\n\n"
          "SELECT j.job_name,\n"
-         "       CASE j.team WHEN 'data' THEN 'Data' WHEN 'web' THEN 'Web' ELSE 'Other' END AS team_name,\n"
+         "       CASE j.team WHEN 'data' THEN 'Data' WHEN 'web' THEN 'Web' ELSE 'Other' END "
+         "AS team_name,\n"
          "       r.run_id\n"
          "FROM ops.jobs j\n"
          "LEFT JOIN ops.job_runs r ON r.job_id = j.job_id AND r.dt = '2026-09-24'",
-         "convert", '''from sqlglot_composer import AS, FROM, LEFT_JOIN, SELECT, all_of, equals, mapped, statement
+         "convert", "from sqlglot_composer import AS, FROM, LEFT_JOIN, SELECT, all_of, equals, "
+                    '''mapped, statement
 from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 
@@ -437,7 +452,8 @@ s = statement(
          "s0 = statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),\n"
          "               WHERE(equals(job_runs.dt, \"2026-09-24\")))\n\n"
          "Check, with my query, that the two give the same rows on 2026-09-24.",
-         "verdict", '''from sqlglot_composer import FROM, SELECT, WHERE, compare_with_original, equals, statement
+         "verdict", "from sqlglot_composer import FROM, SELECT, WHERE, compare_with_original, "
+                    '''equals, statement
 from references.ops__job_runs import job_runs
 from warehouse import query
 
@@ -445,7 +461,8 @@ HIVE = "SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'"
 s0 = statement(SELECT(job_runs.run_id, job_runs.status), FROM(job_runs),
                WHERE(equals(job_runs.dt, "2026-09-24")))
 v = compare_with_original(s0, HIVE, query=query, partition={"dt": "2026-09-24"})
-''', tables=("job_runs",), quotes="SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'"),
+''', tables=("job_runs",),
+         quotes="SELECT run_id, status FROM ops.job_runs WHERE dt = '2026-09-24'"),
     Task("T23", "08", "dev",
          "My team's Hive was\n\n"
          "select r.job_id, r.job_name from ops.jobs r -- every job\n\n"
@@ -495,7 +512,8 @@ s = statement(
          "  Usual fix:      Sort in pandas after run_query(...), with df.sort_values(...). For "
          "a top N, add LIMIT(n).\n\n"
          "Fix it.",
-         "fix", '''from sqlglot_composer import FROM, LIMIT, ORDER_BY, SELECT, WHERE, descending, equals, statement
+         "fix", "from sqlglot_composer import FROM, LIMIT, ORDER_BY, SELECT, WHERE, "
+                '''descending, equals, statement
 from references.ops__job_runs import job_runs
 
 s = statement(
@@ -518,7 +536,8 @@ s = statement(
          "  Usual fix:      Move the condition into LEFT_JOIN(job_runs, ON=...), next to the "
          "join condition, so it only decides which rows match.\n\n"
          "Fix it.",
-         "fix", '''from sqlglot_composer import FROM, LEFT_JOIN, SELECT, all_of, equals, statement
+         "fix", "from sqlglot_composer import FROM, LEFT_JOIN, SELECT, all_of, equals, "
+                '''statement
 from references.ops__job_runs import job_runs
 from references.ops__jobs import jobs
 
@@ -554,7 +573,8 @@ s = statement(SELECT(jobs.job_id, AS(hive_function("upper", jobs.job_name), "nam
     Task("T30", "10", "held_out",
          "Label each run in ops.job_runs on 2026-09-24: \"failed\" when its status is FAILED, "
          "else \"slow\" when it took more than 25 minutes, else \"ok\": run_id and label.",
-         "read", '''from sqlglot_composer import AS, FROM, SELECT, WHERE, equals, first_match, more_than, statement
+         "read", "from sqlglot_composer import AS, FROM, SELECT, WHERE, equals, first_match, "
+                 '''more_than, statement
 from references.ops__job_runs import job_runs
 
 s = statement(

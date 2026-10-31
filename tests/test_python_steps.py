@@ -82,7 +82,7 @@ def margin_step(a_project: Path) -> PythonStep:
                        writes=margins)
 
 
-# --- Where the function lives ------------------------------------------------------------------
+# --- Where the function lives -----------------------------------------------------------------
 
 
 def test_a_function_in_a_project_is_named_by_its_file_from_the_project(a_project: Path) -> None:
@@ -96,7 +96,8 @@ def test_outside_a_project_its_file_is_named_with_the_folder_it_is_in(
     monkeypatch.chdir(tmp_path)
     add_margin = living_in(str(tmp_path / "my_work" / "margins.py"), 3)
     step = python_step(add_margin, reads=[job_runs.run_id], writes=margins)
-    assert repr(step) == "<Python step: my_work/margins.py:add_margin, line 3; writes mart.run_margins>"
+    assert repr(step) == ("<Python step: my_work/margins.py:add_margin, line 3; "
+                          "writes mart.run_margins>")
 
 
 def test_in_a_notebook_it_is_named_by_the_notebook_and_a_line_of_its_cell(
@@ -155,10 +156,11 @@ def test_what_isnt_a_function_written_with_def_is_refused_saying_why(
     assert "the file, the name and the first line of the function" in message
 
 
-# --- What it read and wrote ----------------------------------------------------------------------
+# --- What it read and wrote -------------------------------------------------------------------
 
 
-def test_a_table_reference_in_reads_stands_for_every_one_of_its_columns(a_project: Path) -> None:
+def test_a_table_reference_in_reads_stands_for_every_one_of_its_columns(
+        a_project: Path) -> None:
     add_margin = living_in(str(a_project / "building_blocks" / "margins.py"), 12)
     step = python_step(add_margin, reads=[job_runs.run_id, job_runs], writes=margins)
     read = [f"{table._name}.{column}" for table, column in step._reads]
@@ -194,7 +196,7 @@ def test_what_isnt_a_column_or_a_table_reference_is_refused(
     assert said in " ".join(str(refused.value).split())
 
 
-# --- It sends nothing ------------------------------------------------------------------------------
+# --- It sends nothing -------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("call", ["run_query", "run_execute", "to_hive"])
@@ -226,7 +228,7 @@ def test_show_hive_prints_comment_lines_saying_what_it_is(
         "writes mart.run_margins. Nothing is sent for it: your own call saves its rows.")
 
 
-# --- Lineage: one opaque box ------------------------------------------------------------------------
+# --- Lineage: one opaque box ------------------------------------------------------------------
 
 
 def chart_boxes_and_arrows(markdown: str) -> tuple[dict[str, str], set[tuple[str, str]]]:
@@ -257,9 +259,11 @@ def test_lineage_draws_it_as_one_box_from_the_columns_it_read_to_the_table_it_wr
     markdown = markdown_file.read_text(encoding="utf-8")
     boxes, arrows = chart_boxes_and_arrows(markdown)
     assert boxes["Python step"] == "margin"
-    assert {("ops.job_runs.run_id", "Python step"), ("ops.job_runs.duration_mins", "Python step"),
+    assert {("ops.job_runs.run_id", "Python step"),
+            ("ops.job_runs.duration_mins", "Python step"),
             ("ops.job_runs.dt", "Python step")} <= arrows
-    assert {("Python step", f"mart.run_margins.{column}") for column in margins._columns} <= arrows
+    assert ({("Python step", f"mart.run_margins.{column}") for column in margins._columns}
+            <= arrows)
     assert ("Python step<br/><small>building_blocks/margins.py:add_margin</small><br/>"
             "<small>line 12</small>") in markdown
 
@@ -322,7 +326,7 @@ def test_inside_a_project_its_lineage_goes_in_its_tables_folder(a_project: Path)
     assert html_file.parent == a_project / "tables" / "mart__run_margins" / "lineage"
 
 
-# --- project.run_tables passes over it ---------------------------------------------------------
+# --- project.run_tables passes over it --------------------------------------------------------
 
 
 MARGINS_REFERENCE = """from sqlglot_composer import Table
@@ -382,7 +386,8 @@ def write() -> Statement:
 
 @pytest.fixture
 def python_table(a_project: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A Project with mart.run_margins, written in Python, and mart.slow_runs, which reads it."""
+    """A Project with mart.run_margins, written in Python, and mart.slow_runs, which reads
+    it."""
     monkeypatch.setattr(toolbox_module("unchecked"), "now",
                         lambda: datetime.datetime(2026, 10, 21, 9, 30))
     templates = a_project / "admin" / "templates"
@@ -407,7 +412,8 @@ def test_a_dry_run_prints_it_in_order_as_comment_lines(
                           "tables/mart__run_margins/mart__run_margins.ipynb:add_margin, line 9 "
                           "of its cell.")
     assert first < printed.index("-- 2 of 2: mart.slow_runs\n")
-    assert repr(report) == "Printed 2 writes in order, and sent nothing. Pass execute= to run them."
+    assert repr(report) == ("Printed 2 writes in order, and sent nothing. "
+                            "Pass execute= to run them.")
 
 
 def test_run_tables_passes_over_it_and_sends_the_rest_in_order(

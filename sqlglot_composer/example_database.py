@@ -431,7 +431,10 @@ _TABLES = {"jobs": (jobs, _JOBS), "job_runs": (job_runs, _JOB_RUNS),
           "region_budgets": (region_budgets, _REGION_BUDGETS),
           "team_notes": (team_notes, _TEAM_NOTES)}
 
-def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
+
+def _example_database_table(name: str) -> Table:
+    """The Table reference of the Example database's table `name`, or the refusal of a name
+    it doesn't hold."""
     # Hive reads a table's name whatever its case.
     *database, short = [part.strip("`").lower() for part in name.strip().split(".")]
     if short not in _TABLES or database not in ([], ["ops"]):
@@ -442,7 +445,8 @@ def _table(name: str) -> tuple[Table, list[tuple[object, ...]]]:
             fix=f"Use {in_words(names, last='or')}.",
             error=ValueError,
         )
-    return _TABLES[short]
+    table, _ = _TABLES[short]
+    return table
 
 
 def _partitions(table: Table, rows: list[tuple[object, ...]]) -> list[str]:
@@ -450,16 +454,29 @@ def _partitions(table: Table, rows: list[tuple[object, ...]]) -> list[str]:
     dt=2026-09-23, or region=eu/dt=20260911 for a table partitioned by two columns."""
     columns = table._partitioned_by
     positions = [list(table._columns).index(column) for column in columns]
-    values = sorted({tuple(row[position] for position in positions) for row in rows})
-    return ["/".join(f"{column}={value}" for column, value in zip(columns, partition))
-            for partition in values]
+    values = set()
+    for row in rows:
+        values.add(tuple(row[position] for position in positions))
+    partitions = []
+    for partition in sorted(values):
+        pairs = [f"{column}={value}" for column, value in zip(columns, partition)]
+        partitions.append("/".join(pairs))
+    return partitions
 
 
 # A stand-in warehouse holding the nine tables, which answers DESCRIBE and SHOW PARTITIONS as
 # Hive does, from their Table references and the Partitions their rows hold.
-_DESCRIBED = StandIn(*[table for table, _ in _TABLES.values()], partitions={
+_STAND_IN_WAREHOUSE = StandIn(*[table for table, _ in _TABLES.values()], partitions={
     table._name: _partitions(table, rows) for table, rows in _TABLES.values()
     if table._partitioned_by})
+
+
+def _blanked_comment_or_string(found: re.Match[str]) -> str:
+    """What a comment or quoted text in the Hive is blanked to: a comment to nothing, and
+    quoted text to ''."""
+    if found.group().startswith("--"):
+        return ""
+    return "''"
 
 
 def _outside_brackets(text: str) -> str:
@@ -468,15 +485,15 @@ def _outside_brackets(text: str) -> str:
     What is left is the query itself: a window's OVER (...) and a Derived table's
     WITH ... AS (...) are inside brackets, and a string can say anything.
     """
-    said = SAID.sub(lambda found: "" if found.group().startswith("--") else "''", text)
+    without_strings = SAID.sub(_blanked_comment_or_string, text)
     depth, outside = 0, []
-    for character in said:
+    for character in without_strings:
         depth += {"(": 1, ")": -1}.get(character, 0)
         outside.append(character if depth == 0 else " ")
     return "".join(outside)
 
 
-def _command(words: list[str]) -> str:
+def _command_word(words: list[str]) -> str:
     """The word a query's command starts with: the first, or the first after WITH's tables.
 
     After WITH come the Derived tables, `name AS (...)`, with a comma between each; the first
@@ -498,7 +515,7 @@ def _is_query(text: str) -> bool:
     """
     words = [word.upper() for word in
              re.findall(r"[A-Za-z_]+|[;),]", _outside_brackets(text).rstrip().rstrip(";"))]
-    return ";" not in words and _command(words) == "SELECT"
+    return ";" not in words and _command_word(words) == "SELECT"
 
 
 def _sorts_itself(text: str) -> bool:
@@ -542,9 +559,11 @@ def query(hive: str) -> pd.DataFrame:
     words = text.split()
     if words[:1] and words[0].upper() == "DESCRIBE":
         # Its tables are stored nowhere, so DESCRIBE FORMATTED is answered as DESCRIBE is.
-        return _DESCRIBED.answer(f"DESCRIBE {_table(words[-1])[0]._name}")
+        table = _example_database_table(words[-1])
+        return _STAND_IN_WAREHOUSE.answer(f"DESCRIBE {table._name}")
     if [w.upper() for w in words[:2]] == ["SHOW", "PARTITIONS"]:
-        return _DESCRIBED.answer(f"SHOW PARTITIONS {_table(words[-1])[0]._name}")
+        table = _example_database_table(words[-1])
+        return _STAND_IN_WAREHOUSE.answer(f"SHOW PARTITIONS {table._name}")
     if words[:1] and words[0].upper() == "EXPLAIN" and _is_query(text[len(words[0]):]):
         # The plan of a query, which sqlglot_composer's engine refuses: its executor makes none.
         columns, rows = run_query(text, _TABLES)
@@ -556,9 +575,9 @@ def query(hive: str) -> pd.DataFrame:
             why="Its tables are made up and fixed, so every Worked example gives the same "
             "numbers, and nothing in them is yours to change or count again.",
             fix="A Statement that changes something goes to execute instead: "
-            "run_execute(s, example_database.execute) prints its first line. A read it doesn't "
-            "answer, such as SHOW TABLES, runs only at work. to_hive(...) shows the Hive of any "
-            "Statement without sending it, as in "
+            "run_execute(s, example_database.execute) prints its first line. A read it "
+            "doesn't answer, such as SHOW TABLES, runs only at work. to_hive(...) shows the "
+            "Hive of any Statement without sending it, as in "
             "to_hive(create_table(t)), to_hive(repair_partitions(t)) or to_hive(s) for a "
             "write. It takes a Statement, such as one create_table, statement(...) or the "
             "admin module builds, not text.",

@@ -38,7 +38,8 @@ WITH owned AS (
   WHERE e.dt BETWEEN '2026-09-22' AND '2026-09-24'
 )
 SELECT owned.team,
-       CASE owned.team WHEN 'data' THEN 'Data platform' WHEN 'web' THEN 'Web' ELSE 'Other' END AS team_name,
+       CASE owned.team WHEN 'data' THEN 'Data platform' WHEN 'web' THEN 'Web' ELSE 'Other' """
+"""END AS team_name,
        COUNT(*) AS events,
        COUNT(DISTINCT owned.job_id) AS jobs,
        SUM(CASE WHEN owned.event_type = 'fail' THEN 1 ELSE 0 END) AS fails,
@@ -68,9 +69,11 @@ WHERE c.dt BETWEEN '20260918' AND '20260921'
 GROUP BY c.region, c.dt
 """, "20260921"),
     "both_regions": ("""\
-SELECT c.job_id, c.cost_cents, c.dt FROM ops.region_costs c WHERE c.dt = '20260921' AND c.region = 'eu'
+SELECT c.job_id, c.cost_cents, c.dt FROM ops.region_costs c WHERE c.dt = '20260921' AND """
+"""c.region = 'eu'
 UNION ALL
-SELECT c.job_id, c.cost_cents, c.dt FROM ops.region_costs c WHERE c.dt = '20260921' AND c.region = 'us'
+SELECT c.job_id, c.cost_cents, c.dt FROM ops.region_costs c WHERE c.dt = '20260921' AND """
+"""c.region = 'us'
 """, "20260921"),
 }
 
@@ -122,11 +125,12 @@ def test_the_window_and_the_query_in_brackets_convert_as_you_would_write_them(
 @pytest.mark.parametrize(("hive", "said"), [
     pytest.param("FROM ops.job_events e\nINSERT OVERWRITE TABLE a.x SELECT e.job_id\n"
                  "INSERT OVERWRITE TABLE a.y SELECT e.dt",
-                 "it is one FROM with 2 INSERTs, into a.x, a.y", id="two_inserts_from_one_from"),
+                 "it is one FROM with 2 INSERTs, into a.x, a.y",
+                 id="two_inserts_from_one_from"),
     pytest.param("DROP TABLE ops.job_events", "it is a DROP, not a query", id="not_a_query"),
 ])
-def test_what_a_conversion_cant_take_is_refused_saying_what_to_do(intermediate: Path,
-                                                                    hive: str, said: str) -> None:
+def test_what_a_conversion_cant_take_is_refused_saying_what_to_do(
+        intermediate: Path, hive: str, said: str) -> None:
     with pytest.raises(ValueError) as refused:
         project.scan_hive(hive)
     message = str(refused.value)

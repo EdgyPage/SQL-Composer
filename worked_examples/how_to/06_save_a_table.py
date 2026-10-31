@@ -38,8 +38,10 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 ### Make its Table folder
@@ -74,7 +76,9 @@ Project, says which line stops it:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  project.load("mart.alerts_per_severity"): the logic cell of tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb isn't Python yet, at its line 9: from references.<SOURCE_NAME> import <SOURCE_TABLE>
+  What happened:  project.load("mart.alerts_per_severity"): the logic cell of
+                  tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb isn't Python
+                  yet, at its line 9: from references.<SOURCE_NAME> import <SOURCE_TABLE>
 ...
 
 ### Fill in its notebook
@@ -504,8 +508,8 @@ GROUP BY
 0     high       2  2026-09-24
 1      low       5  2026-09-24
 
-- `logic.create()` gives CREATE EXTERNAL TABLE IF NOT EXISTS, from the Table reference: EXTERNAL and
-  LOCATION make it a table whose files are yours, in its own folder, and IF NOT EXISTS,
+- `logic.create()` gives CREATE EXTERNAL TABLE IF NOT EXISTS, from the Table reference: EXTERNAL
+  and LOCATION make it a table whose files are yours, in its own folder, and IF NOT EXISTS,
   `may_exist=True` in the notebook, skips a table that is there already and never changes it,
   so the cell can run every day. `PRIMARY KEY ... DISABLE NOVALIDATE` writes the Key for
   whoever reads the table's description: Hive keeps it and never checks it.
@@ -607,7 +611,8 @@ Table reference beside the ones before:
 >>> sorted(path.name for path in Path("tables/mart__alerts_per_severity").iterdir())
 ['lineage', 'mart__alerts_per_severity.ipynb']
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 The preview gave a row per severity, and its counts add up to the day's alerts:
 
@@ -665,7 +670,8 @@ Run again for the same table, it stops:
 Traceback (most recent call last):
 ...
 FileExistsError:
-  What happened:  project.new_table("mart.alerts_per_severity"): tables/mart__alerts_per_severity/ is already there, so nothing was made.
+  What happened:  project.new_table("mart.alerts_per_severity"):
+                  tables/mart__alerts_per_severity/ is already there, so nothing was made.
 ...
 
 Open the notebook that is there instead. To start a table again, archive its folder first, as
@@ -683,4 +689,4 @@ Open the notebook that is there instead. To start a table again, archive its fol
   stored](#choose_how_a_saved_table_is_stored) and [Keys](#keys).
 - The gallery's [`create_table`](examples.html#create_table) and
   [`INSERT_OVERWRITE`](examples.html#INSERT_OVERWRITE) entries.
-"""
+"""  # noqa: E501 - the files it writes, shown byte for byte as the Project writes them

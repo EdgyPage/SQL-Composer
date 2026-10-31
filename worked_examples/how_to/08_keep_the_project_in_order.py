@@ -7,10 +7,10 @@ For: Getting started
 Keep your Project's files and its tables in step as they change. The registry lists every
 Table folder, Table reference, Building block and Conversion folder a Project action made:
 `project.check()` says what it gets wrong, and `project.register` adopts a file made by hand.
-The Reference sheet lists every column of every table in one CSV file. admin/check_references.ipynb compares
-each Table reference with its table in the warehouse. The `project.remove_*` actions archive
-what you no longer need, deleting nothing. And the Levels say which of your files may import
-which.
+The Reference sheet lists every column of every table in one CSV file.
+admin/check_references.ipynb compares each Table reference with its table in the warehouse. The
+`project.remove_*` actions archive what you no longer need, deleting nothing. And the Levels say
+which of your files may import which.
 
 ## When you'd use it
 
@@ -45,8 +45,10 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> project.new_block("runs_per_job")
 Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -142,7 +144,8 @@ actions do:
 registry with the files, and changes nothing:
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 ### Adopt a file made by hand with project.register
 
@@ -170,13 +173,14 @@ Not registered, made by hand. Adopt each with the call beside it:
 >>> project.register("ops.scheduler_runs")
 Registered references/ops__scheduler_runs.py.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs, ops.run_alerts and ops.scheduler_runs.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs, ops.run_alerts
+    and ops.scheduler_runs.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
-`project.register` takes a table's name, with its database, for its Table folder or Table reference,
-and a Building block's name, with no dot, such as `project.register("runs_per_job")`, for its
-file in building_blocks/. It also wrote the Database modules again, so `from references import
-ops` now gives `ops.scheduler_runs` too.
+`project.register` takes a table's name, with its database, for its Table folder or Table
+reference, and a Building block's name, with no dot, such as `project.register("runs_per_job")`,
+for its file in building_blocks/. It also wrote the Database modules again, so
+`from references import ops` now gives `ops.scheduler_runs` too.
 
 ### Keep each file to its Level
 
@@ -250,11 +254,14 @@ Project's query from warehouse.py:
 ops.jobs matches its Table reference.
 ops.job_runs matches its Table reference.
 ops.run_alerts matches its Table reference.
-mart.alerts_per_severity: DESCRIBE FORMATTED failed, so nothing was compared. Check the table's name, and that your query works. It said:
+mart.alerts_per_severity: DESCRIBE FORMATTED failed, so nothing was compared. Check the table's
+    name, and that your query works. It said:
     ValueError:
     What happened:  The Example database has no table 'mart.alerts_per_severity'.
     Why it matters: It holds nine made-up tables, all in the database ops.
-    Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
+    Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs,
+                    ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or
+                    ops.team_notes.
     Opt-out:        none - this one can't be switched off.
 
 The Saved table reports that DESCRIBE FORMATTED failed: it exists only once its notebook's
@@ -331,7 +338,8 @@ nothing amiss:
 7  table_folder  mart.job_minutes
 8     reference  mart.job_minutes
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 ## Common mistakes
 
@@ -378,4 +386,4 @@ only shows it.
   folder](#move_a_saved_table_to_its_own_folder).
 - The gallery's [`check_table_reference`](examples.html#check_table_reference) and
   [`check_key`](examples.html#check_key) entries.
-"""
+"""  # noqa: E501 - a Levels table row, and the files it writes, byte for byte

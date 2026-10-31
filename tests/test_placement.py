@@ -1,4 +1,5 @@
-"""Where counts, sums and row numbers can go, and what GROUP_BY must hold, before Hive sees it."""
+"""Where counts, sums and row numbers can go, and what GROUP_BY must hold, before Hive
+sees it."""
 
 from __future__ import annotations
 
@@ -54,8 +55,9 @@ def per_job(*clauses: Clause) -> Statement:
 
 
 @pytest.mark.parametrize(("make", "said"), [
-    pytest.param(lambda: statement(SELECT(job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
-                                   WHERE(DAYS), GROUP_BY(week_start(job_runs.dt))),
+    pytest.param(lambda: statement(SELECT(job_runs.dt, AS(count_rows(), "runs")),
+                                   FROM(job_runs), WHERE(DAYS),
+                                   GROUP_BY(week_start(job_runs.dt))),
                  "SELECT has job_runs.dt, which GROUP_BY leaves out",
                  id="a_column_inside_a_grouped_calculation"),
     pytest.param(lambda: per_job(SELECT(job_runs.job_id, AS(
@@ -67,7 +69,8 @@ def per_job(*clauses: Clause) -> Statement:
     pytest.param(lambda: per_job(SELECT(job_runs.job_id, AS(count_rows(), "runs")),
                                  ORDER_BY(job_runs.duration_mins), LIMIT(3)),
                  "ORDER_BY has job_runs.duration_mins", id="order_by"),
-    pytest.param(lambda: statement(SELECT(AS(fill_null(job_runs.status, max_of(job_runs.status)),
+    pytest.param(lambda: statement(SELECT(AS(fill_null(job_runs.status,
+                                                       max_of(job_runs.status)),
                                              "status")), FROM(job_runs), WHERE(DAYS)),
                  "SELECT has job_runs.status, but the Statement counts or adds up rows "
                  "and has no GROUP_BY", id="fill_null_beside_an_aggregate"),
@@ -102,8 +105,8 @@ def test_the_group_by_guard_takes_what_hive_takes() -> None:
                                                         more_than(count_rows(), 1))),
                                    WHERE(DAYS)),
                  "ON= has", id="an_aggregate_in_on"),
-    pytest.param(lambda: statement(SELECT(AS(count_rows(), "runs")), FROM(job_runs), WHERE(DAYS),
-                                   GROUP_BY(count_rows())),
+    pytest.param(lambda: statement(SELECT(AS(count_rows(), "runs")), FROM(job_runs),
+                                   WHERE(DAYS), GROUP_BY(count_rows())),
                  "GROUP_BY has", id="an_aggregate_in_group_by"),
     pytest.param(lambda: statement(SELECT(job_runs.run_id), FROM(job_runs),
                                    WHERE(DAYS, equals(numbered(), 1))),
@@ -133,7 +136,8 @@ def test_a_row_number_in_where_is_sent_to_a_derived_table() -> None:
 
 @pytest.mark.parametrize("make", [
     pytest.param(lambda: sum_of(numbered()), id="a_row_number_in_a_sum"),
-    pytest.param(lambda: max_of(max_of(job_runs.duration_mins)), id="an_aggregate_in_an_aggregate"),
+    pytest.param(lambda: max_of(max_of(job_runs.duration_mins)),
+                 id="an_aggregate_in_an_aggregate"),
     pytest.param(lambda: count_rows(where=more_than(count_rows(), 1)),
                  id="an_aggregate_in_where_of_an_aggregate"),
     pytest.param(lambda: hive_function("collect_set", sum_of(job_runs.duration_mins)),
@@ -147,7 +151,8 @@ def test_a_count_or_a_row_number_inside_a_count_is_refused(make: Callable[[], Co
 
 
 def test_the_refusal_says_what_the_inner_part_does() -> None:
-    with pytest.raises(ValueError, match="inside it, which already works over many rows itself"):
+    with pytest.raises(ValueError,
+                       match="inside it, which already works over many rows itself"):
         max_of(max_of(job_runs.duration_mins))
     with pytest.raises(ValueError, match="inside it, which is a row number"):
         sum_of(numbered())
@@ -169,7 +174,8 @@ def test_row_number_orders_by_columns_only(order: list[Column] | str | Ordering)
 
 
 def test_row_number_numbers_every_row_with_no_partition() -> None:
-    s = statement(SELECT(job_runs.run_id, AS(row_number(PARTITION_BY=[], ORDER_BY=job_runs.run_id),
+    s = statement(SELECT(job_runs.run_id, AS(row_number(PARTITION_BY=[],
+                                                        ORDER_BY=job_runs.run_id),
                                              "rn")), FROM(job_runs), WHERE(DAYS))
     assert "ROW_NUMBER() OVER (ORDER BY job_runs.run_id ASC) AS rn" in to_hive(s)
 

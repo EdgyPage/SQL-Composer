@@ -71,7 +71,9 @@ The file `references/mart__job_region_costs.py`, after you fill it in:
 
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 54 rows, 13 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns,
+    mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes,
+    mart.job_region_costs, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> from references import mart, ops
 >>> job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -> Table, Table
@@ -170,8 +172,8 @@ GROUP BY
 The columns in PARTITION(...) have no value: the warehouse takes each row's region and dt
 from the SELECT's last columns. Doing so is Hive's dynamic partitioning, which a Session
 setting switches on, so `show_hive` prints its two SET lines first. `run_execute` sends the
-write alone: send the Session setting first, with `hive_settings`, before the first such write. The
-warehouse keeps it for as long as your execute's connection lasts, and sending it again does
+write alone: send the Session setting first, with `hive_settings`, before the first such write.
+The warehouse keeps it for as long as your execute's connection lasts, and sending it again does
 no harm. `project.run_tables()` sends it for you. Here it goes to the Example database's
 execute, which prints each SET line:
 
@@ -316,7 +318,12 @@ warehouse would describe it:
 >>> check_table_reference(job_region_costs, query=query_at_work)
 mart.job_region_costs differs from its Table reference.
 Problems:
-  - it is at hdfs://namenode:8020/data/your_team/tables, not at /data/your_team/mart.db/job_region_costs, the folder location= names: change the line to location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the table. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at
+    /data/your_team/mart.db/job_region_costs, the folder location= names: change the line to
+    location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the
+    table. A folder that isn't a table's own may hold other tables' files: two tables in one
+    folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the
+    other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
 
 Everything else matches. The warehouse writes a folder in full, with `hdfs://namenode:8020`
 before it, and the Toolbox compares the folder alone. [Move a Saved table to its own
@@ -335,7 +342,9 @@ folder not, is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  Table('mart.job_region_costs_eu') would be at /data/your_team/mart.db/job_region_costs, the same folder as mart.job_region_costs (/data/your_team/mart.db/job_region_costs).
+  What happened:  Table('mart.job_region_costs_eu') would be at
+                  /data/your_team/mart.db/job_region_costs, the same folder as
+                  mart.job_region_costs (/data/your_team/mart.db/job_region_costs).
 ...
 
 Give it a folder of its own, `location="/data/your_team/mart.db/job_region_costs_eu"`.
@@ -369,7 +378,8 @@ is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  INSERT_OVERWRITE(job_region_costs, partition=...) names dt, but not region, which comes before it in mart.job_region_costs's partitioned_by (region, dt).
+  What happened:  INSERT_OVERWRITE(job_region_costs, partition=...) names dt, but not region,
+                  which comes before it in mart.job_region_costs's partitioned_by (region, dt).
 ...
 
 Name region too, or leave dt to the rows.
@@ -391,8 +401,9 @@ ValueError:
 
 - Move a table that shares a folder: [Move a Saved table to its own
   folder](#move_a_saved_table_to_its_own_folder).
-- Statistics, small files and map joins: [Keep reads and joins fast](#keep_reads_and_joins_fast).
+- Statistics, small files and map joins:
+  [Keep reads and joins fast](#keep_reads_and_joins_fast).
 - Write some of a table's Partitions again: [Rewrite some partitions](#rewrite_some_partitions).
 - Every option in one place: the gallery's [`create_table`](examples.html#create_table) entry,
   and `help(Table)`.
-"""
+"""  # noqa: E501 - a file it writes, shown byte for byte as the Project writes it

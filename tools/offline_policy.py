@@ -48,8 +48,8 @@ A workbook (`.xlsx`, `.xlsm`) is opened as the zip it is and its parts read, nev
 Excel would run or fetch: a macro, an embedded object or control, or a macro-enabled workbook is
 dynamic code; a data connection, a query table, a Power Query, a link to another workbook, any
 link out of it, or a formula that fetches or links out (`WEBSERVICE`, `HYPERLINK`) is network;
-and a URL typed into a cell or a formula is a URL. Only `scan` reads one, from its bytes: the hook
-judges an edit's text, and nothing edits a workbook so.
+and a URL typed into a cell or a formula is a URL. Only `scan` reads one, from its bytes: the
+hook judges an edit's text, and nothing edits a workbook so.
 
 What is allowed depends on the folder, strictest first:
 
@@ -91,7 +91,7 @@ import toolbox_registry
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# --- The rules ----------------------------------------------------------------------------------
+# --- The rules --------------------------------------------------------------------------------
 
 NETWORK_MODULES = (
     "socket", "_socket", "ssl", "_ssl", "http.client", "http.server", "http.cookiejar",
@@ -113,8 +113,8 @@ PROCESS_PREFIXES = ("spawn", "exec", "posix_spawn")
 PROCESS_FUNCTION_MODULES = ("os", "posix", "nt")
 PROCESS_ASYNCIO = ("asyncio.create_subprocess_exec", "asyncio.create_subprocess_shell")
 DYNAMIC_FUNCTIONS = ("eval", "exec", "compile", "__import__", "importlib.__import__",
-                     "importlib.util.spec_from_file_location", "importlib.util.module_from_spec",
-                     "importlib.util.spec_from_loader")
+                     "importlib.util.spec_from_file_location",
+                     "importlib.util.module_from_spec", "importlib.util.spec_from_loader")
 # The calls that import a module by its name, given as a string.
 IMPORTERS = ("importlib.import_module", "__import__", "importlib.__import__")
 # runpy runs a module or a file by its name; the others load code from a file or from bytes.
@@ -229,15 +229,16 @@ PYTHON = "runs this same Python on the repo's own code, in a process of its own"
 IMPORTS_GIT = "imports subprocess, to run git on a local repository"
 IMPORTS_PYTHON = "imports subprocess, to run this same Python in a process of its own"
 LOCAL_MODULES = "imports the repo's own modules by name, from its own folders"
-HOW_TO_STAND_INS = ("loads a how-to's own file from worked_examples/how_to/, to take its pandas "
-                    "stand-ins")
-TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the network "
-                        "under the offline trap and its backstop, so nothing is sent")
+HOW_TO_STAND_INS = ("loads a how-to's own file from worked_examples/how_to/, to take its "
+                    "pandas stand-ins")
+TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the "
+                        "network under the offline trap and its backstop, so nothing is sent")
 ALLOWED: tuple[Allowed, ...] = (
     # The Toolbox.
     Allowed("sqlglot_composer/project.py", "load", "dynamic code", "exec",
             "runs a Table notebook's logic cell, which only imports and defines, to give its "
-            "functions; load refuses a cell that calls run_query or run_execute (the user's OK, 2026-10-21)"),
+            "functions; load refuses a cell that calls run_query or run_execute (the user's "
+            "OK, 2026-10-21)"),
     # The dev hooks.
     Allowed(".claude/hooks/drift_list.py", "<module>", "process", "subprocess", IMPORTS_GIT),
     Allowed(".claude/hooks/drift_list.py", "git", "process", "subprocess.run", GIT),
@@ -359,18 +360,19 @@ ALLOWED: tuple[Allowed, ...] = (
 )
 
 
-# --- Reading one file ---------------------------------------------------------------------------
+# --- Reading one file -------------------------------------------------------------------------
 
 
 def findings_in(text: str, path: str, allowed: tuple[Allowed, ...] = ALLOWED) -> list[Finding]:
     """Each finding in a file's text, read as the file at `path` in the repo, that `allowed`
     doesn't cover.
 
-    `path` is from the repo's root, such as "sqlglot_composer/running.py"; its folder decides what
-    is allowed, and its suffix how the text is read. A file of any other kind has no findings.
+    `path` is from the repo's root, such as "sqlglot_composer/running.py"; its folder decides
+    what is allowed, and its suffix how the text is read. A file of any other kind has no
+    findings.
     """
     path = _repo_path(path)
-    return _not_allowed(_found(text, path), path, allowed)
+    return _not_allowed(_all_findings(text, path), path, allowed)
 
 
 def workbook_findings(data: bytes, path: str, allowed: tuple[Allowed, ...] = ALLOWED
@@ -383,8 +385,10 @@ def workbook_findings(data: bytes, path: str, allowed: tuple[Allowed, ...] = ALL
             parts = {name: workbook.read(name) for name in workbook.namelist()}
     except zipfile.BadZipFile:
         return [Finding(path, 0, "unreadable", "it doesn't open as a workbook, which is a zip")]
-    found = [Finding(path, 0, kind, f"{name}: {what}", name=name)
-             for name, part in parts.items() for kind, what in _part_findings(name, part)]
+    found = []
+    for name, part in parts.items():
+        for kind, what in _part_findings(name, part):
+            found.append(Finding(path, 0, kind, f"{name}: {what}", name=name))
     return _not_allowed(found, path, allowed)
 
 
@@ -393,27 +397,44 @@ def _part_findings(name: str, part: bytes) -> list[tuple[str, str]]:
     holds. Every part holds the URIs of its XML namespaces, which nothing fetches, so only the
     text a person typed, in a cell or a formula, is read for a URL."""
     text = part.decode("utf-8", errors="replace")
-    lower = name.lower()
-    if lower.endswith("vbaproject.bin"):
-        return [("dynamic code", "a macro project, code Excel runs")]
-    if lower.startswith(("xl/embeddings/", "xl/activex/")):
-        return [("dynamic code", "an embedded object or control, which can run code")]
-    if lower == "[content_types].xml" and "macroenabled" in text.lower():
-        return [("dynamic code", "a macro-enabled workbook")]
-    if lower == "xl/connections.xml":
-        return [("network", "a data connection, which fetches data from outside the workbook")]
-    if lower.startswith("xl/querytables/"):
-        return [("network", "a query table, which a data connection fills")]
-    if lower.startswith("xl/externallinks/"):
-        return [("network", "a link to another workbook")]
-    if lower.startswith("customxml/") and "DataMashup" in text:
-        return [("network", "a Power Query, which can fetch data from outside the workbook")]
-    if lower.endswith(".rels") and EXTERNAL_TARGET.search(text):
-        return [("network", "a link out of the workbook")]
+    code = _code_in_part(name.lower(), text)
+    if code is not None:
+        return [("dynamic code", code)]
+    link = _link_in_part(name.lower(), text)
+    if link is not None:
+        return [("network", link)]
     typed = " ".join(TYPED_TEXT.findall(text))
     found = [("network", f"a formula calling {function}, which fetches or links out")
              for function in sorted(set(LINKING_FORMULA.findall(typed.upper())))]
     return found + [("URL", f"a URL a person typed: {url}") for url in URL_TYPED.findall(typed)]
+
+
+def _code_in_part(lower: str, text: str) -> str | None:
+    """What Excel would run in a workbook's part, by the part's name in lower case or what it
+    holds, or None if nothing."""
+    if lower.endswith("vbaproject.bin"):
+        return "a macro project, code Excel runs"
+    if lower.startswith(("xl/embeddings/", "xl/activex/")):
+        return "an embedded object or control, which can run code"
+    if lower == "[content_types].xml" and "macroenabled" in text.lower():
+        return "a macro-enabled workbook"
+    return None
+
+
+def _link_in_part(lower: str, text: str) -> str | None:
+    """What a workbook's part fetches or links to outside the workbook, by the part's name in
+    lower case or what it holds, or None if nothing."""
+    if lower == "xl/connections.xml":
+        return "a data connection, which fetches data from outside the workbook"
+    if lower.startswith("xl/querytables/"):
+        return "a query table, which a data connection fills"
+    if lower.startswith("xl/externallinks/"):
+        return "a link to another workbook"
+    if lower.startswith("customxml/") and "DataMashup" in text:
+        return "a Power Query, which can fetch data from outside the workbook"
+    if lower.endswith(".rels") and EXTERNAL_TARGET.search(text):
+        return "a link out of the workbook"
+    return None
 
 
 def _not_allowed(found: list[Finding], path: str, allowed: tuple[Allowed, ...]
@@ -422,7 +443,11 @@ def _not_allowed(found: list[Finding], path: str, allowed: tuple[Allowed, ...]
     user-copied code."""
     if scope_of(path) == "user-copied":
         return found
-    return [finding for finding in found if not any(entry.matches(finding) for entry in allowed)]
+    not_allowed = []
+    for finding in found:
+        if not any(entry.matches(finding) for entry in allowed):
+            not_allowed.append(finding)
+    return not_allowed
 
 
 def scope_of(path: str) -> str:
@@ -453,7 +478,8 @@ def _repo_path(path: str) -> str:
     return PurePosixPath(str(path).replace("\\", "/")).as_posix()
 
 
-def _found(text: str, path: str) -> list[Finding]:
+def _all_findings(text: str, path: str) -> list[Finding]:
+    """Each finding in a file's text, read as the file at `path`, allowed or not."""
     suffix = PurePosixPath(path).suffix.lower()
     if suffix in PAGE_FILES:
         return page_findings(text, path)
@@ -520,7 +546,8 @@ def _notebook_findings(text: str, path: str) -> list[Finding]:
     try:
         cells = json.loads(text).get("cells", [])
     except (ValueError, AttributeError):
-        return [Finding(path, 0, "unreadable", "it isn't a notebook's JSON, so it can't be read")]
+        return [Finding(path, 0, "unreadable",
+                        "it isn't a notebook's JSON, so it can't be read")]
     lines = []
     for cell in cells:
         if cell.get("cell_type") == "code":
@@ -533,7 +560,7 @@ def _notebook_findings(text: str, path: str) -> list[Finding]:
     return shell + _python_findings(code, path)
 
 
-# --- What a name is -----------------------------------------------------------------------------
+# --- What a name is ---------------------------------------------------------------------------
 
 
 def _under(name: str, modules: tuple[str, ...]) -> bool:
@@ -602,7 +629,7 @@ def _literal(node: ast.AST | None) -> str | None:
     return None
 
 
-def _plain(name: str) -> str:
+def _direct_name(name: str) -> str:
     """A full name without the ways round to it: builtins.eval is eval, os.__dict__.system and
     sys.modules.os.system are os.system."""
     name = name.replace(".__dict__", "").removeprefix("sys.modules.")
@@ -653,11 +680,11 @@ class _Reader(ast.NodeVisitor):
             if node.id == "__builtins__":
                 return "builtins"
             root = self.aliases.get(node.id) or (node.id if node.id in BUILTIN_NAMES else None)
-            return _plain(root) if root else None
+            return _direct_name(root) if root else None
         if isinstance(node, ast.Attribute | ast.Subscript):
             base = self.full_name(node.value)
             last = node.attr if isinstance(node, ast.Attribute) else _literal(node.slice)
-            return _plain(f"{base}.{last}") if base and last else None
+            return _direct_name(f"{base}.{last}") if base and last else None
         if isinstance(node, ast.Call):
             return self.called_name(node)
         return None
@@ -671,7 +698,7 @@ class _Reader(ast.NodeVisitor):
             return written[0] if written else None
         if function == "getattr" and len(written) >= 2 and written[1] is not None:
             base = self.full_name(node.args[0])
-            return _plain(f"{base}.{written[1]}") if base else None
+            return _direct_name(f"{base}.{written[1]}") if base else None
         if function == "vars" and len(node.args) == 1:
             return self.full_name(node.args[0])
         return None
@@ -683,7 +710,8 @@ class _Reader(ast.NodeVisitor):
             kind = kind_of(name)
             if kind:
                 self.add(node, kind, name)
-        star = isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names)
+        star = (isinstance(node, ast.ImportFrom)
+                and any(alias.name == "*" for alias in node.names))
         if star and node.level == 0 and _from_outside(node.module or ""):
             # Everything it brings in is named nowhere, so nothing it brings in can be read.
             self.add(node, "dynamic code", f"{node.module}.*")
@@ -702,16 +730,16 @@ class _Reader(ast.NodeVisitor):
             if argument is not None:
                 self.visit_calls_in(argument.annotation)
         self.visit_calls_in(node.returns)
-        self.inside(node.name, node.body)
+        self.enter(node.name, node.body)
 
     visit_AsyncFunctionDef = visit_FunctionDef
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         for outside in [*node.decorator_list, *node.bases, *node.keywords]:
             self.visit(outside)
-        self.inside(node.name, node.body)
+        self.enter(node.name, node.body)
 
-    def inside(self, name: str, body: list[ast.stmt]) -> None:
+    def enter(self, name: str, body: list[ast.stmt]) -> None:
         self.functions += (name,)
         for statement in body:
             self.visit(statement)
@@ -742,7 +770,7 @@ class _Reader(ast.NodeVisitor):
     def visit_Name(self, node: ast.Name | ast.Attribute | ast.Subscript) -> None:
         name = self.full_name(node) if isinstance(node.ctx, ast.Load) else None
         if name is None:
-            self.dynamic_subscript(node)
+            self.add_dynamic_subscript(node)
             self.generic_visit(node)
             return
         kind = kind_of(name)
@@ -753,7 +781,7 @@ class _Reader(ast.NodeVisitor):
     visit_Attribute = visit_Name
     visit_Subscript = visit_Name
 
-    def dynamic_subscript(self, node: ast.AST) -> None:
+    def add_dynamic_subscript(self, node: ast.AST) -> None:
         """A module's names looked up by a name that isn't written out, as vars(os)[name],
         os.__dict__[name] or __builtins__[name], on a module the repo doesn't write."""
         if not (isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load)
@@ -771,11 +799,11 @@ class _Reader(ast.NodeVisitor):
         name = self.full_name(node.func)
         taken = self.called_name(node)
         if name in IMPORTERS:
-            self.read_import(node, name, taken)
+            self.add_import_call(node, name, taken)
         elif taken and kind_of(taken):
             self.add(node, kind_of(taken), taken, NOT_CALLED if kind_of(taken) == "network"
                      else None)
-        elif name == "getattr" and self.dynamic_getattr(node):
+        elif name == "getattr" and self.is_dynamic_getattr(node):
             self.add(node, "dynamic code", name)
         elif name and kind_of(name):
             self.add(node, kind_of(name), name,
@@ -785,7 +813,7 @@ class _Reader(ast.NodeVisitor):
         for argument in [*node.args, *node.keywords]:
             self.visit(argument)
 
-    def read_import(self, node: ast.Call, name: str, module: str | None) -> None:
+    def add_import_call(self, node: ast.Call, name: str, module: str | None) -> None:
         """An import by a call: of a name not written out, or by __import__, dynamic code; of a
         module the rules name, what that module is."""
         if module is None or name != "importlib.import_module":
@@ -793,7 +821,7 @@ class _Reader(ast.NodeVisitor):
         if module and kind_of(module):
             self.add(node, kind_of(module), module)
 
-    def dynamic_getattr(self, node: ast.Call) -> bool:
+    def is_dynamic_getattr(self, node: ast.Call) -> bool:
         """getattr with a name that isn't written out, on a module the repo doesn't write."""
         if len(node.args) < 2 or _literal(node.args[1]) is not None:
             return False
@@ -807,28 +835,29 @@ class _Reader(ast.NodeVisitor):
         if prose is None:
             self.visit(node.value)
             return
-        self.read_examples(node.value, prose)
+        self.scan_examples(node.value, prose)
 
     def visit_Constant(self, node: ast.Constant) -> None:
         if isinstance(node.value, str | bytes):
             text = node.value if isinstance(node.value, str) else node.value.decode("latin-1")
-            self.read_string(node, text)
+            self.add_url(node, text)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
         added = _literal(node)
         if added is None:
             self.generic_visit(node)
         else:
-            self.read_string(node, added)
+            self.add_url(node, added)
 
-    def read_string(self, node: ast.AST, text: str) -> None:
+    def add_url(self, node: ast.AST, text: str) -> None:
+        """Add the URL a used string holds, if any, where the file's rules read strings."""
         if not self.read_strings:
             return
         match = URL.search(text)
         if match:
             self.add(node, "URL", match.group())
 
-    def read_examples(self, node: ast.Constant, prose: str) -> None:
+    def scan_examples(self, node: ast.Constant, prose: str) -> None:
         """Read a docstring's >>> examples as code, each at its own line of the file."""
         try:
             examples = doctest.DocTestParser().get_examples(prose)
@@ -846,7 +875,7 @@ class _Reader(ast.NodeVisitor):
             self.found += reader.found
 
 
-# --- Reading the repo ---------------------------------------------------------------------------
+# --- Reading the repo -------------------------------------------------------------------------
 
 
 def scan(root: Path = ROOT, paths: list[str | Path] | None = None,
@@ -873,7 +902,7 @@ def stale_entries(root: Path = ROOT, allowed: tuple[Allowed, ...] = ALLOWED) -> 
     for entry in allowed:
         file = root / entry.file
         if entry.file not in read:
-            read[entry.file] = _found(_text(file), entry.file) if file.is_file() else []
+            read[entry.file] = _all_findings(_text(file), entry.file) if file.is_file() else []
         found = read[entry.file]
         if scope_of(entry.file) == "user-copied":
             why = "names user-copied code, where nothing is allowed"

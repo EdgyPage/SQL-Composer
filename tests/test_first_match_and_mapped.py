@@ -111,8 +111,8 @@ def test_lineage_traces_every_column_either_reads_and_shows_the_call(tmp_path: P
     )
     _, markdown = export_lineage(minutes, to=tmp_path / "lineage.html")
     report = markdown.read_text(encoding="utf-8")
-    assert ("minutes.minutes = first_match([(is_null(job_runs.status), job_runs.avg_retry_secs)],"
-            " otherwise=job_runs.duration_mins)\n"
+    assert ("minutes.minutes = first_match([(is_null(job_runs.status), "
+            "job_runs.avg_retry_secs)], otherwise=job_runs.duration_mins)\n"
             # In the order a breadth-first walk of the CASE finds them, as for any calculation.
             "├─ ops.job_runs.duration_mins  (int)\n"
             "├─ ops.job_runs.avg_retry_secs  (double)\n"
@@ -124,9 +124,9 @@ def test_lineage_traces_every_column_either_reads_and_shows_the_call(tmp_path: P
 
 def test_a_none_key_is_refused_saying_how_to_label_null_rows() -> None:
     """NULL equals nothing, so CASE status WHEN NULL would never match: fill the NULL in."""
-    with pytest.raises(ValueError, match=r"mapped\(job_runs.status, \.\.\.\) was given None as a "
-                       r"key\.[\s\S]*Usual fix:      Fill the NULL in first with a value the "
-                       r"column never holds, and look that up: "
+    with pytest.raises(ValueError, match=r"mapped\(job_runs.status, \.\.\.\) was given None "
+                       r"as a key\.[\s\S]*Usual fix:      Fill the NULL in first with a value "
+                       r"the column never holds, and look that up: "
                        r"mapped\(fill_null\(job_runs.status, \"RUNNING\"\)"):
         mapped(job_runs.status, {None: "running"})
     assert GuardRefused  # the Guard equals gives None is equals' own, not mapped's
@@ -157,7 +157,8 @@ def test_otherwise_is_told_apart_by_its_place_not_its_object() -> None:
     wouldn't help, so the fix doesn't say to."""
     three = 3
     with pytest.raises(TypeError) as refused:
-        first_match([(equals(job_runs.status, "A"), "a"), (equals(job_runs.status, "B"), three)],
+        first_match([(equals(job_runs.status, "A"), "a"),
+                     (equals(job_runs.status, "B"), three)],
                     otherwise=three)
     assert "otherwise=" not in str(refused.value)
 
@@ -180,7 +181,8 @@ def test_a_value_may_be_none_and_otherwise_none_writes_no_else() -> None:
     """None as a value is NULL, which goes with a value of any type."""
     assert repr(first_match([(equals(job_runs.status, "FAILED"), None),
                              (is_null(job_runs.status), 0)])) == (
-        "CASE WHEN job_runs.status = 'FAILED' THEN NULL WHEN job_runs.status IS NULL THEN 0 END")
+        "CASE WHEN job_runs.status = 'FAILED' THEN NULL "
+        "WHEN job_runs.status IS NULL THEN 0 END")
 
 
 def test_values_of_the_same_family_mix() -> None:

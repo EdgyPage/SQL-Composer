@@ -108,7 +108,8 @@ def test_an_ordinary_environment_read_is_not_found(tmp_path: Path) -> None:
     ("requirements-dev.txt", "pandas>=3\n"),
     ("requirements.txt", "-e git+https://x#egg=y\n"),
 ])
-def test_config_that_runs_or_fetches_code_is_found(tmp_path: Path, path: str, text: str) -> None:
+def test_config_that_runs_or_fetches_code_is_found(tmp_path: Path, path: str,
+                                                    text: str) -> None:
     assert planted(tmp_path, {path: text}) == ["config"]
 
 

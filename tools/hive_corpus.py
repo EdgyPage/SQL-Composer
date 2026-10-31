@@ -1,6 +1,7 @@
-"""Write the golden corpus, `tests/hive_corpus/sqlglot_composer.txt`: what the Toolbox shows today.
+"""Write the golden corpus, `tests/hive_corpus/sqlglot_composer.txt`: what the Toolbox shows.
 
-Run it on `dev` only when a change is meant to alter what the Toolbox writes, then review the diff:
+Run it on `dev` only when a change is meant to alter what the Toolbox writes, then review the
+diff:
 
     python tools/hive_corpus.py
 
@@ -19,8 +20,9 @@ names:
   but for the Session settings it names.
 
 The cases are every docstring example that hands a Statement to `to_hive`, `run_query`,
-`run_execute` or `export_lineage`; every Statement function of the Worked examples; the edge cases and the
-generated Statements in `tests/hive_corpus_cases.py`; and the Table references of both.
+`run_execute` or `export_lineage`; every Statement function of the Worked examples; the edge
+cases and the generated Statements in `tests/hive_corpus_cases.py`; and the Table references of
+both.
 """
 
 from __future__ import annotations
@@ -71,10 +73,20 @@ def docstring_cases(
     """Each docstring example that hands a Statement on, as a function that replays it."""
     found = []
     for names, doc in gallery.docstrings():
-        parts = [part for part in doctest.DocTestParser().parse(doc) if not isinstance(part, str)]
-        if any(name + "(" in part.source for part in parts for name in gallery.HANDED_TO):
+        parts = [part for part in doctest.DocTestParser().parse(doc)
+                 if not isinstance(part, str)]
+        if _hands_a_statement_on(parts):
             found.append((f"doc:{names[0]}", _replaying(parts)))
     return found
+
+
+def _hands_a_statement_on(parts: list[doctest.Example]) -> bool:
+    """Whether a docstring example calls one of the functions a Statement is handed to."""
+    for part in parts:
+        for name in gallery.HANDED_TO:
+            if name + "(" in part.source:
+                return True
+    return False
 
 
 def _replaying(
@@ -90,7 +102,8 @@ def _replaying(
 
 
 def worked_example_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
-    """Each Statement function of each Worked example script, careless() with its opt-out too."""
+    """Each Statement function of each Worked example script, careless() with its opt-out
+    too."""
     found = []
     for module in gallery.statement_scripts():
         script = module.__name__.split(".")[-1]
@@ -100,14 +113,17 @@ def worked_example_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
             opt_out = gallery.opt_out_of(module.careless)
             if opt_out is not None:
                 functions.append((f"careless_{opt_out}", _opted_out(module.careless, opt_out)))
-        found += [(f"worked:{script}:{name}", _listed(function)) for name, function in functions]
+        found += [(f"worked:{script}:{name}", _listed(function))
+                  for name, function in functions]
     return found
 
 
 def _opted_out(function: Callable[..., Statement | list[Statement]],
                keyword: str) -> Callable[..., Statement | list[Statement]]:
     """`function` called with its Guard's opt-out keyword set."""
-    return lambda: function(**{keyword: True})
+    def call() -> Statement | list[Statement]:
+        return function(**{keyword: True})
+    return call
 
 
 def _listed(
@@ -187,7 +203,8 @@ def case_text(
 
 def statement_lines(number: int,
                     s: Statement | SessionSettings | UncheckedStatement) -> list[str]:
-    """A Statement's Hive, then the repr of its outputs and conditions, and each Derived table's.
+    """A Statement's Hive, then the repr of its outputs and conditions, and each Derived
+    table's.
 
     Session settings and an Unchecked statement aren't Statements: their Hive, and what
     show_hive prints for them, with the comment that names or marks them. An Admin statement
@@ -205,9 +222,11 @@ def statement_lines(number: int,
         return lines + [PART_MARK + f"Statement {number}: show_hive",
                         printed.getvalue().rstrip("\n")]
     # An Unchecked derived table has no Statement to show the parts of: its text is its Hive.
-    for step, name in [(s, "the Statement")] + [
-            (table._statement, f"Derived table {table._name}") for table in derived_tables(s)
-            if not is_unchecked(table)]:
+    steps = [(s, "the Statement")]
+    for table in derived_tables(s):
+        if not is_unchecked(table):
+            steps.append((table._statement, f"Derived table {table._name}"))
+    for step, name in steps:
         shown = parts_shown(step)
         if shown:
             lines += [PART_MARK + f"Statement {number}: {name}", *shown]
@@ -231,7 +250,8 @@ def lineage_lines(statements: list[Statement | SessionSettings | UncheckedStatem
         return []  # none, or only Session settings, which it draws nothing for
     with tempfile.TemporaryDirectory() as folder:
         try:
-            _, markdown = sqlglot_composer.export_lineage(*statements, to=Path(folder) / "case.html")
+            _, markdown = sqlglot_composer.export_lineage(*statements,
+                                                          to=Path(folder) / "case.html")
         except Exception as error:  # noqa: BLE001 - as for to_hive
             return [PART_MARK + "export_lineage", refused_text(error)]
         text = markdown.read_text(encoding="utf-8")
@@ -292,8 +312,8 @@ def tables() -> list[Table]:
 
 def corpus_text() -> str:
     """The whole golden corpus, as one string."""
-    header = (f"# What {toolbox_registry.PRODUCT} shows today, written by tools/hive_corpus.py. Don't "
-              "edit it by hand.\n")
+    header = (f"# What {toolbox_registry.PRODUCT} shows today, written by "
+              "tools/hive_corpus.py. Don't edit it by hand.\n")
     blocks = [case_text(case_id, build) for case_id, build in cases()]
     blocks += [warehouse_text(t) for t in tables()]
     return header + "\n".join(blocks)

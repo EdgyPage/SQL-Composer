@@ -100,7 +100,8 @@ finishes.
 >>> text = show_hive(retries_per_finish)  # -> str
 SELECT
   job_events.job_id,
-  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / COUNT(CASE WHEN job_events.event_type = 'finish' THEN 1 END) AS retries_per_finish
+  COUNT(CASE WHEN job_events.event_type = 'retry' THEN 1 END) / COUNT(CASE WHEN
+      job_events.event_type = 'finish' THEN 1 END) AS retries_per_finish
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt = '2026-09-24'
@@ -229,7 +230,8 @@ third, if you want it. Given one, the warehouse would stop, so the Toolbox refus
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  hive_function('substr', ...) gives substr 1 argument, and substr takes 2 to 3 arguments.
+  What happened:  hive_function('substr', ...) gives substr 1 argument, and substr takes 2 to 3
+                  arguments.
 ...
 
 ### A NULL in concat

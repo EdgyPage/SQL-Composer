@@ -146,7 +146,7 @@ def section(markdown: str, heading: str) -> str:
     return markdown[start:start + ends[0]] if ends else markdown[start:]
 
 
-# --- The two files ------------------------------------------------------------------------------
+# --- The two files ----------------------------------------------------------------------------
 
 
 def test_it_writes_the_html_and_its_markdown_twin_side_by_side(tmp_path: Path) -> None:
@@ -211,7 +211,8 @@ def test_the_default_name_goes_in_a_lineage_folder_beside_the_calling_script(
 
 
 def git(folder: Path, *args: str) -> str:
-    done = subprocess.run(["git", *args], cwd=folder, capture_output=True, text=True, check=True)
+    done = subprocess.run(["git", *args], cwd=folder, capture_output=True, text=True,
+                          check=True)
     return done.stdout.strip()
 
 
@@ -714,7 +715,8 @@ def test_a_left_joined_saved_tables_conditions_decide_only_its_own_columns(
     assert "- LEFT JOIN ON in day:" in alerts_entry
     # The alerts' own column still lists the write's conditions, its date bound among them.
     assert "- JOIN ON in alerts: `equals(job_runs.run_id, run_alerts.run_id)`" in alerts_entry
-    assert '- WHERE in alerts: `between(job_runs.dt, "2026-09-23", "2026-09-24")`' in alerts_entry
+    assert ('- WHERE in alerts: `between(job_runs.dt, "2026-09-23", "2026-09-24")`'
+            in alerts_entry)
     assert '- WHERE in alerts: `equals(run_alerts.dt, "2026-09-24")`' in alerts_entry
     assert "JOIN ON in alerts:" in html_entry(page, "alerts", "day")
 
@@ -940,7 +942,7 @@ def test_the_page_draws_it_as_an_output_marked_unchecked(tmp_path: Path) -> None
     assert ".unchecked rect{" in page
 
 
-# --- Misuse ------------------------------------------------------------------------------------
+# --- Misuse -----------------------------------------------------------------------------------
 
 
 def test_no_statement_is_refused() -> None:
@@ -962,7 +964,7 @@ def test_the_same_statement_twice_is_drawn_once(tmp_path: Path) -> None:
     assert markdown.count("\n## team\n") == 1
 
 
-# --- The HTML page ------------------------------------------------------------------------------
+# --- The HTML page ----------------------------------------------------------------------------
 
 
 def test_the_page_needs_nothing_beyond_itself(tmp_path: Path) -> None:
@@ -1082,5 +1084,6 @@ def test_the_report_says_whether_a_writes_key_holds(tmp_path: Path) -> None:
                           FROM(job_runs), WHERE(equals(job_runs.dt, "2026-09-24")))
     markdown, _ = read(export_lineage(unchecked, to=tmp_path / "unchecked.html"))
     assert ("mart.daily_runs' Key (job_id, dt) isn't shown to hold, since job_runs' rows are "
-            "told apart by run_id, and SELECT leaves out job_runs.run_id") in section(markdown, "### Keys")
+            "told apart by run_id, and SELECT leaves out job_runs.run_id"
+            in section(markdown, "### Keys"))
     assert "the write says unproven_key=True." in section(markdown, "### Keys")

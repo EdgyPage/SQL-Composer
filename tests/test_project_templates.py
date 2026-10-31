@@ -18,7 +18,14 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from sqlglot_composer import example_database, notebooks, project, run_query, set_admin_log, to_hive
+from sqlglot_composer import (
+    example_database,
+    notebooks,
+    project,
+    run_query,
+    set_admin_log,
+    to_hive,
+)
 from sqlglot_composer.project import TableLogic
 from sqlglot_composer.project_templates import (
     BUILDING_BLOCK,
@@ -177,7 +184,8 @@ def test_a_notebook_for_a_table_with_no_partitions_writes_it_whole(
         started: Path, template: str) -> None:
     """Its partition column's lines and READS deleted, a Template writes a table that isn't
     partitioned, read from a table that isn't either, ops.team_notes, whole."""
-    fills = {"saved_table": ({"<SOURCE_NAME>": "ops__team_notes", "<SOURCE_TABLE>": "team_notes",
+    fills = {"saved_table": ({"<SOURCE_NAME>": "ops__team_notes",
+                              "<SOURCE_TABLE>": "team_notes",
                               "<GROUP_COLUMN>": "team", "<COUNT_NAME>": '"notes"'},
                              {"team": "string", "notes": "bigint"}, [], None),
              "quality_checks": ({"<CHECKED_NAME>": "ops__team_notes",
@@ -259,7 +267,8 @@ def test_the_saved_table_reference_template_filled_in_is_a_table(started: Path) 
 
 def test_the_saved_table_reference_template_takes_any_partition_column(started: Path) -> None:
     text = filled_reference().replace(
-        '        "job_id": "bigint",', '        "job_id": "bigint",\n        "region": "string",'
+        '        "job_id": "bigint",',
+        '        "job_id": "bigint",\n        "region": "string",'
     ).replace("partitioned_by=[],", 'partitioned_by=["region"],').replace(
         "key=None,", 'key=["job_id", "region"],')
     (started / "references" / "mart__daily_runs.py").write_text(text, encoding="utf-8")

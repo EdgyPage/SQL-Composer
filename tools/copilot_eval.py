@@ -176,7 +176,8 @@ README_TEMPLATE = ROOT / "docs" / "clean-branch-readme.md"
 COPILOT = ROOT / "copilot"
 ARMS = {
     "A0": "nothing: the request alone",
-    "A1": "the README's opening, cut to the same limit: what a user could share before the files",
+    "A1": "the README's opening, cut to the same limit: what a user could share before the "
+          "files",
     "C": "the Copilot file for the task's objective",
     "R": "copilot/00_start_here.txt, which says which file to load",
 }
@@ -278,7 +279,7 @@ class Score:
                 and not self.unrun)
 
 
-def _called(node: ast.Call) -> str:
+def _called_name(node: ast.Call) -> str:
     """The name a call is made by: f for f(...) and m.f(...), or nothing."""
     if isinstance(node.func, ast.Name):
         return node.func.id
@@ -311,7 +312,7 @@ def invented_names(tree: ast.Module) -> tuple[list[str], bool]:
     """Each Toolbox name an answer uses that isn't public, and whether it imports with *."""
     invented, star, bound = _toolbox_imports(tree)
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call) and _called(node) in SENDERS and any(
+        if isinstance(node, ast.Call) and _called_name(node) in SENDERS and any(
                 keyword.arg == "send" for keyword in node.keywords):
             invented.append("send=")  # 7.0 replaced it with query and execute
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
@@ -330,7 +331,19 @@ def _imported_from_outside(node: ast.AST) -> str | None:
         roots = [(node.module or "").split(".")[0]] if not node.level else ["."]
     else:
         return None
-    return next((root for root in roots if root not in ALLOWED_MODULES), None)
+    for root in roots:
+        if root not in ALLOWED_MODULES:
+            return root
+    return None
+
+
+def _reached_name(node: ast.AST) -> str:
+    """The name a node reaches: m for .m, n for the name n, or nothing."""
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Name):
+        return node.id
+    return ""
 
 
 def unsafe(tree: ast.Module) -> str | None:
@@ -341,8 +354,7 @@ def unsafe(tree: ast.Module) -> str | None:
         outside = _imported_from_outside(node)
         if outside:
             return f"it imports {outside}, which an answer may not"
-        name = node.attr if isinstance(node, ast.Attribute) else (
-            node.id if isinstance(node, ast.Name) else "")
+        name = _reached_name(node)
         if isinstance(node, ast.Name) and name in FORBIDDEN_NAMES:
             return f"it uses {name}, which an answer may not"
         if isinstance(node, ast.Attribute) and (name in FORBIDDEN_ATTRIBUTES
@@ -355,13 +367,15 @@ def unsafe(tree: ast.Module) -> str | None:
 
 def calls(tree: ast.Module) -> set[str]:
     """The name of every function an answer calls."""
-    return {_called(node) for node in ast.walk(tree) if isinstance(node, ast.Call)}
+    return {_called_name(node) for node in ast.walk(tree) if isinstance(node, ast.Call)}
 
 
 def opt_outs(tree: ast.Module) -> set[str]:
     """The opt-outs an answer passes, and the Unchecked pieces it uses."""
-    passed = {keyword.arg for node in ast.walk(tree) if isinstance(node, ast.Call)
-              for keyword in node.keywords if keyword.arg in OPT_OUTS}
+    passed: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            passed |= {keyword.arg for keyword in node.keywords if keyword.arg in OPT_OUTS}
     return passed | (calls(tree) & UNCHECKED)
 
 
@@ -382,35 +396,40 @@ class _SendersOut(ast.NodeTransformer):
 
     def visit_Call(self, node: ast.Call) -> ast.AST:
         self.generic_visit(node)
-        if _called(node) == "run_query":
+        if _called_name(node) == "run_query":
             return ast.copy_location(ast.Call(ast.Name("_scored_read", ast.Load()), node.args,
                                               node.keywords), node)
-        return ast.copy_location(ast.Constant(None), node) if _called(node) in SENDERS else node
+        if _called_name(node) in SENDERS:
+            return ast.copy_location(ast.Constant(None), node)
+        return node
 
 
 # What a run_query in an answer becomes: the same read, on the Example database.
-_SCORED_READ = '''import pandas as _scored_pandas
+_SCORED_READ = ('''import pandas as _scored_pandas
 
 from sqlglot_composer import Statement as _ScoredStatement
 from sqlglot_composer import example_database as _scored_database
 from sqlglot_composer import to_hive as _scored_hive
 
 
-def _scored_read(statement: _ScoredStatement, *_: object, **__: object) -> _scored_pandas.DataFrame:
+def _scored_read(statement: _ScoredStatement, *_: object, '''
+                '''**__: object) -> _scored_pandas.DataFrame:
     return _scored_database.query(_scored_hive(statement))
-'''
+''')
 
 # The temporary folder answers run in, while they run; empty otherwise.
 _RUNNING_IN: list[str] = []
 
 
-def _writes(event: str, args: tuple[object, ...]) -> str | None:
+def _written_path(event: str, args: tuple[object, ...]) -> str | None:
     """The path an audit event writes, or None for one that only reads."""
     if event == "open" and len(args) >= 3:
         path, mode, flags = args[:3]
-        writing = (any(letter in mode for letter in "wax+") if isinstance(mode, str)
-                   else isinstance(flags, int) and bool(
-                       flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT)))
+        if isinstance(mode, str):
+            writing = any(letter in mode for letter in "wax+")
+        else:
+            writing = isinstance(flags, int) and bool(
+                flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT))
         return os.fsdecode(path) if writing and isinstance(path, (str, bytes)) else None
     if event in ("os.remove", "os.rename", "os.rmdir", "os.mkdir", "shutil.rmtree"):
         path = args[0] if args else None
@@ -425,7 +444,7 @@ def _refuse_outside(event: str, args: tuple[object, ...]) -> None:
         return
     if event.startswith(REFUSED_EVENTS):
         raise PermissionError(f"an answer may not do {event}")
-    path = _writes(event, args)
+    path = _written_path(event, args)
     if path is not None:
         folder, written = _RUNNING_IN[0], os.path.abspath(path)
         try:
@@ -488,28 +507,32 @@ def loaded(code: str, name: str, gives: str) -> tuple[TableLogic, object]:
 # --- Checking what an answer gives ---------------------------------------------------------
 
 
-def _value(value: object) -> object:
+def _compared_value(value: object) -> object:
     """A value as rows are compared: NULL and NaN alike, numbers by value."""
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
     if isinstance(value, float):
         return round(value, 6)
     if hasattr(value, "item"):  # a numpy number
-        return _value(value.item())
+        return _compared_value(value.item())
     return value
 
 
 def rows_of(s: Statement) -> tuple[list[str], list[tuple[object, ...]]]:
     """A read's column names, and its rows in a fixed order, on the Example database."""
     found = run_query(s, example_database.query)
-    rows = [tuple(_value(value) for value in row) for row in found.itertuples(index=False)]
+    rows: list[tuple[object, ...]] = []
+    for row in found.itertuples(index=False):
+        rows.append(tuple(_compared_value(value) for value in row))
     return [str(column).lower() for column in found.columns], sorted(rows, key=repr)
 
 
 def _insert_line(s: Statement) -> str:
     """The INSERT line of a write's Hive, as compared: the table and the way it writes."""
-    line = next((one for one in to_hive(s).splitlines() if one.startswith("INSERT")), "")
-    return " ".join(line.split())
+    for line in to_hive(s).splitlines():
+        if line.startswith("INSERT"):
+            return " ".join(line.split())
+    return ""
 
 
 def _same_write(answer: object, reference: Statement, task: Task) -> bool:
@@ -554,14 +577,14 @@ def gives_the_kind(answer: object, task: Task) -> bool:
     return isinstance(answer, kind)
 
 
-def _said(error: Exception) -> str:
+def _error_note(error: Exception) -> str:
     """An error as a score's note: its kind, and what happened, at most 200 characters."""
     return f"{type(error).__name__}: {what_happened(error)}"[:200]
 
 
-def _read(task: Task, code: str, result: Score) -> ast.Module | None:
-    """An answer's code read, with the checks reading gives noted on `result`; None when it
-    doesn't parse."""
+def _parse_answer(task: Task, code: str, result: Score) -> ast.Module | None:
+    """Parse an answer's code, noting on `result` the checks reading it gives; its tree, or
+    None when it doesn't parse."""
     result.found = True
     try:
         tree = ast.parse(code)
@@ -579,7 +602,7 @@ def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Sco
     """One answer, scored check by check against the reference's result."""
     result = Score(task.id)
     code = answer_code(reply)
-    tree = _read(task, code, result) if code is not None else None
+    tree = _parse_answer(task, code, result) if code is not None else None
     if code is None:
         result.note = "no code block"
     if tree is None:
@@ -592,7 +615,7 @@ def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Sco
         with _quiet():
             logic, answer = loaded(code, task.id.lower(), GIVES[task.kind])
     except Exception as error:  # a refusal, or the answer's own mistake
-        result.note = f"doesn't build: {_said(error)}"
+        result.note = f"doesn't build: {_error_note(error)}"
         return result
     result.builds = gives_the_kind(answer, task)
     if not result.builds:
@@ -604,7 +627,7 @@ def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Sco
                 task.quotes is None or quotes(tree, task.quotes))
         result.runs = True
     except Exception as error:
-        result.note = f"doesn't run: {_said(error)}"
+        result.note = f"doesn't run: {_error_note(error)}"
         return result
     if not result.correct:
         result.note = "runs, but gives something else"
@@ -628,17 +651,21 @@ def stand_in(folder: Path, saved: dict[str, str] | None = None) -> None:
     (references / "ops.py").write_text("".join(
         f"from references.ops__{name} import {name}\n" for name in EXAMPLE_TABLES),
         encoding="utf-8")
-    saved = {**{name: code for task in TASKS for name, code in task.saved.items()},
-             **(saved or {})}
-    for name, code in saved.items():
+    every_saved: dict[str, str] = {}
+    for task in TASKS:
+        every_saved.update(task.saved)
+    every_saved.update(saved or {})
+    for name, code in every_saved.items():
         (references / f"mart__{name}.py").write_text(code, encoding="utf-8")
     (references / "mart.py").write_text("".join(
-        f"from references.mart__{name} import {name}\n" for name in saved), encoding="utf-8")
+        f"from references.mart__{name} import {name}\n" for name in every_saved),
+        encoding="utf-8")
 
 
 def scored(replies: dict[str, str]) -> list[Score]:
     """Each reply, by its task's id, scored against its task's reference, in task order."""
-    return scored_pairs([(task_id, replies[task_id]) for task_id in BY_ID if task_id in replies])
+    return scored_pairs([(task_id, replies[task_id]) for task_id in BY_ID
+                         if task_id in replies])
 
 
 def scored_pairs(pairs: list[tuple[str, str]]) -> list[Score]:
@@ -692,23 +719,38 @@ def summary(results: list[Score]) -> Summary:
         mine = [one for one in results if BY_ID[one.task].objective == objective]
         if mine:
             objectives[objective] = rate([one.passed for one in mine])
+    check_rates: dict[str, int] = {}
+    for check in CHECKS:
+        check_rates[check] = rate([getattr(one, check) for one in results])
     return Summary(
-        answers=len(results), passed=rate([one.passed for one in results]),
-        **{check: rate([getattr(one, check) for one in results]) for check in CHECKS},
+        answers=len(results), passed=rate([one.passed for one in results]), **check_rates,
         invented=rate([bool(one.invented) for one in results]),
         needless=sum(len(one.needless) for one in results),
         star=sum(one.star for one in results), unrun=sum(one.unrun for one in results),
         objectives=objectives)
 
 
+def _answer_line(one: Score) -> str:
+    """One answer's line of the report: pass or FAIL, the checks it passed, and what it did
+    wrong."""
+    line = f"{one.task}  {'pass' if one.passed else 'FAIL'}  "
+    line += " ".join(check for check in CHECKS if getattr(one, check))
+    if one.invented:
+        line += f"  invented: {', '.join(one.invented)}"
+    if one.needless:
+        line += f"  needless: {', '.join(one.needless)}"
+    if one.star:
+        line += "  imports *"
+    if one.unrun:
+        line += "  doesn't run it"
+    if one.note:
+        line += f"  ({one.note})"
+    return line
+
+
 def report(header: dict[str, str], results: list[Score]) -> str:
     """The scores as text: a line per answer, then the summary."""
-    lines = [f"{one.task}  {'pass' if one.passed else 'FAIL'}  "
-             + " ".join(check for check in CHECKS if getattr(one, check))
-             + (f"  invented: {', '.join(one.invented)}" if one.invented else "")
-             + (f"  needless: {', '.join(one.needless)}" if one.needless else "")
-             + ("  imports *" if one.star else "") + ("  doesn't run it" if one.unrun else "")
-             + (f"  ({one.note})" if one.note else "") for one in results]
+    lines = [_answer_line(one) for one in results]
     total = summary(results)
     lines.append(f"\n{header.get('arm', '?')} on {header.get('model', '?')}: "
                  f"{total.passed}% passed of {total.answers}; " + ", ".join(
@@ -730,7 +772,7 @@ def results_row(header: dict[str, str], split: str, results: list[Score]) -> str
             f"{objectives} |")
 
 
-def _with_task_filters(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+def _add_task_filters(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
     parser.add_argument("--objective", choices=sorted(OBJECTIVES))
     return parser
@@ -739,9 +781,9 @@ def _with_task_filters(parser: argparse.ArgumentParser) -> argparse.ArgumentPars
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    _with_task_filters(commands.add_parser("prompts"))
-    _with_task_filters(commands.add_parser("template"))
-    _with_task_filters(commands.add_parser("proxy")).add_argument("arm", choices=sorted(ARMS))
+    _add_task_filters(commands.add_parser("prompts"))
+    _add_task_filters(commands.add_parser("template"))
+    _add_task_filters(commands.add_parser("proxy")).add_argument("arm", choices=sorted(ARMS))
     scoring = commands.add_parser("score")
     scoring.add_argument("answers", type=Path)
     scoring.add_argument("--record", type=Path)

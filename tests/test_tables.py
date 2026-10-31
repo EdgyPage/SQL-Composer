@@ -143,7 +143,8 @@ def test_write_table_reference_writes_a_file_that_imports(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
-    path = write_table_reference("ops.job_runs", query=example_database.query, folder="references")
+    path = write_table_reference("ops.job_runs", query=example_database.query,
+                                 folder="references")
     assert path == Path("references") / "ops__job_runs.py"
     written = _imported_job_runs_reference(tmp_path).job_runs
     assert repr(written) == repr(job_runs)
@@ -155,7 +156,8 @@ def test_an_alias_under_the_aliases_heading_imports_beside_its_table(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     (tmp_path / "references").mkdir()
-    path = write_table_reference("ops.job_runs", query=example_database.query, folder="references")
+    path = write_table_reference("ops.job_runs", query=example_database.query,
+                                 folder="references")
     text = path.read_text(encoding="utf-8")
     assert "# --- Aliases " in text and "#     <alias> = job_runs.status" in text
     # The heading's import names the folder the file was written into.
@@ -187,7 +189,8 @@ def test_write_table_reference_never_overwrites(tmp_path: Path,
 def test_write_table_reference_refuses_a_folder_that_isnt_there(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(FileNotFoundError, match=r"folder='refrences'\): there is no such folder"):
+    with pytest.raises(FileNotFoundError,
+                       match=r"folder='refrences'\): there is no such folder"):
         write_table_reference("ops.jobs", query=example_database.query, folder="refrences")
     assert list(tmp_path.iterdir()) == []
 
@@ -252,7 +255,8 @@ def test_describe_is_read_as_warehouses_list_it(way: str, tmp_path: Path,
     query = StandIn(RUNS_IN_THE_WAREHOUSE, way=way)
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               partitioned_by=["dt"])
-    assert repr(check_table_reference(t, query=query)) == "ops.runs matches its Table reference."
+    assert (repr(check_table_reference(t, query=query))
+            == "ops.runs matches its Table reference.")
     text = write_table_reference("ops.runs", query=query).read_text(encoding="utf-8")
     assert '"Part 0"' not in text
     assert 'partitioned_by=["dt"],\n' in text
@@ -279,7 +283,8 @@ def test_a_section_after_the_partitions_is_not_read_as_partitions(
     assert 'partitioned_by=["dt"],\n' in text
     t = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
               partitioned_by=["dt"])
-    assert repr(check_table_reference(t, query=query)) == "ops.runs matches its Table reference."
+    assert (repr(check_table_reference(t, query=query))
+            == "ops.runs matches its Table reference.")
 
 
 def test_a_reserved_table_name_is_quoted_in_what_is_sent(
@@ -436,7 +441,8 @@ def test_create_table_refuses_untyped_columns() -> None:
 
 @pytest.mark.parametrize("kind", ["int(", "json", "uuid", "integer", "real", "double precision",
                                   "numeric(5,1)", "varchar", "char", "interval",
-                                  "timestamp with local time zone", "array<json>", "map<string>",
+                                  "timestamp with local time zone", "array<json>",
+                                  "map<string>",
                                   "struct<>", "struct<int>", "array<string", "decimal(10,2",
                                   "decimal", "decimal(10)", "decimal(40,2)", "decimal(5,10)",
                                   "char(300)", "varchar(70000)", "varchar(0)",
@@ -462,7 +468,8 @@ def test_create_tables_refusal_says_what_to_write_for_a_type_people_often_use(
 
 
 @pytest.mark.parametrize(("kind", "written"), [
-    ("BIGINT", "BIGINT"), ("decimal(10,0)", "DECIMAL(10, 0)"), ("decimal(38, 2)", "DECIMAL(38, 2)"),
+    ("BIGINT", "BIGINT"), ("decimal(10,0)", "DECIMAL(10, 0)"),
+    ("decimal(38, 2)", "DECIMAL(38, 2)"),
     ("varchar(20)", "VARCHAR(20)"), ("char(255)", "CHAR(255)"),
     ("map<string,array<int>>", "MAP<STRING, ARRAY<INT>>"),
     ("array<string>", "ARRAY<STRING>"), ("map<string,int>", "MAP<STRING, INT>"),

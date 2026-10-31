@@ -4,8 +4,9 @@ A window names the rows a calculation looks across for each row: those sharing i
 values, in ORDER_BY's order, and with rows= only those near it. sum_of, average_of, count_rows,
 min_of and max_of take one as over=; rank, dense_rank, ntile, lag, lead, first_value and
 last_value always take one; row_number takes one too, its 4.x keywords still working. A window's
-result is filtered only in the Statement that reads its Derived table, and a window sees only the
-rows its Statement reads, so one that looks back across days reads them all in a Derived table.
+result is filtered only in the Statement that reads its Derived table, and a window sees only
+the rows its Statement reads, so one that looks back across days reads them all in a Derived
+table.
 """
 
 from __future__ import annotations
@@ -67,7 +68,8 @@ def hive_of(column: Column) -> str:
 
 
 @pytest.mark.parametrize(("column", "hive"), [
-    pytest.param(lambda: sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id)),
+    pytest.param(lambda: sum_of(job_runs.duration_mins,
+                                over=window(PARTITION_BY=job_runs.job_id)),
                  "SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id)",
                  id="a_groups_total_beside_each_row"),
     pytest.param(lambda: sum_of(job_runs.duration_mins, over=window(
@@ -94,7 +96,8 @@ def hive_of(column: Column) -> str:
                  "RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.duration_mins "
                  "DESC)", id="rank"),
     pytest.param(lambda: dense_rank(over=by_job),
-                 "DENSE_RANK() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)",
+                 "DENSE_RANK() OVER (PARTITION BY job_runs.job_id "
+                 "ORDER BY job_runs.run_id ASC)",
                  id="dense_rank"),
     pytest.param(lambda: ntile(4, over=by_job),
                  "NTILE(4) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)",
@@ -107,7 +110,8 @@ def hive_of(column: Column) -> str:
                  "job_runs.run_id ASC)", id="lead"),
     pytest.param(lambda: first_value(job_runs.status, over=by_job),
                  "FIRST_VALUE(job_runs.status) OVER (PARTITION BY job_runs.job_id ORDER BY "
-                 "job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)",
+                 "job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING "
+                 "AND UNBOUNDED FOLLOWING)",
                  id="first_value_over_the_whole_group"),
     pytest.param(lambda: last_value(job_runs.status, over=window(
         PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id, rows=(None, 0))),
@@ -115,10 +119,12 @@ def hive_of(column: Column) -> str:
                  "job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)",
                  id="last_value_up_to_each_row"),
     pytest.param(lambda: row_number(over=by_job),
-                 "ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)",
+                 "ROW_NUMBER() OVER (PARTITION BY job_runs.job_id "
+                 "ORDER BY job_runs.run_id ASC)",
                  id="row_number_over_a_window"),
     pytest.param(lambda: row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=job_runs.run_id),
-                 "ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC)",
+                 "ROW_NUMBER() OVER (PARTITION BY job_runs.job_id "
+                 "ORDER BY job_runs.run_id ASC)",
                  id="row_number_with_its_4x_keywords"),
 ])
 def test_each_window_function_writes_its_hive(column: Callable[[], Column], hive: str) -> None:
@@ -146,7 +152,8 @@ def test_a_window_shows_how_it_was_written() -> None:
                  id="order_by_a_name"),
     pytest.param(lambda: window(PARTITION_BY=job_runs.job_id, rows=(-6, 0)),
                  "rows= needs ORDER_BY", id="rows_without_order_by"),
-    pytest.param(lambda: window(ORDER_BY=job_runs.run_id, rows=6), "a pair", id="rows_not_a_pair"),
+    pytest.param(lambda: window(ORDER_BY=job_runs.run_id, rows=6), "a pair",
+                 id="rows_not_a_pair"),
     pytest.param(lambda: window(ORDER_BY=job_runs.run_id, rows=(0, -6)), "comes before",
                  id="rows_back_to_front"),
     pytest.param(lambda: window(ORDER_BY=job_runs.run_id, rows=(-1.5, 0)), "whole numbers",
@@ -165,7 +172,8 @@ def test_a_window_shows_how_it_was_written() -> None:
     pytest.param(lambda: lag(job_runs.status, over=by_job, back=0), "back=",
                  id="lag_back_zero"),
     pytest.param(lambda: ntile(0, over=by_job), "ntile", id="ntile_zero_groups"),
-    pytest.param(lambda: first_value(job_runs.status, over=window(PARTITION_BY=job_runs.job_id)),
+    pytest.param(lambda: first_value(job_runs.status,
+                                     over=window(PARTITION_BY=job_runs.job_id)),
                  "needs ORDER_BY", id="first_value_with_no_order"),
     pytest.param(lambda: row_number(over=by_job, PARTITION_BY=job_runs.job_id),
                  "either over=", id="row_number_both_ways"),
@@ -254,7 +262,8 @@ def test_a_rank_kept_at_1_doesnt_show_the_key() -> None:
 
 def test_a_lag_keeps_the_rows_and_so_the_from_tables_key() -> None:
     s = statement(INSERT_OVERWRITE(runs_with_before),
-                  SELECT(job_runs.run_id, AS(lag(job_runs.duration_mins, over=by_job), "before"),
+                  SELECT(job_runs.run_id,
+                         AS(lag(job_runs.duration_mins, over=by_job), "before"),
                          job_runs.dt),
                   FROM(job_runs), WHERE(ONE_DAY))
     assert "LAG(job_runs.duration_mins, 1) OVER" in to_hive(s)

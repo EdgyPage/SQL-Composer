@@ -204,7 +204,8 @@ def test_anti_join_finds_the_job_that_never_ran() -> None:
 
 
 def test_full_join_keeps_the_runs_only_one_record_holds() -> None:
-    frame = run_query(both_records(any_of(is_null(recorded().run_id), is_null(started().run_id))),
+    frame = run_query(both_records(any_of(is_null(recorded().run_id),
+                                          is_null(started().run_id))),
                       example_database.query)
     rows = [(int(r.run_id), r.in_job_runs == r.in_job_runs, r.started == r.started)
             for r in frame.itertuples()]
@@ -327,7 +328,8 @@ def test_full_join_warns_of_repeated_rows_as_join_does() -> None:
 def test_a_where_on_a_full_join_s_tables_is_refused(
         condition: Callable[..., Condition]) -> None:
     rec, sta = recorded(), started()
-    with pytest.raises(GuardRefused, match=r"FULL_JOIN\(started\) keeps the rows of both sides"):
+    with pytest.raises(GuardRefused,
+                       match=r"FULL_JOIN\(started\) keeps the rows of both sides"):
         statement(SELECT(rec.run_id), FROM(rec),
                   FULL_JOIN(sta, ON=equals(sta.run_id, rec.run_id)),
                   WHERE(condition(rec, sta)))
@@ -340,7 +342,8 @@ def test_a_full_join_s_where_may_keep_the_rows_with_no_match() -> None:
     rec, sta = recorded(), started()
     for condition in (is_null(rec.run_id), is_null(sta.run_id),
                       any_of(is_null(rec.run_id), is_null(sta.run_id))):
-        statement(SELECT(rec.run_id), FROM(rec), FULL_JOIN(sta, ON=equals(sta.run_id, rec.run_id)),
+        statement(SELECT(rec.run_id), FROM(rec),
+                  FULL_JOIN(sta, ON=equals(sta.run_id, rec.run_id)),
                   WHERE(condition))
 
 

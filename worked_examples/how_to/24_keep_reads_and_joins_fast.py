@@ -77,9 +77,9 @@ execute: SET hive.merge.tezfiles=true
 execute: SET hive.stats.autogather=true
 execute: SET hive.stats.column.autogather=true
 
-`run_execute` sends each SET line through your execute, as a call of its own, and gives back nothing;
-the Example database's execute prints each one. They hold only while your query and execute
-keep one session across their calls.
+`run_execute` sends each SET line through your execute, as a call of its own, and gives back
+nothing; the Example database's execute prints each one. They hold only while your query and
+execute keep one session across their calls.
 
 ### Give Hive the statistics it plans joins from
 
@@ -89,12 +89,14 @@ copying a small one would do. A Partition written with "statistics_on_write" is 
 is written; count one written without that setting with `compute_statistics`, and add
 `columns=True` to count each column's values too, which Hive reads to order several joins:
 
->>> count_day = compute_statistics(job_day_facts, partition={"dt": "2026-09-24"})  # -> Statement
+>>> count_day = compute_statistics(job_day_facts,
+...                                partition={"dt": "2026-09-24"})  # -> Statement
 >>> print(to_hive(count_day))
 ANALYZE TABLE mart.job_day_facts PARTITION(dt = '2026-09-24') COMPUTE STATISTICS
 >>> print(to_hive(compute_statistics(job_day_facts, partition={"dt": "2026-09-24"},
 ...                                  columns=True)))
-ANALYZE TABLE mart.job_day_facts PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, team, events, runs, minutes
+ANALYZE TABLE mart.job_day_facts PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS
+    job_id, team, events, runs, minutes
 
 `columns=[job_day_facts.job_id, job_day_facts.team]` counts only the columns you name, such as
 those you join or filter on, which reads less. `partition=` names the Partition to count. Left
@@ -146,8 +148,8 @@ stored](#choose_how_a_saved_table_is_stored) shows how.
 ### See Hive's plan with explain
 
 `explain` writes EXPLAIN before exactly the Hive `run_query` would send, and `run_query` gives
-back Hive's plan for it as text, without running the Statement. Here each team's events on 2026-09-24,
-each event joined to its job's owner that day:
+back Hive's plan for it as text, without running the Statement. Here each team's events on
+2026-09-24, each event joined to its job's owner that day:
 
 >>> events_per_team = statement(  # -> Statement
 ...     SELECT(job_owners.team, AS(count_rows(), "events")),
@@ -234,7 +236,8 @@ owns is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  compute_statistics(...) was given ops.job_events, which isn't one of your Saved tables: its Table reference has no location=.
+  What happened:  compute_statistics(...) was given ops.job_events, which isn't one of your
+                  Saved tables: its Table reference has no location=.
 ...
 
 Ask the team that owns it to keep its statistics.
@@ -248,7 +251,8 @@ alone is refused:
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  compute_statistics(job_day_facts, partition="2026-09-24"): partition= is a dict of partition columns and their values.
+  What happened:  compute_statistics(job_day_facts, partition="2026-09-24"): partition= is a
+                  dict of partition columns and their values.
 ...
 
 Write `partition={"dt": "2026-09-24"}`, as the steps do.

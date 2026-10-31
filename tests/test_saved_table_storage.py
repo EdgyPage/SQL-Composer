@@ -407,14 +407,16 @@ def test_a_location_holding_a_hive_variable_is_noted_not_compared() -> None:
 
 
 def test_help_says_how_a_location_holding_a_hive_variable_works() -> None:
-    call = 'run_execute(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}),'
+    call = ('run_execute(hive_settings("root", '
+            'sets={"root": {"hivevar:root": "/data/your_team"}}),')
     for doc in (Table.__doc__, create_table.__doc__):
         flat = " ".join(doc.split())
         assert call in flat
-        assert "check_table_reference then notes the table's folder rather than comparing" in flat
+        assert ("check_table_reference then notes the table's folder rather than comparing"
+                in flat)
     # The call the docstrings show is one hive_settings takes.
-    assert to_hive(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}})) == (
-        "SET hivevar:root=/data/your_team")
+    assert (to_hive(hive_settings("root", sets={"root": {"hivevar:root": "/data/your_team"}}))
+            == "SET hivevar:root=/data/your_team")
 
 
 def test_a_managed_table_is_a_problem() -> None:
@@ -443,8 +445,8 @@ def test_a_table_property_that_differs_is_a_problem(
 
 
 def test_buckets_the_reference_names_but_the_table_hasnt_are_a_problem() -> None:
-    assert ("the table has no Buckets: remove the lines bucketed_by=, buckets= and sorted_by=" in
-            checked(formatted(), bucketed_by=["job_id"], buckets=4))
+    assert ("the table has no Buckets: remove the lines bucketed_by=, buckets= and sorted_by="
+            in checked(formatted(), bucketed_by=["job_id"], buckets=4))
 
 
 def test_a_query_that_gives_no_location_leaves_the_storage_uncompared() -> None:

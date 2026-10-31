@@ -15,7 +15,8 @@ Each time you copy in a newer `sqlglot_composer` download: after deleting the ol
 copying in the new one and restarting the kernel, as the README's Update says. From 7.1 on,
 every Toolbox version ships the step that carries a Project to it from the version before.
 
-It needs [Start a Project](#start_a_project) and [Keep the Project in order](#keep_the_project_in_order).
+It needs [Start a Project](#start_a_project) and
+[Keep the Project in order](#keep_the_project_in_order).
 
 ## Steps
 
@@ -41,11 +42,13 @@ none, and is taken to be 7.1.
 
 Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time
 you restart the kernel (this page imported it before taking the version file out, so it shows no
-warning), and `project.check()` says so too. Nothing is refused meanwhile: your notebooks still run.
+warning), and `project.check()` says so too. Nothing is refused meanwhile: your notebooks still
+run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.1, and this Toolbox is 7.2: run project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb once the Project has one.
+The Project was last written by Toolbox 7.1, and this Toolbox is 7.2: run project.upgrade() in a
+    new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb once the Project has one.
 
 ### Upgrade it
 
@@ -60,7 +63,8 @@ It ran the step from each version to the next, here one, and wrote a checklist f
 
 >>> checklist = Path("admin/upgrade_7.2.md").read_text(encoding="utf-8")  # -> str
 >>> [line for line in checklist.splitlines() if line.startswith(("- ", "Nothing"))]
-['- added admin/conversions/', '- added admin/convert.ipynb', '- added admin/upgrade.ipynb', '- recorded 7.2 in admin/project_version.txt', 'Nothing: 7.2 needs nothing changed by hand.']
+['- added admin/conversions/', '- added admin/convert.ipynb', '- added admin/upgrade.ipynb',
+ '- recorded 7.2 in admin/project_version.txt', 'Nothing: 7.2 needs nothing changed by hand.']
 
 Under Done for you, it lists each change it made, and under For you to do, each it left you.
 
@@ -73,7 +77,8 @@ line, with a box on the checklist. Make each change, delete its mark, and tick i
 `project.check()` says nothing of the version, and lists no `# UPGRADE` mark left:
 
 >>> print(project.check())
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 Run again, the Upgrade does nothing:
 

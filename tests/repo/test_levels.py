@@ -117,6 +117,12 @@ def _problem(name: str, level: int, levels: dict[str, int] = IMPORTED_LEVELS,
         return None if name == "sqlglot_composer" else f"{name} reaches inside the Toolbox"
     if top == "composer_core":
         return f"{name} is the Toolbox's folder from before 6.0: import from sqlglot_composer"
+    return _problem_outside_the_toolbox(name, top, level, levels)
+
+
+def _problem_outside_the_toolbox(name: str, top: str, level: int,
+                                 levels: dict[str, int]) -> str | None:
+    """The problem with importing `name`, whose top folder `top` isn't the Toolbox's."""
     if top in levels:
         if levels[top] < level:
             return None

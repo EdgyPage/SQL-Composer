@@ -149,7 +149,8 @@ def _off_the_machine(event: str, args: tuple[object, ...]) -> str | None:
 
 def _as_text(host: object) -> object:
     """A host given as bytes, as text; any other as it is."""
-    return bytes(host).decode("ascii", "replace") if isinstance(host, (bytes, bytearray)) else host
+    return (bytes(host).decode("ascii", "replace") if isinstance(host, (bytes, bytearray))
+            else host)
 
 
 def _on_this_machine(host: object) -> bool:

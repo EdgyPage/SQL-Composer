@@ -185,7 +185,8 @@ def test_a_statement_with_a_window_runs() -> None:
     """The newest run of each job, as how-to 10 shows it: through a Derived table."""
     numbered = derived("numbered", statement(
         SELECT(job_runs.run_id, job_runs.job_id,
-               AS(row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
+               AS(row_number(PARTITION_BY=job_runs.job_id,
+                             ORDER_BY=descending(job_runs.run_id)),
                   "newest_first")),
         FROM(job_runs, reads_all_partitions=True)))
     newest = statement(SELECT(numbered.job_id, numbered.run_id), FROM(numbered),
@@ -212,7 +213,8 @@ def test_a_window_it_cant_work_out_is_refused_plainly(calculation: str, missing:
     with pytest.raises(RuntimeError) as refused:
         example_database.query(f"SELECT r.run_id, {calculation} AS x FROM ops.job_runs AS r")
     message = str(refused.value)
-    assert f"The Example database can't run this Hive: its executor has no {missing}." in message
+    assert (f"The Example database can't run this Hive: its executor has no {missing}."
+            in message)
     assert "to_hive(...)" in message
 
 

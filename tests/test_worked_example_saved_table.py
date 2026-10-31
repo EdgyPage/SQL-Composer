@@ -1,8 +1,8 @@
 """Worked example: building a Saved table, from create_table to drop_table.
 
 The Example database can't be written to, so these check each step's Hive, and check what
-each write would put in its day's Partition by sending the write's SELECT on its own and comparing it
-with pandas.
+each write would put in its day's Partition by sending the write's SELECT on its own and
+comparing it with pandas.
 """
 
 from __future__ import annotations

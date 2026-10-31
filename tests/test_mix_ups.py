@@ -82,9 +82,9 @@ def _one_day(*clauses: Clause) -> Statement:
     (lambda: export_lineage(OTHERS_STATEMENT), "export_lineage", "a Statement"),
     (lambda: check_key(OTHERS_TABLE, query=example_database.query), "check_key",
      "a Table reference"),
-], ids=["FROM", "JOIN", "JOIN ON", "FROM a Derived table", "all_columns", "SELECT", "AS", "WHERE", "GROUP_BY",
-        "ORDER_BY", "equals column", "equals value", "arithmetic", "sum_of",
-        "count_rows where", "if_else", "statement", "derived", "to_hive",
+], ids=["FROM", "JOIN", "JOIN ON", "FROM a Derived table", "all_columns", "SELECT", "AS",
+        "WHERE", "GROUP_BY", "ORDER_BY", "equals column", "equals value", "arithmetic",
+        "sum_of", "count_rows where", "if_else", "statement", "derived", "to_hive",
         "export_lineage", "check_key"])
 def test_an_object_another_folder_made_is_named_so(call: Callable[[], object], given: str,
                                                               called: str) -> None:
@@ -94,8 +94,8 @@ def test_an_object_another_folder_made_is_named_so(call: Callable[[], object], g
     assert (f"was given {called} made by the {OTHER} folder, which isn't part of the Toolbox "
             f"you imported, {FOLDER}.") in message and given in message
     # The fix says which file to change, and how.
-    assert (f"In the file the {called.split(' ', 1)[1]} came from, change `from {OTHER} import` "
-            f"to `from {FOLDER} import`.") in message
+    assert (f"In the file the {called.split(' ', 1)[1]} came from, "
+            f"change `from {OTHER} import` to `from {FOLDER} import`.") in message
 
 
 def test_an_object_no_toolbox_folder_made_gets_the_message_it_got_before() -> None:

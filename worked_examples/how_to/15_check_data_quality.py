@@ -80,7 +80,8 @@ says so in a sentence:
 
 >>> check_key(job_owners, query=query,  # -> Verdict
 ...           where=between(job_owners.dt, "2026-09-11", "2026-09-24"))
-ops.job_owners: the key (job_id, dt) holds where job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24'.
+ops.job_owners: the key (job_id, dt) holds where job_owners.dt BETWEEN '2026-09-11' AND
+    '2026-09-24'.
 
 ### Count the NULLs in every column
 
@@ -237,13 +238,14 @@ The Project keeps the checks it runs every day in a Table notebook made from the
 quality_checks Template: `project.new_table("mart.job_events_checks",
 template="quality_checks")` made tables/mart__job_events_checks/mart__job_events_checks.ipynb.
 Its logic cell names the rows it checks once, as READS, the newest day of `ops.job_events`,
-and defines a check of repeated Keys and a NULL count, as above, beside a `checks_logic.write()` that saves
-each day's row count, so a day that came in short shows beside the days around it.
+and defines a check of repeated Keys and a NULL count, as above, beside a `checks_logic.write()`
+that saves each day's row count, so a day that came in short shows beside the days around it.
 `project.load` gives its functions:
 
 >>> checks_logic = project.load("mart.job_events_checks")  # -> the notebook's functions
 >>> checks_logic
-The logic of mart.job_events_checks: create, rows, preview, write, repeated_keys, column_name, null_counts.
+The logic of mart.job_events_checks: create, rows, preview, write, repeated_keys, column_name,
+    null_counts.
 >>> run_query(checks_logic.repeated_keys(), query)  # -> DataFrame
 Empty DataFrame
 Columns: [event_id, times_seen]
@@ -319,7 +321,8 @@ NULL count over all of `ops.region_costs` is refused, naming its partition colum
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(region_costs) reads ops.region_costs, but filters none of its partition columns: region, dt.
+  What happened:  FROM(region_costs) reads ops.region_costs, but filters none of its partition
+                  columns: region, dt.
 ...
 
 Give each check the Partitions it checks, as `null_counts` takes them in `where`.

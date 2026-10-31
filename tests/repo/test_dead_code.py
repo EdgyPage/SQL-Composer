@@ -1,5 +1,5 @@
-"""What the Toolbox and tools/ define is used: no dead name, no private name reached across files
-but the few listed, and every keyword of a public function passed somewhere.
+"""What the Toolbox and tools/ define is used: no dead name, no private name reached across
+files but the few listed, and every keyword of a public function passed somewhere.
 
 A use is read with ast, never by running anything: a name or attribute in code, a string that
 is exactly the name (getattr, mock.patch.object, __all__), a name in a doctest example, in a
@@ -212,7 +212,8 @@ def _module_aliases(tree: ast.Module) -> dict[str, set[str]]:
                 and isinstance(node.iter, (ast.Tuple, ast.List))
                 and all(isinstance(item, ast.Name) and item.id in aliases
                         for item in node.iter.elts)):
-            aliases[node.target.id] = set().union(*(aliases[item.id] for item in node.iter.elts))
+            aliases[node.target.id] = set().union(*(aliases[item.id]
+                                                    for item in node.iter.elts))
     return aliases
 
 

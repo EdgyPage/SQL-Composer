@@ -57,7 +57,8 @@ def _value(hive: str, at: int) -> tuple[str, int]:
             return "".join(decoded), at + 1
         if character == "\\":
             escaped = hive[at + 1]
-            decoded.append("\\" + escaped if escaped in "%_" else _CONTROL.get(escaped, escaped))
+            decoded.append("\\" + escaped if escaped in "%_"
+                           else _CONTROL.get(escaped, escaped))
             at += 2
         else:
             decoded.append(character)

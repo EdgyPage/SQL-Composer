@@ -20,7 +20,8 @@ COPILOT = ROOT / "copilot"
 MERGED = COPILOT / "all_in_one" / "all_copilot_files.txt"
 # What the document is, at its top, for someone who opens it before the README.
 HEADER = ("Every Copilot file in one document, for reading or searching them together. It is\n"
-          "many times the 8,000 characters Copilot takes at once, so it is not for Copilot: there,\n"
+          "many times the 8,000 characters Copilot takes at once, so it is not for Copilot: "
+          "there,\n"
           "paste or attach the separate files in copilot/, as 00_start_here.txt says.\n\n")
 
 
