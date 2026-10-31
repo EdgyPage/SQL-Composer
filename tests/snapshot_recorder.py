@@ -48,6 +48,9 @@ WRITING = os.environ.get("SNAPSHOT_WRITE") == "1"
 TIME = re.compile(r"\d{4}-\d{2}-\d{2}[ T_]\d{2}[:\-.]\d{2}([:\-.]\d{2}(\.\d+)?)?"
                   r"|\b\d{8}-\d{6}\b")
 ADDRESS = re.compile(r"\b0x[0-9a-fA-F]{6,}\b")
+# A temp folder's placeholder and the path after it, whose separators are written as / so a
+# path reads the same on Windows as on Linux, where CI runs.
+TEMP_PATH = re.compile(r"<tmp>[^\s'\"<>,;:)]*")
 # The kinds of text that are prose a user reads, where a time or an address can change run to
 # run; Hive and rows are kept exactly.
 PROSE = frozenset({"message", "printed", "report"})
@@ -63,6 +66,8 @@ def text_as_kept(kind: str, text: str) -> str:
     for folder in temp_folders:
         for spelling in (folder, folder.replace("\\", "/"), folder.replace("\\", "\\\\")):
             text = text.replace(spelling, "<tmp>")
+    text = TEMP_PATH.sub(lambda path: path.group().replace("\\\\", "/").replace("\\", "/"),
+                         text)
     if kind in PROSE:
         text = ADDRESS.sub("<address>", TIME.sub("<time>", text))
     return text
@@ -85,8 +90,9 @@ def recorded_function(kind: str, function: Callable[..., object],
 
 
 def rows_as_text(rows: pd.DataFrame) -> str:
-    """A DataFrame of rows as CSV, the text the snapshot keeps for it."""
-    return rows.to_csv(index=False)
+    """A DataFrame of rows as CSV, the text the snapshot keeps for it, each line ended with LF
+    on every computer: to_csv's own ending is the computer's, CRLF on Windows."""
+    return rows.to_csv(index=False, lineterminator="\n")
 
 
 def recorded_print(*values: object, sep: str = " ", **kwargs: object) -> None:
