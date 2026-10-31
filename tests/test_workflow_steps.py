@@ -108,7 +108,7 @@ def test_the_change_is_written_once_the_change_cell_names_an_admin_statement(
 def test_the_check_is_run_before_the_send_from_the_hive_show_hive_prints() -> None:
     steps = workflows.CHANGE_A_SAVED_TABLE.steps
     assert "run the check its Check first line names" in steps[1].name
-    assert steps[-1].name == "Send it"
+    assert steps[-1].name.startswith("Send it, then any check after it")
     assert steps[0].done is workflows.change_written
     assert "project.table_reference(TABLE)" in steps[0].call
 
@@ -138,6 +138,6 @@ def test_a_step_no_file_tells_of_says_so(started: Path) -> None:
              for kind, text in notebooks.read_cells(path)]
     path.write_bytes(notebooks.notebook_bytes(cells))
     said = repr(project.check())
-    assert "2. Print the Hive it sends" in said
+    assert "2. Print its Hive" in said
     assert "No file tells when it is done" in said
 

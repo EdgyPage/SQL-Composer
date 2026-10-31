@@ -432,7 +432,7 @@ def test_the_script_gives_every_block_of_python_and_hive_a_copy_button_and_nothi
     assert 'querySelectorAll("pre.python, pre.hive")' in the_script()
     kinds = set(re.findall(r'<pre class="([a-z]+)">', page()))
     assert {"python", "hive"} <= kinds
-    assert kinds <= {"python", "hive", "output", "refusal", "file"}
+    assert kinds <= {"python", "hive", "output", "refusal", "file", "chart"}
 
 
 # --- What the tool shows, and refuses --------------------------------------------------------

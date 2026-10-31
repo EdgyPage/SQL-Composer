@@ -262,11 +262,20 @@ def is_code(paragraph: str) -> bool:
     return all(line.startswith("    ") or not line.strip() for line in paragraph.splitlines())
 
 
+def is_chart(paragraph: str) -> bool:
+    """Whether a paragraph is a Mermaid chart, fenced as ```mermaid and ```, which a page shows
+    as its text, as an LLM reads it, where GitHub and VS Code draw it."""
+    return paragraph.startswith("```mermaid\n") and paragraph.endswith("\n```")
+
+
 def prose_html(text: str, line: Callable[[str], str] = inline) -> str:
-    """Prose: paragraphs, "- " lists and indented code, each line of words shown by `line`."""
+    """Prose: paragraphs, "- " lists, indented code and Mermaid charts, each line of words
+    shown by `line`."""
     shown = []
     for paragraph in paragraphs(text):
-        if is_code(paragraph):
+        if is_chart(paragraph):
+            shown.append(f'<pre class="chart">{escape(paragraph)}</pre>')
+        elif is_code(paragraph):
             shown.append(code_html(textwrap.dedent(paragraph)))
         elif paragraph.startswith("- "):
             items = re.split(r"\n(?=- )", paragraph)

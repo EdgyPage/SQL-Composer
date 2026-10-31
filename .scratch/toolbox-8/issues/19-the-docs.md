@@ -52,3 +52,35 @@ Everything a user reads, brought to 8.0: the Workflows as the way to do each job
   - generated from `workflows.py`'s step lists by `tools/workflow_graph.py`, never typed by
     hand, and a test holds every copy to what the tool writes.
 - The beginner reader has run on every changed page, its report linked here.
+
+## Answer
+
+Built in parts, each its own commit.
+
+### The flow charts (19a)
+
+- `tools/workflow_graph.py` writes every chart a user reads, from `workflows.py`'s step lists:
+  each Workflow's, as before, and two more, kept as constants in the tool: the program flow,
+  the Toolbox's own path from a Table reference through Clause functions, a Statement, the
+  Guards and Load limits and to_hive, to run_query or run_execute through warehouse.py, with
+  where a Saved table's notebook and a Conversion join it; and the Excel flow, from a Formula
+  workbook through Copilot files 11 and 12, Hive, the convert Workflow, dev, compare and
+  promote. Each is a fenced `mermaid` block beside the same steps as a numbered list, each
+  step's kind in words and its call under it (`steps_listed`, which the Copilot files take
+  alone).
+- The README template, `docs/clean-branch-readme.md`, gains "The Workflows": the program flow
+  and each Workflow's chart, between `<!-- chart: NAME -->` markers the tool fills; the Excel
+  flow sits in "Have Copilot write it".
+- How-to 29, "Follow a Workflow" (`worked_examples/how_to/29_follow_a_workflow.py`), is written
+  whole by the tool: the imports each Workflow notebook starts with, then per Workflow its
+  chart, its names cell and its steps, so each Workflow's how-to is generated from its step
+  list, as its notebook is. The how-to page and the Example gallery show a fenced Mermaid
+  chart as its text (`example_gallery.is_chart`); a test holds the README's charts and how-to
+  29 to what the tool writes.
+- Settled here: a chart a user reads names each step without its call, which the list beside
+  it gives, as a call on several lines can't sit in a Mermaid label; docs/workflows.md keeps
+  the calls in its labels. Three step names were shortened to fit a chart's line, their
+  detail moved to their calls.
+- D351 fixed here: CHANGES names `project.table_reference`. The send step of
+  change_a_saved_table names a check after it, such as admin.check_the_copy, which
+  move_to_own_folder needs.

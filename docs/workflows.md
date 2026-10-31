@@ -156,7 +156,8 @@ flowchart TD
     class s1 decision
     t2 --> s1
     s1 --> t3
-    s2{"3. Write each table's logic in its Table notebook, in tables/, and save it: project.load(table).write() says what stops it"}
+    s2{"3. Write each table's logic in its Table notebook, and save it: for table in TABLES:
+    project.load(table).write()  #35; says what stops it, if anything does"}
     class s2 decision
     t1 --> s2
     t4 --> s2
@@ -289,11 +290,11 @@ change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}
     t0 --> s0
     t1 --> s0
     s0 --> t2
-    s1["2. Print the Hive it sends, which sends nothing, and run the check its Check first line names: show_hive(change)"]
+    s1["2. Print its Hive, and run the check its Check first line names: show_hive(change)"]
     class s1 file
     t2 --> s1
     s1 --> t3
-    s2[["3. Send it: run_execute(change, execute)"]]
+    s2[["3. Send it, then any check after it, such as admin.check_the_copy: run_execute(change, execute)"]]
     class s2 permission
     t3 --> s2
     s2 --> t4
