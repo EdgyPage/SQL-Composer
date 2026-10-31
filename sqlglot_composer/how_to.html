@@ -16187,13 +16187,14 @@ print(project.check())</pre>
 <p>Run <code>project.upgrade()</code> from a notebook in the Project: the first time, in a new cell of admin/check_project.ipynb, which imports <code>project</code> already.</p>
 <pre class="python">print(project.upgrade())</pre>
 <p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.0.
-8.0: nothing to change by hand. admin/upgrade_8.0.md lists what it did.</pre>
-<p class="label">It writes 14 files</p>
+8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.</pre>
+<p class="label">It writes 15 files</p>
 <pre class="file">admin/admin_log.md
 admin/databases.py
 admin/new_block.ipynb
 admin/project_version.txt
 admin/remove.ipynb
+admin/removed/20260925-090000-upgrade_8.0/admin/databases.py
 admin/removed/20260925-090000-upgrade_8.0/admin/new_block.ipynb
 admin/sent.csv
 admin/upgrade_8.0.md
@@ -16206,7 +16207,7 @@ admin/workflows/upgrade/upgrade.ipynb</pre>
 <p>It ran the step from each version to the next, here one, and wrote a checklist for each:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 for line in checklist.splitlines():
-    if line.startswith((&quot;- &quot;, &quot;Nothing&quot;)):
+    if line.startswith(&quot;- &quot;):
         print(line)</pre>
 <p class="label">Python prints</p><pre class="output">- rewrote admin/new_block.ipynb
 - added admin/remove.ipynb
@@ -16219,9 +16220,25 @@ for line in checklist.splitlines():
 - added admin/databases.py
 - added admin/sent.csv
 - recorded 8.0 in admin/project_version.txt
-Nothing: 8.0 needs nothing changed by hand.</pre>
-<p>Under Done for you, it lists each change it made, and under For you to do, each it left you.</p>
-<p>A version that changes your files lists each change it made, keeps each file as it was in admin/removed/, and marks each change it leaves for you with an <code># UPGRADE</code> comment at its line, with a box on the checklist. Make each change, delete its mark, and tick its box.</p>
+- [ ] admin/databases.py, line 6: fill in your Dev Database&#x27;s name
+- [ ] admin/databases.py, line 8: fill in your Prod Database&#x27;s name</pre>
+<p>Under Done for you, it lists each change it made, keeping each file it changed as it was in admin/removed/, and under For you to do, each change it left you, marked with an <code># UPGRADE</code> comment at its line, with a box. Here 8.0 added admin/databases.py, whose two names are yours to fill in.</p>
+<h5>Make each change it marked</h5>
+<p>Make each change, delete its mark, and tick its box. Open admin/databases.py, fill in DEV and PROD with your own databases&#x27; names, and delete the two <code># UPGRADE 8.0:</code> lines. This page stands in for your editor:</p>
+<pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # -&gt; Path
+text = databases.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
+text = text.replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;).replace(&#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart&quot;&#x27;)
+kept = [line for line in text.splitlines(keepends=True)
+        if not line.startswith(&quot;# UPGRADE&quot;)]  # -&gt; list
+_ = databases.write_text(&quot;&quot;.join(kept), encoding=&quot;utf-8&quot;)</pre>
+<p class="label">It writes admin/databases.py</p>
+<pre class="python">&quot;&quot;&quot;databases - the two Databases you own: DEV, where you build and check
+tables, and PROD, where tables other people rely on are written. Set each once; the Workflows
+read them.
+&quot;&quot;&quot;
+
+DEV = &quot;mart_dev&quot;  # such as &quot;mart_dev&quot;
+PROD = &quot;mart&quot;  # such as &quot;mart&quot;</pre>
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says nothing of the version, and lists no <code># UPGRADE</code> mark left:</p>
 <pre class="python">print(project.check())</pre>

@@ -1257,6 +1257,14 @@ def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
                 fix="Check each path, such as files=[\"daily.hql\", \"weekly.hql\"].",
                 error=FileNotFoundError,
             )
+        if path.name in dict(scripts):
+            refuse(
+                what=f"{call}: two of its files are named {path.name}.",
+                why="A batch keeps each script by its file's name, and names a query alone in "
+                "it for its file.",
+                fix="Rename one of the two files, then run it again.",
+                error=ValueError,
+            )
         scripts.append((path.name, path.read_text(encoding="utf-8")))
     return scripts
 
@@ -1384,7 +1392,8 @@ def upgrade() -> ProjectReport:
     >>> project.upgrade()
     Upgraded the Project from 7.1 to 8.0.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
-    8.0: nothing to change by hand. admin/upgrade_8.0.md lists what it did.
+    8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
+        admin/upgrade_8.0.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
     cell of admin/check_project.ipynb, which imports project already, or of
@@ -1641,7 +1650,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     "weekly"} gives it; one query alone, which writes no table, becomes mart_dev.<name>, and of
     several scripts, each that holds one query alone becomes a Saved table named for its file,
     such as mart_dev.sales for sales.hql. Two tables with one name in dev are refused, naming
-    both, before anything is written. A statement that reads a table the batch writes before it
+    both, before anything is written, and so are two files of one name, from different folders,
+    and a query alone named as a table the batch reads or writes, such as job_runs.hql in a
+    batch that reads ops.job_runs. A statement that reads a table the batch writes before it
     reads its copy in dev; one that reads it before its write, in the same script, reads it as
     it was; a table it only reads keeps its name, and gets a Table reference from DESCRIBE.
 
@@ -1808,12 +1819,13 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
     statements = converting.batch_statements(scripts, database, f"{database}.{name}")
+    _refuse_a_query_named_like_another(call, statements)
     names, ordered = _batch_plan(call, statements, dev, rename)
     if not names:
         refuse(
             what=f"{call}: its Hive writes no table, and holds no query alone to save.",
             why="A Conversion makes each table its Hive writes a Saved table in dev, or one "
-            "query alone a Saved table named for the batch.",
+            "query alone a Saved table named for the batch, or for its file.",
             fix="Give it Hive that writes a table, or one query.",
             error=ValueError,
         )
@@ -1866,6 +1878,33 @@ def _original_of(ordered: list[converting.BatchStatement], table: str) -> str | 
     if _writes_to(ordered, table)[0].kind == converting.QUERY:
         return None
     return table
+
+
+def _refuse_a_query_named_like_another(call: str,
+                                       statements: list[converting.BatchStatement]) -> None:
+    """Refuse a query alone named as a table the batch reads or writes, saying whether its
+    file's name or the batch's is the one to change."""
+    clash = converting.query_named_like_another(statements)
+    if clash is None:
+        return
+    short = split_table_name(clash.table)[1]
+    # A query alone in the whole batch is named for the batch; one of several, for its file.
+    rest = [each for each in statements
+            if each is not clash and each.kind != converting.SETTING]
+    if rest:
+        named_for = f"its file, {clash.script}"
+        fix = f"Rename {clash.script}, such as {short}_report.hql, and FILES with it"
+    else:
+        named_for, fix = "the batch", f'Name the batch otherwise, such as "{short}_report"'
+    refuse(
+        what=f"{call}: the query alone in {clash.script} is named {short}, for {named_for}, "
+        f"and so is {clash.table}, a table the batch reads or writes.",
+        why="A query alone becomes a Saved table named for its file, or for the batch when it "
+        "is all the batch holds, and taken as a table of the database the Hive names none "
+        "in: named as a table the batch reads, it would read itself in its place.",
+        fix=f"{fix}, then run it again.",
+        error=ValueError,
+    )
 
 
 def _batch_plan(call: str, statements: list[converting.BatchStatement], dev: str,
@@ -2571,16 +2610,16 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
 
     It is the convert Workflow's last step. It compares the tables once written, not their
     queries: each dev table's rows with the rows of the table it copies, its original, through
-    your query, as compare_with_original compares them. A table partitioned by a column, such
-    as dt, is compared on one Partition: the one partition= gives, such as {"dt":
-    "2026-09-24"}, when both tables hold it; else the latest both hold, of the Partitions Hive's
-    SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in
-    common, or none you gave, the table fails, naming what each holds: write the dev copy for a
+    your query, as compare_with_original compares them. A table partitioned by a column, such as
+    dt, is compared on one Partition: the one partition= gives, such as {"dt": "2026-09-24"},
+    when both tables hold it; else the latest both hold, of the Partitions Hive's SHOW
+    PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in common,
+    or none you gave, the table fails, naming what each holds: write the dev copy for a
     Partition the original holds, or give one both hold. A table with no Partitions is compared
-    on every row. A query alone, which convert made a Saved table named for the batch, has no
-    original table: its rows are compared with the query's, kept in its
-    conversion/statement.hql. A partition= that names no column any of them is partitioned by
-    is refused.
+    on every row. A query alone, which convert made a Saved table named for the batch, or for
+    its file in a batch of several scripts, has no original table: its rows are compared with
+    the query's, kept in its conversion/statement.hql. A partition= that names no column any of
+    them is partitioned by is refused.
 
     Each result is written in the table's conversion/compare.md, with the rows that differ, at
     most 5 from each, as compare_with_original gives them, where the Statement is the dev

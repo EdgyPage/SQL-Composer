@@ -141,16 +141,15 @@ def test_the_example_projects_of_the_version_before_upgrade_into_this_ones(
 
 def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> None:
     made_by_7_1(started)
-    assert repr(project.upgrade()) == (
-        f"Upgraded the Project from 7.1 to {VERSION}.\n"
-        "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.\n"
-        f"{VERSION}: nothing to change by hand. admin/upgrade_{VERSION}.md lists what it did.")
+    said = repr(project.upgrade()).split("\n")
+    assert said[:2] == [
+        f"Upgraded the Project from 7.1 to {VERSION}.",
+        "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did."]
+    assert said[2].startswith(f"{VERSION}: ")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
     assert "- added admin/workflows/upgrade/upgrade.ipynb\n" in checklist
-    checklist = (started / "admin" / f"upgrade_{VERSION}.md").read_text(encoding="utf-8")
-    assert f"Nothing: {VERSION} needs nothing changed by hand." in checklist
 
 
 def test_an_upgrade_is_logged_as_a_project_action(started: Path) -> None:
@@ -352,3 +351,110 @@ def test_the_import_says_nothing_otherwise(tmp_path: Path, monkeypatch: pytest.M
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         project.warn_if_behind()
+
+
+# --- The step from 7.2 to 8.0: a Conversion 7.2 left open ---------------------------------
+
+ORIGINAL = "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'\n"
+FINISHING = 'project.finish_conversion("team_runs", table="mart.team_runs")'
+
+
+@pytest.fixture
+def open_in_7_2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> Path:
+    """The Starter project as 7.2 left it, with a Conversion, team_runs, not finished, and a
+    script of yours that finishes it, beside a line that only says so."""
+    root = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "7.2" / "starter", root)
+    folder = root / "admin" / "conversions" / "team_runs"
+    folder.mkdir(parents=True)
+    (folder / "original.hql").write_text(ORIGINAL, encoding="utf-8")
+    (folder / "scan.md").write_text("# team_runs\n", encoding="utf-8")
+    toolbox_module("notebooks").write_notebook(
+        folder / "team_runs.ipynb", [("code", "statement = 'yours, changed'")])
+    (root / "finish.py").write_text(
+        f"from sqlglot_composer import project\n\n# {FINISHING}\n{FINISHING}\n",
+        encoding="utf-8")
+    monkeypatch.chdir(root)
+    return root
+
+
+def names_cell(root: Path) -> str:
+    """The convert Workflow notebook's third cell, its names cell."""
+    notebook = root / "admin" / "workflows" / "convert" / "convert.ipynb"
+    return "".join(json.loads(notebook.read_text(encoding="utf-8"))["cells"][2]["source"])
+
+
+def test_an_open_conversions_hive_is_put_beside_the_convert_workflow(open_in_7_2: Path) -> None:
+    project.upgrade()
+    hive = open_in_7_2 / "admin" / "workflows" / "convert" / "team_runs.hql"
+    assert hive.read_text(encoding="utf-8") == ORIGINAL
+    assert not (open_in_7_2 / "admin" / "conversions").exists()
+
+
+def test_an_open_conversions_folder_is_kept_as_it_was(open_in_7_2: Path) -> None:
+    project.upgrade()
+    kept = (open_in_7_2 / "admin" / "removed" / f"20261026-093000-upgrade_{VERSION}" / "admin"
+            / "conversions" / "team_runs")
+    assert sorted(path.name for path in kept.iterdir()) == [
+        "original.hql", "scan.md", "team_runs.ipynb"]
+    assert "yours, changed" in (kept / "team_runs.ipynb").read_text(encoding="utf-8")
+
+
+def test_the_convert_workflow_is_marked_to_convert_it_again(open_in_7_2: Path) -> None:
+    project.upgrade()
+    mark, name = names_cell(open_in_7_2).split("\n")[:2]
+    assert mark.startswith(f'# UPGRADE {VERSION}: convert team_runs again, as a batch: NAME = '
+                           '"team_runs", FILES = ["team_runs.hql"], and DATABASE as 7.2\'s '
+                           "admin/convert.ipynb set it")
+    assert name.startswith("NAME =")
+    checklist = (open_in_7_2 / "admin" / f"upgrade_{VERSION}.md").read_text(encoding="utf-8")
+    assert ("- [ ] admin/workflows/convert/convert.ipynb, cell 3, line 1: convert team_runs "
+            "again") in checklist
+
+
+def test_each_call_to_finish_conversion_is_marked(open_in_7_2: Path) -> None:
+    project.upgrade()
+    lines = (open_in_7_2 / "finish.py").read_text(encoding="utf-8").split("\n")
+    assert lines[2:5] == [f"# {FINISHING}",
+                          f"# UPGRADE {VERSION}: finish_conversion is gone: delete this line, "
+                          "convert the Hive again in admin/workflows/convert/convert.ipynb, "
+                          "and promote its table for the name you gave here",
+                          FINISHING]
+
+
+def test_a_call_in_a_cell_with_a_magic_is_marked(open_in_7_2: Path) -> None:
+    notebook = open_in_7_2 / "finish.ipynb"
+    toolbox_module("notebooks").write_notebook(
+        notebook, [("markdown", f"Run {FINISHING} last."), ("code", f"%time\n{FINISHING}")])
+    project.upgrade()
+    cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+    assert cells[1]["source"][0] == "%time\n"
+    assert cells[1]["source"][1].startswith(f"# UPGRADE {VERSION}: finish_conversion is gone")
+    assert "UPGRADE" not in "".join(cells[0]["source"])
+
+
+def test_a_conversion_with_no_hive_says_where_its_files_are_kept(open_in_7_2: Path) -> None:
+    (open_in_7_2 / "admin" / "conversions" / "team_runs" / "original.hql").unlink()
+    project.upgrade()
+    assert not (open_in_7_2 / "admin" / "workflows" / "convert" / "team_runs.hql").exists()
+    mark = names_cell(open_in_7_2).split("\n")[0]
+    assert "FILES =" not in mark
+    assert "its Hive, which its 7.2 folder didn't hold, kept in admin/removed/" in mark
+
+
+def test_each_name_databases_py_still_holds_unfilled_is_marked(open_in_7_2: Path) -> None:
+    assert repr(project.upgrade()).split("\n")[1].startswith(
+        f"{VERSION}: 4 changes for you to make")
+    lines = (open_in_7_2 / "admin" / "databases.py").read_text(encoding="utf-8").split("\n")
+    marked = [number for number, line in enumerate(lines) if line.startswith("# UPGRADE")]
+    assert [lines[number + 1].split(" =")[0] for number in marked] == ["DEV", "PROD"]
+
+
+def test_a_filled_in_name_is_not_marked(open_in_7_2: Path) -> None:
+    databases = open_in_7_2 / "admin" / "databases.py"
+    databases.write_text(toolbox_module("project").DATABASES_TEXT.replace(
+        '"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
+    project.upgrade()
+    lines = databases.read_text(encoding="utf-8").split("\n")
+    assert [line for line in lines if line.startswith("# UPGRADE")] == [
+        f"# UPGRADE {VERSION}: fill in your Prod Database's name"]

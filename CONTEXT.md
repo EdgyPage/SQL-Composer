@@ -117,9 +117,10 @@ _Avoid_: migration, port, conversion, update script
 A Project action that reads Hive someone else wrote, one query or one or more scripts, and
 writes the user's own code for it. Each table the scripts write becomes a Saved table in the
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
-that copy; one query alone becomes a Saved table named for the batch. Each gets its Table
-folder, whose notebook's Statement gives the same rows, its Table reference, and a checklist
-of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
+that copy; one query alone becomes a Saved table named for the batch, and in a batch of
+several scripts, each script that holds one query alone a Saved table named for its file.
+Each gets its Table folder, whose notebook's Statement gives the same rows, its Table
+reference, and a checklist of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
 pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
 _Avoid_: migration, port, translation, import, upgrade
 

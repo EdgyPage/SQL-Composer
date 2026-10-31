@@ -117,7 +117,8 @@ EXCEL_FLOW = ("""flowchart TD
                 "workbook as Hive, a query for each final Table", ""),
                ("Fill in each name it writes in angle brackets, save each query as a .hql "
                 "file named for its final Table, and convert them as one batch in the convert "
-                "Workflow, DEV filled in: each becomes a Saved table named for its file",
+                "Workflow, DEV filled in: each becomes a Saved table named for its file, or, "
+                "when the batch is one file, for the batch",
                 'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
                ("Tick each checklist, then create, seed and write each table in dev, as the "
                 "Workflow's steps say", ""),

@@ -69,6 +69,14 @@ Spark Composer, a second Edition, was dropped in 6.0 (ADR 0008); the tag `last-s
 holds it. `tools/toolbox_registry.py` is the one registry of which files the folder holds and
 what each may import. `CHANGES.md`, the change notes, is at the repo's top.
 
+## A Project's admin folder
+
+Since 8.0, a Project's admin folder, as `example_projects/intermediate/admin/` shows, keeps each
+Workflow's notebook in workflows/<workflow>/, a convert batch's index beside it in
+workflows/convert/<name>/ (finished/<name>/ once compared), promotion's record in
+workflows/promote/promoted.json, the Dev and Prod Database names in databases.py, and at its
+top only the notebooks no one Workflow owns, such as check_project.ipynb and remove.ipynb.
+
 ## Drift
 
 After a commit that touches the Toolbox's folder, `worked_examples/`, `example_projects/`,

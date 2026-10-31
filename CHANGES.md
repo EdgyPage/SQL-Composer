@@ -4,7 +4,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 8.0
 
-8.0 is being built on dev; this section grows with it, and ships when it is done.
+8.0 adds Workflows: a notebook per job you do, such as a new table, a Conversion of someone
+else's Hive into your Dev Database, or a Promotion to your Prod Database, each naming its next
+step; and every Project action takes one name or many. `finish_conversion` is gone: a
+Conversion now makes its Saved tables itself.
 
 ### Workflows
 
@@ -33,8 +36,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   reads what, and makes each table they write a Saved table in your Dev Database, named
   `<table>_<its database>`, with its Table folder and its Table reference, its types from the
   CREATE; a table they only create gets its Table reference alone. What reads it after its
-  write reads that copy; the original tables are never touched.
-  `admin/workflows/convert/<name>/batch.md` lists what each statement became.
+  write reads that copy; the original tables are never touched. Of several scripts, each that
+  holds one query alone becomes a Saved table named for its file, such as `mart_dev.sales` for
+  `sales.hql`. Two files of one name, from different folders, are refused, and so is a query
+  alone named as a table the batch reads or writes, such as `job_runs.hql` in a batch that
+  reads `ops.job_runs`. `admin/workflows/convert/<name>/batch.md` lists what each
+  statement became.
 - **Many in, many out.** A FROM with several INSERTs gives a Saved table per target, each
   reading the shared FROM. Several writes to one table give one Saved table, its write
   stacking each one's query in script order with UNION ALL, each WHERE kept; a later
@@ -95,7 +102,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### To update from 7.2
 
-- **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
+- **Copy in 8.0's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, and read
   `admin/upgrade_8.0.md`. It adds `admin/workflows/`, `admin/remove.ipynb`,
   `admin/databases.py` and `admin/sent.csv`; archives `new_table.ipynb`, `remove_table.ipynb`,
   `add_references.ipynb`, `change_a_saved_table.ipynb`, `convert.ipynb` and `upgrade.ipynb`
@@ -104,6 +112,18 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `check_project.ipynb`, where you run the Upgrade, is left as it is: run `project.do_next()`
   from any notebook. A `warehouse.py` still as 7.2 wrote it gets 8.0's, which holds `conn`; one
   you changed is yours, and stays.
+- **Fill in `DEV` and `PROD`** in `admin/databases.py`, each marked `# UPGRADE 8.0:`:
+  `project.convert` refuses until `DEV` is filled in, and `project.promote` until `PROD` is.
+- **A Conversion left open in `admin/conversions/`** is yours to convert again, as a batch,
+  since `finish_conversion` is gone. The Upgrade puts its Hive beside
+  `admin/workflows/convert/convert.ipynb`, as `<name>.hql`, keeps its 7.2 folder in
+  `admin/removed/`, and marks the notebook's names cell with the names to fill in. Run its
+  steps: 8.0's convert writes the table's notebook afresh, so copy over any change you made to
+  the 7.2 notebook from `admin/removed/`. Once `project.compare_batch` passes each table, the
+  batch is finished.
+- **A line of yours that calls `finish_conversion`** is marked `# UPGRADE 8.0:`: delete it.
+  The table it named, such as `mart.team_runs`, is now your Prod copy: set `PROD` to its
+  database, `mart`, and promote the batch's table with the promote Workflow.
 
 ### Also new
 

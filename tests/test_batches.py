@@ -232,6 +232,37 @@ def test_one_query_alone_is_a_saved_table_named_for_the_batch(started: Path) -> 
     assert '"run_id": "bigint"' in reference(started, "mart_dev.failed")
 
 
+def test_two_scripts_with_one_file_name_are_refused(started: Path) -> None:
+    # Each script is kept in the batch's folder by its file's name, and a query alone named
+    # for it: two of one name would be one.
+    for folder in ("a", "b"):
+        (started / folder).mkdir()
+        (started / folder / "sales.hql").write_text(
+            "SELECT j.job_id FROM ops.jobs j;\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"sales\.hql"):
+        project.convert("twice", files=["a/sales.hql", "b/sales.hql"],
+                        query=example_database.query)
+    assert not (started / "admin" / "workflows" / "convert" / "twice").exists()
+
+
+def test_a_query_alone_named_like_a_table_the_batch_reads_is_refused(started: Path) -> None:
+    # job_runs.hql's query would be ops.job_runs, which the other script reads.
+    (started / "job_runs.hql").write_text("SELECT j.job_id FROM ops.jobs j;\n",
+                                          encoding="utf-8")
+    (started / "failed.hql").write_text(
+        "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24';\n", encoding="utf-8")
+    with pytest.raises(ValueError, match=r"(?s)ops\.job_runs.*Rename job_runs\.hql"):
+        project.convert("clash", files=["job_runs.hql", "failed.hql"],
+                        query=example_database.query, database="ops")
+
+
+def test_a_query_alone_named_like_the_table_it_reads_is_refused(started: Path) -> None:
+    with pytest.raises(ValueError, match=r"(?s)ops\.job_runs.*Name the batch otherwise"):
+        project.convert("job_runs", "SELECT r.run_id FROM ops.job_runs r "
+                        "WHERE r.dt = '2026-09-24'", query=example_database.query,
+                        database="ops")
+
+
 # --- What the spec review found -------------------------------------------------------------
 
 
