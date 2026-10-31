@@ -453,8 +453,8 @@ def test_a_with_before_insert_is_read() -> None:
 
 @pytest.mark.parametrize(("hive", "said"), [
     ("INSERT INTO TABLE mart.t VALUES (1, 'a')", "its INSERT writes VALUES, not a query"),
-    ("INSERT OVERWRITE DIRECTORY '/tmp/x' SELECT run_id FROM ops.job_runs",
-     "it writes files into DIRECTORY '/tmp/x', not a table"),
+    ("INSERT OVERWRITE DIRECTORY '/exports/x' SELECT run_id FROM ops.job_runs",
+     "it writes files into DIRECTORY '/exports/x', not a table"),
     ("FROM ops.job_runs INSERT OVERWRITE TABLE mart.a SELECT run_id "
      "INSERT INTO TABLE mart.b SELECT job_id",
      "it is one FROM with 2 INSERTs, into mart.a, mart.b"),

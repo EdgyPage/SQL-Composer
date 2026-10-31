@@ -295,7 +295,7 @@ def test_ci_runs_at_sqlglots_pin() -> None:
     matrix = re.search(rf"^\s+{library}: \[(.*)\]$", job, re.MULTILINE).group(1)
     versions = {_version(v.strip().strip('"')) for v in matrix.split(",")}
     assert versions == {_pin()}
-    assert 'python-version: "3.12"' in job
+    assert 'python-version: "3.13"' in job
     assert f'pip install "{library}==${{{{ matrix.{library} }}}}"' in _steps(job)
     assert "continue-on-error" not in job
 

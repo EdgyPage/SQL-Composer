@@ -1,6 +1,6 @@
-# The development environment on `dev`: a virtual environment on Python 3.12, in .venv:
+# The development environment on `dev`: a virtual environment on Python 3.13, in .venv:
 #
-#     py -3.12 -m venv .venv
+#     py -3.13 -m venv .venv
 #     .venv/Scripts/python -m pip install -r requirements-dev.txt
 #
 # The Toolbox needs the standard library, pandas and numpy, which work already has, and sqlglot.

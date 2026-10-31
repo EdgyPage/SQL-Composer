@@ -9,6 +9,8 @@ The offline policy and the code audit read it as they read the repo (tests/repo/
 
 from __future__ import annotations
 
+from contextlib import closing
+
 import openpyxl
 import pytest
 
@@ -85,7 +87,8 @@ def test_each_example_is_what_the_tool_builds_and_its_hive_runs(name: str) -> No
     for sql in task.finals.values():
         assert formula_workbook_examples.shown(sql) in shown
         assert "ops." not in formula_workbook_examples.shown(sql)
-    rows = excel_eval.reference_rows(excel_eval.stand_in_hive(), task)
+    with closing(excel_eval.stand_in_hive()) as hive:
+        rows = excel_eval.reference_rows(hive, task)
     assert all(rows.values()), rows
 
 

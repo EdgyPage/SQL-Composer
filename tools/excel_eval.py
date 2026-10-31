@@ -60,6 +60,7 @@ import re
 import sqlite3
 import sys
 from collections.abc import Callable
+from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -651,9 +652,10 @@ def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
 
 def scored(replies: dict[str, str]) -> list[ExcelScore]:
     """Each reply, by its task's id, scored, in task order."""
-    hive = stand_in_hive()
-    return [score(BY_ID[task_id], replies[task_id], hive, reference_rows(hive, BY_ID[task_id]))
-            for task_id in BY_ID if task_id in replies]
+    with closing(stand_in_hive()) as hive:
+        return [score(BY_ID[task_id], replies[task_id], hive,
+                      reference_rows(hive, BY_ID[task_id]))
+                for task_id in BY_ID if task_id in replies]
 
 
 CHECKS = ("found", "parses", "runs", "correct", "mapped")
