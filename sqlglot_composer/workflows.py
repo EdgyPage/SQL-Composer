@@ -101,6 +101,9 @@ class Step:
     run: Callable[[dict[str, object]], ProjectReport] | None = None
     # A decision step's kinds of Decision, which you answer in the decisions cell.
     decides: tuple[str, ...] = ()
+    # A step that only reads, such as a preview: it waits on nothing, and check() names it
+    # beside the step after it.
+    reads_only: bool = False
 
 
 @dataclass(frozen=True)
@@ -640,7 +643,7 @@ NEW_TABLE = Workflow(
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
              ("a dev Table folder whose logic loads",), ("its rows, checked",),
              "for table in TABLES:\n"
-             "    print(run_query(project.load(table).preview(), query))"),
+             "    print(run_query(project.load(table).preview(), query))", reads_only=True),
         Step("Create and write each in dev", PERMISSION,
              ("its rows, checked", "its Table reference"),
              ("written in dev",),
@@ -872,15 +875,26 @@ def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:
 
 def next_step(root: Path, workflow: Workflow, inputs: dict[str, object]) -> Step | None:
     """The first step not done after the last one the Project's files say is done: a step
-    whose done function says no, or that has none. A step whose done function says yes means
-    each one before it is done too, though the files can't tell of some."""
+    whose done function says no, or that has none, but one that only reads, which waits on
+    nothing. A step whose done function says yes means each one before it is done too,
+    though the files can't tell of some."""
     after = 0
     for number, step in enumerate(workflow.steps, 1):
         if step.done is not None and step.done(root, inputs):
             after = number
     for step in workflow.steps[after:]:
+        if step.reads_only:
+            continue
         if step.done is None or not step.done(root, inputs):
             return step
+    return None
+
+
+def read_before(workflow: Workflow, step: Step) -> Step | None:
+    """The step just before `step` when it only reads, which check() names beside it."""
+    number = workflow.steps.index(step)
+    if number and workflow.steps[number - 1].reads_only:
+        return workflow.steps[number - 1]
     return None
 
 

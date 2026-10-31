@@ -6333,7 +6333,7 @@ text = checklist.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].strip())</pre>
 <p class="label">Python prints</p><pre class="output">- key: the columns whose values name one row, or None when none do, in references/mart__fail_history.py
 - location: the folder its files go in, in references/mart__fail_history.py</pre>
-<p>Answer each in the convert Workflow notebook&#x27;s decisions cell, DECISIONS, by each table&#x27;s name as project.check() writes it, and run its next step, which writes each answer into the table&#x27;s Table reference: you open no Table reference, and tick nothing. &quot;key&quot;: None says no columns name one row. This page stands in for the two cells:</p>
+<p>Answer each in the convert Workflow notebook&#x27;s decisions cell, DECISIONS, by each table&#x27;s name as project.check() writes it, and run its next step, which writes each answer into the table&#x27;s Table reference: you open no Table reference, and tick nothing. &quot;key&quot;: None says no columns name one row. A TODO line left, such as does_not_add_up=, waits on nothing. This page stands in for the two cells:</p>
 <pre class="python">DECISIONS = {table: {&quot;location&quot;: f&quot;/data/mart.db/{table.split(&#x27;.&#x27;)[1]}&quot;, &quot;key&quot;: None}
              for table in project.batch_tables(&quot;ops_reports&quot;)}</pre>
 <p>Two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type to answer too: the day as text, &quot;string&quot;.</p>
@@ -6341,12 +6341,16 @@ print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].s
     DECISIONS[table][&quot;types&quot;] = {&quot;dt&quot;: &quot;string&quot;}
 print(project.write_decisions(DECISIONS))</pre>
 <p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__failed_runs_ops_reports.py.
+mart.failed_runs_ops_reports: 1 TODO line left in references/mart__failed_runs_ops_reports.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.failed_runs_ops_reports is made.
 Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+mart.alerted_runs_ops_reports: 1 TODO line left in references/mart__alerted_runs_ops_reports.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
+mart.fail_history: 1 TODO line left in references/mart__fail_history.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.fail_history is made.</pre>
 <p class="label">It writes 9 files</p>
 <pre class="file">admin/admin_log.md

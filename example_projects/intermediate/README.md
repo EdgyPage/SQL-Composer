@@ -30,7 +30,8 @@ And a seventh, `mart.team_failures`, each team's events and fails per day, is a 
 Conversion: Hive the ops team wrote, which writes `ops_reports.team_failures`, converted with
 `project.convert("team_failures", ..., rename={"ops_reports.team_failures": "team_failures"})`
 into this Project's Dev Database, `mart`, as `admin/databases.py` names it. Its one
-`# CONVERSION:` mark was decided by keeping the opt-out, each box of its checklist ticked, and
+`# CONVERSION:` mark was decided by keeping the opt-out, each Decision made in its Table
+reference, its location and its Key, and
 the table compared with its original, `project.compare_batch("team_failures", query=query)`,
 which finished the batch: its folder is in `admin/workflows/convert/finished/team_failures/`. Its Table
 folder's `conversion/` keeps the statement it came from, and its notebook the cells that
@@ -68,7 +69,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |
 | `tables/mart__job_day_costs/mart__job_day_costs.ipynb`, and the same for each of the other five Saved tables | `project.new_table("mart.job_day_costs")`, and so on; `template="quality_checks"` for mart.job_events_checks | its `<...>` lines |
-| `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and each box of `conversion/checklist.md`, ticked |
+| `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and its Decisions, answered in the convert Workflow's decisions cell |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: its scripts as given, `batch.md`, what each statement became, and `written.json`, moved here once its table passed its compare |

@@ -117,7 +117,7 @@ each one:
 Answer each in the convert Workflow notebook's decisions cell, DECISIONS, by each table's name
 as project.check() writes it, and run its next step, which writes each answer into the table's
 Table reference: you open no Table reference, and tick nothing. "key": None says no columns
-name one row. This page stands in for the two cells:
+name one row. A TODO line left, such as does_not_add_up=, waits on nothing. This page stands in for the two cells:
 
 >>> DECISIONS = {table: {"location": f"/data/mart.db/{table.split('.')[1]}", "key": None}
 ...              for table in project.batch_tables("ops_reports")}
@@ -129,12 +129,20 @@ a guessed type to answer too: the day as text, "string".
 ...     DECISIONS[table]["types"] = {"dt": "string"}
 >>> print(project.write_decisions(DECISIONS))
 Wrote 2 answers into references/mart__failed_runs_ops_reports.py.
+mart.failed_runs_ops_reports: 1 TODO line left in references/mart__failed_runs_ops_reports.py, which waits
+on nothing: fill it in when you like.
 Each Decision of mart.failed_runs_ops_reports is made.
 Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits
+on nothing: fill it in when you like.
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+mart.alerted_runs_ops_reports: 1 TODO line left in references/mart__alerted_runs_ops_reports.py, which waits
+on nothing: fill it in when you like.
 Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
+mart.fail_history: 1 TODO line left in references/mart__fail_history.py, which waits
+on nothing: fill it in when you like.
 Each Decision of mart.fail_history is made.
 
 `project.check()` names the batch's next step in the Workflow, the first call to the
