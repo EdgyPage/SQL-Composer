@@ -42,6 +42,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   different Partitions are all kept. A table whose write reads itself, as an
   incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
   its dev copy once, and the convert Workflow seeds it before its first write.
+- **Charts of every Workflow.** The README's new "The Workflows" section draws how the Toolbox
+  runs and each Workflow, each a Mermaid chart beside its steps as a numbered list, which GitHub
+  and VS Code draw and an LLM reads as text; "Have Copilot write it" draws the path from a
+  workbook to prod. The new how-to "Follow a Workflow" gives each Workflow's chart, names cell
+  and steps, and "Convert someone else's Hive" is now how-to 9, the README's ninth step, a
+  batch of scripts from convert to promote. Each is written from the Workflows' steps.
 - **A Table reference by its name.** `project.table_reference(name)` gives a table's Table
   reference from its file in `references/`, for a notebook that has the table's name, such as
   the change_a_saved_table Workflow's, which hands it to an Admin statement.

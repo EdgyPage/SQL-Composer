@@ -84,3 +84,24 @@ Built in parts, each its own commit.
 - D351 fixed here: CHANGES names `project.table_reference`. The send step of
   change_a_saved_table names a check after it, such as admin.check_the_copy, which
   move_to_own_folder needs.
+
+### The README and the how-tos (19b)
+
+- The README template is a tutorial in nine steps: its opening says each job has a Workflow
+  notebook, which `project.check()` and `project.do_next()` take you through; steps 2 and 6
+  start from the references and new_table Workflows; step 8 names `do_next()`; and step 9,
+  "Convert someone else's Hive", is the convert Workflow, from a batch of scripts to compare
+  and promote.
+- How-to 27 is now how-to 9, the last Getting started how-to, so the README's step 9 is it, as
+  `test_readme_step_n_is_getting_started_how_to_n` holds; the Intermediate how-tos after it
+  are each one number on, 10 to 27, links being by name. It is rewritten as a batch on a copy
+  of the Starter Example project: two scripts, a temporary CTAS, a FROM with two INSERTs, an
+  INSERT INTO that reads its own table (seeded), a rename, the checklists, create, seed and
+  write in dev, compare, and promote, which refuses until each compare passes. The Example
+  database holds no Dev Database, so its compare says so; the page says what passes at work.
+- No other how-to, Worked example, Example project README or docstring names a retired call or
+  path (admin/new_table.ipynb, admin/conversions/, finish_conversion): a grep found none.
+- D352: a chart's list says each step's kind as its notebook does (`step_said`). D353: the
+  Excel chart follows the README's Excel steps, five files and a Conversion per query, until
+  19d changes both. D354: CHANGES names the charts and how-tos 9 and 29. D355:
+  workflow_graph's docstring says what `steps_listed` gives.
