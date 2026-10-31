@@ -22,8 +22,9 @@ What changed in each version, and how to update from it, is in `CHANGES.md`.
 
 ## 1. Start a Project
 
-The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.12,
-which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.13,
+which `requirements.txt`'s pins are for, as they are for 3.12. It is one folder,
+`sqlglot_composer`.
 
 1. Download this branch as a zip and extract it.
 2. Install what the Toolbox needs, at the versions it is tested on: run

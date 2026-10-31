@@ -49,14 +49,14 @@ Database, and every Project action taking one or many) is charted through
 
 `pytest` holds every principle a test can hold, so run `.venv/Scripts/python -m pytest`, which
 tests the Toolbox and the repo's own checks, before you commit. Dev runs in a virtual
-environment on Python 3.12, in `.venv` (git-ignored, and never read by the offline policy): make
-it with `py -3.12 -m venv .venv`, then `.venv/Scripts/python -m pip install -r
+environment on Python 3.13, in `.venv` (git-ignored, and never read by the offline policy): make
+it with `py -3.13 -m venv .venv`, then `.venv/Scripts/python -m pip install -r
 requirements-dev.txt`, which pins what dev tests on. Run every Python command of the repo, its
 tools and tests, with `.venv/Scripts/python`, never a bare `python`. `requirements.txt` is what a
 user installs: the same pins, which a test holds to `requirements-dev.txt` and to the libraries
 `tools/toolbox_registry.py` lets the Toolbox import.
 
-CI runs one job on Python 3.12, at sqlglot's pin, which `.github/workflows/dev.yml` names: the
+CI runs one job on Python 3.13, at sqlglot's pin, which `.github/workflows/dev.yml` names: the
 Toolbox's range starts at 30.19.0, and since 7.2 CI doesn't run its bottom. Export only a commit
 whose CI job passed: the export doesn't check the gallery.
 

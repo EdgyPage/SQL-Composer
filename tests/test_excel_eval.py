@@ -14,6 +14,8 @@ from __future__ import annotations
 import re
 import sqlite3
 from collections import Counter
+from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -32,8 +34,9 @@ BRACKETED_TABLE = re.compile(r"<database>[.]<(\w+)>")
 
 
 @pytest.fixture(scope="module")
-def hive() -> sqlite3.Connection:
-    return excel_eval.stand_in_hive()
+def hive() -> Iterator[sqlite3.Connection]:
+    with closing(excel_eval.stand_in_hive()) as connection:
+        yield connection
 
 
 def in_brackets(sql: str, task: ExcelTask) -> str:

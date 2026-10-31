@@ -127,6 +127,8 @@ Conversion now makes its Saved tables itself.
 
 ### Also new
 
+- **Tested on Python 3.13.** The Toolbox is tested on Python 3.13, in place of 3.12;
+  `requirements.txt`'s pins are the same, and still install on 3.12.
 - **warehouse.py holds your connection.** A new Project's warehouse.py holds `conn`, your
   connection to the warehouse, which you set once, in place of the Example database; its
   `query` and `execute` pass each Hive string to `conn.query`, which gives back a DataFrame, and
