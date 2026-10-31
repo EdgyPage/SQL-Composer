@@ -15,20 +15,14 @@ TREE_RULES = frozenset({"long body", "chained conditional", "next with a default
 
 KNOWN_BREAKS: dict[str, dict[str, int]] = {
     "sqlglot_composer/__init__.py": {"E501": 1},
-    "sqlglot_composer/checks.py": {"E501": 1, "long body": 1, "next with a default": 1},
     "sqlglot_composer/comparisons.py": {
         "E501": 7, "dense comprehension": 5, "next with a default": 2, "private name twice": 1},
     "sqlglot_composer/example_database.py": {"E501": 1, "dense comprehension": 2, "lambda": 1},
     "sqlglot_composer/lineage.py": {
         "E501": 28, "chained conditional": 2, "dense comprehension": 10, "lambda": 2,
         "next with a default": 1},
-    "sqlglot_composer/project.py": {
-        "E501": 35, "dense comprehension": 3, "lambda": 1, "long body": 5,
-        "next with a default": 3},
-    "sqlglot_composer/project_templates.py": {"E501": 4},
     "sqlglot_composer/running.py": {
         "E501": 3, "dense comprehension": 3, "next with a default": 1, "private name twice": 1},
-    "sqlglot_composer/upgrades.py": {"E501": 7},
     "tests/conftest.py": {"E501": 1},
     "tests/escaping_cases.py": {"E501": 2},
     "tests/hive_corpus_cases.py": {"E501": 10},

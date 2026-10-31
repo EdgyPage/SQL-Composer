@@ -1,4 +1,5 @@
-"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this one.
+"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this
+one.
 
 project.upgrade() runs, in order, each version's step from the Project's version, which
 admin/project_version.txt holds, to the Toolbox's, which its version.txt holds. A step makes
@@ -14,11 +15,11 @@ admin/project_version.txt was made by 7.1.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable
 from pathlib import Path
 
+from .notebooks import read_cells, read_cells_if_readable, write_cell_text
 from .shared import counted
 
 PROJECT_VERSION = Path("admin") / "project_version.txt"
@@ -27,7 +28,8 @@ PROJECT_VERSION = Path("admin") / "project_version.txt"
 FIRST_UPGRADABLE = "7.1"
 PROJECT_VERSION_TEXT = (
     "{version}\n"
-    "# The Toolbox version that last wrote this Project: project.start() and project.upgrade()\n"
+    "# The Toolbox version that last wrote this Project: project.start() and "
+    "project.upgrade()\n"
     "# write it, so don't edit it.\n"
 )
 # A mark a step leaves for you, such as "# UPGRADE 7.2: write run_query or run_execute here".
@@ -64,6 +66,7 @@ def project_version(root: Path) -> str | None:
     path = root / PROJECT_VERSION
     if not path.is_file():
         return None
+    # utf-8-sig, since an editor that saves a byte-order mark puts one at the start of line 1.
     lines = path.read_text(encoding="utf-8-sig").split("\n")
     return lines[0].strip() or None
 
@@ -77,49 +80,48 @@ def write_project_version(root: Path, version: str) -> None:
 class Upgrade:
     """One version's step at work on a Project: what it changed, and what it marked for you.
 
-    `complete` adds what this Toolbox's project.start() makes that the Project lacks, writing
-    over nothing, and gives each path it added.
+    `add_what_start_lacks` adds to the Project at the root it is given what this Toolbox's
+    project.start() makes that the Project lacks, writing over nothing, and gives each path it
+    added.
     """
 
     def __init__(self, root: Path, version: str, archive: Path,
-                 complete: Callable[[], list[str]]) -> None:
-        self.root, self.version, self.archive = root, version, archive
+                 add_what_start_lacks: Callable[[Path], list[str]]) -> None:
+        self.root = root
+        self.version = version
+        self.archive = archive
         self.changed: list[str] = []
         # Each mark as [file, cell or None, the line the mark is on, what to change]: a later
         # mark above it in the same place moves it down.
         self._marks: list[list[str | int | None]] = []
-        self._complete = complete
+        self._add_what_start_lacks = add_what_start_lacks
 
     def add_what_start_makes(self) -> None:
         """Add each folder, admin notebook and Template project.start() makes that the Project
         lacks, writing over nothing."""
-        self.changed += [f"added {path}" for path in self._complete()]
+        self.changed += [f"added {path}" for path in self._add_what_start_lacks(self.root)]
 
     def rewrite(self, relative: str, text: str) -> None:
         """Write a file's new text, once the file as it was is kept in the archive."""
-        self._keep(relative)
+        self._archive_original(relative)
         (self.root / relative).write_text(text, encoding="utf-8")
         self.changed.append(f"rewrote {relative}")
 
     def mark(self, relative: str, line: int, what: str, cell: int | None = None) -> None:
         """Put `# UPGRADE <version>: <what>` above line `line` of a .py file, or of cell `cell`
         of a notebook, at that line's indent, and list it for the checklist. Lines and cells
-        count from 1, every cell counted, text cells too, as the file reads before this mark. The
-        file as it was is kept in the archive first. A mark moves the lines below it down one,
-        and the checklist follows each earlier mark it moves."""
-        self._keep(relative)
+        count from 1, every cell counted, text cells too, as the file reads before this mark.
+        The file as it was is kept in the archive first. A mark moves the lines below it down
+        one, and the checklist follows each earlier mark it moves."""
+        self._archive_original(relative)
         path = self.root / relative
         mark = MARK.format(version=self.version, what=what)
         if cell is None:
-            path.write_text(_marked(path.read_text(encoding="utf-8"), line, mark),
-                            encoding="utf-8")
+            marked = _text_with_mark(path.read_text(encoding="utf-8"), line, mark)
+            path.write_text(marked, encoding="utf-8")
         else:
-            notebook = json.loads(path.read_text(encoding="utf-8"))
-            source = notebook["cells"][cell - 1]["source"]
-            text = _marked("".join(source) if isinstance(source, list) else source, line, mark)
-            # As notebooks.write_notebook writes a cell: its lines, each with its own newline.
-            notebook["cells"][cell - 1]["source"] = text.splitlines(keepends=True)
-            path.write_text(json.dumps(notebook, indent=1) + "\n", encoding="utf-8")
+            _, text = read_cells(path)[cell - 1]
+            write_cell_text(path, cell, _text_with_mark(text, line, mark))
         for earlier in self._marks:
             if earlier[:2] == [relative, cell] and earlier[2] >= line:
                 earlier[2] += 1
@@ -129,26 +131,31 @@ class Upgrade:
     def marks(self) -> list[str]:
         """Each mark this step left, as the checklist lists it, such as
         "references/ops__jobs.py, line 12: say which call this is"."""
-        return [f"{relative}{'' if cell is None else f', cell {cell}'}, line {line}: {what}"
-                for relative, cell, line, what in self._marks]
+        listed = []
+        for relative, cell, line, what in self._marks:
+            if cell is None:
+                listed.append(f"{relative}, line {line}: {what}")
+            else:
+                listed.append(f"{relative}, cell {cell}, line {line}: {what}")
+        return listed
 
-    def _keep(self, relative: str) -> None:
-        """Copy the file as it is into the archive, unless this step kept it already."""
-        kept = self.archive / relative
-        if not kept.exists():
-            kept.parent.mkdir(parents=True, exist_ok=True)
-            kept.write_bytes((self.root / relative).read_bytes())
+    def _archive_original(self, relative: str) -> None:
+        """Copy the file as it is into the archive, unless this step did already."""
+        archived = self.archive / relative
+        if not archived.exists():
+            archived.parent.mkdir(parents=True, exist_ok=True)
+            archived.write_bytes((self.root / relative).read_bytes())
 
     @property
     def checklist_path(self) -> str:
         """Where this step's checklist goes, such as admin/upgrade_7.2.md."""
         return f"admin/upgrade_{self.version}.md"
 
-    def said(self) -> str:
+    def report_line(self) -> str:
         """What project.upgrade() says of this step, once it has run."""
         if not self.marks:
-            return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists what "
-                    "it did.")
+            return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists "
+                    "what it did.")
         changes = counted(len(self.marks), "change")
         return (f"{self.version}: {changes} for you to make, each marked "
                 f"`# UPGRADE {self.version}:`, and listed in {self.checklist_path}.")
@@ -166,16 +173,16 @@ class Upgrade:
         lines += ["", "## For you to do", ""]
         if self.marks:
             lines += [f"Each is marked `# UPGRADE {self.version}:` at its line; a notebook's "
-                      "cells are counted from its first, text cells too. Make the change, delete "
-                      "the mark, and tick its box here, writing [x] for [ ]. project.check() lists "
-                      "every mark left.", ""]
+                      "cells are counted from its first, text cells too. Make the change, "
+                      "delete the mark, and tick its box here, writing [x] for [ ]. "
+                      "project.check() lists every mark left.", ""]
             lines += [f"- [ ] {mark}" for mark in self.marks]
         else:
             lines.append(f"Nothing: {self.version} needs nothing changed by hand.")
         return "\n".join(lines) + "\n"
 
 
-def _marked(text: str, line: int, mark: str) -> str:
+def _text_with_mark(text: str, line: int, mark: str) -> str:
     """`text` with `mark` put above its line `line`, counted from 1, at that line's indent."""
     lines = text.split("\n")
     marked = lines[line - 1]
@@ -186,29 +193,41 @@ def _marked(text: str, line: int, mark: str) -> str:
 def marks_in(root: Path, pattern: re.Pattern[str]) -> list[str]:
     """Each line of the Project's .py files and notebooks' cells that `pattern` matches, as
     "<file>, line <n>: <the line>", or "<file>, cell <c>, line <n>: ...", outside the Toolbox's
-    folder and admin/removed/."""
+    folder and admin/removed/. A notebook Jupyter couldn't open is passed over."""
     found = []
     for path in sorted([*root.rglob("*.py"), *root.rglob("*.ipynb")]):
         relative = path.relative_to(root).as_posix()
-        if any(relative == skip or relative.startswith(f"{skip}/") for skip in NOT_SEARCHED):
+        if not _is_searched(relative):
             continue
-        if path.suffix == ".py":
-            places = [("", path.read_text(encoding="utf-8", errors="replace"))]
-        else:
-            try:
-                cells = json.loads(path.read_text(encoding="utf-8"))["cells"]
-            except (ValueError, KeyError, TypeError):
-                continue
-            places = [(f", cell {number}", "".join(cell.get("source", "")))
-                      for number, cell in enumerate(cells, 1)]
-        for place, text in places:
+        for place, text in _searched_texts(path):
             for number, line in enumerate(text.split("\n"), 1):
                 if pattern.search(line):
                     found.append(f"{relative}{place}, line {number}: {line.strip()}")
     return found
 
 
-# --- The steps, one per version -------------------------------------------------------------------
+def _is_searched(relative: str) -> bool:
+    """Whether marks_in searches a path in the Project: one outside the Toolbox's folder and
+    admin/removed/."""
+    for skipped in NOT_SEARCHED:
+        if relative == skipped or relative.startswith(f"{skipped}/"):
+            return False
+    return True
+
+
+def _searched_texts(path: Path) -> list[tuple[str, str]]:
+    """The texts marks_in searches in a file, each after the words that name its place: a .py
+    file's whole text, after "", or each notebook cell's, after ", cell <c>"."""
+    if path.suffix == ".py":
+        # errors="replace": a stray byte in a file of yours never stops the search.
+        return [("", path.read_text(encoding="utf-8", errors="replace"))]
+    cells = read_cells_if_readable(path)
+    if cells is None:
+        return []
+    return [(f", cell {number}", text) for number, (_, text) in enumerate(cells, 1)]
+
+
+# --- The steps, one per version ---------------------------------------------------------------
 
 
 def to_7_2(upgrade: Upgrade) -> None:
