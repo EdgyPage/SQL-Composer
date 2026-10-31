@@ -15,8 +15,8 @@ from .conditions import Condition
 from .refusals import (
     guard_unsafe_regrouping,
     refuse,
-    with_article,
 )
+from .shared import with_article
 from .tables import (
     COMPARABLE_VALUES,
     Column,

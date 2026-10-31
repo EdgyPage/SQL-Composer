@@ -32,7 +32,7 @@ import pandas as pd
 # import self-check needs it before this file can be trusted.
 from . import _FOLDER
 from . import _four_part_message as four_part_message
-from .shared import in_words
+from .shared import in_words, possessive, with_article
 
 
 class GuardRefused(Exception):
@@ -638,21 +638,6 @@ def kind_name(value: object) -> str:
     library = kind.__module__.split(".")[0]
     name = kind.__name__ if library == "builtins" else f"{library} {kind.__name__}"
     return with_article(name)
-
-
-def with_article(noun: str) -> str:
-    """The noun with "a" before it, or "an" when it starts with a vowel: "a list", "an
-    object"."""
-    if noun[0] in "aeiou":
-        return f"an {noun}"
-    return f"a {noun}"
-
-
-def possessive(name: str) -> str:
-    """A name with its 's, or only ' when it ends in s: "numbered's", "job_runs'"."""
-    if name.endswith("s"):
-        return f"{name}'"
-    return f"{name}'s"
 
 
 def refuse_what_isnt_a_dataframe(result: object) -> None:

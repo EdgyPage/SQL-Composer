@@ -24,9 +24,9 @@ file that a test can: a function body of at most 50 lines, its docstring left ou
 conditional expression inside another; no `next(...)` with a default; a comprehension with one
 `for`, at most one `if` and no comprehension inside it; no walrus; a lambda only as a `key=`;
 a private function or class at a Toolbox file's top named as no other Toolbox file
-names one. Each break known when the rules were turned on is
-in `tests/repo/known_breaks.py`, which may only shrink. What follows here is what only a reader
-can judge.
+names one. `tests/repo/known_breaks.py` held each break known when the rules were turned on;
+Toolbox 8.0's refactor emptied it, so any break now fails. What follows here is what only a
+reader can judge.
 
 ## One way per job
 
@@ -38,6 +38,8 @@ refusal, and every place that does the job calls it:
 | A list in prose: "a, b and c" | `shared.in_words` |
 | A count and its noun: "1 table", "2 tables" | `shared.counted` |
 | A word that agrees with a count: "is" or "are", "it" or "them" | `shared.singular_or_plural` |
+| A noun with "a" or "an" before it | `shared.with_article` |
+| A name with its 's, or its ' after an s | `shared.possessive` |
 | A value written as Python, for code the Toolbox writes | `shared.python_literal` |
 | The same, in a Table reference or its messages, each letter outside ASCII escaped | `shared.escaped_literal` |
 | A table's name split into its Database and its table | `shared.split_table_name` |

@@ -1,8 +1,9 @@
 """Each break of the standard (docs/agents/standards.md) known when Toolbox 8.0's ticket 01
 turned its rules on, by file and rule: a ruff code, or a tree rule test_standard.py reads.
 
-The counts may only fall. Toolbox 8.0's phase 2, the refactor, empties the list; a file it
-brings to the standard leaves it. Written by hand, never regenerated to let a break in.
+The counts could only fall, and Toolbox 8.0's phase 2, the refactor, emptied the list: the
+Toolbox, tools/, tests/ and the Worked examples now break no rule a test holds, so any break
+fails. An entry is never added to let one in.
 """
 
 from __future__ import annotations
