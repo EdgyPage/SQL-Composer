@@ -375,7 +375,7 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                         "query, to see which columns the table has.")
     t = need_saved_table(t, "admin.add_columns(...)")
     call = f"admin.add_columns({t._name}, query=...)"
-    described = describe.ask(t._name, query, "admin.add_columns(...)")
+    described = describe.describe_table(t._name, query, "admin.add_columns(...)")
     new = _new_columns(t, described.columns, call)
     definitions = [hive_text(column_definition(t, column, call)) for column in new]
     hive = f"ALTER TABLE {_name(t)} ADD COLUMNS {_listed(definitions)}"
@@ -593,7 +593,8 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
                         "FORMATTED through your query, to find the table's folder.")
     t = need_saved_table(t, "admin.move_to_own_folder(...)")
     call = f"admin.move_to_own_folder({t._name}, query=...)"
-    described = describe.ask(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
+    described = describe.describe_table(t._name, query, "admin.move_to_own_folder(...)",
+                                        formatted=True)
     managed = _check_movable(t, described, call)
     copy_of = _copy_of(t)
     return _numbered(call, [_create_step(t, copy_of, call, managed), _copy_step(t, copy_of)])
@@ -647,7 +648,8 @@ def check_the_copy(t: Table, *, query: Callable[[str], pd.DataFrame] | None = No
                         "table and its copy through your query, which gives back rows.")
     t = need_saved_table(t, "admin.check_the_copy(...)")
     call = f"admin.check_the_copy({t._name}, query=...)"
-    described = describe.ask(t._name, query, "admin.check_the_copy(...)", formatted=True)
+    described = describe.describe_table(t._name, query, "admin.check_the_copy(...)",
+                                        formatted=True)
     managed = _check_movable(t, described, call)
     copy_of = _copy_of(t)
     check = _counts_match(t, copy_of)

@@ -28,7 +28,7 @@ from .joins import (
     refuse_right_join,
     tested_column,
 )
-from .keys import keys_of, statement_keys, unproven
+from .keys import keys_of, statement_keys, why_key_unproven
 from .refusals import (
     guard_cross_join,
     guard_left_join_then_where,
@@ -1332,7 +1332,7 @@ def _run_guards(s: Statement) -> None:
         extra = [n for n in names if n not in expected]
         if missing or extra:
             guard_write_lines_up(s._write_call, table._alias, missing, extra)
-        why = None if s._unproven_key else unproven(s)
+        why = None if s._unproven_key else why_key_unproven(s)
         if why is not None:
             guard_unproven_key(s._write_call, table._key, why)
 
