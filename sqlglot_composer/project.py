@@ -151,6 +151,8 @@ FOLDERS = ("admin", "references", "building_blocks", "tables")
 WAREHOUSE = "warehouse.py"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
+# The Workflow a batch of one is made for, when new_table makes a table from its query.
+NEW_TABLE_WORKFLOW = "new_table"
 # The Template a Building block is made from, in admin/templates/.
 BLOCK_TEMPLATE = "building_block"
 # The Template a Saved table's Table reference is made from.
@@ -526,7 +528,8 @@ def _completed_report(added: list[str], before_7: bool) -> ProjectReport:
 # --- new_table --------------------------------------------------------------------------------
 
 
-def new_table(name: str | list[str], template: str = "saved_table") -> ProjectReport:
+def new_table(name: str | list[str], template: str = "saved_table",
+              queries: dict[str, str] | None = None) -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
 
     >>> from sqlglot_composer import project
@@ -542,20 +545,114 @@ def new_table(name: str | list[str], template: str = "saved_table") -> ProjectRe
     `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
     tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from
     admin/templates/saved_table.py (or the Template `template` names), and an empty lineage/;
-    and references/mart__daily_job_runs.py, the table's Table reference to fill in, from
-    admin/templates/saved_table_reference.py, unless that file is there already. In both,
-    <DB>, <TABLE> and <NAME> are filled in; fill in every other <...> yourself. It registers
+    and references/mart__daily_job_runs.py, the table's Table reference, from
+    admin/templates/saved_table_reference.py, unless that file is there already: a stand-in
+    until project.reference_from_logic writes it from the logic. In both, <DB>, <TABLE> and
+    <NAME> are filled in; fill in the notebook's other <...> yourself. It registers
     both and logs them. It refuses a table that has a Table folder, or that the registry lists,
     and never touches the warehouse: the notebook's create() makes the table.
+
+    `queries` gives a table's query, by its name without its database, as Hive text or a .hql
+    file in the folder you're working in, such as {"daily_runs": "daily_runs.hql"} for
+    mart_dev.daily_runs: that table is made from it, in your Dev Database, DEV in
+    admin/databases.py, as project.convert makes one query alone a batch of one, template=
+    passed over. Its logic is written for you, and its Table reference from the logic, its Key
+    proposed; you answer its location, and the new_table Workflow writes it, then compares it
+    with its query, so the promote Workflow takes it to prod. Each table the query reads needs
+    its Table reference first. A query for a table it isn't given, or outside DEV, or Hive that
+    is more than one query, is refused before anything is made.
 
     `name` may also be a list of names, each done in turn, in one report. A name refused
     stops the rest, and its refusal says which were done before it, which stay done, and
     how to run the rest.
     """
     frame = callers_frame()
-
+    queries = queries or {}
+    _refuse_queries_it_cant_make(name, queries)
+    more = _template_shown(template) + (", queries=..." if queries else "")
     return _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
-                              more=_template_shown(template))
+                              queries, more=more)
+
+
+def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]) -> None:
+    """Refuse queries= before any table is made: one naming a table the names don't, names
+    sharing one table's name, a table outside the Dev Database, Hive that isn't one query, or
+    a query reading a table with no Table reference."""
+    if not queries:
+        return
+    call = "project.new_table(..., queries=...)"
+    listed = [names] if isinstance(names, str) else _names_in_list(names, call)
+    by_short_name: dict[str, list[str]] = {}
+    for each in listed:
+        by_short_name.setdefault(split_table_name(str(each))[1], []).append(str(each))
+    unnamed = [each for each in queries if each not in by_short_name]
+    if unnamed:
+        refuse(what=f"{call} was given queries for {in_words(unnamed)}, which the tables don't "
+               "name.",
+               why="queries= gives a table's query by its name without its database, such as "
+               '{"daily_runs": "daily_runs.hql"} for mart_dev.daily_runs.',
+               fix=f"Use one of {in_words(list(by_short_name))}.", error=ValueError)
+    shared = [in_words(tables) for short, tables in by_short_name.items()
+              if short in queries and len(tables) > 1]
+    if shared:
+        refuse(what=f"{call} names {shared[0]}, one name in two databases.",
+               why="queries= gives a table's query by its name without its database.",
+               fix="Make the table from its query in its own call.", error=ValueError)
+    root = _project_root(call)
+    dev = _dev_database(root, call)
+    for short, tables in by_short_name.items():
+        if short in queries:
+            _refuse_a_query_it_cant_make(root, dev, tables[0], queries[short], call)
+
+
+def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file: str,
+                                 call: str) -> None:
+    """Refuse one table's query: the table outside the Dev Database, Hive that isn't one
+    query, or a query reading a table with no Table reference, which convert would DESCRIBE
+    through a query new_table hasn't."""
+    database, table = split_table_name(name)
+    if database != dev:
+        refuse(what=f"{call}: {name} is in {database}, not your Dev Database, {dev}.",
+               why="A table made from a query is made in dev, a batch of one, compared with "
+               "its query there, and promoted to prod, as a Conversion's tables are.",
+               fix=f"Name it {dev}.{table}: project.promote makes its prod copy.",
+               error=ValueError)
+    statements = converting.batch_statements(_query_scripts(call, query_or_file), "default",
+                                             f"default.{table}")
+    kinds = [each.kind for each in statements if each.kind != converting.SETTING]
+    if kinds != [converting.QUERY]:
+        refuse(what=f"{call}: the Hive for {table} isn't one query.",
+               why="queries= makes each table from one SELECT, its rows; Hive that writes or "
+               "creates tables is a batch for the convert Workflow.",
+               fix="Give the SELECT alone, or convert the scripts with the convert Workflow.",
+               error=ValueError)
+    missing = []
+    for each in statements:
+        missing += [read for read in each.reads
+                    if not REFERENCE.path(root, table_stem(read)).is_file()]
+    if missing:
+        refuse(what=f"{call}: {table}'s query reads {in_words(missing)}, which has no Table "
+               "reference.",
+               why="Its logic reads each table it reads through its Table reference.",
+               fix="Add it first with the references Workflow, "
+               "admin/workflows/references/references.ipynb.", error=ValueError)
+
+
+def _query_scripts(call: str, query_or_file: str) -> list[tuple[str, str]]:
+    """A query given as Hive text or a .hql file's name, as convert's scripts."""
+    if query_or_file.strip().lower().endswith(".hql"):
+        return _scripts_given(call, [query_or_file.strip()])
+    return [("hive.hql", query_or_file)]
+
+
+def _new_table_from_query(name: str, query_or_file: str, frame: FrameType) -> ProjectReport:
+    """A new table made from its query, Hive text or a .hql file's name: converted in the Dev
+    Database, a batch of one named for the table, which new_table's Workflow takes on."""
+    call = f"project.new_table({python_literal(name)}, queries=...)"
+    _project_root(call)
+    table = split_table_name(name)[1]
+    return _convert_batch(table, _query_scripts(call, query_or_file), None, "default", {},
+                          False, frame, {}, made_for=NEW_TABLE_WORKFLOW)
 
 
 def _template_shown(template: str) -> str:
@@ -565,8 +662,16 @@ def _template_shown(template: str) -> str:
     return f", template={python_literal(template)}"
 
 
-def _new_table_one(name: str, template: str, frame: FrameType) -> ProjectReport:
-    """new_table(...) for one name: `frame` is its caller's, for the Admin log."""
+def _new_table_one(name: str, template: str, frame: FrameType,
+                   queries: dict[str, str]) -> ProjectReport:
+    """new_table(...) for one name: from its query when `queries` gives one, by the table's
+    name without its database, else from its Template. `frame` is its caller's, for the Admin
+    log."""
+    short = ""
+    if isinstance(name, str) and "." in name:
+        short = split_table_name(name)[1]
+    if short in queries:
+        return _new_table_from_query(name, queries[short], frame)
     call = _action_call("new_table", name, _template_shown(template))
     root = _project_root(call)
     database, table, stem = _table_name_parts(name, call)
@@ -1321,7 +1426,7 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
     ...     "TABLES = []", "TABLES = ['mart.daily_job_runs']"), encoding="utf-8")
     >>> project.do_next()
-      new_table: ran project.new_table(["mart.daily_job_runs"])
+      new_table: ran project.new_table(["mart.daily_job_runs"], queries={})
         Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
         admin/templates/saved_table.py.
         Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
@@ -1931,7 +2036,7 @@ class _BatchFiles:
     fresh one written into the batch's folder, under fresh/, at the same path, for you to
     compare; with overwrite, each is written afresh, kept in admin/removed/ first."""
 
-    def __init__(self, root: Path, index: Path, overwrite: bool) -> None:
+    def __init__(self, root: Path, index: Path, overwrite: bool, made_for: str = "") -> None:
         self.root = root
         self.index = index
         self.overwrite = overwrite
@@ -1950,6 +2055,9 @@ class _BatchFiles:
         self.fresh: list[str] = []
         self.archived: list[str] = []
         self.now = unchecked.now()
+        # The Workflow that made the batch when not convert's: new_table's, for a table made
+        # from its query, which convert's Workflow then passes over.
+        self.made_for = made_for
 
     def write_text(self, relative: str, text: str) -> str:
         """Write a text file, as the batch writes it: the path it went to."""
@@ -1990,6 +2098,8 @@ class _BatchFiles:
         self.index.mkdir(parents=True, exist_ok=True)
         record = {"tables": self.tables, "seeded": self.seeded, "originals": self.originals,
                   "files": {**self.before, **self.after}}
+        if self.made_for:
+            record["made_for"] = self.made_for
         (self.index / BATCH_RECORD).write_text(json.dumps(record, indent=1, sort_keys=True),
                                                encoding="utf-8")
 
@@ -2010,7 +2120,8 @@ def _hash(content: bytes) -> str:
 
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
-                   overwrite: bool, frame: FrameType, staging: dict[str, str]) -> ProjectReport:
+                   overwrite: bool, frame: FrameType, staging: dict[str, str],
+                   made_for: str = "") -> ProjectReport:
     """convert(...) for a batch: each script split into its statements, ordered by what reads
     what, and each table it writes a Saved table in the Dev Database, as convert says."""
     call = _action_call("convert", name, ", ...")
@@ -2033,7 +2144,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             error=ValueError,
         )
     added, skipped = _write_missing_references(call, root, ordered, names, query)
-    files = _BatchFiles(root, index, overwrite)
+    files = _BatchFiles(root, index, overwrite, made_for)
     made, created_only = [], []
     for table in _tables_in_order(ordered):
         failure = _convert_one_table(files, table, name, ordered, names, query, database)
@@ -2790,6 +2901,12 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
+    if files.made_for:
+        # A batch another Workflow made, as new_table makes a table from its query: its own.
+        notebook = f"admin/workflows/{files.made_for}/{files.made_for}.ipynb"
+        lines.append(f"Next: answer its open Decisions in the decisions cell of {notebook}, "
+                     "then run its next steps.")
+        return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "

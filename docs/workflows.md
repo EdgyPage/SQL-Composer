@@ -121,15 +121,15 @@ for table in project.promoted_tables(TABLES, seeded=True):
 
 ## new_table
 
-Steps: 3 file step, 2 permission, 2 decision, 0 fiddling.
+Steps: 3 file step, 3 permission, 2 decision, 0 fiddling.
 
 Starts from: the tables' names, what each table should hold.
 
-Ends with: a dev Table folder whose logic loads, written in dev, its Table reference.
+Ends with: a dev Table folder whose logic loads, written in dev, its Table reference, each from a query compared with it.
 
 ```mermaid
 flowchart TD
-    s0["1. Make each Table folder: project.new_table(TABLES)"]:::files_only
+    s0["1. Make each Table folder, converting each table's query QUERIES gives: project.new_table(TABLES, queries=QUERIES)"]:::files_only
     s1{"2. Write each table's logic in its Table notebook, and save it: for table in TABLES:
     project.load(table).preview()  #35; says what stops it, if anything does"}:::your_decision
     s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES)"]:::files_only
@@ -140,6 +140,8 @@ flowchart TD
     s6[["7. Create and write each in dev: for table in TABLES:
     run_execute(project.load(table).create(), execute)
 project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
+    s7[["8. Compare each table made from a query with its query: for name in QUERIES:
+    print(project.compare_batch(name, query=query))"]]:::warehouse_call
     t0("the tables' names"):::thing
     t1("a Table folder"):::thing
     t2("what each table should hold"):::thing
@@ -149,6 +151,7 @@ project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
     t6("a dev Table folder whose logic loads"):::thing
     t7("its rows, checked"):::thing
     t8("written in dev"):::thing
+    t9("each from a query compared with it"):::thing
     t0 --> s0
     s0 --> t1
     t1 --> s1
@@ -165,6 +168,8 @@ project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
     t7 --> s6
     t4 --> s6
     s6 --> t8
+    t8 --> s7
+    s7 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a

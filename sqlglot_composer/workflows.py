@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING
 
 from . import decisions
 from .project_files import table_stem
-from .shared import escaped_literal, in_words
+from .shared import escaped_literal, in_words, split_table_name
 from .unchecked import SENT, hive_settings
 from .upgrades import MARK_LINE, marks_in, project_version
 
@@ -363,6 +363,9 @@ def batch_instances(root: Path) -> list[dict[str, object]]:
         return found
     for record in sorted(folder.glob(f"*/{BATCH_RECORD}")):
         kept = json.loads(record.read_text(encoding="utf-8"))
+        # A table new_table made from its query: its own Workflow takes it on.
+        if kept.get("made_for"):
+            continue
         found.append({"NAME": record.parent.name, "TABLES": kept.get("tables", []),
                       "SEEDED": kept.get("seeded", []),
                       "MADE": list(kept.get("originals", {}))})
@@ -743,10 +746,48 @@ def show_the_change(inputs: dict[str, object], calls: Calls) -> list[str]:
 
 
 def make_table_folders(inputs: dict[str, object]) -> ProjectReport:
-    """project.new_table for each table TABLES names."""
+    """project.new_table for each table TABLES names, from its query where QUERIES gives one."""
     from . import project  # project.py imports this file
 
-    return project.new_table(names_in(inputs, "TABLES"))
+    return project.new_table(names_in(inputs, "TABLES"), queries=queries_given(inputs))
+
+
+def queries_given(inputs: dict[str, object]) -> dict[str, str]:
+    """The queries QUERIES gives, by each table's name without its database; none when it
+    holds no dict."""
+    queries = inputs.get("QUERIES")
+    if not isinstance(queries, dict):
+        return {}
+    return {str(name): str(query) for name, query in queries.items()}
+
+
+def queries_of(inputs: dict[str, object]) -> list[str]:
+    """The names QUERIES gives a query for that TABLES names too, each a batch of one
+    new_table made: a name TABLES no longer holds is passed over."""
+    named = {split_table_name(table)[1] for table in names_in(inputs, "TABLES")}
+    return [name for name in queries_given(inputs) if name in named]
+
+
+def every_query_table_compared(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each table is written, and each made from a query has passed its compare with
+    it, or finished."""
+    dev = databases(root).get("DEV", "")
+    return every_table_written(root, inputs) and all(
+        (root / BATCHES / FINISHED / name).is_dir() or compare_passed(root, f"{dev}.{name}")
+        for name in queries_of(inputs))
+
+
+def compare_the_queries(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.compare_batch for each table made from a query; a dry run names them."""
+    from . import project  # project.py imports this file
+
+    names = queries_of(inputs)
+    if calls.dry_run:
+        return [f"would compare each with its query, through your query: {in_words(names)}"]
+    lines = []
+    for name in names:
+        lines += project.compare_batch(name, query=calls.query).lines
+    return lines
 
 
 def write_references_from_logic(inputs: dict[str, object]) -> ProjectReport:
@@ -892,10 +933,11 @@ NEW_TABLE = Workflow(
     "new_table",
     start_materials=("the tables' names", "what each table should hold"),
     end_artifacts=("a dev Table folder whose logic loads", "written in dev",
-                   "its Table reference"),
+                   "its Table reference", "each from a query compared with it"),
     steps=(
-        Step("Make each Table folder", FILE_STEP, ("the tables' names",),
-             ("a Table folder",), "project.new_table(TABLES)", every_table_folder_made,
+        Step("Make each Table folder, converting each table's query QUERIES gives",
+             FILE_STEP, ("the tables' names",), ("a Table folder",),
+             "project.new_table(TABLES, queries=QUERIES)", every_table_folder_made,
              make_table_folders),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"), ("its logic",),
@@ -924,9 +966,19 @@ NEW_TABLE = Workflow(
              "    run_execute(project.load(table).create(), execute)\n"
              "project.run_tables(tables=TABLES, execute=execute)", every_table_written,
              send=create_and_write_the_tables),
+        Step("Compare each table made from a query with its query", PERMISSION,
+             ("written in dev",), ("each from a query compared with it",),
+             "for name in QUERIES:\n"
+             "    print(project.compare_batch(name, query=query))",
+             every_query_table_compared, send=compare_the_queries),
     ),
-    inputs=(TABLES_INPUT,),
-    about="Makes a Table folder for each new Saved table, for you to fill in and write. A "
+    inputs=(TABLES_INPUT,
+            Input("QUERIES", {}, "each table's query, by its name without its database, as "
+                  "Hive text or a .hql file in admin/workflows/new_table/, such as "
+                  '{"daily_job_runs": "daily_job_runs.hql"} for mart_dev.daily_job_runs: it is '
+                  "made in your Dev Database, its logic written from its query")),
+    about="Makes a Table folder for each new Saved table: from its query, when QUERIES gives "
+    "one, its logic written for you; else from a Template, its logic for you to write. A "
     "Building block, a piece several notebooks share, is made with project.new_block(...).",
 )
 

@@ -276,20 +276,22 @@ Its last cell runs every step left, in place of their cells:
 
 ### The new_table Workflow
 
-Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a
-piece several notebooks share, is made with project.new_block(...).
+Makes a Table folder for each new Saved table: from its query, when QUERIES gives one, its logic
+written for you; else from a Template, its logic for you to write. A Building block, a piece
+several notebooks share, is made with project.new_block(...).
 
 Its chart, drawn from the steps of its notebook, admin/workflows/new_table/new_table.ipynb:
 
 ```mermaid
 flowchart TD
-    s0["1. Make each Table folder"]:::files_only
+    s0["1. Make each Table folder, converting each table's query QUERIES gives"]:::files_only
     s1{"2. Write each table's logic in its Table notebook, and save it"}:::your_decision
     s2["3. Write each Table reference from its logic"]:::files_only
     s3{"4. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s4["5. Write each answer into its table's Table reference"]:::files_only
     s5[["6. Check each table's rows with preview(), which writes nothing"]]:::warehouse_call
     s6[["7. Create and write each in dev"]]:::warehouse_call
+    s7[["8. Compare each table made from a query with its query"]]:::warehouse_call
     t0("the tables' names"):::thing
     t1("a Table folder"):::thing
     t2("what each table should hold"):::thing
@@ -299,6 +301,7 @@ flowchart TD
     t6("a dev Table folder whose logic loads"):::thing
     t7("its rows, checked"):::thing
     t8("written in dev"):::thing
+    t9("each from a query compared with it"):::thing
     t0 --> s0
     s0 --> t1
     t1 --> s1
@@ -315,6 +318,8 @@ flowchart TD
     t7 --> s6
     t4 --> s6
     s6 --> t8
+    t8 --> s7
+    s7 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -325,6 +330,11 @@ Its names cell, which you fill in and save first:
 
     # the tables, by their names in the warehouse, such as ["mart.daily_job_runs"]
     TABLES = []
+    # each table's query, by its name without its database, as Hive text or a .hql file
+    # in admin/workflows/new_table/, such as {"daily_job_runs": "daily_job_runs.hql"}
+    # for mart_dev.daily_job_runs: it is made in your Dev Database, its logic written
+    # from its query
+    QUERIES = {}
 
 Its decisions cell, beside it, where you answer each open Decision:
 
@@ -337,9 +347,10 @@ Its decisions cell, beside it, where you answer each open Decision:
 
 Its steps:
 
-- 1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
+- 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
+  so project.do_next() runs it for you).
 
-    project.new_table(TABLES)
+    project.new_table(TABLES, queries=QUERIES)
 
 - 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
   make).
@@ -369,6 +380,12 @@ Its steps:
     for table in TABLES:
         run_execute(project.load(table).create(), execute)
     project.run_tables(tables=TABLES, execute=execute)
+
+- 8. Compare each table made from a query with its query (it is a call to the warehouse, yours
+  to run).
+
+    for name in QUERIES:
+        print(project.compare_batch(name, query=query))
 
 
 Its last cell runs every step left, in place of their cells:

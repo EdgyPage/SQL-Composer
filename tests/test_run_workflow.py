@@ -145,3 +145,38 @@ def test_a_promote_named_in_a_project_with_a_reference_sheet_starts_at_its_first
     project.refresh_reference_sheet()  # a sheet, as any Project that has run a Workflow has
     typed(started, "promote", "TABLES = []", [f"{DEV}.spare"])
     assert "promote: 1. Promote each table" in run("promote")
+
+
+# --- new_table from a query (Toolbox 8.1, ticket 09) ----------------------------------------
+
+
+def test_new_table_makes_a_table_from_its_query_a_batch_of_one_in_dev(started: Path) -> None:
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}))
+    assert f"into 1 Saved table in mart_dev: {DEV}.failed_jobs." in said
+    assert said.endswith("admin/workflows/new_table/new_table.ipynb, then run its next steps.")
+    assert (started / "tables" / f"{DEV}__failed_jobs" / f"{DEV}__failed_jobs.ipynb").is_file()
+    # convert's Workflow passes it over: new_table's takes it on.
+    assert "convert.ipynb, failed_jobs" not in repr(project.check())
+
+
+def test_new_table_from_a_query_refuses_a_table_outside_the_dev_database(started: Path) -> None:
+    with pytest.raises(ValueError, match="not your Dev Database, mart_dev"):
+        project.new_table("mart.failed_jobs", queries={"failed_jobs": QUERY})
+
+
+def test_new_table_refuses_a_query_for_a_table_it_isnt_given(started: Path) -> None:
+    with pytest.raises(ValueError, match="which the tables don't name"):
+        project.new_table(f"{DEV}.failed_jobs", queries={"other": QUERY})
+
+
+def test_new_table_from_a_query_refuses_a_source_with_no_table_reference(started: Path) -> None:
+    with pytest.raises(ValueError, match="which has no Table reference"):
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY})
+    assert not (started / "tables" / f"{DEV}__failed_jobs").exists()
+
+
+def test_new_table_from_a_query_refuses_hive_that_isnt_one_query(started: Path) -> None:
+    with pytest.raises(ValueError, match="isn't one query"):
+        project.new_table(f"{DEV}.failed_jobs", queries={
+            "failed_jobs": "CREATE TABLE x.y AS " + QUERY})

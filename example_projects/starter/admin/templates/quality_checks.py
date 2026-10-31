@@ -18,8 +18,8 @@
 # Then save it: `project.reference_from_logic("<DB>.<TABLE>")`, a new_table Workflow step,
 # writes its Table reference, `references/<NAME>.py`, from the logic, for you to answer.
 # It lists one column, "row_count", a count, "bigint", then the partition column counted,
-# typed as the table checked types it, also named in partitioned_by=[...]. Give it that
-# partition column as its Key: one row per Partition counted.
+# typed as the table checked types it, as PARTITIONED_BY names it. Its Key, proposed from the
+# query, is that partition column: one row per Partition counted.
 #
 # TODO: say in one line what one row of <DB>.<TABLE> is.
 #
