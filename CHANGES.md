@@ -15,8 +15,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   each call reading those names, so there is no `"your_name"` left to edit.
 - **`project.check()` names each started Workflow's next step**, and **`project.do_next()`**
   runs each next step it can for you, one that changes only files, in order, up to the first
-  it can't: a decision, a call to the warehouse, or a step done by hand, which it names with
-  its call. It never sends anything.
+  it can't: a decision, a call to the warehouse, a step done by hand, or one only its cell
+  runs, which it names with its call. It never sends anything.
 - **`admin/` holds only what is not one Workflow's**: `check_project.ipynb` (with a
   `project.do_next()` cell), `check_references.ipynb`, `refresh_reference_sheet.ipynb`,
   `run_tables.ipynb`, `new_block.ipynb`, and `remove.ipynb`, which archives the tables,
@@ -27,6 +27,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `run_execute`, `project.run_tables` among them: when, its kind (such as write), the tables
   it writes, and the notebook or script that sent it. A Workflow reads it to
   know a step that writes is done.
+
+- **A Conversion reads a batch of scripts.** `project.convert("weekly", files=["daily.hql",
+  "weekly.hql"], query=query)` splits each script into its statements, orders them by what
+  reads what, and makes each table they create or write a Saved table in your Dev Database,
+  named `<table>_<its database>`, with its Table folder and its Table reference, its types from
+  the CREATE. What reads it reads that copy; the original tables are never touched.
+  `admin/workflows/convert/<name>/batch.md` lists what each statement became.
 
 ### To update from 7.2
 

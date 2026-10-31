@@ -46,8 +46,9 @@ DECISION = "decision"
 FIDDLING = "fiddling"
 KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
 
-# Each Workflow's folder in a Project.
+# Each Workflow's folder in a Project, and the file naming the user's two Databases.
 WORKFLOWS_FOLDER = Path("admin") / "workflows"
+DATABASES = Path("admin") / "databases.py"
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
 PLACEHOLDER = re.compile(r"<[A-Z][A-Z_]*>")
 
@@ -91,6 +92,8 @@ class Workflow:
     steps: tuple[Step, ...]
     inputs: tuple[Input, ...] = ()
     about: str = ""
+    # The names in admin/databases.py it reads, which check() asks for once it is started.
+    databases: tuple[str, ...] = ()
 
 
 # --- What the Project's files say -------------------------------------------------------------
@@ -104,6 +107,30 @@ def names_in(inputs: dict[str, object], name: str) -> list[str]:
     if isinstance(given, (list, tuple)):
         return [str(each) for each in given]
     return []
+
+
+def databases(root: Path) -> dict[str, str]:
+    """The names admin/databases.py gives DEV and PROD, as written: <DEV_DATABASE> until the
+    user fills one in. None for a name it doesn't give as text."""
+    text = file_text(root / DATABASES)
+    found = {}
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return found
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+            found[node.targets[0].id] = node.value.value
+    return found
+
+
+def databases_to_fill(root: Path, names: tuple[str, ...]) -> list[str]:
+    """Each of `names`, such as DEV, that admin/databases.py doesn't fill in yet."""
+    given = databases(root)
+    return [name for name in names if PLACEHOLDER.fullmatch(given.get(name, "<>")) or
+            not given.get(name)]
 
 
 def sent_rows(root: Path) -> list[dict[str, str]]:
@@ -297,6 +324,7 @@ CONVERT = Workflow(
             Input("TABLE", "", "the Saved table it becomes, such as \"mart.weekly_report\"")),
     about="Turns one query of Hive someone else wrote into your own code: a Conversion, then "
     "a Saved table of yours.",
+    databases=("DEV",),
 )
 
 # Promote dev tables to prod: no Project action does it yet, so it is all by hand. Ticket 17
@@ -452,8 +480,8 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
     if workflow.inputs:
         about += (" First fill in the names cell below and save the notebook: each call reads "
                   "it, and so do project.check(), which names the next step, and the last "
-                  "cell, project.do_next(), which runs each step that changes only files for "
-                  "you, up to the first it can't: yours, or one done by hand.")
+                  "cell, project.do_next(), which runs the steps it can for you, up to the "
+                  "first it can't: yours, one done by hand, or one only its cell runs.")
     cells = [("markdown", about), ("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
