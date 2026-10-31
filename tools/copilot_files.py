@@ -13,11 +13,12 @@ code: one file for each objective, such as building a Statement or converting Hi
 takes at most 8,000 characters at once, so each file must fit, as `copilot/count_characters.py`
 counts them, spaces and line breaks included; this refuses to write one that doesn't.
 
-A source is the file's text, with three kinds of placeholder, each on a line of its own:
+A source is the file's text, with four kinds of placeholder, each on a line of its own:
 
 - `{version}`: the Toolbox's name and version, from its version.txt;
 - `{always}`: the block each objective file holds, `tools/copilot_sources/_always.txt`, all
-  but files 11 and 12, which are loaded with 03, 04 and 05 and so have it already;
+  but files 11 and 12, which are loaded with 03, 04 and 05 and so have it already, and 13,
+  which gives steps and leaves each step's code to its own file;
 - `{names: SELECT, FROM, project.convert, ...}`: a list of those names, each with its
   signature as the Toolbox defines it, so a file never names a function that isn't there or
   calls one with arguments it doesn't take;

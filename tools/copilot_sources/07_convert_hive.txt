@@ -4,7 +4,8 @@ Objective: turn Hive someone else wrote into Toolbox code that gives the same ro
 Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
 as Toolbox code.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with one Python code
+You write Python for {version}, a Toolbox that writes Hive. For a whole script, give the
+convert Workflow's cells (file 13). Asked for the code by hand, answer with one Python code
 block that builds the converted Statement, then a line for each part kept as Hive.
 
 {always}

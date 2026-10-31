@@ -22,7 +22,8 @@ Databases, are set once in admin/databases.py.
 
 ## convert: someone else's Hive into Saved tables in dev
 
-For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files.
+For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files,
+saved beside the notebook, in admin/workflows/convert/, where it reads them.
 
 {workflow: convert}
 

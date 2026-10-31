@@ -11,8 +11,9 @@ tables' Table references, build Statements on them, share Building blocks, save 
 own, follow their Lineage, keep the Project in order, and convert someone else's Hive into
 your own code. Each job of a Project has a Workflow, a notebook in `admin/workflows/`: fill in
 its names cell and save it, and `project.check()` names its next step, while
-`project.do_next()` runs the steps it can for you, those that change only files with a call of
-their own, up to the first it can't. The Workflows section below draws each one. The Starter Example project shows a
+`project.do_next()` runs each step that only writes files, such as making a Table folder, and
+stops at the first that calls the warehouse or needs your decision. The Workflows section
+below draws each one. The Starter Example project shows a
 Project much like the one the story leaves, filled in. Each step
 is a short summary of the Getting started how-to of the same name, which walks through it in
 full on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. Every
@@ -315,7 +316,8 @@ How-to: [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_pro
 ## 9. Convert someone else's Hive
 
 Hive someone else wrote, one query or a folder of scripts, becomes your own code through the
-convert Workflow, `admin/workflows/convert/convert.ipynb`: name the batch and its scripts in
+convert Workflow, `admin/workflows/convert/convert.ipynb`: save the scripts beside it, in
+`admin/workflows/convert/`, where it reads them, name the batch and its scripts in
 its names cell, and its first step makes each table the scripts write a Saved table in your Dev
 Database, DEV in `admin/databases.py`, with its Table folder, its Table reference and a
 checklist. The scripts' order doesn't matter, and a temporary table, a FROM with several
@@ -325,10 +327,12 @@ INSERTs and an INSERT that reads its own table each come out as Saved tables:
 project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 ```
 
-Tick each box of each table's checklist, then its next steps create, seed and write each in dev,
-and compare each with the table it copies, `project.compare_batch`. Once each has passed,
-the promote Workflow carries them to your Prod Database, PROD, `project.promote`: dev stays the
-source, and you change it there and promote it again.
+Tick each box of each table's checklist, then the Workflow's next steps create each in dev,
+seed each whose write reads its own table (copy the original's rows in once, so its first
+write doesn't start from nothing), write each, and compare each with the table it copies,
+`project.compare_batch`. Once each has passed, the promote Workflow carries them to your Prod
+Database, PROD, `project.promote`, each keeping its name unless `rename=` gives it another:
+dev stays the source, and you change it there and promote it again.
 
 How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive).
 
@@ -336,9 +340,12 @@ How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_so
 
 Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
 take you from what you start with to the end goal. Fill in its names cell and save it; then
-`project.check()` names its next step, and `project.do_next()` runs the steps it can for you,
-those that change only files with a call of their own, up to the first it can't. Each chart below is drawn from the steps its
-notebook runs, beside the same steps as a list.
+`project.check()` names its next step, and `project.do_next()` runs each step that only
+writes files, such as making a Table folder, and stops at the first that calls the warehouse or
+needs your decision. Each chart below is drawn from the steps its notebook runs, beside the
+same steps as a list. In each chart, a plain box is a step that changes only files, or only
+prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision,
+yours to make; and a box with round corners something a step needs or makes.
 
 ### How the Toolbox runs
 
@@ -368,20 +375,30 @@ flowchart TD
 ```
 
 1. A Table reference describes a table you read or write.
+
        references/db__table.py
+
 2. Clause functions build a Statement, in the order SQL writes them.
+
        statement(SELECT(...), FROM(...), WHERE(...))
+
 3. Guards and Load limits check it as it is built; a refusal says what happened, why, the usual
    fix and the opt-out.
 4. to_hive or show_hive gives its Hive.
+
        show_hive(s)
+
 5. run_query sends a read through your query, run_execute a change through your execute, both in
    warehouse.py.
+
        run_query(s, query)
        run_execute(s, execute)
+
 6. A Saved table's notebook builds its create() and write() the same way; project.convert writes
    one from someone else's Hive, and project.run_tables runs each write() in order.
+
        project.run_tables(execute=execute)
+
 <!-- /chart -->
 
 ### convert
@@ -389,76 +406,68 @@ flowchart TD
 <!-- chart: convert -->
 ```mermaid
 flowchart TD
-    s0[["1. Convert the scripts: each table they write a Saved table in dev"]]
-    class s0 permission
+    s0[["1. Convert the scripts: each table they write a Saved table in dev"]]:::warehouse_call
+    s1{"2. Tick each box of each table's checklist"}:::your_decision
+    s2[["3. Create each table in dev"]]:::warehouse_call
+    s3[["4. Seed each table that reads itself, once, from its original"]]:::warehouse_call
+    s4[["5. Write each table in dev"]]:::warehouse_call
+    s5[["6. Compare each table with its original"]]:::warehouse_call
+    t0("Hive scripts"):::thing
+    t1("your Dev Database's name"):::thing
+    t2("read access to the sources"):::thing
+    t3("a dev Table folder per table the scripts write"):::thing
+    t4("a checklist per table"):::thing
+    t5("each decision made"):::thing
+    t6("each made in dev"):::thing
+    t7("each seeded"):::thing
+    t8("each written in dev"):::thing
+    t9("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
     s0 --> t3
     s0 --> t4
-    s1{"2. Tick each box of each table's checklist"}
-    class s1 decision
     t4 --> s1
     s1 --> t5
-    s2[["3. Create each table in dev"]]
-    class s2 permission
     t5 --> s2
     s2 --> t6
-    s3[["4. Seed each table that reads itself, once, from its original"]]
-    class s3 permission
     t6 --> s3
     s3 --> t7
-    s4[["5. Write each table in dev"]]
-    class s4 permission
     t7 --> s4
     s4 --> t8
-    s5[["6. Compare each table with its original"]]
-    class s5 permission
     t8 --> s5
     s5 --> t9
-    t0("Hive scripts")
-    class t0 thing
-    t1("your Dev Database's name")
-    class t1 thing
-    t2("read access to the sources")
-    class t2 thing
-    t3("a dev Table folder per table the scripts write")
-    class t3 thing
-    t4("a checklist per table")
-    class t4 thing
-    t5("each decision made")
-    class t5 thing
-    t6("each made in dev")
-    class t6 thing
-    t7("each seeded")
-    class t7 thing
-    t8("each written in dev")
-    class t8 thing
-    t9("each compared with its original")
-    class t9 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
+
        project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
+
 2. Tick each box of each table's checklist (it is a decision, yours to make).
 3. Create each table in dev (it is a call to the warehouse, yours to run).
+
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
+
 4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
+
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.batch_tables(NAME, seeded=True):
            run_execute(project.load(table).seed(), execute)
+
 5. Write each table in dev (it is a call to the warehouse, yours to run).
+
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+
 6. Compare each table with its original (it is a call to the warehouse, yours to run).
+
        project.compare_batch(NAME, query=query)
+
 <!-- /chart -->
 
 ### promote
@@ -466,65 +475,59 @@ flowchart TD
 <!-- chart: promote -->
 ```mermaid
 flowchart TD
-    s0["1. Promote each table: a prod copy of its Table folder and Table reference"]
-    class s0 file
+    s0["1. Promote each table: a prod copy of its folder and Table reference"]:::files_only
+    s1{"2. Fill in each prod Table reference's location="}:::your_decision
+    s2[["3. Create each table in prod"]]:::warehouse_call
+    s3[["4. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
+    s4[["5. Write each table in prod"]]:::warehouse_call
+    t0("dev Table folders, each box ticked and compared"):::thing
+    t1("your Prod Database's name"):::thing
+    t2("prod Table folders"):::thing
+    t3("prod Table references"):::thing
+    t4("each with its location="):::thing
+    t5("each made in prod"):::thing
+    t6("each seeded in prod"):::thing
+    t7("each written in prod"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
     s0 --> t3
-    s1{"2. Fill in each prod Table reference's location="}
-    class s1 decision
     t3 --> s1
     s1 --> t4
-    s2[["3. Create each table in prod"]]
-    class s2 permission
     t4 --> s2
     s2 --> t5
-    s3[["4. Seed each prod table that reads itself, once, from its original"]]
-    class s3 permission
     t5 --> s3
     s3 --> t6
-    s4[["5. Write each table in prod"]]
-    class s4 permission
     t6 --> s4
     s4 --> t7
-    t0("dev Table folders, each box ticked and compared")
-    class t0 thing
-    t1("your Prod Database's name")
-    class t1 thing
-    t2("prod Table folders")
-    class t2 thing
-    t3("prod Table references")
-    class t3 thing
-    t4("each with its location=")
-    class t4 thing
-    t5("each made in prod")
-    class t5 thing
-    t6("each seeded in prod")
-    class t6 thing
-    t7("each written in prod")
-    class t7 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
-1. Promote each table: a prod copy of its Table folder and Table reference (it changes only
-   files, so project.do_next() runs it for you).
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
        project.promote(TABLES)
+
 2. Fill in each prod Table reference's location= (it is a decision, yours to make).
 3. Create each table in prod (it is a call to the warehouse, yours to run).
+
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
+
 4. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
+
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.promoted_tables(TABLES, seeded=True):
            run_execute(project.load(table).seed(), execute)
+
 5. Write each table in prod (it is a call to the warehouse, yours to run).
+
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
 <!-- /chart -->
 
 ### new_table
@@ -532,67 +535,61 @@ flowchart TD
 <!-- chart: new_table -->
 ```mermaid
 flowchart TD
-    s0["1. Make each Table folder"]
-    class s0 file
+    s0["1. Make each Table folder"]:::files_only
+    s1{"2. Fill in each Table reference, in references/, and save it"}:::your_decision
+    s2{"3. Write each table's logic in its Table notebook, and save it"}:::your_decision
+    s3[["4. Check each table's rows with preview(), which writes nothing"]]:::warehouse_call
+    s4[["5. Create and write each in dev"]]:::warehouse_call
+    t0("the tables' names"):::thing
+    t1("a Table folder"):::thing
+    t2("its Table reference to fill in"):::thing
+    t3("its Table reference"):::thing
+    t4("what each table should hold"):::thing
+    t5("a dev Table folder whose logic loads"):::thing
+    t6("its rows, checked"):::thing
+    t7("written in dev"):::thing
     t0 --> s0
     s0 --> t1
     s0 --> t2
-    s1{"2. Fill in each Table reference, in references/, and save it"}
-    class s1 decision
     t2 --> s1
     s1 --> t3
-    s2{"3. Write each table's logic in its Table notebook, and save it"}
-    class s2 decision
     t1 --> s2
     t4 --> s2
     s2 --> t5
-    s3[["4. Check each table's rows with preview(), which writes nothing"]]
-    class s3 permission
     t5 --> s3
     s3 --> t6
-    s4[["5. Create and write each in dev"]]
-    class s4 permission
     t6 --> s4
     t3 --> s4
     s4 --> t7
-    t0("the tables' names")
-    class t0 thing
-    t1("a Table folder")
-    class t1 thing
-    t2("its Table reference to fill in")
-    class t2 thing
-    t3("its Table reference")
-    class t3 thing
-    t4("what each table should hold")
-    class t4 thing
-    t5("a dev Table folder whose logic loads")
-    class t5 thing
-    t6("its rows, checked")
-    class t6 thing
-    t7("written in dev")
-    class t7 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
 1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
+
        project.new_table(TABLES)
+
 2. Fill in each Table reference, in references/, and save it (it is a decision, yours to make).
 3. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
+
        for table in TABLES:
            project.load(table).write()  # says what stops it, if anything does
+
 4. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
+
        for table in TABLES:
            print(run_query(project.load(table).preview(), query))
+
 5. Create and write each in dev (it is a call to the warehouse, yours to run).
+
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
        project.run_tables(tables=TABLES, execute=execute)
+
 <!-- /chart -->
 
 ### references
@@ -600,42 +597,37 @@ flowchart TD
 <!-- chart: references -->
 ```mermaid
 flowchart TD
-    s0[["1. Write the Table references from DESCRIBE"]]
-    class s0 permission
+    s0[["1. Write the Table references from DESCRIBE"]]:::warehouse_call
+    s1{"2. Fill in each TODO line and Alias"}:::your_decision
+    s2["3. Refresh the Reference sheet and the Database modules"]:::files_only
+    t0("table names your query can DESCRIBE"):::thing
+    t1("Table references with TODO lines"):::thing
+    t2("filled-in Table references"):::thing
+    t3("the Reference sheet"):::thing
+    t4("the Database modules"):::thing
     t0 --> s0
     s0 --> t1
-    s1{"2. Fill in each TODO line and Alias"}
-    class s1 decision
     t1 --> s1
     s1 --> t2
-    s2["3. Refresh the Reference sheet and the Database modules"]
-    class s2 file
     t2 --> s2
     s2 --> t3
     s2 --> t4
-    t0("table names your query can DESCRIBE")
-    class t0 thing
-    t1("Table references with TODO lines")
-    class t1 thing
-    t2("filled-in Table references")
-    class t2 thing
-    t3("the Reference sheet")
-    class t3 thing
-    t4("the Database modules")
-    class t4 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+
        project.add_references(TABLES, query=query)
+
 2. Fill in each TODO line and Alias (it is a decision, yours to make).
 3. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
+
        project.refresh_reference_sheet(TABLES)
+
 <!-- /chart -->
 
 ### upgrade
@@ -643,36 +635,29 @@ flowchart TD
 <!-- chart: upgrade -->
 ```mermaid
 flowchart TD
-    s0["1. Upgrade the Project's files"]
-    class s0 file
+    s0["1. Upgrade the Project's files"]:::files_only
+    s1{"2. Make each change an UPGRADE mark asks for, and delete the mark"}:::your_decision
+    t0("a Project at an older version"):::thing
+    t1("the new Toolbox copied in"):::thing
+    t2("the Project at the new version"):::thing
+    t3("UPGRADE marks"):::thing
+    t4("every UPGRADE mark dealt with"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
     s0 --> t3
-    s1{"2. Make each change an #35; UPGRADE mark asks for, and tick its box"}
-    class s1 decision
     t3 --> s1
     s1 --> t4
-    t0("a Project at an older version")
-    class t0 thing
-    t1("the new Toolbox copied in")
-    class t1 thing
-    t2("the Project at the new version")
-    class t2 thing
-    t3("#35; UPGRADE marks")
-    class t3 thing
-    t4("every #35; UPGRADE box ticked")
-    class t4 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
 1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+
        project.upgrade()
-2. Make each change an # UPGRADE mark asks for, and tick its box (it is a decision, yours to
+
+2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
    make).
 <!-- /chart -->
 
@@ -681,48 +666,44 @@ flowchart TD
 <!-- chart: change_a_saved_table -->
 ```mermaid
 flowchart TD
-    s0{"1. Write the Admin statement for the change"}
-    class s0 decision
+    s0{"1. Write the Admin statement for the change"}:::your_decision
+    s1["2. Print its Hive, and run the check its Check first line names"]:::files_only
+    s2[["3. Send it, then any check after it, such as admin.check_the_copy"]]:::warehouse_call
+    t0("a Saved table"):::thing
+    t1("the change wanted"):::thing
+    t2("an Admin statement"):::thing
+    t3("its Hive, read and checked"):::thing
+    t4("the change sent"):::thing
+    t5("the change logged"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
-    s1["2. Print its Hive, and run the check its Check first line names"]
-    class s1 file
     t2 --> s1
     s1 --> t3
-    s2[["3. Send it, then any check after it, such as admin.check_the_copy"]]
-    class s2 permission
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    t0("a Saved table")
-    class t0 thing
-    t1("the change wanted")
-    class t1 thing
-    t2("an Admin statement")
-    class t2 thing
-    t3("its Hive, read and checked")
-    class t3 thing
-    t4("the change sent")
-    class t4 thing
-    t5("the change logged")
-    class t5 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
+
        table = project.table_reference(TABLE)
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
+
 2. Print its Hive, and run the check its Check first line names (it changes only files, or only
    prints: run its cell).
+
        show_hive(change)
+
 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
    warehouse, yours to run).
+
        run_execute(change, execute)
+
 <!-- /chart -->
 
 ## The how-tos
@@ -833,7 +814,7 @@ flowchart TD
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     dev[["each table created, seeded and written in dev"]]
-    compare[["project.compare_batch: each against its original"]]
+    compare[["project.compare_batch: each against its query"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
     workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod
@@ -842,15 +823,22 @@ flowchart TD
 1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is.
 2. Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the workbook as Hive, a
    query for each final Table.
-3. Fill in each name it writes in angle brackets, save each query as a .hql file, and convert
-   them as one batch in the convert Workflow, DEV filled in.
+3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
+   final Table, and convert them as one batch in the convert Workflow, DEV filled in: each
+   becomes a Saved table named for its file.
+
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
+
 4. Tick each checklist, then create, seed and write each table in dev, as the Workflow's steps
    say.
-5. Compare each with its original.
+5. Compare each with its query, the Hive Copilot wrote.
+
        project.compare_batch("budget", query=query)
+
 6. Promote them, and create and write each in prod, through the promote Workflow.
+
        project.promote([...])
+
 <!-- /chart -->
 
 To hand over an Excel workbook's calculations, one chat holds five files:
@@ -869,9 +857,10 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
-5. Save each filled-in query as a .hql file in your Project's folder, then convert them as
-   one batch in `admin/workflows/convert/convert.ipynb`: name the batch and its files in the
-   names cell, `NAME = "sales_summary"` and `FILES = ["sales.hql", "regions.hql"]`, with DEV
+5. Save each filled-in query as a .hql file of its own, named for its final Table, beside
+   `admin/workflows/convert/convert.ipynb`, in that folder, where it reads them, then convert
+   them as one batch there: each becomes a Saved table named for its file. Name the batch
+   and its files in the names cell, `NAME = "sales_summary"` and `FILES = ["sales.hql", "regions.hql"]`, with DEV
    filled in in `admin/databases.py`, and run its steps. Its code is checked; Copilot's Python
    after the Hive is only for reading, and the Conversion's code wins where the two differ.
 

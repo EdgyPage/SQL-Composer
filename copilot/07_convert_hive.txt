@@ -4,7 +4,8 @@ Objective: turn Hive someone else wrote into Toolbox code that gives the same ro
 Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
 as Toolbox code.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. For a whole script, give the
+convert Workflow's cells (file 13). Asked for the code by hand, answer with one Python code
 block that builds the converted Statement, then a line for each part kept as Hive.
 
 ## Always
@@ -38,7 +39,8 @@ block that builds the converted Statement, then a line for each part kept as Hiv
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
