@@ -23,6 +23,7 @@ from .joins import HOW, anti_join_tests, broadcast
 from .python_steps import PythonStep, python_step_text
 from .refusals import (
     arguments_of,
+    callers_frame,
     is_count,
     load_limit_rows,
     need_warehouse_call,
@@ -611,7 +612,7 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     else:
         sent = to_hive(s)
         send_logged(s, sent, execute)
-    record_sent(kind, sent, inspect.currentframe().f_back)
+    record_sent(kind, sent, callers_frame())
 
 
 def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object],

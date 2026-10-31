@@ -12,7 +12,7 @@ A Project is the folder you work in, laid out the same way every time:
     │                        imports them
     ├── admin/               the notebooks you run each time you need one
     │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
-    │   │                    name what it works on in its first cell, and run each step
+    │   │                    name what it works on in its names cell, and run each step
     │   ├── databases.py     DEV and PROD, the two Databases you own, set once
     │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
@@ -196,7 +196,7 @@ WORKFLOW_PATH_LINES = [
     "import sys",
     "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))  # the Project: three up",
     "",
-    "from sqlglot_composer import project",
+    "from sqlglot_composer import admin, project, run_execute, show_hive",
     "from warehouse import query, execute",
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
@@ -277,7 +277,7 @@ ADMIN_NOTEBOOKS = {
         "# Remove\n\nMoves Table folders, Table references, Building blocks and Conversion "
         "folders into `admin/removed/`, each named by the time, and logs it. Nothing is "
         "deleted, and a table stays in the warehouse: drop it with `admin.drop_table` in "
-        "`workflows/change_a_saved_table/`. Name what to archive in the first cell, then run "
+        "`workflows/change_a_saved_table/`. Name what to archive in the cell below, then run "
         "the rest: each list left empty is passed over.",
         ['TABLES = []  # Table folders to archive, such as ["mart.daily_job_runs"]\n'
          "REFERENCES = []  # Table references to archive, by their tables' names\n"
@@ -450,6 +450,14 @@ def _add_what_start_lacks(root: Path) -> list[str]:
     return added + _add_admin_files(root)
 
 
+def admin_notebook_cells(name: str) -> list[tuple[str, str]]:
+    """The cells of one admin notebook, such as check_project: what it is for, the lines that
+    put the Project on Python's path, then its own code cells."""
+    about, cells = ADMIN_NOTEBOOKS[name]
+    return [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
+            *[("code", cell) for cell in cells]]
+
+
 def _add_admin_files(root: Path) -> list[str]:
     """Write each Template into admin/templates/, then each admin notebook into admin/,
     where it isn't there already, writing over nothing: the files written, such as
@@ -466,11 +474,10 @@ def _add_admin_files(root: Path) -> list[str]:
         if not path.exists():
             path.write_text(text, encoding="utf-8")
             added.append(f"admin/templates/{name}.py")
-    for name, (about, cells) in ADMIN_NOTEBOOKS.items():
+    for name in ADMIN_NOTEBOOKS:
         path = root / "admin" / f"{name}.ipynb"
         if not path.exists():
-            write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
-                                  *[("code", cell) for cell in cells]])
+            write_notebook(path, admin_notebook_cells(name))
             added.append(f"admin/{name}.ipynb")
     for workflow in workflows.WORKFLOWS:
         path = workflows.notebook_path(root, workflow)
@@ -1163,8 +1170,10 @@ def check() -> ProjectReport:
     project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
     needs that newer Toolbox copied in; an admin/project_version.txt that holds no version;
     each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line; each
-    Conversion not finished yet, with finish_conversion and remove_conversion to run; and each
-    `# CONVERSION:` mark project.convert left for you, with its file and line.
+    Conversion not finished yet, with finish_conversion and remove_conversion to run; each
+    `# CONVERSION:` mark project.convert left for you, with its file and line; and the next
+    step of each Workflow you have started, in admin/workflows/, with its call, which
+    project.do_next() runs for you when it changes only files.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1207,26 +1216,27 @@ def _workflow_lines(root: Path) -> list[str]:
     """What check() says of the Workflows: each started one's next step, and its call."""
     lines = []
     for workflow in workflows.WORKFLOWS:
-        inputs = workflows.given_inputs(root, workflow)
-        if not workflow.inputs or not workflows.is_started(workflow, inputs):
+        inputs = workflows.started_inputs(root, workflow)
+        if inputs is None:
             continue
         step = workflows.next_step(root, workflow, inputs)
         if step is not None:
-            lines.append(_next_step_line(root, workflow, step))
+            lines.append(_next_step_line(root, workflow, step, inputs))
     if lines:
         lines.insert(0, "The next step of each Workflow you have started; project.do_next() "
                         "runs those that change only files:")
     return lines
 
 
-def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step) -> str:
+def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step,
+                    inputs: dict[str, object]) -> str:
     """One Workflow's next step as check() and do_next() say it: its notebook, its number and
-    name, its kind, and its call when it has one."""
+    name, its kind, and its call when it has one, ready to run."""
     number = workflow.steps.index(step) + 1
     where = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
-    said = f"  {where}: {number}. {step.name}, a {step.kind}"
+    said = f"  {where}: {number}. {step.name}. It {workflows.KIND_SAID[step.kind]}"
     if step.call:
-        said += f": {step.call}"
+        said += f": {workflows.ready_call(step.call, inputs)}"
     return said
 
 
@@ -1239,19 +1249,20 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     tables/ and warehouse.py.
     Next: set conn, your connection, in warehouse.py.
     >>> from pathlib import Path
-    >>> # Only to stand in for typing the name in the notebook's first cell, and saving it:
+    >>> # Only to stand in for typing the name in the notebook's names cell, and saving it:
     >>> notebook = Path("admin/workflows/new_table/new_table.ipynb")
     >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
     ...     "TABLES = []", "TABLES = ['mart.daily_job_runs']"), encoding="utf-8")
     >>> project.do_next()
-      new_table: ran project.new_table(TABLES)
+      new_table: ran project.new_table(["mart.daily_job_runs"])
         Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
         admin/templates/saved_table.py.
         Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
-      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, a decision
+      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference. It is a
+        decision, yours to make
 
-    It runs them in order, up to the first step that is yours: a decision, or a call to the
-    warehouse. A Workflow is started once its notebook's first cell, in
+    It runs them in order, up to the first it can't run for you: a decision, a call to the
+    warehouse, or a step done by hand. A Workflow is started once its notebook's names cell, in
     admin/workflows/<name>/, names what it works on, such as TABLES = ["mart.daily_job_runs"]:
     save the notebook, then run this. Each step says whether it is done from the Project's
     files, so a step done already is passed over, and running it again does nothing more. It
@@ -1264,17 +1275,16 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     for each in workflows.WORKFLOWS:
         if workflow is not None and each.name != workflow:
             continue
-        inputs = workflows.given_inputs(root, each)
-        if not each.inputs or not workflows.is_started(each, inputs):
-            continue
-        lines += _run_file_steps(root, each, inputs)
+        inputs = workflows.started_inputs(root, each)
+        if inputs is not None:
+            lines += _run_file_steps(root, each, inputs)
     return ProjectReport(lines or ["No Workflow is started: name what one works on in the "
-                                   "first cell of its notebook, in admin/workflows/, and save "
+                                   "names cell of its notebook, in admin/workflows/, and save "
                                    "it."])
 
 
 def _run_file_steps(root: Path, workflow: workflows.Workflow,
-                    inputs: workflows.Inputs) -> list[str]:
+                    inputs: dict[str, object]) -> list[str]:
     """Run a Workflow's next steps while each is a file step that can run itself, and say
     what ran and what is next."""
     lines = []
@@ -1283,9 +1293,9 @@ def _run_file_steps(root: Path, workflow: workflows.Workflow,
         if step is None:
             return [*lines, f"  {workflow.name}: every step is done."]
         if step.kind != workflows.FILE_STEP or step.run is None:
-            return [*lines, _next_step_line(root, workflow, step)]
+            return [*lines, _next_step_line(root, workflow, step, inputs)]
         report = step.run(inputs)
-        lines.append(f"  {workflow.name}: ran {step.call}")
+        lines.append(f"  {workflow.name}: ran {workflows.ready_call(step.call, inputs)}")
         lines += [f"    {line}" for line in report.lines]
         if step.done is None or not step.done(root, inputs):
             return lines

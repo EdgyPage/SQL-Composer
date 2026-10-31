@@ -1115,7 +1115,9 @@ def record_sent(kind: str, hive: str, frame: FrameType) -> None:
     from .project import project_folder  # it imports this file
 
     caller = calling_file(frame)
-    project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
+    project = project_folder(caller_folder(caller))
+    if project is None:
+        project = project_folder(Path.cwd())
     if project is None or not (project / SENT).is_file():
         return
     written = [name for name, does in tables_read_and_written(hive) if does == "writes"]

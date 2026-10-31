@@ -38,7 +38,7 @@ flowchart TD
     class s3 decision
     t3 --> s3
     s3 --> t4
-    s4[["5. Convert the query, reading the sources' DESCRIBE: project.convert(NAME, HIVE, query=query, database=DATABASE)"]]
+    s4[["5. Convert the query, reading the sources' DESCRIBE: project.convert(NAME, HIVE, file=FILE, query=query, database=DATABASE)"]]
     class s4 permission
     t4 --> s4
     t5 --> s4
@@ -61,7 +61,7 @@ flowchart TD
     class s8 fiddling
     t11 --> s8
     s8 --> t12
-    s9[["10. Compare each query with its original: compare_with_original(...)"]]
+    s9[["10. Compare each query with its original, in the Conversion's notebook"]]
     class s9 permission
     t12 --> s9
     s9 --> t13
@@ -92,7 +92,7 @@ flowchart TD
     class s15 fiddling
     t17 --> s15
     s15 --> t21
-    s16[["17. Create and write each table in dev: run_tables(execute=execute)"]]
+    s16[["17. Create and write each table in dev: project.run_tables(tables=[TABLE], execute=execute)"]]
     class s16 permission
     t20 --> s16
     t8 --> s16
@@ -174,7 +174,7 @@ flowchart TD
     class s2 fiddling
     t3 --> s2
     s2 --> t4
-    s3[["4. Create and write each table in prod: run_tables(execute=execute)"]]
+    s3[["4. Create and write each table in prod: project.run_tables(execute=execute)  #35; or tables=[...], the promoted ones"]]
     class s3 permission
     t4 --> s3
     s3 --> t5

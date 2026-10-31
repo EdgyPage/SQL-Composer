@@ -49,7 +49,7 @@ Restart the kernel of a notebook that imported references, to see a table added 
 The table is mart.alerts_per_severity: how many alerts of each severity, low or high, the runs
 raised each day. `project.new_table` takes its name, its database first. The new_table
 Workflow's notebook, admin/workflows/new_table/new_table.ipynb, runs this call on the names in
-its first cell; calling it from any notebook of the Project does the same:
+its names cell; calling it from any notebook of the Project does the same:
 
 >>> project.new_table("mart.alerts_per_severity")
 Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from

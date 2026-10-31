@@ -1516,8 +1516,9 @@ def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Pat
     assert repr(project.check()).endswith(
         "The next step of each Workflow you have started; project.do_next() runs those that "
         "change only files:\n"
-        "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder, a file step: "
-        "project.new_table(TABLES)")
+        "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder. It changes "
+        "only files, so project.do_next() runs it for you: "
+        'project.new_table(["mart.daily_job_runs"])')
 
 
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
@@ -1526,12 +1527,31 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
     report = repr(project.do_next())
     assert (started / "tables" / "mart__daily_job_runs").is_dir()
     assert (started / "tables" / "mart__team_day").is_dir()
-    assert report.splitlines()[0] == "  new_table: ran project.new_table(TABLES)"
+    assert report.splitlines()[0] == (
+        '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"])')
     assert report.splitlines()[-1] == (
-        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, a "
-        "decision")
+        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference. It is a "
+        "decision, yours to make")
     # Run again, the Table folders are there, so the next step is still the decision.
     assert repr(project.do_next("new_table")).splitlines() == [report.splitlines()[-1]]
+
+
+def test_a_conversion_is_started_once_it_is_named(started: Path) -> None:
+    # Its other inputs, such as TABLE, wait for later steps.
+    fill_in(started, "convert", 'NAME = "weekly"')
+    assert "admin/workflows/convert/convert.ipynb: 1." in repr(project.check())
+
+
+def test_a_step_the_files_cant_tell_of_is_passed_once_a_later_one_is_done(
+        started: Path) -> None:
+    fill_in(started, "change_a_saved_table", 'TABLE = "mart.daily_job_runs"')
+    assert "change_a_saved_table.ipynb: 1. Write the Admin statement" in repr(project.check())
+    daily_job_runs = Table("mart.daily_job_runs", columns={"job_id": "bigint", "dt": "string"},
+                           partitioned_by=["dt"], location="/data/mart.db/daily_job_runs")
+    run_execute(admin.drop_table(daily_job_runs), example_database.execute)
+    # The send is in sent.csv, so the Admin statement was written and its Hive read.
+    assert "change_a_saved_table.ipynb: 4. Run the check its report names. It is a call" in (
+        repr(project.check()))
 
 
 def test_a_send_from_a_project_adds_a_row_to_sent_csv(started: Path) -> None:

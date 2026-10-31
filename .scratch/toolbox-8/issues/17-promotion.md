@@ -20,6 +20,6 @@ prod is only ever generated. The map's "Promote" Notes hold the design.
   reads a dev table not promoted with it, naming each, before anything is written.
 - Re-promoting replaces the prod copy, archiving the old; the check reports a prod folder edited
   by hand.
-- The promote Workflow's steps (promote, then `run_tables` in prod, a permission) are in its step
+- Each step has its done function (ticket 12 left them out). The promote Workflow's steps (promote, then `run_tables` in prod, a permission) are in its step
   list, with no fiddling edge in the graph.
 - CONTEXT.md gains **Promotion**.

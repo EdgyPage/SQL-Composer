@@ -76,3 +76,31 @@ Settled differently from Done when, each recorded:
 - **Each Workflow's how-to generated from the step list moves to ticket 19**, which rewrites the
   how-tos around the Workflows; `docs/workflows.md` is generated from the same list meanwhile.
 - **conversions/ stays in `admin/`** until ticket 13 makes a Conversion read n scripts.
+- **`new_block.ipynb` stays in `admin/`**, not in `workflows/new_table/` as the map has it: a
+  Building block is shared by many tables, so it belongs to no one Workflow.
+- **The notebook's calls read the names cell** (`project.new_table(TABLES)`), and `check()` and
+  `do_next()` write each call out with the names it read (`project.new_table(["mart.x"])`), ready
+  to run from any notebook.
+- **sent.csv's columns are time, kind, tables, script**, not the map's call and Workflow
+  instance: the kind (write, admin, unchecked) is what a done function reads, and instances come
+  with ticket 13. A row is never taken back, so a step stays done after a later change.
+- **check_project.ipynb is left as 7.2 wrote it by the 8.0 Upgrade**: the user runs the Upgrade
+  from it, and a notebook written while open is saved over. Its new `do_next()` cell runs from
+  any notebook; `tests/test_upgrades.py`'s `LEFT_AS_IT_WAS` names it.
+- **The version raise**: the user chose 8 (2026-10-30, "version 8"), at ticket 20; it moved here
+  only in time.
+
+Review (2026-10-31):
+- Code review, Standards: the `Inputs` alias went; `Step.run` and the run functions give
+  `ProjectReport`, under `TYPE_CHECKING`; `record_sent`'s `or` is an `if`; inputs are in
+  CONTEXT.md's Workflow entry; `Input.starts` replaces the hard-coded names, and
+  `started_inputs` the check both callers made; `Upgrade.rewrite_notebook` replaces overwriting
+  `changed[-1]`, and `admin_notebook_cells` the cells built twice; `done=` by keyword. Left: the
+  `every_*` functions' shared shape and workflows.py's size, for ticket 18, which adds the last
+  done functions.
+- Code review, Spec: convert started on NAME alone; `next_step` passes each step before the last
+  one known done, so change_a_saved_table moves on once its send is in sent.csv; convert's and
+  promote's done functions come with tickets 14, 16 and 17, which now say so.
+- Drift: D315 to D319, each fixed in the commit after 3ad1c24.
+- Beginner reader: [reports/12-beginner-reader.md](../reports/12-beginner-reader.md), with what
+  was done for each stop.

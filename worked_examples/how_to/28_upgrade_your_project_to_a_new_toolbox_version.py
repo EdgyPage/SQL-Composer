@@ -44,9 +44,9 @@ none, and is taken to be 7.1.
 ### See that it needs an Upgrade
 
 Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time
-you restart the kernel (this page imported it before taking the version file out, so it shows no
-warning), and `project.check()` says so too. Nothing is refused meanwhile: your notebooks still
-run.
+you restart the kernel (this page imported it before writing 7.2 in the version file, so it
+shows no warning), and `project.check()` says so too. Nothing is refused meanwhile: your
+notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
@@ -69,8 +69,7 @@ It ran the step from each version to the next, here one, and wrote a checklist f
 >>> for line in checklist.splitlines():
 ...     if line.startswith(("- ", "Nothing")):
 ...         print(line)
-- wrote admin/new_block.ipynb again, for 8.0's admin layout
-- wrote admin/check_project.ipynb again, for 8.0's admin layout
+- rewrote admin/new_block.ipynb
 - added admin/remove.ipynb
 - added admin/workflows/convert/convert.ipynb
 - added admin/workflows/promote/promote.ipynb
