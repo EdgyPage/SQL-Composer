@@ -237,9 +237,24 @@ def batch_instances(root: Path) -> list[dict[str, object]]:
     if not folder.is_dir():
         return found
     for record in sorted(folder.glob(f"*/{BATCH_RECORD}")):
-        tables = json.loads(record.read_text(encoding="utf-8")).get("tables", [])
-        found.append({"NAME": record.parent.name, "TABLES": tables})
+        kept = json.loads(record.read_text(encoding="utf-8"))
+        found.append({"NAME": record.parent.name, "TABLES": kept.get("tables", []),
+                      "SEEDED": kept.get("seeded", [])})
     return found
+
+
+def every_table_created(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records a create of each table TABLES names."""
+    tables = names_in(inputs, "TABLES")
+    return bool(tables) and all(was_sent(root, "create", table) for table in tables)
+
+
+def every_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records the seed, an Unchecked statement, of each table
+    SEEDED names, once each table is created; true then when none reads itself."""
+    if not every_table_created(root, inputs):
+        return False
+    return all(was_sent(root, "unchecked", table) for table in names_in(inputs, "SEEDED"))
 
 
 def every_table_written(root: Path, inputs: dict[str, object]) -> bool:
@@ -324,8 +339,15 @@ CONVERT = Workflow(
              every_batch_converted),
         Step("Tick each box of each table's checklist", DECISION,
              ("a checklist per table",), ("each decision made",), done=every_box_ticked),
-        Step("Create each table once, from its notebook's create() cell, then write each "
-             "in dev", PERMISSION, ("each decision made",), ("each written in dev",),
+        Step("Create each table in dev", PERMISSION, ("each decision made",),
+             ("each made in dev",),
+             "for table in project.batch_tables(NAME):\n"
+             "    run_execute(project.load(table).create(), execute)", every_table_created),
+        Step("Seed each table that reads itself, once, from its original", PERMISSION,
+             ("each made in dev",), ("each seeded",),
+             "for table in project.batch_tables(NAME, seeded=True):\n"
+             "    run_execute(project.load(table).seed(), execute)", every_table_seeded),
+        Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
              every_table_written),
         Step("Compare each table with its original, in its notebook's compare cells",
@@ -381,11 +403,12 @@ NEW_TABLE = Workflow(
         Step("Write each table's logic in its notebook", DECISION,
              ("a Table folder", "what each table should hold"),
              ("a dev Table folder whose logic loads",), done=every_logic_written),
-        Step("Create each once, from its notebook's create() cell, then write each in dev",
-             PERMISSION,
+        Step("Create and write each in dev", PERMISSION,
              ("a dev Table folder whose logic loads", "its Table reference"),
-             ("written in dev",), "project.run_tables(tables=TABLES, execute=execute)",
-             every_table_written),
+             ("written in dev",),
+             "for table in TABLES:\n"
+             "    run_execute(project.load(table).create(), execute)\n"
+             "project.run_tables(tables=TABLES, execute=execute)", every_table_written),
     ),
     inputs=(TABLES_INPUT,),
     about="Makes a Table folder for each new Saved table, for you to fill in and write. A "

@@ -296,6 +296,9 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   writes each Saved table itself, one query as a batch of one; finish_conversion is gone;
   conversion/ keeps the statement, the scan and checklist.md; written.json makes running again
   safe; each batch is the convert Workflow's instance.
+- [15 Many in, many out](issues/15-many-in-many-out.md): a multi-insert is a write per target;
+  writes to one table stack with UNION ALL from the last overwrite on; a table that reads
+  itself gets seed() and a seed step, after a create step of its own.
 - [21 warehouse.py takes a connection](issues/21-warehouse-conn.md): `conn`, set once, and
   `query`/`execute` that pass each Hive string to `conn.query` and `conn.execute`.
 

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import datetime
 import json
+import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -38,15 +40,20 @@ FROM base b JOIN ops.jobs j ON b.job_id = j.job_id
 
 
 @pytest.fixture
-def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
+    # Left off Python's path afterwards with its modules, which a convert puts there.
+    monkeypatch.setattr(sys, "path", list(sys.path))
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
     databases = tmp_path / "admin" / "databases.py"
     databases.write_text(databases.read_text(encoding="utf-8")
                          .replace('"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
-    return tmp_path
+    yield tmp_path
+    for name in [name for name in sys.modules
+                 if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
+        del sys.modules[name]
 
 
 @pytest.fixture

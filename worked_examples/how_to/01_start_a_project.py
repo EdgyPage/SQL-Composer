@@ -129,8 +129,8 @@ file, the call that makes it, and what you fill in:
 
 `references/`, `building_blocks/` and `tables/` are empty for now. Each Project action
 writes over nothing of yours: most refuse a file or folder that is already there, and convert,
-run again, writes a fresh file beside one you changed. Each logs what it did in the Admin
-log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
+run again, writes a fresh copy of a file you changed into its batch's folder. Each logs what it
+did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
 is the one after its heading:
 
 >>> from pathlib import Path

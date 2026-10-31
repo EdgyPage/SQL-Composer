@@ -11,12 +11,14 @@ Example database.
 from __future__ import annotations
 
 import datetime
+import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 from conftest import toolbox_module
 
-from sqlglot_composer import example_database, project, set_admin_log
+from sqlglot_composer import example_database, project, set_admin_log, to_hive
 
 NOW = datetime.datetime(2026, 10, 31, 9, 30, 0)
 
@@ -43,8 +45,11 @@ DEV = "mart_dev"
 
 
 @pytest.fixture
-def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
+    """A started Project, its DEV filled in, left off Python's path afterwards with its
+    modules, which a convert puts there, so another test reads its own."""
     monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
+    monkeypatch.setattr(sys, "path", list(sys.path))
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
@@ -53,7 +58,15 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
                          .replace('"<DEV_DATABASE>"', f'"{DEV}"'), encoding="utf-8")
     (tmp_path / "daily.hql").write_text(DAILY, encoding="utf-8")
     (tmp_path / "weekly.hql").write_text(WEEKLY, encoding="utf-8")
-    return tmp_path
+    yield tmp_path
+    forget_the_projects_modules()
+
+
+def forget_the_projects_modules() -> None:
+    """Put away the modules a Project's notebooks import, which convert loaded."""
+    for name in [name for name in sys.modules
+                 if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
+        del sys.modules[name]
 
 
 @pytest.fixture
@@ -282,19 +295,6 @@ def test_a_table_read_before_the_batch_writes_it_is_read_as_it_was(started: Path
     assert "ops.jobs" in before and "jobs_ops" not in before
 
 
-def test_a_table_that_reads_itself_is_named_and_kept_as_hive(started: Path) -> None:
-    report = convert_script(
-        started, "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n"
-                 "INSERT INTO TABLE ops_reports.grows SELECT g.job_id "
-                 "FROM ops_reports.grows g;\n")
-    assert "mart_dev.grows_ops_reports (it reads its own table" in report
-    assert not (started / "tables" / "mart_dev__grows_ops_reports").exists()
-    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
-        encoding="utf-8")
-    assert ("a write to mart_dev.grows_ops_reports its notebook doesn't make, kept as Hive"
-            in index)
-
-
 # --- What the beginner reader found ----------------------------------------------------------
 
 
@@ -382,7 +382,7 @@ def test_check_names_the_batchs_next_step_and_ticking_the_boxes_moves_it_on(
         path = started / "tables" / stem / "conversion" / "checklist.md"
         path.write_text(path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
                         encoding="utf-8")
-    assert "ops_reports: 3. Create each table once" in repr(project.check())
+    assert "ops_reports: 3. Create each table in dev" in repr(project.check())
 
 
 # --- What ticket 14's review found -----------------------------------------------------------
@@ -428,7 +428,7 @@ def test_a_batch_that_only_creates_has_no_box_to_tick(started: Path) -> None:
     convert_script(started, "CREATE TABLE ops_reports.lonely (a INT);\n")
     said = repr(project.check())
     assert "script: 2. Tick each box" not in said
-    assert "script: 3. Create each table once" in said
+    assert "script: 3. Create each table in dev" in said
 
 
 def test_a_checklist_deleted_is_not_taken_as_ticked(started: Path, batch: str) -> None:
@@ -444,3 +444,65 @@ def test_batch_md_lists_each_tables_marks(started: Path) -> None:
     index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
         encoding="utf-8")
     assert "  - # CONVERSION: JOIN(j, many_matches=True), a box on its checklist" in index
+
+
+# --- Many in, many out (ticket 15) -----------------------------------------------------------
+
+
+def test_a_multi_insert_gives_a_saved_table_per_target(started: Path) -> None:
+    convert_script(started, "FROM ops.job_runs r\n"
+                            "INSERT OVERWRITE TABLE ops_reports.failed SELECT r.run_id\n"
+                            "  WHERE r.dt = '2026-09-24' AND r.status = 'FAILED'\n"
+                            "INSERT OVERWRITE TABLE ops_reports.passed SELECT r.run_id\n"
+                            "  WHERE r.dt = '2026-09-24' AND r.status = 'SUCCESS';\n")
+    for table in ("mart_dev.failed_ops_reports", "mart_dev.passed_ops_reports"):
+        hive = to_hive(project.load(table).preview())
+        assert "FROM ops.job_runs" in hive, table
+    assert "'FAILED'" in to_hive(project.load("mart_dev.failed_ops_reports").preview())
+    assert "'SUCCESS'" in to_hive(project.load("mart_dev.passed_ops_reports").preview())
+
+
+def test_several_writes_to_one_table_stack_in_script_order(started: Path) -> None:
+    convert_script(started,
+                   "CREATE TABLE ops_reports.events (job_id BIGINT, kind STRING);\n"
+                   "INSERT OVERWRITE TABLE ops_reports.events SELECT r.job_id, 'run' AS kind\n"
+                   "  FROM ops.job_runs r WHERE r.dt = '2026-09-24';\n"
+                   "INSERT INTO TABLE ops_reports.events SELECT a.run_id, 'alert' AS kind\n"
+                   "  FROM ops.run_alerts a WHERE a.dt = '2026-09-24';\n")
+    hive = to_hive(project.load("mart_dev.events_ops_reports").preview())
+    assert "UNION ALL" in hive
+    assert hive.index("'run'") < hive.index("'alert'")
+    rows = example_database.query(hive)
+    assert set(rows["kind"]) == {"run", "alert"}
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "a piece of mart_dev.events_ops_reports's write, stacked after the one before" in (
+        index)
+
+
+def test_a_later_overwrite_replaces_the_writes_before_it(started: Path) -> None:
+    convert_script(started,
+                   "INSERT OVERWRITE TABLE ops_reports.last SELECT r.job_id\n"
+                   "  FROM ops.job_runs r WHERE r.dt = '2026-09-23';\n"
+                   "INSERT OVERWRITE TABLE ops_reports.last SELECT r.job_id\n"
+                   "  FROM ops.job_runs r WHERE r.dt = '2026-09-24';\n")
+    hive = to_hive(project.load("mart_dev.last_ops_reports").preview())
+    assert "UNION ALL" not in hive and "2026-09-24" in hive and "2026-09-23" not in hive
+
+
+def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None:
+    report = convert_script(
+        started, "CREATE TABLE ops_reports.grows AS SELECT j.job_id FROM ops.jobs j;\n"
+                 "INSERT INTO TABLE ops_reports.grows SELECT r.job_id FROM ops.job_runs r\n"
+                 "  WHERE r.dt = '2026-09-24'\n"
+                 "  AND r.job_id NOT IN (SELECT g.job_id FROM ops_reports.grows g);\n")
+    assert "Skipped" not in report
+    logic = project.load("mart_dev.grows_ops_reports")
+    seed = to_hive(logic.seed())
+    assert seed == ("INSERT OVERWRITE TABLE mart_dev.grows_ops_reports "
+                    "SELECT * FROM ops_reports.grows")
+    assert project.batch_tables("script", seeded=True) == ["mart_dev.grows_ops_reports"]
+    # Its write reads its own copy in dev, which the seed fills first.
+    assert "FROM mart_dev.grows_ops_reports" in to_hive(logic.preview())
+    assert "- [ ] Seed it once, before its first write" in (
+        checklist(started, "mart_dev.grows_ops_reports"))
