@@ -43,7 +43,11 @@ evaluation, `tools/excel_eval.py`, is run as the same doc's Excel section says. 
 coding standard, a refactor of the Toolbox and `tools/` to it with no version raise, then
 Workflows: Conversions of many scripts into the user's Dev Database, Promotion to their Prod
 Database, and every Project action taking one or many) is charted through
-`.scratch/toolbox-8/map.md`; read its Notes before working one of its tickets.
+`.scratch/toolbox-8/map.md`; read its Notes before working one of its tickets. Toolbox 8.1
+(end-to-end tests of each Workflow, Decisions answered in a Workflow's notebook in place of
+hand edits, a runner that runs a Workflow's steps, new tables from a query, and staging tables
+folded) is charted through `.scratch/toolbox-8-1/map.md`; read its Notes before working one of
+its tickets.
 
 ## Checks
 
