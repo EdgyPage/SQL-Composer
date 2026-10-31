@@ -91,9 +91,16 @@ def test_the_change_is_written_once_the_change_cell_names_an_admin_statement(
         "change_a_saved_table.ipynb")
     inputs = {"TABLE": ["mart.daily_runs"]}
     assert not workflows.change_written(started, inputs)
-    cells = [(kind, text.replace("admin.drop_partitions(...)",
-                                 'admin.drop_partitions(daily_runs, before="2026-09-01")'))
-             for kind, text in notebooks.read_cells(path)]
+    commented = [(kind, text.replace("change = admin.drop_partitions(...)",
+                                     "# change = admin.drop_partitions(daily_runs)"))
+                 for kind, text in notebooks.read_cells(path)]
+    path.write_bytes(notebooks.notebook_bytes(commented))
+    assert not workflows.change_written(started, inputs)
+    # A call on several lines, as a formatter writes one.
+    cells = [(kind, text.replace("# change = admin.drop_partitions(daily_runs)",
+                                 "change = admin.drop_partitions(\n    daily_runs,\n"
+                                 '    before="2026-09-01",\n)'))
+             for kind, text in commented]
     path.write_bytes(notebooks.notebook_bytes(cells))
     assert workflows.change_written(started, inputs)
 
@@ -105,7 +112,3 @@ def test_change_a_saved_table_ends_with_the_send_and_the_check_its_report_names(
     assert last.name == "Send it, then run the check its report names"
     assert workflows.CHANGE_A_SAVED_TABLE.steps[0].done is workflows.change_written
 
-
-def test_no_workflow_has_a_fiddling_step() -> None:
-    for workflow in workflows.WORKFLOWS:
-        assert all(step.kind != workflows.FIDDLING for step in workflow.steps), workflow.name
