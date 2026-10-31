@@ -42,8 +42,8 @@ def python_literal(value: object) -> str:
 def escaped_literal(value: object) -> str:
     """A value written as Python as a Table reference and its messages write it: as
     python_literal does, but with each letter outside ASCII as an escape, as they always
-    have."""
-    if isinstance(value, str):
+    have, and a list of names as a list of such text."""
+    if isinstance(value, (str, list)):
         return json.dumps(value)
     return repr(value)
 
