@@ -499,7 +499,11 @@ LIST_AFTER = 8
 
 
 def files_in(folder: Path) -> dict[Path, bytes]:
-    return {path: path.read_bytes() for path in folder.rglob("*") if path.is_file()}
+    """Each file in `folder`, by its path, its bytes with each CRLF read as LF, so a file
+    written again with this computer's line endings, the same line for line, counts as
+    unchanged, and the page is the same whichever line endings the checkout has."""
+    return {path: path.read_bytes().replace(b"\r\n", b"\n") for path in folder.rglob("*")
+            if path.is_file()}
 
 
 def written_files_html(folder: Path, before: dict[Path, bytes], after: dict[Path, bytes],
