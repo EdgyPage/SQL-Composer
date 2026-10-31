@@ -16,10 +16,9 @@ Code draw and an LLM reads as text, beside the same steps as a numbered list: ea
 the program flow, the Toolbox's own path, and the Excel flow, from a workbook to prod. They go
 between `<!-- chart: NAME -->` and `<!-- /chart -->` in the README template,
 `docs/clean-branch-readme.md`, and in how-to 29,
-`worked_examples/how_to/29_follow_a_workflow.py`, which this writes whole. The Copilot files
-take each Workflow's numbered list alone, through `steps_listed`, as a chart wouldn't fit their
-8,000 characters. A test holds every copy to what
-this writes: never edit one by hand.
+`worked_examples/how_to/29_follow_a_workflow.py`, which this writes whole. `steps_listed`
+gives a Workflow's numbered list alone, for a page with no room for its chart. A test holds
+every copy to what this writes: never edit one by hand.
 """
 
 from __future__ import annotations
@@ -64,13 +63,6 @@ Toolbox 8.0 takes each Workflow's fiddling to nothing.
 """
 
 
-# A step's kind as a numbered list says it.
-KIND_WORDS = {
-    workflows.FILE_STEP: "a file step, which do_next() runs for you",
-    workflows.PERMISSION: "a call to the warehouse, yours to run",
-    workflows.DECISION: "a decision, yours to make",
-    workflows.FIDDLING: "done by hand",
-}
 # The Toolbox's own path, from a Table reference to the warehouse: a chart and its steps.
 PROGRAM_FLOW = ("""flowchart TD
     reference("Table reference: references/db__table.py")
@@ -108,19 +100,20 @@ PROGRAM_FLOW = ("""flowchart TD
 # From an Excel workbook to prod: a chart and its steps.
 EXCEL_FLOW = ("""flowchart TD
     workbook("a Formula workbook")
-    copilot{{"Copilot, given files 11 and 12: the workbook as Hive"}}
-    scripts("its Hive, saved as .hql scripts")
-    convert["the convert Workflow: project.convert(name, files=[...])"]
+    copilot{{"Copilot, given files 03, 04, 05, 11 and 12: the workbook as Hive"}}
+    scripts("its Hive, each name in angle brackets filled in")
+    convert["the convert Workflow: project.convert(NAME, HIVE)"]
     dev[["each table created, seeded and written in dev"]]
     compare[["project.compare_batch: each against its original"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
     workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod""",
               [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is", ""),
-               ("Give Copilot files 11 and 12 with the workbook: it writes the workbook as "
-                "Hive", ""),
-               ("Save that Hive as .hql scripts beside the Project, and run the convert "
-                "Workflow on them, DEV filled in", 'project.convert("budget", files=[...])'),
+               ("Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the "
+                "workbook as Hive, a query for each final Table", ""),
+               ("Fill in each name it writes in angle brackets, then give each query to the "
+                "convert Workflow, its names cell holding NAME and HIVE, DEV filled in",
+                'project.convert("budget", HIVE)'),
                ("Tick each checklist, then create, seed and write each table in dev, as the "
                 "Workflow's steps say", ""),
                ("Compare each with its original",
@@ -132,7 +125,7 @@ EXCEL_FLOW = ("""flowchart TD
 def steps_listed(workflow: Workflow) -> list[str]:
     """A Workflow's steps as a numbered list: each its name, its kind in words, and its call
     on the lines after it, indented."""
-    return _listed([(f"{step.name} ({KIND_WORDS[step.kind]})", step.call)
+    return _listed([(f"{step.name} (it {workflows.step_said(workflow, step)})", step.call)
                     for step in workflow.steps])
 
 
@@ -231,7 +224,8 @@ def _how_to_section(workflow: Workflow) -> list[str]:
             lines.append(f"    {given.name} = {given.empty!r}")
     lines += ["", "Its steps:", ""]
     for number, step in enumerate(workflow.steps, 1):
-        lines += textwrap.wrap(f"- {number}. {step.name} ({KIND_WORDS[step.kind]}).",
+        lines += textwrap.wrap(f"- {number}. {step.name} (it "
+                               f"{workflows.step_said(workflow, step)}).",
                                width=96, subsequent_indent="  ", break_long_words=False,
                                break_on_hyphens=False)
         if step.call:

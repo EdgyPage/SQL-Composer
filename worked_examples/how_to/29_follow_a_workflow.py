@@ -117,29 +117,29 @@ Its names cell, which you fill in and save first:
 
 Its steps:
 
-- 1. Convert the scripts: each table they write a Saved table in dev (a call to the warehouse,
-  yours to run).
+- 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
+  warehouse, yours to run).
 
     project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
 
-- 2. Tick each box of each table's checklist (a decision, yours to make).
-- 3. Create each table in dev (a call to the warehouse, yours to run).
+- 2. Tick each box of each table's checklist (it is a decision, yours to make).
+- 3. Create each table in dev (it is a call to the warehouse, yours to run).
 
     for table in project.batch_tables(NAME):
         run_execute(project.load(table).create(), execute)
 
-- 4. Seed each table that reads itself, once, from its original (a call to the warehouse, yours
-  to run).
+- 4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+  yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.batch_tables(NAME, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 5. Write each table in dev (a call to the warehouse, yours to run).
+- 5. Write each table in dev (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-- 6. Compare each table with its original (a call to the warehouse, yours to run).
+- 6. Compare each table with its original (it is a call to the warehouse, yours to run).
 
     project.compare_batch(NAME, query=query)
 
@@ -205,25 +205,25 @@ Its names cell, which you fill in and save first:
 
 Its steps:
 
-- 1. Promote each table: a prod copy of its Table folder and Table reference (a file step, which
-  do_next() runs for you).
+- 1. Promote each table: a prod copy of its Table folder and Table reference (it changes only
+  files, so project.do_next() runs it for you).
 
     project.promote(TABLES)
 
-- 2. Fill in each prod Table reference's location= (a decision, yours to make).
-- 3. Create each table in prod (a call to the warehouse, yours to run).
+- 2. Fill in each prod Table reference's location= (it is a decision, yours to make).
+- 3. Create each table in prod (it is a call to the warehouse, yours to run).
 
     for table in project.promoted_tables(TABLES):
         run_execute(project.load(table).create(), execute)
 
-- 4. Seed each prod table that reads itself, once, from its original (a call to the warehouse,
-  yours to run).
+- 4. Seed each prod table that reads itself, once, from its original (it is a call to the
+  warehouse, yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.promoted_tables(TABLES, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 5. Write each table in prod (a call to the warehouse, yours to run).
+- 5. Write each table in prod (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
@@ -290,23 +290,25 @@ Its names cell, which you fill in and save first:
 
 Its steps:
 
-- 1. Make each Table folder (a file step, which do_next() runs for you).
+- 1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
 
     project.new_table(TABLES)
 
-- 2. Fill in each Table reference, in references/, and save it (a decision, yours to make).
-- 3. Write each table's logic in its Table notebook, and save it (a decision, yours to make).
+- 2. Fill in each Table reference, in references/, and save it (it is a decision, yours to
+  make).
+- 3. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+  make).
 
     for table in TABLES:
         project.load(table).write()  # says what stops it, if anything does
 
-- 4. Check each table's rows with preview(), which writes nothing (a call to the warehouse,
-  yours to run).
+- 4. Check each table's rows with preview(), which writes nothing (it is a call to the
+  warehouse, yours to run).
 
     for table in TABLES:
         print(run_query(project.load(table).preview(), query))
 
-- 5. Create and write each in dev (a call to the warehouse, yours to run).
+- 5. Create and write each in dev (it is a call to the warehouse, yours to run).
 
     for table in TABLES:
         run_execute(project.load(table).create(), execute)
@@ -358,13 +360,13 @@ Its names cell, which you fill in and save first:
 
 Its steps:
 
-- 1. Write the Table references from DESCRIBE (a call to the warehouse, yours to run).
+- 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
 
     project.add_references(TABLES, query=query)
 
-- 2. Fill in each TODO line and Alias (a decision, yours to make).
-- 3. Refresh the Reference sheet and the Database modules (a file step, which do_next() runs for
-  you).
+- 2. Fill in each TODO line and Alias (it is a decision, yours to make).
+- 3. Refresh the Reference sheet and the Database modules (it changes only files, so
+  project.do_next() runs it for you).
 
     project.refresh_reference_sheet(TABLES)
 
@@ -406,11 +408,12 @@ flowchart TD
 
 Its steps:
 
-- 1. Upgrade the Project's files (a file step, which do_next() runs for you).
+- 1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
 
     project.upgrade()
 
-- 2. Make each change an # UPGRADE mark asks for, and tick its box (a decision, yours to make).
+- 2. Make each change an # UPGRADE mark asks for, and tick its box (it is a decision, yours to
+  make).
 
 ### The change_a_saved_table Workflow
 
@@ -462,18 +465,18 @@ Its names cell, which you fill in and save first:
 
 Its steps:
 
-- 1. Write the Admin statement for the change (a decision, yours to make).
+- 1. Write the Admin statement for the change (it is a decision, yours to make).
 
     table = project.table_reference(TABLE)
     change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
-- 2. Print its Hive, and run the check its Check first line names (a file step, which do_next()
-  runs for you).
+- 2. Print its Hive, and run the check its Check first line names (it changes only files, or
+  only prints: run its cell).
 
     show_hive(change)
 
-- 3. Send it, then any check after it, such as admin.check_the_copy (a call to the warehouse,
-  yours to run).
+- 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
+  warehouse, yours to run).
 
     run_execute(change, execute)
 
