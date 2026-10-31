@@ -278,6 +278,9 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [03 The job table's functions](issues/03-the-job-tables-functions.md): `sqlglot_composer/shared.py`
   (`in_words`, `counted`, `singular_or_plural`, `python_literal`, `split_table_name`); every
   caller moved onto it; `tools/lower_known_breaks.py` lowers the list after a fix.
+- [10 The Workflow graph, docs/workflows.md, and today's baseline](issues/10-the-workflow-graph.md):
+  `sqlglot_composer/workflows.py` lists each Workflow's steps by kind; `tools/workflow_graph.py`
+  draws `docs/workflows.md`; baseline fiddling 15 (convert 9); done-checks land with ticket 12.
 
 ## Not yet specified
 
