@@ -3,9 +3,9 @@
 Why: the project's notebooks read the table through this file, so each column they name, and
 the key each join and count relies on, is checked as the Statement is built.
 
-Written by project.convert("team_failures", ...), from the ops team's Hive, then filled in
-by hand: this line, the two column types, the key and the
-location.
+Written by project.convert("team_failures", ...), from the ops team's Hive, its key
+proposed from the Hive's GROUP BY, then filled in by hand: this line, the two column types
+and the location.
 """
 
 from sqlglot_composer import Table
@@ -20,6 +20,6 @@ team_failures = Table(
         "dt": "string",
     },
     partitioned_by=["dt"],  # filled in from the original's PARTITION(...)
-    key=["team", "dt"],  # filled in by hand
+    key=["team", "dt"],  # proposed by project.convert from its query; if it is wrong, answer "key" in the decisions cell
     location="/data/mart.db/team_failures",  # filled in by hand
 )

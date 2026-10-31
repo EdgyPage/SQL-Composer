@@ -749,7 +749,8 @@ DECISIONS_CELL = (
     "# project.check() writes it, such as\n"
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
     '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
-    '# "key": None says no columns name one row. project.check() names each one open')
+    '# "key": None says no columns name one row. project.check() names each one open;\n'
+    "# a Key project.convert proposed is made, but an answer here changes it")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",

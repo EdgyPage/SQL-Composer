@@ -210,12 +210,11 @@ def _location(table: str) -> str:
     return "/data/team/" + table.replace(".", ".db/", 1)
 
 
-def _answer_each_decision(journey: Journey, tables: list[str],
-                          keys: dict[str, list[str]]) -> None:
-    """The convert Workflow's decision step: each table's location and Key, typed into the
-    decisions cell, which the next step writes into its Table reference."""
-    journey.type_names(DECISIONS={table: {"location": _location(table),
-                                          "key": keys.get(table)} for table in tables})
+def _answer_each_decision(journey: Journey, tables: list[str]) -> None:
+    """The convert Workflow's decision step: each table's location, typed into the decisions
+    cell, which the next step writes into its Table reference. Its Key is the one convert
+    proposed."""
+    journey.type_names(DECISIONS={table: {"location": _location(table)} for table in tables})
 
 
 # --- convert, then promote --------------------------------------------------------------------
@@ -256,7 +255,7 @@ DROP TABLE IF EXISTS failed_runs;
 
 def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[str]:
     """The convert Workflow, from a script whose originals ran in the warehouse, to the Batch
-    finished: the dev tables it made."""
+    finished: the dev tables it made, each with the Key `keys` says convert proposes."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
     (journey.folder / "weekly.hql").write_text(script, encoding="utf-8")
@@ -264,9 +263,11 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
     journey.run_to(1)
     tables = project.batch_tables("weekly")
     for table in tables:
-        assert _reference(started.root, table).is_file(), (
-            f"convert made no Table reference for {table}")
-    _answer_each_decision(journey, tables, keys)
+        path = _reference(started.root, table)
+        assert path.is_file(), f"convert made no Table reference for {table}"
+        written = path.read_text(encoding="utf-8")
+        assert f"    key={keys[table]!r},  # proposed".replace("'", '"') in written
+    _answer_each_decision(journey, tables)
     journey.run_to()
     finished = started.root / "admin" / "workflows" / "convert" / "finished" / "weekly"
     assert finished.is_dir(), "the Batch isn't finished: a compare didn't pass"

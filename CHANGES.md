@@ -16,6 +16,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   promote and references Workflows each wait on the Decisions themselves. `project.check()`
   names each one open. A `# CONVERSION:` mark is a note that blocks nothing: the compare step
   checks the rows.
+- **A converted table's Key is proposed.** `project.convert` writes the Key it works out of a
+  table's query into its Table reference, `key=[...],  # proposed ...`: the GROUP BY columns
+  it returns, or the Key of the table a plain SELECT reads, with the table's partition
+  columns, and its checklist.md says so. If it is wrong, answer `"key": [...]`, or `None`, in
+  the decisions cell. `project.compare_batch` checks it on the dev copy's rows, on the
+  Partition it compares, and a Key they break fails the compare, naming each key that
+  repeats. A query with no Key leaves it for you to decide.
 - **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
   Session settings, its logic's `session_settings()`, before its write: a Conversion's
   checklist no longer asks you to send the original's SET lines by hand.

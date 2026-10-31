@@ -49,6 +49,7 @@ GROUP BY f.job_id;
 ANALYZE TABLE ops_reports.fails_per_job COMPUTE STATISTICS;
 """
 DEV = "mart_dev"
+PROPOSED = toolbox_module("decisions").PROPOSED
 
 
 @pytest.fixture
@@ -170,7 +171,7 @@ def test_a_create_gives_its_tables_columns_types_and_partitions(started: Path,
     text = reference(started, "mart_dev.fails_per_job_ops_reports")
     assert '"job_id": "bigint"' in text and '"fails": "bigint"' in text
     assert '"dt": "string"' in text and 'partitioned_by=["dt"]' in text
-    assert "<COLUMN_TYPE>" not in text and "key=None" in text
+    assert "<COLUMN_TYPE>" not in text and 'key=["job_id", "dt"],  # proposed' in text
 
 
 def test_a_create_as_select_takes_its_columns_from_its_query(started: Path,
@@ -662,3 +663,75 @@ def test_several_scripts_each_one_query_alone_make_a_saved_table_each(started: P
     assert "into 2 Saved tables in mart_dev: mart_dev.sales and mart_dev.regions" in report
     hive = to_hive(project.load("mart_dev.regions").preview())
     assert "FROM ops.jobs" in hive and "GROUP BY" in hive
+
+
+# --- The Key, proposed (Toolbox 8.1, ticket 04) ---------------------------------------------
+
+
+def test_a_grouped_tables_key_is_proposed_from_its_query(started: Path, batch: str) -> None:
+    # GROUP BY f.job_id, into the Partition dt the INSERT names: job_id, with dt, which the
+    # table keeps every Partition of.
+    text = reference(started, "mart_dev.fails_per_job_ops_reports")
+    assert f'    key=["job_id", "dt"],{PROPOSED}' in text
+    assert "mart_dev.fails_per_job_ops_reports: key" not in repr(project.check())
+
+
+# Each case the map lists, as one query of a CREATE TABLE ... AS, and the key= line its Table
+# reference gets: job_runs' own Key is run_id.
+PROPOSED_CASES = {
+    "several GROUP BY columns": (
+        "SELECT r.job_id, r.status, COUNT(*) AS runs FROM ops.job_runs r "
+        "GROUP BY r.job_id, r.status", '["job_id", "status"]'),
+    "a GROUP BY column it doesn't return": (
+        "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.job_id, r.status",
+        None),
+    "a column WHERE holds to one value": (
+        "SELECT r.job_id, r.status, COUNT(*) AS runs FROM ops.job_runs r "
+        "WHERE r.status = 'FAILED' GROUP BY r.job_id, r.status", '["job_id"]'),
+    "a column another decides": (
+        "SELECT r.run_id, r.job_id, COUNT(*) AS n FROM ops.job_runs r "
+        "GROUP BY r.run_id, r.job_id", '["run_id"]'),
+    "rollup": (
+        "SELECT r.job_id, r.status, COUNT(*) AS runs FROM ops.job_runs r "
+        "GROUP BY r.job_id, r.status WITH ROLLUP", None),
+    "a UNION ALL": (
+        "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.job_id "
+        "UNION ALL SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.job_id",
+        None),
+    "a nested grouping": (
+        "SELECT g.job_id, SUM(g.runs) AS runs FROM (SELECT r.job_id, r.dt, COUNT(*) AS runs "
+        "FROM ops.job_runs r GROUP BY r.job_id, r.dt) g GROUP BY g.job_id", '["job_id"]'),
+    "a row_number Key, named beside the first": (
+        "SELECT g.job_id, g.dt, ROW_NUMBER() OVER (PARTITION BY g.job_id ORDER BY g.dt) AS nth "
+        "FROM (SELECT r.job_id, r.dt FROM ops.job_runs r GROUP BY r.job_id, r.dt) g",
+        '["job_id", "dt"],' + PROPOSED + '; another: ["job_id", "nth"]'),
+}
+
+
+@pytest.mark.parametrize("case", list(PROPOSED_CASES))
+def test_the_key_proposed_for_each_case(started: Path, case: str) -> None:
+    query, key = PROPOSED_CASES[case]
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    project.write_decisions({"ops.job_runs": {"key": ["run_id"]}})
+    convert_script(started, f"CREATE TABLE ops_reports.counted AS\n{query};\n")
+    lines = [line for line in reference(started, "mart_dev.counted_ops_reports").split("\n")
+             if line.startswith("    key=")]
+    if key is None:
+        assert lines[0].startswith("    key=None,  # TODO:")
+    elif PROPOSED in key:
+        assert lines == [f"    key={key}"]
+    else:
+        assert lines == [f"    key={key},{PROPOSED}"]
+
+
+def test_a_query_with_no_key_leaves_the_key_to_decide(started: Path, batch: str) -> None:
+    # Its rows are job_runs', whose Table reference names no Key.
+    text = reference(started, "mart_dev.failed_runs_ops_reports")
+    assert "    key=None,  # TODO:" in text
+
+
+def test_the_decisions_cell_changes_a_proposed_key(started: Path, batch: str) -> None:
+    table = "mart_dev.fails_per_job_ops_reports"
+    said = repr(project.write_decisions({table: {"key": ["job_id", "dt"]}}))
+    assert "kept as" not in said
+    assert '    key=["job_id", "dt"],\n' in reference(started, table)

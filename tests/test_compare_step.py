@@ -246,3 +246,24 @@ def test_compare_md_says_what_the_statement_is(started: Path) -> None:
     project.compare_batch("failed", query=SAME)
     assert (f"Below, the Statement is {DEV}'s rows, and the original {ORIGINAL}'s."
             in compared(started))
+
+
+# --- The Key, checked by the compare (Toolbox 8.1, ticket 04) -------------------------------
+
+
+def test_a_key_the_rows_break_fails_the_compare_naming_the_rows(started: Path) -> None:
+    # Each run of the day, one run_id given them all: the two sides match, and run_id repeats.
+    repeated = "SELECT 7 AS run_id, job_id, dt FROM ops.job_runs"
+    query = warehouse({DEV: BOTH_DAYS, ORIGINAL: BOTH_DAYS},
+                      {DEV: repeated, ORIGINAL: repeated})
+    project.write_decisions({DEV: {"key": ["run_id"]}})
+    report = repr(project.compare_batch("failed", query=query))
+    assert f"{DEV}: failed, on dt = '2026-09-24'" in report
+    text = compared(started)
+    assert "but its Key (run_id) repeats" in text
+    assert "the key (run_id) repeats" in text
+
+
+def test_a_key_the_rows_keep_passes(started: Path) -> None:
+    project.write_decisions({DEV: {"key": ["run_id"]}})
+    assert f"{DEV}: passed" in repr(project.compare_batch("failed", query=SAME))
