@@ -156,7 +156,8 @@ delete the mark. At work, ask how many Partitions the join reads: if it reads to
 WHERE on o.dt to bound it, and take the opt-out off. Then tick its box in
 tables/mart__weekly_events/conversion/checklist.md, which has a box for each decision only you
 can make: each mark, each column type neither the query nor DESCRIBE of the original told,
-location=, the Key, the SET lines to send first, and each piece kept as Hive.
+location=, the Key, the SET lines to send first, each piece kept as Hive, and the seed of a
+table whose write reads itself.
 
 ### Compare it with the original
 

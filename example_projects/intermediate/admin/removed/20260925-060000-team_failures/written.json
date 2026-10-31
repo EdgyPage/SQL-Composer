@@ -9,6 +9,9 @@
   "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
   "tables/mart__team_failures/mart__team_failures.ipynb": "e6b60b3d52d3b55ad8c3e18a7c76eb1302d07fb0d4651d07bc60b26a50ca87d6"
  },
+ "originals": {
+  "mart.team_failures": "ops_reports.team_failures"
+ },
  "seeded": [],
  "tables": [
   "mart.team_failures"

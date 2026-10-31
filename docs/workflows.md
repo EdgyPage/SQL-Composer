@@ -48,7 +48,7 @@ for table in project.batch_tables(NAME, seeded=True):
     class s4 permission
     t7 --> s4
     s4 --> t8
-    s5[["6. Compare each table with its original, in its notebook's compare cells"]]
+    s5[["6. Compare each table with its original, on the latest Partition both hold: project.compare_batch(NAME, query=query)"]]
     class s5 permission
     t8 --> s5
     s5 --> t9
