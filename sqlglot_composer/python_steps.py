@@ -106,10 +106,12 @@ def python_step(function: Callable[..., object], *, reads: list[Column | Table],
     it in order.
     """
     # A function wrapped by a decorator of yours lives where its own def is.
-    function = inspect.unwrap(function) if callable(function) else function
-    _need_a_function(function)
+    if callable(function):
+        function = inspect.unwrap(function)
+    _check_a_function(function)
     file, in_notebook = _where_it_lives(function)
-    return PythonStep(function, file, in_notebook, _columns_read(reads), _table_written(writes))
+    return PythonStep(function, file, in_notebook, _table_columns_read(reads),
+                      _table_written(writes))
 
 
 def step_where(step: PythonStep) -> str:
@@ -129,7 +131,9 @@ def step_place(step: PythonStep) -> str:
 
 def step_line(step: PythonStep) -> str:
     """A Python step's first line, such as line 12, or line 3 of its cell in a notebook."""
-    return f"line {step._line}" + (" of its cell" if step._in_notebook else "")
+    if step._in_notebook:
+        return f"line {step._line} of its cell"
+    return f"line {step._line}"
 
 
 def step_columns_read(step: PythonStep) -> list[str]:
@@ -145,16 +149,19 @@ def step_tables_read(step: PythonStep) -> set[str]:
 def step_about(step: PythonStep) -> str:
     """One sentence on what a Python step read and wrote."""
     read = step_columns_read(step)
-    reads = f"It reads {in_words(read)}, and writes" if read else "It reads no table, and writes"
+    if read:
+        reads = f"It reads {in_words(read)}, and writes"
+    else:
+        reads = "It reads no table, and writes"
     return f"{reads} {step._writes._name}."
 
 
 def python_step_text(step: PythonStep) -> str:
     """What show_hive prints for a Python step: comment lines saying what it is, and that
     nothing is sent for it."""
-    said = (f"Python step: changed in Python by {step_where(step)}. {step_about(step)} Nothing is sent "
-            "for it: your own call saves its rows.")
-    return "\n".join("-- " + each for each in textwrap.wrap(said, width=90))
+    text = (f"Python step: changed in Python by {step_where(step)}. {step_about(step)} "
+            "Nothing is sent for it: your own call saves its rows.")
+    return "\n".join("-- " + each for each in textwrap.wrap(text, width=90))
 
 
 # --- Checking what python_step is given -----------------------------------------------------
@@ -182,7 +189,7 @@ def _where_it_lives(function: Callable[..., object]) -> tuple[str | None, bool]:
     return found.relative_to(project).as_posix(), in_notebook
 
 
-def _need_a_function(function: object) -> None:
+def _check_a_function(function: object) -> None:
     """Refuse what isn't a function written with def: a lambda, a function built into Python,
     what a function gave back, or any other value."""
     why = ("Lineage names where the change lives, so you can open it: the file, the name and "
@@ -219,7 +226,7 @@ def _need_a_function(function: object) -> None:
     )
 
 
-def _columns_read(reads: object) -> list[tuple[Table, str]]:
+def _table_columns_read(reads: object) -> list[tuple[Table, str]]:
     """Each (table, column) the step read, from reads=[...]: a column of a table, or a Table
     reference for every one of its columns, each once."""
     if not isinstance(reads, (list, tuple)):
@@ -233,16 +240,18 @@ def _columns_read(reads: object) -> list[tuple[Table, str]]:
     found = []
     for each in reads:
         if isinstance(each, Table):
-            _not_derived(each, "reads=")
+            _check_step_table_not_derived(each, "reads=")
             found += [(each, column) for column in each._columns]
         elif isinstance(each, Column) and each._table is not None:
-            _not_derived(each._table, "reads=")
+            _check_step_table_not_derived(each._table, "reads=")
             found.append((each._table, each._name))
         else:
             _refuse_a_read(each)
-    unique = []
+    # Each column once: two Table references for one table name the same column.
+    unique, seen = [], set()
     for table, column in found:
-        if not any(table._name == seen._name and column == name for seen, name in unique):
+        if (table._name, column) not in seen:
+            seen.add((table._name, column))
             unique.append((table, column))
     return unique
 
@@ -271,21 +280,23 @@ def _refuse_a_read(given: object) -> NoReturn:
 def _table_written(writes: object) -> Table:
     """The table the step's rows were saved to: one Table reference."""
     if not isinstance(writes, Table):
-        several = isinstance(writes, (list, tuple))
+        if isinstance(writes, (list, tuple)):
+            fix = "Declare one python_step(...) for each table you save to."
+        else:
+            fix = (f"Pass the Table reference of the table you saved the rows to, as in "
+                   f"{_EXAMPLE}.")
         refuse(
             what=f"python_step(..., writes={writes!r}): writes= takes one Table reference.",
             why="A Python step is one change saved to one table, which Lineage draws its "
             "arrows into.",
-            fix=("Declare one python_step(...) for each table you save to."
-                 if several else f"Pass the Table reference of the table you saved the rows "
-                 f"to, as in {_EXAMPLE}."),
+            fix=fix,
             given=writes, call="python_step",
         )
-    _not_derived(writes, "writes=")
+    _check_step_table_not_derived(writes, "writes=")
     return writes
 
 
-def _not_derived(table: Table, argument: str) -> None:
+def _check_step_table_not_derived(table: Table, argument: str) -> None:
     """Refuse a Derived table, which no Python reads or writes."""
     if table._statement is not None:
         refuse(
