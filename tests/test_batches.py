@@ -260,6 +260,10 @@ def test_the_report_names_a_table_only_created_apart(started: Path) -> None:
     assert "into 1 Saved table in mart_dev: mart_dev.tot_ops_reports." in report
     assert ("A Table reference alone, since the scripts create it and never write it: "
             "mart_dev.lonely_ops_reports.") in report
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert ("- ops_reports.lonely: mart_dev.lonely_ops_reports, its Table reference alone, "
+            "references/mart_dev__lonely_ops_reports.py") in index
 
 
 def test_a_table_read_before_the_batch_writes_it_is_read_as_it_was(started: Path) -> None:
