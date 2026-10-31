@@ -54,6 +54,12 @@ DATABASES = Path("admin") / "databases.py"
 BATCHES = WORKFLOWS_FOLDER / "convert"
 BATCH_LIST = "batch.md"
 BATCH_RECORD = "written.json"
+# A batch's folder once every table it made has passed the compare step, which check no
+# longer lists; and each table's result, in its conversion/ folder, its third line saying
+# whether it passed.
+FINISHED = "finished"
+COMPARED = "compare.md"
+PASSED = "Passed: "
 # A converted table's own folder, in its Table folder, its checklist there, and a box on it
 # not yet ticked.
 CONVERSION = "conversion"
@@ -242,7 +248,8 @@ def batch_instances(root: Path) -> list[dict[str, object]]:
     for record in sorted(folder.glob(f"*/{BATCH_RECORD}")):
         kept = json.loads(record.read_text(encoding="utf-8"))
         found.append({"NAME": record.parent.name, "TABLES": kept.get("tables", []),
-                      "SEEDED": kept.get("seeded", [])})
+                      "SEEDED": kept.get("seeded", []),
+                      "MADE": list(kept.get("originals", {}))})
     return found
 
 
@@ -277,6 +284,19 @@ def was_written(root: Path, table: str, seeded: bool) -> bool:
     if seeded:
         seeds = 1
     return times_sent(root, "unchecked", table) > seeds
+
+
+def every_table_compared(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each table MADE names, each a batch wrote, passed its compare."""
+    made = names_in(inputs, "MADE")
+    return bool(made) and all(compare_passed(root, table) for table in made)
+
+
+def compare_passed(root: Path, table: str) -> bool:
+    """Whether a converted table's conversion/compare.md says it passed."""
+    path = root / "tables" / table_stem(table) / CONVERSION / COMPARED
+    lines = file_text(path).split("\n")
+    return len(lines) > 2 and lines[2].startswith(PASSED)
 
 
 def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
@@ -367,8 +387,9 @@ CONVERT = Workflow(
         Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
              every_table_written),
-        Step("Compare each table with its original, in its notebook's compare cells",
-             PERMISSION, ("each written in dev",), ("each compared with its original",)),
+        Step("Compare each table with its original, on the latest Partition both hold",
+             PERMISSION, ("each written in dev",), ("each compared with its original",),
+             "project.compare_batch(NAME, query=query)", every_table_compared),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\"",
                   starts=True),

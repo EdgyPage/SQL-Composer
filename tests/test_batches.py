@@ -573,3 +573,18 @@ def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path
     assert "script: 5. Write each table in dev" in repr(project.check())
     project.run_tables(tables=project.batch_tables("script"), execute=example_database.execute)
     assert "script: 6. Compare each table" in repr(project.check())
+
+
+def test_a_later_overwrite_replaces_only_its_own_partitions_writes(started: Path) -> None:
+    convert_script(started,
+                   "CREATE TABLE ops_reports.days (job_id BIGINT) PARTITIONED BY (dt STRING);\n"
+                   "INSERT INTO TABLE ops_reports.days PARTITION (dt='2026-09-23')\n"
+                   "  SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-22';\n"
+                   "INSERT OVERWRITE TABLE ops_reports.days PARTITION (dt='2026-09-23')\n"
+                   "  SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-23';\n"
+                   "INSERT INTO TABLE ops_reports.days PARTITION (dt='2026-09-24')\n"
+                   "  SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24';\n")
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "nothing: a later INSERT OVERWRITE of mart_dev.days_ops_reports replaces it" in index
+    assert index.count("stacked into mart_dev.days_ops_reports's write") == 1
