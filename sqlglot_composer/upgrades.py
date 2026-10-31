@@ -19,6 +19,8 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from .shared import counted
+
 PROJECT_VERSION = Path("admin") / "project_version.txt"
 # The first version a Project can be upgraded from, and the one a Project that records no
 # version was made by.
@@ -147,7 +149,7 @@ class Upgrade:
         if not self.marks:
             return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists what "
                     "it did.")
-        changes = "1 change" if len(self.marks) == 1 else f"{len(self.marks)} changes"
+        changes = counted(len(self.marks), "change")
         return (f"{self.version}: {changes} for you to make, each marked "
                 f"`# UPGRADE {self.version}:`, and listed in {self.checklist_path}.")
 

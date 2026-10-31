@@ -18,6 +18,7 @@ from sqlglot import exp
 from sqlglot.errors import ErrorLevel
 
 from .refusals import four_part_message, refuse
+from .shared import singular_or_plural
 from .trees import (
     ARITHMETIC,
     CONNECTORS,
@@ -152,7 +153,7 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
         raise TypeError(
             four_part_message(
                 what=f"{call} gives {name} {arguments_text(len(args), len(args))}, and sqlglot "
-                f"can't write {name} with {'it' if len(args) == 1 else 'them'}.",
+                f"can't write {name} with {singular_or_plural(len(args), 'it', 'them')}.",
                 why="sqlglot knows this Hive function and couldn't build it from these "
                 "arguments.",
                 fix=f"Check {name}'s arguments in Hive's documentation.",

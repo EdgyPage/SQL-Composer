@@ -107,10 +107,12 @@ from .project_files import (
 )
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
-from .refusals import (GuardRefused, LoadRefused, callers_frame, in_words,
+from .refusals import (GuardRefused, LoadRefused, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
+from .shared import (counted, in_words, python_literal, singular_or_plural,
+                     split_table_name)
 from .tables import TABLE_NAME, write_table_reference
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
@@ -197,7 +199,7 @@ for name in sorted({row["table"] for row in rows}):
                   partitioned_by=partitions, key=key or None)
     found = check_table_reference(table, query=query)
     print(found)
-    database, _, short = name.rpartition(".")
+    database, short = split_table_name(name)
     if not key:
         print(f"{name} has no Key, so there is no Key to check.")
     elif not found.ok:
@@ -417,7 +419,8 @@ def start() -> ProjectReport:
     there += [name for name in (WAREHOUSE, OLD_SEND) if (here / name).exists()]
     if there:
         refuse(
-            what=f"project.start(): {', '.join(there)} {'is' if len(there) == 1 else 'are'} "
+            what=f"project.start(): {', '.join(there)} "
+            f"{singular_or_plural(len(there), 'is', 'are')} "
             "already in the folder you're working in, so nothing was made.",
             why="start() makes each of them new, and never writes over a file or folder of "
             "yours.",
@@ -533,7 +536,7 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     and never touches the warehouse: the notebook's create() makes the table.
     """
     frame = callers_frame()
-    call = _call("new_table", name, f", template={_quoted(template)}"
+    call = _call("new_table", name, f", template={python_literal(template)}"
                  if template != "saved_table" else "")
     root = _project(call)
     database, table, stem = _table_name(name, call)
@@ -806,7 +809,8 @@ def remove_block(name: str) -> ProjectReport:
     if importers:
         refuse(
             what=f"{call}: {in_words(importers)} still "
-            f"{'imports' if len(importers) == 1 else 'import'} {BUILDING_BLOCK.shown(name)}.",
+            f"{singular_or_plural(len(importers), 'imports', 'import')} "
+            f"{BUILDING_BLOCK.shown(name)}.",
             why="Without the Building block, each would stop at its import.",
             fix=f"Take the import of {name} out of each, and what reads it, then remove it.",
             error=ValueError,
@@ -934,7 +938,7 @@ def add_references(names: list[str],
             + "; ".join(said) + ".",
             why="Each table is written or skipped on its own, so one name that is wrong or "
             "already there never stops the rest"
-            + (f": {in_words(files)} {'was' if len(files) == 1 else 'were'} written."
+            + (f": {in_words(files)} {singular_or_plural(len(files), 'was', 'were')} written."
                if files else "."),
             fix="Fix each name skipped as wrong or whose DESCRIBE failed, then run "
             "add_references again with those names alone; a table whose file is there "
@@ -957,8 +961,8 @@ def _first(error: Exception) -> str:
 def _quoted_list(names: object) -> str:
     """The list of names as the call is written in a notebook, each in double quotes."""
     if isinstance(names, (list, tuple)):
-        return "[" + ", ".join(_quoted(name) for name in names) + "]"
-    return _quoted(names)
+        return "[" + ", ".join(python_literal(name) for name in names) + "]"
+    return python_literal(names)
 
 
 # --- register and check -----------------------------------------------------------------------
@@ -1062,14 +1066,15 @@ def check() -> ProjectReport:
     unlisted = sorted(on_disk - set(named), key=lambda found: found[0].shown(found[1]))
     if unlisted:
         lines.append("Not registered, made by hand. Adopt each with the call beside it:")
-        lines += [f"  {kind.shown(stem)}: project.register({_quoted(kind.name_of(stem))})"
+        lines += [f"  {kind.shown(stem)}: "
+                  f"project.register({python_literal(kind.name_of(stem))})"
                   for kind, stem in unlisted]
     missing = sorted(set(named) - on_disk, key=lambda found: found[0].shown(found[1]))
     if missing:
         lines.append("Registered, but not there. Put each back, or mark it removed with the "
                      "call beside it:")
         lines += [f"  {kind.shown(stem)}: project.{kind.remover}"
-                  f"({_quoted(named[kind, stem])})" for kind, stem in missing]
+                  f"({python_literal(named[kind, stem])})" for kind, stem in missing]
     if (root / OLD_SEND).exists() and not (root / WAREHOUSE).exists():
         lines.append(f"{OLD_SEND} is from before 7.0, and there is no {WAREHOUSE}: write your "
                      "query and execute in")
@@ -1405,11 +1410,11 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
         *[f"added {said}" for said in opt_outs]], frame)
     unchecked_pieces = sum(1 for finding in hive_read.findings if finding.kind == "unchecked")
     return ProjectReport([
-        f"Converted {name}: {_counted(len(text.splitlines()), 'line')} of Hive into "
+        f"Converted {name}: {counted(len(text.splitlines()), 'line')} of Hive into "
         f"{conversion_notebook(name)}.",
-        f"{_counted(unchecked_pieces, 'piece')} kept as Hive, "
-        f"{_counted(len(hive_read.constants), 'named constant')}, "
-        f"{_counted(len(opt_outs), 'opt-out')} marked # CONVERSION: for you to check"
+        f"{counted(unchecked_pieces, 'piece')} kept as Hive, "
+        f"{counted(len(hive_read.constants), 'named constant')}, "
+        f"{counted(len(opt_outs), 'opt-out')} marked # CONVERSION: for you to check"
         + (f": {'; '.join(opt_outs)}." if opt_outs else "."),
         *([f"Added Table references: {', '.join(added)}: fill in their TODO lines."]
           if added else []),
@@ -1453,7 +1458,7 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     admin/removed/. It never touches the warehouse: the notebook's create() does.
     """
     frame = callers_frame()
-    call = _call("finish_conversion", name, f", table={_quoted(table)}")
+    call = _call("finish_conversion", name, f", table={python_literal(table)}")
     root = _project(call)
     _conversion_name(name, call)
     folder = CONVERSION_FOLDER.path(root, name)
@@ -1610,11 +1615,12 @@ def _converted_query(call: str, text: str, root: Path, database: str) -> convert
 def _scan_lines(text: str, hive_read: converting.ConvertedQuery) -> list[str]:
     """What a scan says: the size of the Hive, the tables it reads, those with no Table
     reference, and each finding, with its line."""
-    lines = [f"{_counted(len(text.splitlines()), 'line')} of Hive, one query reading "
+    lines = [f"{counted(len(text.splitlines()), 'line')} of Hive, one query reading "
              f"{in_words(hive_read.tables) or 'no table'}."]
     if hive_read.missing:
         lines.append(f"No Table reference yet for {in_words(hive_read.missing)}: "
-                     f"project.convert(...) adds {'it' if len(hive_read.missing) == 1 else 'them'} "
+                     "project.convert(...) adds "
+                     f"{singular_or_plural(len(hive_read.missing), 'it', 'them')} "
                      "through your query.")
     found = sorted((finding for finding in hive_read.findings if finding.kind != "table"),
                    key=lambda finding: finding.line or 0)
@@ -1648,11 +1654,6 @@ def _with_opt_outs(root: Path, name: str, hive_read: converting.ConvertedQuery
             # to mend by hand, and the refusal said.
             return logic, added, _what_happened(str(refusal))
     return logic, added, "more refusals than a Conversion adds opt-outs for"
-
-
-def _counted(count: int, thing: str) -> str:
-    """A count and its thing, plural but for one: "1 line", "25 lines"."""
-    return f"{count} {thing}{'' if count == 1 else 's'}"
 
 
 def _what_happened(refusal: str) -> str:
@@ -1746,14 +1747,14 @@ def _converted_reference(table: str, short: str, name: str, statement: Statement
     """The Table reference of a finished Conversion's Saved table, as a Template leaves it:
     its columns and the types the Statement knows, <...> for the rest to fill in."""
     columns = "".join(f'        "{column_name}": '
-                      f'{_quoted(column._type) if column._type else "<COLUMN_TYPE>"},\n'
+                      f'{python_literal(column._type) if column._type else "<COLUMN_TYPE>"},\n'
                       for column, column_name in statement._outputs)
     # A partition column the query doesn't give, as a static PARTITION (dt='...') writes it,
     # is still one of the table's columns.
     given = {column_name for _, column_name in statement._outputs}
     columns += "".join(f'        "{column}": "string",  # the original\'s partition column\n'
                        for column in partition_columns if column not in given)
-    partitions = (", ".join(_quoted(column) for column in partition_columns)
+    partitions = (", ".join(python_literal(column) for column in partition_columns)
                   if partition_columns else '"<PARTITION_COLUMN>"')
     said = ("filled in from the original's PARTITION(...)" if partition_columns else
             "name one of its columns, or write [] for a table with none: Table refuses "
@@ -1765,7 +1766,8 @@ def _converted_reference(table: str, short: str, name: str, statement: Statement
             "is a column whose\ntype the Toolbox can't tell, such as a CASE's: write the Hive "
             "type it holds.\n"
             '"""\n\nfrom sqlglot_composer import Table\n\n'
-            f"{short} = Table(\n    {_quoted(table)},\n    columns={{\n{columns}    }},\n"
+            f"{short} = Table(\n    {python_literal(table)},\n"
+            f"    columns={{\n{columns}    }},\n"
             f"    partitioned_by=[{partitions}],  # {said}\n"
             "    key=None,  # TODO: the columns whose values name one row, or None if none do\n"
             "    location=<LOCATION>,  # its own folder, in quotes\n)\n")
@@ -1801,7 +1803,8 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     It changes no other file, and isn't logged: its exported_at column says when it was
     written.
     """
-    call = f"project.refresh_reference_sheet({_quoted(name) if name is not None else ''})"
+    given = python_literal(name) if name is not None else ""
+    call = f"project.refresh_reference_sheet({given})"
     root = _project(call)
     now = unchecked.now().strftime(unchecked.TIME_SHOWN)
     if name is None:
@@ -1835,10 +1838,11 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
         writer.writeheader()
         writer.writerows(rows)
     tables = len({row["table"] for row in rows})
-    report = [f"Wrote references/reference_sheet.csv: {len(rows)} row{'s' * (len(rows) != 1)}, "
-              f"{tables} table{'s' * (tables != 1)}."]
+    report = [f"Wrote references/reference_sheet.csv: {counted(len(rows), 'row')}, "
+              f"{counted(tables, 'table')}."]
     if left_out:
-        report.append(f"Left out, since {'it' if len(left_out) == 1 else 'each'} can't be read "
+        report.append("Left out, since "
+                      f"{singular_or_plural(len(left_out), 'it', 'each')} can't be read "
                       f"yet: {', '.join(left_out)}. Fill in every <...> in it, and check it "
                       "holds a Table(...) call, then refresh again"
                       + (", and its rows from before are kept until then." if name is not None
@@ -1979,8 +1983,8 @@ def _database_entry(path: Path) -> tuple[str, str, str | None] | None:
     if read is None:
         return None
     tree, variable, arguments, values = read
-    database, dot, _ = str(values["name"]).partition(".")
-    if not dot:
+    database, _ = split_table_name(str(values["name"]))
+    if not database:
         return None
     skipped = {id(node) for node in arguments["columns"].values} if isinstance(
         arguments["columns"], ast.Dict) else set()
@@ -2167,7 +2171,7 @@ def load(name: str) -> TableLogic:
 
     In the example above, a one-line Template stands in for a notebook of yours.
     """
-    call = f"project.load({_quoted(name)})"
+    call = f"project.load({python_literal(name)})"
     root = _project(call)
     conversion = _names_a_conversion(name)
     if conversion:
@@ -2390,17 +2394,17 @@ def _dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, st
     for position, (write, name) in enumerate(ordered, start=1):
         print(f"-- {position} of {len(ordered)}: {name}")
         show_hive(write)
-    return ProjectReport([f"Printed {len(ordered)} write{'s' * (len(ordered) != 1)} in "
+    return ProjectReport([f"Printed {counted(len(ordered), 'write')} in "
                           "order, and sent nothing. Pass execute= to run them."])
 
 
 def _ran(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]) -> list[str]:
     """What run_tables says it did: the tables it wrote, and the Python steps it passed over."""
     tables = len({name for write, name in ordered if kinds.kind(write) != kinds.PYTHON})
-    said = [f"Wrote {tables} table{'s' * (tables != 1)}, in order."]
+    said = [f"Wrote {counted(tables, 'table')}, in order."]
     passed = [name for write, name in ordered if kinds.kind(write) == kinds.PYTHON]
     if passed:
-        steps = f"{len(passed)} Python step{'s' * (len(passed) != 1)}"
+        steps = counted(len(passed), "Python step")
         said.append(f"Passed over {steps}, of {', '.join(dict.fromkeys(passed))}: run "
                     "each one's notebook, whose own call saves its rows.")
     return said
@@ -2481,15 +2485,10 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame: F
     write_entry(project_log(project), lines)
 
 
-def _quoted(value: object) -> str:
-    """A value as the call is written in a notebook: text in double quotes."""
-    return f'"{value}"' if isinstance(value, str) and '"' not in value else repr(value)
-
-
 def _call(function: str, name: object, more: str = "") -> str:
     """A Project action's call, as its notebook writes it, such as
     project.remove_table("mart.daily_job_runs")."""
-    return f"project.{function}({_quoted(name)}{more})"
+    return f"project.{function}({python_literal(name)}{more})"
 
 
 def _working_folder() -> Path:
@@ -2523,7 +2522,7 @@ def _table_name(name: object, call: str) -> tuple[str, str, str]:
             fix='Write it like "mart.daily_job_runs".',
             error=ValueError,
         )
-    database, table = name.split(".")
+    database, table = split_table_name(name)
     return database, table, table_stem(name)
 
 

@@ -258,7 +258,7 @@ def _stack_keys(s: Statement) -> Keys:
         found += statement_keys(branch).found
     why = f"{call}(...) makes one row for each different {_listed(names)}"
     found.append(Found(names, why, "not one for each"))
-    return Keys(_once(found), None)
+    return Keys(_distinct_findings(found), None)
 
 
 def _grouped_keys(s: Statement, facts: _Facts) -> Keys:
@@ -346,7 +346,7 @@ def _row_keys(s: Statement, facts: _Facts) -> Keys:
             lost = joins[0] if missing in added else (
                 f"{told_apart}, and SELECT leaves out {missing[0]}.{missing[1]}")
     found += _row_number_keys(s, facts)
-    return Keys(_once(found), None if found else lost)
+    return Keys(_distinct_findings(found), None if found else lost)
 
 
 def _row_number_keys(s: Statement, facts: _Facts) -> list[Found]:
@@ -382,7 +382,7 @@ def _named(columns: list[tuple[str, str]], more: list[str],
     return names + [name for name in more if name not in names], None
 
 
-def _once(found: list[Found]) -> list[Found]:
+def _distinct_findings(found: list[Found]) -> list[Found]:
     kept = []
     for each in found:
         if not any(set(each.names) == set(other.names) for other in kept):

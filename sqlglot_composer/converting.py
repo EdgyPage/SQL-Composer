@@ -16,7 +16,6 @@ know: with_opt_out adds the one a Guard's or Load limit's refusal names to the c
 
 from __future__ import annotations
 
-import json
 import keyword
 import re
 from collections.abc import Callable
@@ -25,6 +24,7 @@ from dataclasses import dataclass, field
 import sqlglot
 from sqlglot import exp
 
+from .shared import python_literal, singular_or_plural
 from .writing import read_hive, sql_text
 
 # An IN list with at least this many values becomes a named constant.
@@ -49,7 +49,9 @@ _TAKEN = {"ops", "mart", "query", "execute", "statement", "derived", "converted"
 
 
 class Unconvertible(Exception):
-    """A piece of the Hive no Toolbox function writes yet; the message says what."""
+    """A piece of the Hive no Toolbox function writes yet; the message says what. It never
+    reaches the user: a Conversion catches it and writes the piece as an Unchecked one, with a
+    finding, so it isn't a refusal and needs no four parts."""
 
 
 class ConversionRefused(Exception):
@@ -146,7 +148,8 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
     mode = write or "INSERT_OVERWRITE"
     given = ""
     if static_partition:
-        values = ", ".join(f"{_string(name)}: {value}" for name, value in static_partition.items())
+        values = ", ".join(f"{python_literal(name)}: {value}"
+                           for name, value in static_partition.items())
         given = f", partition={{{values}}}"
     stem = saved_table.replace(".", "__", 1)
     imports = [f"from sqlglot_composer import {mode}, create_table  # for create() and write()",
@@ -227,18 +230,13 @@ def _line(node: exp.Expression, text: str) -> int | None:
     return None if at is None else text.count("\n", 0, at) + 1
 
 
-def _string(value: str) -> str:
-    """A Python string literal, in double quotes as the Toolbox's examples write them."""
-    return json.dumps(value, ensure_ascii=False)
-
-
 def _literal(node: exp.Expression) -> str | None:
     """A Hive literal as a Python one, or None if it isn't a plain string or number."""
     if isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal) and not node.this.is_string:
         return f"-{node.this.this}"
     if isinstance(node, exp.Literal):
         if node.is_string:
-            return _string(node.this)
+            return python_literal(node.this)
         return node.this
     if isinstance(node, exp.Boolean):
         return "True" if node.this else "False"
@@ -462,7 +460,7 @@ class _Converter:
                 value = self.column_or_unchecked(inner, scope)
             if isinstance(item, exp.Alias) or not isinstance(inner, exp.Column):
                 name = name or f"_c{number}"
-                value = f"{self.use('AS')}({value}, {_string(name)})"
+                value = f"{self.use('AS')}({value}, {python_literal(name)})"
             found.append((value, name))
         return found
 
@@ -493,7 +491,7 @@ class _Converter:
                 raise Unconvertible("a sub-query in FROM with no name")
             variable = self.fresh(alias)
             self.result.assignments.append(
-                (variable, f"{self.use('derived')}({_string(alias)}, {self.query(node.this)})"))
+                (variable, f"{self.use('derived')}({python_literal(alias)}, {self.query(node.this)})"))
             scope[alias] = _Source(variable, self.columns_named(node.this))
             self.found(node, "changed", f"the sub-query {alias} becomes a Derived table, which "
                        f"the Toolbox writes at the top, as WITH {alias} AS (...)")
@@ -509,7 +507,7 @@ class _Converter:
             if alias and alias != name:
                 variable = self.fresh(alias)
                 self.result.assignments.append(
-                    (variable, f"{self.use('AS')}({cte.variable}, {_string(alias)})"))
+                    (variable, f"{self.use('AS')}({cte.variable}, {python_literal(alias)})"))
             scope[alias or name] = _Source(variable, cte.columns)
             return variable
         database = database or self.database
@@ -519,7 +517,7 @@ class _Converter:
         if key not in self.table_variables:
             variable = self.fresh(alias or name)
             value = (full if not alias or alias == name
-                     else f"{self.use('AS')}({full}, {_string(alias)})")
+                     else f"{self.use('AS')}({full}, {python_literal(alias)})")
             self.result.assignments.append((variable, value))
             self.table_variables[key] = variable
         scope[alias or name] = _Source(self.table_variables[key], self.columns_of(full))
@@ -605,7 +603,7 @@ class _Converter:
                                        "no table the query reads is known to have"))
         if name.isidentifier() and not keyword.iskeyword(name):
             return f"{source.variable}.{name}"
-        return f"getattr({source.variable}, {_string(name)})"
+        return f"getattr({source.variable}, {python_literal(name)})"
 
     def column_or_unchecked(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """A calculation as the Toolbox writes it, or, when no function does, an Unchecked
@@ -654,7 +652,7 @@ class _Converter:
         text = re.sub(r"__placeholder_(\w+?)__", r"{\1}", text)
         self.found(node, "unchecked", f"{sql_text(node)} stays Hive, in {function}(...): {why}")
         arguments = "".join(f", {name}={value}" for name, value in bound.items())
-        return f"{self.use(function)}({_string(text)}{arguments})"
+        return f"{self.use(function)}({python_literal(text)}{arguments})"
 
     # --- Values -----------------------------------------------------------------------------
 
@@ -799,7 +797,8 @@ class _Converter:
         values = [self.column_or_unchecked(one, scope) for one in arguments]
         self.found(node, "changed", f"{name}(...) is a Hive function no Toolbox function wraps: "
                    f'hive_function("{name}", ...) writes it')
-        return f"{self.use('hive_function')}({_string(name)}{''.join(', ' + v for v in values)})"
+        arguments = "".join(", " + v for v in values)
+        return f"{self.use('hive_function')}({python_literal(name)}{arguments})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """A function OVER (...): the Toolbox's own, with over=window(...)."""
@@ -932,10 +931,10 @@ class _Converter:
             if "%" not in inner and "_" not in inner and inner:
                 if text == f"{inner}%":
                     return (f"{self.use('starts_with')}({self.value(node.this, scope)}, "
-                            f"{_string(inner)})")
+                            f"{python_literal(inner)})")
                 if text == f"%{inner}%":
                     return (f"{self.use('contains')}({self.value(node.this, scope)}, "
-                            f"{_string(inner)})")
+                            f"{python_literal(inner)})")
         raise Unconvertible("starts_with(...) and contains(...) write only LIKE 'x%' and "
                             "LIKE '%x%'")
 
@@ -947,7 +946,7 @@ class _Converter:
         if isinstance(node, exp.Column):
             return self.column(node, scope)
         if sql_text(node) in named:
-            return _string(named[sql_text(node)])
+            return python_literal(named[sql_text(node)])
         return self.column_or_unchecked(node, scope)
 
     def group(self, node: exp.Group, scope: dict[str, _Source]) -> str:
@@ -1016,9 +1015,9 @@ class _Converter:
         for ordered in node.expressions:
             target = ordered.this
             if isinstance(target, exp.Column) and not target.table and target.name in names:
-                written = _string(target.name)
+                written = python_literal(target.name)
             elif isinstance(target, exp.Literal) and not target.is_string:
-                written = _string(outputs[int(target.this) - 1][1])
+                written = python_literal(outputs[int(target.this) - 1][1])
             else:
                 written = self.value(target, scope)
             items.append(f"{self.use('descending')}({written})" if ordered.args.get("desc")
@@ -1039,14 +1038,16 @@ class _Converter:
         variable = self.fresh(name)
         columns = self.columns_named(node.this)
         try:
-            value = f"{self.use('derived')}({_string(name)}, {self.query(node.this)})"
+            value = f"{self.use('derived')}({python_literal(name)}, {self.query(node.this)})"
         except Unconvertible as why:
             if columns is None:
                 raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * of a "
                                     "table with no Table reference yet hides its columns") from why
             text = sql_text(node.this, pretty=True)
-            listed = "{\n" + "".join(f"    {_string(column)}: None,\n" for column in columns) + "}"
-            value = (f"{self.use('unchecked_derived')}({_string(name)}, {_string(text)}, "
+            listed = "{\n" + "".join(f"    {python_literal(column)}: None,\n"
+                                      for column in columns) + "}"
+            value = (f"{self.use('unchecked_derived')}({python_literal(name)}, "
+                     f"{python_literal(text)}, "
                      f"columns={listed})")
             self.found(node, "unchecked", f"the CTE {name} stays Hive, in "
                        f"unchecked_derived(...): {why}")
@@ -1210,7 +1211,8 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
             # A Command notes no line, so the first SET is found in the text.
             _line(sets[0], text) or text.count("\n", 0, re.search(
                 r"^[ \t]*SET\b", text, re.IGNORECASE | re.MULTILINE).start()) + 1, "settings",
-            f"its {'SET line is' if len(sets) == 1 else f'{len(sets)} SET lines are'} the "
+            f"its {singular_or_plural(len(sets), 'SET line is', f'{len(sets)} SET lines are')} "
+            "the "
             "Session settings HIVE_SETTINGS, which session_settings() gives"))
     if len(queries) != 1:
         raise ConversionRefused(f"it holds {len(queries)} statements, and a Conversion reads "
@@ -1272,9 +1274,10 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         result.findings = before + [Finding(_line(whole, text), "unchecked",
                                             f"the whole query stays an Unchecked statement, "
                                             f"unchecked_hive(...): {why}")]
-        result.query = f"{converter.use('unchecked_hive')}({_string(sql_text(whole))})"
+        result.query = f"{converter.use('unchecked_hive')}({python_literal(sql_text(whole))})"
     if result.settings:
         result.constants.insert(0, ("HIVE_SETTINGS", "{\"converted\": {\n" + "".join(
-            f"    {_string(name)}: {_string(value)},\n" for name, value in result.settings.items())
+            f"    {python_literal(name)}: {python_literal(value)},\n"
+            for name, value in result.settings.items())
             + "}}"))
     return result

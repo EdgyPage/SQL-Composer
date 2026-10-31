@@ -85,7 +85,8 @@ import pandas as pd
 
 from .describe import StandIn
 from .engine import run_query
-from .refusals import in_words, refuse
+from .refusals import refuse
+from .shared import in_words
 from .tables import Table
 from .unchecked import SAID
 
