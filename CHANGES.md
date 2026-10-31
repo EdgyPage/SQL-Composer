@@ -2,6 +2,19 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.0
+
+8.0 is being built on dev; this section grows with it, and ships when it is done.
+
+### Also new
+
+- **Every Project action takes one name or a list of them.** `project.new_table`,
+  `remove_table`, `remove_reference`, `new_block`, `remove_block`, `register`,
+  `remove_conversion`, `add_references` and `refresh_reference_sheet` each take a name, as
+  before, or a list of names, done in turn and reported once. A name refused stops the rest:
+  its refusal says which names were done before it, which stay done, and the call that runs
+  the rest.
+
 ## 7.2
 
 7.2 turns Hive someone else wrote into your own code, a Conversion, carries your Project's

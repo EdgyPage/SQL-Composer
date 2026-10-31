@@ -69,10 +69,11 @@ _Avoid_: manifest, inventory, index
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
 folder or a Building block, adding Table references, upgrading the Project, converting Hive and
-finishing a Conversion - run from the admin folder and recorded
-in the Admin log. Where an Admin statement changes the warehouse, a Project action changes only
-files. The user makes only the Project's folder and the copy of the Toolbox in it; a Project
-action makes every other file, for the user to fill in.
+finishing a Conversion - run from the admin folder and recorded in the Admin log. One that
+takes a name takes a list of names too, each done in turn. Where an Admin statement changes the
+warehouse, a Project action changes only files. The user makes only the Project's folder and
+the copy of the Toolbox in it; a Project action makes every other file, for the user to fill
+in.
 _Avoid_: admin statement, migration, setup step
 
 **Workflow**:

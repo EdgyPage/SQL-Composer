@@ -516,7 +516,7 @@ def _completed_report(added: list[str], before_7: bool) -> ProjectReport:
 # --- new_table --------------------------------------------------------------------------------
 
 
-def new_table(name: str, template: str = "saved_table") -> ProjectReport:
+def new_table(name: str | list[str], template: str = "saved_table") -> ProjectReport:
     """Make a Table folder for a Saved table: its notebook, lineage/ and reference.
 
     >>> from sqlglot_composer import project
@@ -537,12 +537,27 @@ def new_table(name: str, template: str = "saved_table") -> ProjectReport:
     <DB>, <TABLE> and <NAME> are filled in; fill in every other <...> yourself. It registers
     both and logs them. It refuses a table that has a Table folder, or that the registry lists,
     and never touches the warehouse: the notebook's create() makes the table.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
-    template_given = ""
-    if template != "saved_table":
-        template_given = f", template={python_literal(template)}"
-    call = _action_call("new_table", name, template_given)
+
+    return _run_for_each_name(name, "project.new_table", _new_table_one, template, frame,
+                              more=_template_shown(template))
+
+
+def _template_shown(template: str) -> str:
+    """new_table's template= as its call writes it: nothing for the default, saved_table."""
+    if template == "saved_table":
+        return ""
+    return f", template={python_literal(template)}"
+
+
+def _new_table_one(name: str, template: str, frame: FrameType) -> ProjectReport:
+    """new_table(...) for one name: `frame` is its caller's, for the Admin log."""
+    call = _action_call("new_table", name, _template_shown(template))
     root = _project_root(call)
     database, table, stem = _table_name_parts(name, call)
     _check_table_isnt_a_keyword(database, table, call)
@@ -654,7 +669,7 @@ def _registry_for_new(call: str, kind: FileKind, name: str, root: Path, path: Pa
 # --- remove_table and remove_reference --------------------------------------------------------
 
 
-def remove_table(name: str) -> ProjectReport:
+def remove_table(name: str | list[str]) -> ProjectReport:
     """Move a Table folder into admin/removed/, named by the time, deleting nothing.
 
     >>> from sqlglot_composer import project
@@ -674,15 +689,25 @@ def remove_table(name: str) -> ProjectReport:
     removed. The table stays in the warehouse, and its Table reference in references/: drop
     the table with admin.drop_table, and archive the reference with remove_reference. A
     Table folder the registry lists but that was deleted by hand only has its row marked.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.remove_table", _remove_table_one, frame)
+
+
+def _remove_table_one(name: str, frame: FrameType) -> ProjectReport:
+    """remove_table(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("remove_table", name)
     root = _project_root(call)
     _table_name_parts(name, call)
     return _remove(root, TABLE_FOLDER, name, call, frame)
 
 
-def remove_reference(name: str) -> ProjectReport:
+def remove_reference(name: str | list[str]) -> ProjectReport:
     """Move a Table reference into admin/removed/, deleting nothing of yours.
 
     >>> from sqlglot_composer import project
@@ -705,8 +730,18 @@ def remove_reference(name: str) -> ProjectReport:
     deleted, once no Table reference is left in that Database. It refuses while the table has
     a Table folder, whose notebook imports the reference: remove_table first. A Table
     reference the registry lists but that was deleted by hand only has its row marked.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.remove_reference", _remove_reference_one, frame)
+
+
+def _remove_reference_one(name: str, frame: FrameType) -> ProjectReport:
+    """remove_reference(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("remove_reference", name)
     root = _project_root(call)
     _, _, stem = _table_name_parts(name, call)
@@ -759,7 +794,7 @@ def _remove(root: Path, kind: FileKind, name: str, call: str,
 # --- new_block and remove_block ---------------------------------------------------------------
 
 
-def new_block(name: str) -> ProjectReport:
+def new_block(name: str | list[str]) -> ProjectReport:
     """Make a Building block, building_blocks/<name>.py, from its Template.
 
     >>> from sqlglot_composer import project
@@ -780,8 +815,18 @@ def new_block(name: str) -> ProjectReport:
     registers the file and logs it. It refuses a name already taken, by a file in
     building_blocks/ or by the registry, and a name Python can't import, and never touches
     the warehouse.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.new_block", _new_block_one, frame)
+
+
+def _new_block_one(name: str, frame: FrameType) -> ProjectReport:
+    """new_block(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("new_block", name)
     root = _project_root(call)
     _check_block_name(name, call)
@@ -811,7 +856,7 @@ def new_block(name: str) -> ProjectReport:
                           "fill in its <...> and TODO lines."])
 
 
-def remove_block(name: str) -> ProjectReport:
+def remove_block(name: str | list[str]) -> ProjectReport:
     """Move a Building block into admin/removed/, named by the time, deleting nothing.
 
     >>> from sqlglot_composer import project
@@ -830,8 +875,18 @@ def remove_block(name: str) -> ProjectReport:
     refuses while a Table notebook or another Building block imports it, naming each, since
     each would stop at that import: change them first. A Building block the registry lists
     but that was deleted by hand only has its row marked.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.remove_block", _remove_block_one, frame)
+
+
+def _remove_block_one(name: str, frame: FrameType) -> ProjectReport:
+    """remove_block(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("remove_block", name)
     root = _project_root(call)
     _check_block_name(name, call)
@@ -897,7 +952,7 @@ class SkippedTables(Exception):
     it skipped, and why."""
 
 
-def add_references(names: list[str],
+def add_references(names: str | list[str],
                    *, query: Callable[[str], pd.DataFrame] | None = None,
                    **removed: object) -> ProjectReport:
     """Write a Table reference for each table into references/, skipping any it can't.
@@ -913,11 +968,12 @@ def add_references(names: list[str],
     Restart the kernel of a notebook that imported references, to see a table added since.
 
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
-    "ops.job_runs"]. Each is written as write_table_reference writes one, into
-    references/<db>__<table>.py, and registered. A table whose file is there already, a name not
-    written as database.table, and a table whose DESCRIBE (the command that lists its columns)
-    fails through your `query` are each skipped, and the rest still written. It logs them all in
-    one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why.
+    "ops.job_runs"], or one such name alone. Each is written as write_table_reference writes
+    one, into references/<db>__<table>.py, and registered. A table whose file is there already,
+    a name not written as database.table, and a table whose DESCRIBE (the command that lists
+    its columns) fails through your `query` are each skipped, and the rest still written. It
+    logs them all in one entry; then, if it skipped any, it raises one SkippedTables error
+    naming each, and why.
     Fix those names, then run add_references again with them alone. It also writes the
     Database module of each Database the tables are in, such as references/ops.py, so that in
     a notebook of the Project, from references import ops gives the table as ops.jobs, and a
@@ -927,6 +983,8 @@ def add_references(names: list[str],
     need_warehouse_call("project.add_references", "query", query, "It sends each table's "
                         "DESCRIBE through your query.")
     frame = callers_frame()
+    if isinstance(names, str):
+        names = [names]
     call = f"project.add_references({_names_as_written(names)}, query=...)"
     root = _project_root(call)
     _check_names_are_a_list(names, call)
@@ -1024,7 +1082,7 @@ def _names_as_written(names: object) -> str:
 # --- register and check -----------------------------------------------------------------------
 
 
-def register(name: str) -> ProjectReport:
+def register(name: str | list[str]) -> ProjectReport:
     """Adopt a Table folder, Table reference or Building block made by hand.
 
     >>> from sqlglot_composer import project
@@ -1049,8 +1107,18 @@ def register(name: str) -> ProjectReport:
     joins the registry, since new_block refuses a name already taken. It logs what it adopted,
     and
     refuses when there is nothing to adopt.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.register", _register_one, frame)
+
+
+def _register_one(name: str, frame: FrameType) -> ProjectReport:
+    """register(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("register", name)
     root = _project_root(call)
     if isinstance(name, str) and "." not in name:
@@ -1671,7 +1739,7 @@ def _converted_statement(name: str, call: str) -> Statement:
     return statement
 
 
-def remove_conversion(name: str) -> ProjectReport:
+def remove_conversion(name: str | list[str]) -> ProjectReport:
     """Archive a Conversion folder you no longer want, into admin/removed/.
 
     >>> from sqlglot_composer import example_database, project
@@ -1688,8 +1756,18 @@ def remove_conversion(name: str) -> ProjectReport:
     It moves admin/conversions/<name>/ into admin/removed/, named by the time, and marks its
     registry row removed, as remove_table does a Table folder: nothing is deleted. One the
     registry lists but that was deleted by hand only has its row marked.
+
+    `name` may also be a list of names, each done in turn, in one report. A name refused
+    stops the rest, and its refusal says which were done before it, which stay done, and
+    how to run the rest.
     """
     frame = callers_frame()
+
+    return _run_for_each_name(name, "project.remove_conversion", _remove_conversion_one, frame)
+
+
+def _remove_conversion_one(name: str, frame: FrameType) -> ProjectReport:
+    """remove_conversion(...) for one name: `frame` is its caller's, for the Admin log."""
     call = _action_call("remove_conversion", name)
     root = _project_root(call)
     _check_conversion_name(name, call)
@@ -1959,7 +2037,7 @@ def _arguments_to_fill(partition_columns: list[str]) -> str:
 # --- The Reference sheet ----------------------------------------------------------------------
 
 
-def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
+def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectReport:
     """Rebuild the Reference sheet: a row per column of every Table reference.
 
     >>> from sqlglot_composer import example_database, project
@@ -1984,8 +2062,16 @@ def refresh_reference_sheet(name: str | None = None) -> ProjectReport:
     the report says so. It also writes each Database module again, such as references/ops.py,
     which from references import ops reads, so run it once a Table reference is filled in.
     It changes no other file, and isn't logged: its exported_at column says when it was
-    written.
+    written. `name` may be a list of tables' names too, each replaced in turn.
     """
+    if name is None or isinstance(name, str):
+        return _refresh_reference_sheet_one(name)
+    return _run_for_each_name(name, "project.refresh_reference_sheet",
+                              _refresh_reference_sheet_one)
+
+
+def _refresh_reference_sheet_one(name: str | None) -> ProjectReport:
+    """refresh_reference_sheet(...) for every table, given None, or for one."""
     given = ""
     if name is not None:
         given = python_literal(name)
@@ -2723,6 +2809,63 @@ def _log(project: Path, call: str, tables: list[str], files: list[str], frame: F
         lines.append(f"- Skipped: {'; '.join(skipped)}")
     lines += [script_line(calling_file(frame)), f"- Result: {result}", ""]
     write_entry(project_log(project), lines)
+
+
+def _names_in_list(names: object, call: str) -> list[str]:
+    """The names in a list or tuple a Project action was given, each text; refused when one
+    isn't, or when the list is empty."""
+    if not names:
+        refuse(
+            what=f"{call} was given an empty list, where a name or a list of names goes.",
+            why="It does its job for each name, in turn: one name as text, or several in a "
+            "list.",
+            fix=f'Give one name, such as {call}("mart.daily_job_runs"), or a list of them, '
+            f'such as {call}(["mart.daily_job_runs", "mart.weekly_job_runs"]).',
+            given=names, call=call,
+        )
+    for name in names:
+        if not isinstance(name, str):
+            refuse(
+                what=f"{call} was given a list holding {name!r}, where each item is a name.",
+                why="It does its job for each name, in turn, and a name is text.",
+                fix="Write each name in quotes, such as \"mart.daily_job_runs\".",
+                given=name, call=call,
+            )
+    return list(names)
+
+
+def _run_for_each_name(names: object, call: str, action: Callable[..., ProjectReport],
+                       *fixed: object, more: str = "") -> ProjectReport:
+    """Run `action` for one name, or for each of a list of them in turn, with the `fixed`
+    arguments after it, and give one report: each line once, in the order first given. A name
+    refused stops the rest: the refusal gains a note naming the names done before it, which
+    stay done, and the call that runs the rest, `more` (the call's other arguments) included.
+    Anything but a list or tuple goes to `action` as it is, which refuses what isn't a name in
+    its own words."""
+    if not isinstance(names, (list, tuple)):
+        return action(names, *fixed)
+    listed = _names_in_list(names, call)
+    lines: list[str] = []
+    for number, name in enumerate(listed):
+        try:
+            report = action(name, *fixed)
+        except Exception as error:
+            error.add_note(_stopped_batch_note(call, listed[:number], listed[number:], more))
+            raise
+        lines += report.lines
+    return ProjectReport(list(dict.fromkeys(lines)))
+
+
+def _stopped_batch_note(call: str, done: list[str], rest: list[str], more: str) -> str:
+    """What a refusal in the middle of a batch adds: what was done before it, and the call that
+    runs the rest once its fix is made."""
+    if done:
+        kept = f"Done before it, and kept: {in_words(done)}."
+    else:
+        kept = "Nothing was done before it."
+    remaining = ", ".join(python_literal(name) for name in rest)
+    return (f"{call} stopped at {python_literal(rest[0])}. {kept} Run the rest: "
+            f"{call}([{remaining}]{more})")
 
 
 def _action_call(function: str, name: object, more: str = "") -> str:

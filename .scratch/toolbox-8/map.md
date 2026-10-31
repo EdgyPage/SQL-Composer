@@ -281,6 +281,9 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [10 The Workflow graph, docs/workflows.md, and today's baseline](issues/10-the-workflow-graph.md):
   `sqlglot_composer/workflows.py` lists each Workflow's steps by kind; `tools/workflow_graph.py`
   draws `docs/workflows.md`; baseline fiddling 17 (convert 11); done-checks land with ticket 12.
+- [11 One or many: every Project action takes a list](issues/11-one-or-many.md): nine actions take
+  a name or a list, through `_run_for_each_name`; a refusal mid-batch notes what was done and the
+  call for the rest; convert and finish_conversion wait for tickets 13 and 14.
 
 ## Not yet specified
 
