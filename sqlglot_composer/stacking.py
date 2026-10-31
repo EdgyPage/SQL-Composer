@@ -25,7 +25,7 @@ from .clauses import (
     check_derived_names,
     derived_tables,
     flattened,
-    resolve_group_by,
+    group_by_columns,
     stack_steps,
 )
 from .conditions import Condition
@@ -211,7 +211,10 @@ def stacked(call: str, statements: list[object] | tuple[object, ...],
     branches = _branches(call, statements)
     _check_names(call, branches)
     _check_types(call, branches)
-    check_derived_names(call, [table for s in branches for table in derived_tables(s)],
+    tables = []
+    for branch in branches:
+        tables += derived_tables(branch)
+    check_derived_names(call, tables,
                         why="The Stack's Hive names each Derived table once, at its top, so "
                         "two different ones can't share a name.")
     s = Statement()
@@ -222,6 +225,7 @@ def stacked(call: str, statements: list[object] | tuple[object, ...],
 
 
 def _branches(call: str, statements: list[object] | tuple[object, ...]) -> list[Statement]:
+    """The Statements a Stack stacks, once each is checked, and there are two or more."""
     found = flattened(statements)
     for position, s in enumerate(found, start=1):
         _check_branch(call, position, s)
@@ -336,10 +340,19 @@ def _check_types(call: str, branches: list[Statement]) -> None:
 def _stacked_column(name: str, branches: list[Statement]) -> Column:
     """A Stack's output column: its type the first one known, and it adds up only if it adds
     up in every Statement."""
-    columns = [column for s in branches for column, own in s._outputs if own == name]
-    known = next((column._type for column in columns if column._type), None)
-    because = next((column._not_adding_up_because for column in columns
-                    if not column._adds_up), None)
+    columns = []
+    for branch in branches:
+        columns += [column for column, own in branch._outputs if own == name]
+    known = None
+    for column in columns:
+        if column._type:
+            known = column._type
+            break
+    because = None
+    for column in columns:
+        if not column._adds_up:
+            because = column._not_adding_up_because
+            break
     return Column(Node("Column", name=name), name=name, type=known,
                   adds_up=all(column._adds_up for column in columns),
                   not_adding_up_because=because)
@@ -373,6 +386,7 @@ class Subtotals:
 
 
 def _subtotal_columns(call: str, items: list[object]) -> list[Column | str]:
+    """The items given to rollup, cube or grouping_sets, once each is a column or a name."""
     for item in items:
         if not isinstance(item, (Column, str)):
             refuse(
@@ -388,15 +402,25 @@ def _distinct_columns(items: list[Column | str]) -> list[Column | str]:
     """The columns, each once: two are the same when their Hive is."""
     kept = []
     for item in items:
-        if not any(_same(item, other) for other in kept):
+        if not any(_is_same_column(item, other) for other in kept):
             kept.append(item)
     return kept
 
 
-def _same(one: Column | str, other: Column | str) -> bool:
+def _is_same_column(one: Column | str, other: Column | str) -> bool:
+    """Whether two subtotal columns are the same: two output names alike, or two columns
+    whose Hive is."""
     if isinstance(one, str) or isinstance(other, str):
         return isinstance(one, str) and isinstance(other, str) and one == other
     return one._tree == other._tree
+
+
+def _place_of(column: Column | str, columns: list[Column | str]) -> int:
+    """Where `column` is in `columns`, which holds it."""
+    place = 0
+    while not _is_same_column(columns[place], column):
+        place += 1
+    return place
 
 
 def rollup(*columns: Column | str | list[Column | str]) -> Subtotals:
@@ -443,7 +467,8 @@ def rollup(*columns: Column | str | list[Column | str]) -> Subtotals:
     """
     call = f"rollup({', '.join(python_text(column) for column in columns)})"
     items = _distinct_columns(_subtotal_columns(call, flattened(columns)))
-    _need_some(call, items, "rollup(jobs.team, jobs.job_name)")
+    _check_columns_given(call, items, "rollup(jobs.team, jobs.job_name)")
+    # Each set is the first `size` columns, from all of them down to none.
     sets = [list(range(size)) for size in range(len(items), -1, -1)]
     return Subtotals(call, items, sets)
 
@@ -478,9 +503,12 @@ def cube(*columns: Column | str | list[Column | str]) -> Subtotals:
     """
     call = f"cube({', '.join(python_text(column) for column in columns)})"
     items = _distinct_columns(_subtotal_columns(call, flattened(columns)))
-    _need_some(call, items, "cube(jobs.team, jobs.region)")
-    sets = [list(chosen) for size in range(len(items), -1, -1)
-            for chosen in combinations(range(len(items)), size)]
+    _check_columns_given(call, items, "cube(jobs.team, jobs.region)")
+    # Each set is a mix of `size` columns, from all of them down to none.
+    sets = []
+    for size in range(len(items), -1, -1):
+        for chosen in combinations(range(len(items)), size):
+            sets.append(list(chosen))
     return Subtotals(call, items, sets)
 
 
@@ -512,13 +540,15 @@ def grouping_sets(*sets: list[Column | str] | Column | str) -> Subtotals:
     they do in every other way.
     """
     call = f"grouping_sets({', '.join(python_text(each) for each in sets)})"
-    _need_some(call, sets, "grouping_sets([jobs.team], [jobs.region], [])")
+    _check_columns_given(call, sets, "grouping_sets([jobs.team], [jobs.region], [])")
     listed = [_distinct_columns(_subtotal_columns(call, flattened([each]))) for each in sets]
-    items = _distinct_columns([item for each in listed for item in each])
+    every_column = []
+    for each in listed:
+        every_column += each
+    items = _distinct_columns(every_column)
     found = []
     for each in listed:
-        places = sorted(next(place for place, item in enumerate(items) if _same(item, column))
-                        for column in each)
+        places = sorted(_place_of(column, items) for column in each)
         if places in found:
             refuse(
                 what=f"{call} lists the set [{', '.join(python_text(c) for c in each)}] twice.",
@@ -531,8 +561,9 @@ def grouping_sets(*sets: list[Column | str] | Column | str) -> Subtotals:
     return Subtotals(call, items, found)
 
 
-def _need_some(call: str, items: list[Column | str] | tuple[object, ...],
-               example: str) -> None:
+def _check_columns_given(call: str, items: list[Column | str] | tuple[object, ...],
+                         example: str) -> None:
+    """Refuse rollup, cube or grouping_sets given nothing to group by."""
     if not items:
         refuse(what=f"{call} was given nothing to group by.", why="It needs a column.",
                fix=f"Pass columns or output names, such as {example}.", error=ValueError)
@@ -555,8 +586,8 @@ def is_total(column: Column) -> Condition:
     """
     call = f"is_total({python_text(column)})"
     if not isinstance(column, Column):
-        fix = "Pass a column of rollup(...), cube(...) or grouping_sets(...), such as " \
-              "is_total(jobs.team)."
+        fix = ("Pass a column of rollup(...), cube(...) or grouping_sets(...), such as "
+               "is_total(jobs.team).")
         if isinstance(column, str):
             fix += (f" For a calculation named {python_text(column)} with AS, pass the "
                     "calculation itself, as GROUP_BY holds it.")
@@ -574,7 +605,7 @@ def grouped(s: Statement, items: list[Column | str | Subtotals]
     when it has no subtotals."""
     found = [item for item in items if isinstance(item, Subtotals)]
     if not found:
-        return resolve_group_by(s, items), None, None
+        return group_by_columns(s, items), None, None
     if len(found) > 1:
         refuse(
             what=f"GROUP_BY has {found[0]._call} and {found[1]._call}.",
@@ -584,11 +615,13 @@ def grouped(s: Statement, items: list[Column | str | Subtotals]
             error=ValueError,
         )
     subtotals = found[0]
-    plain = resolve_group_by(s, [item for item in items if item is not subtotals])
-    columns = resolve_group_by(s, subtotals._columns)
+    plain = group_by_columns(s, [item for item in items if item is not subtotals])
+    columns = group_by_columns(s, subtotals._columns)
     every = _distinct_columns(plain + columns)
-    sets = [_distinct_columns(plain + [columns[place] for place in places])
-            for places in subtotals._sets]
+    sets = []
+    for places in subtotals._sets:
+        chosen = [columns[place] for place in places]
+        sets.append(_distinct_columns(plain + chosen))
     return every, sets, subtotals._call
 
 
@@ -611,6 +644,8 @@ def check_subtotals(s: Statement) -> None:
 
 
 def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
+    """Refuse an is_total in `place` that can't go there, or that tests a column GROUP_BY's
+    subtotals don't total over."""
     column = grouping.parts["this"]
     call = f"is_total({readable(column)})"
     if place in ("WHERE", "ON=", "GROUP_BY"):
@@ -628,8 +663,8 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
     if s._grouping_sets is None:
         refuse(
             what=f"{place} has {call}, but GROUP_BY makes no subtotal rows.",
-            why="is_total tells a subtotal row from the others, and only GROUP_BY(rollup(...)), "
-            "cube(...) or grouping_sets(...) make subtotal rows.",
+            why="is_total tells a subtotal row from the others, and only "
+            "GROUP_BY(rollup(...)), cube(...) or grouping_sets(...) make subtotal rows.",
             fix="Add the subtotals to GROUP_BY, such as GROUP_BY(rollup(jobs.team, "
             "jobs.job_name)), or leave is_total out.",
             error=ValueError,
@@ -637,7 +672,8 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
     if not any(group._tree == column for group in s._group_by):
         refuse(
             what=f"{place} has {call}, but GROUP_BY doesn't group by {readable(column)}.",
-            why="is_total says whether a row totals over one of the columns GROUP_BY groups by.",
+            why="is_total says whether a row totals over one of the columns GROUP_BY groups "
+            "by.",
             fix="Pass one of: " + ", ".join(readable(group._tree) for group in s._group_by)
             + ".",
             error=ValueError,
@@ -655,17 +691,22 @@ def _check_is_total(s: Statement, place: str, grouping: Node) -> None:
 
 def _refuse_writing_subtotals(s: Statement) -> None:
     """Refuse a write whose rows come from subtotals, at any step."""
-    for step, where in [(s, "")] + [(table._statement, f" in derived({table._name!r}, ...)")
-                                     for table in derived_tables(s) if not is_unchecked(table)]:
+    # Each step that makes the rows, and where it is, for the refusal: the write itself, then
+    # each Derived table it reads.
+    steps = [(s, "")]
+    for table in derived_tables(s):
+        if not is_unchecked(table):
+            steps.append((table._statement, f" in derived({table._name!r}, ...)"))
+    for step, where in steps:
         for part in stack_steps(step):
             if part._grouping_sets is None:
                 continue
             refuse(
                 what=f"{s._write_call} writes rows made by GROUP_BY({part._subtotals_call})"
                 f"{where}.",
-                why="Each subtotal row totals over rows written with it, with NULL in the columns "
-                "it totals over: it can repeat the Key of a real row, and a sum over the Saved "
-                "table would count each row more than once.",
+                why="Each subtotal row totals over rows written with it, with NULL in the "
+                "columns it totals over: it can repeat the Key of a real row, and a sum over "
+                "the Saved table would count each row more than once.",
                 fix="Write the plain GROUP_BY into the Saved table, and add the subtotals in "
                 "the Statement that reads it.",
                 error=ValueError,

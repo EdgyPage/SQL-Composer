@@ -22,7 +22,7 @@ from .joins import (
     ONLY_TESTS,
     check_joins,
     full_joined,
-    need_broadcast_true_or_false,
+    check_broadcast_true_or_false,
     refuse_anti_join_with_nothing_matched,
     refuse_only_tests_with_no_on,
     refuse_right_join,
@@ -290,6 +290,7 @@ def AS(expression: Column | Table, name: str) -> Named | Table:
 
 
 def flattened(items: list[object] | tuple[object, ...]) -> list[object]:
+    """The items, with each list or tuple among them, at any depth, opened into its items."""
     found = []
     for item in items:
         if isinstance(item, (list, tuple)):
@@ -318,7 +319,8 @@ def _outputs(items: tuple[object, ...], call: str) -> list[tuple[Column, str]]:
     if twice:
         refuse(
             what=f"{call} has more than one column called {', '.join(twice)}.",
-            why="Each column in the result needs its own name, or pandas can't tell them apart.",
+            why="Each column in the result needs its own name, or pandas can't tell them "
+            "apart.",
             fix='Rename one with AS, such as AS(jobs.job_id, "jobs_job_id").',
             error=ValueError,
         )
@@ -475,18 +477,30 @@ def _refuse_a_column_compared_with_itself(call: str, table: Table, on: Condition
             )
 
 
-def _join(call: str, table: object, on: object, many_matches: bool,
-          reads_all_partitions: bool, broadcast: object = False, **more: bool) -> Clause:
+def _warn_of_repeated_rows(call: str, table: Table, on: Condition, many_matches: bool) -> None:
+    """Warn that one row can match several, when ON= pins down no whole Key of `table`."""
+    matched = matched_columns(table, on)
+    for key in keys_of(table):
+        if set(key) <= set(matched):
+            return
+    is_derived = table._statement is not None
+    lost = None
+    if is_derived:
+        lost = table._keys.lost
+    warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
+                          derived=is_derived, lost=lost, unchecked=is_unchecked(table))
+
+
+def _join_clause(call: str, table: object, on: object, many_matches: bool,
+                 reads_all_partitions: bool, broadcast: object = False,
+                 **more: bool) -> Clause:
+    """The clause for a join, once its table, ON= and broadcast= are checked."""
     table = _need_table(table, f"{call}(...)")
     on = _need_on(on, call, table)
-    need_broadcast_true_or_false(call, table, broadcast)
+    check_broadcast_true_or_false(call, table, broadcast)
     _refuse_a_column_compared_with_itself(call, table, on)
-    matched = matched_columns(table, on)
-    if call not in ONLY_TESTS and not any(set(key) <= set(matched) for key in keys_of(table)):
-        warning_repeated_rows(call, table._alias, matched, table._key, many_matches,
-                              derived=table._statement is not None,
-                              lost=table._keys.lost if table._statement is not None else None,
-                              unchecked=is_unchecked(table))
+    if call not in ONLY_TESTS:
+        _warn_of_repeated_rows(call, table, on, many_matches)
     return Clause(call, table=table, on=on, reads_all_partitions=reads_all_partitions,
                   many_matches=many_matches, broadcast=broadcast, **more)
 
@@ -521,10 +535,10 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
     JOIN, LEFT_JOIN, SEMI_JOIN and ANTI_JOIN take it; FULL_JOIN doesn't, since it keeps the
     small table's unmatched rows too. It is written as a hint after SELECT, as below: a
     comment, /*+ ... */, that Hive reads as a request. Send the Session setting "map_joins"
-    first, with run_execute(hive_settings("map_joins"), execute): Hive ignores the hint without it.
-    You rarely need the hint, though: with "map_joins" sent, Hive makes map joins by itself,
-    from the tables' sizes and statistics. Ask for it only for a table you know is small:
-    copied to every worker, a big one can run them out of memory.
+    first, with run_execute(hive_settings("map_joins"), execute): Hive ignores the hint
+    without it. You rarely need the hint, though: with "map_joins" sent, Hive makes map joins
+    by itself, from the tables' sizes and statistics. Ask for it only for a table you know is
+    small: copied to every worker, a big one can run them out of memory.
 
     >>> print(to_hive(statement(
     ...     SELECT(job_runs.run_id, jobs.team),
@@ -541,7 +555,7 @@ def JOIN(table: Table, ON: Condition | None = None, many_matches: bool = False,
     WHERE
       job_runs.dt BETWEEN '2026-09-23' AND '2026-09-24'
     """
-    return _join("JOIN", table, ON, many_matches, reads_all_partitions, broadcast)
+    return _join_clause("JOIN", table, ON, many_matches, reads_all_partitions, broadcast)
 
 
 def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: bool = False,
@@ -573,8 +587,8 @@ def LEFT_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
     its conditions, as for the jobs that never ran or whose run failed; ANTI_JOIN keeps just
     the rows with no match. broadcast=True asks for a map join, as JOIN's does.
     """
-    return _join("LEFT_JOIN", table, ON, many_matches, reads_all_partitions, broadcast,
-                 keeps_only_matches=keeps_only_matches)
+    return _join_clause("LEFT_JOIN", table, ON, many_matches, reads_all_partitions, broadcast,
+                        keeps_only_matches=keeps_only_matches)
 
 
 def CROSS_JOIN(table: Table, reads_all_partitions: bool = False) -> Clause:
@@ -634,7 +648,7 @@ def SEMI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
     rows kept are those of the tables on its left, before it. broadcast=True asks for a map
     join, as JOIN's does. The example above keeps the runs that raised a high alert.
     """
-    return _join("SEMI_JOIN", table, ON, False, reads_all_partitions, broadcast)
+    return _join_clause("SEMI_JOIN", table, ON, False, reads_all_partitions, broadcast)
 
 
 def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: bool = False,
@@ -667,7 +681,7 @@ def ANTI_JOIN(table: Table, ON: Condition | None = None, reads_all_partitions: b
     rows, since the rows with a match, however many, are all left out. broadcast=True asks for
     a map join, as JOIN's does.
     """
-    clause = _join("ANTI_JOIN", table, ON, False, reads_all_partitions, broadcast)
+    clause = _join_clause("ANTI_JOIN", table, ON, False, reads_all_partitions, broadcast)
     if tested_column(clause.table, clause.on) is None:
         refuse_anti_join_with_nothing_matched(clause.table)
     return clause
@@ -727,8 +741,8 @@ def FULL_JOIN(table: Table, ON: Condition | None = None, keeps_only_matches: boo
     repeated-rows Warning, and its many_matches=True, work as JOIN's do. The example above
     gives the runs only one side holds.
     """
-    return _join("FULL_JOIN", table, ON, many_matches, reads_all_partitions,
-                 keeps_only_matches=keeps_only_matches)
+    return _join_clause("FULL_JOIN", table, ON, many_matches, reads_all_partitions,
+                        keeps_only_matches=keeps_only_matches)
 
 
 def RIGHT_JOIN(table: Table, ON: Condition | None = None, **anything: object) -> NoReturn:
@@ -905,10 +919,8 @@ _WRITE_LEAVES_OUT = ("then the write fills each partition column given no value 
                      "rows' own values")
 
 
-def _write_clause(call: str, table: object, unproven_key: object,
-                  partition: object) -> Clause:
-    """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once the table is checked."""
-    table = _need_table(table, f"{call}(...)")
+def _check_unproven_key(call: str, table: Table, unproven_key: object) -> None:
+    """Refuse a write's unproven_key= that isn't True or False."""
     if not isinstance(unproven_key, bool):
         refuse(
             what=f"{call}({table._alias}, unproven_key={unproven_key!r}): unproven_key= is "
@@ -918,6 +930,10 @@ def _write_clause(call: str, table: object, unproven_key: object,
             fix=f"Write {call}({table._alias}, unproven_key=True), or leave it out.",
             error=ValueError,
         )
+
+
+def _check_not_derived(call: str, table: Table) -> None:
+    """Refuse a write into a Derived table, which is only a part of a Statement."""
     if table._statement is not None:
         refuse(
             what=f"{call}({table._alias}) was given a Derived table, not a Saved table.",
@@ -926,16 +942,27 @@ def _write_clause(call: str, table: object, unproven_key: object,
             fix="Pass the Saved table's own Table reference.",
             error=ValueError,
         )
+
+
+def _write_clause(call: str, table: object, unproven_key: object,
+                  partition: object) -> Clause:
+    """The clause for INSERT_OVERWRITE(table) or INSERT_INTO(table), once each argument is
+    checked in turn: the table, unproven_key=, that the table is one of your Saved tables,
+    and partition=."""
+    table = _need_table(table, f"{call}(...)")
+    _check_unproven_key(call, table, unproven_key)
+    _check_not_derived(call, table)
     # Only your own Saved tables are written: ADR 0007. A table someone else owns would lose
     # the rows, or the Partitions, the write replaces.
     need_saved_table(table, f"{call}({table._alias})")
-    return Clause(call, table=table, unproven_key=unproven_key,
-                  partition=partitions_named(table, partition, call, _WRITE_LEAVES_OUT))
+    partitions = partitions_named(table, partition, call, _WRITE_LEAVES_OUT)
+    return Clause(call, table=table, unproven_key=unproven_key, partition=partitions)
 
 
-def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
-                     partition: dict[str, str | int | float | bool | datetime.date] | None = None
-                     ) -> Clause:
+def INSERT_OVERWRITE(
+        table: Table, unproven_key: bool = False,
+        partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+) -> Clause:
     """Write rows into a Saved table, replacing the Partitions they fill, or all of it.
 
     >>> daily_runs = Table("mart.daily_runs", partitioned_by=["dt"], key=["job_id", "dt"],
@@ -975,10 +1002,11 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
 
     Filling Partitions from the rows needs Hive's dynamic partitioning switched on, the
     Session setting the Toolbox calls "dynamic_partitions", whose two SET lines show_hive
-    prints ahead of such a write. Send them with run_execute(hive_settings("dynamic_partitions"),
-    execute) before the first such write: the warehouse keeps them for as long as your
-    execute's connection lasts, and sending them again does no harm. The example above writes
-    each job's runs on each of two days, one Partition for each day.
+    prints ahead of such a write. Send them with
+    run_execute(hive_settings("dynamic_partitions"), execute) before the first such write: the
+    warehouse keeps them for as long as your execute's connection lasts, and sending them again
+    does no harm. The example above writes each job's runs on each of two days, one Partition
+    for each day.
 
     partition={"dt": "2026-09-24"} names the Partition instead: each column it names is one
     value, written into the Hive, so SELECT leaves it out. The columns it names are the first
@@ -1049,9 +1077,10 @@ def INSERT_OVERWRITE(table: Table, unproven_key: bool = False,
     return _write_clause("INSERT_OVERWRITE", table, unproven_key, partition)
 
 
-def INSERT_INTO(table: Table, unproven_key: bool = False,
-                partition: dict[str, str | int | float | bool | datetime.date] | None = None
-                ) -> Clause:
+def INSERT_INTO(
+        table: Table, unproven_key: bool = False,
+        partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+) -> Clause:
     """Add rows to a Saved table or its Partitions; sent twice, it adds twice.
 
     >>> run_alerts = example_database.run_alerts
@@ -1156,14 +1185,8 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     s._returns_all_rows = returns_all_rows
     # _check_order has made sure each place but JOIN comes at most once.
     by_place = {clause._place(): clause for clause in clauses if clause._place() != "JOIN"}
-    write = by_place.get("INSERT")
-    s._write = write.table if write else None
-    s._kind = kinds.WRITE if write else kinds.READ
-    # How the write was called, for messages: INSERT_INTO(daily_runs).
-    s._write_call = f"{write._name}({write.table._alias})" if write else None
-    s._replaces_rows = write is not None and write._name == "INSERT_OVERWRITE"
-    s._partitions = write.partition if write else None
-    s._unproven_key = write is not None and write.unproven_key
+    if "INSERT" in by_place:
+        _set_write(s, by_place["INSERT"])
     select = by_place["SELECT"]
     s._outputs, s._distinct = select.outputs, select.distinct
     s._reads = [c for c in clauses if c._name == "FROM" or c._name in JOINS]
@@ -1177,33 +1200,51 @@ def statement(*clauses: Clause, returns_all_rows: bool = False) -> Statement:
     s._order_by = order.sort_keys if order else []
     s._limit = by_place["LIMIT"].n if "LIMIT" in by_place else None
     check_subtotals(s)
-    _check_tables(s)
+    _check_tables_read(s)
     check_joins(s)
     _run_guards(s)
     _run_load_limits(s, order)
     return s
 
 
-def resolve_group_by(s: Statement, items: list[Column | str]) -> list[Column]:
+def _set_write(s: Statement, write: Clause) -> None:
+    """Make `s` a write, from its INSERT_OVERWRITE or INSERT_INTO clause."""
+    s._kind = kinds.WRITE
+    s._write = write.table
+    # How the write was called, for messages: INSERT_INTO(daily_runs).
+    s._write_call = f"{write._name}({write.table._alias})"
+    s._replaces_rows = write._name == "INSERT_OVERWRITE"
+    s._partitions = write.partition
+    s._unproven_key = write.unproven_key
+
+
+def group_by_columns(s: Statement, items: list[Column | str]) -> list[Column]:
+    """GROUP_BY's columns, each name of a calculation in SELECT swapped for the calculation."""
     by_name = {name: column for column, name in s._outputs}
-    resolved = []
+    columns = []
     for item in items:
-        if isinstance(item, str) and item not in by_name:
+        if not isinstance(item, str):
+            columns.append(item)
+            continue
+        if item not in by_name:
             refuse(
                 what=f"GROUP_BY({item!r}): SELECT has no column called {item!r}.",
                 why="A name in GROUP_BY stands for a calculation named in SELECT.",
                 fix=f"Use one of: {', '.join(by_name)}.",
                 error=ValueError,
             )
-        resolved.append(by_name[item] if isinstance(item, str) else item)
-    return resolved
+        columns.append(by_name[item])
+    return columns
 
 
 def derived_tables(s: Statement) -> list[Table]:
     """Every Derived table a Statement reads, directly or not, each after those it reads; a
     Stack's are those of each Statement it stacks."""
+    reads = []
+    for step in stack_steps(s):
+        reads += step._reads
     found = []
-    for read in [read for step in stack_steps(s) for read in step._reads]:
+    for read in reads:
         table = read.table
         if table._statement is None:
             continue
@@ -1235,7 +1276,7 @@ def check_derived_names(call: str, tables: list[Table], why: str) -> None:
         seen[table._name] = table._statement
 
 
-def _check_tables(s: Statement) -> None:
+def _check_tables_read(s: Statement) -> None:
     aliases = [read.table._alias for read in s._reads]
     twice = repeated(aliases)
     if twice:
@@ -1303,6 +1344,8 @@ def _check_placement(s: Statement) -> None:
 
 
 def _trees(s: Statement) -> list[Node]:
+    """The tree of every part of a Statement: SELECT, WHERE, HAVING, each ON=, GROUP_BY and
+    ORDER_BY."""
     trees = [column._tree for column, _ in s._outputs]
     trees += [c._tree for c in s._where + s._having]
     trees += [read.on._tree for read in s._reads if read.on is not None]
@@ -1311,30 +1354,44 @@ def _trees(s: Statement) -> list[Node]:
 
 
 def _run_guards(s: Statement) -> None:
+    """The Guards that need the whole Statement: GROUP_BY's, each LEFT_JOIN's, and a write's."""
     _guard_group_by(s)
     for read in s._reads:
-        if read._name != "LEFT_JOIN":
-            continue
-        for condition in s._where:
-            alias = read.table._alias
-            if alias not in condition._tables() or alias in condition._keeps_unmatched:
-                continue
-            if alias in {table for table, _ in checked_columns(condition._tree)}:
-                guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
-            else:  # it reads the table only inside an Unchecked expression
-                warning_unchecked_where_on_kept_rows("LEFT_JOIN", alias, alias, repr(condition),
-                                                     read.keeps_only_matches)
+        if read._name == "LEFT_JOIN":
+            _guard_left_join(s, read)
     if kinds.kind(s) == kinds.WRITE:
-        table = s._write
-        expected = [c for c in table._columns if c not in s._partitions.values]
-        names = [name for _, name in s._outputs]
-        missing = [c for c in expected if c not in names]
-        extra = [n for n in names if n not in expected]
-        if missing or extra:
-            guard_write_lines_up(s._write_call, table._alias, missing, extra)
-        why = None if s._unproven_key else why_key_unproven(s)
-        if why is not None:
-            guard_unproven_key(s._write_call, table._key, why)
+        _guard_write(s)
+
+
+def _guard_left_join(s: Statement, read: Clause) -> None:
+    """Refuse a WHERE on a LEFT_JOIN's table that throws away the rows with no match, or warn
+    of one that may, inside an Unchecked expression."""
+    alias = read.table._alias
+    for condition in s._where:
+        if alias not in condition._tables() or alias in condition._keeps_unmatched:
+            continue
+        if alias in {table for table, _ in checked_columns(condition._tree)}:
+            guard_left_join_then_where(alias, repr(condition), read.keeps_only_matches)
+        else:  # it reads the table only inside an Unchecked expression
+            warning_unchecked_where_on_kept_rows("LEFT_JOIN", alias, alias, repr(condition),
+                                                 read.keeps_only_matches)
+
+
+def _guard_write(s: Statement) -> None:
+    """Refuse a write whose columns don't line up with its Saved table's, or whose rows the
+    Toolbox can't see have a Key of their own, unless unproven_key=True."""
+    table = s._write
+    expected = [c for c in table._columns if c not in s._partitions.values]
+    names = [name for _, name in s._outputs]
+    missing = [c for c in expected if c not in names]
+    extra = [n for n in names if n not in expected]
+    if missing or extra:
+        guard_write_lines_up(s._write_call, table._alias, missing, extra)
+    if s._unproven_key:
+        return
+    why = why_key_unproven(s)
+    if why is not None:
+        guard_unproven_key(s._write_call, table._key, why)
 
 
 def _guard_group_by(s: Statement) -> None:
@@ -1378,7 +1435,10 @@ def _ungrouped(tree: Node, groups: list[Node]) -> list[Node]:
     if tree.kind == "Column":
         return [tree]
     children = ungrouped_in_window(tree) if tree.kind == "Window" else tree.children()
-    return [column for child in children for column in _ungrouped(child, groups)]
+    columns = []
+    for child in children:
+        columns += _ungrouped(child, groups)
+    return columns
 
 
 def read_bounds(s: Statement) -> list[tuple[Clause, bool, bool]]:
@@ -1392,25 +1452,31 @@ def read_bounds(s: Statement) -> list[tuple[Clause, bool, bool]]:
         table = read.table
         if table._statement is not None or not table._partitioned_by:
             continue
-        conditions = _bounding(s, read)
+        conditions = _bounding_conditions(s, read)
         partitions = {(table._alias, column) for column in table._partitioned_by}
-        unchecked = set().union(*(unchecked_columns(c._tree) for c in conditions))
+        unchecked = set()
+        for condition in conditions:
+            unchecked |= unchecked_columns(condition._tree)
         found.append((read, bool(partitions & bounded_columns(conditions)),
                       bool(partitions & unchecked)))
     return found
 
 
-def _bounding(s: Statement, read: Clause) -> list[Condition]:
+def _bounding_conditions(s: Statement, read: Clause) -> list[Condition]:
     """The conditions that can bound the Partitions a read reads, as read_bounds says."""
     inner = [other.on for other in s._reads if other._name == "JOIN"]
     if read._name in BOUNDED_IN_ON:
-        return [read.on] + (s._where + inner if read.keeps_only_matches else [])
+        if read.keeps_only_matches:
+            return [read.on, *s._where, *inner]
+        return [read.on]
     if read._name == "FULL_JOIN" and not read.keeps_only_matches:
         return []  # FULL_JOIN keeps every row of its table, matched or not.
     return s._where + inner
 
 
 def _run_load_limits(s: Statement, order: Clause | None) -> None:
+    """The Load limits that need the whole Statement: each partitioned table's read, each
+    Unchecked derived table's, and ORDER_BY's."""
     for read, bounded, unchecked in read_bounds(s):
         table = read.table
         if bounded:
@@ -1424,16 +1490,23 @@ def _run_load_limits(s: Statement, order: Clause | None) -> None:
                                    full_join=full_joined(s, read))
     for read in s._reads:
         if is_unchecked(read.table):
-            # Each table its Hive reads that is partitioned, or may be, as the Toolbox can't
-            # tell without a Table reference for it.
-            tables = [(name, partitioned_by_name(name))
-                      for name in read.table._statement._tables]
             warning_unchecked_derived_read(read._call(), read.table._name,
-                                           [(name, columns) for name, columns in tables
-                                            if columns is None or columns],
+                                           _partitioned_or_unknown_tables(read.table),
                                            read.reads_all_partitions)
     if order is not None and s._limit is None:
         load_limit_order_by(order.sorts_everything)
+
+
+def _partitioned_or_unknown_tables(table: Table) -> list[tuple[str, list[str] | None]]:
+    """Each table an Unchecked derived table's Hive reads that is partitioned, or may be, as
+    the Toolbox can't tell without a Table reference for it: with its partition columns, or
+    None."""
+    found = []
+    for name in table._statement._tables:
+        columns = partitioned_by_name(name)
+        if columns is None or columns:
+            found.append((name, columns))
+    return found
 
 
 # --- derived(...) --------------------------------------------------------------------------
