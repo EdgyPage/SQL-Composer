@@ -246,6 +246,13 @@ In Python, `derived(...)` gives back a `Table`, read like any other, so a Buildi
 gives one back says `-> Table`.
 _Avoid_: view, temp table, CTE (the CTE is how it lands in the string, not what it is)
 
+**Staging table**:
+A table a long script writes with a CREATE TABLE ... AS SELECT only so a statement after it can
+read it, as a temporary table, or a scratch table the script DROPs at its end. A Conversion
+folds one, its query a Derived table in each table that reads it, or keeps it a Saved table of
+its own, as the user chooses: folded is proposed for a temporary or DROPped one.
+_Avoid_: temp table, scratch table, intermediate table
+
 **Window**:
 The rows a calculation looks across for each row of a Statement: the rows of that row's group,
 in an order, and sometimes only those near it, such as the six before it. A calculation over a

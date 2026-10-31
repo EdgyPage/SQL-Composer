@@ -452,7 +452,8 @@ flowchart TD
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
 
-       project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
+       project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                       staging=STAGING)
 
 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 3. Write each answer into its table's Table reference (it changes only files, so

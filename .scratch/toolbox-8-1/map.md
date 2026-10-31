@@ -157,9 +157,11 @@ location pattern in `admin/databases.py`.
   promoted. Kept, it is a Saved table, as today.
 - The proposal is fold for a TEMPORARY table or one the Batch DROPs, keep otherwise.
   `converting._create_note` notes "was a temporary table" today, and nothing more.
-- Not yet specified: a staging table written by several statements (stacked), or with
-  Partitions its reader filters, may not fold into one Derived table; settled while building
-  (10), keeping it a Saved table where it can't.
+- Settled in 10: a staging table is one a CREATE ... AS writes alone, read by a statement
+  after it; one written by several statements or by an INSERT is kept a Saved table. The
+  keep-or-fold choice is made before the convert, as convert's `staging=` (the names cell's
+  `STAGING`), not a decisions-cell answer, since folding changes the readers' logic and a
+  folded table has no Table reference to write an answer into.
 
 ### Referenced and maintained (Q19, Q20)
 

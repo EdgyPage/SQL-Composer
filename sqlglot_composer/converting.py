@@ -1395,6 +1395,13 @@ _QUERIES = (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)
 _STORED_AS = ("ORC", "PARQUET")
 # Why a statement the Saved table does itself becomes nothing, its note.
 DROPPED = "nothing: the Saved table's create() makes it new"
+# What _create_note says of a CREATE TEMPORARY TABLE ... AS.
+TEMPORARY = "was a temporary table"
+# What a folded staging table's statements become, and one it couldn't fold.
+FOLDED = ("folded into {readers}: a Derived table there, never created, written, compared or "
+          "promoted")
+KEPT = ("kept a Saved table: a statement reading it can't take its query as a Derived table, "
+        "such as one kept as Hive")
 TRUNCATED = "nothing: the write after it replaces every row"
 PARTITIONED = "nothing: write() adds each Partition it writes"
 
@@ -1635,7 +1642,7 @@ def _create_note(tree: exp.Expression) -> str:
     properties = tree.args.get("properties")
     if properties is not None and any(isinstance(each, exp.TemporaryProperty)
                                       for each in properties.expressions):
-        return "was a temporary table"
+        return TEMPORARY
     return ""
 
 
@@ -1968,3 +1975,116 @@ def insert_partitions(statement: BatchStatement) -> list[str]:
         return []
     return [(part.this if isinstance(part, exp.EQ) else part).name.lower()
             for part in partition.expressions]
+
+
+
+# --- Staging tables: kept, or folded into the tables that read them ---------------------------
+
+# A staging table's choice: folded, a Derived table in each statement that reads it, or kept, a
+# Saved table of its own.
+FOLD = "fold"
+KEEP = "keep"
+
+
+def staging_tables(statements: list[BatchStatement]) -> dict[str, str]:
+    """Each staging table of a batch, with the choice proposed for it: a table one CREATE ...
+    AS writes and a statement after it reads. Fold is proposed for a temporary table, or a
+    scratch table, one a DROP later in its script removes; keep for the rest."""
+    found = {}
+    for each in statements:
+        if each.kind != CREATE_AS or each.tree is None or each.tree.args.get("kind") == "VIEW":
+            continue
+        writes = [other for other in statements
+                  if other.table == each.table and other.kind in MAKES]
+        if len(writes) != 1 or not readers_after(statements, each):
+            continue
+        scratch = each.note == TEMPORARY or _is_dropped_after(statements, each)
+        found[each.table] = FOLD if scratch else KEEP
+    return found
+
+
+def readers_after(statements: list[BatchStatement],
+                  writer: BatchStatement) -> list[BatchStatement]:
+    """Each statement that reads the table `writer` writes, after it: one earlier in the same
+    script reads the table as it was before."""
+    return [each for each in statements
+            if writer.table in each.reads and each is not writer
+            and not (each.script == writer.script and each.line < writer.line)]
+
+
+def _is_dropped_after(statements: list[BatchStatement], writer: BatchStatement) -> bool:
+    """Whether a DROP later in its script removes the table `writer` writes."""
+    for each in statements:
+        same_table = each.table == writer.table and each.script == writer.script
+        if same_table and each.line > writer.line and each.note == DROPPED:
+            return True
+    return False
+
+
+def fold_staging(statements: list[BatchStatement], choices: dict[str, str],
+                 database: str) -> tuple[list[str], list[str]]:
+    """Fold each staging table whose choice, `choices`' or else the one proposed, is fold:
+    its query a CTE of each statement after it that reads it, and its CREATE ... AS and the
+    statements after it on the table nothing. A table one of them can't take, one sqlglot
+    didn't read as an INSERT or a CREATE, or one holding a CTE of a name the fold needs, is
+    kept, and its note says why. The tables folded, and those kept that it couldn't fold."""
+    folded, unfoldable = [], []
+    for table, proposed in staging_tables(statements).items():
+        if choices.get(table, proposed) != FOLD:
+            continue
+        writer = next(each for each in statements
+                      if each.table == table and each.kind == CREATE_AS)
+        readers = readers_after(statements, writer)
+        query = writer.tree.expression
+        if not all(_is_foldable_into(reader, table, query) for reader in readers):
+            writer.note = KEPT
+            unfoldable.append(table)
+            continue
+        for reader in readers:
+            _fold_into(reader, table, query, database)
+        read_by = [reader.table or "a query" for reader in readers]
+        note = FOLDED.format(readers=in_words(read_by))
+        for each in [writer, *readers_after(statements, writer)]:
+            if each.table == table and each.kind in (CREATE_AS, NOTHING):
+                each.kind, each.note = NOTHING, note
+        folded.append(table)
+    return folded, unfoldable
+
+
+def _is_foldable_into(reader: BatchStatement, table: str, query: exp.Expression) -> bool:
+    """Whether a statement can take a staging table's query as CTEs of its own: an INSERT or
+    a CREATE ... AS sqlglot read, holding no CTE of the table's name, nor of one the query's
+    own WITH names."""
+    if not isinstance(reader.tree, (exp.Insert, exp.Create)):
+        return False
+    needed = {split_table_name(table)[1]} | {cte.alias_or_name.lower()
+                                             for cte in query.find_all(exp.CTE)}
+    return all(cte.alias_or_name.lower() not in needed for cte in reader.tree.find_all(exp.CTE))
+
+
+def _fold_into(reader: BatchStatement, table: str, query: exp.Expression,
+               database: str) -> None:
+    """Make a staging table's query CTEs of a statement that reads it: its own WITH's first,
+    then itself, named for the table, which each of the statement's reads of the table now
+    reads; and what the statement reads, again."""
+    short = split_table_name(table)[1]
+    tree = reader.tree
+    for each in list(tree.find_all(exp.Table)):
+        if _full_name(each, database) == table:
+            each.replace(exp.Table(this=exp.to_identifier(short), alias=each.args.get("alias")))
+    # An INSERT holds its own WITH, as Hive writes it before INSERT; a CREATE ... AS, its query.
+    holder = tree if isinstance(tree, exp.Insert) else tree.expression
+    key = _with_key(holder)
+    copied = query.copy()
+    own = copied.args.get(_with_key(copied))
+    copied.set(_with_key(copied), None)
+    cte = exp.CTE(this=copied, alias=exp.TableAlias(this=exp.to_identifier(short)))
+    earlier = holder.args.get(key)
+    holder.set(key, exp.With(expressions=[*(own.expressions if own else []), cte,
+                                          *(earlier.expressions if earlier else [])]))
+    reader.reads = _tables_it_reads(tree, reader.table, database)
+
+
+def _with_key(tree: exp.Expression) -> str:
+    """The name sqlglot keeps a statement's WITH under: "with_" in newer versions."""
+    return "with_" if "with_" in type(tree).arg_types else "with"
