@@ -2863,6 +2863,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
             error=ValueError,
         )
     now = unchecked.now()
+    before = _references_promoted_before(root, names)
     # A table promoted before under another name is promoted under this one alone now: its old
     # prod copy is archived.
     written = _archive_renamed_copies(root, names, now)
@@ -2870,7 +2871,8 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
               if entry["dev"] not in names}
     lines = []
     for dev, prod in names.items():
-        record[prod], done, line = _promote_one(root, dev, prod, names, (dev_db, prod_db), now)
+        record[prod], done, line = _promote_one(root, (dev, prod), names, (dev_db, prod_db),
+                                                before[dev], now)
         written += done
         lines.append(line)
     _write_databases(root)
@@ -2882,13 +2884,26 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     return ProjectReport(lines)
 
 
-def _promote_one(root: Path, dev: str, prod: str, names: dict[str, str],
-                 databases: tuple[str, str], now: datetime.datetime
+def _references_promoted_before(root: Path, names: dict[str, str]) -> dict[str, str]:
+    """The text of each dev table's prod Table reference promoted before, under the name it is
+    promoted under now, else under the one it had; nothing for one never promoted."""
+    before = {dev: workflows.file_text(REFERENCE.path(root, table_stem(prod)))
+              for dev, prod in names.items()}
+    for prod, entry in workflows.promoted_record(root).items():
+        if entry["dev"] in names and not before[entry["dev"]]:
+            before[entry["dev"]] = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
+    return before
+
+
+def _promote_one(root: Path, tables: tuple[str, str], names: dict[str, str],
+                 databases: tuple[str, str], promoted_before: str, now: datetime.datetime
                  ) -> tuple[dict[str, object], list[str], str]:
-    """Promote one dev table, `databases` the Dev and Prod Database: archive its prod copy
-    promoted before, write its prod Table reference, and its Table folder when it has one, and
-    register them. Gives its record, what it did for the Admin log, and its report's line."""
-    promoted_before = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
+    """Promote one dev table, `tables` it and its prod copy, `databases` the Dev and Prod
+    Database: archive its prod copy promoted before, write its prod Table reference, keeping
+    the location= of `promoted_before`, the one promoted before, and its Table folder when it
+    has one, and register them. Gives its record, what it did for the Admin log, and its
+    report's line."""
+    dev, prod = tables
     done = _archive_prod_copy(root, prod, now)
     said = _write_prod_reference(root, dev, prod, databases, promoted_before)
     folder = TABLE_FOLDER.path(root, table_stem(dev)).is_dir()
@@ -3027,18 +3042,19 @@ def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[
     it reads not promoted with it, a Building block it uses that reads the Dev Database."""
     problems = []
     for dev in names:
-        folder = TABLE_FOLDER.path(root, table_stem(dev)) / CONVERSION
-        checklist = workflows.file_text(folder / CHECKLIST)
+        table_folder = TABLE_FOLDER.path(root, table_stem(dev))
+        conversion_folder = table_folder / CONVERSION
+        checklist = workflows.file_text(conversion_folder / CHECKLIST)
         if any(line.startswith(OPEN_BOX) for line in checklist.splitlines()):
             problems.append(f"{dev}: its {CONVERSION}/{CHECKLIST} has a box unticked")
-        if folder.is_dir() and not workflows.compare_passed(root, dev):
+        if conversion_folder.is_dir() and not workflows.compare_passed(root, dev):
             problems.append(f"{dev}: its compare hasn't passed")
         left = workflows.PLACEHOLDER.search(
             workflows.file_text(REFERENCE.path(root, table_stem(dev))))
         if left is not None:
             problems.append(f"{dev}: {REFERENCE.shown(table_stem(dev))} still has "
                             f"{left.group()} to fill in")
-        if folder.parent.is_dir() and not logic_loads(root, dev):
+        if table_folder.is_dir() and not logic_loads(root, dev):
             problems.append(f"{dev}: its notebook's logic doesn't build its write() yet: "
                             f'project.load("{dev}").write() says why')
         code = _logic_text(root, dev)
@@ -3243,16 +3259,18 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
     nothing of one archived since, as remove_table does."""
     lines = []
     for prod, entry in workflows.promoted_record(root).items():
-        folder = TABLE_FOLDER.path(root, table_stem(prod)).is_dir()
+        has_folder = TABLE_FOLDER.path(root, table_stem(prod)).is_dir()
         reference = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
-        if not folder and not reference:
+        if not has_folder and not reference:
             continue  # archived, as remove_table and remove_reference do
         dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
         if _reference_hash(reference) != entry.get("reference"):
             lines.append(f"Edited by hand, which project.promote writes over: "
                          f"{REFERENCE.shown(table_stem(prod))}, but its location= (change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
-        for relative, written in entry["files"].items() if folder else ():
+        if not has_folder:
+            continue
+        for relative, written in entry["files"].items():
             path = root / relative
             if not path.is_file() or _hash(path.read_bytes()) != written:
                 lines.append(f"Edited by hand, which project.promote writes over: {relative} "
@@ -3848,10 +3866,8 @@ def load(name: str) -> TableLogic:
     call = f"project.load({python_literal(name)})"
     root = _project_root(call)
     shown = table_notebook(_table_name_parts(name, call)[2])
-    source = _checked_logic(root, shown, call)
+    namespace = _logic_namespace(root, name, shown, call)
     module_name = f"{LOGIC_OF}{name}"
-    namespace = run_logic(root, source, module_name)
-    _check_write(namespace, shown, call)
     functions = {key: value for key, value in namespace.items()
                  if callable(value) and getattr(value, "__module__", None) == module_name}
     functions["write"] = namespace["write"]  # also when it is imported from elsewhere
@@ -3864,14 +3880,21 @@ def logic_loads(root: Path, name: str) -> bool:
     done then."""
     shown = table_notebook(table_stem(name))
     try:
-        namespace = run_logic(root, _checked_logic(root, shown, "load"), f"{LOGIC_OF}{name}")
-        _check_write(namespace, shown, "load")
-        namespace["write"]()
+        _logic_namespace(root, name, shown, f"project.load({python_literal(name)})")["write"]()
     # Whatever stops it, a refusal, a name spelt wrong, a column the table hasn't, means its
     # logic isn't written yet.
     except Exception:  # noqa: BLE001
         return False
     return True
+
+
+def _logic_namespace(root: Path, name: str, shown: str, call: str) -> dict[str, object]:
+    """Run a Table notebook's logic cell, the notebook at `shown`, and give the names it
+    defines, refused, as `call` says, when it has none, calls run_query or run_execute, or
+    defines no write() that takes nothing."""
+    namespace = run_logic(root, _checked_logic(root, shown, call), f"{LOGIC_OF}{name}")
+    _check_write(namespace, shown, call)
+    return namespace
 
 
 def _arguments_needed(function: Callable[..., object]) -> list[str]:

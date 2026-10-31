@@ -334,7 +334,13 @@ def test_promoted_tables_refuses_several_not_promoted_in_one_sentence(started: P
 
 def test_a_new_name_archives_the_prod_copy_under_the_old_one(started: Path) -> None:
     project.promote([FAILED, PER_JOB])
+    path = started / "references" / "mart__failed_runs_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "/data/team/mart.db/failed_runs_ops_reports", "/data/prod/failed_runs"),
+        encoding="utf-8")
     project.promote([FAILED, PER_JOB], rename={FAILED: "failed"})
+    # The location= you filled in goes with it to its new name.
+    assert 'location="/data/prod/failed_runs"' in reference(started, "mart.failed")
     assert not (started / "tables" / "mart__failed_runs_ops_reports").exists()
     assert not (started / "references" / "mart__failed_runs_ops_reports.py").exists()
     assert "Registered, but not there" not in repr(project.check())

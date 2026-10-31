@@ -53,3 +53,27 @@ each (tickets 13 to 17 brought convert and promote there).
   Table folder, and one deleted is reported; promoting under a new name archives the prod copy
   under the old one and marks its registry rows removed; CHANGES's Promotion bullet names what
   ticket 17's review commit added.
+
+### Review (c91a5c3)
+
+Code review: the Standards and Spec axes (`review-standards`, `review-spec`, on Sonnet), and
+the drift review (D350). Fixed in the next commit:
+
+- **Spec, the change written:** read from the notebook's code cells (`workflows.notebook_code`),
+  so a call on several lines counts, and one commented out doesn't.
+- **Standards:** `has_folder` for a bool; an `if` in place of a conditional loop iterable;
+  `table_folder` and `conversion_folder` named apart in Promotion's checks; one way to run a
+  Table notebook's logic, `_logic_namespace`, which `load` and `logic_loads` share; the test
+  that repeated the graph test's zero is gone.
+- **D350:** the location= you filled in goes with a prod copy to the new name rename= gives it.
+
+Answered, not changed:
+
+- **Spec, the check's own step and the preview's done function:** no file tells of either, as
+  the Answer says; the check stays in the send's step, and the preview step is passed over
+  once a later step is done.
+- **Spec, "its notebook and how-to generated":** each Workflow's notebook is generated; its
+  how-to is ticket 19's ("Each Workflow's how-to is generated from its step list").
+- **Spec, logic_loads runs the user's logic from check():** that is "done when the Statement
+  loads"; the logic cell builds Statements and sends nothing, as load refuses one that calls
+  run_query or run_execute.

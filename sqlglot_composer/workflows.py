@@ -399,11 +399,23 @@ def no_upgrade_mark_left(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def change_written(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the change_a_saved_table notebook's change cell names an Admin statement with
-    its arguments, not the (...) it starts with."""
+    """Whether the change_a_saved_table notebook's code sets change to an Admin statement with
+    its arguments, on one line or several, not the (...) it starts with."""
     path = root / WORKFLOWS_FOLDER / "change_a_saved_table" / "change_a_saved_table.ipynb"
-    found = re.search(r"change = admin\.\w+\(([^)\n]*)\)", file_text(path))
-    return bool(names_in(inputs, "TABLE")) and found is not None and found.group(1) != "..."
+    found = re.search(r"^change = admin\.\w+\(\s*(.*?)\s*\)", notebook_code(path),
+                      re.MULTILINE | re.DOTALL)
+    return (bool(names_in(inputs, "TABLE")) and found is not None
+            and found.group(1) not in ("", "..."))
+
+
+def notebook_code(path: Path) -> str:
+    """A notebook's code cells, each as its lines, joined; nothing when there is none."""
+    text = file_text(path)
+    if not text:
+        return ""
+    cells = json.loads(text).get("cells", [])
+    return "\n".join("".join(cell.get("source", [])) for cell in cells
+                     if cell.get("cell_type") == "code")
 
 
 def every_change_sent(root: Path, inputs: dict[str, object]) -> bool:
