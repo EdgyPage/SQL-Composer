@@ -117,10 +117,18 @@ each one:
 Answer each in the convert Workflow notebook's decisions cell, DECISIONS, by each table's name
 as project.check() writes it, and run its next step, which writes each answer into the table's
 Table reference: you open no Table reference, and tick nothing. "key": None says no columns
-name one row. A TODO line left, such as does_not_add_up=, waits on nothing. This page stands in for the two cells:
+name one row. A Key project.convert could work out of a table's query, as GROUP BY a.severity
+gives one, is proposed in its Table reference already, marked # proposed, and its checklist
+says so: answer "key" only where one is open or wrong. A TODO line left, such as
+does_not_add_up=, waits on nothing. This page stands in for the two cells:
 
->>> DECISIONS = {table: {"location": f"/data/mart.db/{table.split('.')[1]}", "key": None}
+>>> DECISIONS = {table: {"location": f"/data/mart.db/{table.split('.')[1]}"}
 ...              for table in project.batch_tables("ops_reports")}
+
+fail_history's write reads its own table, so no Key could be worked out of it: its Key is
+open. Here none is answered: no columns name one row of it.
+
+>>> DECISIONS["mart.fail_history"]["key"] = None
 
 Two tables write the Partition dt from a query that doesn't say its type, so each one's dt is
 a guessed type to answer too: the day as text, "string".
@@ -128,15 +136,15 @@ a guessed type to answer too: the day as text, "string".
 >>> for table in ["mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"]:
 ...     DECISIONS[table]["types"] = {"dt": "string"}
 >>> print(project.write_decisions(DECISIONS))
-Wrote 2 answers into references/mart__failed_runs_ops_reports.py.
+Wrote 1 answer into references/mart__failed_runs_ops_reports.py.
 mart.failed_runs_ops_reports: 1 TODO line left in references/mart__failed_runs_ops_reports.py, which waits
 on nothing: fill it in when you like.
 Each Decision of mart.failed_runs_ops_reports is made.
-Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits
 on nothing: fill it in when you like.
 Each Decision of mart.alerts_by_severity_ops_reports is made.
-Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 1 TODO line left in references/mart__alerted_runs_ops_reports.py, which waits
 on nothing: fill it in when you like.
 Each Decision of mart.alerted_runs_ops_reports is made.

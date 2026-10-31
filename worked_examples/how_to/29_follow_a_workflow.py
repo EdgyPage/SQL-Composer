@@ -112,7 +112,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
-    # "key": None says no columns name one row. project.check() names each one open
+    # "key": None says no columns name one row. project.check() names each one open;
+    # a Key project.convert proposed is made, but an answer here changes it
 
 Its steps:
 
@@ -203,7 +204,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
-    # "key": None says no columns name one row. project.check() names each one open
+    # "key": None says no columns name one row. project.check() names each one open;
+    # a Key project.convert proposed is made, but an answer here changes it
 
 Its steps:
 
@@ -353,7 +355,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
-    # "key": None says no columns name one row. project.check() names each one open
+    # "key": None says no columns name one row. project.check() names each one open;
+    # a Key project.convert proposed is made, but an answer here changes it
 
 Its steps:
 
@@ -472,8 +475,10 @@ Its steps:
 
 ### A step named again after you ran it
 
-A step no file tells of, such as a preview, is named until a later step is
-done, and says so: once you have run it, go on.
+A step no file tells of, such as change_a_saved_table's "Print its Hive", is
+named until a later step is done, and says so: once you have run it, go on. A
+step that only reads, such as new_table's preview, is never named on its own:
+check() names it beside the step after it.
 
 ## Next
 

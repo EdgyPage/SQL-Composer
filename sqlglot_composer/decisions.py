@@ -10,12 +10,13 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
 - placeholder: any other `<...>` left in its code, as a Template leaves them, filled in by
   hand.
 
-Any other `TODO:` line, such as `does_not_add_up=`, waits on nothing. You answer each in the
-decisions cell of a Workflow's notebook,
+A `key=` line project.convert proposed, marked `# proposed`, is made, but an answer may
+still change it. Any other `TODO:` line, such as `does_not_add_up=`, waits on nothing. You
+answer each in the decisions cell of a Workflow's notebook,
 `DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"}}}`,
 and `answered_text` gives the Table reference with each answer written into the line it
-answers. It never writes over a line that is made already, as yours is once you change it:
-the answer is kept unwritten, to name.
+answers. It never writes over any other line that is made already, as yours is once you
+change it: the answer is kept unwritten, to name.
 """
 
 from __future__ import annotations
@@ -45,6 +46,10 @@ COLUMN_LINE = re.compile(r'^        "(?P<column>[^"]+)": "(?P<type>[^"]*)",')
 GUESSED = "  # TODO: guessed: nothing told its type"
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
+# What a Conversion writes after the Key it worked out of a table's query: a Decision made,
+# which an answer in the decisions cell may still change while the line is as it wrote it.
+PROPOSED = ('  # proposed by project.convert from its query; if it is wrong, answer "key" in '
+            "the decisions cell")
 
 
 @dataclass(frozen=True)
@@ -166,7 +171,7 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
                           if name not in ANSWERS.values()]
     lines = text.split("\n")
     for number, line in enumerate(lines):
-        if not is_open(line):
+        if not is_open(line) and PROPOSED not in line:
             continue
         written, name = _answered_line(line, answer)
         if written is not None:

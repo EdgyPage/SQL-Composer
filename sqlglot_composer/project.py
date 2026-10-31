@@ -94,7 +94,7 @@ from typing import NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, decisions, describe, kinds, unchecked, upgrades, workflows
+from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
                         CONVERSION, FINISHED, PASSED)
 from .clauses import FROM, SELECT, Statement, statement
@@ -126,7 +126,8 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
 from .running import to_hive
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
-from .tables import (TABLE_NAME, Table, Verdict, all_columns, table_reference_text,
+from .conditions import all_of, equals
+from .tables import (TABLE_NAME, Table, Verdict, all_columns, check_key, table_reference_text,
                      write_table_reference)
 from .unchecked import (
     SessionSettings,
@@ -1692,7 +1693,8 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     from; scan.md, what it found and how the two compare; and checklist.md, written again
     each time, which lists its open Decisions, what only you can decide, such as its location=,
     its Key and each column type it could only guess, and notes that block nothing, such as
-    each mark. A table it can't make is named, with why, and the rest are still made.
+    each mark, and the Key it proposed, from its query, when it could work one out. A table it
+    can't make is named, with why, and the rest are still made.
 
     The batch keeps its scripts, batch.md, what each statement became, and written.json, each
     file it wrote, in admin/workflows/convert/<name>/: a SET line becomes the Session settings
@@ -2086,9 +2088,10 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
         return ("neither its query nor DESCRIBE of the original names a column, so it can't "
                 "have a Table reference: it is kept as Hive in batch.md")
     files.marks[dev] = opt_outs
+    proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
-                           _guessed(columns))
+                           _guessed(columns), proposed=proposed)
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2100,7 +2103,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     scan = _scan_lines(text, hive_read) + [f"Opt-out added, marked # CONVERSION: at its line: "
                                            f"{opt_out}" for opt_out in opt_outs]
     scan += _hive_compared(built, text, stopped)
-    items = _checklist_notes(opt_outs, hive_read, stopped)
+    items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
         items.append("Its write reads its own table, which in dev starts empty, so the "
                      "convert Workflow's seed step, after it creates the table, copies every "
@@ -2200,7 +2203,8 @@ def _storage_from_create(table: str,
 
 def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str],
                            partitions: list[str], storage: dict[str, str],
-                           guessed: tuple[str, ...]) -> None:
+                           guessed: tuple[str, ...],
+                           proposed: tuple[list[str], ...] = ()) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
     as a Decision, then the Database modules, which the next table's logic imports it
     through."""
@@ -2208,7 +2212,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     files.write_text(REFERENCE.shown(stem),
                      table_reference_text(dev, columns, partitions,
                                           f"{REFERENCE.folder}.{stem}", guessed=guessed,
-                                          **storage))
+                                          proposed=proposed, **storage))
     _write_databases(files.root)
 
 
@@ -2222,9 +2226,10 @@ def _register_table(root: Path, dev: str, folder: bool) -> None:
 
 
 def _checklist_notes(opt_outs: list[str], hive_read: converting.ConvertedQuery,
-                     stopped: str | None) -> list[str]:
+                     stopped: str | None, proposed: tuple[list[str], ...]) -> list[str]:
     """What a converted table's checklist notes, which blocks nothing: each mark, each piece
-    kept as Hive, and a logic cell the Toolbox refused, which its create says why."""
+    kept as Hive, a logic cell the Toolbox refused, which its create says why, and the Key it
+    proposed."""
     notes = [f"The `# CONVERSION:` mark for {opt_out}, in the logic cell, keeps what the "
              "original did; change what made it needed only if you want to, and the compare "
              "step checks the rows either way." for opt_out in opt_outs]
@@ -2232,6 +2237,10 @@ def _checklist_notes(opt_outs: list[str], hive_read: converting.ConvertedQuery,
         notes.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:
         notes.append(f"Mend the logic cell, which the Toolbox refused: {stopped}")
+    if proposed:
+        notes.append(f"project.convert proposed its Key, ({', '.join(proposed[0])}), from its "
+                     'query: if it is wrong, answer "key" in the decisions cell, such as '
+                     '"key": ["a", "b"], or "key": None when no columns name one row.')
     return notes
 
 
@@ -2371,6 +2380,22 @@ def _write_first_reference(files: _BatchFiles, table: str, dev: str,
     if columns:
         _write_table_reference(files, dev, _untyped_as_string(columns), partitions,
                                _storage_from_create(table, ordered), _guessed(columns))
+
+
+def _proposed_keys(built: Statement | UncheckedStatement | None,
+                   partitions: list[str]) -> tuple[list[str], ...]:
+    """Each Key keys.py works out of a converted query, with each of the table's partition
+    columns: a write into one Partition, PARTITION (dt='...'), holds dt to one value, which
+    keys.py leaves out, but the table keeps every Partition's rows. None when it finds none, or
+    the query stays Hive."""
+    if not isinstance(built, Statement):
+        return ()
+    proposed = []
+    for found in keys.statement_keys(built).found:
+        if found.names:
+            added = [column for column in partitions if column not in found.names]
+            proposed.append([*found.names, *added])
+    return tuple(proposed)
 
 
 def _guessed(columns: dict[str, str]) -> tuple[str, ...]:
@@ -2629,13 +2654,15 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
 
         The Statement and the original give the same rows: 4 rows each.
 
-    It is the convert Workflow's last step. It compares the tables once written, not their
-    queries: each dev table's rows with the rows of the table it copies, its original, through
-    your query, as compare_with_original compares them. A table partitioned by a column, such as
-    dt, is compared on one Partition: the one partition= gives, such as {"dt": "2026-09-24"},
-    when both tables hold it; else the latest both hold, of the Partitions Hive's SHOW
-    PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in common,
-    or none you gave, the table fails, naming what each holds: write the dev copy for a
+    A table with a Key, such as one project.convert proposed, has its Key checked on the same
+    rows once they match, a line of its own below: a Key they repeat fails it, naming each key
+    that repeats. It is the convert Workflow's last step. It compares the tables once written,
+    not their queries: each dev table's rows with the rows of the table it copies, its original,
+    through your query, as compare_with_original compares them. A table partitioned by a column,
+    such as dt, is compared on one Partition: the one partition= gives, such as {"dt":
+    "2026-09-24"}, when both tables hold it; else the latest both hold, of the Partitions Hive's
+    SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in
+    common, or none you gave, the table fails, naming what each holds: write the dev copy for a
     Partition the original holds, or give one both hold. A table with no Partitions is compared
     on every row. A query alone, which convert made a Saved table named for the batch, or for
     its file in a batch of several scripts, has no original table: its rows are compared with
@@ -2885,19 +2912,46 @@ def _compare_one(root: Path, table: Table, original: str | None,
         first = stopped.splitlines()[0].strip().removeprefix("What happened:").strip()
         described = f"couldn't compare: {first}"
     passed = verdict is not None and verdict.ok
-    (folder / COMPARED).write_text(_compare_text(heading, passed, described, verdict, stopped),
+    verdicts = [] if verdict is None else [verdict]
+    if passed and table._key:
+        # Its rows match the original's: the Key they are told apart by must hold on them too.
+        key_verdict, stopped = _key_checked(table, query, chosen)
+        passed = key_verdict is not None and key_verdict.ok
+        if key_verdict is None:
+            described += f"; but its Key ({', '.join(table._key)}) couldn't be checked"
+        else:
+            verdicts.append(key_verdict)
+        if key_verdict is not None and not passed:
+            described += f"; but its Key ({', '.join(table._key)}) repeats"
+    (folder / COMPARED).write_text(_compare_text(heading, passed, described, verdicts, stopped),
                                    encoding="utf-8")
     return f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+
+
+def _key_checked(table: Table, query: Callable[[str], pd.DataFrame],
+                 chosen: dict[str, object] | None) -> tuple[Verdict | None, str]:
+    """check_key on a dev table, on the Partition `chosen` names, or every row when None: its
+    Verdict, or None and what stopped it."""
+    where = None
+    if chosen:
+        where = all_of(*[equals(getattr(table, column), value)
+                         for column, value in chosen.items()])
+    try:
+        return check_key(table, query=query, where=where,
+                         reads_all_partitions=bool(table._partitioned_by) and not chosen), ""
+    # Whatever stops the check fails the table's compare, as it stops a compare.
+    except Exception as error:  # noqa: BLE001
+        return None, str(error).strip()
 
 
 # What a compare's result and its report say, by whether it passed.
 _PASSED_OR_FAILED = {True: "passed", False: "failed"}
 
 
-def _compare_text(heading: str, passed: bool, described: str, verdict: Verdict | None,
+def _compare_text(heading: str, passed: bool, described: str, verdicts: list[Verdict],
                   stopped: str) -> str:
     """A table's conversion/compare.md: its heading, whether it passed and how it was
-    compared, when, then the Verdict, or what stopped the compare, whole."""
+    compared, when, then each Verdict, its rows' and its Key's, and what stopped it, whole."""
     status = "Failed: "
     if passed:
         status = PASSED
@@ -2906,8 +2960,7 @@ def _compare_text(heading: str, passed: bool, described: str, verdict: Verdict |
         end = ""
     lines = [heading, "", f"{status}{described}{end}",
              f"{COMPARED_AT}{unchecked.now().strftime(unchecked.TIME_SHOWN)}.", ""]
-    if verdict is not None:
-        lines.append(repr(verdict))
+    lines += [repr(verdict) for verdict in verdicts]
     if stopped:
         lines.append(stopped)
     return "\n".join(lines).rstrip("\n") + "\n"

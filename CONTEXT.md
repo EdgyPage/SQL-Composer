@@ -182,7 +182,9 @@ The columns whose values name exactly one row of a table: the table's primary ke
 its Table reference. Not every table has one, and nothing is checked against a Key a table
 doesn't have. The warehouse never checks it; the Toolbox does, before writing a Saved table
 that has one and when joining, and Lineage shows where an output keeps or loses it. A Derived
-table's Key is worked out from how its Statement makes its rows. `check_key(...)` and
+table's Key is worked out from how its Statement makes its rows, and so a Conversion
+proposes a Saved table's Key, the one its query makes, which the user may change and its
+compare checks on the dev copy. `check_key(...)` and
 `check_table_reference(...)` give back a `Verdict`, the name a type hint uses; its `ok` says
 whether the check found nothing wrong.
 _Avoid_: unique key, id, partition key

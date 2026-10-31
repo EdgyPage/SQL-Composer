@@ -179,8 +179,10 @@ def how_to_text() -> str:
               "`project.check()` says each Workflow's next step, or that every step is done.",
               "", "## Common mistakes", "",
               "### A step named again after you ran it", "",
-              "A step no file tells of, such as a preview, is named until a later step is",
-              "done, and says so: once you have run it, go on.", "",
+              "A step no file tells of, such as change_a_saved_table's \"Print its Hive\", is",
+              "named until a later step is done, and says so: once you have run it, go on. A",
+              "step that only reads, such as new_table's preview, is never named on its own:",
+              "check() names it beside the step after it.", "",
               "## Next", "",
               "[Convert someone else's Hive](#convert_someone_elses_hive) walks the convert",
               "Workflow through a batch of scripts."]
