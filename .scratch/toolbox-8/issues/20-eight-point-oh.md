@@ -28,6 +28,9 @@ notebooks replaced and archived, `databases.py` and `sent.csv`, the warehouse.py
   `tests/test_upgrades.py` come out.
 - `tests/upgrade_from/7.2/` freezes the Example projects as 7.2 left them, without Lineage pages;
   `tests/test_upgrades.py` passes.
+- (left, from ticket 14) a 7.2 Project's open Conversion folders, in admin/conversions/,
+  which no finish_conversion can finish now: the Upgrade converts each again as a batch of one,
+  or marks it, and its user scripts that call finish_conversion get an `# UPGRADE 8.0:` mark.
 - (left) CHANGES.md's `## 8.0` is complete, with "To update from 7.2" holding every later
   ticket's changes.
 - CLAUDE.md names 8.0 and the admin layout. CI passes; the export is the user's call.

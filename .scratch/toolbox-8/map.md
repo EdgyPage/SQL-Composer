@@ -292,6 +292,10 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [13 A Conversion reads n scripts](issues/13-n-scripts.md): `convert(name, files=[...])` splits,
   orders and renames into `<dev>.<table>_<db>`, writes each Table folder through convert and
   finish_conversion, and the references from CREATE, query and DESCRIBE; `batch.md` lists it all.
+- [14 Table folders and the checklist](issues/14-table-folders-and-the-checklist.md): convert
+  writes each Saved table itself, one query as a batch of one; finish_conversion is gone;
+  conversion/ keeps the statement, the scan and checklist.md; written.json makes running again
+  safe; each batch is the convert Workflow's instance.
 - [21 warehouse.py takes a connection](issues/21-warehouse-conn.md): `conn`, set once, and
   `query`/`execute` that pass each Hive string to `conn.query` and `conn.execute`.
 

@@ -76,7 +76,7 @@ def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
         "admin", "building_blocks", "references", "tables", "warehouse.py"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
-        ["admin_log.md", "conversions", "databases.py", "project_version.txt", "registry.csv",
+        ["admin_log.md", "databases.py", "project_version.txt", "registry.csv",
          "sent.csv", "templates", "workflows"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
     # Toolbox 8.0, ticket 12: a folder per Workflow, each holding its notebook.
@@ -1539,7 +1539,7 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
 def test_a_conversion_is_started_once_it_is_named(started: Path) -> None:
     # Its other inputs, such as TABLE, wait for later steps.
     fill_in(started, "convert", 'NAME = "weekly"')
-    assert "admin/workflows/convert/convert.ipynb: 1." in repr(project.check())
+    assert "admin/workflows/convert/convert.ipynb, weekly: 1." in repr(project.check())
 
 
 def test_a_step_the_files_cant_tell_of_is_passed_once_a_later_one_is_done(

@@ -486,22 +486,28 @@ def _quiet() -> Iterator[None]:
 
 
 def loaded(code: str, name: str, gives: str) -> tuple[TableLogic, object]:
-    """An answer's logic, and what it gives, run as a Conversion's logic cell in the stand-in
-    Project. What it gives is a model's, so it may be anything."""
+    """An answer's logic, and what it gives, run as a Table notebook's logic cell in the
+    stand-in Project, its write() giving it, in a Table folder of the stand-in database eval.
+    What it gives is a model's, so it may be anything."""
     tree = _SendersOut().visit(ast.parse(code))
     future = [node for node in tree.body
               if isinstance(node, ast.ImportFrom) and node.module == "__future__"]
     rest = ast.Module([node for node in tree.body if node not in future], [])
+    scored = f"def scored_answer():\n    return {gives}\n"
+    defined = {node.name for node in rest.body if isinstance(node, ast.FunctionDef)}
+    if "write" not in defined:
+        # load takes a cell that defines write(); an answer that doesn't is scored all the same.
+        scored += "\n\nwrite = scored_answer\n"
     cell = "\n".join(["# logic", *(ast.unparse(node) for node in future), _SCORED_READ,
-                      ast.unparse(rest), "", "", f"def converted():\n    return {gives}\n"])
-    folder = Path("admin") / "conversions" / name
+                      ast.unparse(rest), "", "", scored])
+    folder = Path("tables") / f"eval__{name}"
     folder.mkdir(parents=True, exist_ok=True)
     notebook = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {},
                            "outputs": [], "source": cell.splitlines(keepends=True)}],
                 "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
-    (folder / f"{name}.ipynb").write_text(json.dumps(notebook), encoding="utf-8")
-    logic = project.load(name)
-    return logic, logic.converted()
+    (folder / f"eval__{name}.ipynb").write_text(json.dumps(notebook), encoding="utf-8")
+    logic = project.load(f"eval.{name}")
+    return logic, logic.scored_answer()
 
 
 # --- Checking what an answer gives ---------------------------------------------------------

@@ -27,10 +27,13 @@ It builds six Saved tables, each in a Table folder of its own, five made from th
   not partitioned and with no Key, so each write replaces the whole table.
 
 And a seventh, `mart.team_failures`, each team's events and fails per day, is a finished
-Conversion: Hive the ops team wrote, pasted into `admin/workflows/convert/convert.ipynb`, converted with
-`project.convert("team_failures", ...)`, its one `# CONVERSION:` mark decided by keeping the
-opt-out, then made a Saved table with `project.finish_conversion(...)`. Its Table folder keeps
-the Hive it replaced, `original.hql`, and its notebook the cells that compare the two.
+Conversion: Hive the ops team wrote, which writes `ops_reports.team_failures`, converted with
+`project.convert("team_failures", ..., rename={"ops_reports.team_failures": "team_failures"})`
+into this Project's Dev Database, `mart`, as `admin/databases.py` names it. Its one
+`# CONVERSION:` mark was decided by keeping the opt-out, each box of its checklist ticked, and
+the batch's folder archived with `project.remove_conversion("team_failures")`. Its Table
+folder's `conversion/` keeps the statement it came from, and its notebook the cells that
+compare the two.
 
 Rows can come in late here, a bill a day or two after its day, so the three tables that count
 or add up rows per day write their last 3 days again on each run, and a day written again
@@ -50,22 +53,24 @@ file, the Project action that made it, and what was filled in by hand.
 | `sqlglot_composer/` | you: copy it in from the download, before you run anything | nothing: never edit a file inside it |
 | the notebook `project.start()` was run from | by hand, in Jupyter; not kept here | nothing |
 | `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it, running on the Example database |
-| `admin/`: add_references, change_a_saved_table, check_project, check_references, convert, new_block, new_table, refresh_reference_sheet, remove_table, run_tables and upgrade, each an .ipynb | `project.start()` | nothing |
+| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove and run_tables, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | nothing |
+| `admin/databases.py`, the Dev Database and Prod Database | `project.start()` | `DEV`, `mart` |
+| `admin/sent.csv`, a row for each change a notebook sends to the warehouse | `project.start()` | nothing: nothing was sent |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action added an entry | nothing |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that made or archived a Table folder, a Table reference, a Building block or a Conversion folder added a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing |
 | `references/ops__job_events.py`, `references/ops__job_owners.py`, `references/ops__region_costs.py`, `references/ops__region_budgets.py` and `references/ops__team_notes.py` | `project.add_references([...], query=query)` | their TODO lines, and an Alias, `ends_a_run`, the events that end a run, for ops.job_events, read by `building_blocks/events_per_job.py` |
 | `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines |
-| `references/mart__team_failures.py` | `project.finish_conversion("team_failures", table="mart.team_failures")` | its `<...>` and TODO lines |
+| `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location=, Key and TODO lines |
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |
 | `tables/mart__job_day_costs/mart__job_day_costs.ipynb`, and the same for each of the other five Saved tables | `project.new_table("mart.job_day_costs")`, and so on; `template="quality_checks"` for mart.job_events_checks | its `<...>` lines |
-| `tables/mart__team_failures/mart__team_failures.ipynb` and `original.hql` beside it | `project.finish_conversion(...)`, from the Conversion's notebook | its `# CONVERSION:` mark, deleted once decided |
+| `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and each box of `conversion/checklist.md`, ticked |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
-| admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)` | nothing: it holds the Conversion folder of team_failures, archived when it was finished |
+| admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)` | nothing: it holds the batch's folder of team_failures, its scripts as given, `batch.md`, what each statement became, and `written.json`, archived once its checklist was ticked |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs
 none.

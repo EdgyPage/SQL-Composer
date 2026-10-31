@@ -14,136 +14,49 @@ Toolbox 8.0 takes each Workflow's fiddling to nothing.
 
 ## convert
 
-Steps: 1 file step, 3 permission, 4 decision, 9 fiddling.
+Steps: 0 file step, 3 permission, 1 decision, 0 fiddling.
 
 Starts from: Hive scripts, your Dev Database's name, read access to the sources.
 
-Ends with: a dev Table folder per table the scripts create, each written in dev, each compared with its original, each decision made.
+Ends with: a dev Table folder per table the scripts write, each written in dev, each compared with its original, each decision made.
 
 ```mermaid
 flowchart TD
-    s0>"1. Split each script into files of one query each"]
-    class s0 fiddling
+    s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)"]]
+    class s0 permission
     t0 --> s0
-    s0 --> t1
-    s1>"2. Rewrite each CREATE: a CREATE TABLE ... AS as an INSERT, and drop a CREATE an INSERT fills, since a CREATE is refused"]
-    class s1 fiddling
-    t1 --> s1
-    s1 --> t2
-    s2>"3. Paste each query into the notebook's HIVE, or name its file in FILE"]
-    class s2 fiddling
-    t2 --> s2
-    s2 --> t3
-    s3{"4. Set DATABASE, for the tables the Hive names without one"}
-    class s3 decision
-    t3 --> s3
-    s3 --> t4
-    s4[["5. Convert the query, reading the sources' DESCRIBE: project.convert(NAME, HIVE, file=FILE, query=query, database=DATABASE)"]]
-    class s4 permission
-    t4 --> s4
-    t5 --> s4
-    s4 --> t6
-    s4 --> t7
-    s5{"6. Fill in the new Table references' TODO lines"}
-    class s5 decision
-    t7 --> s5
-    s5 --> t8
-    s6>"7. Point each query that reads an earlier one's table at your copy: no step of the Toolbox does it"]
-    class s6 fiddling
-    t6 --> s6
-    t9 --> s6
-    s6 --> t10
-    s7{"8. Decide each CONVERSION mark project.convert left"}
-    class s7 decision
-    t10 --> s7
-    s7 --> t11
-    s8>"9. Fill in the compare cell's partition, and uncomment it"]
-    class s8 fiddling
-    t11 --> s8
-    s8 --> t12
-    s9[["10. Compare each query with its original, in the Conversion's notebook"]]
-    class s9 permission
-    t12 --> s9
-    s9 --> t13
-    s10["11. Finish the Conversion as the Saved table TABLE names: project.finish_conversion(NAME, table=TABLE)"]
-    class s10 file
-    t13 --> s10
-    t9 --> s10
-    s10 --> t14
-    s10 --> t15
-    s10 --> t16
-    s11>"12. Delete the compare cells the Table notebook keeps"]
-    class s11 fiddling
-    t16 --> s11
-    s11 --> t17
-    s12>"13. Fill in each <COLUMN_TYPE> and the partitions, which the original's DESCRIBE gives"]
-    class s12 fiddling
-    t15 --> s12
-    s12 --> t18
-    s13>"14. Fill in its <LOCATION>"]
-    class s13 fiddling
-    t18 --> s13
-    s13 --> t19
-    s14{"15. Choose its Key, if it has one"}
-    class s14 decision
-    t19 --> s14
-    s14 --> t20
-    s15>"16. Send the original's SET lines with session_settings() by hand"]
-    class s15 fiddling
-    t17 --> s15
-    s15 --> t21
-    s16[["17. Create and write each table in dev: project.run_tables(tables=[TABLE], execute=execute)"]]
-    class s16 permission
-    t20 --> s16
-    t8 --> s16
-    t21 --> s16
-    s16 --> t22
+    t1 --> s0
+    t2 --> s0
+    s0 --> t3
+    s0 --> t4
+    s1{"2. Tick each box of each table's checklist"}
+    class s1 decision
+    t4 --> s1
+    s1 --> t5
+    s2[["3. Create and write each table in dev: project.run_tables(tables=TABLES, execute=execute)"]]
+    class s2 permission
+    t5 --> s2
+    s2 --> t6
+    s3[["4. Compare each table with its original, in its notebook's compare cells"]]
+    class s3 permission
+    t6 --> s3
+    s3 --> t7
     t0("Hive scripts")
     class t0 thing
-    t1("a file per query")
+    t1("your Dev Database's name")
     class t1 thing
-    t2("queries a Conversion takes")
+    t2("read access to the sources")
     class t2 thing
-    t3("the Hive in the notebook")
+    t3("a dev Table folder per table the scripts write")
     class t3 thing
-    t4("the Hive with its database")
+    t4("a checklist per table")
     class t4 thing
-    t5("read access to the sources")
+    t5("each decision made")
     class t5 thing
-    t6("a Conversion folder")
+    t6("each written in dev")
     class t6 thing
-    t7("Table references for the sources")
+    t7("each compared with its original")
     class t7 thing
-    t8("filled-in source references")
-    class t8 thing
-    t9("your Dev Database's name")
-    class t9 thing
-    t10("Conversions that read your tables")
-    class t10 thing
-    t11("each decision made")
-    class t11 thing
-    t12("a compare call to run")
-    class t12 thing
-    t13("each compared with its original")
-    class t13 thing
-    t14("a dev Table folder per table the scripts create")
-    class t14 thing
-    t15("its Table reference")
-    class t15 thing
-    t16("leftover compare cells")
-    class t16 thing
-    t17("a Table notebook of its own")
-    class t17 thing
-    t18("its columns filled in")
-    class t18 thing
-    t19("its place filled in")
-    class t19 thing
-    t20("a filled-in Table reference")
-    class t20 thing
-    t21("the settings sent")
-    class t21 thing
-    t22("each written in dev")
-    class t22 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a

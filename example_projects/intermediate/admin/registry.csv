@@ -20,6 +20,6 @@ table_folder,mart.budget_overruns,2026-09-25 06:00:00,
 reference,mart.budget_overruns,2026-09-25 06:00:00,
 table_folder,mart.job_notes,2026-09-25 06:00:00,
 reference,mart.job_notes,2026-09-25 06:00:00,
-conversion_folder,team_failures,2026-09-25 06:00:00,2026-09-25 06:00:00
-table_folder,mart.team_failures,2026-09-25 06:00:00,
 reference,mart.team_failures,2026-09-25 06:00:00,
+table_folder,mart.team_failures,2026-09-25 06:00:00,
+conversion_folder,team_failures,2026-09-25 06:00:00,2026-09-25 06:00:00

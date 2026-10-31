@@ -49,7 +49,9 @@ file, the Project action that made it, and what was filled in by hand.
 | `sqlglot_composer/` | you: copy it in from the download, before you run anything | nothing: never edit a file inside it |
 | the notebook `project.start()` was run from | by hand, in Jupyter; not kept here | nothing |
 | `warehouse.py` | `project.start()` | nothing: it is left as `start` writes it, running on the Example database |
-| `admin/`: add_references, change_a_saved_table, check_project, check_references, new_block, new_table, refresh_reference_sheet, remove_table and run_tables, each an .ipynb | `project.start()` | nothing |
+| `admin/`: check_project, check_references, new_block, refresh_reference_sheet, remove and run_tables, each an .ipynb, and `admin/workflows/`, a folder per Workflow holding its notebook | `project.start()` | nothing |
+| `admin/databases.py`, the Dev Database and Prod Database | `project.start()` | `DEV`, `mart` |
+| `admin/sent.csv`, a row for each change a notebook sends to the warehouse | `project.start()` | nothing: nothing was sent |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action added an entry | nothing |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that made a Table folder, a Table reference or a Building block added a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing |

@@ -21,9 +21,10 @@ For each project, in a Python of its own, started in an empty folder, it:
 - runs project.new_table(...) for each Saved table the project builds, then fills in its Table
   reference and its notebook from the same sources: `references/`, and
   `tables/<db>__<table>.py`, a notebook as its Template is written, in `# %%` cells;
-- runs project.convert(...) on each Conversion's Hive, in `conversions/`, then
-  project.finish_conversion(...), deletes the `# CONVERSION:` marks, keeping the opt-outs, and
-  fills in its Table reference from `references/`;
+- fills in DEV, its Dev Database, in admin/databases.py, then runs project.convert(...) on
+  each Conversion's Hive, in `conversions/`, renaming the table it writes to the Saved table's
+  name, deletes the `# CONVERSION:` marks, keeping the opt-outs, ticks its checklist, fills
+  in its Table reference from `references/`, and archives the batch's folder;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write().
@@ -126,13 +127,15 @@ SAVED_TABLES = {
                      ("mart.budget_overruns", "saved_table"),
                      ("mart.job_notes", "saved_table")],
 }
-# Each project's finished Conversions: the Conversion's name and the Saved table it became,
-# made from the Hive in `conversions/<name>.hql` of its sources, as a user makes one from Hive
-# someone else wrote, then finished, its marks decided and its Table reference filled in from
-# `references/`.
+# Each project's Dev Database, which its admin/databases.py names: mart, where its tables are.
+DEV_DATABASE = "mart"
+# Each project's finished Conversions: the batch's name, the table its Hive writes, and the
+# Saved table it became in DEV_DATABASE, made from the Hive in `conversions/<name>.hql` of its
+# sources, as a user makes one from Hive someone else wrote, its marks decided, its checklist
+# ticked and its Table reference filled in from `references/`.
 CONVERSIONS = {
     "starter": [],
-    "intermediate": [("team_failures", "mart.team_failures")],
+    "intermediate": [("team_failures", "ops_reports.team_failures", "mart.team_failures")],
 }
 # The tables whose lineage cell draws other tables too, through their notebooks' logic: each
 # table's lineage reads these tables' writes, then its own.
@@ -315,10 +318,13 @@ def _add_conversions(name: str, folder: Path) -> None:
     from sqlglot_composer import converting, example_database, notebooks, project
 
     source = SOURCES / name
-    for conversion, table in CONVERSIONS[name]:
+    databases = folder / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8").replace(
+        '"<DEV_DATABASE>"', f'"{DEV_DATABASE}"'), encoding="utf-8")
+    for conversion, original, table in CONVERSIONS[name]:
         project.convert(conversion, file=str(source / "conversions" / f"{conversion}.hql"),
-                        query=example_database.query, database="ops")
-        project.finish_conversion(conversion, table=table)
+                        query=example_database.query, database="ops",
+                        rename={original: table.split(".")[1]})
         stem = project.table_stem(table)
         notebook = folder / "tables" / stem / f"{stem}.ipynb"
         cells = []
@@ -327,8 +333,14 @@ def _add_conversions(name: str, folder: Path) -> None:
                     if not converting.CONVERSION_MARK_LINE.search(line)]
             cells.append((kind, "\n".join(kept)))
         notebooks.write_notebook(notebook, cells)
+        checklist = folder / "tables" / stem / "conversion" / "checklist.md"
+        checklist.write_text(checklist.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
+                             encoding="utf-8")
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
+        # Its tables made and its checklist ticked, the batch's folder is archived, so the
+        # Project's check names no step of it.
+        project.remove_conversion(conversion)
 
 
 def _export_lineage(name: str, folder: Path) -> None:
@@ -341,7 +353,7 @@ def _export_lineage(name: str, folder: Path) -> None:
     from sqlglot_composer import export_lineage, lineage, project
 
     tables = [table for table, _ in SAVED_TABLES[name]]
-    tables += [table for _, table in CONVERSIONS[name]]
+    tables += [table for _, _, table in CONVERSIONS[name]]
     for table in tables:
         os.chdir(folder / "tables" / project.table_stem(table))
         writes, names = [], []

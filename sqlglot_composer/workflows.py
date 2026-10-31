@@ -49,6 +49,14 @@ KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
 # Each Workflow's folder in a Project, and the file naming the user's two Databases.
 WORKFLOWS_FOLDER = Path("admin") / "workflows"
 DATABASES = Path("admin") / "databases.py"
+# A batch's index, in the convert Workflow's folder: what each statement became, and its
+# record, written.json, of the tables it made and each file it wrote, with its hash.
+BATCHES = WORKFLOWS_FOLDER / "convert"
+BATCH_LIST = "batch.md"
+BATCH_RECORD = "written.json"
+# A converted table's checklist, in its Table folder, and a box on it not yet ticked.
+CHECKLIST = Path("conversion") / "checklist.md"
+OPEN_BOX = "- [ ] "
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
 PLACEHOLDER = re.compile(r"<[A-Z][A-Z_]*>")
 
@@ -94,6 +102,9 @@ class Workflow:
     about: str = ""
     # The names in admin/databases.py it reads, which check() asks for once it is started.
     databases: tuple[str, ...] = ()
+    # Its instances in a Project, each its inputs, when it has more than its notebook's
+    # names cell: each batch the convert Workflow made, from its record.
+    instances: Callable[[Path], list[dict[str, object]]] | None = None
 
 
 # --- What the Project's files say -------------------------------------------------------------
@@ -194,6 +205,33 @@ def every_logic_written(root: Path, inputs: dict[str, object]) -> bool:
     return bool(names_in(inputs, "TABLES"))
 
 
+def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the batch NAME names has its batch.md, which convert writes last."""
+    name = inputs.get("NAME")
+    if not isinstance(name, str) or not name:
+        return False
+    return (root / BATCHES / name / BATCH_LIST).is_file()
+
+
+def every_box_ticked(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether every box of each table's checklist that TABLES names is ticked."""
+    tables = names_in(inputs, "TABLES")
+    return bool(tables) and not any(
+        OPEN_BOX in file_text(root / "tables" / table_stem(table) / CHECKLIST)
+        for table in tables)
+
+
+def batch_instances(root: Path) -> list[dict[str, object]]:
+    """Each batch convert made, as the convert Workflow's inputs: its name, and the tables
+    its record lists."""
+    found = []
+    folder = root / BATCHES
+    for record in sorted(folder.glob(f"*/{BATCH_RECORD}")) if folder.is_dir() else []:
+        tables = json.loads(record.read_text(encoding="utf-8")).get("tables", [])
+        found.append({"NAME": record.parent.name, "TABLES": tables})
+    return found
+
+
 def every_table_written(root: Path, inputs: dict[str, object]) -> bool:
     """Whether admin/sent.csv records a write of each table TABLES names."""
     tables = names_in(inputs, "TABLES")
@@ -261,70 +299,39 @@ def upgrade_the_project(inputs: dict[str, object]) -> ProjectReport:
 TABLES_INPUT = Input("TABLES", [], 'the tables, by their names in the warehouse, such as '
                      '["mart.daily_job_runs"]', starts=True)
 
-# Convert someone else's Hive, as 7.2 does it: one query at a time, by hand around each call.
-# Tickets 13 to 16 rebuild it.
+# Convert someone else's Hive: one query or a batch of scripts, each table they write a
+# Saved table in dev.
 CONVERT = Workflow(
     "convert",
     start_materials=("Hive scripts", "your Dev Database's name", "read access to the sources"),
-    end_artifacts=("a dev Table folder per table the scripts create", "each written in dev",
+    end_artifacts=("a dev Table folder per table the scripts write", "each written in dev",
                    "each compared with its original", "each decision made"),
     steps=(
-        Step("Split each script into files of one query each", FIDDLING,
-             ("Hive scripts",), ("a file per query",)),
-        Step("Rewrite each CREATE: a CREATE TABLE ... AS as an INSERT, and drop a CREATE an "
-             "INSERT fills, since a CREATE is refused", FIDDLING,
-             ("a file per query",), ("queries a Conversion takes",)),
-        Step("Paste each query into the notebook's HIVE, or name its file in FILE", FIDDLING,
-             ("queries a Conversion takes",), ("the Hive in the notebook",)),
-        Step("Set DATABASE, for the tables the Hive names without one", DECISION,
-             ("the Hive in the notebook",), ("the Hive with its database",)),
-        Step("Convert the query, reading the sources' DESCRIBE", PERMISSION,
-             ("the Hive with its database", "read access to the sources"),
-             ("a Conversion folder", "Table references for the sources"),
-             "project.convert(NAME, HIVE, file=FILE, query=query, database=DATABASE)"),
-        Step("Fill in the new Table references' TODO lines", DECISION,
-             ("Table references for the sources",), ("filled-in source references",)),
-        Step("Point each query that reads an earlier one's table at your copy: no step of the "
-             "Toolbox does it", FIDDLING,
-             ("a Conversion folder", "your Dev Database's name"),
-             ("Conversions that read your tables",)),
-        Step("Decide each CONVERSION mark project.convert left", DECISION,
-             ("Conversions that read your tables",), ("each decision made",)),
-        Step("Fill in the compare cell's partition, and uncomment it", FIDDLING,
-             ("each decision made",), ("a compare call to run",)),
-        Step("Compare each query with its original, in the Conversion's notebook",
-             PERMISSION, ("a compare call to run",), ("each compared with its original",)),
-        Step("Finish the Conversion as the Saved table TABLE names", FILE_STEP,
-             ("each compared with its original", "your Dev Database's name"),
-             ("a dev Table folder per table the scripts create", "its Table reference",
-              "leftover compare cells"),
-             "project.finish_conversion(NAME, table=TABLE)"),
-        Step("Delete the compare cells the Table notebook keeps", FIDDLING,
-             ("leftover compare cells",), ("a Table notebook of its own",)),
-        Step("Fill in each <COLUMN_TYPE> and the partitions, which the original's DESCRIBE "
-             "gives", FIDDLING, ("its Table reference",), ("its columns filled in",)),
-        Step("Fill in its <LOCATION>", FIDDLING, ("its columns filled in",),
-             ("its place filled in",)),
-        Step("Choose its Key, if it has one", DECISION, ("its place filled in",),
-             ("a filled-in Table reference",)),
-        Step("Send the original's SET lines with session_settings() by hand", FIDDLING,
-             ("a Table notebook of its own",), ("the settings sent",)),
+        Step("Convert the scripts: each table they write a Saved table in dev", PERMISSION,
+             ("Hive scripts", "your Dev Database's name", "read access to the sources"),
+             ("a dev Table folder per table the scripts write", "a checklist per table"),
+             "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)",
+             every_batch_converted),
+        Step("Tick each box of each table's checklist", DECISION,
+             ("a checklist per table",), ("each decision made",), done=every_box_ticked),
         Step("Create and write each table in dev", PERMISSION,
-             ("a filled-in Table reference", "filled-in source references",
-              "the settings sent"), ("each written in dev",),
-             "project.run_tables(tables=[TABLE], execute=execute)"),
+             ("each decision made",), ("each written in dev",),
+             "project.run_tables(tables=TABLES, execute=execute)", every_table_written),
+        Step("Compare each table with its original, in its notebook's compare cells",
+             PERMISSION, ("each written in dev",), ("each compared with its original",)),
     ),
-    inputs=(Input("NAME", "", "the Conversion's name, plain lowercase, such as \"weekly\"",
+    inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\"",
                   starts=True),
+            Input("FILES", [], 'the scripts\' files, from this folder, such as ["daily.hql"], '
+                  "or [] to read HIVE"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
-                  "to read FILE"),
-            Input("FILE", None, 'the file of Hive, from this folder, such as "report.hql", '
-                  "or None"),
-            Input("DATABASE", "default", "the database of a table the Hive names without one"),
-            Input("TABLE", "", "the Saved table it becomes, such as \"mart.weekly_report\"")),
-    about="Turns one query of Hive someone else wrote into your own code: a Conversion, then "
-    "a Saved table of yours.",
+                  "to read FILES"),
+            Input("DATABASE", "default", "the database of a table the Hive names without one")),
+    about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
+    "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
+    "folder and a checklist.",
     databases=("DEV",),
+    instances=batch_instances,
 )
 
 # Promote dev tables to prod: no Project action does it yet, so it is all by hand. Ticket 17
@@ -542,6 +549,20 @@ def is_started(workflow: Workflow, inputs: dict[str, object]) -> bool:
 def is_startable(workflow: Workflow) -> bool:
     """Whether a Workflow has an input that starts it, so check() and do_next() read it."""
     return any(each.starts for each in workflow.inputs)
+
+
+def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
+    """Each instance of a Workflow in a Project, as its inputs: its notebook's names cell,
+    once started, and, for one that keeps instances, each it made, but the one the names cell
+    names already."""
+    found = []
+    if workflow.instances is not None:
+        found = workflow.instances(root)
+    started = started_inputs(root, workflow)
+    named = {each.get("NAME") for each in found}
+    if started is not None and started.get("NAME") not in named:
+        found.insert(0, started)
+    return found
 
 
 def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:

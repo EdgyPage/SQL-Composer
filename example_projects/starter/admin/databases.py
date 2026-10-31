@@ -3,5 +3,5 @@ tables, and PROD, where tables other people rely on are written. Set each once; 
 read them.
 """
 
-DEV = "<DEV_DATABASE>"  # such as "mart_dev"
+DEV = "mart"  # such as "mart_dev"
 PROD = "<PROD_DATABASE>"  # such as "mart"

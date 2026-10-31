@@ -108,13 +108,12 @@ _Avoid_: migration, port, conversion, update script
 
 **Conversion**:
 A Project action that reads Hive someone else wrote, one query or one or more scripts, and
-writes the user's own code for it. Each table scripts write becomes a Saved table in the
+writes the user's own code for it. Each table the scripts write becomes a Saved table in the
 user's Dev Database, named <table>_<its database>, and what reads it after its write reads
-that copy. One
-query is written in a Conversion folder: Table references for the tables it reads that have none, and a
-notebook whose Statement gives the same rows. What no Toolbox function writes yet is left as
-Unchecked pieces, and each risk the original took is marked `# CONVERSION:` for the user to
-decide.
+that copy; one query alone becomes a Saved table named for the batch. Each gets its Table
+folder, whose notebook's Statement gives the same rows, its Table reference, and a checklist
+of what only the user can decide. What no Toolbox function writes yet is left as Unchecked
+pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
 _Avoid_: migration, port, translation, import, upgrade
 
 **Batch**:
@@ -124,10 +123,9 @@ became are kept in the convert Workflow's folder, under the batch's name.
 _Avoid_: job, bundle, script set
 
 **Conversion folder**:
-The folder in a Project's admin folder holding one Conversion until it becomes a Table folder:
-the Hive as given, the scan of it, and the converted notebook with the cells that compare it
-with the original. Finishing it moves its logic into a new Table folder, under the Saved
-table's name the user gives then.
+A batch's index, in the convert Workflow's folder: its scripts as given, their order, what
+each statement became and the tables that came from them. What belongs to one table, the
+statement it came from, the scan and its checklist, is in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder
 
 **Reference sheet**:

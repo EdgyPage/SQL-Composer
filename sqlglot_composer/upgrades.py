@@ -245,7 +245,7 @@ def _searched_texts(path: Path) -> list[tuple[str, str]]:
 
 def to_7_2(upgrade: Upgrade) -> None:
     """7.1 to 7.2: nothing of yours changes. The Project gets what project.start() makes
-    that it lacks, such as admin/conversions/."""
+    that it lacks, such as admin/workflows/."""
     upgrade.add_what_start_makes()
 
 

@@ -276,7 +276,7 @@ def test_a_star_of_a_table_with_no_table_reference_still_converts(hive: str) -> 
 
 
 def test_a_star_read_under_the_wrong_database_raises_nothing() -> None:
-    """finish_conversion reads the Hive again under the Saved table's database."""
+    """A Conversion may read the Hive under another database than the one it names."""
     done = converting.convert_query("WITH a AS (SELECT * FROM jobs) SELECT job_id FROM a",
                                     COLUMNS.get, database="mart")
     assert done.missing == ["mart.jobs"]
