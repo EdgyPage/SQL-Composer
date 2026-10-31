@@ -45,10 +45,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **Promotion.** `project.promote(tables)` writes a prod copy of dev Saved tables, named
   for `PROD` in `admin/databases.py`, their names kept unless `rename=` names them: each Table
   folder and Table reference, every notebook that reads another promoted table reading its
-  prod copy. It refuses, before writing anything, a table with a box unticked, a Conversion's
-  table whose compare hasn't passed, or one that reads a dev table not promoted with it. Dev
-  stays the source: promoting again archives the prod copy and writes it afresh, keeping the
-  `location=` you filled in, and `check()` reports a prod copy edited by hand.
+  prod copy; a table only created, by its Table reference alone. `rename=` gives the name alone,
+  and is remembered when promoting again. It refuses, before writing anything, a table with a
+  `<...>` left in its Table reference, a notebook whose logic doesn't build its write(), a box
+  unticked, a Conversion's table whose compare hasn't passed, one that reads a dev table not
+  promoted with it, or one whose Building block reads the Dev Database. Dev stays the source:
+  promoting again archives the prod copy, and the one under an old name, and writes it afresh,
+  keeping the `location=` you filled in, and `check()` reports a prod copy edited by hand.
   `project.promoted_tables(tables)` gives the prod names. The promote Workflow is now promote,
   fill in each `location=`, then create, seed and write each in prod: no step needs you to
   edit a file the Toolbox could write.

@@ -205,7 +205,8 @@ WORKFLOW_PATH_LINES = [
     "import sys",
     "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))  # the Project: three up",
     "",
-    "from sqlglot_composer import admin, hive_settings, project, run_execute, show_hive",
+    "from sqlglot_composer import admin, hive_settings, project, run_execute, run_query, "
+    "show_hive",
     "from warehouse import query, execute",
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
@@ -2804,8 +2805,8 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     ...     print(str(refused).strip().splitlines()[0])
     What happened:  project.promote("mart_dev.daily_runs") can't promote yet:
     mart_dev.daily_runs: references/mart_dev__daily_runs.py still has <COLUMN> to fill in;
-    mart_dev.daily_runs:
-    tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb still has <SOURCE_NAME> to fill in.
+    mart_dev.daily_runs: its notebook's logic doesn't build its write() yet:
+    project.load("mart_dev.daily_runs").write() says why.
 
     A table new_table just made isn't finished, so it isn't promoted: once its Table reference
     and notebook are filled in and its write runs in dev, promote copies it to prod.
@@ -2828,11 +2829,13 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     for the Prod Database, or None for you to fill in, as the report says.
 
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
-    with no Table reference; one with a <...> left to fill in; one whose
+    with no Table reference; one whose Table reference has a <...> left to fill in, or whose
+    notebook's logic doesn't build its write() yet; one whose
     conversion/checklist.md has a box unticked; one a Conversion made whose compare hasn't
     passed (project.compare_batch); one that reads a dev table not promoted with it; and one
     whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
-    promote it again, which archives the prod copy into admin/removed/ first. project.check()
+    promote it again, which archives the prod copy into admin/removed/ first, and the one under
+    its old name when rename= gives it a new one. project.check()
     reports a prod copy edited by hand, its notebook or its Table reference but its location=,
     as promote would write over it. `tables` is one name or a list, each a dev table's.
     """
@@ -2859,11 +2862,13 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
             "promote again.",
             error=ValueError,
         )
-    # A table promoted before under another name is promoted under this one alone now.
+    now = unchecked.now()
+    # A table promoted before under another name is promoted under this one alone now: its old
+    # prod copy is archived.
+    written = _archive_renamed_copies(root, names, now)
     record = {prod: entry for prod, entry in workflows.promoted_record(root).items()
               if entry["dev"] not in names}
-    now = unchecked.now()
-    written, lines = [], []
+    lines = []
     for dev, prod in names.items():
         record[prod], done, line = _promote_one(root, dev, prod, names, (dev_db, prod_db), now)
         written += done
@@ -3028,13 +3033,14 @@ def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[
             problems.append(f"{dev}: its {CONVERSION}/{CHECKLIST} has a box unticked")
         if folder.is_dir() and not workflows.compare_passed(root, dev):
             problems.append(f"{dev}: its compare hasn't passed")
-        for shown, path in ((REFERENCE.shown(table_stem(dev)),
-                             REFERENCE.path(root, table_stem(dev))),
-                            (table_notebook(table_stem(dev)),
-                             root / table_notebook(table_stem(dev)))):
-            left = workflows.PLACEHOLDER.search(workflows.file_text(path))
-            if left is not None:
-                problems.append(f"{dev}: {shown} still has {left.group()} to fill in")
+        left = workflows.PLACEHOLDER.search(
+            workflows.file_text(REFERENCE.path(root, table_stem(dev))))
+        if left is not None:
+            problems.append(f"{dev}: {REFERENCE.shown(table_stem(dev))} still has "
+                            f"{left.group()} to fill in")
+        if folder.parent.is_dir() and not logic_loads(root, dev):
+            problems.append(f"{dev}: its notebook's logic doesn't build its write() yet: "
+                            f'project.load("{dev}").write() says why')
         code = _logic_text(root, dev)
         problems += [f"{dev}: it reads {read}, which isn't promoted with it"
                      for read in _dev_names_in(code, dev_db, dev) if read not in names]
@@ -3099,6 +3105,21 @@ def _renamed_in_imports(text: str, module: str, old: str, new: str, keep_old: bo
         pieces += [text[at:found.start(2)], imported]
         at = found.end(2)
     return "".join(pieces) + text[at:]
+
+
+def _archive_renamed_copies(root: Path, names: dict[str, str],
+                            now: datetime.datetime) -> list[str]:
+    """Archive each prod copy promoted before under another name than the one each dev table
+    is promoted under now, and mark its registry rows removed: what moved where."""
+    moved = []
+    registry = Registry(root)
+    for prod, entry in workflows.promoted_record(root).items():
+        if entry["dev"] in names and names[entry["dev"]] != prod:
+            moved += _archive_prod_copy(root, prod, now)
+            for kind in (TABLE_FOLDER, REFERENCE):
+                if registry.listed(kind, prod):
+                    registry.mark_removed(kind, prod, now)
+    return moved
 
 
 def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[str]:
@@ -3222,15 +3243,16 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
     nothing of one archived since, as remove_table does."""
     lines = []
     for prod, entry in workflows.promoted_record(root).items():
-        if not TABLE_FOLDER.path(root, table_stem(prod)).is_dir():
-            continue
-        dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
+        folder = TABLE_FOLDER.path(root, table_stem(prod)).is_dir()
         reference = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
-        if reference and _reference_hash(reference) != entry.get("reference"):
+        if not folder and not reference:
+            continue  # archived, as remove_table and remove_reference do
+        dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
+        if _reference_hash(reference) != entry.get("reference"):
             lines.append(f"Edited by hand, which project.promote writes over: "
                          f"{REFERENCE.shown(table_stem(prod))}, but its location= (change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
-        for relative, written in entry["files"].items():
+        for relative, written in entry["files"].items() if folder else ():
             path = root / relative
             if not path.is_file() or _hash(path.read_bytes()) != written:
                 lines.append(f"Edited by hand, which project.promote writes over: {relative} "
@@ -3834,6 +3856,22 @@ def load(name: str) -> TableLogic:
                  if callable(value) and getattr(value, "__module__", None) == module_name}
     functions["write"] = namespace["write"]  # also when it is imported from elsewhere
     return TableLogic(name, functions)
+
+
+def logic_loads(root: Path, name: str) -> bool:
+    """Whether a Table notebook's logic, in the Project at `root`, runs and its write() builds
+    its Statement, as project.load(name).write() does: the new_table Workflow's logic step is
+    done then."""
+    shown = table_notebook(table_stem(name))
+    try:
+        namespace = run_logic(root, _checked_logic(root, shown, "load"), f"{LOGIC_OF}{name}")
+        _check_write(namespace, shown, "load")
+        namespace["write"]()
+    # Whatever stops it, a refusal, a name spelt wrong, a column the table hasn't, means its
+    # logic isn't written yet.
+    except Exception:  # noqa: BLE001
+        return False
+    return True
 
 
 def _arguments_needed(function: Callable[..., object]) -> list[str]:

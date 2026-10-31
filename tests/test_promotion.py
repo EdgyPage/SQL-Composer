@@ -233,7 +233,7 @@ def test_a_database_imported_beside_another_is_named_for_prod(started: Path) -> 
 def test_a_renamed_table_imported_beside_another_keeps_its_dev_name_in_the_code(
         started: Path) -> None:
     change_logic(started, PER_JOB, "import fails_per_job_ops_reports  #",
-                 "import (\n    INSERT_OVERWRITE_UNUSED,\n    fails_per_job_ops_reports,\n)  #")
+                 "import (\n    Table,\n    fails_per_job_ops_reports,\n)  #")
     project.promote([FAILED, PER_JOB], rename={PER_JOB: "per_job"})
     assert "    per_job as fails_per_job_ops_reports,\n" in logic(started, "mart.per_job")
 
@@ -330,3 +330,18 @@ def test_the_prod_copy_says_it_is_one_and_leaves_dev_records_behind(started: Pat
 def test_promoted_tables_refuses_several_not_promoted_in_one_sentence(started: Path) -> None:
     with pytest.raises(ValueError, match=f"{FAILED} and {PER_JOB} are not promoted"):
         project.promoted_tables([FAILED, PER_JOB])
+
+
+def test_a_new_name_archives_the_prod_copy_under_the_old_one(started: Path) -> None:
+    project.promote([FAILED, PER_JOB])
+    project.promote([FAILED, PER_JOB], rename={FAILED: "failed"})
+    assert not (started / "tables" / "mart__failed_runs_ops_reports").exists()
+    assert not (started / "references" / "mart__failed_runs_ops_reports.py").exists()
+    assert "Registered, but not there" not in repr(project.check())
+
+
+def test_a_prod_reference_deleted_is_reported(started: Path) -> None:
+    project.promote([FAILED, PER_JOB])
+    (started / "references" / "mart__failed_runs_ops_reports.py").unlink()
+    assert ("Edited by hand, which project.promote writes over: "
+            "references/mart__failed_runs_ops_reports.py") in repr(project.check())

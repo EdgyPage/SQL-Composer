@@ -210,14 +210,14 @@ def every_reference_filled_in(root: Path, inputs: dict[str, object]) -> bool:
     return bool(names_in(inputs, "TABLES"))
 
 
-def every_logic_written(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table's notebook holds no placeholder left from its Template."""
-    for table in names_in(inputs, "TABLES"):
-        stem = table_stem(table)
-        text = file_text(root / "tables" / stem / f"{stem}.ipynb")
-        if not text or PLACEHOLDER.search(text):
-            return False
-    return bool(names_in(inputs, "TABLES"))
+def every_logic_loads(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each table's notebook's logic runs and its write() builds its Statement, as
+    project.load(table).write() does. Its text cells may still name a Template's
+    placeholders, as they say what each was."""
+    from . import project  # project.py imports this file
+
+    tables = names_in(inputs, "TABLES")
+    return bool(tables) and all(project.logic_loads(root, table) for table in tables)
 
 
 def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
@@ -398,6 +398,14 @@ def no_upgrade_mark_left(root: Path, inputs: dict[str, object]) -> bool:
     return not marks_in(root, MARK_LINE)
 
 
+def change_written(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the change_a_saved_table notebook's change cell names an Admin statement with
+    its arguments, not the (...) it starts with."""
+    path = root / WORKFLOWS_FOLDER / "change_a_saved_table" / "change_a_saved_table.ipynb"
+    found = re.search(r"change = admin\.\w+\(([^)\n]*)\)", file_text(path))
+    return bool(names_in(inputs, "TABLE")) and found is not None and found.group(1) != "..."
+
+
 def every_change_sent(root: Path, inputs: dict[str, object]) -> bool:
     """Whether admin/sent.csv records an Admin statement on the Saved table TABLE names."""
     tables = names_in(inputs, "TABLE")
@@ -531,9 +539,13 @@ NEW_TABLE = Workflow(
              ("its Table reference",), done=every_reference_filled_in),
         Step("Write each table's logic in its notebook", DECISION,
              ("a Table folder", "what each table should hold"),
-             ("a dev Table folder whose logic loads",), done=every_logic_written),
+             ("a dev Table folder whose logic loads",), done=every_logic_loads),
+        Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
+             ("a dev Table folder whose logic loads",), ("its rows, checked",),
+             "for table in TABLES:\n"
+             "    print(run_query(project.load(table).preview(), query))"),
         Step("Create and write each in dev", PERMISSION,
-             ("a dev Table folder whose logic loads", "its Table reference"),
+             ("its rows, checked", "its Table reference"),
              ("written in dev",),
              "for table in TABLES:\n"
              "    run_execute(project.load(table).create(), execute)\n"
@@ -592,7 +604,8 @@ CHANGE_A_SAVED_TABLE = Workflow(
     steps=(
         Step("Write the Admin statement for the change", DECISION,
              ("a Saved table", "the change wanted"), ("an Admin statement",),
-             "change = admin.drop_partitions(...)  # or another of the admin module's"),
+             "change = admin.drop_partitions(...)  # or another of the admin module's",
+             change_written),
         Step("Print the Hive it sends, which sends nothing", FILE_STEP,
              ("an Admin statement",), ("its Hive, read",), "show_hive(change)"),
         Step("Send it, then run the check its report names", PERMISSION, ("its Hive, read",),
