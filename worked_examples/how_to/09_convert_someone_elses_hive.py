@@ -109,10 +109,7 @@ Each table's conversion/checklist.md has a box for each decision only you can ma
 ...
 
 Fill in each Table reference's location=, the folder its files go in, which your platform
-team names, and its Key, then tick each box. Three tables' checklists ask you to send the
-original's SET line, hive.exec.parallel, before their write: it makes Hive faster and changes
-no row, so tick it, and send it at work if you want it, as its box says. This page stands in
-for your edits:
+team names, and its Key, then tick each box. This page stands in for your edits:
 
 >>> for path in Path("references").glob("mart__*.py"):
 ...     text = path.read_text(encoding="utf-8")
@@ -130,8 +127,10 @@ The next step ...
 
 Steps 3 to 5 are calls to the warehouse, yours to run, each a cell of the Workflow's notebook.
 At work they create each table in your Dev Database, seed mart.fail_history from the original,
-and write each, in the order they read each other. Here execute is the Example database's,
-which prints the first line of each and changes nothing:
+and write each, in the order they read each other. The write step sends each table's SET
+lines, the original's, before its write: here hive.exec.parallel, which makes Hive faster and
+changes no row. Here execute is the Example database's, which prints the first line of each and
+changes nothing:
 
 >>> for table in project.batch_tables("ops_reports"):
 ...     run_execute(project.load(table).create(), execute)
@@ -142,6 +141,7 @@ execute: ...
 ...     run_execute(project.load(table).seed(), execute)
 execute: ...
 >>> print(project.run_tables(tables=project.batch_tables("ops_reports"), execute=execute))
+execute: SET hive.exec.parallel=true
 execute: INSERT OVERWRITE TABLE mart.failed_runs_ops_reports
 1 of 4: mart.failed_runs_ops_reports         worked
 ...

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from conftest import toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import example_database, project, set_admin_log, to_hive
 
@@ -89,13 +89,6 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     project.compare_batch("weekly", query=warehouse())
     yield tmp_path
     forget_the_projects_modules()
-
-
-def forget_the_projects_modules() -> None:
-    """Put away the modules a Project's notebooks import, which convert and load put there."""
-    for name in [name for name in sys.modules
-                 if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
-        del sys.modules[name]
 
 
 def logic(root: Path, table: str) -> str:

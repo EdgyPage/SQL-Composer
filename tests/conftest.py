@@ -77,6 +77,14 @@ def toolbox_module(name: str = "") -> ModuleType:
     return importlib.import_module(f"{FOLDER}.{name}")
 
 
+def forget_the_projects_modules() -> None:
+    """Put away the modules a Project's notebooks import, which convert, load and a notebook's
+    cells put there: the next test's Project imports its own."""
+    for name in [name for name in sys.modules
+                 if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
+        del sys.modules[name]
+
+
 def example_rows(table: str) -> pd.DataFrame:
     """One Example database table as a DataFrame, for the Worked examples' pandas checks.
 

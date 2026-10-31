@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import (
     example_database,
@@ -67,13 +67,6 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     (tmp_path / "weekly.hql").write_text(WEEKLY, encoding="utf-8")
     yield tmp_path
     forget_the_projects_modules()
-
-
-def forget_the_projects_modules() -> None:
-    """Put away the modules a Project's notebooks import, which convert loaded."""
-    for name in [name for name in sys.modules
-                 if name.split(".")[0] in ("references", "building_blocks", "warehouse")]:
-        del sys.modules[name]
 
 
 @pytest.fixture
@@ -395,9 +388,41 @@ def test_each_table_keeps_its_statement_its_scan_and_its_checklist(started: Path
     assert (conversion / "scan.md").is_file()
     items = checklist(started, "mart_dev.failed_runs_ops_reports")
     assert "- [ ] Fill in location= in references/mart_dev__failed_runs_ops_reports.py" in items
-    assert ("- [ ] Send the original's SET lines before you write it, as it sent them: "
-            'run_execute(project.load("mart_dev.failed_runs_ops_reports").session_settings(), '
-            "execute), then run_tables.") in items
+    assert "SET lines" not in items
+
+
+def test_run_tables_sends_a_tables_set_lines_before_its_write(started: Path,
+                                                              batch: str) -> None:
+    # 8.1's ticket 06: the original's SET lines are the write step's, not a box's.
+    path = started / "references" / "mart_dev__failed_runs_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "location=None,", 'location="/data/team/mart_dev.db/failed_runs",'), encoding="utf-8")
+    sent: list[str] = []
+    project.run_tables(tables=["mart_dev.failed_runs_ops_reports"], execute=sent.append)
+    setting = next(number for number, hive in enumerate(sent) if "hive.exec.parallel" in hive)
+    write = next(number for number, hive in enumerate(sent) if hive.startswith("INSERT"))
+    assert setting < write
+
+
+def test_run_tables_sends_no_set_lines_for_a_table_whose_original_had_none(
+        started: Path, batch: str) -> None:
+    path = started / "references" / "mart_dev__fails_per_job_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "location=None,", 'location="/data/team/mart_dev.db/fails_per_job",'),
+        encoding="utf-8")
+    sent: list[str] = []
+    project.run_tables(tables=["mart_dev.fails_per_job_ops_reports"], execute=sent.append)
+    assert not any("hive.exec.parallel" in hive for hive in sent)
+
+
+def test_a_dry_run_prints_a_tables_set_lines_before_its_write(
+        started: Path, batch: str, capsys: pytest.CaptureFixture[str]) -> None:
+    path = started / "references" / "mart_dev__failed_runs_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "location=None,", 'location="/data/team/mart_dev.db/failed_runs",'), encoding="utf-8")
+    project.run_tables(tables=["mart_dev.failed_runs_ops_reports"])
+    printed = capsys.readouterr().out
+    assert printed.index("hive.exec.parallel") < printed.index("INSERT OVERWRITE")
 
 
 def test_no_conversion_the_user_never_made_shows(started: Path, batch: str) -> None:

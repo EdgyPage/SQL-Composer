@@ -128,7 +128,14 @@ from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .tables import (TABLE_NAME, Table, Verdict, all_columns, table_reference_text,
                      write_table_reference)
-from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
+from .unchecked import (
+    SessionSettings,
+    UncheckedStatement,
+    hive_settings,
+    inline_code,
+    script_line,
+    write_entry,
+)
 
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
@@ -2225,10 +2232,6 @@ def _checklist_items(dev: str, opt_outs: list[str], guessed: list[str],
         items.append(f"Fill in location= in {reference}: the folder its files go in.")
     items.append(f"Choose its Key in {reference}, or leave key=None if no columns name one "
                  "row.")
-    if hive_read.settings:
-        items.append("Send the original's SET lines before you write it, as it sent them: "
-                     f'run_execute(project.load("{dev}").session_settings(), execute), then '
-                     "run_tables.")
     if any(finding.kind == "unchecked" for finding in hive_read.findings):
         items.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:
@@ -4123,8 +4126,9 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
 
     Each table's write() comes from its notebook's logic cell, through load; one that gives a
     list, such as a write per region, sends each in turn. Each write() gives Statements that
-    write, an Admin statement among them, Unchecked statements or Python steps: anything else,
-    such as Session settings, is refused before anything is sent. A Python step
+    write, an Admin statement among them, Unchecked statements or Python steps: anything else
+    is refused before anything is sent, Session settings too, which belong in the logic's
+    session_settings(), below. A Python step
     (help(python_step)) sends nothing, so it is passed over, and its table isn't written: run
     its own notebook, whose call saves the rows. They run in the order lineage draws them: a
     table is written before any table that reads it, and a loop, two tables each reading the
@@ -4133,7 +4137,10 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     headed like -- 1 of 2: mart.daily_job_runs, and sends nothing: a dry run, to read before you
     send. With your execute, it sends the Session setting "dynamic_partitions" first when a
     write fills Partitions from its rows, then each in turn, printing a line as each one works,
-    and stops at the first that fails: the tables after it aren't written. It adds no entry of
+    and stops at the first that fails: the tables after it aren't written. A table whose logic
+    defines session_settings(), as a Conversion's does for the SET lines its original sent,
+    has them sent before its first write, and again before a later one when another table's
+    write came between; a dry run prints them where they would be sent. It adds no entry of
     its own to the Admin log, since what it writes is in the warehouse, not your files; a
     write() that gives an Admin or Unchecked statement is logged by run_execute, as anywhere
     else. Everything a write() gives is sent through your execute, so one that gives a read is
@@ -4153,37 +4160,63 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     if not tables:
         return ProjectReport(["No Table folder to run: make one with project.new_table(...)."])
     named = []
+    settings: dict[str, SessionSettings] = {}
     for name in tables:
-        named += [(write, name) for write in _writes_of(name, call)]
+        logic = load(name)
+        named += [(write, name) for write in _writes_of(name, logic, call)]
+        if hasattr(logic, "session_settings"):
+            settings[name] = logic.session_settings()
     ordered = in_order(named, call=call)
     if execute is None:
-        return _print_dry_run(ordered)
-    width = max(len(name) for _, name in ordered)
+        return _print_dry_run(ordered, settings)
     # A write filling Partitions from its rows needs Hive's dynamic partitioning: sent once.
     if any(kinds.kind(write) == kinds.WRITE and settings_needed(write)
            for write, _ in ordered):
         run_execute(hive_settings("dynamic_partitions"), execute)
+    _send_in_order(ordered, settings, execute)
+    return ProjectReport(_run_tables_report(ordered))
+
+
+def _send_in_order(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+                   settings: dict[str, SessionSettings],
+                   execute: Callable[[str], None]) -> None:
+    """Send each write in order, printing a line as each one works: a table's own Session
+    settings first, again whenever the write before was another table's, so another's SET
+    lines never hold for it; a Python step is passed over. The first that fails stops the
+    rest."""
+    # running imports this file, so it is read here, when a write is sent.
+    from .running import run_execute
+
+    width = max(len(name) for _, name in ordered)
+    last = ""
     for position, (write, name) in enumerate(ordered, start=1):
         shown = f"{position} of {len(ordered)}: {name:<{width}}"
         if kinds.kind(write) == kinds.PYTHON:
             print(f"{shown}  passed over: a Python step, whose rows your own call saves")
             continue
         try:
+            if name != last and name in settings:
+                run_execute(settings[name], execute)
             run_execute(write, execute)
         except Exception:
             print(f"{shown}  failed: see below. The tables after it weren't written.")
             raise
+        last = name
         print(f"{shown}  worked")
-    return ProjectReport(_run_tables_report(ordered))
 
 
-def _print_dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]]
-                   ) -> ProjectReport:
-    """Print each write's Hive in order, sending nothing: run_tables with no execute."""
+def _print_dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonStep, str]],
+                   settings: dict[str, SessionSettings]) -> ProjectReport:
+    """Print each write's Hive in order, a table's Session settings before its first, sending
+    nothing: run_tables with no execute."""
     from .running import show_hive  # imported here, as run_tables imports run_execute
 
+    last = ""
     for position, (write, name) in enumerate(ordered, start=1):
         print(f"-- {position} of {len(ordered)}: {name}")
+        if name != last and name in settings:
+            show_hive(settings[name])
+        last = name
         show_hive(write)
     return ProjectReport([f"Printed {counted(len(ordered), 'write')} in "
                           "order, and sent nothing. Pass execute= to run them."])
@@ -4202,10 +4235,11 @@ def _run_tables_report(ordered: list[tuple[Statement | UncheckedStatement | Pyth
     return lines
 
 
-def _writes_of(name: str, call: str) -> list[Statement | UncheckedStatement | PythonStep]:
-    """What the write() of `name`'s Table notebook gives, each one checked. load has checked
-    that its logic cell defines a write() taking nothing."""
-    written = load(name).write()
+def _writes_of(name: str, logic: TableLogic, call: str
+               ) -> list[Statement | UncheckedStatement | PythonStep]:
+    """What the write() of `name`'s Table notebook gives, its logic as load gave it, each one
+    checked. load has checked that its logic cell defines a write() taking nothing."""
+    written = logic.write()
     # A write() may give several writes, sent in the order it gives them.
     several = isinstance(written, (list, tuple))
     writes = list(written) if several else [written]

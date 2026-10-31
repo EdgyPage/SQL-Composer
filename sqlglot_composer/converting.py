@@ -123,8 +123,8 @@ class ConvertedQuery:
             lines.append("")
         if self.settings:
             lines += ["", "def session_settings() -> SessionSettings:",
-                      '    """The SET lines the original sent first: send them before the '
-                      'query."""',
+                      '    """The SET lines the original sent before its query: '
+                      'project.run_tables\n    sends them before the write."""',
                       '    return hive_settings("converted", sets=HIVE_SETTINGS)', ""]
         if self.clauses is not None:
             lines += ["", "def rows() -> list[Clause]:",
@@ -168,10 +168,8 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         docstring = (f"Save the rows into {saved_table}, as the original's INSERT did: kept "
                      "as Hive,\n    as converted() is.")
     if re.search(r"^def session_settings\(", logic, re.MULTILINE):
-        # run_tables sends only writes, so the SET lines are sent by hand, as the docstring
-        # says.
-        docstring += ("\n\n    Send session_settings() first, as the original sent its SET "
-                      "lines: run_tables\n    sends only what write() gives.\n    ")
+        docstring += ("\n\n    project.run_tables sends session_settings() first, as the "
+                      "original sent its\n    SET lines.\n    ")
     return "\n".join(lines + [
         "",
         "",
@@ -396,9 +394,10 @@ class _Converter:
         for found in re.finditer(r"\$\{[^}]*\}", self.text):
             finding = Finding(self.text.count("\n", 0, found.start()) + 1, "variable",
                               f"{found.group()} is kept as written, and Hive fills it in "
-                              "from a SET line sent first: session_settings() sends the "
-                              "original's; with none, send one with hive_settings(...), or "
-                              "have your query put the value in")
+                              "from a SET line sent first: session_settings() holds the "
+                              "original's, which project.run_tables sends before the write; "
+                              "with none, send one with hive_settings(...), or have your "
+                              "query put the value in")
             if finding not in self.result.findings:
                 self.result.findings.append(finding)
 

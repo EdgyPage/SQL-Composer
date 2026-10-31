@@ -2,6 +2,14 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.1
+
+8.1 is being built on dev; this section grows with it, and ships when it is done.
+
+- **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
+  Session settings, its logic's `session_settings()`, before its write: a Conversion's
+  checklist no longer asks you to send the original's SET lines by hand.
+
 ## 8.0
 
 8.0 adds Workflows: a notebook per job you do, such as a new table, a Conversion of someone

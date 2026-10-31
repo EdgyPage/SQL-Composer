@@ -311,6 +311,11 @@ ALLOWED: tuple[Allowed, ...] = (
     Allowed("tests/test_lineage.py",
             "test_several_statements_are_named_by_their_variables_in_the_order_passed",
             "dynamic code", "exec", "runs the test's own line of code as typed at a prompt"),
+    # Reviewed with the user, 2026-10-31 (Toolbox 8.1's ticket 01).
+    Allowed("tests/journeys/test_workflow_journeys.py", "Journey.run_to", "dynamic code",
+            "exec",
+            "runs a Project's own Workflow notebook's code cells, as Jupyter runs them, in a "
+            "test's temp Project"),
     Allowed("tests/test_lineage.py", "test_the_pages_script_is_javascript_a_browser_can_read",
             "process", "subprocess.run", "runs node --check on the lineage page's own script"),
     Allowed("tests/offline_trap.py", "<module>", "network", "socket",
