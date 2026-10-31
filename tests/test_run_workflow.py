@@ -180,3 +180,10 @@ def test_new_table_from_a_query_refuses_hive_that_isnt_one_query(started: Path) 
     with pytest.raises(ValueError, match="isn't one query"):
         project.new_table(f"{DEV}.failed_jobs", queries={
             "failed_jobs": "CREATE TABLE x.y AS " + QUERY})
+
+
+def test_new_table_from_a_query_refuses_a_table_it_made_already(started: Path) -> None:
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY})
+    with pytest.raises(FileExistsError, match="has a Table folder already"):
+        project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY})

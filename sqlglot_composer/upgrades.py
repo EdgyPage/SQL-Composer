@@ -20,9 +20,13 @@ import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .notebooks import read_cells, read_cells_if_readable, write_cell_text, write_notebook
 from .shared import counted
+
+if TYPE_CHECKING:  # workflows.py imports this file, so its name is for the hints alone
+    from .workflows import Workflow
 
 PROJECT_VERSION = Path("admin") / "project_version.txt"
 # The first version a Project can be upgraded from, and the one a Project that records no
@@ -370,7 +374,7 @@ def execute(hive: str) -> None:
 
 # The Templates 7.2 and 8.0 wrote, by the sha256 of their text, which 8.1's new_table, its
 # Table reference written from the logic, needs written again: one still as written is, and one
-# you changed is marked. (8.0 never shipped; 8.1's step takes this on, ticket 13.)
+# you changed is marked.
 TEMPLATES_BEFORE_8_1 = {
     "saved_table": "2cd1eeedcd8d35574a46ffea8b115fe5c25db843c1c8c921e4351a5334181937",
     "quality_checks": "3c46046763380f9e12d3eb37cf9185d5f3ab53c934baec5ede1bfb46f588598d",
@@ -425,7 +429,6 @@ def to_8_0(upgrade: Upgrade) -> None:
     if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_7_2:
         upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
     upgrade.add_what_start_makes()
-    _write_templates_again(upgrade)
     databases = upgrade.root / DATABASES
     for start, what in DATABASE_MARKS.items():
         _, line = _line_starting(databases, start)
@@ -487,6 +490,100 @@ def _mark_finish_conversion(upgrade: Upgrade) -> None:
                      "table for the name you gave here", cell=cell)
 
 
+def to_8_1(upgrade: Upgrade) -> None:
+    """8.0 to 8.1: each Workflow notebook is written again, kept in admin/removed/ first, with a
+    decisions cell where its steps wait on Decisions, its new inputs and steps, and its last
+    cell, run_workflow: each name its names cell gave stays, under any mark above it, and so
+    does each step cell you write in, one whose call holds a ... to fill in, such as
+    change_a_saved_table's Admin statement. Each Template still as 8.0 wrote it is written
+    again, and one you changed is marked. Each converted table's checklist.md is written again
+    as the view of its Decisions, made or open, with no boxes to tick: a box ticked in 8.0 was
+    ticked once its answer was in the Table reference, which keeps it."""
+    # project.py and workflows.py import this file, so their names are read here, when it runs.
+    from . import workflows
+    from .project import WORKFLOW_PATH_LINES, checklists_written_again
+
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(upgrade.root, workflow)
+        if path.is_file():
+            cells = _workflow_cells_with_yours(upgrade.root, workflow, WORKFLOW_PATH_LINES)
+            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+    _write_templates_again(upgrade)
+    for relative, text in checklists_written_again(upgrade.root).items():
+        upgrade.rewrite(relative, text)
+    upgrade.add_what_start_makes()
+
+
+def _workflow_cells_with_yours(root: Path, workflow: Workflow,
+                               path_lines: list[str]) -> list[tuple[str, str]]:
+    """A Workflow notebook's cells as this version writes them, with each name its names cell
+    gave, and each step cell the user writes in, one whose call holds a ... to fill in."""
+    from . import workflows  # it imports this file
+
+    given = workflows.given_inputs(root, workflow)
+    path = workflows.notebook_path(root, workflow)
+    written = _step_cells_written(path)
+    marks = _marks_above(path, workflow)
+    cells = []
+    step = None
+    for kind, text in workflows.notebook_cells(workflow, path_lines):
+        if kind == "markdown":
+            step = workflows.step_name_of(text) or step
+        elif text == workflows.inputs_cell(workflow):
+            text = _names_cell_with_given(workflow, given, marks)
+        elif step in written and "..." in text:
+            text = written[step]
+        cells.append((kind, text))
+    return cells
+
+
+def _step_cells_written(path: Path) -> dict[str, str]:
+    """Each step's code cell in a Workflow notebook, by the step's name."""
+    from . import workflows  # it imports this file
+
+    written = {}
+    step = None
+    for kind, text in read_cells(path):
+        if kind == "markdown":
+            step = workflows.step_name_of(text) or step
+        elif step is not None and step not in written:
+            written[step] = text
+    return written
+
+
+def _marks_above(path: Path, workflow: Workflow) -> dict[str, list[str]]:
+    """Each UPGRADE mark in a Workflow notebook's names cell, by the input whose line it is
+    above, as an earlier version's step left it."""
+    if not workflow.inputs:
+        return {}
+    first = f"{workflow.inputs[0].name} ="
+    marks: dict[str, list[str]] = {}
+    for kind, text in read_cells(path):
+        if kind != "code" or first not in text:
+            continue
+        waiting: list[str] = []
+        for line in text.split("\n"):
+            if MARK_LINE.search(line):
+                waiting.append(line)
+            elif waiting and " = " in line:
+                marks[line.split(" = ", 1)[0].strip()] = waiting
+                waiting = []
+    return marks
+
+
+def _names_cell_with_given(workflow: Workflow, given: dict[str, object],
+                           marks: dict[str, list[str]]) -> str:
+    """A Workflow notebook's names cell, each input holding what the user gave, under each
+    UPGRADE mark an earlier step left above it."""
+    from . import workflows  # it imports this file
+
+    lines = []
+    for each in workflow.inputs:
+        lines += marks.get(each.name, [])
+        lines.append(workflows.input_line(each, given.get(each.name, each.empty)))
+    return "\n".join(lines)
+
+
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds.
-STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0}
+STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1}

@@ -4,9 +4,9 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.0: start here
+# Copilot files for sqlglot Composer 8.1: start here
 
-sqlglot Composer 8.0 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.1 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -64,13 +64,13 @@ whether it fits.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.0)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.1)
 
 Objective: set up a Project, import what Toolbox code needs, and run a Statement.
 Load this file when the user starts a Project, asks what to import, or asks how to run
 something and see its rows.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -152,7 +152,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 7. For a Saved table, the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
    `project.new_table("mart.job_day_runs")`, its Table notebook and Table reference: file 06
    says what goes in them. Each job has a Workflow notebook: `project.check()` names each one's
-   next step, `project.do_next()` runs those it can, and file 13 lists their steps.
+   next step, `project.do_next()` runs those it can, and files 13 and 14 list their steps.
 
 ## Worked example
 
@@ -203,13 +203,13 @@ s = statement(
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.0)
+# Copilot file 02: Table references (sqlglot Composer 8.1)
 
 Objective: describe a table to the Toolbox with a Table reference, and check what it says.
 Load this file when the user adds a table to read, writes the Table reference of a new Saved
 table, or asks about a table's columns, partitions or Key.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell or a file, then a few plain sentences.
 
 ## Always
@@ -268,9 +268,11 @@ block the user can paste into a notebook cell or a file, then a few plain senten
 2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
    runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
    reference from the warehouse's own description, so its columns and types are right.
-   The user fills in `key=` by hand, where it says TODO.
-3. A new Saved table, one the user's notebook will write: write the Table reference by
-   hand, or let `project.new_table("mart.job_day_runs")` start it (file 06).
+   Its Key is a Decision: the user answers it in the notebook's decisions cell,
+   `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, and the next step writes it in.
+3. A new Saved table, one the user's notebook will write: the new_table Workflow (file 14)
+   writes its Table reference from its logic, `project.reference_from_logic(TABLES)`, or from
+   its query; the user answers its location in the decisions cell.
 4. Table's arguments:
    - `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
      order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
@@ -341,12 +343,12 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.0)
+# Copilot file 03: building a Statement (sqlglot Composer 8.1)
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
 Load this file when the user asks for rows, counts, totals or a list from their tables.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -502,13 +504,13 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.0)
+# Copilot file 04: joins (sqlglot Composer 8.1)
 
 Objective: combine rows of two or more tables.
 Load this file when the user asks for columns from several tables, rows with or without a
 match in another table, or a count of matches.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -647,7 +649,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.0)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.1)
 
 Objective: work out a value from the rows around each row, keep the latest or top rows of
 each group, add subtotals, or stack Statements.
@@ -655,7 +657,7 @@ Load this file when the user asks for a rank, a row number, the latest row of ea
 top N per group, the row before or after, a running total, subtotals or a grand total, or
 the rows of several Statements together.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -796,13 +798,13 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.0)
+# Copilot file 06: saving a table (sqlglot Composer 8.1)
 
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
 it, add to it, or write the logic cell of a Table notebook.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -947,13 +949,13 @@ dt string, partitioned by dt, with Key job_id and dt, and a location (file 02).
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.0)
+# Copilot file 07: converting Hive (sqlglot Composer 8.1)
 
 Objective: turn Hive someone else wrote into Toolbox code that gives the same rows.
 Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
 as Toolbox code.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. For a whole script, give the
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. For a whole script, give the
 convert Workflow's cells (file 13). Asked for the code by hand, answer with one Python code
 block that builds the converted Statement, then a line for each part kept as Hive.
 
@@ -1019,10 +1021,10 @@ For any Hive, one query or scripts of any length, the convert Workflow writes th
 table the Hive writes a Saved table in the Dev Database, with its Table folder, Table
 reference and its Decisions, answered in the decisions cell, and one query alone
 `<dev>.weekly_events`;
-`project.load("mart_dev.weekly_events").preview()` gives the Statement; `project.check()` lists
-each `# CONVERSION:` mark, above each opt-out the original needed. Its later steps write each
-in dev, compare each with the table it copies, and promote them. Convert by hand, as below,
-only to explain a piece.
+`project.load("mart_dev.weekly_events").preview()` gives the Statement; each Key is proposed,
+a temporary table folded into its readers. `project.check()` notes each `# CONVERSION:` mark.
+Later steps write, compare and promote each: its notebook's last cell runs them all. Convert
+by hand, as below, only to explain a piece.
 
 ## By hand: each Hive part and what it becomes
 
@@ -1094,13 +1096,13 @@ s = statement(
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.0)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.1)
 
 Objective: check that a Statement gives what it should, and that the Project is in order.
 Load this file when the user asks whether their Statement matches the Hive it replaces,
 whether a table's Key holds, what is left to do in the Project, or where a column comes from.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -1221,13 +1223,13 @@ print(v)
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.0)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.1)
 
 Objective: fix code the Toolbox refused, keeping what the user asked for.
 Load this file when the user pastes code and a message from the Toolbox, such as a
 GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with the fixed code in one
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with the fixed code in one
 Python code block, then a sentence on what changed and why.
 
 ## Always
@@ -1354,14 +1356,14 @@ s = statement(
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.0)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.1)
 
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -1493,7 +1495,7 @@ s = statement(
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: a Formula workbook's formulas into Hive (sqlglot Composer 8.0)
+# Copilot file 11: a Formula workbook's formulas into Hive (sqlglot Composer 8.1)
 
 Objective: turn an attached Excel workbook's calculations into Hive, a query per final
 Table, then into Toolbox code.
@@ -1630,7 +1632,7 @@ LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 8.0)
+# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 8.1)
 
 Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
 workbook into Hive, with file 11.
@@ -1792,11 +1794,11 @@ r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(j
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.0)
+# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.1)
 
 Objective: take the user through converting Hive and promoting it to prod, step by step,
 from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
-own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.0, a
+own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.1, a
 Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
 own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
 the Python inside a step, that step's file.
@@ -1918,12 +1920,12 @@ project.convert(NAME, None, files=FILES, query=query, database="default")
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.0)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.1)
 
 Objective: take the user through a job on their own Project, step by step, from each
 Workflow's notebook. Load this file when the user asks how to make a new Saved table, from a
 query or by hand, add Table references for tables they read, upgrade to a new Toolbox, or
-change a Saved table. You write the steps for sqlglot Composer 8.0, a Toolbox that writes Hive: the
+change a Saved table. You write the steps for sqlglot Composer 8.1, a Toolbox that writes Hive: the
 steps left, each its cell, in order. For converting Hive or promoting to prod, the user loads
 file 13; for the Python inside a step, that step's file.
 

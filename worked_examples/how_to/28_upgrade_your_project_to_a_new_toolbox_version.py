@@ -35,7 +35,7 @@ version that last wrote it, so it looks to `project.upgrade()` like a Project 7.
 ...     Path(added).unlink()
 >>> shutil.rmtree("admin/workflows")
 >>> version = Path("admin/project_version.txt")  # -> Path
->>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.0", "7.2", 1),
+>>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.1", "7.2", 1),
 ...                        encoding="utf-8")
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
@@ -50,7 +50,7 @@ notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.2, and this Toolbox is 8.0: run project.upgrade() in a
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.1: run project.upgrade() in a
     new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the
     Project has one.
 
@@ -60,11 +60,12 @@ Run `project.upgrade()` from a notebook in the Project: the first time, in a new
 admin/check_project.ipynb, which imports `project` already.
 
 >>> print(project.upgrade())
-Upgraded the Project from 7.2 to 8.0.
+Upgraded the Project from 7.2 to 8.1.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
+8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 
-It ran the step from each version to the next, here one, and wrote a checklist for each:
+It ran the step from each version to the next, here two, and wrote a checklist for each:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
@@ -113,7 +114,7 @@ Every Table folder, Table reference and Building block is registered, and each o
 Run again, the Upgrade does nothing:
 
 >>> print(project.upgrade())
-The Project is at 8.0 already, as this Toolbox is: nothing to upgrade.
+The Project is at 8.1 already, as this Toolbox is: nothing to upgrade.
 
 ## Common mistakes
 
