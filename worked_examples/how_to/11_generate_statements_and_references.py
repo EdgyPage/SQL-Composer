@@ -360,7 +360,8 @@ no variable of their own, so it numbers them in the order you passed them: in th
 statement_1 is `ops.job_runs`'s, statement_2 `ops.run_alerts`'s and statement_3
 `ops.scheduler_runs`'s, and each one's Hive, at the end of its part, names its table.
 
->>> html_file, markdown_file = export_lineage(*daily.values(), to="daily_totals.html")  # -> tuple[Path, Path]
+>>> html_file, markdown_file = export_lineage(*daily.values(),
+...                                           to="daily_totals.html")  # -> tuple[Path, Path]
 
 ## Check it worked
 
@@ -386,7 +387,8 @@ the table's columns:
 >>> matching_rows(ops.job_events, "event_typ", "fail", "2026-09-18")
 Traceback (most recent call last):
 ...
-AttributeError: job_events has no column 'event_typ'. Did you mean 'event_type'? Its columns are: event_id, job_id, event_type, minutes, dt.
+AttributeError: job_events has no column 'event_typ'. Did you mean 'event_type'? Its columns
+    are: event_id, job_id, event_type, minutes, dt.
 
 ### A partitioned table with no condition in the loop
 
@@ -397,7 +399,8 @@ The Load limit stops it, and with it the loop, naming the partition columns to f
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(region_costs) reads ops.region_costs, but filters none of its partition columns: region, dt.
+  What happened:  FROM(region_costs) reads ops.region_costs, but filters none of its partition
+                  columns: region, dt.
 ...
 
 Give each partitioned table a condition on one of its partition columns, as `reads` does.
@@ -428,7 +431,8 @@ A setting can list under `"add_up"` a column that must not be added up, such as
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
+  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is
+                  listed in does_not_add_up in its Table reference.
 ...
 
 Leave a setting's `"does_not_add_up"` out and nothing would refuse it: the total would come

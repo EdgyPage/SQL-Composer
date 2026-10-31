@@ -101,7 +101,8 @@ def test_every_statement_script_has_an_entry_with_its_title_and_why(path: Path) 
         # The numbers "Build the Example database's demonstrations" checked against pandas.
         ("repeated_rows", ["150", "7"], ["100", "7"]),
         ("regrouping", ["2026-09-21", "6"], ["2026-09-21", "3"]),
-        ("left_join_then_where", ["invoice_sync", "3", "nightly_load", "4", "report_build", "2"],
+        ("left_join_then_where",
+         ["invoice_sync", "3", "nightly_load", "4", "report_build", "2"],
          ["cache_warm", "0", "invoice_sync", "3", "nightly_load", "4", "report_build", "2"]),
         ("none_in_equals", [], ["1"]),
         ("nan_in_a_list", [], ["3"]),
@@ -123,8 +124,10 @@ def test_careless_and_fixed_sit_side_by_side_with_their_results(
 @pytest.mark.parametrize(
     ("entry_id", "message"),
     [
-        ("repeated_rows", "RepeatedRowsWarning: What happened: JOIN(run_alerts) matches on run_id"),
-        ("regrouping", "GuardRefused: What happened: sum_of(jobs_per_day.jobs_that_ran) adds up"),
+        ("repeated_rows",
+         "RepeatedRowsWarning: What happened: JOIN(run_alerts) matches on run_id"),
+        ("regrouping",
+         "GuardRefused: What happened: sum_of(jobs_per_day.jobs_that_ran) adds up"),
         ("left_join_then_where", "GuardRefused: What happened: WHERE has job_runs.dt BETWEEN"),
         ("none_in_equals", "GuardRefused: What happened: equals(job_runs.status, None)"),
         ("nan_in_a_list", "GuardRefused: What happened: is_not_in(job_runs.job_id, ...)"),
@@ -195,7 +198,8 @@ def test_a_statement_given_to_run_query_shows_its_hive() -> None:
 def test_each_entry_lists_the_toolbox_names_its_python_uses(
     entry_id: str, names: list[str]
 ) -> None:
-    listed = re.search(r'<p class="names">Toolbox names used: (.*?)</p>', entry_section(entry_id))
+    listed = re.search(r'<p class="names">Toolbox names used: (.*?)</p>',
+                       entry_section(entry_id))
     assert sorted(re.findall(r"<code>(\w+)</code>", listed.group(1))) == sorted(names)
 
 
@@ -249,7 +253,8 @@ def test_a_pandas_result_does_not_claim_to_come_from_the_example_database() -> N
 
 def test_a_statement_given_to_run_query_also_shows_its_result_as_a_table() -> None:
     # The two FAILED runs, as run_query's own docstring shows them, without pandas' index.
-    assert cells(entry_section("run_query")) == ["97", "3", "2026-09-23", "102", "2", "2026-09-24"]
+    assert cells(entry_section("run_query")) == ["97", "3", "2026-09-23",
+                                                 "102", "2", "2026-09-24"]
 
 
 def test_the_page_says_what_to_paste_for_last_n_days_and_it_reads_the_same_days() -> None:

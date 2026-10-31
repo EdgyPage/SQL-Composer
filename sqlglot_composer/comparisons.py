@@ -16,7 +16,7 @@ from typing import NoReturn
 import pandas as pd
 
 from . import kinds
-from .clauses import Statement
+from .clauses import Statement, read_bounds
 from .refusals import (
     kind_name,
     need_warehouse_call,
@@ -24,7 +24,6 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
-from .clauses import read_bounds
 from .running import (hive_without_automatic_limit, need_statement, send_logged,
                       statement_tree, statements_within)
 from .shared import counted, in_words, singular_or_plural
@@ -85,37 +84,47 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     over, as they set the session, not the rows, and any other statement is refused. It sends
     nothing to the warehouse. Its `ok` is True when the two are the same, and so is the
     Verdict itself: `if compare_hive(...):` reads as it says.
-    """
+    """  # noqa: E501 - its Verdicts are one line each, as print(...) shows them
     call = "compare_hive"
     _need_statement_and_original(statement, original, call, inspect.currentframe().f_back,
                                  "the Hive")
-    read = _columns_of(statement)
-    ours = normalised_query(hive_without_automatic_limit(statement), call, "the Statement's Hive",
-                            read)
-    theirs = normalised_query(original, call, "the original", read)
+    star_columns = _star_columns_by_table(statement)
+    ours = normalised_query(hive_without_automatic_limit(statement), call,
+                            "the Statement's Hive", star_columns)
+    theirs = normalised_query(original, call, "the original", star_columns)
     if ours == theirs:
         return Verdict(True, [f"The Statement's Hive and the original are the same query, "
                               f"{_THE_SAME}."])
-    line = next(number for number, (one, other) in enumerate(zip(ours + [None], theirs + [None]))
-                if one != other)
+    line = _first_differing_line(ours, theirs)
     return Verdict(False, [
-        f"The Statement's Hive and the original differ, {_THE_SAME}: {_matching(line)}line "
-        f"{line + 1} differs.",
+        f"The Statement's Hive and the original differ, {_THE_SAME}: "
+        f"{_matching_lines_text(line)}line {line + 1} differs.",
         *[f"  line {before + 1}, in both:          {ours[before].strip()}"
           for before in range(max(0, line - 2), line)],
-        f"  line {line + 1}, in the Statement: {_line(ours, line)}",
-        f"  line {line + 1}, in the original:  {_line(theirs, line)}",
+        f"  line {line + 1}, in the Statement: {_written_out_line(ours, line)}",
+        f"  line {line + 1}, in the original:  {_written_out_line(theirs, line)}",
     ])
 
 
-def _matching(line: int) -> str:
+def _first_differing_line(ours: list[str], theirs: list[str]) -> int:
+    """The first line, counted from 0, where two queries written out differ: where the shorter
+    ends, when it is the start of the longer."""
+    number = 0
+    while number < len(ours) and number < len(theirs) and ours[number] == theirs[number]:
+        number += 1
+    return number
+
+
+def _matching_lines_text(line: int) -> str:
     """What the first line of compare_hive's Verdict says of the lines before `line`, counted
     from 0, which match: "lines 1 to 5 match, and ", or nothing for the first."""
     if line == 0:
         return ""
     if line == 1:
         return "line 1 matches, and "
-    return f"lines 1 {'and' if line == 2 else 'to'} {line} match, and "
+    if line == 2:
+        return "lines 1 and 2 match, and "
+    return f"lines 1 to {line} match, and "
 
 
 def compare_with_original(statement: Statement, original: str, *,
@@ -194,7 +203,7 @@ def compare_with_original(statement: Statement, original: str, *,
     hand, is compared as any other: the Verdict ends with a line naming each piece, whose Hive
     the Toolbox can't look inside, and the comparison adds an entry to the Admin log, as
     run_query does for such a Statement (help(set_admin_log)).
-    """
+    """  # noqa: E501 - its Verdict lines are one line each, as print(...) shows them
     call = "compare_with_original"
     if "where" in removed:
         _refuse_where(statement, original, call)
@@ -205,70 +214,80 @@ def compare_with_original(statement: Statement, original: str, *,
                         "query, which gives back rows.")
     ours = hive_without_automatic_limit(statement)
     columns = query_columns(ours, call, "the Statement's Hive")
-    _need_the_same_columns(columns, query_columns(original, call, "the original",
-                                                  _columns_of(statement)), call)
-    kept, bounded = _kept(statement, partition, columns, call)
+    theirs = query_columns(original, call, "the original", _star_columns_by_table(statement))
+    _need_the_same_columns(columns, theirs, call)
+    given_values, bounded = _partition_values_as_hive(statement, partition, columns, call)
     if not reads_all_partitions:
-        _need_partitions_named(statement, columns, call,
-                               [name for name, _ in kept] + [name for _, name, _ in bounded])
+        named = [name for name, _ in given_values] + [name for _, name, _ in bounded]
+        _need_partitions_named(statement, columns, call, named)
+    hive = rows_compared(call, ours, original, columns, given_values, bounded, _MOST_ROWS_SHOWN)
     # Sent as run_query sends a Statement, so one holding Unchecked pieces is in the Admin log.
-    result = send_logged(statement, rows_compared(call, ours, original, columns, kept, bounded,
-                                                  _SHOWN),
-                         query, sent_for=f"compared with the original by {call}")
+    result = send_logged(statement, hive, query,
+                         sent_for=f"compared with the original by {call}")
     refuse_what_isnt_a_dataframe(result)
-    return _rows_verdict(result, columns, _where(statement, kept, bounded, reads_all_partitions),
-                         call, unchecked_calls(statement_tree(statement)))
+    where = _compared_rows_where(statement, given_values, bounded, reads_all_partitions)
+    return _rows_verdict(result, columns, where, call,
+                         unchecked_calls(statement_tree(statement)))
 
 
-def _where(statement: Statement, kept: list[tuple[str, str]],
-           bounded: list[tuple[str, str, str]], reads_all_partitions: bool) -> str:
+def _compared_rows_where(statement: Statement, given_values: list[tuple[str, str]],
+                         bounded: list[tuple[str, str, str]],
+                         reads_all_partitions: bool) -> str:
     """What a comparison's Verdict says of the rows it compared: " where dt = '...'" for the
     columns partition= named that the Statement gives, ", reading ops.job_runs where dt =
     '...'" for the tables it bounded, or, with reads_all_partitions=True, ", in every
     Partition" only where the Statement's own conditions pick none."""
-    said = " where " + " and ".join(f"{name} = {value}" for name, value in kept) if kept else ""
+    where = ""
+    if given_values:
+        where = " where " + " and ".join(f"{name} = {value}" for name, value in given_values)
     tables = list(dict.fromkeys(table for table, _, _ in bounded))
     for table in tables:
-        said += f", reading {table} where " + " and ".join(
+        where += f", reading {table} where " + " and ".join(
             f"{name} = {value}" for read, name, value in bounded if read == table)
-    if said or not reads_all_partitions or not _partitioned_tables(statement):
-        return said
-    picked = any(bounds for step in statements_within(statement)
-                 for _, bounds, _ in read_bounds(step))
-    return ", each in the Partitions its own conditions pick" if picked else (
-        ", in every Partition")
+    if where or not reads_all_partitions or not _partitioned_tables(statement):
+        return where
+    for step in statements_within(statement):
+        for _, bounds, _ in read_bounds(step):
+            if bounds:
+                return ", each in the Partitions its own conditions pick"
+    return ", in every Partition"
 
 
 # How many rows of each side that differ a comparison shows at most.
-_SHOWN = 5
+_MOST_ROWS_SHOWN = 5
 
 
 def _need_the_same_columns(ours: list[str], theirs: list[str], call: str) -> None:
     """Refuse an original whose columns aren't the Statement's, by name and in order."""
     if [name.lower() for name in ours] == [name.lower() for name in theirs]:
         return
+    fix = ("Give the original's columns the Statement's names and order, in its SELECT, "
+           "with AS where a name differs; or rename the Statement's with AS(...). A "
+           "calculation with no name, which Hive names _c0, _c1 and so on, needs a name too")
+    if "*" in theirs:
+        fix += (", and so does a *: it reads a table the Statement doesn't, so the Toolbox "
+                "doesn't know its columns. List them in place of the *.")
+    else:
+        fix += "."
     refuse(
         what=f"{call}: the original's columns aren't the Statement's: the Statement gives "
         f"{in_words(ours)}, and the original {in_words(theirs)}.",
         why="The rows are matched column by column, the first with the first and so on, so "
         "each must be the same column, by name and in order.",
-        fix="Give the original's columns the Statement's names and order, in its SELECT, "
-        "with AS where a name differs; or rename the Statement's with AS(...). A calculation "
-        "with no name, which Hive names _c0, _c1 and so on, needs a name too"
-        + (", and so does a *: it reads a table the Statement doesn't, so the Toolbox doesn't "
-           "know its columns. List them in place of the *." if "*" in theirs else "."),
+        fix=fix,
         error=ValueError,
     )
 
 
-def _kept(statement: Statement, partition: object, columns: list[str], call: str
-          ) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
+def _partition_values_as_hive(statement: Statement, partition: object, columns: list[str],
+                              call: str
+                              ) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
     """What partition= keeps, once each name and value is checked: each column the Statement
     gives, with its value as Hive; then each partitioned table it reads, by its name, with a
     partition column partition= names that the Statement doesn't give, and its value."""
     if partition is None:
         return [], []
-    example = f'partition={{"{_example(statement, columns)}": ...}}'
+    example = f'partition={{"{_example_partition_column(statement, columns)}": ...}}'
     if not isinstance(partition, dict):
         refuse(
             what=f"{call}(..., partition={python_text(partition)}): partition= is a dict of "
@@ -288,7 +307,7 @@ def _kept(statement: Statement, partition: object, columns: list[str], call: str
     tables = _partitioned_tables(statement)
     _need_known_names(partition, columns, tables, call)
     outputs = {name: column for column, name in statement._outputs}
-    kept, bounded = [], []
+    given_values, bounded = [], []
     for name, value in partition.items():
         if value is None or isinstance(value, Column):
             given = "None" if value is None else f"the column {python_text(value)}"
@@ -300,21 +319,21 @@ def _kept(statement: Statement, partition: object, columns: list[str], call: str
                 error=ValueError,
             )
         if name in columns:
-            kept.append((name, _value(value, name, outputs.get(name), call)))
+            hive = _partition_value_as_hive(value, name, outputs.get(name), call)
+            given_values.append((name, hive))
             continue
         for table in tables:
             if name in table._partitioned_by:
-                bounded.append((table._name, name,
-                                _value(value, name, getattr(table, name), call)))
-    return kept, bounded
+                hive = _partition_value_as_hive(value, name, getattr(table, name), call)
+                bounded.append((table._name, name, hive))
+    return given_values, bounded
 
 
 def _need_known_names(partition: dict[str, object], columns: list[str], tables: list[Table],
                       call: str) -> None:
     """Refuse a name partition= gives that is neither a column the Statement gives nor a
     partition column of a partitioned table it reads, `tables`."""
-    partition_columns = list(dict.fromkeys(column for table in tables
-                                           for column in table._partitioned_by))
+    partition_columns = _partition_columns(tables)
     unknown = [name for name in partition if name not in columns + partition_columns]
     if not unknown:
         return
@@ -339,13 +358,14 @@ def _need_known_names(partition: dict[str, object], columns: list[str], tables: 
     )
 
 
-def _value(value: object, name: str, column: Column | None, call: str) -> str:
+def _partition_value_as_hive(value: object, name: str, column: Column | None, call: str
+                             ) -> str:
     """A value partition= gives `name`, checked against its column, as Hive writes it."""
     return hive_text(literal(value, call=f"{call}(..., partition=...)", column=column,
                              position=f"the value of {name}", in_condition=False))
 
 
-def _columns_of(statement: Statement) -> dict[str, list[str]]:
+def _star_columns_by_table(statement: Statement) -> dict[str, list[str]]:
     """The columns of each table the Statement reads, by its database.name, as Hive gives
     them for a *: its partition columns last."""
     read = {}
@@ -370,14 +390,25 @@ def _partitioned_tables(statement: Statement) -> list[Table]:
     return tables
 
 
-def _example(statement: Statement, columns: list[str]) -> str:
+def _partition_columns(tables: list[Table]) -> list[str]:
+    """The partition columns of the tables, each named once, in the order the tables give
+    them."""
+    columns = []
+    for table in tables:
+        columns += table._partitioned_by
+    return list(dict.fromkeys(columns))
+
+
+def _example_partition_column(statement: Statement, columns: list[str]) -> str:
     """The column a fix names for partition=: a partition column of a table the Statement
     reads, one it gives first; else, where it reads no partitioned table, its first column."""
-    partition_columns = [column for table in _partitioned_tables(statement)
-                         for column in table._partitioned_by]
+    partition_columns = _partition_columns(_partitioned_tables(statement))
     if not partition_columns:
         return columns[0]
-    return next((name for name in columns if name in partition_columns), partition_columns[0])
+    for name in columns:
+        if name in partition_columns:
+            return name
+    return partition_columns[0]
 
 
 def _need_partitions_named(statement: Statement, columns: list[str], call: str,
@@ -385,35 +416,44 @@ def _need_partitions_named(statement: Statement, columns: list[str], call: str,
     """Refuse a comparison that would read every Partition of a table the Statement reads:
     one whose partition= names none of those tables' partition columns, or is left out."""
     tables = _partitioned_tables(statement)
-    if not tables or any(name in table._partitioned_by for table in tables for name in named):
+    if not tables:
         return
-    example = _example(statement, columns)
-    said = (f"partition= names {in_words(named)}, by which none of them is partitioned"
-            if named else "nothing says which Partitions to compare")
+    partition_columns = _partition_columns(tables)
+    if any(name in partition_columns for name in named):
+        return
+    example = _example_partition_column(statement, columns)
+    if named:
+        partition_names = (f"partition= names {in_words(named)}, by which none of them is "
+                           "partitioned")
+    else:
+        partition_names = "nothing says which Partitions to compare"
     refuse(
         what=f"{call}: the Statement reads {in_words([table._name for table in tables])}, "
-        f"which {singular_or_plural(len(tables), 'is', 'are')} partitioned, and {said}.",
+        f"which {singular_or_plural(len(tables), 'is', 'are')} partitioned, and "
+        f"{partition_names}.",
         why="The original may read every Partition, the whole of each table, which may be "
         "more than the cluster should read at once.",
         fix=f'Pass partition={{"{example}": ...}}, with one value of {example}, a partition '
-        f"column of {_partitioned_by(tables, example)}, to compare the rows of that Partition "
-        "alone, in the Statement and in the original; or reads_all_partitions=True to compare "
-        "the rows each one's own conditions pick.",
+        f"column of {_tables_partitioned_by(tables, example)}, to compare the rows of that "
+        "Partition alone, in the Statement and in the original; or reads_all_partitions=True "
+        "to compare the rows each one's own conditions pick.",
         error=ValueError,
     )
 
 
-def _partitioned_by(tables: list[Table], column: str) -> str:
+def _tables_partitioned_by(tables: list[Table], column: str) -> str:
     """The names of the tables partitioned by `column`, for a message."""
     return in_words([table._name for table in tables if column in table._partitioned_by])
 
 
 def _refuse_where(statement: object, original: object, call: str) -> NoReturn:
-    """Refuse where=, which check_key takes, pointing to partition=, which a comparison takes."""
+    """Refuse where=, which check_key takes, pointing to partition=, which a comparison
+    takes."""
     example = "dt"
     if isinstance(statement, Statement) and kinds.is_a_query(statement):
-        tables = _partitioned_tables(statement)
-        example = next((column for table in tables for column in table._partitioned_by), "dt")
+        partition_columns = _partition_columns(_partitioned_tables(statement))
+        if partition_columns:
+            example = partition_columns[0]
     refuse(
         what=f"{call} was given where=, which it doesn't take.",
         why="The original is Hive text, which a condition on the Statement's tables can't be "
@@ -430,9 +470,8 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
     inside."""
     wanted = 4 + len(columns) + 2
     if len(result) == 0 or len(result.columns) < wanted:
-        many = len(result.columns)
         refuse(
-            what=f"{call}: your query gave back {counted(many, 'column')} and "
+            what=f"{call}: your query gave back {counted(len(result.columns), 'column')} and "
             f"{counted(len(result), 'row')}, where the comparison gives "
             f"{wanted} columns and at least 1 row.",
             why="It reads the counts and the rows that differ from what comes back, by place.",
@@ -441,33 +480,39 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
         )
     counts = [0 if pd.isna(value) else int(value) for value in result.iloc[0, :4]]
     ours, theirs, only_ours, only_theirs = counts
-    held = (f"The Statement holds Hive written by hand, which the Toolbox can't look inside: "
-            f"{'; '.join(unchecked)}." if unchecked else None)
+    hand_written = ""
+    if unchecked:
+        hand_written = ("The Statement holds Hive written by hand, which the Toolbox can't "
+                        f"look inside: {'; '.join(unchecked)}.")
     if only_ours == 0 and only_theirs == 0:
-        return Verdict(True, [f"The Statement and the original give the same rows{where}: "
-                              f"{counted(ours, 'row')} each."] + (
-            [f"{held} The rows match, so it gives what the original gives here."]
-            if held else []))
-    shown = result.iloc[:, 4:wanted].copy()
-    shown.columns = [*columns, "in_statement", "in_original"]
-    shown = shown[shown["in_statement"].notna()]
-    shown = shown.astype({"in_statement": int, "in_original": int})
-    return Verdict(False, [
+        lines = [f"The Statement and the original give the same rows{where}: "
+                 f"{counted(ours, 'row')} each."]
+        if hand_written:
+            lines.append(f"{hand_written} The rows match, so it gives what the original gives "
+                         "here.")
+        return Verdict(True, lines)
+    differing = result.iloc[:, 4:wanted].copy()
+    differing.columns = [*columns, "in_statement", "in_original"]
+    differing = differing[differing["in_statement"].notna()]
+    differing = differing.astype({"in_statement": int, "in_original": int})
+    lines = [
         f"The Statement and the original give different rows{where}.",
         f"  The Statement gives {counted(ours, 'row')}, and the original {theirs}.",
         f"  {counted(only_ours, 'row')} {singular_or_plural(only_ours, 'is', 'are')} in the "
         f"Statement and not in the original, and {counted(only_theirs, 'row')} "
         f"{singular_or_plural(only_theirs, 'is', 'are')} in the original and not in the "
         "Statement.",
-        f"The rows that differ, at most {_SHOWN} from each, with how many times each gives "
-        "them:",
-        shown.to_string(index=False),
-        *([f"{held} Check that Hive first: the Toolbox can't trace a difference inside it."]
-          if held else []),
-    ])
+        f"The rows that differ, at most {_MOST_ROWS_SHOWN} from each, with how many times each "
+        "gives them:",
+        differing.to_string(index=False),
+    ]
+    if hand_written:
+        lines.append(f"{hand_written} Check that Hive first: the Toolbox can't trace a "
+                     "difference inside it.")
+    return Verdict(False, lines)
 
 
-def _line(lines: list[str], number: int) -> str:
+def _written_out_line(lines: list[str], number: int) -> str:
     """One line of a query written out, without its indent, or what stands where it ended."""
     if number < len(lines):
         return lines[number].strip()

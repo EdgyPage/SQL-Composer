@@ -53,7 +53,8 @@ def test_each_kind_is_one_entry() -> None:
 
 
 @pytest.mark.parametrize(("kind", "name", "stem", "shown"), [
-    (TABLE_FOLDER, "mart.daily_job_runs", "mart__daily_job_runs", "tables/mart__daily_job_runs/"),
+    (TABLE_FOLDER, "mart.daily_job_runs", "mart__daily_job_runs",
+     "tables/mart__daily_job_runs/"),
     (REFERENCE, "ops.jobs", "ops__jobs", "references/ops__jobs.py"),
     (BUILDING_BLOCK, "runs_per_job", "runs_per_job", "building_blocks/runs_per_job.py"),
 ])
@@ -123,7 +124,8 @@ def test_only_references_leave_a_database_module_out(root: Path) -> None:
 
 
 @pytest.mark.parametrize(("kind", "stem", "moved"), [
-    (TABLE_FOLDER, "mart__daily_job_runs", "admin/removed/20261021-093000-mart__daily_job_runs/"),
+    (TABLE_FOLDER, "mart__daily_job_runs",
+     "admin/removed/20261021-093000-mart__daily_job_runs/"),
     (REFERENCE, "ops__jobs", "admin/removed/20261021-093000-ops__jobs.py"),
     (BUILDING_BLOCK, "runs_per_job", "admin/removed/20261021-093000-runs_per_job.py"),
 ])
@@ -150,7 +152,8 @@ def test_a_new_registry_has_only_its_header(root: Path) -> None:
 
 def test_the_registry_lists_marks_removed_and_gives_the_rows_in_force(root: Path) -> None:
     registry = Registry(root)
-    registry.add([(TABLE_FOLDER, "mart.daily_job_runs"), (REFERENCE, "mart.daily_job_runs")], NOW)
+    registry.add([(TABLE_FOLDER, "mart.daily_job_runs"), (REFERENCE, "mart.daily_job_runs")],
+                 NOW)
     registry.add([(BUILDING_BLOCK, "runs_per_job")], NOW)
     assert registry.listed(TABLE_FOLDER, "mart.daily_job_runs")
     assert not registry.listed(BUILDING_BLOCK, "mart.daily_job_runs")

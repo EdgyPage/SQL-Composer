@@ -18,7 +18,7 @@ version.txt, the one place the version is written.
 '7.2'
 >>> VERSION
 'sqlglot Composer 7.2, ...'
-"""
+"""  # noqa: E501 - the import line is one line, to copy as it is
 
 from __future__ import annotations
 

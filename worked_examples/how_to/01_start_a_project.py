@@ -69,7 +69,8 @@ file, the call that makes it, and what you fill in:
 - `sqlglot_composer/`: copied in by you. You fill in nothing: never edit a file inside it.
 - start.ipynb, or any name you like, the notebook you run `project.start()` from: made by
   you, in Jupyter. Keep it for trying things out, or delete it.
-- `warehouse.py`: `project.start()`. You write your two functions, query and execute, in it, below.
+- `warehouse.py`: `project.start()`. You write your two functions, query and execute, in it,
+  below.
 - `admin/`, a notebook per Project action, such as new_table.ipynb, add_references.ipynb
   and run_tables.ipynb: `project.start()`. You fill in the call each holds, such as the
   table's name, and run it. Calling the same Project action from any notebook of the Project
@@ -109,10 +110,10 @@ file, the call that makes it, and what you fill in:
 - `lineage/`, beside the notebook you run it from, such as start.ipynb: the Lineage of a
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.
-- `admin/removed/`, what you archive: `project.remove_table(...)`, `project.remove_reference(...)`
-  and `project.remove_block(...)` move a file or folder here rather than delete it, as do
-  `project.finish_conversion(...)` and `project.remove_conversion(...)` with a Conversion
-  folder, and
+- `admin/removed/`, what you archive: `project.remove_table(...)`,
+  `project.remove_reference(...)` and `project.remove_block(...)` move a file or folder here
+  rather than delete it, as do `project.finish_conversion(...)` and
+  `project.remove_conversion(...)` with a Conversion folder, and
   `project.upgrade()` keeps here each file as it was before it changed it.
 
 `references/`, `building_blocks/` and `tables/` are empty for now. Each Project action refuses
@@ -154,12 +155,14 @@ runs before you touch a real table:
 \"\"\"warehouse - your two calls to the warehouse, query and execute.
 ...
 def query(hive: str) -> pd.DataFrame:
-    \"\"\"Run a Hive string that gives back rows, and give them back as a pandas DataFrame.\"\"\"
+    \"\"\"Run a Hive string that gives back rows, and give them back as a pandas
+        DataFrame.\"\"\"
     return example_database.query(hive)  # at work: your warehouse's query call
 <BLANKLINE>
 <BLANKLINE>
 def execute(hive: str) -> None:
-    \"\"\"Run a Hive string that changes something, such as a write, and give back nothing.\"\"\"
+    \"\"\"Run a Hive string that changes something, such as a write, and give back
+        nothing.\"\"\"
     example_database.execute(hive)  # at work: your warehouse's execute call
 <BLANKLINE>
 
@@ -269,7 +272,8 @@ In your own Project the list holds `sqlglot_composer` too, the Toolbox you copie
 this page's folder has neither.
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 Your query gives back a pandas DataFrame, with the column named as the Hive names it:
 
@@ -329,4 +333,4 @@ one made by hand.
 - See a Project filled in: the Starter Example project, in the folder
   example_projects/starter, is much like the Project the Getting started how-tos build; its
   README says how the two differ.
-"""
+"""  # noqa: E501 - the saved_table Template's first cell, quoted as the Template writes it

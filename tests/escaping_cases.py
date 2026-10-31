@@ -10,8 +10,8 @@ escape table, trees.HIVE_ESCAPES (see the research behind
 `sqlglot_checks/test_sqlglot_escaping_cases.py` checks them against sqlglot alone. The
 Toolbox's tests push the same cases through every way a value reaches a Statement: each
 comparison function, both ends of a range, each item of a list, a partition column's value,
-and the PARTITION an `INSERT_OVERWRITE` names. v1's tests also proved two things these cases can't, because they are
-about the Toolbox's code rather than sqlglot's:
+and the PARTITION an `INSERT_OVERWRITE` names. v1's tests also proved two things these cases
+can't, because they are about the Toolbox's code rather than sqlglot's:
 
 - **One place generates SQL.** The Toolbox calls `.sql()` in exactly one function, with
   `unsupported_level=ErrorLevel.RAISE`, and never builds SQL text with an f-string. v1 read its
@@ -64,7 +64,8 @@ STRING_CASES: tuple[tuple[str, str, str], ...] = (
     # Six more control characters, pinned as sqlglot writes them today. It writes BEL, FF, VT
     # and backspace as \a \f \v \b and reads them back itself, but Hive's reader
     # may take \a \f \v for the letters a f v. NUL and SUB reach the text raw. The Toolbox
-    # refuses the first three (REFUSED_CONTROL_CHARACTERS, below) and writes the rest as they are.
+    # refuses the first three (REFUSED_CONTROL_CHARACTERS, below) and writes the rest as
+    # they are.
     ("bell", "a\x07b", r"'a\ab'"),
     ("form_feed", "a\x0cb", r"'a\fb'"),
     ("vertical_tab", "a\x0bb", r"'a\vb'"),

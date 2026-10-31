@@ -1,4 +1,5 @@
-"""Every Guard, Load limit and Warning refuses (or warns), and its opt-out lets the Statement through.
+"""Every Guard, Load limit and Warning refuses (or warns), and its opt-out lets the Statement
+through.
 
 `refusals.py` holds each one as a function named `guard_...`, `load_limit_...` or
 `warning_...`. The last test here goes through them all and fails if one has no test named
@@ -141,7 +142,8 @@ def test_guard_unsafe_regrouping_fix_for_a_distinct_count_counts_again() -> None
 
 
 def test_guard_unsafe_regrouping_fix_for_a_distinct_count_says_when_it_applies() -> None:
-    """Averaging daily counts may be what was meant, so the fix says which question it answers."""
+    """Averaging daily counts may be what was meant, so the fix says which question it
+    answers."""
     with pytest.raises(GuardRefused) as refused:
         average_of(daily(count_distinct(job_runs.job_id)).per_day)
     fix = usual_fix(refused)
@@ -362,11 +364,13 @@ def test_a_write_fills_every_partition_its_rows_hold() -> None:
         WHERE(DAYS),
         GROUP_BY(job_runs.dt, job_runs.job_id),
     )
-    assert to_hive(backfill).startswith("INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)\n")
+    assert to_hive(backfill).startswith(
+        "INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt)\n")
 
 
 def test_a_whole_table_write_may_keep_one_day_of_what_it_reads() -> None:
-    """The kept-day Guards are gone: a write reads what it reads, and the user picks the rows."""
+    """The kept-day Guards are gone: a write reads what it reads, and the user picks the
+    rows."""
     job_counts = Table("mart.job_counts", columns={"job_id": "bigint", "runs": "bigint"},
                        location="/data/your_team/mart.db/job_counts")
     two_days = derived("two_days", statement(
@@ -584,7 +588,8 @@ loads = Table("ops.loads", columns={"n": "bigint", "region": "string", "load_id"
     lambda: equals(loads.region, "EU"), lambda: at_least(loads.load_id, 7),
     lambda: between(loads.load_id, 1, 7), lambda: is_in(loads.region, ["EU", "US"]),
 ], ids=["equals", "at_least", "between", "is_in"])
-def test_a_filter_on_any_partition_column_bounds_a_read(condition: Callable[[], object]) -> None:
+def test_a_filter_on_any_partition_column_bounds_a_read(
+        condition: Callable[[], object]) -> None:
     statement(SELECT(loads.n), FROM(loads), WHERE(condition()))
 
 
@@ -629,7 +634,8 @@ def test_load_limit_order_by_refuses() -> None:
 def test_load_limit_order_by_says_its_opt_out_isnt_for_a_derived_table() -> None:
     with pytest.raises(LoadRefused) as refused:
         statement(SELECT(jobs.job_name), FROM(jobs), ORDER_BY(jobs.job_name))
-    assert "Opt-out:        ORDER_BY(..., sorts_everything=True), but not in a Statement you "         "pass to derived(...)" in str(refused.value)
+    assert ("Opt-out:        ORDER_BY(..., sorts_everything=True), but not in a Statement you "
+            "pass to derived(...)" in str(refused.value))
 
 
 def test_load_limit_order_by_opt_out() -> None:

@@ -180,8 +180,8 @@ def test_a_partition_filter_only_in_an_unchecked_condition_warns_rather_than_ref
 
 def test_the_load_limits_opt_out_silences_that_warning() -> None:
     day = unchecked_condition("{dt} = date_format(current_date, 'yyyy-MM-dd')", dt=job_runs.dt)
-    quietly(lambda: statement(SELECT(job_runs.run_id), FROM(job_runs, reads_all_partitions=True),
-                              WHERE(day)))
+    quietly(lambda: statement(SELECT(job_runs.run_id),
+                              FROM(job_runs, reads_all_partitions=True), WHERE(day)))
 
 
 def test_an_unchecked_condition_that_names_no_partition_column_is_still_refused() -> None:
@@ -296,8 +296,8 @@ def test_text_that_cant_be_one_piece_is_refused_in_four_parts(
 
 
 @pytest.mark.parametrize(("make", "example"), [
-    pytest.param(lambda: unchecked_column(5), 'unchecked_column("upper({team})", team=jobs.team)',
-                 id="column"),
+    pytest.param(lambda: unchecked_column(5),
+                 'unchecked_column("upper({team})", team=jobs.team)', id="column"),
     pytest.param(lambda: unchecked_condition("  "),
                  "unchecked_condition(\"{job_name} LIKE '%sync'\", job_name=jobs.job_name)",
                  id="condition"),
@@ -328,7 +328,8 @@ def test_a_column_named_directly_is_refused_with_its_placeholder_written_for_you
                  id="keeps_the_columns_already_passed"),
     pytest.param(lambda: unchecked_condition("job_runs.status RLIKE '^status'"),
                  "unchecked_condition(\"{status} RLIKE '^status'\", status=job_runs.status)",
-                 lambda: unchecked_condition("{status} RLIKE '^status'", status=job_runs.status),
+                 lambda: unchecked_condition("{status} RLIKE '^status'",
+                                             status=job_runs.status),
                  id="leaves_the_same_letters_in_quotes"),
     pytest.param(lambda: unchecked_condition("upper(`job_runs`.`status`) = 'A'"),
                  "unchecked_condition(\"UPPER({status}) = 'A'\", status=job_runs.status)",
@@ -388,8 +389,8 @@ def test_its_select_is_written_at_the_top_as_with_name_as() -> None:
         GROUP_BY(table.step))))
     assert hive.startswith("WITH steps AS (\n  SELECT\n    r.run_id,\n    s AS step\n"
                            "  FROM ops.job_runs AS r\n  LATERAL VIEW")
-    assert "\n)\nSELECT\n  steps.step,\n  COUNT(*) AS runs\nFROM steps\nGROUP BY\n  steps.step" \
-        in hive
+    assert ("\n)\nSELECT\n  steps.step,\n  COUNT(*) AS runs\nFROM steps\n"
+            "GROUP BY\n  steps.step" in hive)
 
 
 def test_the_example_database_says_it_has_no_lateral_view() -> None:
@@ -499,7 +500,7 @@ def test_its_key_is_in_the_lineage_keys() -> None:
         "can't look inside its Hive to check it.")
 
 
-# --- What a Warning about Unchecked Hive says --------------------------------------------------
+# --- What a Warning about Unchecked Hive says -------------------------------------------------
 
 
 def test_the_partition_warnings_opt_out_says_what_it_means_here() -> None:

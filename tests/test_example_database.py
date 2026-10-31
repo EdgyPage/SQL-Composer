@@ -82,7 +82,8 @@ def test_its_execute_prints_the_first_line_and_changes_nothing(
 @pytest.mark.parametrize("given", [5, None, "", "   "])
 def test_its_execute_takes_only_hive_text(given: object) -> None:
     with pytest.raises(TypeError,
-                       match=r"(?s)isn't Hive text.*run_execute\(s, example_database.execute\)"):
+                       match=r"(?s)isn't Hive text.*"
+                             r"run_execute\(s, example_database.execute\)"):
         example_database.execute(given)
 
 
@@ -199,7 +200,7 @@ def test_an_underscore_or_percent_is_matched_as_itself(condition: Condition,
     assert list(run_query(s, example_database.query).job_name) == names
 
 
-# --- What it refuses ---------------------------------------------------------------------------
+# --- What it refuses --------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("hive", [
@@ -233,5 +234,6 @@ def test_its_query_takes_only_hive_text(given: int | Statement | None) -> None:
 
 
 def test_a_tables_name_is_read_whatever_its_case() -> None:
-    assert list(example_database.query("DESCRIBE OPS.Jobs").col_name)[:2] == ["job_id", "job_name"]
+    assert (list(example_database.query("DESCRIBE OPS.Jobs").col_name)[:2]
+            == ["job_id", "job_name"])
     assert len(example_database.query("SELECT job_id FROM OPS.jobs")) == 4

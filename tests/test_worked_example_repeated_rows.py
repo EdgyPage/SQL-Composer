@@ -13,7 +13,8 @@ from statements import repeated_rows as example
 
 
 def pandas_check() -> tuple[int, int, int]:
-    """The careless minutes, the right minutes and the alerts on the example's day, in pandas."""
+    """The careless minutes, the right minutes and the alerts on the example's day, in
+    pandas."""
     runs = example_rows("job_runs")
     alerts = example_rows("run_alerts")
     runs = runs[runs.dt == example.DAY]

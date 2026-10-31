@@ -1,4 +1,5 @@
-"""Conversions: Hive someone else wrote, made the user's own code. Toolbox 7.2's tickets 05 to 07.
+"""Conversions: Hive someone else wrote, made the user's own code. Toolbox 7.2's tickets 05
+to 07.
 
 project.scan_hive says what a Conversion of the Hive would make, and changes nothing;
 project.convert writes the Conversion folder, admin/conversions/<name>/, whose notebook's logic
@@ -51,28 +52,31 @@ def converted(started: Path) -> Path:
 
 
 def files(root: Path) -> list[str]:
-    return sorted(path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file())
+    return sorted(path.relative_to(root).as_posix() for path in root.rglob("*")
+                  if path.is_file())
 
 
-# --- start and the admin notebook -----------------------------------------------------------------
+# --- start and the admin notebook -------------------------------------------------------------
 
 
 def test_start_makes_the_conversions_folder_and_its_notebook(started: Path) -> None:
     assert (started / "admin" / "conversions").is_dir()
-    cells = json.loads((started / "admin" / "convert.ipynb").read_text(encoding="utf-8"))["cells"]
+    cells = json.loads((started / "admin" / "convert.ipynb").read_text(
+        encoding="utf-8"))["cells"]
     code = "".join("".join(cell["source"]) for cell in cells)
     assert 'HIVE = """' in code and "project.scan_hive(HIVE, database=DATABASE)" in code
     assert '# project.convert("your_name", HIVE, query=query, database=DATABASE)' in code
     assert '# project.finish_conversion("your_name", table="mart.your_table")' in code
 
 
-# --- scan_hive ------------------------------------------------------------------------------------
+# --- scan_hive --------------------------------------------------------------------------------
 
 
 def test_a_scan_says_what_a_conversion_would_make_and_changes_nothing(started: Path) -> None:
     before = files(started)
     said = repr(project.scan_hive(HIVE, database="ops"))
-    assert said.splitlines()[0] == "9 lines of Hive, one query reading ops.job_runs and ops.jobs."
+    assert (said.splitlines()[0]
+            == "9 lines of Hive, one query reading ops.job_runs and ops.jobs.")
     assert "No Table reference yet for ops.job_runs and ops.jobs" in said
     assert "line 4: the IN list of 4 values is the constant STATUS_VALUES" in said
     assert "the CASE on b.status is the constant OUTCOME_BY_STATUS" in said
@@ -155,7 +159,7 @@ def test_a_table_with_no_reference_needs_your_query(started: Path) -> None:
     assert not (started / "admin" / "conversions" / "job_outcomes").exists()
 
 
-# --- finish_conversion and remove_conversion ------------------------------------------------------
+# --- finish_conversion and remove_conversion --------------------------------------------------
 
 
 def test_finishing_makes_the_saved_tables_folder_and_reference(converted: Path,
@@ -195,7 +199,8 @@ def test_a_partition_the_original_wrote_is_carried_over(started: Path) -> None:
     project.convert("runs", hive, query=example_database.query, database="ops")
     project.finish_conversion("runs", table="mart.runs")
     reference = (started / "references" / "mart__runs.py").read_text(encoding="utf-8")
-    assert 'partitioned_by=["dt"],  # filled in from the original\'s PARTITION(...)' in reference
+    assert ('partitioned_by=["dt"],  # filled in from the original\'s PARTITION(...)'
+            in reference)
     # dt is one of the table's columns, though the query doesn't give it, so Table takes it.
     assert '"dt": "string",  # the original\'s partition column' in reference
     cells = json.loads((started / "tables" / "mart__runs" / "mart__runs.ipynb")
@@ -251,7 +256,7 @@ def test_a_conversion_removed_is_archived(converted: Path, started: Path) -> Non
     assert "Conversions not finished yet" not in repr(project.check())
 
 
-# --- Shapes, round trip ---------------------------------------------------------------------------
+# --- Shapes, round trip -----------------------------------------------------------------------
 
 # Hive written to break a Conversion, each converted in a started Project and its Statement
 # compared with the original: the same query, once both are written out the same way.

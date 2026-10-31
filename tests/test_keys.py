@@ -5,9 +5,9 @@ writes has a Key of its own: a GROUP_BY over the Key's columns, a SELECT_DISTINC
 row_number kept at 1 per Key in a Derived table, or a join that keeps the reading table's Key.
 A partition column the write names in partition={...} holds one value, so it is left out of the
 Key; one the write fills from its rows stays in it. unproven_key=True on the write lets one
-through, and a table with no Key is written unchecked. The same reading carries a Derived table's
-Key through key-keeping joins and a row_number kept at 1, so the repeated-rows Warning asks
-less often.
+through, and a table with no Key is written unchecked. The same reading carries a Derived
+table's Key through key-keeping joins and a row_number kept at 1, so the repeated-rows Warning
+asks less often.
 """
 
 from __future__ import annotations
@@ -58,8 +58,8 @@ per_run = Table("mart.per_run", columns={"run_id": "bigint", "job_id": "bigint",
                 partitioned_by=["dt"], key=["run_id"],
                 location=f"{BASE}/per_run")
 per_run_and_team = Table("mart.per_run_and_team", columns={
-    "run_id": "bigint", "team": "string", "dt": "string"}, partitioned_by=["dt"], key=["run_id"],
-    location=f"{BASE}/per_run_and_team")
+    "run_id": "bigint", "team": "string", "dt": "string"}, partitioned_by=["dt"],
+    key=["run_id"], location=f"{BASE}/per_run_and_team")
 newest_per_job = Table("mart.newest_per_job", columns={
     "job_id": "bigint", "run_id": "bigint", "dt": "string"}, partitioned_by=["dt"],
     key=["job_id"], location=f"{BASE}/newest_per_job")
@@ -75,7 +75,8 @@ def numbered_runs() -> Table:
     """job_runs' runs numbered per job, newest first."""
     return derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.dt,
-               AS(row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
+               AS(row_number(PARTITION_BY=job_runs.job_id,
+                             ORDER_BY=descending(job_runs.run_id)),
                   "newest_first")),
         FROM(job_runs), WHERE(on_the_day())))
 
@@ -165,7 +166,8 @@ def test_a_write_of_several_days_through_a_derived_table_keeps_the_day_in_its_ke
     assert "INSERT OVERWRITE TABLE mart.per_job PARTITION(dt)\n" in to_hive(s)
 
 
-def test_a_join_that_repeats_rows_still_shows_the_key_when_its_own_key_decides_the_rest() -> None:
+def test_a_join_that_repeats_rows_still_shows_the_key_when_its_own_key_decides_the_rest(
+) -> None:
     """Each job's owner on each of its runs: the join repeats job_owners' rows, one per run,
     and run_id, job_runs' Key, decides the job_id the two are joined on."""
     run_owner = Table("mart.run_owner", columns={"run_id": "bigint", "owner": "string",
@@ -219,8 +221,8 @@ def test_a_write_with_no_proof_is_refused_with_its_opt_out(
     name = write.__name__
     assert f"What happened: {name}(per_job) can't show that each row it writes has a Key " \
            "(job_id, dt) of its own" in said
-    assert ("job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id, so "
-            "nothing makes its rows one for each job_id, dt.") in said
+    assert ("job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id, "
+            "so nothing makes its rows one for each job_id, dt.") in said
     assert "Hive never checks a Key" in said
     assert f"Opt-out: {name}(per_job, unproven_key=True)" in said
 
@@ -275,7 +277,8 @@ def test_a_select_that_leaves_out_part_of_the_key_is_refused() -> None:
                    SELECT(job_runs.job_id, AS(job_runs.job_id, "run_id"), job_runs.dt),
                    FROM(job_runs),
                    WHERE(on_the_day()))
-    assert "job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id" in said
+    assert ("job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id"
+            in said)
 
 
 def test_unproven_key_must_be_true_or_false() -> None:

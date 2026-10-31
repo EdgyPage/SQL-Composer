@@ -55,5 +55,6 @@ def test_every_path_a_standing_doc_names_exists(doc: Path) -> None:
 
 
 def test_a_missing_path_is_caught() -> None:
-    text = "See `docs/agents/nowhere.md` and `docs/adr/`, not `<effort>/`, `/wayfinder` or `a/b`."
+    text = ("See `docs/agents/nowhere.md` and `docs/adr/`, not `<effort>/`, `/wayfinder` "
+            "or `a/b`.")
     assert named_paths(text) == ["docs/agents/nowhere.md", "docs/adr/"]

@@ -36,8 +36,10 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 The file `references/ops__job_runs.py`, after you fill it in:
@@ -222,9 +224,9 @@ A notebook imports it by its file's name:
 >>> from building_blocks.runs_per_job import runs_per_job
 >>> last_day = runs_per_job(equals(ops.job_runs.dt, "2026-09-24"))  # -> Table
 
-`run_query` runs a Statement, and a Derived table is a step inside one, so check a block alone in
-the smallest Statement that reads it: every column, with `all_columns`. Check a block like this
-before you build on it:
+`run_query` runs a Statement, and a Derived table is a step inside one, so check a block alone
+in the smallest Statement that reads it: every column, with `all_columns`. Check a block like
+this before you build on it:
 
 >>> check_last_day = statement(SELECT(all_columns(last_day)), FROM(last_day))  # -> Statement
 >>> run_query(check_last_day, query)  # -> DataFrame
@@ -291,7 +293,8 @@ imports both, builds `runs_per_job` once and hands it in.
 The registry lists the block's file, and `project.check()` finds nothing amiss:
 
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 The block, checked alone over the two days, gives the failed runs the team Statement adds up:
 
@@ -310,7 +313,8 @@ The block, checked alone over the two days, gives the failed runs the team State
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  run_query was given derived('runs_per_job', columns: job_id, dt, runs, failed_runs, minutes), which isn't a Statement.
+  What happened:  run_query was given derived('runs_per_job', columns: job_id, dt, runs,
+                  failed_runs, minutes), which isn't a Statement.
 ...
 
 Wrap it in the smallest Statement that reads it, as Import it, and check it alone does.
@@ -323,7 +327,8 @@ stops at once, with the names it has:
 >>> last_day.failed
 Traceback (most recent call last):
 ...
-AttributeError: runs_per_job has no column 'failed'. Did you mean 'failed_runs'? Its columns are: job_id, dt, runs, failed_runs, minutes.
+AttributeError: runs_per_job has no column 'failed'. Did you mean 'failed_runs'? Its columns
+    are: job_id, dt, runs, failed_runs, minutes.
 
 failed is an Alias of `ops.job_runs`, for the block to count with; what the block gives back
 is the count, `"failed_runs"`.
@@ -336,7 +341,8 @@ is the count, `"failed_runs"`.
 Traceback (most recent call last):
 ...
 FileExistsError:
-  What happened:  project.new_block("runs_per_job"): building_blocks/runs_per_job.py is already there, so nothing was made.
+  What happened:  project.new_block("runs_per_job"): building_blocks/runs_per_job.py is already
+                  there, so nothing was made.
 ...
 
 Open the file that is there, or give the new block a name of its own.

@@ -148,8 +148,8 @@ def test_a_project_has_no_todo_left_and_nothing_unregistered(
     root = inside(name)
     for path in (root / "references").glob("ops__*.py"):
         assert "# TODO" not in path.read_text(encoding="utf-8"), path.name
-    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
-                                     "registered, and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block "
+                                     "is registered, and each one registered is there.")
 
 
 @pytest.mark.parametrize("name", example_project.PROJECTS)

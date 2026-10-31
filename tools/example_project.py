@@ -47,7 +47,7 @@ import textwrap
 from collections.abc import Iterable
 from pathlib import Path
 from unittest import mock
-from types import ModuleType
+from types import FrameType, ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
@@ -175,7 +175,8 @@ def filled_in(text: str, table: str,
          f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
         ('    key=None,  # TODO: the columns that pick out one row, such as key=',
          _key_line(filling["key"])),
-        ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
+        ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct "
+         "counts",
          _does_not_add_up_line(filling["does_not_add_up"])),
     ]
     if filling.get("calls"):
@@ -231,10 +232,22 @@ def pin(sqlglot_composer: ModuleType) -> None:
     notebook, as a user runs it) and the version the lineage names."""
     from sqlglot_composer import lineage, unchecked
 
-    unchecked.now = lambda: PINNED_TIME
-    lineage.scripts_commit = lambda _folder: PINNED_COMMIT
-    lineage.calling_file = lambda _frame: None
-    lineage._version = lambda: f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"
+    def pinned_now() -> datetime.datetime:
+        return PINNED_TIME
+
+    def pinned_commit(_folder: Path) -> str:
+        return PINNED_COMMIT
+
+    def no_calling_file(_frame: FrameType) -> None:
+        return None
+
+    def pinned_version() -> str:
+        return f"sqlglot Composer {sqlglot_composer.TOOLBOX_VERSION}"
+
+    unchecked.now = pinned_now
+    lineage.scripts_commit = pinned_commit
+    lineage.calling_file = no_calling_file
+    lineage._version = pinned_version
 
 
 def write_here(name: str) -> None:
@@ -280,7 +293,8 @@ def _add_saved_tables(name: str, folder: Path) -> None:
     """Make each Saved table's Table folder, then fill in its Table reference and its notebook
     from the project's hand-written sources."""
     # The notebook reader and writer, which isn't for a user, since a user fills a notebook in
-    # by hand in Jupyter, where this tool writes the source's cells over the Template's in one go.
+    # by hand in Jupyter, where this tool writes the source's cells over the Template's in one
+    # go.
     from sqlglot_composer import notebooks, project
 
     source = SOURCES / name
@@ -307,11 +321,14 @@ def _add_conversions(name: str, folder: Path) -> None:
         project.finish_conversion(conversion, table=table)
         stem = project.table_stem(table)
         notebook = folder / "tables" / stem / f"{stem}.ipynb"
-        notebooks.write_notebook(notebook, [
-            (kind, "\n".join(line for line in text.split("\n")
-                             if not converting.CONVERSION_MARK_LINE.search(line)))
-            for kind, text in notebooks.read_cells(notebook)])
-        shutil.copyfile(source / "references" / f"{stem}.py", folder / "references" / f"{stem}.py")
+        cells = []
+        for kind, text in notebooks.read_cells(notebook):
+            kept = [line for line in text.split("\n")
+                    if not converting.CONVERSION_MARK_LINE.search(line)]
+            cells.append((kind, "\n".join(kept)))
+        notebooks.write_notebook(notebook, cells)
+        shutil.copyfile(source / "references" / f"{stem}.py",
+                        folder / "references" / f"{stem}.py")
 
 
 def _export_lineage(name: str, folder: Path) -> None:
@@ -323,8 +340,9 @@ def _export_lineage(name: str, folder: Path) -> None:
     write() that gives several, such as write_budget_overruns_1."""
     from sqlglot_composer import export_lineage, lineage, project
 
-    for table in [table for table, _ in SAVED_TABLES[name]] + [
-            table for _, table in CONVERSIONS[name]]:
+    tables = [table for table, _ in SAVED_TABLES[name]]
+    tables += [table for _, table in CONVERSIONS[name]]
+    for table in tables:
         os.chdir(folder / "tables" / project.table_stem(table))
         writes, names = [], []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
@@ -332,8 +350,10 @@ def _export_lineage(name: str, folder: Path) -> None:
             several = written if isinstance(written, list) else [written]
             writes += several
             named = f"write_{drawn.split('.', 1)[1]}"
-            names += ([named] if len(several) == 1
-                      else [f"{named}_{number}" for number in range(1, len(several) + 1)])
+            if len(several) == 1:
+                names.append(named)
+            else:
+                names += [f"{named}_{number}" for number in range(1, len(several) + 1)]
         # This tool holds no variable per write, so the names a notebook's would give are
         # pinned for this export, as pin() pins the time.
         with mock.patch.object(lineage, "statement_names", return_value=names):

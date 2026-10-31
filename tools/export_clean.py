@@ -137,14 +137,17 @@ def stamped(name: str, text: str, stamp: str) -> str:
 
 
 # Dev's version.txt: one line, the Toolbox and its version, such as "sqlglot Composer 7.2".
-DEV_VERSION_FILE = re.compile(rf"{re.escape(toolbox_registry.PRODUCT)} (?P<version>\d+\.\d+)\n?")
+DEV_VERSION_FILE = re.compile(
+    rf"{re.escape(toolbox_registry.PRODUCT)} (?P<version>\d+\.\d+)\n?")
 
 
 def toolbox_version_of(source: Path, folder: str) -> str | None:
     """The version dev's `version.txt` names, such as "7.2", or None if it holds anything but
     the one line `DEV_VERSION_FILE` reads."""
     path = source / folder / toolbox_registry.VERSION_FILE
-    found = DEV_VERSION_FILE.fullmatch(path.read_text(encoding="utf-8")) if path.is_file() else None
+    if not path.is_file():
+        return None
+    found = DEV_VERSION_FILE.fullmatch(path.read_text(encoding="utf-8"))
     return found["version"] if found else None
 
 
@@ -159,13 +162,14 @@ def version_file_text(product: str, toolbox_version: str, when: datetime.datetim
                       hashes: dict[str, str]) -> str:
     """The exported folder's version.txt: the Toolbox and its version, when and from which dev
     commit it was exported, and each other file of the folder with its git hash."""
+    note = (
+        "# Each file of this folder, and a code worked out from its contents (its git hash),\n"
+        "# so the import can warn about a file that differs. Written by the export: don't\n"
+        "# edit it.\n")
     listed = "".join(f"{hashes[name]}  {name}\n" for name in sorted(hashes))
     return (f"{product} {toolbox_version}\n"
             f"exported {when.strftime('%Y-%m-%d %H:%M')} from dev commit {commit}\n"
-            "# Each file of this folder, and a code worked out from its contents (its git hash),\n"
-            "# so the import can warn about a file that differs. Written by the export: don't\n"
-            "# edit it.\n"
-            + listed)
+            + note + listed)
 
 
 def describe_toolbox(folder: str) -> dict[str, str | list[dict[str, str | list[list[str]]]]]:
@@ -284,8 +288,8 @@ def check_dry_runs(into: Path) -> None:
         # It runs inside the Clean tree, so anything it writes would ship unstamped.
         left = [path for path in files_in(into) if path not in before]
         if left:
-            raise ExportRefused(f"{where}'s dry run left files in the Clean tree: {left}. A dry "
-                                "run only prints: take out what writes them.")
+            raise ExportRefused(f"{where}'s dry run left files in the Clean tree: {left}. A "
+                                "dry run only prints: take out what writes them.")
         if done.returncode != 0:
             raise ExportRefused(f"{where} doesn't run its dry run on main, so nothing was "
                                 f"exported:\n{last_error(done.stderr)}")
@@ -333,7 +337,8 @@ def check_offline(into: Path, paths: list[str]) -> None:
 
 
 def files_in(folder: Path) -> list[str]:
-    """Every file under `folder`, as sorted paths relative to it, such as ".github/README.md"."""
+    """Every file under `folder`, as sorted paths relative to it, such as
+    ".github/README.md"."""
     return sorted(path.relative_to(folder).as_posix() for path in folder.rglob("*")
                   if path.is_file())
 
@@ -367,7 +372,8 @@ def cheat_sheet(groups: list[dict[str, str | list[list[str]]]]) -> str:
 def how_tos_text(source: Path) -> str:
     """Each how-to's number and title, linked to it on how_to.html, under its group, such as
     "Getting started, how-tos 1 to 8:", read from the docstrings in worked_examples/how_to/ that
-    how_to.html is written from. The README is at .github/README.md, so a link goes up one folder.
+    how_to.html is written from. The README is at .github/README.md, so a link goes up one
+    folder.
 
     Each docstring's line 1 is its title and line 3 names its group, as `For: Getting started`,
     and the files' numbers give each group's first and last: the how-tos are numbered 1, 2, 3
@@ -380,22 +386,26 @@ def how_tos_text(source: Path) -> str:
         doc = ast.get_docstring(ast.parse(path.read_text(encoding="utf-8"))) or ""
         laid_out = re.match(r"(?P<title>[^\n]+)\n\nFor: (?P<group>[^\n]+)\n", doc)
         if laid_out is None:
-            raise ExportRefused(f"{HOW_TOS}/{path.name}'s docstring must start with its title on "
-                                "line 1 and `For: <its group>` on line 3, as tools/how_to_page.py "
-                                "reads it.")
+            raise ExportRefused(f"{HOW_TOS}/{path.name}'s docstring must start with its title "
+                                "on line 1 and `For: <its group>` on line 3, as "
+                                "tools/how_to_page.py reads it.")
         groups.setdefault(laid_out["group"], []).append(
             (int(path.name[:2]), laid_out["title"], path.stem[3:]))
     if not groups:
         raise ExportRefused(f"There are no how-tos in {HOW_TOS}/ for the README to list.")
-    numbers = [number for how_tos in groups.values() for number, _, _ in how_tos]
+    numbers = []
+    for how_tos in groups.values():
+        numbers += [number for number, _, _ in how_tos]
     if numbers != list(range(1, len(numbers) + 1)):
         raise ExportRefused(f"The how-tos in {HOW_TOS}/ must be numbered 1, 2, 3 and on, each "
                             "group's in a row, as tools/how_to_page.py checks.")
-    return "\n\n".join(
-        f"{group}, how-tos {how_tos[0][0]} to {how_tos[-1][0]}:\n\n"
-        + "\n".join(f"{number}. [{title}](../{toolbox_registry.FOLDER}/how_to.html#{slug})"
-                    for number, title, slug in how_tos)
-        for group, how_tos in groups.items())
+    page = f"../{toolbox_registry.FOLDER}/how_to.html"
+    sections = []
+    for group, how_tos in groups.items():
+        links = "\n".join(f"{number}. [{title}]({page}#{slug})"
+                          for number, title, slug in how_tos)
+        sections.append(f"{group}, how-tos {how_tos[0][0]} to {how_tos[-1][0]}:\n\n{links}")
+    return "\n\n".join(sections)
 
 
 def readme_text(template: str, groups: list[dict[str, str | list[list[str]]]], version: str,
@@ -412,7 +422,7 @@ def readme_text(template: str, groups: list[dict[str, str | list[list[str]]]], v
     return stamped("README.md", text, stamp)
 
 
-# --- Checks on the commit ----------------------------------------------------------------------
+# --- Checks on the commit ------------------------------------------------------------------
 
 
 def check_folder(source: Path) -> None:
@@ -429,7 +439,7 @@ def check_folder(source: Path) -> None:
             "and commit.")
 
 
-# --- Building and committing ---------------------------------------------------------------------
+# --- Building and committing ---------------------------------------------------------------
 
 
 def copied_files(folder: Path) -> list[str]:
@@ -496,8 +506,8 @@ def check_root_files(source: Path) -> None:
     """Refuse a dev commit without each file main holds at its root."""
     missing = [name for name in ROOT_FILES if not (source / name).is_file()]
     if missing:
-        raise ExportRefused(f"main ships dev's {' and '.join(missing)}, but this commit doesn't "
-                            "have it. Commit it on dev.")
+        raise ExportRefused(f"main ships dev's {' and '.join(missing)}, but this commit "
+                            "doesn't have it. Commit it on dev.")
 
 
 def copy_root_files(source: Path, into: Path) -> None:
@@ -575,7 +585,7 @@ def refusal_before_export(repo: Path) -> str | None:
     return None
 
 
-def tree_of(repo: Path, into: Path, index: Path) -> str:
+def store_tree(repo: Path, into: Path, index: Path) -> str:
     """Store the Clean tree in `into` in the repo's objects, and return the tree's hash.
 
     It uses its own index file, so the index of the `dev` checkout is never touched.
@@ -630,7 +640,7 @@ def export(repo: Path, when: datetime.datetime) -> str:
     with tempfile.TemporaryDirectory() as temporary:
         committed = committed_files(repo, dev, Path(temporary) / "dev")
         version = build(committed, Path(temporary) / "clean", when, dev)
-        tree = tree_of(repo, Path(temporary) / "clean", Path(temporary) / "index")
+        tree = store_tree(repo, Path(temporary) / "clean", Path(temporary) / "index")
     message = (f"{version}\n\nGenerated from dev {dev} by tools/export_clean.py. "
                "Never edit this branch by hand.")
     parent = ["-p", old_main] if old_main else []

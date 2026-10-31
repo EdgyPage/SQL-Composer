@@ -92,13 +92,15 @@ def test_each_example_is_what_the_tool_builds_and_its_hive_runs(name: str) -> No
 def _what_excel_would_repair(workbook: openpyxl.Workbook) -> list[str]:
     """Each place a Table's definition disagrees with its cells, which Excel "repairs" on
     opening by dropping the Table: its columns must be its headers, its filter must stop above
-    its Total Row, and each Total Row cell must be what its column says, a label or a function."""
+    its Total Row, and each Total Row cell must be what its column says, a label or a
+    function."""
     found = []
     for sheet in workbook.worksheets:
         for table in sheet.tables.values():
             rows = sheet[table.ref]
             where = f"{sheet.title}!{table.displayName}"
-            if [column.name for column in table.tableColumns] != [cell.value for cell in rows[0]]:
+            if ([column.name for column in table.tableColumns]
+                    != [cell.value for cell in rows[0]]):
                 found.append(f"{where}: its columns aren't its headers")
             totals = rows[-1] if table.totalsRowCount else ()
             data = rows[:-1] if totals else rows

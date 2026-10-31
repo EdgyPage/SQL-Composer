@@ -70,7 +70,7 @@ def test_describe_alone_says_nothing_of_the_storage(way: str) -> None:
     assert alone.columns == STORED.columns and alone.partitioned_by == ["dt"]
 
 
-# --- What it prints is what warehouses print ---------------------------------------------------
+# --- What it prints is what warehouses print --------------------------------------------------
 
 RUNS = Table("ops.runs", columns={"run_id": "bigint", "status": "string", "dt": "string"},
              partitioned_by=["dt"])
@@ -141,7 +141,7 @@ def test_the_file_formats_read_are_the_ones_create_table_writes() -> None:
     assert set(INPUT_FORMATS) == set(FILE_FORMATS)
 
 
-# --- The stand-in warehouse ---------------------------------------------------------------------
+# --- The stand-in warehouse -------------------------------------------------------------------
 
 
 SAVED = Table("mart.stand_in_runs", columns={"job_id": "bigint", "runs": "bigint",

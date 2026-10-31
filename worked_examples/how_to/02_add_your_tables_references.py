@@ -19,8 +19,8 @@ table with forty columns is forty chances to mistype a name or a type. Write the
 at once, and every notebook of the Project imports them from `references/`.
 
 A table that doesn't exist yet, such as a Saved table (a table of your own, which your
-Statements write into) you are about to create, has nothing to ask: [Save a table](#save_a_table)
-writes its file for you to fill in, and
+Statements write into) you are about to create, has nothing to ask:
+[Save a table](#save_a_table) writes its file for you to fill in, and
 [Describe a table by hand](#describe_a_table_by_hand) shows the file written in full.
 
 ## Steps
@@ -40,8 +40,9 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 
-Every step here passes that `query`; `execute` waits for a step that changes a table. Here it runs on the Example database, as warehouse.py
-holds it; at work it is your own, and you name your own tables.
+Every step here passes that `query`; `execute` waits for a step that changes a table. Here it
+runs on the Example database, as warehouse.py holds it; at work it is your own, and you name
+your own tables.
 
 ### See what a table says about itself
 
@@ -77,8 +78,10 @@ admin notebook admin/add_references.ipynb, which holds this call ready for your 
 or from any notebook in the Project's folder, as here:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 Each file is named after the database and the table joined by two underscores, `ops.jobs`
@@ -103,8 +106,8 @@ Open references/ops__job_runs.py in your editor. It imports `Table`, then makes 
 
 ### Fill in the TODOs
 
-Open each file in your editor and replace its three TODO lines. This is references/ops__job_runs.py
-with them filled in, and two Aliases of your own at the end:
+Open each file in your editor and replace its three TODO lines. This is
+references/ops__job_runs.py with them filled in, and two Aliases of your own at the end:
 
 The file `references/ops__job_runs.py`, after you fill it in:
 
@@ -148,9 +151,9 @@ The file `references/ops__job_runs.py`, after you fill it in:
   `job_runs.run_id`, so it is `key=["run_id"]`. Ask whoever owns the table if you aren't sure:
   `check_key`, below, checks it. A join uses the Key to warn you when it would repeat rows.
 - `does_not_add_up=` lists the columns that are averages, ratios or counts of different values.
-  `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs' averages
-  gives a number that means nothing, so the Toolbox refuses to add it up once it is listed
-  here.
+  `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs'
+  averages gives a number that means nothing, so the Toolbox refuses to add it up once it is
+  listed here.
 - An Alias is your own name, written by hand. `minutes` is a shorter name for
   `job_runs.duration_mins`, for you: the Hive, and the DataFrame a query gives back, still call
   the column duration_mins. `failed` names a condition on this table alone. Add `equals` to the
@@ -244,7 +247,8 @@ job_runs.status
 A Column is what the Toolbox's functions take, as you'll see in
 [Build and run a first statement](#build_and_run_a_first_statement). In an f-string, a Column
 gives the name the Hive knows it by, and a Table what follows FROM, for the rare Hive you write
-by hand ([Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references)
+by hand
+([Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references)
 shows when):
 
 >>> f"WHERE {ops.job_runs.status} = 'FAILED'"  # -> str
@@ -276,8 +280,8 @@ Run it after you edit a Table reference, and whenever the table may have changed
 ops.job_runs matches its Table reference.
 
 It gives back a Verdict: what the check found, which prints as the sentence above, and whose
-`.ok` is True when it found nothing wrong. When something differs, it lists each problem with the line to change in the file. It never
-edits the file itself.
+`.ok` is True when it found nothing wrong. When something differs, it lists each problem with
+the line to change in the file. It never edits the file itself.
 
 ### Check the Key you wrote
 
@@ -286,7 +290,8 @@ counts the rows for each Key, and lists any Key that repeats. ops.job_runs is pa
 `where=` says which Partitions to check, here those whose dt is 2026-09-24; a table that isn't
 partitioned, such as ops.jobs, is checked whole:
 
->>> check_key(ops.job_runs, query=query, where=equals(ops.job_runs.dt, "2026-09-24"))  # -> Verdict
+>>> check_key(ops.job_runs, query=query,
+...           where=equals(ops.job_runs.dt, "2026-09-24"))  # -> Verdict
 ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 >>> check_key(ops.jobs, query=query)  # -> Verdict
 ops.jobs: the key (job_id) holds.
@@ -302,7 +307,8 @@ lists each Table reference:
 >>> sorted(path.name for path in Path("references").glob("ops*.py"))
 ['ops.py', 'ops__job_runs.py', 'ops__jobs.py', 'ops__run_alerts.py']
 >>> project.check()
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 Each file matches its table:
 
@@ -322,14 +328,16 @@ the line it is on, and lists the columns the table has:
 >>> ops.job_runs.stauts
 Traceback (most recent call last):
 ...
-AttributeError: job_runs has no column 'stauts'. Did you mean 'status'? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
+AttributeError: job_runs has no column 'stauts'. Did you mean 'status'? Its columns are: run_id,
+    job_id, status, duration_mins, avg_retry_secs, dt.
 
 A misspelt table stops the same way, and lists the tables of the Database:
 
 >>> ops.job_run
 Traceback (most recent call last):
 ...
-AttributeError: ops has no table 'job_run'. Did you mean 'job_runs'? Its tables are: job_runs, jobs, run_alerts.
+AttributeError: ops has no table 'job_run'. Did you mean 'job_runs'? Its tables are: job_runs,
+    jobs, run_alerts.
 
 ### Reaching an Alias through ops
 
@@ -338,7 +346,8 @@ An Alias isn't a column of the table, so `ops` can't give it:
 >>> ops.job_runs.failed
 Traceback (most recent call last):
 ...
-AttributeError: job_runs has no column 'failed'. Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
+AttributeError: job_runs has no column 'failed'. Its columns are: run_id, job_id, status,
+    duration_mins, avg_retry_secs, dt.
 
 Import it from the table's file: `from references.ops__job_runs import failed`.
 
@@ -352,7 +361,8 @@ in `references/` writes the others, skips that one, and then stops, naming it:
 Traceback (most recent call last):
 ...
 sqlglot_composer.project.SkippedTables:
-  What happened:  add_references skipped 1 of 1 tables: ops.jobs (references/ops__jobs.py is there already).
+  What happened:  add_references skipped 1 of 1 tables: ops.jobs (references/ops__jobs.py is
+                  there already).
 ...
 
 A table whose file is there needs nothing: edit the file instead, and run

@@ -219,7 +219,8 @@ notebook's logic cell, as `project.run_tables` does, so its write() is here too:
 >>> speed = project.load("mart.run_speed")  # -> the notebook's functions
 >>> speed_step = speed.write()  # -> PythonStep
 >>> speed_step
-<Python step: building_blocks/run_speed.py:add_minutes_over_median, line 10; writes mart.run_speed>
+<Python step: building_blocks/run_speed.py:add_minutes_over_median, line 10; writes
+    mart.run_speed>
 
 It read where the function lives from the function itself: its file, from the Project's
 folder, its name, and the line its `def` is on. `show_hive` prints what it is, as comment lines,
@@ -240,7 +241,9 @@ from mart.run_speed:
 Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__slow_runs.py: fill in its <...> and TODO lines.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.run_speed, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns,
+    mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes,
+    mart.run_speed, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 The file `references/mart__slow_runs.py`, after you fill it in:
@@ -349,7 +352,8 @@ execute: SET hive.exec.dynamic.partition.mode=nonstrict
 execute: INSERT OVERWRITE TABLE mart.slow_runs PARTITION(dt)
 2 of 2: mart.slow_runs  worked
 Wrote 1 table, in order.
-Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own call saves its rows.
+Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own call saves its
+    rows.
 
 ### Export the Lineage, the step drawn as one box
 
@@ -357,8 +361,9 @@ Pass the step to `export_lineage` with the Statements around it: the one that pu
 and the write that reads what it saved:
 
 >>> slow = project.load("mart.slow_runs")  # -> the notebook's functions
->>> html_file, markdown_file = export_lineage(speed.rows(), speed_step, slow.write(),  # -> tuple[Path, Path]
-...                                           to="lineage/run_speed.html")
+>>> html_file, markdown_file = export_lineage(
+...     speed.rows(), speed_step, slow.write(),  # -> tuple[Path, Path]
+...     to="lineage/run_speed.html")
 
 The chart draws the step as one box, "Python step", naming the function and its line, with
 an arrow in from each column it read and out to each column of mart.run_speed. The Toolbox
@@ -401,7 +406,8 @@ Save the rows with your own call, and pass the step to `export_lineage`.
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  python_step was given a DataFrame, where the function that made the change goes.
+  What happened:  python_step was given a DataFrame, where the function that made the change
+                  goes.
 ...
 
 Pass the function's name alone, with no brackets after it.
@@ -423,7 +429,8 @@ Write the change with `def` and a name, in a Building block that `project.new_bl
 
 - Compare the Lineage before and after you change the function:
   [Review and test a change](#review_and_test_a_change).
-- More of what pandas does with the rows `run_query` gives back: [Look across rows](#look_across_rows).
+- More of what pandas does with the rows `run_query` gives back:
+  [Look across rows](#look_across_rows).
 - The gallery's [`python_step`](examples.html#python_step) and
   [`export_lineage`](examples.html#export_lineage) entries.
-"""
+"""  # noqa: E501 - the files it writes, byte for byte, and a step with no brackets to break in

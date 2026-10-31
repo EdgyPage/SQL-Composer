@@ -40,7 +40,8 @@ SHIPPED = f"sqlglot Composer {VERSION}, exported 2026-10-02 14:05"
 
 def dev_toolbox_files() -> list[str]:
     return sorted(
-        path.name for path in (ROOT / "sqlglot_composer").iterdir() if path.name != "__pycache__"
+        path.name for path in (ROOT / "sqlglot_composer").iterdir()
+        if path.name != "__pycache__"
     )
 
 
@@ -55,7 +56,8 @@ def clean(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return folder
 
 
-@pytest.mark.parametrize("name", [name for name in dev_toolbox_files() if name != "version.txt"])
+@pytest.mark.parametrize("name", [name for name in dev_toolbox_files()
+                                  if name != "version.txt"])
 def test_each_toolbox_file_is_devs_own_word_for_word(clean: Path, name: str) -> None:
     """No stamp, no file list: an export changes only the files whose content changed."""
     exported = (clean / "sqlglot_composer" / name).read_text(encoding="utf-8")
@@ -63,7 +65,8 @@ def test_each_toolbox_file_is_devs_own_word_for_word(clean: Path, name: str) -> 
 
 
 def test_the_version_file_says_when_and_from_which_commit(clean: Path) -> None:
-    lines = (clean / "sqlglot_composer" / "version.txt").read_text(encoding="utf-8").splitlines()
+    lines = (clean / "sqlglot_composer" / "version.txt").read_text(
+        encoding="utf-8").splitlines()
     assert lines[:2] == [f"sqlglot Composer {VERSION}",
                          f"exported 2026-10-02 14:05 from dev commit {COMMIT}"]
 
@@ -98,7 +101,8 @@ def test_the_cheat_sheet_has_one_line_per_public_name(clean: Path) -> None:
 def test_the_cheat_sheet_groups_names_by_file_with_their_first_lines(clean: Path) -> None:
     text = readme(clean)
     running = text.split("### `running.py`\n", 1)[1].split("###", 1)[0]
-    assert "Running: turn a Statement into Hive, send it, and set the load limit on rows" in running
+    assert ("Running: turn a Statement into Hive, send it, and set the load limit on rows"
+            in running)
     assert "- `to_hive` - The Hive string for a Statement, ready to send.\n" in running
     constants = text.split("### `__init__.py`\n", 1)[1]
     assert (f"- `TOOLBOX_VERSION` = `{VERSION!r}` - the feature number, raised only when a big "
@@ -153,7 +157,8 @@ def exported_files() -> list[str]:
 
 
 def test_the_clean_tree_holds_only_the_allowlist(clean: Path) -> None:
-    held = sorted(path.relative_to(clean).as_posix() for path in clean.rglob("*") if path.is_file())
+    held = sorted(path.relative_to(clean).as_posix() for path in clean.rglob("*")
+                  if path.is_file())
     assert held == exported_files()
 
 
@@ -301,7 +306,8 @@ def dev_copy(folder: Path) -> Path:
 @pytest.mark.parametrize("name", ["CHANGES.md", "LICENSE", "requirements.txt"])
 def test_main_holds_devs_root_files_word_for_word(clean: Path, name: str) -> None:
     # Unstamped: GitHub reads the license as is, and pip reads requirements.txt as is.
-    assert (clean / name).read_text(encoding="utf-8") == (ROOT / name).read_text(encoding="utf-8")
+    assert ((clean / name).read_text(encoding="utf-8")
+            == (ROOT / name).read_text(encoding="utf-8"))
 
 
 def test_main_holds_the_mit_no_attribution_license(clean: Path) -> None:
@@ -423,7 +429,8 @@ def test_the_export_refuses_while_main_is_checked_out_in_a_worktree(repo: Path) 
 
 
 def _main_commit(repo: Path) -> str:
-    """The commit `main` points at, or "" where there is no local `main`, as in CI's checkout."""
+    """The commit `main` points at, or "" where there is no local `main`, as in CI's
+    checkout."""
     return git(repo, "for-each-ref", "--format=%(objectname)", "refs/heads/main")
 
 
@@ -439,7 +446,7 @@ def test_preview_builds_into_a_folder_and_commits_nothing(
     assert _main_commit(ROOT) == main_before
 
 
-# --- The Toolbox's folder and the copies --------------------------------------------------------
+# --- The Toolbox's folder and the copies ------------------------------------------------------
 
 
 def test_the_example_projects_are_stamped_to_copy(clean: Path) -> None:
@@ -488,7 +495,8 @@ def _short(version: str) -> str:
 
 
 def test_the_readme_says_what_the_toolbox_needs_as_its_engine_checks_it() -> None:
-    template = " ".join((ROOT / export_clean.README_TEMPLATE).read_text(encoding="utf-8").split())
+    template = " ".join(
+        (ROOT / export_clean.README_TEMPLATE).read_text(encoding="utf-8").split())
     sql = _range_of("sqlglot_composer")
     python = re.search(r"^_PYTHON_NEEDED = \((\d+), (\d+)\)$",
                        (ROOT / "sqlglot_composer" / "checks.py").read_text(encoding="utf-8"),
@@ -644,7 +652,7 @@ def test_an_example_project_is_read_for_network_code_before_its_dry_run_runs_it(
 
 
 def test_the_allowlist_takes_only_the_exported_folders() -> None:
-    paths = ["composer_core/tables.py", "sqlglot_composer/writing.py", "other_composer/writing.py",
-             ".github/README.md"]
+    paths = ["composer_core/tables.py", "sqlglot_composer/writing.py",
+             "other_composer/writing.py", ".github/README.md"]
     assert export_clean.outside_allowlist(paths) == ["composer_core/tables.py",
                                                      "other_composer/writing.py"]

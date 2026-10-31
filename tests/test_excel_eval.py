@@ -1,10 +1,12 @@
-"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16 and 19 to 22).
+"""The Copilot evaluation's Excel tasks, and their scorer (Toolbox 7.2, tickets 16 and 19
+to 22).
 
 `tools/excel_eval_tasks.py` holds 78 filled-in Formula workbooks, 39 dev and 39 held out, with
-everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in Hive,
-SQLite holding the Example database's rows. Every task's reference, written as a reply would
-be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and the
-stand-in Hive gives the Example database's own rows wherever its executor can run a reference.
+everything covered in each split; `tools/excel_eval.py` scores a reply's Hive on a stand-in
+Hive, SQLite holding the Example database's rows. Every task's reference, written as a reply
+would be, scores a pass; each kind of wrong reply fails on the check meant to catch it; and
+the stand-in Hive gives the Example database's own rows wherever its executor can run a
+reference.
 """
 
 from __future__ import annotations
@@ -235,9 +237,11 @@ def test_the_stand_in_hive_runs_hives_functions_sqlite_lacks(hive: sqlite3.Conne
 def test_a_rollup_or_grouping_sets_runs_as_one_group_by_per_set(
         hive: sqlite3.Connection) -> None:
     totals = [(1, 67, 4), (2, 53, 3), (3, 60, 2), (None, 180, 9)]
-    for group_by in ("job_id WITH ROLLUP", "ROLLUP(job_id)", "job_id GROUPING SETS (job_id, ())"):
+    for group_by in ("job_id WITH ROLLUP", "ROLLUP(job_id)",
+                     "job_id GROUPING SETS (job_id, ())"):
         assert sorted(stand_in(hive, "WITH r AS (SELECT * FROM ops.job_runs) SELECT job_id, "
-                                     f"SUM(duration_mins), COUNT(*) FROM r GROUP BY {group_by}"),
+                                     "SUM(duration_mins), COUNT(*) FROM r "
+                                     f"GROUP BY {group_by}"),
                       key=repr) == sorted(totals, key=repr), group_by
 
 
