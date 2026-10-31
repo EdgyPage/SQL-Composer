@@ -14,7 +14,7 @@ from sqlglot_composer import workflows
 
 # Each Workflow's fiddling steps when Toolbox 8.0 began (2026-10-30), the baseline 8.0 takes to
 # nothing.
-FIDDLING_AT_MOST = {"convert": 9, "promote": 3, "new_table": 1, "references": 1, "upgrade": 0,
+FIDDLING_AT_MOST = {"convert": 11, "promote": 3, "new_table": 1, "references": 1, "upgrade": 0,
                     "change_a_saved_table": 1}
 
 

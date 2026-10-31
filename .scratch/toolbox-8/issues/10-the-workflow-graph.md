@@ -48,11 +48,37 @@ they refactor.
   - no gaps;
   - every step one of the four kinds;
   - each Workflow's fiddling at or below its baseline.
-- **The baseline, 2026-10-30:** convert 9 of 15 steps, promote 3 of 4, new_table 1 of 5,
-  references 1 of 4, upgrade 0 of 2, and change_a_saved_table 1 of 4. Fifteen fiddling steps
-  in all.
+- **The baseline, 2026-10-30, after the reviews:** convert 11 of 19 steps, promote 3 of 4, new_table 1 of 5,
+  references 1 of 4, upgrade 0 of 2, and change_a_saved_table 1 of 4. Seventeen fiddling
+  steps in all.
 - **CONTEXT.md gains Workflow.**
 
 Left for ticket 12, which uses it: the function that tells whether a step is done, read from
 the Project's files. Writing it now would read today's layout, which ticket 12 replaces, and
 nothing would call it yet.
+
+Reviews:
+- **Standards (sonnet).** Taken:
+  - one table, `DRAWN`, says how each kind is drawn, in place of three parallel ones;
+  - each step's call is drawn, so the field is read;
+  - `available` and `gap_lines` are named for what they hold;
+  - the tool writes nothing while a gap stands, as its docstring says.
+
+  Answered: `workflows.py` sits in the Toolbox because ticket 12 builds `check()`,
+  `do_next()` and the Workflow notebooks from it. The ticket's "no classes" meant no class
+  hierarchy to study first; two frozen dataclasses are plain records.
+- **Spec (sonnet).** Taken:
+  - convert gains the hand steps it missed: setting `DATABASE` (a decision), dropping a
+    `CREATE` an `INSERT` fills (folded into the CTAS step), and deleting the compare cells a
+    Table notebook keeps;
+  - the Table reference's fill-in is split into `<COLUMN_TYPE>` and partitions (fiddling,
+    since DESCRIBE answers them), `<LOCATION>` (fiddling) and the Key (a decision);
+  - the compare runs before finishing, as how-to 27 does it;
+  - writing in dev needs the filled-in source references;
+  - the step no Toolbox function does today says so.
+
+  Convert's baseline is now 11 of 19, so 17 in all, set by this same ticket's recount.
+  The per-step done function moved to ticket 12's Done-when list, where it is used.
+- **Drift D307** (a file step's definition left out `show_hive`): the definition now reads
+  "touches only files, or only prints, never the Warehouse" in `workflows.py`,
+  `docs/workflows.md` and CONTEXT.md.
