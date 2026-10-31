@@ -1067,10 +1067,12 @@ def notebook_path(root: Path, workflow: Workflow) -> Path:
 
 def inputs_cell(workflow: Workflow) -> str:
     """The first code cell of a Workflow's notebook: each input, empty, with what to write."""
-    lines = []
-    for each in workflow.inputs:
-        lines.append(f"{each.name} = {each.empty!r}  # {each.about}")
-    return "\n".join(lines)
+    return "\n".join(input_line(each, each.empty) for each in workflow.inputs)
+
+
+def input_line(given: Input, value: object) -> str:
+    """One input's line of a Workflow notebook's names cell, holding `value`."""
+    return f"{given.name} = {value!r}  # {given.about}"
 
 
 # The decisions cell of a Workflow whose step waits on Decisions.
@@ -1100,6 +1102,14 @@ def step_said(workflow: Workflow, step: Step) -> str:
 def step_cell(number: int, workflow: Workflow, step: Step) -> str:
     """A step's markdown cell in its Workflow's notebook: its number, name and kind."""
     return f"## {number}. {step.name}\n\nIt {step_said(workflow, step)}."
+
+
+def step_name_of(cell: str) -> str | None:
+    """The step's name a step's markdown cell, as step_cell writes it, heads; None for any
+    other cell."""
+    if not cell.startswith("## "):
+        return None
+    return cell.split("\n")[0].split(". ", 1)[-1]
 
 
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
@@ -1151,7 +1161,8 @@ def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
         source = "".join(cell.get("source", []))
         if cell.get("cell_type") != "code":
             continue
-        if source.startswith(first_line):
+        # A names cell may start with an UPGRADE mark an Upgrade put above its first line.
+        if any(line.startswith(first_line) for line in source.split("\n")):
             given.update(_plain_assignments(source, names))
         elif source.startswith(f"{DECISIONS} ="):
             given.update(_plain_assignments(source, {DECISIONS}))

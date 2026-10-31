@@ -25,6 +25,8 @@ from sqlglot_composer import project, set_admin_log
 
 NOW = datetime.datetime(2026, 10, 26, 9, 30, 0)
 VERSION = sqlglot_composer.TOOLBOX_VERSION
+# The step the tests of a Conversion 7.2 left open read the marks and checklist of.
+STEP_8_0 = "8.0"
 ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 # What each Example project gained by hand in this version, which no Upgrade makes, left out of
@@ -37,7 +39,7 @@ GAINED_BY_HAND = {
     "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
                      "references/mart__team_failures.py", "tables/mart__team_failures/",
                      "admin/workflows/convert/finished/"),
-    "starter": ("README.md", "admin/databases.py"),
+    "starter": ("README.md", "admin/databases.py", "references/mart__alerts_per_severity.py"),
 }
 # What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
 # check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and
@@ -145,7 +147,8 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[:2] == [
         f"Upgraded the Project from 7.1 to {VERSION}.",
         "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did."]
-    assert said[2].startswith(f"{VERSION}: ")
+    assert said[2].startswith("8.0: ")
+    assert said[3].startswith(f"{VERSION}: ")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -393,7 +396,7 @@ def test_an_open_conversions_hive_is_put_beside_the_convert_workflow(open_in_7_2
 
 def test_an_open_conversions_folder_is_kept_as_it_was(open_in_7_2: Path) -> None:
     project.upgrade()
-    kept = (open_in_7_2 / "admin" / "removed" / f"20261026-093000-upgrade_{VERSION}" / "admin"
+    kept = (open_in_7_2 / "admin" / "removed" / f"20261026-093000-upgrade_{STEP_8_0}" / "admin"
             / "conversions" / "team_runs")
     assert sorted(path.name for path in kept.iterdir()) == [
         "original.hql", "scan.md", "team_runs.ipynb"]
@@ -403,11 +406,11 @@ def test_an_open_conversions_folder_is_kept_as_it_was(open_in_7_2: Path) -> None
 def test_the_convert_workflow_is_marked_to_convert_it_again(open_in_7_2: Path) -> None:
     project.upgrade()
     mark, name = names_cell(open_in_7_2).split("\n")[:2]
-    assert mark.startswith(f'# UPGRADE {VERSION}: convert team_runs again, as a batch: NAME = '
+    assert mark.startswith(f'# UPGRADE {STEP_8_0}: convert team_runs again, as a batch: NAME = '
                            '"team_runs", FILES = ["team_runs.hql"], and DATABASE as 7.2\'s '
                            "admin/convert.ipynb set it")
     assert name.startswith("NAME =")
-    checklist = (open_in_7_2 / "admin" / f"upgrade_{VERSION}.md").read_text(encoding="utf-8")
+    checklist = (open_in_7_2 / "admin" / f"upgrade_{STEP_8_0}.md").read_text(encoding="utf-8")
     assert ("- [ ] admin/workflows/convert/convert.ipynb, cell 3, line 1: convert team_runs "
             "again") in checklist
 
@@ -416,7 +419,7 @@ def test_each_call_to_finish_conversion_is_marked(open_in_7_2: Path) -> None:
     project.upgrade()
     lines = (open_in_7_2 / "finish.py").read_text(encoding="utf-8").split("\n")
     assert lines[2:5] == [f"# {FINISHING}",
-                          f"# UPGRADE {VERSION}: finish_conversion is gone: delete this line, "
+                          f"# UPGRADE {STEP_8_0}: finish_conversion is gone: delete this line, "
                           "convert the Hive again in admin/workflows/convert/convert.ipynb, "
                           "and promote its table for the name you gave here",
                           FINISHING]
@@ -429,7 +432,7 @@ def test_a_call_in_a_cell_with_a_magic_is_marked(open_in_7_2: Path) -> None:
     project.upgrade()
     cells = json.loads(notebook.read_text(encoding="utf-8"))["cells"]
     assert cells[1]["source"][0] == "%time\n"
-    assert cells[1]["source"][1].startswith(f"# UPGRADE {VERSION}: finish_conversion is gone")
+    assert cells[1]["source"][1].startswith(f"# UPGRADE {STEP_8_0}: finish_conversion is gone")
     assert "UPGRADE" not in "".join(cells[0]["source"])
 
 
@@ -444,7 +447,7 @@ def test_a_conversion_with_no_hive_says_where_its_files_are_kept(open_in_7_2: Pa
 
 def test_each_name_databases_py_still_holds_unfilled_is_marked(open_in_7_2: Path) -> None:
     assert repr(project.upgrade()).split("\n")[1].startswith(
-        f"{VERSION}: 4 changes for you to make")
+        f"{STEP_8_0}: 4 changes for you to make")
     lines = (open_in_7_2 / "admin" / "databases.py").read_text(encoding="utf-8").split("\n")
     marked = [number for number, line in enumerate(lines) if line.startswith("# UPGRADE")]
     assert [lines[number + 1].split(" =")[0] for number in marked] == ["DEV", "PROD"]
@@ -457,7 +460,7 @@ def test_a_filled_in_name_is_not_marked(open_in_7_2: Path) -> None:
     project.upgrade()
     lines = databases.read_text(encoding="utf-8").split("\n")
     assert [line for line in lines if line.startswith("# UPGRADE")] == [
-        f"# UPGRADE {VERSION}: fill in your Prod Database's name"]
+        f"# UPGRADE {STEP_8_0}: fill in your Prod Database's name"]
 
 
 def test_a_template_you_changed_is_marked_and_one_as_written_is_written_again(
@@ -468,6 +471,22 @@ def test_a_template_you_changed_is_marked_and_one_as_written_is_written_again(
     changed.write_text(changed.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
     monkeypatch.chdir(copy)
     project.upgrade()
-    assert "# UPGRADE 8.0: new_table now writes" in changed.read_text(encoding="utf-8")
+    assert f"# UPGRADE {VERSION}: new_table now writes" in changed.read_text(encoding="utf-8")
     written = (copy / "admin" / "templates" / "saved_table.py").read_text(encoding="utf-8")
     assert "PARTITIONED_BY = [" in written
+
+
+def test_a_name_given_under_an_upgrade_mark_stays_given(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.0" / "starter", copy)
+    notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
+    notebooks = toolbox_module("notebooks")
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if text.startswith("NAME = "):
+            notebooks.write_cell_text(notebook, number, "# UPGRADE 8.0: convert it again\n"
+                                      + text.replace("NAME = ''", "NAME = 'weekly'"))
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    names = next(text for kind, text in notebooks.read_cells(notebook) if "NAME = " in text)
+    assert names.startswith("# UPGRADE 8.0: convert it again\nNAME = 'weekly'")

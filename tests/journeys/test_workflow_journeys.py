@@ -547,6 +547,9 @@ def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
                  key=upgrades.version_numbers)
     root = tmp_path / "starter"
     shutil.copytree(ROOT / "tests" / "upgrade_from" / before / "starter", root)
+    # A Template the user changed, which the Upgrade can't write again, so it marks it.
+    template = root / "admin" / "templates" / "quality_checks.py"
+    template.write_text(template.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
     hand_edits: dict[str, list[str]] = {}
     yield Started(root, monkeypatch, Warehouse(database="ops"), hand_edits)
     forget_the_projects_modules()

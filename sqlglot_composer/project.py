@@ -151,6 +151,8 @@ FOLDERS = ("admin", "references", "building_blocks", "tables")
 WAREHOUSE = "warehouse.py"
 # The one file a Project held before 7.0, in warehouse.py's place: check() reports it.
 OLD_SEND = "send.py"
+# A converted table's checklist.md's heading, before the table's name.
+CHECKLIST_HEADING = "# Checklist: "
 # The Workflow a batch of one is made for, when new_table makes a table from its query.
 NEW_TABLE_WORKFLOW = "new_table"
 # The Template a Building block is made from, in admin/templates/.
@@ -607,10 +609,17 @@ def _refuse_queries_it_cant_make(names: str | list[str], queries: dict[str, str]
 
 def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file: str,
                                  call: str) -> None:
-    """Refuse one table's query: the table outside the Dev Database, Hive that isn't one
-    query, or a query reading a table with no Table reference, which convert would DESCRIBE
-    through a query new_table hasn't."""
+    """Refuse one table's query: a table with a Table folder already, as new_table refuses
+    one, the table outside the Dev Database, Hive that isn't one query, or a query reading a
+    table with no Table reference, which convert would DESCRIBE through a query new_table
+    hasn't."""
     database, table = split_table_name(name)
+    if TABLE_FOLDER.path(root, table_stem(name)).exists():
+        refuse(what=f"{call}: {name} has a Table folder already, so nothing was made.",
+               why="A table is made from its query once; converting it again writes over "
+               "the files of the one there.",
+               fix=f"Open {TABLE_FOLDER.shown(table_stem(name))}. To make it again, archive it "
+               f'first with project.remove_table("{name}").', error=FileExistsError)
     if database != dev:
         refuse(what=f"{call}: {name} is in {database}, not your Dev Database, {dev}.",
                why="A table made from a query is made in dev, a batch of one, compared with "
@@ -1692,10 +1701,11 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.0.
+    Upgraded the Project from 7.1 to 8.1.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
+    8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
     cell of admin/check_project.ipynb, which imports project already, or of
@@ -2599,7 +2609,7 @@ def _checklist_text(root: Path, dev: str, notes: list[str]) -> str:
     read from its Table reference, then its notes."""
     reference = REFERENCE.shown(REFERENCE.stem(dev))
     still_open = decisions.open_decisions(workflows.file_text(root / reference), dev)
-    lines = [f"# Checklist: {dev}", "",
+    lines = [f"{CHECKLIST_HEADING}{dev}", "",
              "Written again each time its Decisions are written: don't tick or edit it. Answer "
              "each open Decision in the decisions cell of "
              "admin/workflows/convert/convert.ipynb.", "", "## Open Decisions", ""]
@@ -3158,6 +3168,30 @@ def _refuse_answers_not_by_table(call: str, answers: object) -> None:
         '["job_id"]}}, a table\'s name, then its answers.',
         given=answers, call=call,
     )
+
+
+def checklists_written_again(root: Path) -> dict[str, str]:
+    """Each converted table's checklist.md, by its path in the Project, as this version writes
+    it, the view of its Decisions, its notes kept: each that differs from the file there, for an
+    Upgrade to write, keeping the file as it was."""
+    texts = {}
+    for checklist in sorted((root / "tables").glob(f"*/{CONVERSION}/{CHECKLIST}")):
+        text = checklist.read_text(encoding="utf-8")
+        table = _checklist_table(text)
+        if table is None:
+            continue
+        rewritten = _checklist_text(root, table, _notes_of(text))
+        if rewritten != text:
+            texts[checklist.relative_to(root).as_posix()] = rewritten
+    return texts
+
+
+def _checklist_table(text: str) -> str | None:
+    """The table a checklist.md is of, from its heading, as _checklist_text writes it."""
+    heading = text.split("\n", 1)[0]
+    if not heading.startswith(CHECKLIST_HEADING):
+        return None
+    return heading.removeprefix(CHECKLIST_HEADING).strip()
 
 
 def _write_checklist_again(root: Path, table: str) -> None:

@@ -22,9 +22,11 @@ block the user can paste into a notebook cell or a file, then a few plain senten
 2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
    runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
    reference from the warehouse's own description, so its columns and types are right.
-   The user fills in `key=` by hand, where it says TODO.
-3. A new Saved table, one the user's notebook will write: write the Table reference by
-   hand, or let `project.new_table("mart.job_day_runs")` start it (file 06).
+   Its Key is a Decision: the user answers it in the notebook's decisions cell,
+   `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, and the next step writes it in.
+3. A new Saved table, one the user's notebook will write: the new_table Workflow (file 14)
+   writes its Table reference from its logic, `project.reference_from_logic(TABLES)`, or from
+   its query; the user answers its location in the decisions cell.
 4. Table's arguments:
    - `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
      order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,

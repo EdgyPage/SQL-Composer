@@ -4,7 +4,29 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 8.1
 
-8.1 is being built on dev; this section grows with it, and ships when it is done.
+8.1 takes the hand edits out of the Workflows. What only you decide of a table, a Decision, is
+answered in the Workflow notebook's decisions cell and written in for you; a converted or new
+table's Key is proposed from its query; a long script's staging table is folded; a new table is
+made from its query, or its Table reference written from its logic; and each notebook's last
+cell, `project.run_workflow(...)`, runs every step left.
+
+### To update from 8.0
+
+- **Copy in 8.1's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, and read
+  `admin/upgrade_8.1.md`. Each Workflow notebook in `admin/workflows/` is written again, kept
+  as it was in `admin/removed/`: it gains a decisions cell where its steps wait on Decisions,
+  its new inputs and steps, and its last cell, `project.run_workflow(...)`. Each name you gave
+  in its names cell stays, and so does each step cell you write in, such as
+  change_a_saved_table's Admin statement.
+- **The Templates in `admin/templates/`** that new_table copies are written again where they
+  are still as 8.0 wrote them; one you changed is marked `# UPGRADE 8.1:`, to copy what
+  changed from a new Project's, such as the logic's `PARTITIONED_BY`.
+- **Each converted table's `conversion/checklist.md`** is written again as the view of its
+  Decisions, made or open: there are no boxes to tick. A Decision you made by editing its Table
+  reference stays made.
+
+### What's new
 
 - **Decisions, answered in the Workflow's notebook.** What only you can decide of a table,
   its location, its Key, or a column type a Conversion could only guess, is a Decision: you
@@ -185,9 +207,6 @@ Conversion now makes its Saved tables itself.
 - **A line of yours that calls `finish_conversion`** is marked `# UPGRADE 8.0:`: delete it.
   The table it named, such as `mart.team_runs`, is now your Prod copy: set `PROD` to its
   database, `mart`, and promote the batch's table with the promote Workflow.
-- **The Templates in `admin/templates/`** that new_table copies are written again where they
-  are still as 7.2 wrote them; one you changed is marked `# UPGRADE 8.0:`, to copy what
-  changed from a new Project's, such as the logic's `PARTITIONED_BY`.
 
 ### Also new
 

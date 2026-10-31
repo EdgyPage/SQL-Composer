@@ -3,10 +3,9 @@
 Why: its notebook saves the day's count of low and high alerts, so a dashboard of alerts
 reads two rows a day rather than every alert.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table's Table reference is filled in by hand, since the table doesn't exist until its
-notebook's create() makes it from this file. Its notebook's text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, and it was
+then written by hand, which keeps it yours: project.reference_from_logic would have written it
+from the table's logic. Its notebook's text cell says which columns it lists, and its Key.
 """
 
 from sqlglot_composer import Table
