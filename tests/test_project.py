@@ -771,9 +771,66 @@ def test_add_references_refuses_send_naming_query(started: Path) -> None:
     assert list((started / "references").iterdir()) == []
 
 
-def test_add_references_refuses_a_name_where_a_list_goes(started: Path) -> None:
+def test_add_references_takes_one_name_as_well_as_a_list(started: Path) -> None:
+    # Toolbox 8.0, ticket 11: every Project action takes one name or a list of them.
+    report = project.add_references("ops.jobs", query=example_database.query)
+    assert (started / "references" / "ops__jobs.py").exists()
+    assert "references/ops__jobs.py" in repr(report)
+
+
+def test_add_references_refuses_what_is_neither_a_name_nor_a_list(started: Path) -> None:
     with pytest.raises(ValueError, match="names isn't a list of tables"):
-        project.add_references("ops.jobs", query=example_database.query)
+        project.add_references(5, query=example_database.query)
+
+
+# --- One name or many (Toolbox 8.0, ticket 11) ------------------------------------------------
+
+
+def test_a_list_of_names_does_each_in_turn_in_one_report(started: Path) -> None:
+    report = project.new_table(["mart.daily_job_runs", "mart.weekly_job_runs"])
+    for stem in ("mart__daily_job_runs", "mart__weekly_job_runs"):
+        assert (started / "tables" / stem / f"{stem}.ipynb").exists()
+    assert repr(report).count("Made tables/") == 2
+    project.remove_table(["mart.daily_job_runs", "mart.weekly_job_runs"])
+    assert not (started / "tables" / "mart__daily_job_runs").exists()
+
+
+def test_one_name_refused_stops_the_rest_and_says_what_was_done(started: Path) -> None:
+    with pytest.raises(FileExistsError) as refused:
+        project.new_table(["mart.daily_job_runs", "mart.daily_job_runs",
+                           "mart.weekly_job_runs"])
+    note = " ".join(refused.value.__notes__)
+    assert 'project.new_table stopped at "mart.daily_job_runs".' in note
+    assert "Done before it, and kept: mart.daily_job_runs." in note
+    assert ('Run the rest: project.new_table(["mart.daily_job_runs", "mart.weekly_job_runs"])'
+            in note)
+    assert (started / "tables" / "mart__daily_job_runs").exists()
+    assert not (started / "tables" / "mart__weekly_job_runs").exists()
+
+
+def test_the_call_that_runs_the_rest_keeps_the_template(started: Path) -> None:
+    project.new_table("mart.daily_job_runs")
+    with pytest.raises(FileExistsError) as refused:
+        project.new_table(["mart.daily_job_runs"], template="saved_table_by_partition")
+    assert 'template="saved_table_by_partition"' in " ".join(refused.value.__notes__)
+
+
+@pytest.mark.parametrize("given, said", [
+    ([], "an empty list"),
+    (["mart.daily_job_runs", 5], "a list holding 5"),
+])
+def test_a_list_that_isnt_names_is_refused(started: Path, given: object, said: str) -> None:
+    with pytest.raises(TypeError, match=said):
+        project.remove_table(given)
+
+
+def test_the_reference_sheet_refreshes_a_list_of_tables(started: Path) -> None:
+    project.add_references(["ops.jobs", "ops.run_alerts"], query=example_database.query)
+    report = project.refresh_reference_sheet(["ops.jobs", "ops.run_alerts"])
+    # One report, a line for each table in turn: the sheet as it stands after each.
+    assert report.lines[-1] == "Wrote references/reference_sheet.csv: 8 rows, 2 tables."
+    rows = sheet(started)
+    assert {row["table"] for row in rows} == {"ops.jobs", "ops.run_alerts"}
 
 
 # --- The Reference sheet ----------------------------------------------------------------------

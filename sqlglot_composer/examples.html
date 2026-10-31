@@ -4198,7 +4198,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
 Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
 Restart the kernel of a notebook that imported references, to see a table added since.</pre>
-<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;]. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>query</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone. It also writes the Database module of each Database the tables are in, such as references/ops.py, so that in a notebook of the Project, from references import ops gives the table as ops.jobs, and a column of it as ops.jobs.job_id.</p>
+<p><code>names</code> is a list of tables by their names in the warehouse, such as [&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], or one such name alone. Each is written as write_table_reference writes one, into references/&lt;db&gt;__&lt;table&gt;.py, and registered. A table whose file is there already, a name not written as database.table, and a table whose DESCRIBE (the command that lists its columns) fails through your <code>query</code> are each skipped, and the rest still written. It logs them all in one entry; then, if it skipped any, it raises one SkippedTables error naming each, and why. Fix those names, then run add_references again with them alone. It also writes the Database module of each Database the tables are in, such as references/ops.py, so that in a notebook of the Project, from references import ops gives the table as ops.jobs, and a column of it as ops.jobs.job_id.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code></p>
 </section>
 <section class="entry" id="project.check">
@@ -4307,6 +4307,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
 fill in its &lt;...&gt; and TODO lines.</pre>
 <p><code>name</code> is the Building block&#x27;s name, a Python name such as &quot;runs_per_job&quot;: its file is building_blocks/runs_per_job.py, and a notebook&#x27;s logic cell imports it by that name, as from building_blocks.runs_per_job import runs_per_job. The file is made from admin/templates/building_block.py, a Derived table to fill in, with &lt;BLOCK&gt; filled in; fill in every other &lt;...&gt; yourself, or write over its code with a piece of your own, such as a join, or the function a Python step names. One Building block to a file. It registers the file and logs it. It refuses a name already taken, by a file in building_blocks/ or by the registry, and a name Python can&#x27;t import, and never touches the warehouse.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.new_table">
@@ -4324,6 +4325,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines.</pre>
 <p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/saved_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.refresh_reference_sheet">
@@ -4343,7 +4345,7 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <pre class="python">project.refresh_reference_sheet()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/reference_sheet.csv: 4 rows, 1 table.</pre>
-<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is a partition column or in the Key, its Aliases (each line below the Table(...) call that reads that column alone, such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, &quot;FAILED&quot;), shown as &quot;failed (a condition)&quot;), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It also writes each Database module again, such as references/ops.py, which from references import ops reads, so run it once a Table reference is filled in. It changes no other file, and isn&#x27;t logged: its exported_at column says when it was written.</p>
+<p>Each row gives the table, the column, its type, &quot;yes&quot; when it is a partition column or in the Key, its Aliases (each line below the Table(...) call that reads that column alone, such as minutes = job_runs.duration_mins, or failed = equals(job_runs.status, &quot;FAILED&quot;), shown as &quot;failed (a condition)&quot;), its description, and when the sheet was written. The sheet is read from the files in references/, never from the warehouse. Given a table&#x27;s name, it replaces only that table&#x27;s rows. A file that doesn&#x27;t run yet, such as one with a &lt;...&gt; still to fill in, is left out (or, given its name, keeps its rows from before), and the report says so. It also writes each Database module again, such as references/ops.py, which from references import ops reads, so run it once a Table reference is filled in. It changes no other file, and isn&#x27;t logged: its exported_at column says when it was written. <code>name</code> may be a list of tables&#x27; names too, each replaced in turn.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="project.register">
@@ -4366,6 +4368,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <pre class="output">Registered building_blocks/runs_per_job.py.</pre>
 <p>check() then stops reporting it.</p>
 <p>Given a table&#x27;s name, such as &quot;ops.jobs&quot;, it adds a registry row for tables/ops__jobs/ and for references/ops__jobs.py, whichever is there and isn&#x27;t registered yet. Given a Building block&#x27;s name, a name with no dot such as &quot;runs_per_job&quot;, it adds one for building_blocks/runs_per_job.py: that is how a Building block written by hand before 7.0 joins the registry, since new_block refuses a name already taken. It logs what it adopted, and refuses when there is nothing to adopt.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.remove_block">
@@ -4385,6 +4388,7 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Moved building_blocks/runs_per_job.py to admin/removed/...-runs_per_job.py.</pre>
 <p>building_blocks/runs_per_job.py moves to a file such as admin/removed/20261021-093000-runs_per_job.py, and its registry row is marked removed. It refuses while a Table notebook or another Building block imports it, naming each, since each would stop at that import: change them first. A Building block the registry lists but that was deleted by hand only has its row marked.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_block</code></p>
 </section>
 <section class="entry" id="project.remove_conversion">
@@ -4403,6 +4407,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Moved admin/conversions/spare/ to admin/removed/...-spare/.</pre>
 <p>It moves admin/conversions/&lt;name&gt;/ into admin/removed/, named by the time, and marks its registry row removed, as remove_table does a Table folder: nothing is deleted. One the registry lists but that was deleted by hand only has its row marked.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
 </section>
 <section class="entry" id="project.remove_reference">
@@ -4426,6 +4431,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <p class="label">Python shows</p>
 <pre class="output">Moved references/mart__daily_job_runs.py to admin/removed/...-mart__daily_job_runs.py.</pre>
 <p>references/ops__jobs.py moves to a file named by the time, such as admin/removed/20261021-093000-ops__jobs.py, and its registry row is marked removed. Only its Database&#x27;s module, such as references/ops.py, which the Project actions write, is deleted, once no Table reference is left in that Database. It refuses while the table has a Table folder, whose notebook imports the reference: remove_table first. A Table reference the registry lists but that was deleted by hand only has its row marked.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.remove_table</code></p>
 </section>
 <section class="entry" id="project.remove_table">
@@ -4446,6 +4452,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <p class="label">Python shows</p>
 <pre class="output">Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.</pre>
 <p>tables/mart__daily_job_runs/ moves, whole, to a folder such as admin/removed/20261021-093000-mart__daily_job_runs/, and its registry row is marked removed. The table stays in the warehouse, and its Table reference in references/: drop the table with admin.drop_table, and archive the reference with remove_reference. A Table folder the registry lists but that was deleted by hand only has its row marked.</p>
+<p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
 </section>
 <section class="entry" id="project.run_tables">
