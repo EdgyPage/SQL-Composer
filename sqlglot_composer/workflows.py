@@ -54,8 +54,10 @@ DATABASES = Path("admin") / "databases.py"
 BATCHES = WORKFLOWS_FOLDER / "convert"
 BATCH_LIST = "batch.md"
 BATCH_RECORD = "written.json"
-# A converted table's checklist, in its Table folder, and a box on it not yet ticked.
-CHECKLIST = Path("conversion") / "checklist.md"
+# A converted table's own folder, in its Table folder, its checklist there, and a box on it
+# not yet ticked.
+CONVERSION = "conversion"
+CHECKLIST = "checklist.md"
 OPEN_BOX = "- [ ] "
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
 PLACEHOLDER = re.compile(r"<[A-Z][A-Z_]*>")
@@ -214,19 +216,27 @@ def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def every_box_ticked(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether every box of each table's checklist that TABLES names is ticked."""
-    tables = names_in(inputs, "TABLES")
-    return bool(tables) and not any(
-        OPEN_BOX in file_text(root / "tables" / table_stem(table) / CHECKLIST)
-        for table in tables)
+    """Whether every box is ticked of the checklist of each table TABLES names that has a
+    Table folder; a checklist missing from one is not, nor are those of a batch not yet
+    converted."""
+    if not every_batch_converted(root, inputs):
+        return False
+    for table in names_in(inputs, "TABLES"):
+        folder = root / "tables" / table_stem(table)
+        checklist = folder / CONVERSION / CHECKLIST
+        if folder.is_dir() and (not checklist.is_file() or OPEN_BOX in file_text(checklist)):
+            return False
+    return True
 
 
 def batch_instances(root: Path) -> list[dict[str, object]]:
     """Each batch convert made, as the convert Workflow's inputs: its name, and the tables
     its record lists."""
-    found = []
+    found: list[dict[str, object]] = []
     folder = root / BATCHES
-    for record in sorted(folder.glob(f"*/{BATCH_RECORD}")) if folder.is_dir() else []:
+    if not folder.is_dir():
+        return found
+    for record in sorted(folder.glob(f"*/{BATCH_RECORD}")):
         tables = json.loads(record.read_text(encoding="utf-8")).get("tables", [])
         found.append({"NAME": record.parent.name, "TABLES": tables})
     return found
@@ -314,9 +324,10 @@ CONVERT = Workflow(
              every_batch_converted),
         Step("Tick each box of each table's checklist", DECISION,
              ("a checklist per table",), ("each decision made",), done=every_box_ticked),
-        Step("Create and write each table in dev", PERMISSION,
-             ("each decision made",), ("each written in dev",),
-             "project.run_tables(tables=TABLES, execute=execute)", every_table_written),
+        Step("Create each table once, from its notebook's create() cell, then write each "
+             "in dev", PERMISSION, ("each decision made",), ("each written in dev",),
+             "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
+             every_table_written),
         Step("Compare each table with its original, in its notebook's compare cells",
              PERMISSION, ("each written in dev",), ("each compared with its original",)),
     ),
@@ -370,7 +381,8 @@ NEW_TABLE = Workflow(
         Step("Write each table's logic in its notebook", DECISION,
              ("a Table folder", "what each table should hold"),
              ("a dev Table folder whose logic loads",), done=every_logic_written),
-        Step("Create and write each in dev", PERMISSION,
+        Step("Create each once, from its notebook's create() cell, then write each in dev",
+             PERMISSION,
              ("a dev Table folder whose logic loads", "its Table reference"),
              ("written in dev",), "project.run_tables(tables=TABLES, execute=execute)",
              every_table_written),

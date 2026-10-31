@@ -174,13 +174,14 @@ The Statement holds Hive written by hand, which the Toolbox can't look inside:
 Its Table reference, references/mart__weekly_events.py, lists the columns the query gives,
 `partitioned_by=["dt"]`, from the original's PARTITION(...), and a type for each column: the
 one the Toolbox knows, or "string", with a box on the checklist to check it, as DESCRIBE of
-the other team's table shows. Fill in the rest: its location=, its Key and its TODO lines.
-This page stands in for your edit:
+the other team's table shows. Fill in the rest: its location=, None until you name its own
+folder, its Key and its TODO lines. This page stands in for your edit:
 
 >>> reference = Path("references/mart__weekly_events.py")
->>> _ = reference.write_text(reference.read_text(encoding="utf-8").replace(
-...     "    key=None,", '    location="/data/mart.db/weekly_events", key=["job_id", "dt"],'),
-...     encoding="utf-8")
+>>> text = reference.read_text(encoding="utf-8")  # -> str
+>>> text = text.replace("location=None,", 'location="/data/mart.db/weekly_events",', 1)
+>>> _ = reference.write_text(text.replace("key=None,", 'key=["job_id", "dt"],', 1),
+...                          encoding="utf-8")
 
 Its notebook's write() writes the table as the original's INSERT did, into mart. It keeps the
 original's days, as written: to write the last few days on each run, make them a Building

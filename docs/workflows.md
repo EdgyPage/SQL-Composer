@@ -33,7 +33,7 @@ flowchart TD
     class s1 decision
     t4 --> s1
     s1 --> t5
-    s2[["3. Create and write each table in dev: project.run_tables(tables=TABLES, execute=execute)"]]
+    s2[["3. Create each table once, from its notebook's create() cell, then write each in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]
     class s2 permission
     t5 --> s2
     s2 --> t6
@@ -134,7 +134,7 @@ flowchart TD
     t1 --> s2
     t4 --> s2
     s2 --> t5
-    s3[["4. Create and write each in dev: project.run_tables(tables=TABLES, execute=execute)"]]
+    s3[["4. Create each once, from its notebook's create() cell, then write each in dev: project.run_tables(tables=TABLES, execute=execute)"]]
     class s3 permission
     t5 --> s3
     t3 --> s3

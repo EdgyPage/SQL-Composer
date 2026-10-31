@@ -12,7 +12,8 @@ A Project is the folder you work in, laid out the same way every time:
     │                        imports them
     ├── admin/               the notebooks you run each time you need one
     │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
-    │   │                    name what it works on in its names cell, and run each step
+    │   │                    name what it works on in its names cell, and run each step;
+    │   │                    convert/ holds a Conversion folder per batch you convert
     │   ├── databases.py     DEV and PROD, the two Databases you own, set once
     │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
@@ -20,7 +21,6 @@ A Project is the folder you work in, laid out the same way every time:
     │   │                    folder a Project action made
     │   ├── project_version.txt  the Toolbox version that last wrote the Project
     │   ├── upgrade_7.2.md   what an Upgrade did, and a box for each change it left you
-    │   ├── conversions/     a Conversion folder per query of someone else's Hive you convert
     │   ├── templates/       the Templates new_table and new_block make files from: yours to
     │   │                    edit
     │   └── removed/         what remove_table, remove_reference, remove_block and
@@ -94,6 +94,7 @@ import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import converting, describe, kinds, unchecked, upgrades, workflows
+from .workflows import BATCH_LIST, BATCH_RECORD, CHECKLIST, CONVERSION, OPEN_BOX
 from .clauses import Statement
 from .comparisons import compare_hive
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
@@ -129,7 +130,7 @@ from .unchecked import UncheckedStatement, inline_code, script_line, write_entry
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
-           "remove_conversion", "do_next"]
+           "remove_conversion", "do_next", "batch_tables"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -1647,8 +1648,10 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     file it wrote, in admin/workflows/convert/<name>/: a SET line becomes the Session settings
     of the writes after it, a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR nothing, and any
     other statement an Unchecked statement, with its names in dev. Run again, it writes afresh
-    each file still as it wrote it, keeps one you changed and writes the fresh one beside it,
-    named .new, and with overwrite=True writes over each, kept as it was in admin/removed/.
+    each file still as it wrote it, keeping each box you ticked; it keeps one you changed, and
+    writes a fresh copy of it into the batch's folder, under fresh/, for you to compare; and
+    with overwrite=True it writes over each, kept as it was in admin/removed/.
+    project.batch_tables(name) gives the Saved tables a batch made, for run_tables.
     """
     frame = callers_frame()
     call = _action_call("convert", name, ", ...")
@@ -1669,23 +1672,22 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
 # Where a batch's index is kept: the scripts as given, batch.md, what each statement became,
 # and written.json, each file the batch wrote with the hash it had then, so running it again
 # writes a file afresh only while it is still as the batch wrote it.
-BATCH_LIST = workflows.BATCH_LIST
 BATCH_SCRIPTS = "scripts"
-BATCH_RECORD = workflows.BATCH_RECORD
-# A converted table's own folder, in its Table folder: the statement as its script wrote it,
-# the Hive in dev its logic was built from, what the scan found, and its checklist.
-CONVERSION = workflows.CHECKLIST.parent.as_posix()
+# In a batch's folder: the fresh copy of each file it would have written over one you changed.
+FRESH = "fresh"
+# A box on a checklist, ticked.
+TICKED_BOX = "- [x] "
+# In a converted table's own folder, conversion/, beside its checklist: the statement as its
+# script wrote it, and the Hive in dev its logic was built from.
 STATEMENT = "statement.hql"
 IN_DEV = "in_dev.hql"
-CHECKLIST = workflows.CHECKLIST.name
-OPEN_BOX = workflows.OPEN_BOX
 
 
 class _BatchFiles:
     """Writes a batch's files so that running it again is safe: a file still as the batch
     last wrote it is written afresh; one changed since, or not the batch's, is kept, and the
-    fresh one written beside it, named .new; with overwrite, each is written afresh, kept in
-    admin/removed/ first."""
+    fresh one written into the batch's folder, under fresh/, at the same path, for you to
+    compare; with overwrite, each is written afresh, kept in admin/removed/ first."""
 
     def __init__(self, root: Path, index: Path, overwrite: bool) -> None:
         self.root = root
@@ -1696,7 +1698,9 @@ class _BatchFiles:
         # The tables the batch makes in dev, in order, which its record lists for its
         # Workflow's steps.
         self.tables: list[str] = []
-        self.beside: list[str] = []
+        # Each table's `# CONVERSION:` marks, which batch.md lists under it.
+        self.marks: dict[str, list[str]] = {}
+        self.fresh: list[str] = []
         self.archived: list[str] = []
         self.now = unchecked.now()
 
@@ -1709,15 +1713,16 @@ class _BatchFiles:
         return self._write(relative, notebook_bytes(cells))
 
     def _write(self, relative: str, content: bytes) -> str:
-        """Write `content` at `relative`, or beside it, as the class docstring says."""
+        """Write `content` at `relative`, or under fresh/, as the class docstring says."""
         path = self.root / relative
-        if path.exists() and path.read_bytes() != content:
+        if path.exists() and _hash(path.read_bytes()) != _hash(content):
             if self.overwrite:
                 self._archive(relative)
             elif _hash(path.read_bytes()) != self.before.get(relative):
-                relative = _beside(relative)
+                index = self.index.relative_to(self.root).as_posix()
+                relative = f"{index}/{FRESH}/{relative}"
                 path = self.root / relative
-                self.beside.append(relative)
+                self.fresh.append(relative)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(content)
         self.after[relative] = _hash(content)
@@ -1749,14 +1754,20 @@ def _written_before(index: Path) -> dict[str, str]:
 
 
 def _hash(content: bytes) -> str:
-    """A file's hash, to tell whether it is still as the batch wrote it."""
-    return hashlib.sha256(content).hexdigest()
+    """A file's hash, to tell whether it is still as the batch wrote it: its lines' ends
+    read alike, as an editor on Windows may save them either way."""
+    return hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest()
 
 
-def _beside(relative: str) -> str:
-    """The name of the fresh file written beside one you changed: x.py gives x.new.py."""
-    path = Path(relative)
-    return path.with_name(f"{path.stem}.new{path.suffix}").as_posix()
+def _ticks_kept(text: str, path: Path) -> str:
+    """A checklist's fresh text with each box ticked that the one at `path` has ticked, so
+    running a batch again keeps what you ticked."""
+    if not path.is_file():
+        return text
+    ticked = {line.replace(TICKED_BOX, OPEN_BOX, 1) for line in path.read_text(
+        encoding="utf-8").splitlines() if line.startswith(TICKED_BOX)}
+    return "\n".join(line.replace(OPEN_BOX, TICKED_BOX, 1) if line in ticked else line
+                     for line in text.split("\n"))
 
 
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
@@ -1778,28 +1789,30 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             fix="Give it Hive that writes a table, or one query.",
             error=ValueError,
         )
-    added, skipped = _batch_sources(call, root, ordered, names, query)
+    added, skipped = _write_missing_references(call, root, ordered, names, query)
     files = _BatchFiles(root, index, overwrite)
     made, created_only = [], []
     for table in _tables_in_order(ordered):
         failure = _convert_one_table(files, table, name, ordered, names, query, database)
         if failure:
             skipped.append(f"{names[table]} ({failure})")
-        elif any(each.kind in converting.WRITES and each.table == table for each in ordered):
+        elif _writes_to(ordered, table):
             made.append(names[table])
         else:
             created_only.append(names[table])
     _write_batch_index(files, name, scripts, ordered, names, database, dev, made)
+    files.tables = [names[table] for table in _tables_in_order(ordered)]
     files.save()
     registry = Registry(root)
     if not registry.listed(CONVERSION_FOLDER, name):
         registry.add([(CONVERSION_FOLDER, name)], unchecked.now())
     converted = (f"converted {counted(len(scripts), 'script')} into "
                  f"{counted(len(made), 'Saved table')}")
-    _log(root, call, made, [converted, f"wrote {CONVERSION_FOLDER.shown(name)}",
-                            *[f"kept {each}, and wrote it afresh beside" for each in
-                              files.beside],
-                            *[f"kept {each}" for each in files.archived]], frame, skipped)
+    done = [converted, f"wrote {CONVERSION_FOLDER.shown(name)}"]
+    done += [f"wrote {each}, as you changed the file it is a fresh copy of"
+             for each in files.fresh]
+    done += [f"kept {each}, before writing over it" for each in files.archived]
+    _log(root, call, made, done, frame, skipped)
     return ProjectReport(_batch_report(name, scripts, statements, made, created_only, added,
                                        skipped, files, dev))
 
@@ -1829,9 +1842,10 @@ def _batch_plan(call: str, statements: list[converting.BatchStatement], dev: str
         )
 
 
-def _batch_sources(call: str, root: Path, ordered: list[converting.BatchStatement],
-                   names: dict[str, str], query: Callable[[str], pd.DataFrame] | None
-                   ) -> tuple[list[str], list[str]]:
+def _write_missing_references(call: str, root: Path,
+                              ordered: list[converting.BatchStatement], names: dict[str, str],
+                              query: Callable[[str], pd.DataFrame] | None
+                              ) -> tuple[list[str], list[str]]:
     """Write a Table reference, from DESCRIBE, for each table the batch reads as it was that
     has none: the files written, and each table skipped, with why."""
     read = []
@@ -1881,12 +1895,12 @@ def _described_columns(table: str, query: Callable[[str], pd.DataFrame]) -> dict
         return {}
 
 
-def _result_of(statement: converting.BatchStatement,
-               ordered: list[converting.BatchStatement], names: dict[str, str], database: str,
-               written: set[str]) -> str:
-    """What one statement became, as batch.md says it."""
-    if statement.kind in converting.WRITES and statement.table not in written:
-        written.add(statement.table)
+def _result_of(statement: converting.BatchStatement, makes_its_table: bool,
+               ordered: list[converting.BatchStatement], names: dict[str, str],
+               database: str) -> str:
+    """What one statement became, as batch.md says it: `makes_its_table` for the write its
+    table's notebook makes."""
+    if makes_its_table:
         note = ""
         if statement.note:
             note = f" ({statement.note})"
@@ -1920,10 +1934,10 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     """Make one table a batch writes a Saved table in dev: its Table folder, with its logic,
     built from its first write, and its conversion/ folder, and its Table reference: what went
     wrong, or "" when nothing did."""
-    writes = [each for each in ordered
-              if each.kind in converting.WRITES and each.table == table]
+    writes = _writes_to(ordered, table)
     if not writes:
-        return _reference_of_a_create_alone(files, table, ordered, names)
+        _write_reference_of_a_create_alone(files, table, ordered, names)
+        return ""
     first = writes[0]
     if converting.reads_itself(first, database):
         return ("it reads its own table, so its rows depend on what the table held: it is kept "
@@ -1944,9 +1958,13 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
         return f"it reads {in_words(hive_read.missing)}, which has no Table reference"
     logic, built, opt_outs, stopped = _logic_with_opt_outs(files.root, hive_read)
     columns, partitions = _batch_columns(table, ordered, first, built, query)
+    if not columns:
+        return ("neither its query nor DESCRIBE of the original names a column, so it can't "
+                "have a Table reference: it is kept as Hive in batch.md")
     guessed = [column for column, kind in columns.items() if not kind]
     columns = {column: kind or "string" for column, kind in columns.items()}
-    storage = _created_storage(table, ordered)
+    files.marks[dev] = opt_outs
+    storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, columns, partitions, storage)
     stem = TABLE_FOLDER.stem(dev)
     short = split_table_name(dev)[1]
@@ -1955,17 +1973,27 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     files.write_notebook(table_notebook(stem),
                          _converted_table_cells(dev, batch, table_logic, hive_read))
     (TABLE_FOLDER.path(files.root, stem) / "lineage").mkdir(parents=True, exist_ok=True)
-    conversion = f"{TABLE_FOLDER.shown(stem)}{CONVERSION}"
-    files.write_text(f"{conversion}/{STATEMENT}", first.text + ";\n")
-    files.write_text(f"{conversion}/{IN_DEV}", text)
     scan = _scan_lines(text, hive_read) + [f"Opt-out added, marked # CONVERSION: at its line: "
                                            f"{opt_out}" for opt_out in opt_outs]
     scan += _hive_compared(built, text, stopped)
-    files.write_text(f"{conversion}/{SCAN_REPORT}", _scan_report_text(dev, scan))
     items = _checklist_items(dev, opt_outs, guessed, storage, hive_read, stopped)
-    files.write_text(f"{conversion}/{CHECKLIST}", _checklist_text(dev, items, first.note))
+    _write_conversion_folder(files, dev, first, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
+
+
+def _write_conversion_folder(files: _BatchFiles, dev: str, first: converting.BatchStatement,
+                             text: str, scan: list[str], items: list[str]) -> None:
+    """Write a dev table's conversion/ folder: the statement as its script wrote it, the
+    Hive its logic was built from, what the scan found, and its checklist, keeping each box
+    you ticked."""
+    conversion = f"{TABLE_FOLDER.shown(TABLE_FOLDER.stem(dev))}{CONVERSION}"
+    files.write_text(f"{conversion}/{STATEMENT}", first.text + ";\n")
+    files.write_text(f"{conversion}/{IN_DEV}", text)
+    files.write_text(f"{conversion}/{SCAN_REPORT}", _scan_report_text(dev, scan))
+    checklist = f"{conversion}/{CHECKLIST}"
+    files.write_text(checklist, _ticks_kept(_checklist_text(dev, items, first.note),
+                                            files.root / checklist))
 
 
 def _logic_with_opt_outs(root: Path, hive_read: converting.ConvertedQuery
@@ -2009,7 +2037,8 @@ def _hive_compared(built: Statement | UncheckedStatement | None, text: str,
             *[f"  {line.strip()}" for line in verdict[1:] if line.strip()]]
 
 
-def _created_storage(table: str, ordered: list[converting.BatchStatement]) -> dict[str, str]:
+def _storage_from_create(table: str,
+                         ordered: list[converting.BatchStatement]) -> dict[str, str]:
     """What a table's CREATE says of where and how its files are kept: stored_as and
     location, each when it says it."""
     for each in ordered:
@@ -2053,8 +2082,9 @@ def _checklist_items(dev: str, opt_outs: list[str], guessed: list[str],
     items.append(f"Choose its Key in {reference}, or leave key=None if no columns name one "
                  "row.")
     if hive_read.settings:
-        items.append("Send session_settings() before write(), as the original sent its SET "
-                     "lines first: run_tables sends only what write() gives.")
+        items.append("Send the original's SET lines before you write it, as it sent them: "
+                     f'run_execute(project.load("{dev}").session_settings(), execute), then '
+                     "run_tables.")
     if any(finding.kind == "unchecked" for finding in hive_read.findings):
         items.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:
@@ -2090,8 +2120,8 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
          "project,\n                              run_query, show_hive)\n"
          "from warehouse import query"),
         ("code", f"{LOGIC}\n{logic}"),
-        ("code", "# Try it: the Hive of each step, then the rows\n"
-         "show_hive([create(), write()])\nrun_query(preview(), query)"),
+        ("code", "# Try it: its rows, then, once its Table reference has its location=, the "
+         "Hive of\n# each step\nrun_query(preview(), query)\nshow_hive([create(), write()])"),
         ("code", "# Lineage: a new pair in lineage/, named by the time and this table\n"
          "export_lineage(write())"),
         ("code", f"# Its Hive against the original's, as {CONVERSION}/{IN_DEV} holds it\n"
@@ -2122,18 +2152,31 @@ def _rows_compared(hive_read: converting.ConvertedQuery) -> str:
             "query=query, reads_all_partitions=True))")
 
 
-def _reference_of_a_create_alone(files: _BatchFiles, table: str,
-                                 ordered: list[converting.BatchStatement],
-                                 names: dict[str, str]) -> str:
+def _write_reference_of_a_create_alone(files: _BatchFiles, table: str,
+                                       ordered: list[converting.BatchStatement],
+                                       names: dict[str, str]) -> None:
     """Write the Table reference of a table the batch creates and never writes, from its
-    CREATE, and register it: it has no logic, so no Table folder. "" for nothing wrong."""
-    create = next(each for each in ordered
-                  if each.kind == converting.CREATE and each.table == table)
+    CREATE, and register it: it has no logic, so no Table folder."""
+    create = _create_of(ordered, table)
     columns, partitions = converting.created_columns(create)
     _write_table_reference(files, names[table], columns, partitions,
                            converting.created_storage(create))
     _register_table(files.root, names[table], folder=False)
-    return ""
+
+
+def _writes_to(ordered: list[converting.BatchStatement],
+               table: str) -> list[converting.BatchStatement]:
+    """Each statement of a batch that writes `table`, in the order they run."""
+    return [each for each in ordered if each.kind in converting.WRITES and each.table == table]
+
+
+def _create_of(ordered: list[converting.BatchStatement],
+               table: str) -> converting.BatchStatement | None:
+    """The CREATE of a table's columns a batch holds, if it holds one."""
+    for each in ordered:
+        if each.kind == converting.CREATE and each.table == table:
+            return each
+    return None
 
 
 def _batch_columns(table: str, ordered: list[converting.BatchStatement],
@@ -2144,13 +2187,16 @@ def _batch_columns(table: str, ordered: list[converting.BatchStatement],
     """A batch table's columns and types, and its partition columns: its CREATE's when the
     batch has one; else its query's, each type the query doesn't tell taken from DESCRIBE of
     the original, through your query, and "" for each neither tells."""
-    for each in ordered:
-        if each.kind == converting.CREATE and each.table == table:
-            return converting.created_columns(each)
+    create = _create_of(ordered, table)
+    if create is not None:
+        return converting.created_columns(create)
     columns: dict[str, str] = {}
     if isinstance(statement, Statement):
         for column, column_name in statement._outputs:
             columns[column_name] = column._type or ""
+    else:
+        # A Statement that didn't build, or one kept whole as Hive: the names its SELECT gives.
+        columns = dict.fromkeys(converting.selected_columns(first), "")
     partitions = converting.insert_partitions(first)
     for column in partitions:
         columns.setdefault(column, "")
@@ -2175,24 +2221,33 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
              f"Saved table in the Dev Database, {dev}; one they only create has its Table "
              "reference alone.", "", "## Tables", ""]
     for table in _tables_in_order(ordered):
-        copy = names[table]
-        stem = TABLE_FOLDER.stem(copy)
-        made_as = (f"{TABLE_FOLDER.shown(stem)}, its checklist {TABLE_FOLDER.shown(stem)}"
-                   f"{CONVERSION}/{CHECKLIST}")
-        if not any(each.kind in converting.WRITES and each.table == table for each in ordered):
-            made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
-        elif copy not in made:
-            made_as = "not made: convert's report says why"
-        lines.append(f"- {table}: {copy}, {made_as}")
+        lines += _table_lines(files, table, ordered, names, made)
     lines += ["", "## Each statement, in the order they run", ""]
-    # A table not made is taken as written already, so each of its writes is kept as Hive.
-    written = {table for table, copy in names.items() if copy not in made}
+    # The write that makes each table made; every other write is kept as Hive.
+    firsts = [id(_writes_to(ordered, table)[0]) for table, copy in names.items()
+              if copy in made]
     for number, statement in enumerate(ordered, 1):
-        result = _result_of(statement, ordered, names, database, written)
+        result = _result_of(statement, id(statement) in firsts, ordered, names, database)
         lines.append(f"{number}. {statement.where()}, `{_first_words(statement.text)}`: "
                      f"{result}")
     files.write_text(f"{index}{BATCH_LIST}", "\n".join(lines) + "\n")
-    files.tables = [names[table] for table in _tables_in_order(ordered)]
+
+
+def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchStatement],
+                 names: dict[str, str], made: list[str]) -> list[str]:
+    """batch.md's lines for one table: its copy in dev and what was made of it, then each
+    `# CONVERSION:` mark its checklist holds a box for."""
+    copy = names[table]
+    stem = TABLE_FOLDER.stem(copy)
+    made_as = (f"{TABLE_FOLDER.shown(stem)}, its checklist {TABLE_FOLDER.shown(stem)}"
+               f"{CONVERSION}/{CHECKLIST}")
+    if not _writes_to(ordered, table):
+        made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
+    elif copy not in made:
+        made_as = "not made: convert's report says why"
+    return [f"- {table}: {copy}, {made_as}",
+            *[f"  - # CONVERSION: {opt_out}, a box on its checklist"
+              for opt_out in files.marks.get(copy, [])]]
 
 
 def _batch_report(name: str, scripts: list[tuple[str, str]],
@@ -2212,9 +2267,9 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                      f"it: {in_words(created_only)}.")
     if added:
         lines.append(f"Added Table references, from DESCRIBE: {in_words(added)}.")
-    if files.beside:
-        lines.append("Kept as you changed them, each fresh one written beside it, .new: "
-                     f"{in_words(files.beside)}.")
+    if files.fresh:
+        lines.append("Kept as you changed them, a fresh copy of each written for you to "
+                     f"compare: {in_words(files.fresh)}.")
     if files.archived:
         lines.append("Kept as they were, before writing over them: "
                      f"{in_words(files.archived)}.")
@@ -2237,6 +2292,44 @@ def _scan_report_text(name: str, lines: list[str]) -> str:
         else:
             items.append(f"- {line}")
     return f"# Conversion {name}\n\n" + "\n".join(items) + "\n"
+
+
+def batch_tables(name: str) -> list[str]:
+    """The Saved tables a batch made in your Dev Database, in the order they run.
+
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV
+    >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"',
+    ...                                                        '"mart_dev"'))
+    >>> _ = project.convert("spare",
+    ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
+    ...                     query=example_database.query, database="ops")
+    >>> project.batch_tables("spare")
+    ['mart_dev.spare']
+
+    It reads the batch's record, admin/workflows/convert/<name>/written.json, which convert
+    writes, so the convert Workflow's notebook writes them with
+    project.run_tables(tables=project.batch_tables(NAME), execute=execute). It refuses a name
+    no batch has.
+    """
+    call = _action_call("batch_tables", name)
+    root = _project_root(call)
+    record = CONVERSION_FOLDER.path(root, name) / BATCH_RECORD
+    if not record.is_file():
+        refuse(
+            what=f"{call}: no batch is named {name}: there is no "
+            f"{CONVERSION_FOLDER.shown(name)}{BATCH_RECORD}.",
+            why="It reads the tables a batch made from the record convert writes.",
+            fix="Check the name: the batches are in admin/workflows/convert/, each named as "
+            "project.convert(...) named it.",
+            error=FileNotFoundError,
+        )
+    return list(json.loads(record.read_text(encoding="utf-8"))["tables"])
 
 
 def remove_conversion(name: str | list[str]) -> ProjectReport:
@@ -2281,14 +2374,13 @@ def _remove_conversion_one(name: str, frame: FrameType) -> ProjectReport:
 
 
 def _check_conversion_name(name: object, call: str) -> None:
-    """Refuse a Conversion's name that isn't a plain lowercase name, as its folder and notebook
-    are named by it."""
+    """Refuse a batch's name that isn't a plain lowercase name, as its folder is named by it."""
     if not isinstance(name, str) or not re.fullmatch(r"[a-z][a-z0-9_]*", name) or (
             keyword.iskeyword(name)):
         refuse(
             what=f"{call}: {name!r} isn't a plain lowercase name.",
-            why="A Conversion's folder and notebook are named by it, and load(...) finds it by "
-            "it, apart from a table's name, which holds a dot.",
+            why="A batch's folder is named by it, and a query alone's Saved table, in your "
+            "Dev Database, apart from a table's name, which holds a dot.",
             fix='Use lowercase letters, digits and _, starting with a letter, such as '
             '"team_runs".',
             error=ValueError,
@@ -2850,9 +2942,9 @@ def run_logic(root: Path, source: str, module_name: str) -> dict[str, object]:
 
 
 def logic_notebook(module: str) -> str | None:
-    """The Table notebook, or Conversion's notebook, from the Project's folder, whose logic
-    cell load ran as `module`, such as tables/mart__daily_job_runs/mart__daily_job_runs.ipynb;
-    None for any other module."""
+    """The Table notebook, from the Project's folder, whose logic cell load ran as `module`,
+    such as tables/mart__daily_job_runs/mart__daily_job_runs.ipynb; None for any other module,
+    and for the logic convert runs before its notebook is written."""
     if not module.startswith(LOGIC_OF):
         return None
     name = module.removeprefix(LOGIC_OF)

@@ -188,9 +188,10 @@ def test_its_table_reference_has_the_types_the_query_knows(converted: Path,
 def test_its_write_inserts_the_converted_rows(converted: Path, started: Path) -> None:
     # write() takes only a Saved table with its location=, the checklist's box for it.
     reference = started / "references" / "mart_dev__job_outcomes.py"
-    reference.write_text(reference.read_text(encoding="utf-8").replace(
-        "    key=None,", '    location="/data/mart_dev.db/job_outcomes",\n    key=None,'),
-        encoding="utf-8")
+    lines = reference.read_text(encoding="utf-8").splitlines()
+    lines = ['    location="/data/mart_dev.db/job_outcomes",' if line.startswith(
+        "    location=None") else line for line in lines]
+    reference.write_text("\n".join(lines) + "\n", encoding="utf-8")
     write = to_hive(project.load("mart_dev.job_outcomes").write())
     assert write.splitlines()[0] == "WITH base AS ("
     assert "INSERT OVERWRITE TABLE mart_dev.job_outcomes" in write

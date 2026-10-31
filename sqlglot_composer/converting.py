@@ -145,9 +145,10 @@ class ConvertedQuery:
 
 def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
                       static_partition: dict[str, str]) -> str:
-    """A Conversion's logic cell, `logic`, as you left it, made a Table notebook's: the Saved
-    table's own Table reference, `short`, imported, and create(), preview() and write(), as the
-    saved_table Template has them. write() writes `saved_table` as the original's INSERT did,
+    """A converted query's logic, `logic`, with each opt-out convert added, made a Table
+    notebook's: the Saved table's own Table reference, `short`, imported, and create(),
+    preview() and write(), as the saved_table Template has them. write() writes `saved_table`
+    as the original's INSERT did,
     `write` (INSERT_OVERWRITE when it had none), with its static partition values; through
     rows() when the logic has one, else through converted() as a Derived table."""
     mode = write or "INSERT_OVERWRITE"
@@ -1454,8 +1455,9 @@ def batch_statements(scripts: list[tuple[str, str]], database: str,
             statements.append(_read_statement(script, line, piece, database))
     queries = [each for each in statements if each.kind == QUERY]
     rest = [each for each in statements if each.kind not in (SETTING, QUERY)]
+    alone = len(queries) == 1 and not rest and query_table is not None
     for each in queries:
-        if len(queries) == 1 and not rest and query_table:
+        if alone:
             each.table = query_table
             each.reads = _tables_it_reads(each.tree, None, database)
         else:
@@ -1592,10 +1594,11 @@ def dev_names(statements: list[BatchStatement], dev: str,
         if statement.kind not in MAKES or table in names:
             continue
         database, short = split_table_name(table)
-        name = f"{dev}.{rename.get(table, f'{short}_{database}')}"
         if statement.kind == QUERY:
             # A query alone is named for the batch, which names no database of its own.
             name = f"{dev}.{rename.get(table, short)}"
+        else:
+            name = f"{dev}.{rename.get(table, f'{short}_{database}')}"
         if name in taken:
             raise ConversionRefused(
                 f"{taken[name]} and {table} are both {name} in the Dev Database: rename one "
@@ -1749,6 +1752,15 @@ def created_storage(statement: BatchStatement) -> dict[str, str]:
     for each in statement.tree.find_all(exp.LocationProperty):
         storage["location"] = each.this.name
     return storage
+
+
+def selected_columns(statement: BatchStatement) -> list[str]:
+    """The names of the columns a write's query gives, as its SELECT names them: for a table
+    whose Statement didn't build, which no type is known for."""
+    query = statement.tree if statement.kind == QUERY else statement.tree.expression
+    if not isinstance(query, _QUERIES):
+        return []
+    return [name.lower() for name in query.named_selects]
 
 
 def insert_partitions(statement: BatchStatement) -> list[str]:

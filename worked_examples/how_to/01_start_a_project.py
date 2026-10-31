@@ -127,9 +127,10 @@ file, the call that makes it, and what you fill in:
   `project.upgrade()` keeps here each file as it was before it changed it, and
   `project.convert(..., overwrite=True)` each file it writes over.
 
-`references/`, `building_blocks/` and `tables/` are empty for now. Each Project action refuses
-a file or folder that is already there, so nothing of yours is written over, and logs what it
-did in the Admin log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
+`references/`, `building_blocks/` and `tables/` are empty for now. Each Project action
+writes over nothing of yours: most refuse a file or folder that is already there, and convert,
+run again, writes a fresh file beside one you changed. Each logs what it did in the Admin
+log. `Path`, from Python's own `pathlib`, reads a file; the log's first entry
 is the one after its heading:
 
 >>> from pathlib import Path
