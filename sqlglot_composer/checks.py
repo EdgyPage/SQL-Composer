@@ -17,7 +17,7 @@ import os
 import re
 import sys
 import warnings
-from typing import NamedTuple
+from typing import NamedTuple, NoReturn
 
 from . import _four_part_message, _stop
 from .shared import singular_or_plural
@@ -91,13 +91,18 @@ def read_version_file(here: str, product: str, importing: str) -> VersionFile:
         _stop(
             what=f"{on_disk}/{VERSION_FILE} doesn't start with \"{product}\" and a version "
             "number, as the download's does.",
-            why="The folder can't tell which Toolbox version it is, so it can't check its files.",
+            why="The folder can't tell which Toolbox version it is, so it can't check its "
+            "files.",
             fix=f"Delete the {on_disk} folder, then copy the whole folder in again from the "
             "download.",
             folder=importing,
         )
-    exported = next((found["when"] for found in map(_EXPORTED.fullmatch, lines[1:]) if found),
-                    None)
+    exported = None
+    for line in lines[1:]:
+        found = _EXPORTED.fullmatch(line)
+        if found:
+            exported = found["when"]
+            break
     listed = [found for found in map(_FILE_LINE.fullmatch, lines[1:]) if found]
     hashes = {found["name"]: found["hash"] for found in listed} if listed else None
     return VersionFile(first["product"], first["version"], exported, hashes)
@@ -127,53 +132,76 @@ def check_folder(here: str, product: str, version_file: VersionFile, importing: 
     )
     files = sorted([*version_file.hashes, VERSION_FILE])
     extra = [name for name in present if name not in files]
-    missing = [name for name in files if name not in present]
-    number = version_file.version
     if extra:
-        _stop(
-            what=f"{', '.join(extra)} {singular_or_plural(len(extra), 'is', 'are')} in the "
-            f"{on_disk} folder, but not part of {product} {number}.",
-            why="A file left over from an earlier Toolbox version can still be imported, "
-            "and would quietly run old code. A script of your own inside the folder would "
-            "be deleted with it at the next update.",
-            fix=f"Move any of your own scripts out first: they sit beside the {on_disk} "
-            f"folder, never inside it. Then delete the {on_disk} folder, and copy the "
-            f"whole folder in again from the {number} download.",
-            folder=importing,
-        )
+        _stop_for_extra_files(extra, on_disk, product, version_file.version, importing)
+    missing = [name for name in files if name not in present]
     if missing:
-        lost = ["a missing .py file would make a part of it fail later, far from the cause"]
-        lost += [f"a missing {name} leaves you without {_PAGES[name]}"
-                 for name in missing if name in _PAGES]
-        _stop(
-            what=f"{', '.join(missing)} "
-            f"{singular_or_plural(len(missing), 'is', 'are')} missing "
-            f"from the {on_disk} folder.",
-            why=f"Every file of {product} {number} is needed: "
-            + (", ".join(lost[:-1]) + ", and " if len(lost) > 1 else "") + f"{lost[-1]}.",
-            fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
-            f"the {number} download.",
-            folder=importing,
-        )
+        _stop_for_missing_files(missing, on_disk, product, version_file.version, importing)
     changed = []
     for name, listed in version_file.hashes.items():
         with open(os.path.join(here, name), "rb") as file:
             if git_hash(file.read()) != listed:
                 changed.append(name)
     if changed:
-        warnings.warn(
-            f"{importing} on import:" + _four_part_message(
-                what=f"{', '.join(changed)} "
-                f"{singular_or_plural(len(changed), 'differs', 'differ')} "
-                f"from the {singular_or_plural(len(changed), 'file', 'files')} "
-                f"the {product} {number} "
-                f"download holds, which {VERSION_FILE} lists.",
-                why="A file edited by hand, or pasted from another download, may not work with "
-                "the rest of the folder, so a Statement could fail or come out wrong. It only "
-                "warns, since a change you made on purpose may be one you need.",
-                fix=f"Delete the {on_disk} folder and copy the whole folder in again from the "
-                f"{number} download. If you changed a file on purpose, keep that change in a "
-                f"script of your own beside the {on_disk} folder instead: this shows at every "
-                "import until the folder matches its download.",
-                opt_out=None),
-            UserWarning, stacklevel=3)
+        _warn_of_changed_files(changed, on_disk, product, version_file.version, importing)
+
+
+def _stop_for_extra_files(extra: list[str], on_disk: str, product: str, number: str,
+                          importing: str) -> NoReturn:
+    """Stop for files in the folder, named `on_disk`, that version.txt doesn't list."""
+    _stop(
+        what=f"{', '.join(extra)} {singular_or_plural(len(extra), 'is', 'are')} in the "
+        f"{on_disk} folder, but not part of {product} {number}.",
+        why="A file left over from an earlier Toolbox version can still be imported, "
+        "and would quietly run old code. A script of your own inside the folder would "
+        "be deleted with it at the next update.",
+        fix=f"Move any of your own scripts out first: they sit beside the {on_disk} "
+        f"folder, never inside it. Then delete the {on_disk} folder, and copy the "
+        f"whole folder in again from the {number} download.",
+        folder=importing,
+    )
+
+
+def _stop_for_missing_files(missing: list[str], on_disk: str, product: str, number: str,
+                            importing: str) -> NoReturn:
+    """Stop for files version.txt lists that the folder, named `on_disk`, doesn't hold, saying
+    what each missing kind of file leaves you without."""
+    lost = ["a missing .py file would make a part of it fail later, far from the cause"]
+    lost += [f"a missing {name} leaves you without {_PAGES[name]}"
+             for name in missing if name in _PAGES]
+    # The losses as a list with a comma before its "and", unlike shared.in_words.
+    if len(lost) > 1:
+        losses = ", ".join(lost[:-1]) + f", and {lost[-1]}"
+    else:
+        losses = lost[0]
+    _stop(
+        what=f"{', '.join(missing)} "
+        f"{singular_or_plural(len(missing), 'is', 'are')} missing "
+        f"from the {on_disk} folder.",
+        why=f"Every file of {product} {number} is needed: {losses}.",
+        fix=f"Delete the {on_disk} folder, then copy the whole folder in again from "
+        f"the {number} download.",
+        folder=importing,
+    )
+
+
+def _warn_of_changed_files(changed: list[str], on_disk: str, product: str, number: str,
+                           importing: str) -> None:
+    """Warn about files of the folder, named `on_disk`, whose hash isn't the one version.txt
+    lists: it only warns, since a change made on purpose may be one you need."""
+    warnings.warn(
+        f"{importing} on import:" + _four_part_message(
+            what=f"{', '.join(changed)} "
+            f"{singular_or_plural(len(changed), 'differs', 'differ')} "
+            f"from the {singular_or_plural(len(changed), 'file', 'files')} "
+            f"the {product} {number} "
+            f"download holds, which {VERSION_FILE} lists.",
+            why="A file edited by hand, or pasted from another download, may not work with "
+            "the rest of the folder, so a Statement could fail or come out wrong. It only "
+            "warns, since a change you made on purpose may be one you need.",
+            fix=f"Delete the {on_disk} folder and copy the whole folder in again from the "
+            f"{number} download. If you changed a file on purpose, keep that change in a "
+            f"script of your own beside the {on_disk} folder instead: this shows at every "
+            "import until the folder matches its download.",
+            opt_out=None),
+        UserWarning, stacklevel=4)
