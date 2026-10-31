@@ -14,7 +14,6 @@ import copy
 import datetime
 import decimal
 import difflib
-import json
 import keyword
 import re
 import urllib.parse
@@ -1197,7 +1196,7 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
     first_key = next(iter(columns))
     lines += [
         "    },",
-        *([f"    partitioned_by={json.dumps(partitions)},"] if partitions else []),
+        *([f"    partitioned_by={escaped_literal(partitions)},"] if partitions else []),
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
     ]
@@ -1463,7 +1462,7 @@ def _partition_problems(t: Table, partitions: list[str]) -> list[str]:
     if not partitions:
         return ["the table isn't partitioned: remove the line partitioned_by=."]
     return [f"the table is partitioned by {', '.join(partitions)}: change the line to "
-            f"partitioned_by={json.dumps(partitions)},"]
+            f"partitioned_by={escaped_literal(partitions)},"]
 
 
 def _said(error: Exception) -> list[str]:
@@ -1582,10 +1581,10 @@ def _buckets_problems(t: Table, described: describe.Description) -> list[str]:
         else:
             number, bucketed_by, sorted_by = in_the_table
             sorted_text = f", sorted by {', '.join(sorted_by)}" if sorted_by else ""
-            sorted_line = f", sorted_by={json.dumps(sorted_by)}" if sorted_by else ""
+            sorted_line = f", sorted_by={escaped_literal(sorted_by)}" if sorted_by else ""
             problems.append(f"the table is bucketed by {', '.join(bucketed_by)} into {number} "
                             f"Buckets{sorted_text}: change the lines to bucketed_by="
-                            f"{json.dumps(bucketed_by)}, buckets={number}{sorted_line},")
+                            f"{escaped_literal(bucketed_by)}, buckets={number}{sorted_line},")
     return problems
 
 
