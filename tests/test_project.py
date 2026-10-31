@@ -1530,8 +1530,8 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
     assert report.splitlines()[0] == (
         '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"])')
     assert report.splitlines()[-1] == (
-        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference. It is a "
-        "decision, yours to make")
+        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, in "
+        "references/, and save it. It is a decision, yours to make")
     # Run again, the Table folders are there, so the next step is still the decision.
     assert repr(project.do_next("new_table")).splitlines() == [report.splitlines()[-1]]
 

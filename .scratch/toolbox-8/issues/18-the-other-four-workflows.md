@@ -77,3 +77,26 @@ Answered, not changed:
 - **Spec, logic_loads runs the user's logic from check():** that is "done when the Statement
   loads"; the logic cell builds Statements and sends nothing, as load refuses one that calls
   run_query or run_execute.
+
+### Beginner reader ([report](../reports/18-beginner-reader.md))
+
+Fixed with the review commit after e995daf:
+
+- **Stop 1, costliest:** new_table's Table reference step is done once its code holds no
+  placeholder and no `TODO:` line is left; its docstring may still name the Template's
+  placeholders (`workflows.code_of`).
+- **Stop 10:** the change cell is given its Table reference from the TABLE the names cell
+  holds, through the new `project.table_reference(name)`, so the name is typed once.
+- **Stop 14:** the check is run before the send, from the Check first line show_hive prints;
+  the send is a step of its own, and "its check passed" is no longer an end artifact no file
+  tells of.
+- **Stops 4 and 13:** a step no file tells of says so where check() names it: "once you have,
+  go on".
+- **Stops 2, 3 and 12:** the steps name references/ and tables/, say to save, and that
+  `project.load(table).write()` says what stops the logic; a file step "changes only files, or
+  only prints".
+- The PROMOTE comment no longer says it is by hand; the test's call takes `where=`.
+
+Left as they are: 5 to 9 and 15 to 17, wording and numbering a beginner rereads but isn't
+stopped by (6, the new_table notebook's mention of a Building block, gives the other way to
+make a shared piece); 16, CHANGES's lines for these steps, go with ticket 20's CHANGES pass.
