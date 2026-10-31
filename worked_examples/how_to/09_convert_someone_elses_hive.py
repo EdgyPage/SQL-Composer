@@ -37,11 +37,12 @@ how-tos before this one build, whose Dev Database, DEV in admin/databases.py, is
 
 ### Save the scripts
 
-Save each script as it is, a .hql file in the Project's folder. Here the ops team's two: the
+Save each script as it is, a .hql file beside the convert Workflow's notebook, in
+admin/workflows/convert/, where it reads them. Here the ops team's two: the
 nightly one keeps the day's failed runs in a temporary table, then counts the day's alerts two
 ways from one FROM; the weekly one adds each failed job to a history the job reads itself:
 
-The file `daily.hql`, after you save it:
+The file `admin/workflows/convert/daily.hql`, after you save it:
 
     SET hive.exec.parallel=true;
     DROP TABLE IF EXISTS ops_reports.failed_runs;
@@ -55,7 +56,7 @@ The file `daily.hql`, after you save it:
     INSERT OVERWRITE TABLE ops_reports.alerted_runs PARTITION (dt='2026-09-24')
       SELECT a.run_id, COUNT(*) AS alerts WHERE a.dt = '2026-09-24' GROUP BY a.run_id;
 
-The file `weekly.hql`, after you save it:
+The file `admin/workflows/convert/weekly.hql`, after you save it:
 
     CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIGINT)
     PARTITIONED BY (dt STRING) STORED AS ORC;
@@ -69,13 +70,16 @@ The file `weekly.hql`, after you save it:
 
 Open admin/workflows/convert/convert.ipynb and fill in its names cell: the batch's name as
 NAME, a plain lowercase one, the scripts as FILES, and DATABASE, the database of a table the
-Hive names without one. Save it, and run its first step's cell, which is this call. `rename=`
-gives a table a name of your own in dev; left out, ops_reports.fail_history would be
-mart.fail_history_ops_reports, its database at the end:
+Hive names without one. Save it, and run its first step's cell, which is this call, from the
+notebook's folder. `rename=` gives a table a name of your own in dev; left out,
+ops_reports.fail_history would be mart.fail_history_ops_reports, its database at the end:
 
+>>> import os
+>>> os.chdir("admin/workflows/convert")  # where the notebook runs: this page stands in
 >>> print(project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query,
 ...                       database="ops", rename={"ops_reports.fail_history": "fail_history"}))
 Converted ops_reports: ...
+>>> os.chdir("../../..")  # back to the Project's folder, where the rest of this page runs
 
 The scripts' order doesn't matter: the batch orders each statement by what reads what. Each
 table the scripts write is a Saved table in mart, with its Table folder, its Table reference and
@@ -88,10 +92,13 @@ admin/workflows/convert/ops_reports/batch.md lists what each statement became:
 # Batch ops_reports
 ...
 
-Open tables/mart__fail_history/mart__fail_history.ipynb. Its logic cell holds your code: the
-query's clauses, and create(), preview() and write(). Its write reads its own table, as an
-incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too,
-which copies the original's rows into it once, before its first write.
+Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic
+cell holds your code: the query's clauses, and create(), preview() and write().
+mart.fail_history's stays Hive, whole, an Unchecked statement: its WHERE holds a query, NOT IN
+(SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write
+reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its
+notebook has seed() too, which copies the original's rows into it once, before its first
+write.
 
 ### Decide each box
 
@@ -101,8 +108,11 @@ Each table's conversion/checklist.md has a box for each decision only you can ma
 # Checklist: mart.fail_history
 ...
 
-Fill in each Table reference's location=, its own folder, and its Key, then tick each box. This
-page stands in for your edits:
+Fill in each Table reference's location=, the folder its files go in, which your platform
+team names, and its Key, then tick each box. Three tables' checklists ask you to send the
+original's SET line, hive.exec.parallel, before their write: it makes Hive faster and changes
+no row, so tick it, and send it at work if you want it, as its box says. This page stands in
+for your edits:
 
 >>> for path in Path("references").glob("mart__*.py"):
 ...     text = path.read_text(encoding="utf-8")

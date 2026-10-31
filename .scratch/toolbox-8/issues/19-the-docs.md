@@ -1,7 +1,7 @@
 # The docs and the Copilot files
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 18
 Size: L
 
@@ -141,3 +141,33 @@ Built in parts, each its own commit.
 - The evaluation's three file-07 tasks ask for the Hive "piece by piece" as Toolbox code, the
   use file 07 keeps for converting by hand. File 13 has no tasks: its answers are cells to
   run, not code whose rows the scorer compares.
+
+### The scores, the check for retired names, and the reviews (19e)
+
+- Held-out once, on Haiku, arm C (`.scratch/copilot-eval/results.md`): Copilot files 01, 02,
+  06 and 07 pass 4 of 4; the Excel files 97% of 39. File 13 has no tasks.
+- `tests/repo/test_no_retired_name.py` reads every page a user reads (the README template,
+  CONTEXT.md, the how-tos and Worked examples, the Copilot files, both Example projects, the
+  Toolbox's docstrings and refusals, how_to.html and examples.html) and finds no retired
+  admin notebook (`upgrades.RETIRED_IN_8_0`), admin/conversions/, finish_conversion or
+  conversion_notebook.
+- D360: the scripts go beside convert.ipynb, in admin/workflows/convert/, where FILES reads
+  them: the README's Excel steps and step 9, how-to 9 (which now runs convert from there, as
+  the notebook does) and file 13 say so. D361: copilot_files' docstring counts four
+  placeholders. File 07's header gives the convert Workflow's cells for a whole script.
+- The beginner reader ([report](../reports/19-beginner-reader.md)). Fixed:
+  - **Stuck, the Excel path:** a batch of several scripts, each one query alone, was refused,
+    though file 11 writes a query per final Table. Now each such script is a Saved table named
+    for its file, `<dev>.sales` for sales.hql (`converting._script_query_table`); convert's
+    docstring, the README's Excel steps and chart, and file 11 say so, and the compare is
+    against each query, the Hive Copilot wrote.
+  - **Stuck, how-to 9's notebook:** it opens mart.alerted_runs_ops_reports, whose logic is
+    clauses, and says why mart.fail_history stays Hive; the SET-line box is explained.
+  - **The charts:** a legend under "The Workflows" and in how-to 29; each class named for the
+    list's words (files_only, warehouse_call, your_decision), only the kinds a chart has
+    styled; nodes before edges; a blank line before each call, so Markdown keeps it code; no
+    `#` in a step's name; how_to.html folds each chart's text, the list beside it first to read.
+  - do_next()'s rule, in plain words; step 9 says what seeding is, and that a promoted table
+    keeps its name; the shared rules name file 13.
+  - Left: stops 2 to 6, 13, 16 to 22, 25 to 27, 29 to 33, 35 to 46, wording a beginner rereads
+    but isn't stopped by, for the user to decide on.

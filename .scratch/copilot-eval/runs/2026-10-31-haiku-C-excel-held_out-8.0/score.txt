@@ -1,0 +1,41 @@
+X21  pass  found parses runs correct mapped  code: none
+X22  pass  found parses runs correct mapped  code: none
+X23  pass  found parses runs correct mapped  code: none
+X24  pass  found parses runs correct mapped  code: none
+X25  pass  found parses runs correct mapped  code: none
+X26  pass  found parses runs correct mapped  code: none
+X27  pass  found parses runs correct mapped  code: none
+X28  pass  found parses runs correct mapped  code: none
+X29  pass  found parses runs correct mapped  code: none
+X30  pass  found parses runs correct mapped  code: none
+X31  pass  found parses runs correct mapped  code: none
+X32  pass  found parses runs correct mapped  code: none
+X33  pass  found parses runs correct mapped  code: none
+X34  pass  found parses runs correct mapped  code: none
+X35  pass  found parses runs correct mapped  code: none
+X36  pass  found parses runs correct mapped  code: none
+X37  pass  found parses runs correct mapped  code: none
+X38  pass  found parses runs correct mapped  code: none
+X39  pass  found parses runs correct mapped  code: none
+X40  pass  found parses runs correct mapped  code: none
+X46  pass  found parses runs correct mapped  code: none
+X47  pass  found parses runs correct mapped  code: none
+X48  pass  found parses runs correct mapped  code: none
+X49  pass  found parses runs correct mapped  code: none
+X50  pass  found parses runs correct mapped  code: none
+X59  pass  found parses runs correct mapped  code: none
+X60  pass  found parses runs correct mapped  code: none
+X61  pass  found parses runs correct mapped  code: none
+X62  pass  found parses runs correct mapped  code: none
+X63  pass  found parses runs correct mapped  code: none
+X64  pass  found parses runs correct mapped  code: none
+X65  pass  found parses runs correct mapped  code: none
+X66  pass  found parses runs correct mapped  code: none
+X69  FAIL  found parses runs  code: none  (gives something else for job_totals, late_costs)
+X70  pass  found parses runs correct mapped  code: none
+X73  pass  found parses runs correct mapped  code: none
+X74  pass  found parses runs correct mapped  code: none
+X77  pass  found parses runs correct mapped  code: none
+X78  pass  found parses runs correct mapped  code: none
+
+C on haiku: 97% passed of 39; found 100%, parses 100%, runs 100%, correct 97%, mapped 97%; all named in 100%; invented names in 0%; Toolbox code that parses with no invented name in 0%

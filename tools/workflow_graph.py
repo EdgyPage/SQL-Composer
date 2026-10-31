@@ -41,11 +41,15 @@ from sqlglot_composer.workflows import KINDS, Workflow  # noqa: E402
 # How a step of each kind is drawn: its node's brackets, its class's name, and the class's
 # colours.
 DRAWN = {
-    workflows.FILE_STEP: ("[", "]", "file", "fill:#e3f2e1,stroke:#4a8a3f"),
-    workflows.PERMISSION: ("[[", "]]", "permission", "fill:#e1ecf7,stroke:#3f6a9a"),
-    workflows.DECISION: ("{", "}", "decision", "fill:#fbf1d6,stroke:#a8842a"),
-    workflows.FIDDLING: (">", "]", "fiddling", "fill:#f8d7d5,stroke:#b03a30"),
+    workflows.FILE_STEP: ("[", "]", "files_only", "fill:#e3f2e1,stroke:#4a8a3f"),
+    workflows.PERMISSION: ("[[", "]]", "warehouse_call", "fill:#e1ecf7,stroke:#3f6a9a"),
+    workflows.DECISION: ("{", "}", "your_decision", "fill:#fbf1d6,stroke:#a8842a"),
+    workflows.FIDDLING: (">", "]", "by_hand", "fill:#f8d7d5,stroke:#b03a30"),
 }
+# What each shape of a chart is, as a page says it under its charts.
+LEGEND = ("In each chart, a plain box is a step that changes only files, or only prints; a "
+          "box with double edges a call to the warehouse, yours to run; a diamond a decision, "
+          "yours to make; and a box with round corners something a step needs or makes.")
 THING_STYLE = "    classDef thing fill:#ffffff,stroke:#888888"
 HEADING = """# Workflows
 
@@ -104,7 +108,7 @@ EXCEL_FLOW = ("""flowchart TD
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     dev[["each table created, seeded and written in dev"]]
-    compare[["project.compare_batch: each against its original"]]
+    compare[["project.compare_batch: each against its query"]]
     promote["project.promote: each copied to prod"]
     prod[["each created and written in prod"]]
     workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod""",
@@ -112,11 +116,12 @@ EXCEL_FLOW = ("""flowchart TD
                ("Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the "
                 "workbook as Hive, a query for each final Table", ""),
                ("Fill in each name it writes in angle brackets, save each query as a .hql "
-                "file, and convert them as one batch in the convert Workflow, DEV filled in",
+                "file named for its final Table, and convert them as one batch in the convert "
+                "Workflow, DEV filled in: each becomes a Saved table named for its file",
                 'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
                ("Tick each checklist, then create, seed and write each table in dev, as the "
                 "Workflow's steps say", ""),
-               ("Compare each with its original",
+               ("Compare each with its query, the Hive Copilot wrote",
                 'project.compare_batch("budget", query=query)'),
                ("Promote them, and create and write each in prod, through the promote Workflow",
                 "project.promote([...])")])
@@ -135,7 +140,9 @@ def _listed(steps: list[tuple[str, str]]) -> list[str]:
     for number, (said, call) in enumerate(steps, 1):
         lines += textwrap.wrap(f"{number}. {said}.", width=96, subsequent_indent="   ",
                                break_long_words=False, break_on_hyphens=False)
-        lines += [f"       {line}" for line in call.split("\n") if call]
+        if call:
+            # A blank line first, so Markdown shows the call as code, its lines kept.
+            lines += ["", *[f"       {line}" for line in call.split("\n")], ""]
     return lines
 
 
@@ -203,7 +210,8 @@ def _how_to_head() -> list[str]:
             "Next: set conn, your connection, in warehouse.py.", "",
             "Each Workflow notebook starts by finding the Project, then imports what its "
             "steps call:", "",
-            *[f"    {line}" for line in _imports_wrapped()], ""]
+            *[f"    {line}" for line in _imports_wrapped()], "",
+            *textwrap.wrap(LEGEND, width=96), ""]
 
 
 def _how_to_section(workflow: Workflow) -> list[str]:
@@ -286,25 +294,22 @@ def diagram(workflow: Workflow, with_calls: bool = True) -> list[str]:
             things[text] = f"t{len(things)}"
         return things[text]
 
-    lines = ["```mermaid", "flowchart TD"]
+    nodes, edges = [], []
     for number, step in enumerate(workflow.steps):
         opening, closing, kind_class, _ = DRAWN[step.kind]
         step_id = f"s{number}"
         text = f"{number + 1}. {step.name}"
         if step.call and with_calls:
             text += f": {step.call}"
-        lines.append(f"    {step_id}{opening}{label(text)}{closing}")
-        lines.append(f"    class {step_id} {kind_class}")
-        for need in step.needs:
-            lines.append(f"    {thing_id(need)} --> {step_id}")
-        for made in step.makes:
-            lines.append(f"    {step_id} --> {thing_id(made)}")
-    for text, thing in things.items():
-        lines.append(f"    {thing}({label(text)})")
-        lines.append(f"    class {thing} thing")
-    styles = [f"    classDef {kind_class} {colours}"
-              for _, _, kind_class, colours in DRAWN.values()]
-    return [*lines, *styles, THING_STYLE, "```"]
+        nodes.append(f"    {step_id}{opening}{label(text)}{closing}:::{kind_class}")
+        edges += [f"    {thing_id(need)} --> {step_id}" for need in step.needs]
+        edges += [f"    {step_id} --> {thing_id(made)}" for made in step.makes]
+    things_drawn = [f"    {thing}({label(text)}):::thing" for text, thing in things.items()]
+    kinds = {step.kind for step in workflow.steps}
+    styles = [f"    classDef {DRAWN[kind][2]} {DRAWN[kind][3]}"
+              for kind in KINDS if kind in kinds]
+    return ["```mermaid", "flowchart TD", *nodes, *things_drawn, *edges, *styles, THING_STYLE,
+            "```"]
 
 
 def section(workflow: Workflow) -> list[str]:

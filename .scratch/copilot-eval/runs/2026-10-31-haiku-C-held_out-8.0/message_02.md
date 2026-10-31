@@ -1,0 +1,152 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+Before asking anything, the user pasted this as their first message:
+
+<<<
+# Copilot file 02: Table references (sqlglot Composer 8.0)
+
+Objective: describe a table to the Toolbox with a Table reference, and check what it says.
+Load this file when the user adds a table to read, writes the Table reference of a new Saved
+table, or asks about a table's columns, partitions or Key.
+
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+block the user can paste into a notebook cell or a file, then a few plain sentences.
+
+## Always
+
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
+   own words are Toolbox names only where this file writes them as functions, as SELECT and
+   FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
+2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
+   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
+   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
+3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
+4. Write each Condition with a function: equals, not_equals, more_than, less_than,
+   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
+   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
+5. Bound every read of a partitioned table with a Condition giving a value for one of its
+   partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
+   `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
+   SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
+   table's column bounds nothing. A table with no partitions needs no bound.
+6. ORDER_BY needs LIMIT.
+7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
+   `from warehouse import query, execute`. Never call query or execute yourself.
+8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
+   allows, and say why in a comment.
+9. Reach a column as `table.column`, from the user's Table reference:
+   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
+    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+    does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
+    building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
+    converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+
+## Names for this objective, with their arguments
+
+- project.add_references(names, *, query=None)
+- write_table_reference(name, *, query=None, folder=None)
+- Table(name, columns, *, partitioned_by=None, key=None, does_not_add_up=(), location=None, purge=None, properties=None, stored_as=None, compression=None, bucketed_by=None, buckets=None, sorted_by=None, descriptions=None)
+- check_key(t, *, query=None, where=None, reads_all_partitions=False)
+- check_table_reference(t, *, query=None)
+- first_look(t)
+- all_columns(t)
+- equals(column, value)
+- between(column, low, high)
+- is_in(column, values)
+
+## Steps
+
+1. A Table reference is a file in references/, one per table, named <database>__<table>.py,
+   such as references/ops__job_runs.py. It defines one Table, named by the table's own name:
+   `job_runs = Table("ops.job_runs", columns={...}, ...)`. Other code imports it:
+   `from references.ops__job_runs import job_runs`.
+2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
+   runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
+   reference from the warehouse's own description, so its columns and types are right.
+   The user fills in `key=` by hand, where it says TODO.
+3. A new Saved table, one the user's notebook will write: write the Table reference by
+   hand, or let `project.new_table("mart.job_day_runs")` start it (file 06).
+4. Table's arguments:
+   - `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
+     order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
+     decimal(10,2), array<string>, map<string,int>, struct<name:string>.
+   - `partitioned_by=["dt"]`: the partition columns, listed in `columns` too, last.
+   - `key=["job_id", "dt"]`: the columns that tell one row from another. A Key is what
+     makes the Toolbox trust a join or a write; leave it out where none holds.
+   - `does_not_add_up=["share"]`: columns that must never be summed, such as a share or an
+     average; the Toolbox refuses to add one up.
+   - `location="/data/your_team/mart.db/job_day_runs"`: where a Saved table's files go.
+     A Saved table needs one; a table only read doesn't.
+   - `descriptions={"status": "FAILED, SUCCESS or NULL while running"}`: what a column
+     means, for Lineage and the Reference sheet.
+5. A Condition used again and again may sit in the Table reference beside its Table, such as
+   `finished = is_in(job_runs.status, ["SUCCESS", "FAILED"])`.
+6. Check it:
+   - `check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))` counts
+     whether the Key really tells each row apart, on the partitions `where=` names.
+   - `check_table_reference(job_runs, query=query)` lists what differs from the table as the
+     warehouse has it now.
+   - `first_look(job_runs)` is a Statement of all its columns and 20 rows, for `run_query`.
+
+## Worked example
+
+A new Saved table's Table reference, references/mart__job_day_runs.py:
+
+```python
+from sqlglot_composer import Table
+
+job_day_runs = Table(
+    "mart.job_day_runs",
+    columns={"job_id": "bigint", "runs": "bigint", "minutes": "bigint", "dt": "string"},
+    partitioned_by=["dt"],
+    key=["job_id", "dt"],
+    location="/data/your_team/mart.db/job_day_runs",
+    descriptions={"runs": "the job's runs that day"},
+)
+```
+
+Check a table's Key on one day:
+
+```python
+from sqlglot_composer import check_key, equals
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+v = check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))
+print(v)
+```
+
+`v` is a Verdict: `print(v)` says whether the Key holds, and `if v:` reads true when it does.
+
+## Do and don't
+
+- Do give every column a Hive type; don't write Python types such as `int` or `str`.
+- Do list the partition column in `columns` and in `partitioned_by`; don't leave it out of
+  either.
+- Do name the variable after the table (`job_runs = Table("ops.job_runs", ...)`).
+- Don't invent a Key: leave `key=` out, or ask, where the user hasn't said one.
+- Don't write a Database module, such as references/ops.py: the Project actions write it.
+
+## Before you answer
+
+- The Table's name is "database.table", and the file's name matches it.
+- Each column has a Hive type; partition columns are in both lists.
+- A Saved table has a location; key= is only what the user said.
+- Checks pass `query=query` and bound a partitioned table with `where=`.
+
+>>>
+
+Each task below is a separate request the user sends next. Answer each as you would in that chat: reply with its `## T..` heading, then your answer, with the code in a ```python block.
+
+## T06
+
+I work in a sqlglot Composer 8.0 Project. Its references:
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Write the Table reference for a new Saved table, mart.team_alerts: columns team string, alerts bigint, high_share double and dt string; partitioned by dt; its Key is team and dt; stored at /data/your_team/mart.db/team_alerts. high_share is a share of a day's alerts, so it must never be added up.
+
+Answer with one Python code block that assigns the Table reference to `t`.

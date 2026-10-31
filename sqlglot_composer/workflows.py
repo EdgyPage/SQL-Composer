@@ -519,7 +519,7 @@ PROMOTE = Workflow(
                      "your Prod Database's name"),
     end_artifacts=("prod Table folders", "each written in prod"),
     steps=(
-        Step("Promote each table: a prod copy of its Table folder and Table reference",
+        Step("Promote each table: a prod copy of its folder and Table reference",
              FILE_STEP,
              ("dev Table folders, each box ticked and compared",
               "your Prod Database's name"),
@@ -611,14 +611,14 @@ REFERENCES = Workflow(
 UPGRADE = Workflow(
     "upgrade",
     start_materials=("a Project at an older version", "the new Toolbox copied in"),
-    end_artifacts=("the Project at the new version", "every # UPGRADE box ticked"),
+    end_artifacts=("the Project at the new version", "every UPGRADE mark dealt with"),
     steps=(
         Step("Upgrade the Project's files", FILE_STEP,
              ("a Project at an older version", "the new Toolbox copied in"),
-             ("the Project at the new version", "# UPGRADE marks"), "project.upgrade()",
+             ("the Project at the new version", "UPGRADE marks"), "project.upgrade()",
              project_is_current, upgrade_the_project),
-        Step("Make each change an # UPGRADE mark asks for, and tick its box", DECISION,
-             ("# UPGRADE marks",), ("every # UPGRADE box ticked",),
+        Step("Make each change an UPGRADE mark asks for, and delete the mark", DECISION,
+             ("UPGRADE marks",), ("every UPGRADE mark dealt with",),
              done=no_upgrade_mark_left),
     ),
     about="Carries the Project's files to the Toolbox you copied in, once you have restarted "

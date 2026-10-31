@@ -103,7 +103,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -241,7 +242,8 @@ block the user can paste into a notebook cell or a file, then a few plain senten
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -377,7 +379,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -538,7 +541,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -684,7 +688,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -830,7 +835,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -944,7 +950,8 @@ Objective: turn Hive someone else wrote into Toolbox code that gives the same ro
 Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
 as Toolbox code.
 
-You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. For a whole script, give the
+convert Workflow's cells (file 13). Asked for the code by hand, answer with one Python code
 block that builds the converted Statement, then a line for each part kept as Hive.
 
 ## Always
@@ -978,7 +985,8 @@ block that builds the converted Statement, then a line for each part kept as Hiv
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -1122,7 +1130,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -1248,7 +1257,8 @@ Python code block, then a sentence on what changed and why.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Reading a refusal
 
@@ -1381,7 +1391,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
@@ -1508,7 +1519,7 @@ and 05, for the Toolbox code.
    each `<...>` to fill in.
 4. Names: write a database as `<database>`; keep a Table name or header that is a plain name
    (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
-   `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`. Never guess one.
+   `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`.
 5. Write each final's Hive in its own ```sql block: each source a table, read for the
    columns the finals use; each step a CTE inside each final's query that reads it, never a
    block alone; the final's columns in its Table's order, each
@@ -1520,9 +1531,9 @@ and 05, for the Toolbox code.
 7. A refused formula: `NULL AS its_header`; name it in the map, with why, and a cell outside
    a Table it reads by its address, such as C2. Anything files 11 and 12 don't list is refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
-   out what you don't want converted; fill in each `<...>`; save the Hive as .hql files and
-   run the convert Workflow on them as one batch (file 13), DEV filled in; its checked code
-   wins where the two differ.
+   out what you don't want; fill in each `<...>`; save each final's query as a .hql file
+   named for its Table, and run the convert Workflow on them as one batch (file 13), DEV
+   filled in; its checked code wins where the two differ.
 
 ## Formulas
 
@@ -1806,89 +1817,128 @@ Databases, are set once in admin/databases.py.
 
 ## convert: someone else's Hive into Saved tables in dev
 
-For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files.
+For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files,
+saved beside the notebook, in admin/workflows/convert/, where it reads them.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
+
        project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
+
 2. Tick each box of each table's checklist (it is a decision, yours to make).
 3. Create each table in dev (it is a call to the warehouse, yours to run).
+
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
+
 4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
+
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.batch_tables(NAME, seeded=True):
            run_execute(project.load(table).seed(), execute)
+
 5. Write each table in dev (it is a call to the warehouse, yours to run).
+
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+
 6. Compare each table with its original (it is a call to the warehouse, yours to run).
+
        project.compare_batch(NAME, query=query)
+
 
 ## promote: dev tables to prod
 
 TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
-1. Promote each table: a prod copy of its Table folder and Table reference (it changes only
-   files, so project.do_next() runs it for you).
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
        project.promote(TABLES)
+
 2. Fill in each prod Table reference's location= (it is a decision, yours to make).
 3. Create each table in prod (it is a call to the warehouse, yours to run).
+
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
+
 4. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
+
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.promoted_tables(TABLES, seeded=True):
            run_execute(project.load(table).seed(), execute)
+
 5. Write each table in prod (it is a call to the warehouse, yours to run).
+
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
 
 ## new_table: a Saved table of your own
 
 1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
+
        project.new_table(TABLES)
+
 2. Fill in each Table reference, in references/, and save it (it is a decision, yours to make).
 3. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
+
        for table in TABLES:
            project.load(table).write()  # says what stops it, if anything does
+
 4. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
+
        for table in TABLES:
            print(run_query(project.load(table).preview(), query))
+
 5. Create and write each in dev (it is a call to the warehouse, yours to run).
+
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
        project.run_tables(tables=TABLES, execute=execute)
 
+
 ## references: Table references for tables you read
 
 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+
        project.add_references(TABLES, query=query)
+
 2. Fill in each TODO line and Alias (it is a decision, yours to make).
 3. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
+
        project.refresh_reference_sheet(TABLES)
+
 
 ## upgrade: a new Toolbox copied in
 
 1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+
        project.upgrade()
-2. Make each change an # UPGRADE mark asks for, and tick its box (it is a decision, yours to
+
+2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
    make).
 
 ## change_a_saved_table: an Admin statement on a Saved table
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
+
        table = project.table_reference(TABLE)
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
+
 2. Print its Hive, and run the check its Check first line names (it changes only files, or only
    prints: run its cell).
+
        show_hive(change)
+
 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
    warehouse, yours to run).
+
        run_execute(change, execute)
+
 
 ## Worked example
 

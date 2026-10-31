@@ -1467,8 +1467,10 @@ def batch_statements(scripts: list[tuple[str, str]], database: str,
                      query_table: str | None = None) -> list[BatchStatement]:
     """Each statement of each script, `scripts` as (its name, its text), in the order given:
     what it is, what it writes and what it reads. A table named without its database is in
-    `database`. A query alone, the only statement but SET lines, writes `query_table`; a query
-    among other statements writes nothing, and is listed as Hive."""
+    `database`. A query alone, the only statement but SET lines, writes `query_table`; of
+    several scripts, a script that holds one query alone, but SET lines, writes the table
+    named for the script, <database>.<its file's name>; a query among other statements writes
+    nothing, and is listed as Hive."""
     statements = []
     for script, text in scripts:
         for line, piece in split_statements(text):
@@ -1477,12 +1479,28 @@ def batch_statements(scripts: list[tuple[str, str]], database: str,
     rest = [each for each in statements if each.kind not in (SETTING, QUERY)]
     alone = len(queries) == 1 and not rest and query_table is not None
     for each in queries:
+        each.table = None
         if alone:
             each.table = query_table
-            each.reads = _tables_it_reads(each.tree, None, database)
-        else:
+        elif len(scripts) > 1:
+            each.table = _script_query_table(each, statements, database)
+        if each.table is None:
             each.kind = OTHER
+        else:
+            each.reads = _tables_it_reads(each.tree, None, database)
     return statements
+
+
+def _script_query_table(query: BatchStatement, statements: list[BatchStatement],
+                        database: str) -> str | None:
+    """The table a query writes when its script holds it alone, SET lines aside: named for
+    the script, its file's name in lowercase with _ for each other character; None when the
+    script holds more."""
+    own = [each for each in statements if each.script == query.script and each.kind != SETTING]
+    if len(own) != 1 or own[0] is not query:
+        return None
+    stem = re.sub(r"[^a-z0-9_]", "_", query.script.rsplit("/", 1)[-1].rsplit(".", 1)[0].lower())
+    return f"{database}.{stem}"
 
 
 def _read_statements(script: str, line: int, text: str,

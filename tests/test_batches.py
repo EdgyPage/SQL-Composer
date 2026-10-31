@@ -588,3 +588,21 @@ def test_a_later_overwrite_replaces_only_its_own_partitions_writes(started: Path
         encoding="utf-8")
     assert "nothing: a later INSERT OVERWRITE of mart_dev.days_ops_reports replaces it" in index
     assert index.count("stacked into mart_dev.days_ops_reports's write") == 1
+
+
+# --- What ticket 19's beginner reader found --------------------------------------------------
+
+
+def test_several_scripts_each_one_query_alone_make_a_saved_table_each(started: Path) -> None:
+    (started / "sales.hql").write_text(
+        "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r WHERE r.dt = '2026-09-24'\n"
+        "GROUP BY r.job_id;\n", encoding="utf-8")
+    (started / "regions.hql").write_text(
+        "SET hive.exec.parallel=true;\n"
+        "SELECT j.region, COUNT(*) AS jobs FROM ops.jobs j GROUP BY j.region;\n",
+        encoding="utf-8")
+    report = repr(project.convert("workbook", files=["sales.hql", "regions.hql"],
+                                  query=example_database.query, database="ops"))
+    assert "into 2 Saved tables in mart_dev: mart_dev.sales and mart_dev.regions" in report
+    hive = to_hive(project.load("mart_dev.regions").preview())
+    assert "FROM ops.jobs" in hive and "GROUP BY" in hive

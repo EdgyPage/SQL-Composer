@@ -91,3 +91,13 @@ UPPER, LOWER and TRIM put back, checked on dev and scored on held-out once.
 Ticket 22, from efc21d8 on, has 39 tasks a split, X75 to X78 added. Dev round 1 is fa48987, the
 example; round 2 and held-out are 423bc80, the beginner reader's wording; then 5df4678, which puts
 back "a formula reads", checked on dev and scored on held-out once.
+| 2026-10-31 | ea80a87 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 01:100 02:100 06:100 07:100 |
+| 2026-10-31 | ea80a87 | haiku | C | held_out | 97 | 100 | 100 | 100 | 97 | 97 | 100 | 0 | 0 |
+
+Toolbox 8.0, ticket 19 (e7f0864, files ea80a87): the Copilot files said 8.0's way, with the
+new file 13. Held out once, on Haiku, arm C: the four objective files the ticket changed, 01,
+02, 06 and 07, pass every task (4 of 4); the Excel files, 11 and 12 with 03, 04 and 05, pass
+97% of 39, above 5df4678's 87%. The Excel proxy wrote the map and the Hive of each, and, to
+keep within its reply's length, no Toolbox code, which file 11 now leaves to the convert
+Workflow. After the round, 07's header and 11's step 8 were reworded to agree with the
+Workflow (D360, the beginner reader); the answers they ask for are the same.

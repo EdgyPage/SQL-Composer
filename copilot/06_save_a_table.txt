@@ -38,7 +38,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 a whole
+    job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 

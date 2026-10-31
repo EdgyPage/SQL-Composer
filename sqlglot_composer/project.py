@@ -1638,11 +1638,12 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     the first does: a later INSERT OVERWRITE of the same Partition replaces the writes before
     it, and writes to different Partitions are all kept. Each is named <table>_<its database>,
     such as mart_dev.weekly_events_ops_reports, or the name rename={"ops_reports.weekly_events":
-    "weekly"} gives it; one query alone, which writes no table, becomes mart_dev.<name>. Two
-    tables with one name in dev are refused, naming both, before anything is written. A
-    statement that reads a table the batch writes before it reads its copy in dev; one that
-    reads it before its write, in the same script, reads it as it was; a table it only reads
-    keeps its name, and gets a Table reference from DESCRIBE.
+    "weekly"} gives it; one query alone, which writes no table, becomes mart_dev.<name>, and of
+    several scripts, each that holds one query alone becomes a Saved table named for its file,
+    such as mart_dev.sales for sales.hql. Two tables with one name in dev are refused, naming
+    both, before anything is written. A statement that reads a table the batch writes before it
+    reads its copy in dev; one that reads it before its write, in the same script, reads it as
+    it was; a table it only reads keeps its name, and gets a Table reference from DESCRIBE.
 
     Each table in dev gets its Table folder, its notebook's logic cell building the same query
     from the Toolbox's own functions, with create(), preview() and write(): each CTE a Derived

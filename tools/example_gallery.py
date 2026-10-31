@@ -274,7 +274,10 @@ def prose_html(text: str, line: Callable[[str], str] = inline) -> str:
     shown = []
     for paragraph in paragraphs(text):
         if is_chart(paragraph):
-            shown.append(f'<pre class="chart">{escape(paragraph)}</pre>')
+            # Folded: the list beside it says the same, and this page can't draw it.
+            shown.append('<details><summary>Its chart, as Mermaid text, which GitHub and VS '
+                         f'Code draw</summary><pre class="chart">{escape(paragraph)}</pre>'
+                         "</details>")
         elif is_code(paragraph):
             shown.append(code_html(textwrap.dedent(paragraph)))
         elif paragraph.startswith("- "):

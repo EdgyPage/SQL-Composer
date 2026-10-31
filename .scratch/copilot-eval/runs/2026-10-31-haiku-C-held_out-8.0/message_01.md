@@ -1,0 +1,155 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+Before asking anything, the user pasted this as their first message:
+
+<<<
+# Copilot file 01: imports and the Project (sqlglot Composer 8.0)
+
+Objective: set up a Project, import what Toolbox code needs, and run a Statement.
+Load this file when the user starts a Project, asks what to import, or asks how to run
+something and see its rows.
+
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
+block the user can paste into a notebook cell, then a few plain sentences.
+
+## Always
+
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
+   own words are Toolbox names only where this file writes them as functions, as SELECT and
+   FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
+2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
+   INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
+   WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
+3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
+4. Write each Condition with a function: equals, not_equals, more_than, less_than,
+   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
+   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
+5. Bound every read of a partitioned table with a Condition giving a value for one of its
+   partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
+   `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
+   SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
+   table's column bounds nothing. A table with no partitions needs no bound.
+6. ORDER_BY needs LIMIT.
+7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
+   `from warehouse import query, execute`. Never call query or execute yourself.
+8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
+   allows, and say why in a comment.
+9. Reach a column as `table.column`, from the user's Table reference:
+   `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
+    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+    does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
+    building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
+    converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+
+## Names for this objective, with their arguments
+
+- project.start()
+- project.add_references(names, *, query=None)
+- project.new_table(name, template='saved_table')
+- project.load(name)
+- statement(*clauses, returns_all_rows=False)
+- SELECT(*columns)
+- FROM(table, reads_all_partitions=False)
+- WHERE(*conditions)
+- equals(column, value)
+- run_query(s, query=None)
+- run_execute(s, execute=None)
+- to_hive(s)
+- show_hive(*statements)
+
+## Steps
+
+1. A Project is a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
+   notebooks. In a notebook there: `from sqlglot_composer import project`, then
+   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
+   warehouse.py.
+2. warehouse.py holds `conn`, the user's connection, which the user sets once, and two
+   functions over it: `query(hive)` calls `conn.query`, which runs Hive that gives rows and
+   returns a pandas DataFrame, and `execute(hive)` calls `conn.execute`, which runs Hive that
+   changes something and returns nothing. Nothing else in the Project reaches the warehouse.
+3. Each table read needs a Table reference, a file in references/. The references Workflow,
+   admin/workflows/references/references.ipynb, runs
+   `project.add_references(["ops.job_runs"], query=query)`, which writes
+   references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
+4. Imports, at the top of a cell:
+   - Toolbox names, each by name: `from sqlglot_composer import FROM, SELECT, statement`.
+   - One table: `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+   - Every table of a database: `from references import ops`, then `ops.job_runs.dt`.
+   - The two calls: `from warehouse import query, execute`.
+   - A Building block: `from building_blocks.recent_runs import recent_runs`.
+5. A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
+   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
+   `import pathlib` and `import sys`.
+6. To run: `rows = run_query(s, query)` gives a DataFrame. `run_execute(s, execute)` sends a
+   write, a CREATE TABLE or a SET line. `print(to_hive(s))` shows the Hive and sends
+   nothing; `show_hive(s)` prints it laid out.
+7. For a Saved table, the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
+   `project.new_table("mart.job_day_runs")`, its Table notebook and Table reference: file 06
+   says what goes in them. Each job has a Workflow notebook: `project.check()` names each one's
+   next step, `project.do_next()` runs those it can, and file 13 lists their steps.
+
+## Worked example
+
+Read the failed runs of one day, run it, and show the Hive:
+
+```python
+from sqlglot_composer import FROM, SELECT, WHERE, equals, run_query, statement, to_hive
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+s = statement(
+    SELECT(job_runs.run_id, job_runs.job_id, job_runs.status),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+)
+print(to_hive(s))
+rows = run_query(s, query)
+```
+
+The same with the Database module, where several tables are read:
+
+```python
+from sqlglot_composer import FROM, SELECT, WHERE, equals, statement
+from references import ops
+
+s = statement(
+    SELECT(ops.job_runs.run_id, ops.job_runs.status),
+    FROM(ops.job_runs),
+    WHERE(equals(ops.job_runs.dt, "2026-09-24")),
+)
+```
+
+## Do and don't
+
+- Do import each name; don't write `from sqlglot_composer import *`.
+- Do call `run_query(s, query)`; don't call `query(s)` or `query(to_hive(s))`.
+- Do send a write with `run_execute`; don't send one with `run_query`.
+- Do read columns from the user's Table reference; don't write table names as text, such
+  as `"ops.job_runs"`, inside a Statement.
+- Don't pass `send=`: 7.0 replaced it with `query` and `execute`.
+
+## Before you answer
+
+- Every name used is imported, and each is in a Copilot file's Names.
+- Each partitioned table read is bounded on its partition column.
+- A read runs with `run_query(s, query)`, a write with `run_execute(s, execute)`.
+- The code is one block the user can paste.
+
+>>>
+
+Each task below is a separate request the user sends next. Answer each as you would in that chat: reply with its `## T..` heading, then your answer, with the code in a ```python block.
+
+## T03
+
+I work in a sqlglot Composer 8.0 Project. Its references:
+- `from references.ops__run_alerts import run_alerts` gives ops.run_alerts: alert_id bigint, run_id bigint, severity string, dt string; partitioned by dt; Key alert_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+Count the alerts in ops.run_alerts on 2026-09-24 for each severity, as columns severity and alerts, and run it with my query.
+
+Answer with one Python code block that builds it and assigns the Statement to `s`.

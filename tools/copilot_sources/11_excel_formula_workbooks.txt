@@ -26,7 +26,7 @@ and 05, for the Toolbox code.
    each `<...>` to fill in.
 4. Names: write a database as `<database>`; keep a Table name or header that is a plain name
    (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
-   `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`. Never guess one.
+   `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`.
 5. Write each final's Hive in its own ```sql block: each source a table, read for the
    columns the finals use; each step a CTE inside each final's query that reads it, never a
    block alone; the final's columns in its Table's order, each
@@ -38,9 +38,9 @@ and 05, for the Toolbox code.
 7. A refused formula: `NULL AS its_header`; name it in the map, with why, and a cell outside
    a Table it reads by its address, such as C2. Anything files 11 and 12 don't list is refused too.
 8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
-   out what you don't want converted; fill in each `<...>`; save the Hive as .hql files and
-   run the convert Workflow on them as one batch (file 13), DEV filled in; its checked code
-   wins where the two differ.
+   out what you don't want; fill in each `<...>`; save each final's query as a .hql file
+   named for its Table, and run the convert Workflow on them as one batch (file 13), DEV
+   filled in; its checked code wins where the two differ.
 
 ## Formulas
 

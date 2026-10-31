@@ -6240,8 +6240,8 @@ warehouse.py</pre>
 <pre class="python">from sqlglot_composer import example_database, project, run_execute, hive_settings
 from warehouse import query, execute</pre>
 <h5>Save the scripts</h5>
-<p>Save each script as it is, a .hql file in the Project&#x27;s folder. Here the ops team&#x27;s two: the nightly one keeps the day&#x27;s failed runs in a temporary table, then counts the day&#x27;s alerts two ways from one FROM; the weekly one adds each failed job to a history the job reads itself:</p>
-<p class="label">The file <code>daily.hql</code>, after you save it</p>
+<p>Save each script as it is, a .hql file beside the convert Workflow&#x27;s notebook, in admin/workflows/convert/, where it reads them. Here the ops team&#x27;s two: the nightly one keeps the day&#x27;s failed runs in a temporary table, then counts the day&#x27;s alerts two ways from one FROM; the weekly one adds each failed job to a history the job reads itself:</p>
+<p class="label">The file <code>admin/workflows/convert/daily.hql</code>, after you save it</p>
 <pre class="file">SET hive.exec.parallel=true;
 DROP TABLE IF EXISTS ops_reports.failed_runs;
 CREATE TEMPORARY TABLE ops_reports.failed_runs AS
@@ -6253,7 +6253,7 @@ INSERT OVERWRITE TABLE ops_reports.alerts_by_severity PARTITION (dt=&#x27;2026-0
   SELECT a.severity, COUNT(*) AS alerts WHERE a.dt = &#x27;2026-09-24&#x27; GROUP BY a.severity
 INSERT OVERWRITE TABLE ops_reports.alerted_runs PARTITION (dt=&#x27;2026-09-24&#x27;)
   SELECT a.run_id, COUNT(*) AS alerts WHERE a.dt = &#x27;2026-09-24&#x27; GROUP BY a.run_id;</pre>
-<p class="label">The file <code>weekly.hql</code>, after you save it</p>
+<p class="label">The file <code>admin/workflows/convert/weekly.hql</code>, after you save it</p>
 <pre class="file">CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIGINT)
 PARTITIONED BY (dt STRING) STORED AS ORC;
 INSERT INTO TABLE ops_reports.fail_history PARTITION (dt=&#x27;2026-09-24&#x27;)
@@ -6262,8 +6262,10 @@ FROM ops_reports.failed_runs f
 WHERE f.job_id NOT IN (SELECT h.job_id FROM ops_reports.fail_history h WHERE h.dt = &#x27;2026-09-24&#x27;)
 GROUP BY f.job_id;</pre>
 <h5>Convert them</h5>
-<p>Open admin/workflows/convert/convert.ipynb and fill in its names cell: the batch&#x27;s name as NAME, a plain lowercase one, the scripts as FILES, and DATABASE, the database of a table the Hive names without one. Save it, and run its first step&#x27;s cell, which is this call. <code>rename=</code> gives a table a name of your own in dev; left out, ops_reports.fail_history would be mart.fail_history_ops_reports, its database at the end:</p>
-<pre class="python">print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &quot;weekly.hql&quot;], query=query,
+<p>Open admin/workflows/convert/convert.ipynb and fill in its names cell: the batch&#x27;s name as NAME, a plain lowercase one, the scripts as FILES, and DATABASE, the database of a table the Hive names without one. Save it, and run its first step&#x27;s cell, which is this call, from the notebook&#x27;s folder. <code>rename=</code> gives a table a name of your own in dev; left out, ops_reports.fail_history would be mart.fail_history_ops_reports, its database at the end:</p>
+<pre class="python">import os
+os.chdir(&quot;admin/workflows/convert&quot;)  # where the notebook runs: this page stands in
+print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &quot;weekly.hql&quot;], query=query,
                       database=&quot;ops&quot;, rename={&quot;ops_reports.fail_history&quot;: &quot;fail_history&quot;}))</pre>
 <p class="label">Python prints</p><pre class="output">Converted ops_reports: 2 scripts, 7 statements, into 4 Saved tables in mart: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
@@ -6300,6 +6302,7 @@ tables/mart__failed_runs_ops_reports/conversion/in_dev.hql
 tables/mart__failed_runs_ops_reports/conversion/scan.md
 tables/mart__failed_runs_ops_reports/conversion/statement.hql
 tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
+<pre class="python">os.chdir(&quot;../../..&quot;)  # back to the Project&#x27;s folder, where the rest of this page runs</pre>
 <p>The scripts&#x27; order doesn&#x27;t matter: the batch orders each statement by what reads what. Each table the scripts write is a Saved table in mart, with its Table folder, its Table reference and a checklist: the temporary table too, which the weekly script reads, so it is made first. The FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line become nothing and the Session settings of the writes after them. admin/workflows/convert/ops_reports/batch.md lists what each statement became:</p>
 <pre class="python">print(Path(&quot;admin/workflows/convert/ops_reports/batch.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
 <p class="label">Python prints</p><pre class="output"># Batch ops_reports
@@ -6322,7 +6325,7 @@ tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
 5. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerted_runs_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
 6. weekly.hql line 1, `CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIG...`: the columns, types and Partitions of mart.fail_history&#x27;s Table reference
 7. weekly.hql line 3, `INSERT INTO TABLE ops_reports.fail_history PARTITION (dt=&#x27;2026-09-24&#x27;) SELECT...`: mart.fail_history, written by its notebook</pre>
-<p>Open tables/mart__fail_history/mart__fail_history.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too, which copies the original&#x27;s rows into it once, before its first write.</p>
+<p>Open tables/mart__alerted_runs_ops_reports/mart__alerted_runs_ops_reports.ipynb. Its logic cell holds your code: the query&#x27;s clauses, and create(), preview() and write(). mart.fail_history&#x27;s stays Hive, whole, an Unchecked statement: its WHERE holds a query, NOT IN (SELECT ...), which no Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too, which copies the original&#x27;s rows into it once, before its first write.</p>
 <h5>Decide each box</h5>
 <p>Each table&#x27;s conversion/checklist.md has a box for each decision only you can make:</p>
 <pre class="python">print(Path(&quot;tables/mart__fail_history/conversion/checklist.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
@@ -6334,7 +6337,7 @@ Tick each box, [x], once it is done: the convert Workflow waits on every box.
 - [ ] Choose its Key in references/mart__fail_history.py, or leave key=None if no columns name one row.
 - [ ] Make each unchecked_ piece a Toolbox function where you can.
 - [ ] Agree to seed it: its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s step 4, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(). Tick once you agree that copy is the right start.</pre>
-<p>Fill in each Table reference&#x27;s location=, its own folder, and its Key, then tick each box. This page stands in for your edits:</p>
+<p>Fill in each Table reference&#x27;s location=, the folder its files go in, which your platform team names, and its Key, then tick each box. Three tables&#x27; checklists ask you to send the original&#x27;s SET line, hive.exec.parallel, before their write: it makes Hive faster and changes no row, so tick it, and send it at work if you want it, as its box says. This page stands in for your edits:</p>
 <pre class="python">for path in Path(&quot;references&quot;).glob(&quot;mart__*.py&quot;):
     text = path.read_text(encoding=&quot;utf-8&quot;)
     if &quot;location=None,&quot; in text:
@@ -16280,64 +16283,47 @@ warehouse.py</pre>
     show_hive,
 )
 from warehouse import query, execute</pre>
+<p>In each chart, a plain box is a step that changes only files, or only prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with round corners something a step needs or makes.</p>
 <h5>The convert Workflow</h5>
 <p>Turns Hive someone else wrote, one query or a batch of scripts, into your own code: each table the scripts write becomes a Saved table in your Dev Database, with its Table folder and a checklist.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/convert/convert.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[[&quot;1. Convert the scripts: each table they write a Saved table in dev&quot;]]
-    class s0 permission
+    s0[[&quot;1. Convert the scripts: each table they write a Saved table in dev&quot;]]:::warehouse_call
+    s1{&quot;2. Tick each box of each table&#x27;s checklist&quot;}:::your_decision
+    s2[[&quot;3. Create each table in dev&quot;]]:::warehouse_call
+    s3[[&quot;4. Seed each table that reads itself, once, from its original&quot;]]:::warehouse_call
+    s4[[&quot;5. Write each table in dev&quot;]]:::warehouse_call
+    s5[[&quot;6. Compare each table with its original&quot;]]:::warehouse_call
+    t0(&quot;Hive scripts&quot;):::thing
+    t1(&quot;your Dev Database&#x27;s name&quot;):::thing
+    t2(&quot;read access to the sources&quot;):::thing
+    t3(&quot;a dev Table folder per table the scripts write&quot;):::thing
+    t4(&quot;a checklist per table&quot;):::thing
+    t5(&quot;each decision made&quot;):::thing
+    t6(&quot;each made in dev&quot;):::thing
+    t7(&quot;each seeded&quot;):::thing
+    t8(&quot;each written in dev&quot;):::thing
+    t9(&quot;each compared with its original&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     t2 --&gt; s0
     s0 --&gt; t3
     s0 --&gt; t4
-    s1{&quot;2. Tick each box of each table&#x27;s checklist&quot;}
-    class s1 decision
     t4 --&gt; s1
     s1 --&gt; t5
-    s2[[&quot;3. Create each table in dev&quot;]]
-    class s2 permission
     t5 --&gt; s2
     s2 --&gt; t6
-    s3[[&quot;4. Seed each table that reads itself, once, from its original&quot;]]
-    class s3 permission
     t6 --&gt; s3
     s3 --&gt; t7
-    s4[[&quot;5. Write each table in dev&quot;]]
-    class s4 permission
     t7 --&gt; s4
     s4 --&gt; t8
-    s5[[&quot;6. Compare each table with its original&quot;]]
-    class s5 permission
     t8 --&gt; s5
     s5 --&gt; t9
-    t0(&quot;Hive scripts&quot;)
-    class t0 thing
-    t1(&quot;your Dev Database&#x27;s name&quot;)
-    class t1 thing
-    t2(&quot;read access to the sources&quot;)
-    class t2 thing
-    t3(&quot;a dev Table folder per table the scripts write&quot;)
-    class t3 thing
-    t4(&quot;a checklist per table&quot;)
-    class t4 thing
-    t5(&quot;each decision made&quot;)
-    class t5 thing
-    t6(&quot;each made in dev&quot;)
-    class t6 thing
-    t7(&quot;each seeded&quot;)
-    class t7 thing
-    t8(&quot;each written in dev&quot;)
-    class t8 thing
-    t9(&quot;each compared with its original&quot;)
-    class t9 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot;
 NAME = &#x27;&#x27;
@@ -16364,58 +16350,44 @@ for table in project.batch_tables(NAME, seeded=True):
 <h5>The promote Workflow</h5>
 <p>Carries Saved tables from your Dev Database to your Prod Database.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/promote/promote.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[&quot;1. Promote each table: a prod copy of its Table folder and Table reference&quot;]
-    class s0 file
+    s0[&quot;1. Promote each table: a prod copy of its folder and Table reference&quot;]:::files_only
+    s1{&quot;2. Fill in each prod Table reference&#x27;s location=&quot;}:::your_decision
+    s2[[&quot;3. Create each table in prod&quot;]]:::warehouse_call
+    s3[[&quot;4. Seed each prod table that reads itself, once, from its original&quot;]]:::warehouse_call
+    s4[[&quot;5. Write each table in prod&quot;]]:::warehouse_call
+    t0(&quot;dev Table folders, each box ticked and compared&quot;):::thing
+    t1(&quot;your Prod Database&#x27;s name&quot;):::thing
+    t2(&quot;prod Table folders&quot;):::thing
+    t3(&quot;prod Table references&quot;):::thing
+    t4(&quot;each with its location=&quot;):::thing
+    t5(&quot;each made in prod&quot;):::thing
+    t6(&quot;each seeded in prod&quot;):::thing
+    t7(&quot;each written in prod&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     s0 --&gt; t2
     s0 --&gt; t3
-    s1{&quot;2. Fill in each prod Table reference&#x27;s location=&quot;}
-    class s1 decision
     t3 --&gt; s1
     s1 --&gt; t4
-    s2[[&quot;3. Create each table in prod&quot;]]
-    class s2 permission
     t4 --&gt; s2
     s2 --&gt; t5
-    s3[[&quot;4. Seed each prod table that reads itself, once, from its original&quot;]]
-    class s3 permission
     t5 --&gt; s3
     s3 --&gt; t6
-    s4[[&quot;5. Write each table in prod&quot;]]
-    class s4 permission
     t6 --&gt; s4
     s4 --&gt; t7
-    t0(&quot;dev Table folders, each box ticked and compared&quot;)
-    class t0 thing
-    t1(&quot;your Prod Database&#x27;s name&quot;)
-    class t1 thing
-    t2(&quot;prod Table folders&quot;)
-    class t2 thing
-    t3(&quot;prod Table references&quot;)
-    class t3 thing
-    t4(&quot;each with its location=&quot;)
-    class t4 thing
-    t5(&quot;each made in prod&quot;)
-    class t5 thing
-    t6(&quot;each seeded in prod&quot;)
-    class t6 thing
-    t7(&quot;each written in prod&quot;)
-    class t7 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the dev tables, by their names in your Dev Database, such as
 # [&quot;mart_dev.daily_job_runs&quot;]
 TABLES = []</pre>
 <p>Its steps:</p>
-<ul><li>1. Promote each table: a prod copy of its Table folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
+<ul><li>1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.promote(TABLES)</pre>
 <ul><li>2. Fill in each prod Table reference&#x27;s location= (it is a decision, yours to make).</li><li>3. Create each table in prod (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">for table in project.promoted_tables(TABLES):
@@ -16429,53 +16401,39 @@ for table in project.promoted_tables(TABLES, seeded=True):
 <h5>The new_table Workflow</h5>
 <p>Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/new_table/new_table.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[&quot;1. Make each Table folder&quot;]
-    class s0 file
+    s0[&quot;1. Make each Table folder&quot;]:::files_only
+    s1{&quot;2. Fill in each Table reference, in references/, and save it&quot;}:::your_decision
+    s2{&quot;3. Write each table&#x27;s logic in its Table notebook, and save it&quot;}:::your_decision
+    s3[[&quot;4. Check each table&#x27;s rows with preview(), which writes nothing&quot;]]:::warehouse_call
+    s4[[&quot;5. Create and write each in dev&quot;]]:::warehouse_call
+    t0(&quot;the tables&#x27; names&quot;):::thing
+    t1(&quot;a Table folder&quot;):::thing
+    t2(&quot;its Table reference to fill in&quot;):::thing
+    t3(&quot;its Table reference&quot;):::thing
+    t4(&quot;what each table should hold&quot;):::thing
+    t5(&quot;a dev Table folder whose logic loads&quot;):::thing
+    t6(&quot;its rows, checked&quot;):::thing
+    t7(&quot;written in dev&quot;):::thing
     t0 --&gt; s0
     s0 --&gt; t1
     s0 --&gt; t2
-    s1{&quot;2. Fill in each Table reference, in references/, and save it&quot;}
-    class s1 decision
     t2 --&gt; s1
     s1 --&gt; t3
-    s2{&quot;3. Write each table&#x27;s logic in its Table notebook, and save it&quot;}
-    class s2 decision
     t1 --&gt; s2
     t4 --&gt; s2
     s2 --&gt; t5
-    s3[[&quot;4. Check each table&#x27;s rows with preview(), which writes nothing&quot;]]
-    class s3 permission
     t5 --&gt; s3
     s3 --&gt; t6
-    s4[[&quot;5. Create and write each in dev&quot;]]
-    class s4 permission
     t6 --&gt; s4
     t3 --&gt; s4
     s4 --&gt; t7
-    t0(&quot;the tables&#x27; names&quot;)
-    class t0 thing
-    t1(&quot;a Table folder&quot;)
-    class t1 thing
-    t2(&quot;its Table reference to fill in&quot;)
-    class t2 thing
-    t3(&quot;its Table reference&quot;)
-    class t3 thing
-    t4(&quot;what each table should hold&quot;)
-    class t4 thing
-    t5(&quot;a dev Table folder whose logic loads&quot;)
-    class t5 thing
-    t6(&quot;its rows, checked&quot;)
-    class t6 thing
-    t7(&quot;written in dev&quot;)
-    class t7 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
 TABLES = []</pre>
@@ -16495,37 +16453,28 @@ project.run_tables(tables=TABLES, execute=execute)</pre>
 <h5>The references Workflow</h5>
 <p>Writes a Table reference for each table your Project reads, from its DESCRIBE.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/references/references.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[[&quot;1. Write the Table references from DESCRIBE&quot;]]
-    class s0 permission
+    s0[[&quot;1. Write the Table references from DESCRIBE&quot;]]:::warehouse_call
+    s1{&quot;2. Fill in each TODO line and Alias&quot;}:::your_decision
+    s2[&quot;3. Refresh the Reference sheet and the Database modules&quot;]:::files_only
+    t0(&quot;table names your query can DESCRIBE&quot;):::thing
+    t1(&quot;Table references with TODO lines&quot;):::thing
+    t2(&quot;filled-in Table references&quot;):::thing
+    t3(&quot;the Reference sheet&quot;):::thing
+    t4(&quot;the Database modules&quot;):::thing
     t0 --&gt; s0
     s0 --&gt; t1
-    s1{&quot;2. Fill in each TODO line and Alias&quot;}
-    class s1 decision
     t1 --&gt; s1
     s1 --&gt; t2
-    s2[&quot;3. Refresh the Reference sheet and the Database modules&quot;]
-    class s2 file
     t2 --&gt; s2
     s2 --&gt; t3
     s2 --&gt; t4
-    t0(&quot;table names your query can DESCRIBE&quot;)
-    class t0 thing
-    t1(&quot;Table references with TODO lines&quot;)
-    class t1 thing
-    t2(&quot;filled-in Table references&quot;)
-    class t2 thing
-    t3(&quot;the Reference sheet&quot;)
-    class t3 thing
-    t4(&quot;the Database modules&quot;)
-    class t4 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
 TABLES = []</pre>
@@ -16537,75 +16486,56 @@ TABLES = []</pre>
 <h5>The upgrade Workflow</h5>
 <p>Carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/upgrade/upgrade.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[&quot;1. Upgrade the Project&#x27;s files&quot;]
-    class s0 file
+    s0[&quot;1. Upgrade the Project&#x27;s files&quot;]:::files_only
+    s1{&quot;2. Make each change an UPGRADE mark asks for, and delete the mark&quot;}:::your_decision
+    t0(&quot;a Project at an older version&quot;):::thing
+    t1(&quot;the new Toolbox copied in&quot;):::thing
+    t2(&quot;the Project at the new version&quot;):::thing
+    t3(&quot;UPGRADE marks&quot;):::thing
+    t4(&quot;every UPGRADE mark dealt with&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     s0 --&gt; t2
     s0 --&gt; t3
-    s1{&quot;2. Make each change an #35; UPGRADE mark asks for, and tick its box&quot;}
-    class s1 decision
     t3 --&gt; s1
     s1 --&gt; t4
-    t0(&quot;a Project at an older version&quot;)
-    class t0 thing
-    t1(&quot;the new Toolbox copied in&quot;)
-    class t1 thing
-    t2(&quot;the Project at the new version&quot;)
-    class t2 thing
-    t3(&quot;#35; UPGRADE marks&quot;)
-    class t3 thing
-    t4(&quot;every #35; UPGRADE box ticked&quot;)
-    class t4 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its steps:</p>
 <ul><li>1. Upgrade the Project&#x27;s files (it changes only files, or only prints: run its cell).</li></ul>
 <pre class="python">project.upgrade()</pre>
-<ul><li>2. Make each change an # UPGRADE mark asks for, and tick its box (it is a decision, yours to make).</li></ul>
+<ul><li>2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to make).</li></ul>
 <h5>The change_a_saved_table Workflow</h5>
 <p>Changes a Saved table in the warehouse with one of the admin module&#x27;s Admin statements, each logged in admin/admin_log.md.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/change_a_saved_table/change_a_saved_table.ipynb:</p>
-<pre class="chart">```mermaid
+<details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0{&quot;1. Write the Admin statement for the change&quot;}
-    class s0 decision
+    s0{&quot;1. Write the Admin statement for the change&quot;}:::your_decision
+    s1[&quot;2. Print its Hive, and run the check its Check first line names&quot;]:::files_only
+    s2[[&quot;3. Send it, then any check after it, such as admin.check_the_copy&quot;]]:::warehouse_call
+    t0(&quot;a Saved table&quot;):::thing
+    t1(&quot;the change wanted&quot;):::thing
+    t2(&quot;an Admin statement&quot;):::thing
+    t3(&quot;its Hive, read and checked&quot;):::thing
+    t4(&quot;the change sent&quot;):::thing
+    t5(&quot;the change logged&quot;):::thing
     t0 --&gt; s0
     t1 --&gt; s0
     s0 --&gt; t2
-    s1[&quot;2. Print its Hive, and run the check its Check first line names&quot;]
-    class s1 file
     t2 --&gt; s1
     s1 --&gt; t3
-    s2[[&quot;3. Send it, then any check after it, such as admin.check_the_copy&quot;]]
-    class s2 permission
     t3 --&gt; s2
     s2 --&gt; t4
     s2 --&gt; t5
-    t0(&quot;a Saved table&quot;)
-    class t0 thing
-    t1(&quot;the change wanted&quot;)
-    class t1 thing
-    t2(&quot;an Admin statement&quot;)
-    class t2 thing
-    t3(&quot;its Hive, read and checked&quot;)
-    class t3 thing
-    t4(&quot;the change sent&quot;)
-    class t4 thing
-    t5(&quot;the change logged&quot;)
-    class t5 thing
-    classDef file fill:#e3f2e1,stroke:#4a8a3f
-    classDef permission fill:#e1ecf7,stroke:#3f6a9a
-    classDef decision fill:#fbf1d6,stroke:#a8842a
-    classDef fiddling fill:#f8d7d5,stroke:#b03a30
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
-```</pre>
+```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the Saved table to change, such as &quot;mart.daily_job_runs&quot;
 TABLE = &#x27;&#x27;</pre>
