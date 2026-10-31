@@ -30,6 +30,7 @@ from .keys import Keys, possessive, statement_keys, unproven, wanted_key
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
 from .refusals import refuse
 from .running import name_in, statement_tree, statements_within, to_hive
+from .shared import singular_or_plural
 from .stacking import STACK_HOW, nth
 from .tables import Table, is_unchecked, readable
 from .trees import Node, rows_text, unchecked_calls
@@ -594,7 +595,7 @@ def _refuse_loop(named: list[tuple[Statement | UncheckedStatement | PythonStep, 
         s, name = named[i]
         written = " and ".join(_tables_written(s))
         readers = [named[j][1] for j in stuck if set(_tables_written(s)) & reads[j]]
-        verb = "reads" if len(readers) == 1 else "read"
+        verb = singular_or_plural(len(readers), "reads", "read")
         links.append(f"{name} writes {written}, which {' and '.join(readers)} {verb}")
     if call is not None:
         refuse(

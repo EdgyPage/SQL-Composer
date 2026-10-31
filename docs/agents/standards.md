@@ -30,20 +30,21 @@ can judge.
 
 ## One way per job
 
-Each recurring job of the Toolbox has one function, and every place that does the job calls it.
-Toolbox 8.0's ticket 03 builds the `shared` module; until it lands, this table is its plan:
+Each recurring job of the Toolbox has one function, in `sqlglot_composer/shared.py` but for the
+refusal, and every place that does the job calls it:
 
 | Job | The one function |
 |---|---|
 | A list in prose: "a, b and c" | `shared.in_words` |
 | A count and its noun: "1 table", "2 tables" | `shared.counted` |
+| A word that agrees with a count: "is" or "are", "it" or "them" | `shared.singular_or_plural` |
 | A value written as Python, for code the Toolbox writes | `shared.python_literal` |
 | A table's name split into its Database and its table | `shared.split_table_name` |
-| A list with its repeats dropped, in order | `shared.once` |
+| A list with its repeats dropped, in order | `list(dict.fromkeys(items))`, Python's own |
 | A refusal, with its four parts | `refusals.refuse` |
 
-A new recurring job gets a row here and its function in the Toolbox's `shared` module, in the
-same change. Before writing a helper, look here: "use the table's function" is a finding.
+A new recurring job gets a row here and its function in `shared.py`, in the same change. Before
+writing a helper, look here: "use the table's function" is a finding.
 
 ## Names
 

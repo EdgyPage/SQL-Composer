@@ -22,6 +22,8 @@ import re
 from collections import deque
 from collections.abc import Callable, Iterator
 
+from .shared import counted
+
 SIMPLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # How the Toolbox writes a character of a string value between single quotes, escaped on its
@@ -143,7 +145,7 @@ def arguments_text(fewest: int, most: int | None) -> str:
         return f"{fewest} or more arguments"
     if fewest != most:
         return f"{fewest} to {most} arguments"
-    return "1 argument" if fewest == 1 else f"{fewest} arguments"
+    return counted(fewest, "argument")
 
 
 # The column types create_table takes: Hive's, written as DESCRIBE

@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 
 from .refusals import kind_name, need_warehouse_call, refuse
+from .shared import split_table_name
 from .trees import SIMPLE_NAME
 from .writing import hive_text
 
@@ -300,7 +301,7 @@ def _hive_column(described: Description, column: str) -> tuple[str, str | None, 
 def _hive_details(described: Description) -> list[tuple[str, str | None, str | None]]:
     """DESCRIBE FORMATTED's details, as Hive prints them."""
     rows = [(DETAILED_INFORMATION, None, None),
-            ("Database:", described.name.rpartition(".")[0], None)]
+            ("Database:", split_table_name(described.name)[0], None)]
     if described.location is not None:
         rows.append(("Location:", described.location, None))
     rows.append(("Table Type:", "MANAGED_TABLE" if described.managed else "EXTERNAL_TABLE",
@@ -338,7 +339,7 @@ def _compact_columns(described: Description,
 def _compact_details(described: Description) -> list[tuple[str, str | None, str | None]]:
     """DESCRIBE FORMATTED's details, the compact way: labels with no colon, and the table
     properties on one line."""
-    database, _, table = described.name.rpartition(".")
+    database, table = split_table_name(described.name)
     rows = [("", "", ""), (DETAILED_INFORMATION, "", ""), ("Database", database, ""),
             ("Table", table, ""), ("Type", "MANAGED" if described.managed else "EXTERNAL", "")]
     if described.location is not None:

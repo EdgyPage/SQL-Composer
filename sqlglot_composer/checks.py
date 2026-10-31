@@ -20,6 +20,7 @@ import warnings
 from typing import NamedTuple
 
 from . import _four_part_message, _stop
+from .shared import singular_or_plural
 
 _PYTHON_NEEDED = (3, 11)
 
@@ -130,7 +131,7 @@ def check_folder(here: str, product: str, version_file: VersionFile, importing: 
     number = version_file.version
     if extra:
         _stop(
-            what=f"{', '.join(extra)} {'is' if len(extra) == 1 else 'are'} in the "
+            what=f"{', '.join(extra)} {singular_or_plural(len(extra), 'is', 'are')} in the "
             f"{on_disk} folder, but not part of {product} {number}.",
             why="A file left over from an earlier Toolbox version can still be imported, "
             "and would quietly run old code. A script of your own inside the folder would "
@@ -145,7 +146,8 @@ def check_folder(here: str, product: str, version_file: VersionFile, importing: 
         lost += [f"a missing {name} leaves you without {_PAGES[name]}"
                  for name in missing if name in _PAGES]
         _stop(
-            what=f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} missing "
+            what=f"{', '.join(missing)} "
+            f"{singular_or_plural(len(missing), 'is', 'are')} missing "
             f"from the {on_disk} folder.",
             why=f"Every file of {product} {number} is needed: "
             + (", ".join(lost[:-1]) + ", and " if len(lost) > 1 else "") + f"{lost[-1]}.",
@@ -161,8 +163,10 @@ def check_folder(here: str, product: str, version_file: VersionFile, importing: 
     if changed:
         warnings.warn(
             f"{importing} on import:" + _four_part_message(
-                what=f"{', '.join(changed)} {'differs' if len(changed) == 1 else 'differ'} "
-                f"from the {'file' if len(changed) == 1 else 'files'} the {product} {number} "
+                what=f"{', '.join(changed)} "
+                f"{singular_or_plural(len(changed), 'differs', 'differ')} "
+                f"from the {singular_or_plural(len(changed), 'file', 'files')} "
+                f"the {product} {number} "
                 f"download holds, which {VERSION_FILE} lists.",
                 why="A file edited by hand, or pasted from another download, may not work with "
                 "the rest of the folder, so a Statement could fail or come out wrong. It only "

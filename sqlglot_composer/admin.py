@@ -16,7 +16,6 @@ the Admin log (help(set_admin_log)).
 from __future__ import annotations
 
 import copy
-import json
 import urllib.parse
 from collections.abc import Callable
 
@@ -29,12 +28,12 @@ from .upkeep import ddl_statement
 from .conditions import Condition
 from .writing import hive_statement, hive_text
 from .refusals import (
-    in_words,
     need_warehouse_call,
     refuse,
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
+from .shared import counted, in_words, python_literal
 from .tables import (
     FILE_FORMATS,
     PURGE,
@@ -445,7 +444,7 @@ def _new_columns(t: Table, columns: dict[str, str], call: str) -> list[str]:
             what=f"{call}: {untyped[0]} has no type: its line in the Table reference says "
             "None.",
             why="Hive needs each new column's type to add it.",
-            fix=f'Give it its Hive type, such as {json.dumps(untyped[0])}: "string".',
+            fix=f'Give it its Hive type, such as {python_literal(untyped[0])}: "string".',
             error=ValueError,
         )
     return new
@@ -493,7 +492,7 @@ def set_properties(t: Table) -> Statement:
             error=ValueError,
         )
     hive = _set_tblproperties(t, pairs)
-    count = f"{len(pairs)} table propert{'y' if len(pairs) == 1 else 'ies'}"
+    count = counted(len(pairs), "table property", "table properties")
     about = [f"{call} sets {count} of {t._name}, as its Table reference says. Its other "
              "properties, and its rows, stay as they are."]
     if t._purge is not None:
@@ -819,7 +818,7 @@ def _counts_match(t: Table, copy_of: Table) -> Callable[[object], pd.DataFrame]:
         refuse(
             what=f"The move of {t._name} stopped: its copy, {copy_of._name}, doesn't hold the "
             "same number of rows" + ("" if not t._partitioned_by else
-                                     f" in {many} Partition{'' if many == 1 else 's'}")
+                                     f" in {counted(many, 'Partition')}")
             + ":\n" + result.to_string(index=False),
             why="The old table is dropped only once all of it is copied, so nothing was "
             "dropped.",

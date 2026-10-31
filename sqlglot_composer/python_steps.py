@@ -17,7 +17,8 @@ from pathlib import Path
 import pandas as pd
 
 from . import kinds
-from .refusals import in_words, refuse
+from .refusals import refuse
+from .shared import in_words
 from .tables import Column, Table
 
 # What a refusal's usual fix shows a call as.

@@ -24,7 +24,8 @@ from types import FrameType
 from . import kinds
 from .conditions import Condition
 from .keys import Found, Keys
-from .refusals import callers_frame, in_words, refuse, warn_at_callers_line
+from .refusals import callers_frame, refuse, warn_at_callers_line
+from .shared import in_words, python_literal
 from .tables import Column, Table, UncheckedSelect, python_text
 from .trees import SIMPLE_NAME, Node
 from .writing import (
@@ -177,13 +178,7 @@ def hive_settings(*names: str,
 
 def _call(names: tuple[object, ...]) -> str:
     """How hive_settings was called, for a message: ("a", "b") is ("a", "b")."""
-    return "(" + ", ".join(_quoted(name) for name in names) + ")"
-
-
-def _quoted(name: object) -> str:
-    """A set's name as a message writes it: text in double quotes, anything else as Python
-    shows it."""
-    return f'"{name}"' if isinstance(name, str) else repr(name)
+    return "(" + ", ".join(python_literal(name) for name in names) + ")"
 
 
 def _own_sets(sets: object) -> dict[object, dict[object, object]]:
@@ -237,12 +232,13 @@ def _named_set(name: object, names: tuple[object, ...],
             what=f"hive_settings{_call(names)} was given a list, where the sets' names go.",
             why="It takes each set's name as text, one after the other.",
             fix="Pass the names one by one: hive_settings("
-            + ", ".join(_quoted(each) for each in name) + ").",
+            + ", ".join(python_literal(each) for each in name) + ").",
         )
     yours = (f"and your sets= gives {', '.join(own)}" if own
              else "and no sets= of your own was given")
     refuse(
-        what=f"hive_settings{_call(names)}: there is no set named {_quoted(name)}. The Toolbox "
+        what=f"hive_settings{_call(names)}: there is no set named {python_literal(name)}. "
+        "The Toolbox "
         f"ships {', '.join(SHIPPED)}, {yours}.",
         why="It writes the SET lines of the sets it is given, by name.",
         fix="Check the spelling against the sets above. For a set of your own, keep it in a "

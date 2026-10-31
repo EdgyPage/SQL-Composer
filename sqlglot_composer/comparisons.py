@@ -18,7 +18,6 @@ import pandas as pd
 from . import kinds
 from .clauses import Statement
 from .refusals import (
-    in_words,
     kind_name,
     need_warehouse_call,
     refuse,
@@ -28,6 +27,7 @@ from .refusals import (
 from .clauses import read_bounds
 from .running import (hive_without_automatic_limit, need_statement, send_logged,
                       statement_tree, statements_within)
+from .shared import counted, in_words, singular_or_plural
 from .tables import Column, Table, Verdict, literal, python_text
 from .trees import unchecked_calls
 from .writing import hive_text, normalised_query, query_columns, rows_compared
@@ -392,7 +392,7 @@ def _need_partitions_named(statement: Statement, columns: list[str], call: str,
             if named else "nothing says which Partitions to compare")
     refuse(
         what=f"{call}: the Statement reads {in_words([table._name for table in tables])}, "
-        f"which {'is' if len(tables) == 1 else 'are'} partitioned, and {said}.",
+        f"which {singular_or_plural(len(tables), 'is', 'are')} partitioned, and {said}.",
         why="The original may read every Partition, the whole of each table, which may be "
         "more than the cluster should read at once.",
         fix=f'Pass partition={{"{example}": ...}}, with one value of {example}, a partition '
@@ -432,8 +432,8 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
     if len(result) == 0 or len(result.columns) < wanted:
         many = len(result.columns)
         refuse(
-            what=f"{call}: your query gave back {many} column{'' if many == 1 else 's'} and "
-            f"{len(result)} row{'' if len(result) == 1 else 's'}, where the comparison gives "
+            what=f"{call}: your query gave back {counted(many, 'column')} and "
+            f"{counted(len(result), 'row')}, where the comparison gives "
             f"{wanted} columns and at least 1 row.",
             why="It reads the counts and the rows that differ from what comes back, by place.",
             fix="Make your query return the warehouse's answer as it is, every column and row.",
@@ -445,7 +445,7 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
             f"{'; '.join(unchecked)}." if unchecked else None)
     if only_ours == 0 and only_theirs == 0:
         return Verdict(True, [f"The Statement and the original give the same rows{where}: "
-                              f"{_rows(ours)} each."] + (
+                              f"{counted(ours, 'row')} each."] + (
             [f"{held} The rows match, so it gives what the original gives here."]
             if held else []))
     shown = result.iloc[:, 4:wanted].copy()
@@ -454,23 +454,17 @@ def _rows_verdict(result: pd.DataFrame, columns: list[str], where: str, call: st
     shown = shown.astype({"in_statement": int, "in_original": int})
     return Verdict(False, [
         f"The Statement and the original give different rows{where}.",
-        f"  The Statement gives {_rows(ours)}, and the original {theirs}.",
-        f"  {_rows(only_ours)} {_are(only_ours)} in the Statement and not in the original, and "
-        f"{_rows(only_theirs)} {_are(only_theirs)} in the original and not in the Statement.",
+        f"  The Statement gives {counted(ours, 'row')}, and the original {theirs}.",
+        f"  {counted(only_ours, 'row')} {singular_or_plural(only_ours, 'is', 'are')} in the "
+        f"Statement and not in the original, and {counted(only_theirs, 'row')} "
+        f"{singular_or_plural(only_theirs, 'is', 'are')} in the original and not in the "
+        "Statement.",
         f"The rows that differ, at most {_SHOWN} from each, with how many times each gives "
         "them:",
         shown.to_string(index=False),
         *([f"{held} Check that Hive first: the Toolbox can't trace a difference inside it."]
           if held else []),
     ])
-
-
-def _rows(count: int) -> str:
-    return f"{count} row{'' if count == 1 else 's'}"
-
-
-def _are(count: int) -> str:
-    return "is" if count == 1 else "are"
 
 
 def _line(lines: list[str], number: int) -> str:

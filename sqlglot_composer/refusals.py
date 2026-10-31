@@ -32,6 +32,7 @@ import pandas as pd
 # import self-check needs it before this file can be trusted.
 from . import _FOLDER
 from . import _four_part_message as four_part_message
+from .shared import in_words
 
 
 class GuardRefused(Exception):
@@ -562,14 +563,6 @@ def arguments_of(function: Callable[..., object]) -> str:
     if first.kind is first.POSITIONAL_OR_KEYWORD and first.default is first.empty:
         names[0] = first.name
     return in_words(names)
-
-
-def in_words(items: list[str], last: str = "and") -> str:
-    """Items as a sentence lists them: "a", "a and b", or "a, b and c"; with last="or",
-    "a, b or c"."""
-    if len(items) < 2:
-        return "".join(items)
-    return f"{', '.join(items[:-1])} {last} {items[-1]}"
 
 
 def refuse_removed_arguments(call: str, removed: dict[str, object],

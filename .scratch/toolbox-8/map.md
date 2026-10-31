@@ -273,7 +273,11 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   `tests/repo/known_breaks.py`, by file and rule, which only shrinks; long lines wait for phase 2.
 - [02 The snapshot of every Hive string and refusal message](issues/02-the-snapshot.md): recorded
   while the suite runs, at the four places the Toolbox makes text; `tests/snapshot/known.txt`
-  holds 4,399 hashes, and `SNAPSHOT_WRITE=1` writes it, a deliberate act.
+  holds 4,653 hashes after its review, and `SNAPSHOT_WRITE=1` writes it only from a whole, passing
+  run.
+- [03 The job table's functions](issues/03-the-job-tables-functions.md): `sqlglot_composer/shared.py`
+  (`in_words`, `counted`, `singular_or_plural`, `python_literal`, `split_table_name`); every
+  caller moved onto it; `tools/lower_known_breaks.py` lowers the list after a fix.
 
 ## Not yet specified
 
