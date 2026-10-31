@@ -25,7 +25,9 @@ The map's "The Project's layout" holds the design.
   Workflow that has no instances; `project.do_next()` runs every next step that changes only
   files, in order, and stops at the first permission or decision, naming it as a call ready to
   run. It never sends anything.
-- A Warehouse step is done when its row is in `sent.csv`.
+- Each step in `sqlglot_composer/workflows.py` gains the function that says whether it is done,
+  read from the Project's files (moved here from ticket 10). A Warehouse step is done when its
+  row is in `sent.csv`.
 - CONTEXT.md gains **Dev Database** and **Prod Database**; the Project, Project action and
   Registry entries say where things now live.
 - The graph's fiddling count falls for every Workflow whose commented-out calls are gone.

@@ -280,7 +280,7 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   caller moved onto it; `tools/lower_known_breaks.py` lowers the list after a fix.
 - [10 The Workflow graph, docs/workflows.md, and today's baseline](issues/10-the-workflow-graph.md):
   `sqlglot_composer/workflows.py` lists each Workflow's steps by kind; `tools/workflow_graph.py`
-  draws `docs/workflows.md`; baseline fiddling 15 (convert 9); done-checks land with ticket 12.
+  draws `docs/workflows.md`; baseline fiddling 17 (convert 11); done-checks land with ticket 12.
 
 ## Not yet specified
 

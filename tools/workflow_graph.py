@@ -6,10 +6,10 @@ Run it on `dev` after changing a Workflow's steps:
 
 It writes `docs/workflows.md`: for each Workflow, a Mermaid diagram of its start materials, its
 steps and what each makes, and how many steps of each kind it has. A fiddling step, a step done
-by hand though the code knows the answer, is drawn in red. It stops with a list of each gap: a
-step that needs what neither the start materials nor an earlier step gives, or an end artifact
-no step makes. A test holds the page to what this writes, and each Workflow's fiddling to at
-most its count when Toolbox 8.0 began.
+by hand though the code knows the answer, is drawn in red. It stops, writing nothing, with a
+list of each gap: a step that needs what neither the start materials nor an earlier step gives,
+or an end artifact no step makes. A test holds the page to what this writes, and each
+Workflow's fiddling to at most its count when Toolbox 8.0 began.
 """
 
 from __future__ import annotations
@@ -25,23 +25,23 @@ sys.path.insert(0, str(ROOT))
 from sqlglot_composer import workflows  # noqa: E402
 from sqlglot_composer.workflows import KINDS, Workflow  # noqa: E402
 
-# How a step of each kind is drawn: its node's brackets, and its class.
-SHAPES = {workflows.FILE_STEP: ("[", "]"), workflows.PERMISSION: ("[[", "]]"),
-          workflows.DECISION: ("{", "}"), workflows.FIDDLING: (">", "]")}
-CLASSES = {workflows.FILE_STEP: "file", workflows.PERMISSION: "permission",
-           workflows.DECISION: "decision", workflows.FIDDLING: "fiddling"}
-STYLES = ("    classDef file fill:#e3f2e1,stroke:#4a8a3f",
-          "    classDef permission fill:#e1ecf7,stroke:#3f6a9a",
-          "    classDef decision fill:#fbf1d6,stroke:#a8842a",
-          "    classDef fiddling fill:#f8d7d5,stroke:#b03a30",
-          "    classDef thing fill:#ffffff,stroke:#888888")
+# How a step of each kind is drawn: its node's brackets, its class's name, and the class's
+# colours.
+DRAWN = {
+    workflows.FILE_STEP: ("[", "]", "file", "fill:#e3f2e1,stroke:#4a8a3f"),
+    workflows.PERMISSION: ("[[", "]]", "permission", "fill:#e1ecf7,stroke:#3f6a9a"),
+    workflows.DECISION: ("{", "}", "decision", "fill:#fbf1d6,stroke:#a8842a"),
+    workflows.FIDDLING: (">", "]", "fiddling", "fill:#f8d7d5,stroke:#b03a30"),
+}
+THING_STYLE = "    classDef thing fill:#ffffff,stroke:#888888"
 HEADING = """# Workflows
 
 What a Project goes through to reach each end goal, drawn from `sqlglot_composer/workflows.py`
 by `tools/workflow_graph.py`: don't edit this page, run the tool. Each box with round corners is
 something a step needs or makes; each step is drawn by its kind:
 
-- a **file step** (green), a Project action that changes only files;
+- a **file step** (green), which touches only files, or only prints, never the
+  Warehouse: a Project action, or show_hive;
 - a **permission** (blue, double-edged), a call to the Warehouse the user makes on purpose;
 - a **decision** (yellow, a diamond), which needs the user's judgement;
 - **fiddling** (red, a flag), a step done by hand though the code knows the answer.
@@ -64,18 +64,18 @@ def kind_counts(workflow: Workflow) -> Counter[str]:
 def gaps(workflow: Workflow) -> list[str]:
     """Each step's need that neither the start materials nor an earlier step gives, and each end
     artifact no step makes."""
-    had = set(workflow.start_materials)
-    found = []
+    available = set(workflow.start_materials)
+    gap_lines = []
     for step in workflow.steps:
         for need in step.needs:
-            if need not in had:
-                found.append(f"{workflow.name}: {step.name!r} needs {need!r}, which nothing "
-                             "gives")
-        had |= set(step.makes)
+            if need not in available:
+                gap_lines.append(f"{workflow.name}: {step.name!r} needs {need!r}, which "
+                                 "nothing gives")
+        available |= set(step.makes)
     for artifact in workflow.end_artifacts:
-        if artifact not in had:
-            found.append(f"{workflow.name}: no step makes {artifact!r}")
-    return found
+        if artifact not in available:
+            gap_lines.append(f"{workflow.name}: no step makes {artifact!r}")
+    return gap_lines
 
 
 def diagram(workflow: Workflow) -> list[str]:
@@ -90,10 +90,13 @@ def diagram(workflow: Workflow) -> list[str]:
 
     lines = ["```mermaid", "flowchart TD"]
     for number, step in enumerate(workflow.steps):
-        opening, closing = SHAPES[step.kind]
+        opening, closing, kind_class, _ = DRAWN[step.kind]
         step_id = f"s{number}"
-        lines.append(f"    {step_id}{opening}{label(f'{number + 1}. {step.name}')}{closing}")
-        lines.append(f"    class {step_id} {CLASSES[step.kind]}")
+        text = f"{number + 1}. {step.name}"
+        if step.call:
+            text += f": {step.call}"
+        lines.append(f"    {step_id}{opening}{label(text)}{closing}")
+        lines.append(f"    class {step_id} {kind_class}")
         for need in step.needs:
             lines.append(f"    {thing_id(need)} --> {step_id}")
         for made in step.makes:
@@ -101,7 +104,9 @@ def diagram(workflow: Workflow) -> list[str]:
     for text, thing in things.items():
         lines.append(f"    {thing}({label(text)})")
         lines.append(f"    class {thing} thing")
-    return [*lines, *STYLES, "```"]
+    styles = [f"    classDef {kind_class} {colours}"
+              for _, _, kind_class, colours in DRAWN.values()]
+    return [*lines, *styles, THING_STYLE, "```"]
 
 
 def section(workflow: Workflow) -> list[str]:
@@ -124,20 +129,23 @@ def page_text() -> str:
 
 
 def main() -> int:
-    """Write the page, unless it holds what this writes already; stop on a gap."""
-    found = []
+    """Write the page, unless it holds what this writes already; stop, writing nothing, on a
+    gap."""
+    gap_lines = []
     for workflow in workflows.WORKFLOWS:
-        found += gaps(workflow)
+        gap_lines += gaps(workflow)
         counted = kind_counts(workflow)
         print(f"{workflow.name}: {counted[workflows.FIDDLING]} fiddling of "
               f"{len(workflow.steps)} steps")
-    for gap in found:
+    for gap in gap_lines:
         print(f"Gap: {gap}")
+    if gap_lines:
+        return 1
     text = page_text()
     if not PAGE.exists() or PAGE.read_text(encoding="utf-8") != text:
         PAGE.write_text(text, encoding="utf-8")
         print(f"Wrote {PAGE.relative_to(ROOT).as_posix()}.")
-    return 1 if found else 0
+    return 0
 
 
 if __name__ == "__main__":

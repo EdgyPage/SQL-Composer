@@ -4,7 +4,8 @@ A Workflow starts from its start materials, what the user brings, and ends at it
 artifacts. Each step takes what it needs, which earlier steps or the start materials gave, and
 makes what it makes. Each is one of four kinds:
 
-- a **file step**, a Project action, which changes only files and can be run for the user;
+- a **file step**, which touches only files, or only prints, never the Warehouse, and can
+  be run for the user: a Project action, or show_hive;
 - a **permission**, a call to the Warehouse the user makes on purpose;
 - a **decision**, which needs the user's judgement, such as a risk the original Hive took;
 - **fiddling**, a step the user does by hand though the code already knows the answer: typing a
@@ -56,39 +57,52 @@ CONVERT = Workflow(
     steps=(
         Step("Split each script into files of one query each", FIDDLING,
              ("Hive scripts",), ("a file per query",)),
-        Step("Rewrite each CREATE TABLE ... AS as an INSERT, since a CREATE is refused",
-             FIDDLING, ("a file per query",), ("queries a Conversion takes",)),
+        Step("Rewrite each CREATE: a CREATE TABLE ... AS as an INSERT, and drop a CREATE an "
+             "INSERT fills, since a CREATE is refused", FIDDLING,
+             ("a file per query",), ("queries a Conversion takes",)),
         Step("Paste each query into admin/convert.ipynb", FIDDLING,
              ("queries a Conversion takes",), ("the Hive in the notebook",)),
+        Step("Set DATABASE, for the tables the Hive names without one", DECISION,
+             ("the Hive in the notebook",), ("the Hive with its database",)),
         Step("Type a Conversion's name into the commented-out convert call, and uncomment it",
-             FIDDLING, ("the Hive in the notebook",), ("a convert call to run",)),
-        Step("Convert the query", PERMISSION,
+             FIDDLING, ("the Hive with its database",), ("a convert call to run",)),
+        Step("Convert the query, reading the sources' DESCRIBE", PERMISSION,
              ("a convert call to run", "read access to the sources"),
              ("a Conversion folder", "Table references for the sources"),
-             'project.convert(name, hive, query=query)'),
+             "project.convert(name, hive, query=query)"),
         Step("Fill in the new Table references' TODO lines", DECISION,
              ("Table references for the sources",), ("filled-in source references",)),
-        Step("Point each statement that reads an earlier one's table at your copy", FIDDLING,
-             ("a Conversion folder",), ("Conversions that read your tables",)),
+        Step("Point each query that reads an earlier one's table at your copy: no step of the "
+             "Toolbox does it", FIDDLING,
+             ("a Conversion folder", "your Dev Database's name"),
+             ("Conversions that read your tables",)),
         Step("Decide each # CONVERSION: mark", DECISION,
              ("Conversions that read your tables",), ("each decision made",)),
         Step("Fill in the compare cell's partition, and uncomment it", FIDDLING,
              ("each decision made",), ("a compare call to run",)),
-        Step("Type the Saved table's name into finish_conversion, and uncomment it", FIDDLING,
-             ("each decision made", "your Dev Database's name"), ("a finish call to run",)),
-        Step("Finish the Conversion", FILE_STEP, ("a finish call to run",),
-             ("a dev Table folder per table the scripts create", "its Table reference"),
-             'project.finish_conversion(name, table)'),
-        Step("Fill in the Table reference's <LOCATION>, <COLUMN_TYPE>, partitions and key",
-             FIDDLING, ("its Table reference",), ("a filled-in Table reference",)),
-        Step("Send the original's SET lines with session_settings() by hand", FIDDLING,
-             ("a dev Table folder per table the scripts create",), ("the settings sent",)),
-        Step("Create and write each table in dev", PERMISSION,
-             ("a filled-in Table reference", "the settings sent"), ("each written in dev",),
-             "run_tables(execute=execute)"),
-        Step("Compare each table with its original", PERMISSION,
-             ("a compare call to run", "each written in dev"),
+        Step("Compare each query with its original", PERMISSION, ("a compare call to run",),
              ("each compared with its original",), "compare_with_original(...)"),
+        Step("Type the Saved table's name into finish_conversion, and uncomment it", FIDDLING,
+             ("each compared with its original", "your Dev Database's name"),
+             ("a finish call to run",)),
+        Step("Finish the Conversion", FILE_STEP, ("a finish call to run",),
+             ("a dev Table folder per table the scripts create", "its Table reference",
+              "leftover compare cells"),
+             "project.finish_conversion(name, table)"),
+        Step("Delete the compare cells the Table notebook keeps", FIDDLING,
+             ("leftover compare cells",), ("a Table notebook of its own",)),
+        Step("Fill in each <COLUMN_TYPE> and the partitions, which the original's DESCRIBE "
+             "gives", FIDDLING, ("its Table reference",), ("its columns filled in",)),
+        Step("Fill in its <LOCATION>", FIDDLING, ("its columns filled in",),
+             ("its place filled in",)),
+        Step("Choose its Key, if it has one", DECISION, ("its place filled in",),
+             ("a filled-in Table reference",)),
+        Step("Send the original's SET lines with session_settings() by hand", FIDDLING,
+             ("a Table notebook of its own",), ("the settings sent",)),
+        Step("Create and write each table in dev", PERMISSION,
+             ("a filled-in Table reference", "filled-in source references",
+              "the settings sent"), ("each written in dev",),
+             "run_tables(execute=execute)"),
     ),
 )
 

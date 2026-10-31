@@ -77,10 +77,10 @@ _Avoid_: admin statement, migration, setup step
 
 **Workflow**:
 An ordered list of steps that takes a Project from its start materials, what the user brings,
-to one end goal, such as converting scripts or promoting tables. Each step is a Project action,
-a call to the Warehouse the user makes on purpose, a decision only the user can make, or
-fiddling: a step done by hand though the code already knows the answer, which the Toolbox works
-to remove.
+to one end goal, such as converting scripts or promoting tables. Each step touches only files
+(or only prints), makes a call to the Warehouse the user makes on purpose, asks a decision only
+the user can make, or is fiddling: a step done by hand though the code already knows the
+answer, which the Toolbox works to remove.
 _Avoid_: wizard, menu, pipeline, recipe, playbook
 
 **Upgrade**:
