@@ -587,7 +587,7 @@ GROUP BY
 Printed 1 write in order, and sent nothing. Pass execute= to run them.
 
 With your query and execute, from warehouse.py, it sends them. The Project's warehouse.py
-holds the Example database's two calls until you write your own, so here its execute prints
+holds the Example database as its connection until you set your own, so here its execute prints
 the first line of each thing sent. It takes query= as well as execute=, since a write() may
 give an Admin statement or an Unchecked statement, and one that reads rows goes to your query.
 A write fills dt from its rows, so the Session setting `"dynamic_partitions"` goes first:

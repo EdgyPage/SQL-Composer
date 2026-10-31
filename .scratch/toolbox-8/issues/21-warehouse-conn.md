@@ -39,3 +39,22 @@ Built 2026-10-31.
   warehouse.py and the starter's README are regenerated or rewritten to match.
 - The snapshot is written again on purpose: start's report changed in every test that starts
   a Project.
+
+Reviews:
+- **Drift, D311 to D314.**
+  - D311: start()'s pre-7.0 line points to CHANGES.md's 8.0, which now says what to do with
+    send.py.
+  - D312: how-to 01's Goal and Common mistakes, and how-to 06, speak of the connection.
+  - D313: the README's file table names `conn`.
+  - D314: CONTEXT.md's Warehouse says both calls pass the Hive to `conn`.
+- **Beginner reader (opus)**, taken:
+  - `execute` with a cursor is shown beside `query`;
+  - whether one session is the connection's or the user's to keep;
+  - that `conn` can be any object with the two calls, and that `my_api` is a made-up name;
+  - what the DataFrame's columns are named;
+  - that `execute` drops what `conn.execute` gives back;
+  - that `query` in the page is always the function in warehouse.py;
+  - that a 7.x warehouse.py keeps working.
+
+  Not taken: the printed warehouse.py wrapping a docstring line in how-to 01. The page
+  wraps long output lines, and the doctest reads them as one.

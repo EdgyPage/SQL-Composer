@@ -8,8 +8,8 @@ Get a Project ready: one folder that holds the Toolbox, warehouse.py, where your
 functions, `query` and `execute`, run Hive SQL on your warehouse, and, as you add them, your
 tables' Table references, the Building blocks your notebooks share and a notebook per Saved
 table. You install what the Toolbox needs, copy it into the folder, let `project.start()` lay
-the folder out, learn which call makes each file of a Project and what you fill in, and write
-your query and execute.
+the folder out, learn which call makes each file of a Project and what you fill in, and set
+your connection.
 
 ## When you'd use it
 
@@ -182,14 +182,19 @@ Example database can't be written to. The Getting started how-tos keep warehouse
 ### Set your connection
 
 At work, open warehouse.py in your editor and set `conn` to your team's connection, once, in
-place of `example_database`:
+place of `example_database`. `conn` can be anything with the two calls: a module, as
+`example_database` is, or the object your team's library connects you with. Here `my_api` and
+its connect call are made-up names for yours:
 
     import my_api  # your team's library
 
-    conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) nothing
+    conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) runs
 
-That is all, when your connection's `query` gives back a pandas DataFrame, each column named,
-and its `execute` gives back nothing. `query` and `execute` below it pass each Hive string on.
+That is all, when your connection's `query` gives back a pandas DataFrame whose columns are
+named as the SELECT names them, and its `execute` runs Hive that changes something. Whatever
+`conn.execute` gives back, `execute` drops it. `query` and `execute` below it pass each Hive
+string on. In this page, `query` and `execute` are always the two functions in warehouse.py;
+`conn.query` and `conn.execute` are your connection's.
 
 When your connection gives rows some other way, as each row a dict or a tuple, change `query`
 to turn them into a DataFrame. A dict, such as `{"run_id": 97, "job_id": 3}`, gives its column
@@ -208,12 +213,17 @@ its own columns:
         names = [column[0] for column in cursor.description]
         return pd.DataFrame(cursor.fetchall(), columns=names)
 
+
+    def execute(hive: str) -> None:
+        conn.cursor().execute(hive)  # the same connection: nothing comes back to read
+
 `hive: str`, `-> pd.DataFrame` and `-> None` are type hints: they say a Hive string goes in,
 and that a DataFrame comes out of `query` and nothing out of `execute`. Python doesn't check
 them.
 
-Both functions use the one `conn`, so they share one session: a Session setting sent through
-`execute` holds for what is sent after it, through either function. And let each raise when the
+Both functions use the one `conn`. Most connections keep one session, so a Session setting
+sent through `execute` holds for what is sent after it, through either function; if yours
+opens a new session for each call, keep one open in `conn` yourself. And let each raise when the
 warehouse reports a failure. If your connection gives back an error rather than raising one,
 raise it yourself, such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed
 only when your connection raises.
@@ -300,8 +310,8 @@ This page has no API, so a stand-in plays yours here, giving each row as a tuple
 0  1  2  3
 
 Nothing stops it, but no column has its name: reading one by name, such as `"one"`, stops
-with a `KeyError`. Pass `pd.DataFrame` the column names your API gives, as the step Write your
-query and execute shows. A query that gives back the rows as a plain list, without
+with a `KeyError`. Pass `pd.DataFrame` the column names your connection gives, as the step
+Set your connection shows. A query that gives back the rows as a plain list, without
 `pd.DataFrame`, is refused the first time `run_query` gets them back.
 
 ### Starting the Project again

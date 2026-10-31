@@ -61,7 +61,7 @@ or made by hand.
 | `sqlglot_composer/` | you: copied in from the download | nothing: never edit a file inside it |
 | `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
-| `warehouse.py` | `project.start()` | your query and execute |
+| `warehouse.py` | `project.start()` | `conn`, your connection |
 | `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
