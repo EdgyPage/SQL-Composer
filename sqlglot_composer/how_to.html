@@ -108,7 +108,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <section class="entry" id="start_a_project">
 <h3>1. Start a Project <span class="badge getting-started">Getting started</span></h3>
 <h4>Goal</h4>
-<p>Get a Project ready: one folder that holds the Toolbox, warehouse.py, where your own two functions, <code>query</code> and <code>execute</code>, run Hive SQL on your warehouse, and, as you add them, your tables&#x27; Table references, the Building blocks your notebooks share and a notebook per Saved table. You install what the Toolbox needs, copy it into the folder, let <code>project.start()</code> lay the folder out, learn which call makes each file of a Project and what you fill in, and write your query and execute.</p>
+<p>Get a Project ready: one folder that holds the Toolbox, warehouse.py, where your own two functions, <code>query</code> and <code>execute</code>, run Hive SQL on your warehouse, and, as you add them, your tables&#x27; Table references, the Building blocks your notebooks share and a notebook per Saved table. You install what the Toolbox needs, copy it into the folder, let <code>project.start()</code> lay the folder out, learn which call makes each file of a Project and what you fill in, and set your connection.</p>
 <h4>When you&#x27;d use it</h4>
 <p>Once, when you start writing Hive with the Toolbox for your team&#x27;s tables. Every notebook after it lives in the Project and finds the Toolbox and your query and execute there. The Getting started how-tos after this one go on in the Project it makes, one step at a time. The Starter Example project shows a Project much like the one they leave, filled in.</p>
 <h4>Steps</h4>
@@ -203,11 +203,11 @@ def execute(hive: str) -&gt; None:
 <pre class="python">from sqlglot_composer import example_database</pre>
 <p><code>example_database.query</code> runs Hive on the Example database&#x27;s nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to. The Getting started how-tos keep warehouse.py just so.</p>
 <h5>Set your connection</h5>
-<p>At work, open warehouse.py in your editor and set <code>conn</code> to your team&#x27;s connection, once, in place of <code>example_database</code>:</p>
+<p>At work, open warehouse.py in your editor and set <code>conn</code> to your team&#x27;s connection, once, in place of <code>example_database</code>. <code>conn</code> can be anything with the two calls: a module, as <code>example_database</code> is, or the object your team&#x27;s library connects you with. Here <code>my_api</code> and its connect call are made-up names for yours:</p>
 <pre class="python">import my_api  # your team&#x27;s library
 
-conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) nothing</pre>
-<p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame, each column named, and its <code>execute</code> gives back nothing. <code>query</code> and <code>execute</code> below it pass each Hive string on.</p>
+conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) runs</pre>
+<p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame whose columns are named as the SELECT names them, and its <code>execute</code> runs Hive that changes something. Whatever <code>conn.execute</code> gives back, <code>execute</code> drops it. <code>query</code> and <code>execute</code> below it pass each Hive string on. In this page, <code>query</code> and <code>execute</code> are always the two functions in warehouse.py; <code>conn.query</code> and <code>conn.execute</code> are your connection&#x27;s.</p>
 <p>When your connection gives rows some other way, as each row a dict or a tuple, change <code>query</code> to turn them into a DataFrame. A dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, gives its column names from its keys:</p>
 <pre class="python">def query(hive: str) -&gt; pd.DataFrame:
     return pd.DataFrame(conn.query(hive))</pre>
@@ -216,9 +216,12 @@ conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sq
     cursor = conn.cursor()  # your connection&#x27;s cursor, from its database library
     cursor.execute(hive)
     names = [column[0] for column in cursor.description]
-    return pd.DataFrame(cursor.fetchall(), columns=names)</pre>
+    return pd.DataFrame(cursor.fetchall(), columns=names)
+
+def execute(hive: str) -&gt; None:
+    conn.cursor().execute(hive)  # the same connection: nothing comes back to read</pre>
 <p><code>hive: str</code>, <code>-&gt; pd.DataFrame</code> and <code>-&gt; None</code> are type hints: they say a Hive string goes in, and that a DataFrame comes out of <code>query</code> and nothing out of <code>execute</code>. Python doesn&#x27;t check them.</p>
-<p>Both functions use the one <code>conn</code>, so they share one session: a Session setting sent through <code>execute</code> holds for what is sent after it, through either function. And let each raise when the warehouse reports a failure. If your connection gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your connection raises.</p>
+<p>Both functions use the one <code>conn</code>. Most connections keep one session, so a Session setting sent through <code>execute</code> holds for what is sent after it, through either function; if yours opens a new session for each call, keep one open in <code>conn</code> yourself. And let each raise when the warehouse reports a failure. If your connection gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your connection raises.</p>
 <h5>Try your query</h5>
 <p>Every notebook of the Project imports the two from warehouse.py:</p>
 <pre class="python">from warehouse import query, execute</pre>
@@ -266,7 +269,7 @@ query_without_column_names(&quot;SELECT 1 AS one, 2 AS two, 3 AS three&quot;)</p
 <tr><th>0</th><th>1</th><th>2</th></tr>
 <tr><td>1</td><td>2</td><td>3</td></tr>
 </table></div>
-<p>Nothing stops it, but no column has its name: reading one by name, such as <code>&quot;one&quot;</code>, stops with a <code>KeyError</code>. Pass <code>pd.DataFrame</code> the column names your API gives, as the step Write your query and execute shows. A query that gives back the rows as a plain list, without <code>pd.DataFrame</code>, is refused the first time <code>run_query</code> gets them back.</p>
+<p>Nothing stops it, but no column has its name: reading one by name, such as <code>&quot;one&quot;</code>, stops with a <code>KeyError</code>. Pass <code>pd.DataFrame</code> the column names your connection gives, as the step Set your connection shows. A query that gives back the rows as a plain list, without <code>pd.DataFrame</code>, is refused the first time <code>run_query</code> gets them back.</p>
 <h5>Starting the Project again</h5>
 <p><code>project.start()</code> run again in the Project&#x27;s folder writes over nothing. It adds only what start() makes and the Project lacks, such as an admin notebook deleted by mistake, and says so:</p>
 <pre class="python">project.start()</pre>
@@ -3253,7 +3256,7 @@ GROUP BY
   run_alerts.severity,
   run_alerts.dt;</pre>
 <p class="label">Python shows</p><pre class="output">Printed 1 write in order, and sent nothing. Pass execute= to run them.</pre>
-<p>With your query and execute, from warehouse.py, it sends them. The Project&#x27;s warehouse.py holds the Example database&#x27;s two calls until you write your own, so here its execute prints the first line of each thing sent. It takes query= as well as execute=, since a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes to your query. A write fills dt from its rows, so the Session setting <code>&quot;dynamic_partitions&quot;</code> goes first:</p>
+<p>With your query and execute, from warehouse.py, it sends them. The Project&#x27;s warehouse.py holds the Example database as its connection until you set your own, so here its execute prints the first line of each thing sent. It takes query= as well as execute=, since a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes to your query. A write fills dt from its rows, so the Session setting <code>&quot;dynamic_partitions&quot;</code> goes first:</p>
 <pre class="python">project.run_tables(execute=execute)</pre>
 <p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict

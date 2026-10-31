@@ -35,7 +35,8 @@ _Avoid_: develop, internal branch, testing branch
 Where Statements run at work: the tables, and the Hive that runs a Statement's Hive on them.
 Each Toolbox user has one; the Example database stands in for it. The Toolbox reaches it only
 through the user's two calls: `query`, which gives back rows as a DataFrame, and `execute`, which
-gives back nothing, as the user's own API does. The user chooses which call sends each
+gives back nothing. Both pass the Hive to the user's connection, `conn`, set once in the
+Project's warehouse.py. The user chooses which call sends each
 Statement; the Toolbox never chooses for them.
 _Avoid_: backend, engine, server, platform, send
 
