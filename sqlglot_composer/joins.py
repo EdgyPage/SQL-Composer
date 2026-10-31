@@ -41,7 +41,7 @@ ONLY_TESTS = ("SEMI_JOIN", "ANTI_JOIN")
 BOUNDED_IN_ON = ("LEFT_JOIN", "SEMI_JOIN", "ANTI_JOIN")
 
 
-def need_broadcast_true_or_false(call: str, table: Table, broadcast: object) -> None:
+def check_broadcast_true_or_false(call: str, table: Table, broadcast: object) -> None:
     """Refuse a broadcast= that isn't True or False."""
     if not isinstance(broadcast, bool):
         refuse(
@@ -90,6 +90,7 @@ def refuse_only_tests_with_no_on(call: str, alias: str) -> NoReturn:
 
 
 def refuse_anti_join_with_nothing_matched(table: Table) -> NoReturn:
+    """Refuse an ANTI_JOIN whose ON= gives tested_column(...) no column to test."""
     alias = table._alias
     refuse(
         what=f"ANTI_JOIN({alias}, ON=...) has no equals(...) on a column of {alias} in ON=.",
@@ -148,10 +149,19 @@ def _places(s: Statement, read: Clause) -> list[tuple[str, Node]]:
     return found
 
 
+def _first_column_of(tree: Node, alias: str) -> Node | None:
+    """The first column of the table called `alias` that `tree` reads, or None."""
+    for column in tree.find_all("Column"):
+        if column.table == alias:
+            return column
+    return None
+
+
 def _refuse_columns_read(s: Statement, read: Clause) -> None:
+    """Refuse a column of a SEMI_JOIN's or ANTI_JOIN's table read anywhere but its own ON=."""
     alias, call = read.table._alias, read._name
     for place, tree in _places(s, read):
-        column = next((c for c in tree.find_all("Column") if c.table == alias), None)
+        column = _first_column_of(tree, alias)
         if column is None:
             continue
         named = f"{alias}.{column.name}"
@@ -159,8 +169,8 @@ def _refuse_columns_read(s: Statement, read: Clause) -> None:
             why = (f"SEMI_JOIN({alias}, ...) keeps each row that has a match in {alias}, once, "
                    f"and adds none of its columns: Hive lets only its ON= read them.")
             fix = (f"To test the rows of {alias}, put the test in SEMI_JOIN({alias}, "
-                   f"ON=...). To show its columns, use JOIN({alias}, ON=...), which gives a row "
-                   "for each match.")
+                   f"ON=...). To show its columns, use JOIN({alias}, ON=...), which gives a "
+                   "row for each match.")
         else:
             why = (f"ANTI_JOIN({alias}, ...) keeps only the rows with no match in {alias}, so "
                    f"every {alias} column is NULL in them: a test of one outside ON= would "
@@ -186,15 +196,16 @@ def broadcast(s: Statement) -> list[str]:
 
 
 def refuse_right_join(table: object) -> NoReturn:
-    """RIGHT_JOIN is never written: the same rows come from LEFT_JOIN with the tables swapped."""
+    """RIGHT_JOIN is never written: the same rows come from LEFT_JOIN with the tables
+    swapped."""
     alias = getattr(table, "_alias", None) or "t"
     refuse(
         what=f"RIGHT_JOIN({alias}, ...): the Toolbox doesn't write a RIGHT JOIN.",
         why=f"A RIGHT JOIN keeps every row of {alias} and only the matching rows of the tables "
         "before it. LEFT_JOIN gives the same rows with the tables swapped, and reads in order: "
         "the table whose every row is kept comes first, in FROM.",
-        fix=f"Put {alias} in FROM({alias}), and the table now in FROM in LEFT_JOIN(..., ON=...), "
-        "with the same ON=.",
+        fix=f"Put {alias} in FROM({alias}), and the table now in FROM in "
+        "LEFT_JOIN(..., ON=...), with the same ON=.",
         error=ValueError,
     )
 
