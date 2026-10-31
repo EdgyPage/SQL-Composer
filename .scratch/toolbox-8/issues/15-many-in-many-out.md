@@ -49,3 +49,48 @@ Built 2026-10-31.
   `table_reference_text` says it always writes location=; and the create steps now send each
   table's `create()` themselves, in convert and in new_table, rather than naming a cell no
   notebook has.
+
+### Review (73e335d)
+
+Code review: the Standards and Spec axes (`review-standards`, `review-spec`, on Sonnet), and
+the drift review (D337 to D339). Fixed in the next commit:
+
+- **Spec, CTE pieces:** a stacked piece with its own CTEs was wrapped as `SELECT * FROM (...)`,
+  which no Stack can name, and two pieces' CTEs of one name clashed. Now every piece's CTEs
+  go in the one WITH at the write's top, and one named as an earlier piece's is renamed
+  `<name>_<its piece's number>`, its piece reading it by the new name, still called by the
+  old, so its columns are found (`converting._ctes_taken_off`). Tested with two pieces each
+  with a CTE `x`, run on the Example database.
+- **Spec, a write kept whole as Hive:** an incremental INSERT whose query stays an Unchecked
+  statement, as `> (SELECT MAX(...) FROM t)` does, had a write() that couldn't run
+  (`derived(...)` refuses an Unchecked statement, and `statement` wasn't imported). Its write()
+  is now its INSERT, an Unchecked statement too (`ConvertedQuery.kept_whole`, `saved_table_logic`'s
+  `whole_hive`), and `statement` is imported wherever write() uses it. The convert Workflow
+  counts such a write as one: an Unchecked statement sent for the table besides its seed
+  (`workflows.was_written`). Tested from convert through create, seed and write to the compare
+  step.
+- **Spec, the seed's Partitions:** a partitioned seed fills each Partition from its rows, so the
+  seed step and its checklist box now send `hive_settings("dynamic_partitions")` first; the
+  Workflow notebooks import `hive_settings`.
+- **Standards:** no `x or default` (`_untyped_as_string`); `static_partition` reads
+  `_static_values`; a write's part in batch.md is one of three names (`_FIRST`, `_STACKED`,
+  `_REPLACED`) shared by both sites; `_write_table_files` takes the seed's Hive, and the caller
+  records the seeded table; `static` is `static_values`.
+- **Glossary:** **Seed** is in CONTEXT.md (D339); batch.md says "stacked into <table>'s write"
+  rather than "a piece", which stays a word of the code alone.
+- **Drift:** D337 (statement.hql holds each statement of a table's write: convert's docstring,
+  the notebook's first cell, CONTEXT.md's Conversion folder) and D338 (`_convert_one_table`'s
+  docstring).
+
+Answered, not changed:
+
+- **Standards 3, `_read_statements` repeats `_read_statement`'s table and reads:** the two set
+  them for different trees (one target's INSERT, with the shared FROM, against the whole
+  statement), two lines each; a helper would hide which tree.
+- **Standards 6, `batch_tables(name, seeded=False)`:** one list of the batch's tables, the flag
+  narrowing it to those the seed step sends; the Workflow's steps read both, and this ticket
+  names the seed step.
+- **Spec (b), an INSERT INTO and an INSERT OVERWRITE of different Partitions:** both are kept
+  and the write takes the first one's mode, so the overwrite's Partition is added to rather
+  than replaced on a run again. No one write can do both; the first write into an empty dev
+  table gives the same rows, and the compare step (ticket 16) checks them.

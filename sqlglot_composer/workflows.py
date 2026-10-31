@@ -157,10 +157,13 @@ def sent_rows(root: Path) -> list[dict[str, str]]:
 
 def was_sent(root: Path, kind: str, table: str) -> bool:
     """Whether admin/sent.csv records a send of `kind`, such as "write", for `table`."""
-    for row in sent_rows(root):
-        if row["kind"] == kind and table in row["tables"].split(";"):
-            return True
-    return False
+    return times_sent(root, kind, table) > 0
+
+
+def times_sent(root: Path, kind: str, table: str) -> int:
+    """How many sends of `kind`, such as "write", admin/sent.csv records for `table`."""
+    return len([row for row in sent_rows(root)
+                if row["kind"] == kind and table in row["tables"].split(";")])
 
 
 def file_text(path: Path) -> str:
@@ -258,9 +261,22 @@ def every_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def every_table_written(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether admin/sent.csv records a write of each table TABLES names."""
+    """Whether admin/sent.csv records a write of each table TABLES names: a write, or an
+    Unchecked statement, its write kept as Hive, besides the seed of one SEEDED names."""
     tables = names_in(inputs, "TABLES")
-    return bool(tables) and all(was_sent(root, "write", table) for table in tables)
+    seeded = names_in(inputs, "SEEDED")
+    return bool(tables) and all(was_written(root, table, table in seeded) for table in tables)
+
+
+def was_written(root: Path, table: str, seeded: bool) -> bool:
+    """Whether admin/sent.csv records a write of `table`: a write, or an Unchecked statement
+    besides its seed when it was `seeded`."""
+    if was_sent(root, "write", table):
+        return True
+    seeds = 0
+    if seeded:
+        seeds = 1
+    return times_sent(root, "unchecked", table) > seeds
 
 
 def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
@@ -345,6 +361,7 @@ CONVERT = Workflow(
              "    run_execute(project.load(table).create(), execute)", every_table_created),
         Step("Seed each table that reads itself, once, from its original", PERMISSION,
              ("each made in dev",), ("each seeded",),
+             'run_execute(hive_settings("dynamic_partitions"), execute)\n'
              "for table in project.batch_tables(NAME, seeded=True):\n"
              "    run_execute(project.load(table).seed(), execute)", every_table_seeded),
         Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),

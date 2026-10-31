@@ -18,7 +18,14 @@ from pathlib import Path
 import pytest
 from conftest import toolbox_module
 
-from sqlglot_composer import example_database, project, set_admin_log, to_hive
+from sqlglot_composer import (
+    example_database,
+    hive_settings,
+    project,
+    run_execute,
+    set_admin_log,
+    to_hive,
+)
 
 NOW = datetime.datetime(2026, 10, 31, 9, 30, 0)
 
@@ -476,8 +483,8 @@ def test_several_writes_to_one_table_stack_in_script_order(started: Path) -> Non
     assert set(rows["kind"]) == {"run", "alert"}
     index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
         encoding="utf-8")
-    assert "a piece of mart_dev.events_ops_reports's write, stacked after the one before" in (
-        index)
+    assert ("stacked into mart_dev.events_ops_reports's write after the one before it"
+            in index)
 
 
 def test_a_later_overwrite_replaces_the_writes_before_it(started: Path) -> None:
@@ -504,5 +511,65 @@ def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None
     assert project.batch_tables("script", seeded=True) == ["mart_dev.grows_ops_reports"]
     # Its write reads its own copy in dev, which the seed fills first.
     assert "FROM mart_dev.grows_ops_reports" in to_hive(logic.preview())
-    assert "- [ ] Seed it once, before its first write" in (
+    assert "- [ ] Agree to seed it: its write reads its own table" in (
         checklist(started, "mart_dev.grows_ops_reports"))
+
+
+# --- What ticket 15's review found -----------------------------------------------------------
+
+
+def fill_in_its_location(root: Path, table: str) -> None:
+    """Fill in a converted table's location=, as its checklist asks, so it can be written."""
+    path = root / "references" / f"{table.replace('.', '__')}.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "location=None,", f'location="/data/{table.replace(".", "/")}",'), encoding="utf-8")
+    forget_the_projects_modules()
+
+
+def test_pieces_with_ctes_of_one_name_stack_each_reading_its_own(started: Path) -> None:
+    convert_script(started,
+                   "CREATE TABLE IF NOT EXISTS ops_reports.ev (run_id BIGINT, n BIGINT)\n"
+                   "PARTITIONED BY (dt STRING);\n"
+                   "INSERT OVERWRITE TABLE ops_reports.ev PARTITION (dt='2026-09-24')\n"
+                   "WITH x AS (SELECT r.run_id, r.job_id FROM ops.job_runs r\n"
+                   "  WHERE r.dt = '2026-09-24')\n"
+                   "SELECT x.run_id, x.job_id AS n FROM x;\n"
+                   "INSERT INTO TABLE ops_reports.ev PARTITION (dt='2026-09-24')\n"
+                   "WITH x AS (SELECT a.run_id, a.alert_id FROM ops.run_alerts a\n"
+                   "  WHERE a.dt = '2026-09-24')\n"
+                   "SELECT x.run_id, x.alert_id AS n FROM x;\n")
+    fill_in_its_location(started, "mart_dev.ev_ops_reports")
+    table = project.load("mart_dev.ev_ops_reports")
+    hive = to_hive(table.preview())
+    assert "x_2 AS (" in hive and "FROM x_2 AS x" in hive
+    rows = example_database.query(hive)
+    assert list(rows.columns) == ["run_id", "n", "dt"] and len(rows) > 0
+    assert "INSERT OVERWRITE TABLE mart_dev.ev_ops_reports PARTITION(dt)" in (
+        to_hive(table.write()))
+
+
+def test_an_incremental_insert_kept_as_hive_is_seeded_then_written(started: Path) -> None:
+    dev = "mart_dev.inc_ops_reports"
+    convert_script(started,
+                   "CREATE TABLE IF NOT EXISTS ops_reports.inc (run_id BIGINT, job_id BIGINT)\n"
+                   "PARTITIONED BY (dt STRING);\n"
+                   "INSERT INTO TABLE ops_reports.inc PARTITION (dt='2026-09-24')\n"
+                   "SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'\n"
+                   "  AND r.run_id > (SELECT MAX(i.run_id) FROM ops_reports.inc i);\n")
+    fill_in_its_location(started, dev)
+    # Its query stays an Unchecked statement, so its write does too, reading its dev copy.
+    write = to_hive(project.load(dev).write())
+    assert write.startswith("INSERT INTO mart_dev.inc_ops_reports PARTITION(dt = '2026-09-24')")
+    assert "FROM mart_dev.inc_ops_reports AS i" in write
+    box = started / "tables" / "mart_dev__inc_ops_reports" / "conversion" / "checklist.md"
+    box.write_text(box.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
+                   encoding="utf-8")
+    run_execute(project.load(dev).create(), example_database.execute)
+    said = repr(project.check())
+    assert "script: 4. Seed each table" in said
+    assert 'run_execute(hive_settings("dynamic_partitions"), execute)' in said
+    run_execute(hive_settings("dynamic_partitions"), example_database.execute)
+    run_execute(project.load(dev).seed(), example_database.execute)
+    assert "script: 5. Write each table in dev" in repr(project.check())
+    project.run_tables(tables=project.batch_tables("script"), execute=example_database.execute)
+    assert "script: 6. Compare each table" in repr(project.check())

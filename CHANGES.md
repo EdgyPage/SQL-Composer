@@ -37,8 +37,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `admin/workflows/convert/<name>/batch.md` lists what each statement became.
 - **Many in, many out.** A FROM with several INSERTs gives a Saved table per target, each
   reading the shared FROM. Several writes to one table give one Saved table, its write
-  stacking each piece's query in script order with UNION ALL, each filter kept; a later
-  INSERT OVERWRITE replaces the writes before it. A table whose write reads itself, as an
+  stacking each one's query in script order with UNION ALL, each WHERE kept; a later
+  INSERT OVERWRITE of the same Partition replaces the writes before it, and writes to
+  different Partitions are all kept. A table whose write reads itself, as an
   incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
   its dev copy once, and the convert Workflow seeds it before its first write.
 - **A Conversion makes its Saved tables itself.** `project.convert` writes each table's Table

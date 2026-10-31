@@ -115,8 +115,9 @@ be mart.weekly_events_ops_reports, its database at the end; `rename=` names it a
 Converted weekly_events: 1 script, 2 statements, into 1 Saved table in mart: mart.weekly_events.
 admin/workflows/convert/weekly_events/batch.md lists each statement, in the order they run, and
     what it became.
-Next: tick each box of each table's conversion/checklist.md, then write each table with
-    project.run_tables(tables=[...], execute=execute).
+Next: tick each box of each table's conversion/checklist.md, then run the convert Workflow's
+    next steps, in admin/workflows/convert/convert.ipynb: create each table in dev, seed each
+    that reads itself, and write each.
 
 Both tables it reads have Table references in this Project already; one that has none gets
 one, through your query, and the report names it.

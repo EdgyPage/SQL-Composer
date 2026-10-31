@@ -125,7 +125,7 @@ _Avoid_: job, bundle, script set
 **Conversion folder**:
 A batch's index, in the convert Workflow's folder: its scripts as given, their order, what
 each statement became and the tables that came from them. What belongs to one table, the
-statement it came from, the scan and its checklist, is in that table's own Table folder.
+statements it came from, the scan and its checklist, is in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder
 
 **Reference sheet**:
@@ -259,6 +259,14 @@ that write it. Hive's other kind, a managed table, keeps its files where the war
 create_table made those before 5.0, and admin.move_to_own_folder moves one to a folder of its
 own.
 _Avoid_: materialized view, cache, temp table, output table
+
+**Seed**:
+The one-time copy of an original table's rows into its dev copy, for a Saved table a
+Conversion made whose write reads its own table, as an incremental INSERT does: in dev that
+table starts empty, so its first write would start from nothing. It runs once, before that
+first write; a write runs every time. In Python, `seed()` in its Table notebook, an Unchecked
+statement.
+_Avoid_: backfill, preload, bootstrap
 
 **Unchecked statement**:
 Hive text the user writes by hand and runs through the Toolbox, as a Statement is run, when no
