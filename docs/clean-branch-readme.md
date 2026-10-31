@@ -493,6 +493,7 @@ flowchart TD
     s3[["4. Create each table in prod"]]:::warehouse_call
     s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
     s5[["6. Write each table in prod"]]:::warehouse_call
+    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -502,6 +503,7 @@ flowchart TD
     t6("each made in prod"):::thing
     t7("each seeded in prod"):::thing
     t8("each written in prod"):::thing
+    t9("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -516,6 +518,8 @@ flowchart TD
     s4 --> t7
     t7 --> s5
     s5 --> t8
+    t8 --> s6
+    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -549,6 +553,11 @@ flowchart TD
 6. Write each table in prod (it is a call to the warehouse, yours to run).
 
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 <!-- /chart -->
 

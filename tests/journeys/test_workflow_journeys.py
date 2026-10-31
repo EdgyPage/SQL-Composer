@@ -328,7 +328,10 @@ def _promote_through_the_runner(started: Started, tables: list[str]) -> list[str
     journey = started.journey("promote")
     journey.type_names(TABLES=tables)
     sent = list(started.warehouse.executed)
-    assert "would send: CREATE" in journey.run_workflow(dry_run=True)
+    dry_run = journey.run_workflow(dry_run=True)
+    assert "would send: CREATE" in dry_run
+    # The refresh after the writes is named, not run: its sheet would say they were done.
+    assert "would run: project.refresh_reference_sheet(" in dry_run
     assert started.warehouse.executed == sent, "a dry run sent something"
     assert "promote: every step is done." in journey.run_workflow()
     return _check_promoted(started, tables)
@@ -343,8 +346,15 @@ def _promote(started: Started, tables: list[str]) -> list[str]:
 
 
 def _check_promoted(started: Started, tables: list[str]) -> list[str]:
-    """The promote Workflow's end goal: each prod copy holds its dev table's rows."""
+    """The promote Workflow's end goal: each prod copy holds its dev table's rows, and is in
+    the Reference sheet and its Database module."""
     prod = project.promoted_tables(tables)
+    sheet = (started.root / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
+    for prod_table in prod:
+        assert f"{prod_table}," in sheet, f"{prod_table} isn't in the Reference sheet"
+        database, name = toolbox_module("shared").split_table_name(prod_table)
+        module = started.root / "references" / f"{database}.py"
+        assert name in module.read_text(encoding="utf-8")
     for dev, prod_table in zip(tables, prod, strict=True):
         assert _sorted_rows(started.warehouse, prod_table) == _sorted_rows(started.warehouse,
                                                                            dev)
