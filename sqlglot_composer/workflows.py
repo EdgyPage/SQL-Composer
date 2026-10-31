@@ -563,10 +563,12 @@ NEW_TABLE = Workflow(
         Step("Fill in each Table reference, in references/, and save it", DECISION,
              ("its Table reference to fill in",), ("its Table reference",),
              done=every_reference_filled_in),
-        Step("Write each table's logic in its Table notebook, in tables/, and save it: "
-             "project.load(table).write() says what stops it", DECISION,
+        Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"),
-             ("a dev Table folder whose logic loads",), done=every_logic_loads),
+             ("a dev Table folder whose logic loads",),
+             "for table in TABLES:\n"
+             "    project.load(table).write()  # says what stops it, if anything does",
+             every_logic_loads),
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
              ("a dev Table folder whose logic loads",), ("its rows, checked",),
              "for table in TABLES:\n"
@@ -634,10 +636,10 @@ CHANGE_A_SAVED_TABLE = Workflow(
              "table = project.table_reference(TABLE)\n"
              "change = admin.drop_partitions(table, where=...)  # or another: help(admin)",
              change_written),
-        Step("Print the Hive it sends, which sends nothing, and run the check its Check first "
-             "line names", FILE_STEP, ("an Admin statement",), ("its Hive, read and checked",),
-             "show_hive(change)"),
-        Step("Send it", PERMISSION, ("its Hive, read and checked",),
+        Step("Print its Hive, and run the check its Check first line names", FILE_STEP,
+             ("an Admin statement",), ("its Hive, read and checked",), "show_hive(change)"),
+        Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
+             ("its Hive, read and checked",),
              ("the change sent", "the change logged"), "run_execute(change, execute)",
              every_change_sent),
     ),

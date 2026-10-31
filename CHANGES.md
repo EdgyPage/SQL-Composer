@@ -42,6 +42,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   different Partitions are all kept. A table whose write reads itself, as an
   incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
   its dev copy once, and the convert Workflow seeds it before its first write.
+- **A Table reference by its name.** `project.table_reference(name)` gives a table's Table
+  reference from its file in `references/`, for a notebook that has the table's name, such as
+  the change_a_saved_table Workflow's, which hands it to an Admin statement.
 - **Promotion.** `project.promote(tables)` writes a prod copy of dev Saved tables, named
   for `PROD` in `admin/databases.py`, their names kept unless `rename=` names them: each Table
   folder and Table reference, every notebook that reads another promoted table reading its

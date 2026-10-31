@@ -50,3 +50,15 @@ def test_a_gap_is_found() -> None:
     assert workflow_graph.gaps(broken) == [
         "broken: 'Use what nothing made' needs 'nothing', which nothing gives",
         "broken: no step makes 'y'"]
+
+
+def test_every_chart_a_user_reads_is_what_the_tool_writes() -> None:
+    readme = workflow_graph.README.read_text(encoding="utf-8")
+    assert readme == workflow_graph.with_charts(readme)
+    assert workflow_graph.HOW_TO.read_text(encoding="utf-8") == workflow_graph.how_to_text()
+
+
+def test_the_readme_has_each_workflows_chart_the_program_flow_and_the_excel_flow() -> None:
+    readme = workflow_graph.README.read_text(encoding="utf-8")
+    for name in [*FIDDLING_AT_MOST, "program_flow", "excel"]:
+        assert f"<!-- chart: {name} -->\n```mermaid\nflowchart TD\n" in readme, name
