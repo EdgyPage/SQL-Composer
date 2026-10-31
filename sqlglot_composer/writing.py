@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import keyword
 import re
-from collections.abc import Callable
 from typing import TYPE_CHECKING, NamedTuple
 
 import sqlglot
@@ -97,13 +96,14 @@ def read_back(text: str) -> str:
         return _upkeep_read_back(text)
     dialect = sqlglot.Dialect.get_or_raise(_DIALECT)
     parser = dialect.parser()
-    parser.KEY_CONSTRAINT_OPTIONS = {**parser.KEY_CONSTRAINT_OPTIONS, "DISABLE": ("NOVALIDATE",)}
+    parser.KEY_CONSTRAINT_OPTIONS = {**parser.KEY_CONSTRAINT_OPTIONS,
+                                     "DISABLE": ("NOVALIDATE",)}
     return sql_text(parser.parse(dialect.tokenize(text), text)[0], pretty=True)
 
 
 # MSCK REPAIR TABLE and EXPLAIN, which sqlglot reads only as a Command, text it doesn't look
 # inside, saying so in a log message; and ANALYZE TABLE, which the Toolbox writes as a Command
-# too (_analyze). Each is read back by its own words.
+# too (_sqlglot_analyze). Each is read back by its own words.
 _UPKEEP = ("EXPLAIN ", "MSCK REPAIR TABLE ", "ANALYZE TABLE ")
 _ANALYZE = re.compile(r"ANALYZE TABLE (.+?) COMPUTE STATISTICS(?: FOR COLUMNS (.+))?", re.S)
 
@@ -148,7 +148,7 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
     knows more functions than that list, and builds some of them only from certain arguments.
     """
     try:
-        _read_back_call(name, [to_sqlglot(arg) for arg in args])
+        _hive_function_tree(name, [to_sqlglot(arg) for arg in args])
     except (ValueError, TypeError, KeyError, IndexError, sqlglot.errors.SqlglotError) as error:
         raise TypeError(
             four_part_message(
@@ -162,11 +162,12 @@ def check_writable_call(name: str, args: list[Node], call: str) -> None:
         ) from error
 
 
-# Each hive_function call read back, by its Hive, so that writing it again doesn't read it again.
+# Each hive_function call read back, by its Hive, so that writing it again doesn't read it
+# again.
 _READ_BACK = {}
 
 
-def _read_back_call(name: str, arguments: list[exp.Expression]) -> exp.Expression:
+def _hive_function_tree(name: str, arguments: list[exp.Expression]) -> exp.Expression:
     """hive_function's call as sqlglot builds it, then read back as to_hive's self-check will.
 
     A function may come back in sqlglot's own form, which is then stable.
@@ -178,8 +179,8 @@ def _read_back_call(name: str, arguments: list[exp.Expression]) -> exp.Expressio
 
 
 def _hive_type(text: str) -> exp.DataType:
-    """A column's type for CREATE TABLE, as sqlglot reads it. create_table has checked it
-    against HIVE_TYPES in trees.py already."""
+    """A type, for a column of CREATE TABLE or a CAST, as sqlglot reads it. create_table has
+    checked a column's against HIVE_TYPES in trees.py already."""
     return exp.DataType.build(text, dialect=_DIALECT)
 
 
@@ -204,14 +205,20 @@ def _hive_table(name: str, database: str | None = None,
 # --- Hive someone else wrote, read to compare with a Statement's -----------------------------
 
 
-def _first_line(error: sqlglot.errors.SqlglotError) -> str:
+def _dotted_lower_name(table: exp.Table) -> str:
+    """A table's name as database.name in lower case, or its name alone where it has no
+    database."""
+    return ".".join(part for part in (table.db, table.name) if part).lower()
+
+
+def _reason_in_plain_words(error: sqlglot.errors.SqlglotError) -> str:
     """sqlglot's reason, its first line, in plain words: where it stopped as "at line 1,
     column 17", sqlglot's own name for a word it read, "<Token token_type: ..., text: WHERE,
     ...>", as the word, WHERE, and no full stop, as a message adds its own after."""
-    said = (str(error).strip().splitlines() or [type(error).__name__])[0]
-    said = re.sub(r"<Token token_type: [^,]*, text: (.*?), line: .*?>", r"\1", said)
-    said = re.sub(r"\. Line (\d+), Col: (\d+)\.?$", r", at line \1, column \2", said)
-    return said.rstrip(".")
+    reason = (str(error).strip().splitlines() or [type(error).__name__])[0]
+    reason = re.sub(r"<Token token_type: [^,]*, text: (.*?), line: .*?>", r"\1", reason)
+    reason = re.sub(r"\. Line (\d+), Col: (\d+)\.?$", r", at line \1, column \2", reason)
+    return reason.rstrip(".")
 
 
 def _is_a_set_line(tree: exp.Expression) -> bool:
@@ -222,7 +229,7 @@ def _is_a_set_line(tree: exp.Expression) -> bool:
                                          and str(tree.this).upper() == "SET")
 
 
-def _read_query(text: str, call: str, whose: str) -> exp.Expression:
+def _query_to_compare(text: str, call: str, whose: str) -> exp.Expression:
     """The one query in Hive text, read by sqlglot: a SELECT, a Stack of them, or the SELECT of
     an INSERT, which is taken from it with its WITH. SET lines are passed over, as they set
     the session, not the rows. Anything else is refused, in the name of `call`, saying `whose`
@@ -231,11 +238,13 @@ def _read_query(text: str, call: str, whose: str) -> exp.Expression:
         read = [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
     except sqlglot.errors.SqlglotError as error:
         refuse(
-            what=f"{call}: sqlglot can't read {whose} as Hive: {_first_line(error)}.",
+            what=f"{call}: sqlglot can't read {whose} as Hive: "
+            f"{_reason_in_plain_words(error)}.",
             why="It reads the Hive with sqlglot to compare it, as the Toolbox reads back its "
             "own.",
             fix="Check that it is the Hive that runs at work, pasted whole. If it runs there, "
-            "sqlglot doesn't know a part of it: compare the two by eye, with print(to_hive(s)).",
+            "sqlglot doesn't know a part of it: compare the two by eye, with "
+            "print(to_hive(s)).",
             error=ValueError,
         )
     settings = [tree for tree in read if _is_a_set_line(tree)]
@@ -243,7 +252,8 @@ def _read_query(text: str, call: str, whose: str) -> exp.Expression:
     if len(read) != 1:
         besides = " besides its SET lines" if settings else ""
         refuse(
-            what=f"{call}: {whose} holds {len(read)} statements{besides}, where one query goes.",
+            what=f"{call}: {whose} holds {len(read)} statements{besides}, where one query "
+            "goes.",
             why="It is compared as one query, whose rows are the ones to compare.",
             fix="Pass that query alone: any statement before or after it runs at work apart "
             "from it. SET lines may stay, as they set the session, not the rows.",
@@ -274,9 +284,9 @@ def query_columns(text: str, call: str, whose: str,
                   columns_of: dict[str, list[str]] | None = None) -> list[str]:
     """The names of the columns a query gives, as Hive names them: an unnamed calculation is
     _c0, _c1 and so on by its place, and a * or t.* the columns it stands for, where
-    _stars_named finds them, with `columns_of`; else it stays *."""
-    tree = _read_query(text, call, whose)
-    _stars_named(tree, columns_of or {})
+    _name_stars finds them, with `columns_of`; else it stays *."""
+    tree = _query_to_compare(text, call, whose)
+    _name_stars(tree, columns_of or {})
     return _names_given(tree)
 
 
@@ -296,16 +306,16 @@ def normalised_query(text: str, call: str, whose: str,
     query differs between two of them: not spacing, case, backticks, comments, a ;, brackets
     that change nothing, INNER or OUTER, AS, ASC, the short name a table is called by, a
     query in brackets in FROM or JOIN in place of the Derived table in WITH that the Toolbox
-    writes, nor a * in place of the columns it stands for, where _stars_named finds them,
+    writes, nor a * in place of the columns it stands for, where _name_stars finds them,
     with `columns_of`."""
     from sqlglot.optimizer.eliminate_subqueries import eliminate_subqueries
 
-    tree = _read_query(text, call, whose)
-    _words_written_one_way(tree)
+    tree = _query_to_compare(text, call, whose)
+    _write_words_one_way(tree)
     tree = eliminate_subqueries(tree)
-    _stars_named(tree, columns_of or {})
-    _words_written_one_way(tree)
-    _tables_called_by_their_names(tree)
+    _name_stars(tree, columns_of or {})
+    _write_words_one_way(tree)
+    _call_tables_by_their_names(tree)
     for named in list(tree.find_all(exp.Alias)):
         if isinstance(named.this, exp.Column) and named.alias == named.this.name:
             named.replace(named.this)
@@ -314,12 +324,13 @@ def normalised_query(text: str, call: str, whose: str,
             table.set("alias", None)
     for ordered in tree.find_all(exp.Ordered):
         if not ordered.args.get("desc"):
-            ordered.set("desc", False)  # ASC written out, as the Toolbox writes it, is the default
-    _needless_brackets_out(tree)
+            # ASC written out, as the Toolbox writes it, is the default.
+            ordered.set("desc", False)
+    _take_out_needless_brackets(tree)
     return _written_back(tree, call, whose).splitlines()
 
 
-def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None:
+def _name_stars(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None:
     """Write each * and t.* a query gives as the columns it stands for, each with the name of
     what it reads, where it finds them: a Derived table's or a query's in brackets, or a
     table's that `columns_of` lists, by its database.name in lower case, as Hive gives them,
@@ -340,20 +351,21 @@ def _stars_named(tree: exp.Expression, columns_of: dict[str, list[str]]) -> None
         given = []
         for one in query.expressions:
             if isinstance(one, exp.Star):
-                found = [_columns_read(scope, name, columns_of) for name in named]
+                found = [_columns_under_name(scope, name, columns_of) for name in named]
                 if found and None not in found:
-                    given += [column for columns in found for column in columns]
+                    for columns in found:
+                        given += columns
                 else:
                     given.append(one)
             elif isinstance(one, exp.Column) and isinstance(one.this, exp.Star):
-                given += _columns_read(scope, one.table, columns_of) or [one]
+                given += _columns_under_name(scope, one.table, columns_of) or [one]
             else:
                 given.append(one)
         query.set("expressions", given)
 
 
-def _columns_read(scope: Scope, name: str, columns_of: dict[str, list[str]]
-                  ) -> list[exp.Column] | None:
+def _columns_under_name(scope: Scope, name: str, columns_of: dict[str, list[str]]
+                        ) -> list[exp.Column] | None:
     """The columns of what a query reads under `name`, as a * gives them, each with that name
     before it: a Derived table's or a query's in brackets, or a table's `columns_of` lists;
     None where they can't be told."""
@@ -364,7 +376,7 @@ def _columns_read(scope: Scope, name: str, columns_of: dict[str, list[str]]
         return None
     node, source = read
     if not isinstance(source, Scope):
-        names = columns_of.get(".".join(part for part in (node.db, node.name) if part).lower())
+        names = columns_of.get(_dotted_lower_name(node))
         return None if names is None else [exp.column(column, table=name) for column in names]
     names = _names_given(source.expression)
     return None if "*" in names else [exp.column(column, table=name) for column in names]
@@ -378,7 +390,7 @@ def _written_back(tree: exp.Expression, call: str, whose: str) -> str:
     except sqlglot.errors.UnsupportedError as error:
         refuse(
             what=f"{call}: sqlglot reads {whose}, but can't write it back as Hive: "
-            f"{_first_line(error)}.",
+            f"{_reason_in_plain_words(error)}.",
             why="It compares the Hive as sqlglot writes it out, and sends nothing it can't "
             "write.",
             fix="Compare that part by eye, with print(to_hive(s)); the rest of the Toolbox "
@@ -387,7 +399,7 @@ def _written_back(tree: exp.Expression, call: str, whose: str) -> str:
         )
 
 
-def _words_written_one_way(tree: exp.Expression) -> None:
+def _write_words_one_way(tree: exp.Expression) -> None:
     """Each name in lower case, in backticks only where Hive needs them; each function Hive
     has that sqlglot doesn't know in upper case, as sqlglot writes those it knows; and a join
     without INNER or OUTER, which change nothing."""
@@ -403,7 +415,7 @@ def _words_written_one_way(tree: exp.Expression) -> None:
             join.set("kind", None)
 
 
-def _tables_called_by_their_names(tree: exp.Expression) -> None:
+def _call_tables_by_their_names(tree: exp.Expression) -> None:
     """Call each table by its own name, as `FROM ops.job_runs r` becomes `FROM ops.job_runs`,
     and a Derived table by its name in WITH, where nothing else read beside it is called
     that; and where a query reads one table
@@ -454,15 +466,15 @@ def rows_compared(call: str, statement_hive: str, original: str, columns: list[s
     matches NULL with NULL and counts a row as many times as it comes. `kept` is each column
     and its value as Hive, to keep only the rows of both sides that hold it. `bounded` is each
     partitioned table, as database.name, with a partition column and its value as Hive: every
-    read of that table, on both sides, reads only the rows that hold it (_reads_bounded). Hive
+    read of that table, on both sides, reads only the rows that hold it (_bound_reads). Hive
     takes no WITH inside another, so each side's Derived tables are moved up into the one WITH,
     their names starting statement_ or original_. `call` names the function asking, for a
     refusal.
     """
-    ours, around_ours = _hoisted(_reads_bounded(
-        _read_query(statement_hive, call, "the Statement's Hive"), bounded), "statement")
-    theirs, around_theirs = _hoisted(_reads_bounded(
-        _read_query(original, call, "the original"), bounded), "original")
+    ours, around_ours = _hoisted(_bound_reads(
+        _query_to_compare(statement_hive, call, "the Statement's Hive"), bounded), "statement")
+    theirs, around_theirs = _hoisted(_bound_reads(
+        _query_to_compare(original, call, "the original"), bounded), "original")
     numbered = [f"column_{place}" for place in range(1, len(columns) + 1)]
     listed = ", ".join(numbered)
 
@@ -507,8 +519,8 @@ def rows_compared(call: str, statement_hive: str, original: str, columns: list[s
     return _written_back(tree, call, "the original")
 
 
-def _reads_bounded(query: exp.Expression, bounded: list[tuple[str, str, str]]
-                   ) -> exp.Expression:
+def _bound_reads(query: exp.Expression, bounded: list[tuple[str, str, str]]
+                 ) -> exp.Expression:
     """The query with each read of a table `bounded` names, as `FROM ops.job_runs r`, made a
     read of only the rows that hold its values: `FROM (SELECT * FROM ops.job_runs WHERE dt =
     '2026-09-24') r`, which Hive reads as that Partition alone. A name its own WITH gives isn't
@@ -518,7 +530,7 @@ def _reads_bounded(query: exp.Expression, bounded: list[tuple[str, str, str]]
         wanted.setdefault(table.lower(), []).append((column, value))
     own = {cte.alias_or_name.lower() for cte in query.find_all(exp.CTE)}
     for read in list(query.find_all(exp.Table)):
-        name = ".".join(part for part in (read.db, read.name) if part).lower()
+        name = _dotted_lower_name(read)
         if name not in wanted or name in own:
             continue
         # Each value is the Toolbox's own Hive, written by literal(), read back.
@@ -544,15 +556,15 @@ def _hoisted(query: exp.Expression, prefix: str) -> tuple[exp.Expression, list[e
     renamed, moved = {}, []
     for derived_table in around.expressions if around is not None else []:
         body = derived_table.this.copy()
-        _read_renamed(body, renamed)
+        _point_reads_at_new_names(body, renamed)
         name = derived_table.alias.lower()
         renamed[name] = f"{prefix}_{name}"
         moved.append(exp.CTE(this=body, alias=exp.TableAlias(this=_identifier(renamed[name]))))
-    _read_renamed(query, renamed)
+    _point_reads_at_new_names(query, renamed)
     return query, moved
 
 
-def _read_renamed(query: exp.Expression, renamed: dict[str, str]) -> None:
+def _point_reads_at_new_names(query: exp.Expression, renamed: dict[str, str]) -> None:
     """Point each read of a Derived table `renamed` names at its new name, keeping the name it
     was called by. A table named with its database, as ops.jobs, is never a Derived table."""
     for table in query.find_all(exp.Table):
@@ -572,7 +584,7 @@ _WHOLE = (exp.Where, exp.Having, exp.Join, exp.Paren, exp.Alias, exp.Select, exp
 _ATOMS = (exp.Column, exp.Literal, exp.Null, exp.Boolean, exp.Func, exp.Paren, exp.Star)
 
 
-def _needless_brackets_out(tree: exp.Expression) -> None:
+def _take_out_needless_brackets(tree: exp.Expression) -> None:
     """Take out each bracket that changes nothing: around a column, a value or a call, around
     a whole condition or output, and around an AND inside an AND, or an OR inside an OR."""
     found = True
@@ -601,26 +613,30 @@ def to_sqlglot(node: Node) -> exp.Expression:
 
 
 def _built(node: Node, part: str) -> exp.Expression:
+    """The sqlglot tree of one part of a Node, a Node itself."""
     return to_sqlglot(node.parts[part])
 
 
 def _all_built(node: Node, part: str) -> list[exp.Expression]:
+    """The sqlglot trees of one part of a Node, a list of Nodes."""
     return [to_sqlglot(item) for item in node.parts[part]]
 
 
-def _column(node: Node) -> exp.Column:
+def _sqlglot_column(node: Node) -> exp.Column:
+    """A column, by its name, and its table's when it is named with one."""
     if node.table:
         return exp.column(_identifier(node.name), table=_identifier(node.table))
     return exp.column(_identifier(node.name))
 
 
-def _literal(node: Node) -> exp.Expression:
+def _sqlglot_literal(node: Node) -> exp.Expression:
+    """A value: a string in quotes, or a number."""
     if node.parts.get("is_string"):
         return exp.Literal.string(node.parts["this"])
     return exp.Literal.number(node.parts["this"])
 
 
-def _case(node: Node) -> exp.Case:
+def _sqlglot_case(node: Node) -> exp.Case:
     """CASE WHEN ... END, or CASE column WHEN value ... END when it has a column to look up;
     ELSE only when it has a default."""
     parts = {"ifs": _all_built(node, "ifs")}
@@ -630,7 +646,7 @@ def _case(node: Node) -> exp.Case:
     return exp.Case(**parts)
 
 
-def _window(node: Node) -> exp.Window:
+def _sqlglot_window(node: Node) -> exp.Window:
     """A calculation OVER (PARTITION BY ... ORDER BY ... ROWS BETWEEN ... AND ...), each part
     only when the window has it."""
     order = node.parts.get("order")
@@ -655,12 +671,14 @@ def _rows_end(count: int | None, unbounded_side: str) -> tuple[str, str | None]:
     return str(abs(count)), "PRECEDING" if count < 0 else "FOLLOWING"
 
 
-def _window_call(node: Node) -> exp.Expression:
+def _sqlglot_window_call(node: Node) -> exp.Expression:
     """A function that works only over a window, such as LAG(column, 1), written as named."""
     return exp.Anonymous(this=node.name.upper(), expressions=_all_built(node, "args"))
 
 
-def _table(node: Node) -> exp.Expression:
+def _sqlglot_table(node: Node) -> exp.Expression:
+    """A table by its name, its PARTITION(...) and the name FROM gives it, each where it has
+    one."""
     partition = node.parts.get("partition")
     table = _hive_table(node.name, node.parts.get("db"),
                         partition=None if partition is None else to_sqlglot(partition))
@@ -678,18 +696,21 @@ _JOINS = {
 }
 
 
-def _join(node: Node) -> exp.Join:
+def _sqlglot_join(node: Node) -> exp.Join:
+    """A join: its side and kind, the table it joins, and ON when it has a condition."""
     parts = {"this": _built(node, "this"), **_JOINS[node.parts["how"]]}
     if node.parts.get("on") is not None:
         parts["on"] = _built(node, "on")
     return exp.Join(**parts)
 
 
-def _select(node: Node) -> exp.Select:
+def _sqlglot_select(node: Node) -> exp.Select:
+    """A SELECT, each clause only when the Statement has it."""
     tree = exp.Select(expressions=_all_built(node, "outputs"))
     if node.parts.get("broadcast"):
-        tree.set("hint", exp.Hint(expressions=[exp.Anonymous(
-            this="MAPJOIN", expressions=[_identifier(name) for name in node.parts["broadcast"]])]))
+        broadcast = [_identifier(name) for name in node.parts["broadcast"]]
+        tree.set("hint", exp.Hint(expressions=[exp.Anonymous(this="MAPJOIN",
+                                                             expressions=broadcast)]))
     if node.parts.get("distinct"):
         tree.set("distinct", exp.Distinct())
     tree.set("from_", exp.From(this=_built(node, "source")))
@@ -709,10 +730,10 @@ def _select(node: Node) -> exp.Select:
         tree.set("order", exp.Order(expressions=_all_built(node, "order_by")))
     if node.parts.get("limit") is not None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
-    return _with_tables(tree, node)
+    return _add_derived_tables(tree, node)
 
 
-def _grouping_set(node: Node) -> exp.Expression:
+def _sqlglot_grouping_set(node: Node) -> exp.Expression:
     """One set of GROUPING SETS: a lone column as it is, since sqlglot reads (a) back as a
     bracketed a and lays it out differently, else its columns in brackets."""
     columns = _all_built(node, "expressions")
@@ -725,7 +746,7 @@ _STACKS = {"UNION ALL": (exp.Union, False), "UNION": (exp.Union, True),
            "INTERSECT": (exp.Intersect, True), "EXCEPT": (exp.Except, True)}
 
 
-def _stack(node: Node) -> exp.Expression:
+def _sqlglot_stack(node: Node) -> exp.Expression:
     """Statements stacked one after another, each joined to those before it, as sqlglot holds
     A UNION ALL B UNION ALL C: (A UNION ALL B) UNION ALL C."""
     kind, distinct = _STACKS[node.parts["how"]]
@@ -735,10 +756,10 @@ def _stack(node: Node) -> exp.Expression:
         tree = kind(this=tree, expression=branch, distinct=distinct)
     if node.parts.get("limit") is not None:
         tree.set("limit", exp.Limit(expression=exp.Literal.number(node.parts["limit"])))
-    return _with_tables(tree, node)
+    return _add_derived_tables(tree, node)
 
 
-def _with_tables(tree: exp.Expression, node: Node) -> exp.Expression:
+def _add_derived_tables(tree: exp.Expression, node: Node) -> exp.Expression:
     """Put the Derived tables a query or write reads at its top, as WITH name AS (...)."""
     tables = [to_sqlglot(table) for table in node.parts.get("derived_tables") or []]
     if tables:
@@ -746,13 +767,14 @@ def _with_tables(tree: exp.Expression, node: Node) -> exp.Expression:
     return tree
 
 
-def _insert(node: Node) -> exp.Insert:
+def _sqlglot_insert(node: Node) -> exp.Insert:
+    """INSERT OVERWRITE or INSERT INTO, its table, then its SELECT."""
     tree = exp.Insert(this=_built(node, "target"), expression=_built(node, "select"),
                       overwrite=node.parts["overwrite"])
-    return _with_tables(tree, node)
+    return _add_derived_tables(tree, node)
 
 
-def _create(node: Node) -> exp.Create:
+def _sqlglot_create(node: Node) -> exp.Create:
     """CREATE EXTERNAL TABLE, its parts in the order Hive writes them: Partitions, Buckets,
     the file format, the folder, then the table properties."""
     properties = [exp.ExternalProperty()]
@@ -774,22 +796,24 @@ def _create(node: Node) -> exp.Create:
         key = [_identifier(name) for name in node.parts["key"]]
         columns.append(exp.PrimaryKey(expressions=key, options=["DISABLE NOVALIDATE"]))
     schema = exp.Schema(this=_built(node, "target"), expressions=columns)
-    return exp.Create(kind="TABLE", this=schema, properties=exp.Properties(expressions=properties),
+    return exp.Create(kind="TABLE", this=schema,
+                      properties=exp.Properties(expressions=properties),
                       exists=node.parts["exists"])
 
 
-def _drop(node: Node) -> exp.Drop:
+def _sqlglot_drop(node: Node) -> exp.Drop:
     """DROP TABLE IF EXISTS, its table in the DROP's `tables`."""
     return exp.Drop(kind="TABLE", tables=[_built(node, "target")], exists=True)
 
 
-def _repair(node: Node) -> exp.Command:
+def _sqlglot_repair(node: Node) -> exp.Command:
     """MSCK REPAIR TABLE, which sqlglot holds as a Command, text it writes as given. The
     table's name in it, as in ANALYZE TABLE's, is written by sqlglot, never pasted in."""
-    return exp.Command(this="MSCK", expression="REPAIR TABLE " + sql_text(_built(node, "target")))
+    table = sql_text(_built(node, "target"))
+    return exp.Command(this="MSCK", expression="REPAIR TABLE " + table)
 
 
-def _analyze(node: Node) -> exp.Command:
+def _sqlglot_analyze(node: Node) -> exp.Command:
     """ANALYZE TABLE ... COMPUTE STATISTICS, held as a Command, text sqlglot writes as given."""
     sql = f"TABLE {sql_text(_built(node, 'target'))} COMPUTE STATISTICS"
     if node.parts["columns"]:
@@ -798,12 +822,12 @@ def _analyze(node: Node) -> exp.Command:
     return exp.Command(this="ANALYZE", expression=sql)
 
 
-def _explain(node: Node) -> exp.Command:
+def _sqlglot_explain(node: Node) -> exp.Command:
     """EXPLAIN, then the Statement laid out as to_hive lays it out, held as a Command."""
     return exp.Command(this="EXPLAIN", expression=hive_statement(node.parts["this"]))
 
 
-# --- Unchecked expressions and Unchecked derived tables ----------------------------------------
+# --- Unchecked expressions and Unchecked derived tables ------------------------------------
 # Their Hive is the user's own text, which sqlglot reads here: to write it into the Statement,
 # and, when it is made, to tell the Toolbox what it holds. The refusals that follow are built
 # in unchecked.py, from refusals.py.
@@ -817,7 +841,7 @@ _BRACKETED = ARITHMETIC | CONNECTORS | {"EQ", "NEQ", "GT", "GTE", "LT", "LTE", "
 _READ = {}
 
 
-def _read_once(text: str) -> list[exp.Expression]:
+def _parsed_statements(text: str) -> list[exp.Expression]:
     """The statements sqlglot reads Hive text as, read once and kept."""
     if text not in _READ:
         _READ[text] = sqlglot.parse(text, read=_DIALECT)
@@ -833,14 +857,14 @@ def filled_text(node: Node) -> str:
     return node.parts["text"].format(**filled)
 
 
-def _unchecked(node: Node) -> exp.Expression:
+def _sqlglot_unchecked(node: Node) -> exp.Expression:
     """An Unchecked expression, as sqlglot reads its text with its columns filled in."""
-    return _read_once("SELECT " + filled_text(node))[0].expressions[0]
+    return _parsed_statements("SELECT " + filled_text(node))[0].expressions[0]
 
 
-def _unchecked_select(node: Node) -> exp.Expression:
+def _sqlglot_unchecked_select(node: Node) -> exp.Expression:
     """An Unchecked derived table's SELECT, as sqlglot reads its text."""
-    return _read_once(node.parts["text"])[0]
+    return _parsed_statements(node.parts["text"])[0]
 
 
 class ExpressionFacts(NamedTuple):
@@ -872,9 +896,9 @@ def read_unchecked_expression(text: str, stand_ins: list[str]) -> ExpressionFact
     """What an Unchecked expression's text holds. `text` has each placeholder filled with
     its stand-in, a column name of its own, from `stand_ins`."""
     try:
-        read = _read_once("SELECT " + text)
+        read = _parsed_statements("SELECT " + text)
     except sqlglot.errors.SqlglotError as error:
-        return ExpressionFacts(_said(error), 0, False, False, [], [], False, False)
+        return ExpressionFacts(_unreadable_reason(error), 0, False, False, [], [], False, False)
     select = read[0] if len(read) == 1 else None
     if not isinstance(select, exp.Select):
         return ExpressionFacts("it isn't one expression", 0, False, True, [], [], False, False)
@@ -902,7 +926,7 @@ def _unwritable(tree: exp.Expression) -> str | None:
     try:
         sql_text(tree)
     except sqlglot.errors.UnsupportedError as error:
-        return _first_line(error)
+        return _reason_in_plain_words(error)
     return None
 
 
@@ -921,7 +945,7 @@ def with_placeholders(text: str, stand_ins: dict[str, str]
     A placeholder is named by its column's plain name, without backticks, made a name Python
     takes as an argument, and numbered where that name is taken already: {status_2}. A
     column named twice is one placeholder. Text in quotes is left as it is."""
-    expression = _read_once("SELECT " + text)[0].expressions[0]
+    expression = _parsed_statements("SELECT " + text)[0].expressions[0]
     taken, added, by_column = set(stand_ins.values()), [], {}
     for column in list(expression.find_all(exp.Column)):
         if {part.name for part in column.parts} & set(stand_ins):
@@ -938,11 +962,16 @@ def with_placeholders(text: str, stand_ins: dict[str, str]
             by_column[seen] = f"{_ADDED}{len(by_column)}"
             added.append((name, column.table, column.name))
         column.replace(exp.column(by_column[seen]))
-    names = {**stand_ins, **{stand_in: name for stand_in, (name, _, _)
-                             in zip(by_column.values(), added)}}
+    names = dict(stand_ins)
+    for stand_in, (name, _, _) in zip(by_column.values(), added):
+        names[stand_in] = name
     written = sql_text(expression).replace("{", "{{").replace("}", "}}")
     pattern = "|".join(re.escape(stand_in) for stand_in in sorted(names, key=len, reverse=True))
-    return re.sub(pattern, lambda found: "{" + names[found.group()] + "}", written), added
+
+    def placeholder(found: re.Match[str]) -> str:
+        return "{" + names[found.group()] + "}"
+
+    return re.sub(pattern, placeholder, written), added
 
 
 def _adds_rows_up(node: exp.Expression) -> bool:
@@ -956,16 +985,16 @@ def _adds_rows_up(node: exp.Expression) -> bool:
     return name.lower() in HIVE_AGGREGATES
 
 
-def _said(error: sqlglot.errors.SqlglotError) -> str:
+def _unreadable_reason(error: sqlglot.errors.SqlglotError) -> str:
     """sqlglot's reason it can't read a text, without where it stopped, which counts the
     characters of the text with its stand-ins in it. A part missing, which sqlglot names by
     its own class, as "Required keyword: 'expression' missing for <class ...Add>", is said in
     plain words."""
-    said = str(error).splitlines()[0].split(". Line ")[0].rstrip(".")
-    if said.startswith("Required keyword"):
+    reason = str(error).splitlines()[0].split(". Line ")[0].rstrip(".")
+    if reason.startswith("Required keyword"):
         return ("a part of it is missing, as where an operator such as + or AND has nothing "
                 "after it")
-    return said
+    return reason
 
 
 class SelectFacts(NamedTuple):
@@ -986,9 +1015,9 @@ class SelectFacts(NamedTuple):
 def read_unchecked_select(text: str) -> SelectFacts:
     """What an Unchecked derived table's text holds: one SELECT, its columns and its tables."""
     try:
-        read = _read_once(text)
+        read = _parsed_statements(text)
     except sqlglot.errors.SqlglotError as error:
-        return SelectFacts(_said(error), None, [])
+        return SelectFacts(_unreadable_reason(error), None, [])
     if len(read) != 1:
         return SelectFacts(f"it holds {len(read)} statements", None, [])
     query = read[0]
@@ -998,90 +1027,110 @@ def read_unchecked_select(text: str) -> SelectFacts:
     if "*" in outputs or "" in outputs:
         outputs = None
     own = {cte.alias_or_name.lower() for cte in query.find_all(exp.CTE)}
-    tables = [".".join(part for part in (table.db, table.name) if part).lower()
-              for table in query.find_all(exp.Table)]
+    tables = [_dotted_lower_name(table) for table in query.find_all(exp.Table)]
     return SelectFacts(None, outputs,
                        list(dict.fromkeys(name for name in tables if name not in own)),
                        _unwritable(query))
 
 
-def _two_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:
-    return lambda node: kind(this=_built(node, "this"), expression=_built(node, "expression"))
+# The kinds of Node whose parts are their sqlglot class's own, by the same names, and that
+# class: Node("EQ", this=..., expression=...) is exp.EQ(this=..., expression=...).
+_SAME_PARTS = {
+    "Null": exp.Null, "Boolean": exp.Boolean, "Star": exp.Star, "Var": exp.Var,
+    "RowNumber": exp.RowNumber, "EQ": exp.EQ, "NEQ": exp.NEQ, "GT": exp.GT, "GTE": exp.GTE,
+    "LT": exp.LT, "LTE": exp.LTE, "Like": exp.Like, "Is": exp.Is, "Add": exp.Add,
+    "Sub": exp.Sub, "Mul": exp.Mul, "Div": exp.Div, "And": exp.And, "Or": exp.Or,
+    "Paren": exp.Paren, "Not": exp.Not, "Count": exp.Count, "Sum": exp.Sum, "Avg": exp.Avg,
+    "Min": exp.Min, "Max": exp.Max, "Between": exp.Between, "In": exp.In, "If": exp.If,
+    "Coalesce": exp.Coalesce, "Distinct": exp.Distinct, "Order": exp.Order,
+    "Partition": exp.Partition,
+}
 
 
-def _one_sided(kind: type[exp.Expression]) -> Callable[[Node], exp.Expression]:
-    return lambda node: kind(this=_built(node, "this"))
+def _sqlglot_same_parts(node: Node) -> exp.Expression:
+    """The sqlglot tree of a Node of a kind _SAME_PARTS names: its class, given the Node's
+    parts, each Node in them, or list of Nodes, built first, and each plain value, such as a
+    Var's text, as it is."""
+    parts = {}
+    for name, value in node.parts.items():
+        if isinstance(value, Node):
+            value = to_sqlglot(value)
+        elif isinstance(value, list):
+            value = [to_sqlglot(item) for item in value]
+        parts[name] = value
+    return _SAME_PARTS[node.kind](**parts)
+
+
+def _sqlglot_grouping(node: Node) -> exp.Expression:
+    """GROUPING(column), which sqlglot builds with a class of its own."""
+    return exp.func("grouping", _built(node, "this"), dialect=_DIALECT)
+
+
+def _sqlglot_ordered(node: Node) -> exp.Ordered:
+    """One column of an ORDER BY. Hive puts NULL first when sorting up and last when sorting
+    down; telling sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive."""
+    return exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
+                       nulls_first=not node.parts["desc"])
+
+
+def _sqlglot_alias(node: Node) -> exp.Alias:
+    """A value with the name AS gives it."""
+    return exp.alias_(_built(node, "this"), _identifier(node.parts["alias"]))
+
+
+def _sqlglot_cast(node: Node) -> exp.Cast:
+    """CAST(... AS type)."""
+    return exp.Cast(this=_built(node, "this"), to=_hive_type(node.parts["to"]))
+
+
+def _sqlglot_call(node: Node) -> exp.Expression:
+    """A call to one of Hive's date functions the Toolbox writes, such as next_day."""
+    return exp.func(node.parts["name"], *_all_built(node, "args"), dialect=_DIALECT)
+
+
+def _sqlglot_hive_function(node: Node) -> exp.Expression:
+    """hive_function's call, as sqlglot builds it and reads it back."""
+    return _hive_function_tree(node.parts["name"], _all_built(node, "args"))
+
+
+def _sqlglot_cte(node: Node) -> exp.CTE:
+    """A Derived table, as WITH holds it: its name, then AS (...)."""
+    return exp.CTE(this=_built(node, "this"),
+                   alias=exp.TableAlias(this=_identifier(node.parts["alias"])))
+
+
+def _sqlglot_column_def(node: Node) -> exp.ColumnDef:
+    """A column of CREATE TABLE: its name and its type."""
+    return exp.ColumnDef(this=_identifier(node.name), kind=_hive_type(node.parts["type"]))
 
 
 _REPLAY = {
-    "Column": _column,
-    "Literal": _literal,
-    "Null": lambda node: exp.Null(),
-    "Boolean": lambda node: exp.true() if node.parts["this"] else exp.false(),
-    "Star": lambda node: exp.Star(),
-    "Var": lambda node: exp.Var(this=node.parts["this"]),
-    "RowNumber": lambda node: exp.RowNumber(),
-    "EQ": _two_sided(exp.EQ),
-    "NEQ": _two_sided(exp.NEQ),
-    "GT": _two_sided(exp.GT),
-    "GTE": _two_sided(exp.GTE),
-    "LT": _two_sided(exp.LT),
-    "LTE": _two_sided(exp.LTE),
-    "Like": _two_sided(exp.Like),
-    "Is": _two_sided(exp.Is),
-    "Add": _two_sided(exp.Add),
-    "Sub": _two_sided(exp.Sub),
-    "Mul": _two_sided(exp.Mul),
-    "Div": _two_sided(exp.Div),
-    "And": _two_sided(exp.And),
-    "Or": _two_sided(exp.Or),
-    "Paren": _one_sided(exp.Paren),
-    "Not": _one_sided(exp.Not),
-    "Count": _one_sided(exp.Count),
-    "Sum": _one_sided(exp.Sum),
-    "Avg": _one_sided(exp.Avg),
-    "Min": _one_sided(exp.Min),
-    "Max": _one_sided(exp.Max),
-    # sqlglot builds GROUPING with a class of its own.
-    "Grouping": lambda node: exp.func("grouping", _built(node, "this"), dialect=_DIALECT),
-    "Between": lambda node: exp.Between(this=_built(node, "this"), low=_built(node, "low"),
-                                        high=_built(node, "high")),
-    "In": lambda node: exp.In(this=_built(node, "this"),
-                              expressions=_all_built(node, "expressions")),
-    "Case": _case,
-    "If": lambda node: exp.If(this=_built(node, "this"), true=_built(node, "true")),
-    "Coalesce": lambda node: exp.Coalesce(this=_built(node, "this"),
-                                          expressions=_all_built(node, "expressions")),
-    "Distinct": lambda node: exp.Distinct(expressions=_all_built(node, "expressions")),
-    "Window": _window,
-    "WindowCall": _window_call,
-    "Order": lambda node: exp.Order(expressions=_all_built(node, "expressions")),
-    # Hive puts NULL first when sorting up and last when sorting down; telling
-    # sqlglot so keeps NULLS LAST and NULLS FIRST out of the Hive.
-    "Ordered": lambda node: exp.Ordered(this=_built(node, "this"), desc=node.parts["desc"],
-                                        nulls_first=not node.parts["desc"]),
-    "Alias": lambda node: exp.alias_(_built(node, "this"), _identifier(node.parts["alias"])),
-    "Cast": lambda node: exp.Cast(this=_built(node, "this"),
-                                  to=exp.DataType.build(node.parts["to"], dialect=_DIALECT)),
-    "Call": lambda node: exp.func(node.parts["name"], *_all_built(node, "args"),
-                                  dialect=_DIALECT),
-    "HiveFunction": lambda node: _read_back_call(node.parts["name"], _all_built(node, "args")),
-    "Unchecked": _unchecked,
-    "UncheckedSelect": _unchecked_select,
-    "Select": _select,
-    "Stack": _stack,
-    "Tuple": _grouping_set,
-    "Table": _table,
-    "Join": _join,
-    "CTE": lambda node: exp.CTE(this=_built(node, "this"),
-                                alias=exp.TableAlias(this=_identifier(node.parts["alias"]))),
-    "Partition": lambda node: exp.Partition(expressions=_all_built(node, "expressions")),
-    "Insert": _insert,
-    "Create": _create,
-    "ColumnDef": lambda node: exp.ColumnDef(this=_identifier(node.name),
-                                            kind=_hive_type(node.parts["type"])),
-    "Drop": _drop,
-    "Repair": _repair,
-    "Analyze": _analyze,
-    "Explain": _explain,
+    # Each kind _SAME_PARTS names, built by _sqlglot_same_parts.
+    **dict.fromkeys(_SAME_PARTS, _sqlglot_same_parts),
+    "Column": _sqlglot_column,
+    "Literal": _sqlglot_literal,
+    "Grouping": _sqlglot_grouping,
+    "Case": _sqlglot_case,
+    "Window": _sqlglot_window,
+    "WindowCall": _sqlglot_window_call,
+    "Ordered": _sqlglot_ordered,
+    "Alias": _sqlglot_alias,
+    "Cast": _sqlglot_cast,
+    "Call": _sqlglot_call,
+    "HiveFunction": _sqlglot_hive_function,
+    "Unchecked": _sqlglot_unchecked,
+    "UncheckedSelect": _sqlglot_unchecked_select,
+    "Select": _sqlglot_select,
+    "Stack": _sqlglot_stack,
+    "Tuple": _sqlglot_grouping_set,
+    "Table": _sqlglot_table,
+    "Join": _sqlglot_join,
+    "CTE": _sqlglot_cte,
+    "Insert": _sqlglot_insert,
+    "Create": _sqlglot_create,
+    "ColumnDef": _sqlglot_column_def,
+    "Drop": _sqlglot_drop,
+    "Repair": _sqlglot_repair,
+    "Analyze": _sqlglot_analyze,
+    "Explain": _sqlglot_explain,
 }
