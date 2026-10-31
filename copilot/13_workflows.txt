@@ -35,24 +35,29 @@ saved beside the notebook, in admin/workflows/convert/, where it reads them.
 
        project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
 
-2. Tick each box of each table's checklist (it is a decision, yours to make).
-3. Create each table in dev (it is a call to the warehouse, yours to run).
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in dev (it is a call to the warehouse, yours to run).
 
        for table in project.batch_tables(NAME):
            run_execute(project.load(table).create(), execute)
 
-4. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
 
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.batch_tables(NAME, seeded=True):
            run_execute(project.load(table).seed(), execute)
 
-5. Write each table in dev (it is a call to the warehouse, yours to run).
+6. Write each table in dev (it is a call to the warehouse, yours to run).
 
        project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-6. Compare each table with its original (it is a call to the warehouse, yours to run).
+7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
        project.compare_batch(NAME, query=query)
 
@@ -66,20 +71,26 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
        project.promote(TABLES)
 
-2. Fill in each prod Table reference's location= (it is a decision, yours to make).
-3. Create each table in prod (it is a call to the warehouse, yours to run).
+2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+   make).
+3. Write each answer into its prod table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in prod (it is a call to the warehouse, yours to run).
 
        for table in project.promoted_tables(TABLES):
            run_execute(project.load(table).create(), execute)
 
-4. Seed each prod table that reads itself, once, from its original (it is a call to the
+5. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
 
        run_execute(hive_settings("dynamic_partitions"), execute)
        for table in project.promoted_tables(TABLES, seeded=True):
            run_execute(project.load(table).seed(), execute)
 
-5. Write each table in prod (it is a call to the warehouse, yours to run).
+6. Write each table in prod (it is a call to the warehouse, yours to run).
 
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
@@ -116,8 +127,13 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
        project.add_references(TABLES, query=query)
 
-2. Fill in each TODO line and Alias (it is a decision, yours to make).
-3. Refresh the Reference sheet and the Database modules (it changes only files, so
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(TABLES)
@@ -164,7 +180,7 @@ project.convert(NAME, None, files=FILES, query=query, database="default")
 ## Do and don't
 
 - Do give each step's cell as listed, with the user's names in it.
-- Don't skip a decision, such as ticking a checklist: say what it asks of the user.
+- Don't skip a Decision, such as a table's location: say what it asks of the user, to answer in the decisions cell.
 - Don't promote a table before its compare has passed.
 
 ## Before you answer

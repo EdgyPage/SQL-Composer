@@ -101,7 +101,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  "do_next",
                  # Toolbox 8.0, ticket 14: the Saved tables a batch made, for run_tables.
                  "batch_tables", "compare_batch", "promote", "promoted_tables",
-                 "table_reference"]
+                 "table_reference",
+                 # Toolbox 8.1, ticket 03: each answer of a decisions cell, written in.
+                 "write_decisions"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

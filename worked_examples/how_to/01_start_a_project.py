@@ -95,7 +95,7 @@ file, the call that makes it, and what you fill in:
 - admin/workflows/convert/<name>/, a Conversion folder per batch of someone else's Hive you
   convert, its scripts as given and what each statement became: `project.convert(...)`, from
   admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table
-  in your Dev Database. You tick each box of its tables' checklists, as
+  in your Dev Database. You answer each of its tables' Decisions, as
   [Convert someone else's Hive](#convert_someone_elses_hive) shows.
 - an Upgrade's checklist in admin/, named for the version it upgraded to, such as
   upgrade_7.3.md: `project.upgrade()`, once you copy in a newer Toolbox. You make each change

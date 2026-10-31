@@ -120,8 +120,8 @@ EXCEL_FLOW = ("""flowchart TD
                 "Workflow, DEV filled in: each becomes a Saved table named for its file, or, "
                 "when the batch is one file, for the batch",
                 'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
-               ("Tick each checklist, then create, seed and write each table in dev, as the "
-                "Workflow's steps say", ""),
+               ("Answer each table's Decisions, then create, seed and write each in dev, as "
+                "the Workflow's steps say", ""),
                ("Compare each with its query, the Hive Copilot wrote",
                 'project.compare_batch("budget", query=query)'),
                ("Promote them, and create and write each in prod, through the promote Workflow",
@@ -231,6 +231,9 @@ def _how_to_section(workflow: Workflow) -> list[str]:
                                    subsequent_indent="    # ", break_long_words=False,
                                    break_on_hyphens=False)
             lines.append(f"    {given.name} = {given.empty!r}")
+    if any(step.decides for step in workflow.steps):
+        lines += ["", "Its decisions cell, beside it, where you answer each open Decision:",
+                  "", *[f"    {line}" for line in workflows.DECISIONS_CELL.split("\n")]]
     lines += ["", "Its steps:", ""]
     for number, step in enumerate(workflow.steps, 1):
         lines += textwrap.wrap(f"- {number}. {step.name} (it "

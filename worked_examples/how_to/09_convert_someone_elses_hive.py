@@ -83,7 +83,7 @@ Converted ops_reports: ...
 
 The scripts' order doesn't matter: the batch orders each statement by what reads what. Each
 table the scripts write is a Saved table in mart, with its Table folder, its Table reference and
-a checklist: the temporary table too, which the weekly script reads, so it is made first. The
+its Decisions to answer: the temporary table too, which the weekly script reads, so it is made first. The
 FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line
 become nothing and the Session settings of the writes after them.
 admin/workflows/convert/ops_reports/batch.md lists what each statement became:
@@ -100,32 +100,53 @@ reads its own table, as an incremental INSERT does, so in dev it would start fro
 notebook has seed() too, which copies the original's rows into it once, before its first
 write.
 
-### Decide each box
+### Answer each table's Decisions
 
-Each table's conversion/checklist.md has a box for each decision only you can make:
+What only you can decide of a table is a Decision: here each table's location=, the folder its
+files go in, which your platform team names, and its Key, the columns whose values name one
+row. Each table's conversion/checklist.md lists its open Decisions, and project.check() names
+each one:
 
->>> print(Path("tables/mart__fail_history/conversion/checklist.md").read_text(encoding="utf-8"))
-# Checklist: mart.fail_history
-...
+>>> checklist = Path("tables/mart__fail_history/conversion/checklist.md")
+>>> text = checklist.read_text(encoding="utf-8")  # -> str
+>>> print(text.split("Open Decisions")[1].split("## Notes")[0].strip())
+- key: the columns whose values name one row, or None when none do, in
+  references/mart__fail_history.py
+- location: the folder its files go in, in references/mart__fail_history.py
 
-Fill in each Table reference's location=, the folder its files go in, which your platform
-team names, and its Key, then tick each box. This page stands in for your edits:
+Answer each in the convert Workflow notebook's decisions cell, DECISIONS, by each table's name
+as project.check() writes it, and run its next step, which writes each answer into the table's
+Table reference: you open no Table reference, and tick nothing. "key": None says no columns
+name one row. This page stands in for the two cells:
 
->>> for path in Path("references").glob("mart__*.py"):
-...     text = path.read_text(encoding="utf-8")
-...     if "location=None," in text:
-...         _ = path.write_text(text.replace("location=None,", f'location="/data/mart.db/{path.stem}",'), encoding="utf-8")
->>> for path in Path("tables").glob("*/conversion/checklist.md"):
-...     _ = path.write_text(path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "), encoding="utf-8")
+>>> DECISIONS = {table: {"location": f"/data/mart.db/{table.split('.')[1]}", "key": None}
+...              for table in project.batch_tables("ops_reports")}
 
-`project.check()` names the batch's next step in the Workflow:
+Two tables write the Partition dt from a query that doesn't say its type, so each one's dt is
+a guessed type to answer too: the day as text, "string".
+
+>>> for table in ["mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"]:
+...     DECISIONS[table]["types"] = {"dt": "string"}
+>>> print(project.write_decisions(DECISIONS))
+Wrote 2 answers into references/mart__failed_runs_ops_reports.py.
+Each Decision of mart.failed_runs_ops_reports is made.
+Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
+Each Decision of mart.alerts_by_severity_ops_reports is made.
+Wrote 3 answers into references/mart__alerted_runs_ops_reports.py.
+Each Decision of mart.alerted_runs_ops_reports is made.
+Wrote 2 answers into references/mart__fail_history.py.
+Each Decision of mart.fail_history is made.
+
+`project.check()` names the batch's next step in the Workflow, the first call to the
+warehouse:
 
 >>> print(project.check())
-The next step ...
+The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
+  admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. ...
 
 ### Create, seed and write each table in dev
 
-Steps 3 to 5 are calls to the warehouse, yours to run, each a cell of the Workflow's notebook.
+Steps 4 to 6 are calls to the warehouse, yours to run, each a cell of the Workflow's notebook.
 At work they create each table in your Dev Database, seed mart.fail_history from the original,
 and write each, in the order they read each other. The write step sends each table's SET
 lines, the original's, before its write: here hive.exec.parallel, which makes Hive faster and
@@ -150,7 +171,7 @@ Wrote 4 tables, in order.
 
 ### Compare each with its original
 
-Step 6 compares each dev table's rows with the table it copies, on the latest Partition both
+Step 7 compares each dev table's rows with the table it copies, on the latest Partition both
 hold, and writes each result in its conversion/compare.md. The Example database holds no Dev
 Database, so here each says it couldn't read its dev table; at work, once every table passes,
 the batch is finished:
@@ -191,8 +212,8 @@ prod.
 
 - **Converting one script at a time.** A table one script writes and another reads is made
   once, and read in dev, only when both are in one batch: give them together, with `files=`.
-- **Leaving a box.** The Workflow waits on every box of every checklist: each is a decision
-  only you can make, such as a table's folder or a seed.
+- **Leaving a Decision open.** The Workflow waits on each table's open Decisions, each one
+  only you can make, such as a table's folder: project.check() names each.
 - **Promoting before comparing.** promote refuses a table whose compare hasn't passed, so prod
   never gets rows that differ from the original's.
 

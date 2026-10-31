@@ -152,7 +152,7 @@ def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path,
     scan = conversion_file(started, "job_outcomes", "scan.md")
     assert "Opt-out added, marked # CONVERSION: at its line: JOIN(j, many_matches=True)" in scan
     checklist = conversion_file(started, "job_outcomes", "checklist.md")
-    assert "- [ ] Decide the `# CONVERSION:` mark for JOIN(j, many_matches=True)" in checklist
+    assert "- The `# CONVERSION:` mark for JOIN(j, many_matches=True)" in checklist
     said = repr(project.check())
     assert "Marked by project.convert(...) for you to check" in said
     assert "# CONVERSION: many_matches=True, as the original did; check it" in said
@@ -185,11 +185,11 @@ def test_its_table_reference_has_the_types_the_query_knows(converted: Path,
                                                            started: Path) -> None:
     reference = (started / "references" / "mart_dev__job_outcomes.py").read_text(
         encoding="utf-8")
-    assert '"job_name": "string",' in reference and '"outcome": "string",' in reference
+    assert '"outcome": "string",  # TODO: guessed: nothing told its type' in reference
     assert "<" not in reference.split("# --- Aliases")[0]
     checklist = conversion_file(started, "job_outcomes", "checklist.md")
-    assert "- [ ] Check the type of outcome" in checklist
-    assert "- [ ] Fill in location=" in checklist
+    assert '- types: outcome\'s type, written "string" as a guess' in checklist
+    assert "- location: the folder its files go in" in checklist
 
 
 def test_its_write_inserts_the_converted_rows(converted: Path, started: Path) -> None:

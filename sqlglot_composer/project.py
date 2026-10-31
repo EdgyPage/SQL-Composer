@@ -94,9 +94,9 @@ from typing import NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, describe, kinds, unchecked, upgrades, workflows
+from . import converting, decisions, describe, kinds, unchecked, upgrades, workflows
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
-                        CONVERSION, FINISHED, OPEN_BOX, PASSED)
+                        CONVERSION, FINISHED, PASSED)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
@@ -141,7 +141,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
-           "promoted_tables", "table_reference"]
+           "promoted_tables", "table_reference", "write_decisions"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -1290,6 +1290,12 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     if step.done is None:
         said += ("\n    No file tells when it is done, so this names it until a later step is "
                  "done: once you have, go on.")
+    waited_on = workflows.decisions_waited_on(root, workflow, inputs, step)
+    if waited_on:
+        said += ("\n    Answer each in its decisions cell, DECISIONS, by the table's name as "
+                 "it is written here:")
+    for decision in waited_on:
+        said += f"\n    {decision.table}: {decision.question()}"
     return said
 
 
@@ -1635,9 +1641,10 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     Added Table references, from DESCRIBE: references/ops__job_runs.py.
     admin/workflows/convert/failed_runs/batch.md lists each statement, in the order they run,
     and what it became.
-    Next: tick each box of each table's conversion/checklist.md, then run the convert
-    Workflow's next steps, in admin/workflows/convert/convert.ipynb: create each table in dev,
-    seed each that reads itself, write each, and compare each with its original.
+    Next: answer each table's open Decisions in the decisions cell of
+    admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create
+    each table in dev, seed each that reads itself, write each, and compare each with its
+    original.
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -1676,15 +1683,16 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     incremental INSERT does, gets seed() in its notebook, which copies the original's rows into
     its dev copy once, before its first write. Its folder's conversion/ keeps statement.hql,
     each statement of its write as its script wrote it; in_dev.hql, the Hive its logic was built
-    from; scan.md, what it found and how the two compare; and checklist.md, a box for each thing
-    only you can decide, such as each mark and its location=. A table it can't make is named,
-    with why, and the rest are still made.
+    from; scan.md, what it found and how the two compare; and checklist.md, written again
+    each time, which lists its open Decisions, what only you can decide, such as its location=,
+    its Key and each column type it could only guess, and notes that block nothing, such as
+    each mark. A table it can't make is named, with why, and the rest are still made.
 
     The batch keeps its scripts, batch.md, what each statement became, and written.json, each
     file it wrote, in admin/workflows/convert/<name>/: a SET line becomes the Session settings
     of the writes after it, a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR nothing, and any
     other statement an Unchecked statement, with its names in dev. Run again, it writes afresh
-    each file still as it wrote it, keeping each box you ticked; it keeps one you changed, and
+    each file still as it wrote it; it keeps one you changed, and
     writes a fresh copy of it into the batch's folder, under fresh/, for you to compare; and
     with overwrite=True it writes over each, kept as it was in admin/removed/. A batch whose
     tables have all passed project.compare_batch is finished, in
@@ -1713,8 +1721,6 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
 BATCH_SCRIPTS = "scripts"
 # In a batch's folder: the fresh copy of each file it would have written over one you changed.
 FRESH = "fresh"
-# A box on a checklist, ticked.
-TICKED_BOX = "- [x] "
 # In a converted table's own folder, conversion/, beside its checklist: the statement as its
 # script wrote it, and the Hive in dev its logic was built from.
 STATEMENT = "statement.hql"
@@ -1802,17 +1808,6 @@ def _hash(content: bytes) -> str:
     """A file's hash, to tell whether it is still as the batch wrote it: its lines' ends
     read alike, as an editor on Windows may save them either way."""
     return hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest()
-
-
-def _ticks_kept(text: str, path: Path) -> str:
-    """A checklist's fresh text with each box ticked that the one at `path` has ticked, so
-    running a batch again keeps what you ticked."""
-    if not path.is_file():
-        return text
-    ticked = {line.replace(TICKED_BOX, OPEN_BOX, 1) for line in path.read_text(
-        encoding="utf-8").splitlines() if line.startswith(TICKED_BOX)}
-    return "\n".join(line.replace(OPEN_BOX, TICKED_BOX, 1) if line in ticked else line
-                     for line in text.split("\n"))
 
 
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
@@ -2084,10 +2079,10 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     if not columns:
         return ("neither its query nor DESCRIBE of the original names a column, so it can't "
                 "have a Table reference: it is kept as Hive in batch.md")
-    guessed = [column for column, kind in columns.items() if not kind]
     files.marks[dev] = opt_outs
     storage = _storage_from_create(table, ordered)
-    _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage)
+    _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
+                           _guessed(columns))
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2099,12 +2094,11 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     scan = _scan_lines(text, hive_read) + [f"Opt-out added, marked # CONVERSION: at its line: "
                                            f"{opt_out}" for opt_out in opt_outs]
     scan += _hive_compared(built, text, stopped)
-    items = _checklist_items(dev, opt_outs, guessed, storage, hive_read, stopped)
+    items = _checklist_notes(opt_outs, hive_read, stopped)
     if seeded:
-        items.append("Agree to seed it: its write reads its own table, which in dev starts "
-                     "empty, so the convert Workflow's step 4, after it creates the table, "
-                     "copies every Partition of the original's rows into it once, with its "
-                     "seed(). Tick once you agree that copy is the right start.")
+        items.append("Its write reads its own table, which in dev starts empty, so the "
+                     "convert Workflow's seed step, after it creates the table, copies every "
+                     "Partition of the original's rows into it once, with its seed().")
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
@@ -2131,17 +2125,17 @@ def _write_conversion_folder(files: _BatchFiles, dev: str,
                              pieces: list[converting.BatchStatement], text: str,
                              scan: list[str], items: list[str]) -> None:
     """Write a dev table's conversion/ folder: each statement of its write as its script wrote
-    it, the Hive its logic was built from, what the scan found, and its checklist, keeping
-    each box you ticked."""
+    it, the Hive its logic was built from, what the scan found, and its checklist, a view of
+    its open Decisions and its notes."""
     first = pieces[0]
     conversion = f"{TABLE_FOLDER.shown(TABLE_FOLDER.stem(dev))}{CONVERSION}"
     written = list(dict.fromkeys(each.text for each in pieces))
     files.write_text(f"{conversion}/{STATEMENT}", "".join(f"{each};\n" for each in written))
     files.write_text(f"{conversion}/{IN_DEV}", text)
     files.write_text(f"{conversion}/{SCAN_REPORT}", _scan_report_text(dev, scan))
-    checklist = f"{conversion}/{CHECKLIST}"
-    files.write_text(checklist, _ticks_kept(_checklist_text(dev, items, first.note),
-                                            files.root / checklist))
+    if first.note:
+        items = [*items, f"The original {first.note}."]
+    files.write_text(f"{conversion}/{CHECKLIST}", _checklist_text(files.root, dev, items))
     # Its old result compared the rows the last conversion wrote: the next compare writes it.
     (TABLE_FOLDER.path(files.root, TABLE_FOLDER.stem(dev)) / CONVERSION / COMPARED).unlink(
         missing_ok=True)
@@ -2199,13 +2193,16 @@ def _storage_from_create(table: str,
 
 
 def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str],
-                           partitions: list[str], storage: dict[str, str]) -> None:
-    """Write a dev table's Table reference, then the Database modules, which the next table's
-    logic imports it through."""
+                           partitions: list[str], storage: dict[str, str],
+                           guessed: tuple[str, ...]) -> None:
+    """Write a dev table's Table reference, each column whose type it could only guess marked
+    as a Decision, then the Database modules, which the next table's logic imports it
+    through."""
     stem = REFERENCE.stem(dev)
     files.write_text(REFERENCE.shown(stem),
                      table_reference_text(dev, columns, partitions,
-                                          f"{REFERENCE.folder}.{stem}", **storage))
+                                          f"{REFERENCE.folder}.{stem}", guessed=guessed,
+                                          **storage))
     _write_databases(files.root)
 
 
@@ -2218,35 +2215,43 @@ def _register_table(root: Path, dev: str, folder: bool) -> None:
     registry.add(new, unchecked.now())
 
 
-def _checklist_items(dev: str, opt_outs: list[str], guessed: list[str],
-                     storage: dict[str, str], hive_read: converting.ConvertedQuery,
+def _checklist_notes(opt_outs: list[str], hive_read: converting.ConvertedQuery,
                      stopped: str | None) -> list[str]:
-    """Each box on a converted table's checklist: what only you can decide or know."""
-    reference = REFERENCE.shown(REFERENCE.stem(dev))
-    items = [f"Decide the `# CONVERSION:` mark for {opt_out}, in the logic cell: keep it, as "
-             "the original did, or change what made it needed; then delete the mark."
-             for opt_out in opt_outs]
-    items += [f'Check the type of {column} in {reference}: it is written "string", since '
-              "neither its query nor DESCRIBE of the original told it." for column in guessed]
-    if "location" not in storage:
-        items.append(f"Fill in location= in {reference}: the folder its files go in.")
-    items.append(f"Choose its Key in {reference}, or leave key=None if no columns name one "
-                 "row.")
+    """What a converted table's checklist notes, which blocks nothing: each mark, each piece
+    kept as Hive, and a logic cell the Toolbox refused, which its create says why."""
+    notes = [f"The `# CONVERSION:` mark for {opt_out}, in the logic cell, keeps what the "
+             "original did; change what made it needed only if you want to, and the compare "
+             "step checks the rows either way." for opt_out in opt_outs]
     if any(finding.kind == "unchecked" for finding in hive_read.findings):
-        items.append("Make each unchecked_ piece a Toolbox function where you can.")
+        notes.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:
-        items.append(f"Mend the logic cell, which the Toolbox refused: {stopped}")
-    return items
+        notes.append(f"Mend the logic cell, which the Toolbox refused: {stopped}")
+    return notes
 
 
-def _checklist_text(dev: str, items: list[str], note: str) -> str:
-    """A converted table's checklist.md: a box for each item, and its note, if it has one."""
+def _checklist_text(root: Path, dev: str, notes: list[str]) -> str:
+    """A converted table's checklist.md, a view written again each time: its open Decisions,
+    read from its Table reference, then its notes."""
+    reference = REFERENCE.shown(REFERENCE.stem(dev))
+    still_open = decisions.open_decisions(workflows.file_text(root / reference), dev)
     lines = [f"# Checklist: {dev}", "",
-             "Tick each box, [x], once it is done: the convert Workflow waits on every box.",
-             "", *[f"{OPEN_BOX}{item}" for item in items]]
-    if note:
-        lines += ["", f"Note: the original {note}."]
+             "Written again each time its Decisions are written: don't tick or edit it. Answer "
+             "each open Decision in the decisions cell of "
+             "admin/workflows/convert/convert.ipynb.", "", "## Open Decisions", ""]
+    lines += [f"- {decision.question()}, in {reference}" for decision in still_open]
+    if not still_open:
+        lines.append(f"None: each Decision in {reference} is made.")
+    if notes:
+        lines += ["", "## Notes, which block nothing", "", *[f"- {note}" for note in notes]]
     return "\n".join(lines) + "\n"
+
+
+def _notes_of(checklist: str) -> list[str]:
+    """The notes a checklist.md holds, to write it again with them."""
+    if "## Notes" not in checklist:
+        return []
+    section = checklist.split("## Notes", 1)[1]
+    return [line.removeprefix("- ") for line in section.split("\n") if line.startswith("- ")]
 
 
 def _converted_table_cells(dev: str, batch: str, logic: str,
@@ -2258,7 +2263,8 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
         ("markdown", f"# {dev}\n\nA Saved table the batch {batch} made, with "
          f"project.convert(...), from the statements in `{CONVERSION}/{STATEMENT}`, as "
          "its script wrote them. Its logic cell builds the same query from the Toolbox's own "
-         "functions, with create(), preview() and write(). Tick each box of "
+         "functions, with create(), preview() and write(). Answer its open Decisions, "
+         f"which `{CONVERSION}/{CHECKLIST}` lists, in the convert Workflow's notebook, "
          f"`{CONVERSION}/{CHECKLIST}`, then run the cells top to bottom. The cells comparing "
          "it with the original stay until you delete them."),
         ("code", "import pathlib\nimport sys\n"
@@ -2357,7 +2363,12 @@ def _write_first_reference(files: _BatchFiles, table: str, dev: str,
     columns, partitions = _batch_columns(table, ordered, first, None, query)
     if columns:
         _write_table_reference(files, dev, _untyped_as_string(columns), partitions,
-                               _storage_from_create(table, ordered))
+                               _storage_from_create(table, ordered), _guessed(columns))
+
+
+def _guessed(columns: dict[str, str]) -> tuple[str, ...]:
+    """The columns whose type nothing told (""), each written "string" as a guess."""
+    return tuple(column for column, kind in columns.items() if not kind)
 
 
 def _untyped_as_string(columns: dict[str, str]) -> dict[str, str]:
@@ -2386,7 +2397,7 @@ def _write_reference_of_a_create_alone(files: _BatchFiles, table: str,
     create = _create_of(ordered, table)
     columns, partitions = converting.created_columns(create)
     _write_table_reference(files, names[table], columns, partitions,
-                           converting.created_storage(create))
+                           converting.created_storage(create), guessed=())
     _register_table(files.root, names[table], folder=False)
 
 
@@ -2467,7 +2478,7 @@ def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, s
 def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchStatement],
                  names: dict[str, str], made: list[str]) -> list[str]:
     """batch.md's lines for one table: its copy in dev and what was made of it, then each
-    `# CONVERSION:` mark its checklist holds a box for."""
+    `# CONVERSION:` mark its checklist notes."""
     copy = names[table]
     stem = TABLE_FOLDER.stem(copy)
     made_as = (f"{TABLE_FOLDER.shown(stem)}, its checklist {TABLE_FOLDER.shown(stem)}"
@@ -2477,7 +2488,7 @@ def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchS
     elif copy not in made:
         made_as = "not made: convert's report says why"
     return [f"- {table}: {copy}, {made_as}",
-            *[f"  - # CONVERSION: {opt_out}, a box on its checklist"
+            *[f"  - # CONVERSION: {opt_out}, a note on its checklist"
               for opt_out in files.marks.get(copy, [])]]
 
 
@@ -2508,10 +2519,10 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
-    lines.append(f"Next: tick each box of each table's {CONVERSION}/{CHECKLIST}, then run the "
-                 "convert Workflow's next steps, in admin/workflows/convert/convert.ipynb: "
-                 "create each table in dev, seed each that reads itself, write each, and "
-                 "compare each with its original.")
+    lines.append("Next: answer each table's open Decisions in the decisions cell of "
+                 "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
+                 "answers in, create each table in dev, seed each that reads itself, write "
+                 "each, and compare each with its original.")
     return lines
 
 
@@ -2680,6 +2691,83 @@ def _tables_compared(call: str, tables: str | list[str] | None,
             error=ValueError,
         )
     return list(tables)
+
+
+def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
+    """Write each answer of a decisions cell into its table's Table reference.
+
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> _ = project.add_references("ops.job_runs", query=example_database.query)
+    >>> print(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
+    Wrote 1 answer into references/ops__job_runs.py.
+    Each Decision of ops.job_runs is made.
+
+    A Decision is one line of a table's Table reference only you can fill in, open while it
+    holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the columns
+    whose values name one row, or None when none do; and each column a Conversion wrote
+    "string" because nothing told it the type. `answers` is the decisions cell, DECISIONS, of
+    a Workflow's notebook: by table, a dict holding "location", "key" or "types", such as
+    {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
+    "types": {"fails": "bigint"}}}. Each answer is written into the open line it answers. A
+    Decision made already, as yours is once you change its line, is kept, and an answer that
+    differs from it is named; so is an answer for a table with no Table reference, or one
+    that answers no Decision. A converted table's conversion/checklist.md, which lists its open
+    Decisions, is written again. Its Workflow's next step names each Decision still open.
+    """
+    frame = callers_frame()
+    call = "project.write_decisions(...)"
+    root = _project_root(call)
+    _refuse_answers_not_by_table(call, answers)
+    lines, files = [], []
+    for table, answer in answers.items():
+        stem = table_stem(table)
+        path = REFERENCE.path(root, stem)
+        if not path.is_file():
+            lines.append(f"{table}: no Table reference, {REFERENCE.shown(stem)}, to write "
+                         "into.")
+            continue
+        answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
+                                           REFERENCE.shown(stem))
+        if answered.written:
+            path.write_text(answered.text, encoding="utf-8")
+            files.append(f"wrote {REFERENCE.shown(stem)}")
+            lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
+                         f"{REFERENCE.shown(stem)}.")
+        lines += [f"{table}: {each}." for each in answered.unwritten]
+        _write_checklist_again(root, table)
+        still_open = decisions.open_decisions(answered.text, table)
+        lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
+        if not still_open:
+            lines.append(f"Each Decision of {table} is made.")
+    _log(root, call, list(answers), files, frame)
+    return ProjectReport(lines)
+
+
+def _refuse_answers_not_by_table(call: str, answers: object) -> None:
+    """Refuse a decisions cell that isn't a dict of a dict per table."""
+    if isinstance(answers, dict) and all(isinstance(answer, dict)
+                                         for answer in answers.values()):
+        return
+    refuse(
+        what=f"{call} was given {answers!r}, which isn't an answer per table.",
+        why="The decisions cell answers each table's Decisions by its name: a dict of a dict.",
+        fix='Write DECISIONS as {"mart_dev.weekly_ops": {"location": "/data/...", "key": '
+        '["job_id"]}}, a table\'s name, then its answers.',
+        given=answers, call=call,
+    )
+
+
+def _write_checklist_again(root: Path, table: str) -> None:
+    """Write a converted table's checklist.md again, its notes kept, once its Decisions are
+    written."""
+    checklist = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / CHECKLIST
+    if checklist.is_file():
+        notes = _notes_of(checklist.read_text(encoding="utf-8"))
+        checklist.write_text(_checklist_text(root, table, notes), encoding="utf-8")
 
 
 def table_reference(name: str) -> Table:
@@ -2883,9 +2971,10 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     ... except ValueError as refused:
     ...     print(str(refused).strip().splitlines()[0])
     What happened:  project.promote("mart_dev.daily_runs") can't promote yet:
-    mart_dev.daily_runs: references/mart_dev__daily_runs.py still has <COLUMN> to fill in;
-    mart_dev.daily_runs: its notebook's logic doesn't build its write() yet:
-    project.load("mart_dev.daily_runs").write() says why.
+    mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision open, <COLUMN>, to
+    fill in by hand; mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision
+    open, location: the folder its files go in; mart_dev.daily_runs: its notebook's logic
+    doesn't build its write() yet: project.load("mart_dev.daily_runs").write() says why.
 
     A table new_table just made isn't finished, so it isn't promoted: once its Table reference
     and notebook are filled in and its write runs in dev, promote copies it to prod.
@@ -2910,7 +2999,7 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
     with no Table reference; one whose Table reference has a <...> left to fill in, or whose
     notebook's logic doesn't build its write() yet; one whose
-    conversion/checklist.md has a box unticked; one a Conversion made whose compare hasn't
+    Table reference leaves a Decision open; one a Conversion made whose compare hasn't
     passed (project.compare_batch); one that reads a dev table not promoted with it; and one
     whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
     promote it again, which archives the prod copy into admin/removed/ first, and the one under
@@ -2933,10 +3022,11 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     if problems:
         refuse(
             what=f"{call} can't promote yet: " + "; ".join(problems) + ".",
-            why="A table reaches prod only once it is filled in, each box ticked, compared "
+            why="A table reaches prod only once each Decision is made, it is compared "
             "with its original if a Conversion made it, and promoted with each dev table it "
             "reads, so prod never reads dev.",
-            fix="Fill in each <...>, tick each box, run project.compare_batch(...) for a "
+            fix="Answer each open Decision and write it in, run "
+            "project.compare_batch(...) for a "
             "Conversion's tables, and promote each table a promoted one reads with it, then "
             "promote again.",
             error=ValueError,
@@ -3117,22 +3207,19 @@ def _refuse_a_full_name(call: str, rename: dict[str, str]) -> None:
 
 
 def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[str]:
-    """Why each table can't be promoted yet: a box unticked, a compare not passed, a dev table
-    it reads not promoted with it, a Building block it uses that reads the Dev Database."""
+    """Why each table can't be promoted yet: a Decision open, a compare not passed, a dev
+    table it reads not promoted with it, a Building block it uses that reads the Dev
+    Database."""
     problems = []
     for dev in names:
         table_folder = TABLE_FOLDER.path(root, table_stem(dev))
         conversion_folder = table_folder / CONVERSION
-        checklist = workflows.file_text(conversion_folder / CHECKLIST)
-        if any(line.startswith(OPEN_BOX) for line in checklist.splitlines()):
-            problems.append(f"{dev}: its {CONVERSION}/{CHECKLIST} has a box unticked")
+        reference = workflows.file_text(REFERENCE.path(root, table_stem(dev)))
+        for decision in decisions.open_decisions(reference, dev):
+            problems.append(f"{dev}: {REFERENCE.shown(table_stem(dev))} has a Decision "
+                            f"open, {decision.question()}")
         if conversion_folder.is_dir() and not workflows.compare_passed(root, dev):
             problems.append(f"{dev}: its compare hasn't passed")
-        left = workflows.PLACEHOLDER.search(
-            workflows.file_text(REFERENCE.path(root, table_stem(dev))))
-        if left is not None:
-            problems.append(f"{dev}: {REFERENCE.shown(table_stem(dev))} still has "
-                            f"{left.group()} to fill in")
         if table_folder.is_dir() and not logic_loads(root, dev):
             problems.append(f"{dev}: its notebook's logic doesn't build its write() yet: "
                             f'project.load("{dev}").write() says why')
@@ -4181,9 +4268,9 @@ def _send_in_order(ordered: list[tuple[Statement | UncheckedStatement | PythonSt
                    settings: dict[str, SessionSettings],
                    execute: Callable[[str], None]) -> None:
     """Send each write in order, printing a line as each one works: a table's own Session
-    settings first, again whenever the write before was another table's, so another's SET
-    lines never hold for it; a Python step is passed over. The first that fails stops the
-    rest."""
+    settings first, and again whenever the write before was another table's, so each setting
+    it names holds its value; a setting another table set and it doesn't name still holds. A
+    Python step is passed over. The first that fails stops the rest."""
     # running imports this file, so it is read here, when a write is sent.
     from .running import run_execute
 
@@ -4214,9 +4301,11 @@ def _print_dry_run(ordered: list[tuple[Statement | UncheckedStatement | PythonSt
     last = ""
     for position, (write, name) in enumerate(ordered, start=1):
         print(f"-- {position} of {len(ordered)}: {name}")
-        if name != last and name in settings:
-            show_hive(settings[name])
-        last = name
+        # A Python step is passed over, as a run passes it over: nothing is sent for it.
+        if kinds.kind(write) != kinds.PYTHON:
+            if name != last and name in settings:
+                show_hive(settings[name])
+            last = name
         show_hive(write)
     return ProjectReport([f"Printed {counted(len(ordered), 'write')} in "
                           "order, and sent nothing. Pass execute= to run them."])
@@ -4269,9 +4358,9 @@ def _refuse_a_write(call: str, name: str, gave: str, given: object) -> NoReturn:
         "which only run_query brings back.",
         fix="Make write() return the Statement that writes the table, as the saved_table "
         "Template's does; one that gives None has lost its return. For Hive you wrote by "
-        "hand, return unchecked_hive(...). Session settings aren't a write: send them before "
-        "project.run_tables, with run_execute(hive_settings(...), execute). They hold only "
-        "while your execute keeps one session (help(hive_settings)).",
+        "hand, return unchecked_hive(...). Session settings aren't a write: give them from "
+        "a session_settings() in the same logic cell, which run_tables sends before its "
+        "writes. They hold only while your execute keeps one session (help(hive_settings)).",
         given=given, call=call,
     )
 

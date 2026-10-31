@@ -23,9 +23,10 @@ For each project, in a Python of its own, started in an empty folder, it:
   `tables/<db>__<table>.py`, a notebook as its Template is written, in `# %%` cells;
 - fills in DEV, its Dev Database, in admin/databases.py, then runs project.convert(...) on
   each Conversion's Hive, in `conversions/`, renaming the table it writes to the Saved table's
-  name, deletes the `# CONVERSION:` marks, keeping the opt-outs, ticks its checklist, fills
-  in its Table reference from `references/`, and compares it with its original, which finishes
-  the batch, its folder moved to `admin/workflows/convert/finished/`;
+  name, deletes its `# CONVERSION:` marks, keeping the opt-outs, as a user who decided
+  them, makes its Decisions by filling in its Table reference from `references/`, writes its
+  checklist again with project.write_decisions, and compares it with its original, which
+  finishes the batch, its folder moved to `admin/workflows/convert/finished/`;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write().
@@ -134,8 +135,8 @@ SAVED_TABLES = {
 DEV_DATABASE = "mart"
 # Each project's finished Conversions: the batch's name, the table its Hive writes, and the
 # Saved table it became in DEV_DATABASE, made from the Hive in `conversions/<name>.hql` of its
-# sources, as a user makes one from Hive someone else wrote, its marks decided, its checklist
-# ticked and its Table reference filled in from `references/`.
+# sources, as a user makes one from Hive someone else wrote, its Decisions made in its Table
+# reference, filled in from `references/`.
 CONVERSIONS = {
     "starter": [],
     "intermediate": [("team_failures", "ops_reports.team_failures", "mart.team_failures")],
@@ -316,8 +317,9 @@ def _add_saved_tables(name: str, folder: Path) -> None:
 
 
 def _add_conversions(name: str, folder: Path) -> None:
-    """Convert each Conversion's Hive and finish it, deciding its marks by keeping each opt-out,
-    then fill in its Table reference from the project's hand-written source."""
+    """Convert each Conversion's Hive and finish it: its marks decided by keeping each
+    opt-out, its Table reference filled in from the project's hand-written source, which makes
+    each Decision."""
     from sqlglot_composer import converting, example_database, notebooks, project
 
     source = SOURCES / name
@@ -336,11 +338,10 @@ def _add_conversions(name: str, folder: Path) -> None:
                     if not converting.CONVERSION_MARK_LINE.search(line)]
             cells.append((kind, "\n".join(kept)))
         notebooks.write_notebook(notebook, cells)
-        checklist = folder / "tables" / stem / "conversion" / "checklist.md"
-        checklist.write_text(checklist.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
-                             encoding="utf-8")
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
+        # Its Decisions are made in the file now: its checklist, a view of them, says so.
+        project.write_decisions({table: {}})
         # Compared with its original, which at work is the table it copies, the batch is
         # finished, so the Project's check names no step of it. The Example database holds no
         # Dev Database: both are read as the rows the converted query gives.

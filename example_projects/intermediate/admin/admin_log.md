@@ -103,6 +103,14 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
 - Call: `project.compare_batch("team_failures")`
 - Tables named: mart.team_failures
 - Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/

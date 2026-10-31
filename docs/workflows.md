@@ -14,33 +14,35 @@ Toolbox 8.0 takes each Workflow's fiddling to nothing.
 
 ## convert
 
-Steps: 0 file step, 5 permission, 1 decision, 0 fiddling.
+Steps: 1 file step, 5 permission, 1 decision, 0 fiddling.
 
 Starts from: Hive scripts, your Dev Database's name, read access to the sources.
 
-Ends with: a dev Table folder per table the scripts write, each written in dev, each compared with its original, each decision made.
+Ends with: a dev Table folder per table the scripts write, each written in dev, each compared with its original, each answer written in.
 
 ```mermaid
 flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)"]]:::warehouse_call
-    s1{"2. Tick each box of each table's checklist"}:::your_decision
-    s2[["3. Create each table in dev: for table in project.batch_tables(NAME):
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s3[["4. Create each table in dev: for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s3[["4. Seed each table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
+    s4[["5. Seed each table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
 for table in project.batch_tables(NAME, seeded=True):
     run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
-    s4[["5. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
-    s5[["6. Compare each table with its original: project.compare_batch(NAME, query=query)"]]:::warehouse_call
+    s5[["6. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
+    s6[["7. Compare each table with its original: project.compare_batch(NAME, query=query)"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
     t3("a dev Table folder per table the scripts write"):::thing
-    t4("a checklist per table"):::thing
-    t5("each decision made"):::thing
-    t6("each made in dev"):::thing
-    t7("each seeded"):::thing
-    t8("each written in dev"):::thing
-    t9("each compared with its original"):::thing
+    t4("a Table reference per table"):::thing
+    t5("each answer in the decisions cell"):::thing
+    t6("each answer written in"):::thing
+    t7("each made in dev"):::thing
+    t8("each seeded"):::thing
+    t9("each written in dev"):::thing
+    t10("each compared with its original"):::thing
     t0 --> s0
     t1 --> s0
     t2 --> s0
@@ -56,6 +58,9 @@ for table in project.batch_tables(NAME, seeded=True):
     s4 --> t8
     t8 --> s5
     s5 --> t9
+    t9 --> s6
+    s6 --> t10
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -63,30 +68,32 @@ for table in project.batch_tables(NAME, seeded=True):
 
 ## promote
 
-Steps: 1 file step, 3 permission, 1 decision, 0 fiddling.
+Steps: 2 file step, 3 permission, 1 decision, 0 fiddling.
 
-Starts from: dev Table folders, each box ticked and compared, your Prod Database's name.
+Starts from: dev Table folders, each Decision made and compared, your Prod Database's name.
 
 Ends with: prod Table folders, each written in prod.
 
 ```mermaid
 flowchart TD
     s0["1. Promote each table: a prod copy of its folder and Table reference: project.promote(TABLES)"]:::files_only
-    s1{"2. Fill in each prod Table reference's location="}:::your_decision
-    s2[["3. Create each table in prod: for table in project.promoted_tables(TABLES):
+    s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its prod table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s3[["4. Create each table in prod: for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s3[["4. Seed each prod table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
+    s4[["5. Seed each prod table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
 for table in project.promoted_tables(TABLES, seeded=True):
     run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
-    s4[["5. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
-    t0("dev Table folders, each box ticked and compared"):::thing
+    s5[["6. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
+    t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
     t3("prod Table references"):::thing
-    t4("each with its location="):::thing
-    t5("each made in prod"):::thing
-    t6("each seeded in prod"):::thing
-    t7("each written in prod"):::thing
+    t4("each answer in the decisions cell"):::thing
+    t5("each with its location="):::thing
+    t6("each made in prod"):::thing
+    t7("each seeded in prod"):::thing
+    t8("each written in prod"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -99,6 +106,8 @@ for table in project.promoted_tables(TABLES, seeded=True):
     s3 --> t6
     t6 --> s4
     s4 --> t7
+    t7 --> s5
+    s5 --> t8
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -153,7 +162,7 @@ project.run_tables(tables=TABLES, execute=execute)"]]:::warehouse_call
 
 ## references
 
-Steps: 1 file step, 1 permission, 1 decision, 0 fiddling.
+Steps: 2 file step, 1 permission, 1 decision, 0 fiddling.
 
 Starts from: table names your query can DESCRIBE.
 
@@ -162,20 +171,24 @@ Ends with: filled-in Table references, the Reference sheet, the Database modules
 ```mermaid
 flowchart TD
     s0[["1. Write the Table references from DESCRIBE: project.add_references(TABLES, query=query)"]]:::warehouse_call
-    s1{"2. Fill in each TODO line and Alias"}:::your_decision
-    s2["3. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(TABLES)"]:::files_only
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s3["4. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(TABLES)"]:::files_only
     t0("table names your query can DESCRIBE"):::thing
     t1("Table references with TODO lines"):::thing
-    t2("filled-in Table references"):::thing
-    t3("the Reference sheet"):::thing
-    t4("the Database modules"):::thing
+    t2("each answer in the decisions cell"):::thing
+    t3("filled-in Table references"):::thing
+    t4("the Reference sheet"):::thing
+    t5("the Database modules"):::thing
     t0 --> s0
     s0 --> t1
     t1 --> s1
     s1 --> t2
     t2 --> s2
     s2 --> t3
-    s2 --> t4
+    t3 --> s3
+    s3 --> t4
+    s3 --> t5
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a

@@ -56,15 +56,10 @@ def warehouse() -> Callable[[str], pd.DataFrame]:
 
 
 def fill_in(root: Path, table: str) -> None:
-    """Tick each box of a dev table's checklist, and fill in its location=."""
+    """Answer a dev table's Decisions: its location=, and its Key, which none names."""
     stem = table.replace(".", "__")
-    box = root / "tables" / stem / "conversion" / "checklist.md"
-    box.write_text(box.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
-                   encoding="utf-8")
-    path = root / "references" / f"{stem}.py"
-    path.write_text(path.read_text(encoding="utf-8").replace(
-        "location=None,", f'location="/data/team/mart_dev.db/{stem.split("__")[1]}",'),
-        encoding="utf-8")
+    project.write_decisions({table: {
+        "location": f"/data/team/mart_dev.db/{stem.split('__')[1]}", "key": None}})
 
 
 @pytest.fixture
@@ -140,19 +135,20 @@ def test_a_location_you_filled_in_is_kept_when_promoted_again(started: Path) -> 
     assert 'location="/data/prod/failed_runs"' in path.read_text(encoding="utf-8")
 
 
-def test_a_box_unticked_or_a_compare_not_passed_is_refused_before_anything_is_written(
+def test_a_decision_open_or_a_compare_not_passed_is_refused_before_anything_is_written(
         started: Path) -> None:
-    box = started / "tables" / "mart_dev__fails_per_job_ops_reports" / "conversion" / (
-        "checklist.md")
-    box.write_text(box.read_text(encoding="utf-8") + "- [ ] One more decision.\n",
-                   encoding="utf-8")
+    reference = started / "references" / "mart_dev__fails_per_job_ops_reports.py"
+    reference.write_text(reference.read_text(encoding="utf-8").replace(
+        "    key=None,", "    key=None,  # TODO: the columns that pick out one row"),
+        encoding="utf-8")
     compared = started / "tables" / "mart_dev__failed_runs_ops_reports" / "conversion" / (
         "compare.md")
     compared.unlink()
     with pytest.raises(ValueError) as refused:
         project.promote([FAILED, PER_JOB])
     said = str(refused.value)
-    assert f"{PER_JOB}: its conversion/checklist.md has a box unticked" in said
+    assert (f"{PER_JOB}: references/mart_dev__fails_per_job_ops_reports.py has a "
+            "Decision open, key: the columns whose values name one row, or None") in said
     assert f"{FAILED}: its compare hasn't passed" in said
     assert not list((started / "tables").glob("mart__*"))
 
@@ -269,6 +265,7 @@ def test_a_table_only_created_is_promoted_by_its_table_reference(
                     database="ops")
     uses = "mart_dev.uses_ops_reports"
     fill_in(tmp_path, uses)
+    fill_in(tmp_path, "mart_dev.lookup_ops_reports")
     forget_the_projects_modules()
     rows = "SELECT job_id FROM ops.jobs"
     copies = {uses: rows, "ops_reports.uses": rows}
