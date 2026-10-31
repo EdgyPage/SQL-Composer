@@ -825,7 +825,7 @@ flowchart TD
    query for each final Table.
 3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
    final Table, and convert them as one batch in the convert Workflow, DEV filled in: each
-   becomes a Saved table named for its file.
+   becomes a Saved table named for its file, or, when the batch is one file, for the batch.
 
        project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
 
@@ -857,12 +857,14 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
-5. Save each filled-in query as a .hql file of its own, named for its final Table, beside
-   `admin/workflows/convert/convert.ipynb`, in that folder, where it reads them, then convert
-   them as one batch there: each becomes a Saved table named for its file. Name the batch
-   and its files in the names cell, `NAME = "sales_summary"` and `FILES = ["sales.hql", "regions.hql"]`, with DEV
-   filled in in `admin/databases.py`, and run its steps. Its code is checked; Copilot's Python
-   after the Hive is only for reading, and the Conversion's code wins where the two differ.
+5. Save each filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
+   `convert.ipynb`, which reads them, named for its final Table, but not for a table it reads,
+   then convert them there as one batch: each becomes a Saved table named for its file. With
+   one file, name the batch for its final Table, since a batch of one is named for the batch.
+   Name the batch and its files in the names cell, such as `NAME = "sales_summary"` and
+   `FILES = ["sales.hql", "regions.hql"]`, with DEV filled in, in `admin/databases.py`, and run
+   its steps. Its code is checked; Copilot's Python after the Hive is only for reading, and the
+   Conversion's code wins where the two differ.
 
 ## Update
 

@@ -61,13 +61,14 @@ admin/check_project.ipynb, which imports `project` already.
 
 >>> print(project.upgrade())
 Upgraded the Project from 7.2 to 8.0.
-8.0: nothing to change by hand. admin/upgrade_8.0.md lists what it did.
+8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
+    admin/upgrade_8.0.md.
 
 It ran the step from each version to the next, here one, and wrote a checklist for each:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
-...     if line.startswith(("- ", "Nothing")):
+...     if line.startswith("- "):
 ...         print(line)
 - rewrote admin/new_block.ipynb
 - added admin/remove.ipynb
@@ -80,13 +81,26 @@ It ran the step from each version to the next, here one, and wrote a checklist f
 - added admin/databases.py
 - added admin/sent.csv
 - recorded 8.0 in admin/project_version.txt
-Nothing: 8.0 needs nothing changed by hand.
+- [ ] admin/databases.py, line 6: fill in your Dev Database's name
+- [ ] admin/databases.py, line 8: fill in your Prod Database's name
 
-Under Done for you, it lists each change it made, and under For you to do, each it left you.
+Under Done for you, it lists each change it made, keeping each file it changed as it was in
+admin/removed/, and under For you to do, each change it left you, marked with an `# UPGRADE`
+comment at its line, with a box. Here 8.0 added admin/databases.py, whose two names are yours
+to fill in.
 
-A version that changes your files lists each change it made, keeps each file as it was in
-admin/removed/, and marks each change it leaves for you with an `# UPGRADE` comment at its
-line, with a box on the checklist. Make each change, delete its mark, and tick its box.
+### Make each change it marked
+
+Make each change, delete its mark, and tick its box. Open admin/databases.py, fill in DEV and
+PROD with your own databases' names, and delete the two `# UPGRADE 8.0:` lines. This page
+stands in for your editor:
+
+>>> databases = Path("admin/databases.py")  # -> Path
+>>> text = databases.read_text(encoding="utf-8")  # -> str
+>>> text = text.replace('"<DEV_DATABASE>"', '"mart_dev"').replace('"<PROD_DATABASE>"', '"mart"')
+>>> kept = [line for line in text.splitlines(keepends=True)
+...         if not line.startswith("# UPGRADE")]  # -> list
+>>> _ = databases.write_text("".join(kept), encoding="utf-8")
 
 ## Check it worked
 

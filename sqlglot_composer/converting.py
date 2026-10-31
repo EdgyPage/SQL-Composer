@@ -1385,7 +1385,7 @@ INSERT = "insert"  # INSERT OVERWRITE or INTO: a Saved table, its logic the quer
 SETTING = "setting"  # SET: the Session settings of the writes after it in its script
 NOTHING = "nothing"  # DROP, TRUNCATE, ADD PARTITION, MSCK REPAIR: the Saved table does it
 OTHER = "other"  # anything else, or what sqlglot can't read: an Unchecked statement
-QUERY = "query"  # a query alone, the only statement: a Saved table named for the batch
+QUERY = "query"  # a query alone: a Saved table named for the batch, or for its script
 WRITES = (CREATE_AS, INSERT, QUERY)
 # The kinds that make a table of the batch, and those that name one.
 MAKES = (CREATE_AS, CREATE, INSERT, QUERY)
@@ -1653,7 +1653,7 @@ def dev_names(statements: list[BatchStatement], dev: str,
             continue
         database, short = split_table_name(table)
         if statement.kind == QUERY:
-            # A query alone is named for the batch, which names no database of its own.
+            # A query alone is named for the batch, or its script, which name no database.
             name = f"{dev}.{rename.get(table, short)}"
         else:
             name = f"{dev}.{rename.get(table, f'{short}_{database}')}"
@@ -1664,6 +1664,22 @@ def dev_names(statements: list[BatchStatement], dev: str,
         taken[name] = table
         names[table] = name
     return names
+
+
+def query_named_like_another(statements: list[BatchStatement]) -> BatchStatement | None:
+    """The first query alone whose table, named for its file or the batch, is one the batch
+    reads or another statement names, whose place its write would take; None when there is
+    none."""
+    tables_read: set[str] = set()
+    for each in statements:
+        tables_read.update(each.reads)
+    for statement in statements:
+        if statement.kind != QUERY:
+            continue
+        named_by_others = {each.table for each in statements if each is not statement}
+        if statement.table in named_by_others | tables_read:
+            return statement
+    return None
 
 
 def in_batch_order(statements: list[BatchStatement]) -> list[BatchStatement]:
