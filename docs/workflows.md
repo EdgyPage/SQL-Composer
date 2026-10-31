@@ -139,7 +139,7 @@ for table in project.promoted_tables(TABLES, seeded=True):
 
 ## new_table
 
-Steps: 1 file step, 1 permission, 2 decision, 0 fiddling.
+Steps: 1 file step, 2 permission, 2 decision, 0 fiddling.
 
 Starts from: the tables' names, what each table should hold.
 
@@ -161,13 +161,18 @@ flowchart TD
     t1 --> s2
     t4 --> s2
     s2 --> t5
-    s3[["4. Create and write each in dev: for table in TABLES:
-    run_execute(project.load(table).create(), execute)
-project.run_tables(tables=TABLES, execute=execute)"]]
+    s3[["4. Check each table's rows with preview(), which writes nothing: for table in TABLES:
+    print(run_query(project.load(table).preview(), query))"]]
     class s3 permission
     t5 --> s3
-    t3 --> s3
     s3 --> t6
+    s4[["5. Create and write each in dev: for table in TABLES:
+    run_execute(project.load(table).create(), execute)
+project.run_tables(tables=TABLES, execute=execute)"]]
+    class s4 permission
+    t6 --> s4
+    t3 --> s4
+    s4 --> t7
     t0("the tables' names")
     class t0 thing
     t1("a Table folder")
@@ -180,8 +185,10 @@ project.run_tables(tables=TABLES, execute=execute)"]]
     class t4 thing
     t5("a dev Table folder whose logic loads")
     class t5 thing
-    t6("written in dev")
+    t6("its rows, checked")
     class t6 thing
+    t7("written in dev")
+    class t7 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
