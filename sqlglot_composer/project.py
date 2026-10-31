@@ -1773,10 +1773,10 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
 def _batch_plan(call: str, root: Path, index: Path,
                 statements: list[converting.BatchStatement], dev: str, rename: dict[str, str]
                 ) -> tuple[dict[str, str], list[converting.BatchStatement]]:
-    """Each table the batch writes and its name in dev, and its statements in the order they
-    run; refused, before anything is written, when the batch's folder is there already, a
-    rename= names a table the scripts don't write, two tables share a name in dev or read
-    each other, or a table in dev was made already."""
+    """Each table the batch creates or writes and its name in dev, and its statements in the
+    order they run; refused, before anything is written, when the batch's folder is there
+    already, a rename= names a table the scripts don't create or write, two tables share a
+    name in dev or read each other, or a table in dev was made already."""
     if index.exists():
         refuse(
             what=f"{call}: {index.relative_to(root).as_posix()}/ is there already.",
@@ -1963,11 +1963,15 @@ def _write_batch_index(index: Path, name: str, scripts: list[tuple[str, str]],
         (index / BATCH_SCRIPTS / script).write_text(text, encoding="utf-8")
     lines = [f"# Batch {name}", "",
              f"{counted(len(scripts), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
-             f"{in_words([script for script, _ in scripts])}. Each table they create or write "
-             f"is a Saved table in the Dev Database, {dev}.", "", "## Tables", ""]
+             f"{in_words([script for script, _ in scripts])}. Each table they write is a "
+             f"Saved table in the Dev Database, {dev}; one they only create has its Table "
+             "reference alone.", "", "## Tables", ""]
     for table in _tables_in_order(ordered):
         copy = names[table]
-        lines.append(f"- {table}: {copy}, {TABLE_FOLDER.shown(TABLE_FOLDER.stem(copy))}")
+        made_as = TABLE_FOLDER.shown(TABLE_FOLDER.stem(copy))
+        if not any(each.kind in converting.WRITES and each.table == table for each in ordered):
+            made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
+        lines.append(f"- {table}: {copy}, {made_as}")
     lines += ["", "## Each statement, in the order they run", ""]
     # A table not made is taken as written already, so each of its writes is kept as Hive.
     written = {table for table, copy in names.items() if copy not in made}
