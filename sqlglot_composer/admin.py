@@ -18,6 +18,7 @@ from __future__ import annotations
 import copy
 import urllib.parse
 from collections.abc import Callable
+from typing import NoReturn
 
 import pandas as pd
 
@@ -33,7 +34,7 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
-from .shared import counted, in_words, python_literal
+from .shared import counted, in_words, python_literal, singular_or_plural
 from .tables import (
     FILE_FORMATS,
     PURGE,
@@ -67,25 +68,26 @@ def _admin_statement(call: str, about: list[str], ddl: Node, hive: str | None = 
     return s
 
 
-def _name(t: Table) -> str:
+def _hive_table_name(t: Table) -> str:
     """The table's name as the Hive writes it."""
     return hive_text(table_node(t._name))
 
 
-def _value(text: str) -> str:
+def _hive_string(text: str) -> str:
     """A value in quotes, as the Hive writes it."""
     return hive_text(Node("Literal", this=text, is_string=True))
 
 
-def _listed(lines: list[str]) -> str:
+def _bracketed_lines(lines: list[str]) -> str:
     """Pieces in brackets, one to a line, as create_table writes its columns."""
     return "(\n" + ",\n".join(f"  {line}" for line in lines) + "\n)"
 
 
 def _set_tblproperties(t: Table, pairs: list[tuple[str, str]]) -> str:
     """ALTER TABLE ... SET TBLPROPERTIES, each property a name and a value."""
-    return (f"ALTER TABLE {_name(t)} SET TBLPROPERTIES "
-            + _listed([f"{_value(name)}={_value(value)}" for name, value in pairs]))
+    properties = [f"{_hive_string(name)}={_hive_string(value)}" for name, value in pairs]
+    return (f"ALTER TABLE {_hive_table_name(t)} SET TBLPROPERTIES "
+            + _bracketed_lines(properties))
 
 
 def _purge_note(t: Table, whose: str) -> str:
@@ -93,23 +95,25 @@ def _purge_note(t: Table, whose: str) -> str:
     the Table reference's purge=."""
     if t._purge:
         return (f"Can't be undone when the table itself has {PURGE} true, as purge=True in its "
-                f"Table reference asks: then {whose} files go too, and nothing brings them back.")
+                f"Table reference asks: then {whose} files go too, and nothing brings them "
+                "back.")
     if not t._partitioned_by:
         found_again = "A table made there again reads them back"
     else:
         found_again = ("The warehouse reads them again once repair_partitions(t) lists their "
-                       "Partitions, even in a table made there again, and an INSERT_INTO of one "
-                       "of those Partitions adds to its old rows")
+                       "Partitions, even in a table made there again, and an INSERT_INTO of "
+                       "one of those Partitions adds to its old rows")
     return (f"{whose[0].upper()}{whose[1:]} files stay in the table's folder, {t._location}, "
             f"unless the table itself has {PURGE} true: purge=True isn't in its Table "
             f"reference. {found_again}; only someone with access to the folder can delete "
             "them.")
 
 
-def _check_purge(t: Table) -> str:
-    return (f"Check first: DESCRIBE FORMATTED {_name(t)} shows, under Table Parameters, whether "
-            f"{PURGE} is true in the table itself: that, not the Table reference, decides "
-            "whether the files go.")
+def _purge_check_first(t: Table) -> str:
+    """The Check first item of a drop: where to see whether the table's files go with it."""
+    return (f"Check first: DESCRIBE FORMATTED {_hive_table_name(t)} shows, under Table "
+            f"Parameters, whether {PURGE} is true in the table itself: that, not the Table "
+            "reference, decides whether the files go.")
 
 
 # --- Dropping ---------------------------------------------------------------------------------
@@ -152,7 +156,7 @@ def drop_table(t: Table) -> Statement:
     call = f"admin.drop_table({t._name})"
     about = [f"{call} drops the table {t._name}: the warehouse forgets it, and every Statement "
              "that reads it fails until it is created again.",
-             _purge_note(t, "the table's"), _check_purge(t)]
+             _purge_note(t, "the table's"), _purge_check_first(t)]
     return _admin_statement(call, about, Node("Drop", target=table_node(t._name)))
 
 
@@ -201,20 +205,46 @@ def drop_partitions(t: Table, *, where: Condition | list[Condition]) -> Statemen
     ...     where=[at_least(daily_runs.dt, "2025-01-01"),
     ...            less_than(daily_runs.dt, "2025-02-01")])))
     ALTER TABLE mart.daily_runs DROP IF EXISTS PARTITION (dt >= '2025-01-01', dt < '2025-02-01')
-    """
+    """  # noqa: E501 - its examples' Hive and show_hive's lines are as the Toolbox writes them
     t = need_saved_table(t, "admin.drop_partitions(...)")
-    if not t._partitioned_by:
-        refuse(
-            what=f"admin.drop_partitions(...) was given {t._name}, whose Table reference has no "
-            "partitioned_by=.",
-            why="It drops whole Partitions, and a table with no partitioned_by= has none.",
-            fix=f"To keep fewer rows, write the table again with INSERT_OVERWRITE({t._alias}), "
-            "which replaces all its rows with the ones its Statement gives. To empty it, drop "
-            f"it with admin.drop_table({t._alias}) and create it again, after "
-            f"admin.set_properties({t._alias}) with purge=True in its Table reference, so its "
-            "files go too.",
-            error=ValueError,
-        )
+    _check_has_partitions(t)
+    conditions = _checked_conditions(t, where)
+    call = f"admin.drop_partitions({t._name}, where={python_text(where)})"
+    comparisons = []
+    for condition in conditions:
+        comparisons += _dropped(t, condition._tree, call)
+    spec = [hive_text(comparison) for comparison in comparisons]
+    table = _hive_table_name(t)
+    hive = f"ALTER TABLE {table} DROP IF EXISTS PARTITION ({', '.join(spec)})"
+    picked = " and ".join(spec)
+    about = [f"{call} drops each Partition of {t._name} where {picked}, every row of it, so no "
+             "Statement reads it again.",
+             _purge_note(t, "those Partitions'"),
+             f"Check first: SHOW PARTITIONS {table} lists its Partitions: the ones where "
+             f"{picked} go."]
+    return _admin_statement(call, about, table_node(t._name), hive)
+
+
+def _check_has_partitions(t: Table) -> None:
+    """Refuse a table with no partitioned_by=, which has no Partitions to drop."""
+    if t._partitioned_by:
+        return
+    refuse(
+        what=f"admin.drop_partitions(...) was given {t._name}, whose Table reference has no "
+        "partitioned_by=.",
+        why="It drops whole Partitions, and a table with no partitioned_by= has none.",
+        fix=f"To keep fewer rows, write the table again with INSERT_OVERWRITE({t._alias}), "
+        "which replaces all its rows with the ones its Statement gives. To empty it, drop "
+        f"it with admin.drop_table({t._alias}) and create it again, after "
+        f"admin.set_properties({t._alias}) with purge=True in its Table reference, so its "
+        "files go too.",
+        error=ValueError,
+    )
+
+
+def _checked_conditions(t: Table, where: object) -> list[Condition]:
+    """The conditions of drop_partitions' where=, one or a list, refused when it holds what
+    isn't a condition, or none."""
     call = f"admin.drop_partitions({t._name}, where=...)"
     if isinstance(where, tuple):
         refuse(
@@ -223,33 +253,25 @@ def drop_partitions(t: Table, *, where: Condition | list[Condition]) -> Statemen
             fix="Write the conditions in square brackets, as a list: where=[..., ...].",
             error=ValueError,
         )
-    conditions = list(where) if isinstance(where, list) else [where]
+    if isinstance(where, list):
+        conditions = list(where)
+    else:
+        conditions = [where]
+    example = f"where=less_than({t._alias}.{t._partitioned_by[0]}, ...)"
     for condition in conditions:
         if not isinstance(condition, Condition):
             refuse(
                 what=f"{call} was given {condition!r} in where=, which isn't a condition.",
                 why="where= picks Partitions with conditions, as WHERE(...) picks rows.",
-                fix=f"Pass a condition, such as where=less_than({t._alias}."
-                f"{t._partitioned_by[0]}, ...).",
+                fix=f"Pass a condition, such as {example}.",
             )
     if not conditions:
         refuse(
             what=f"{call} was given no conditions in where=.",
             why="where= says which Partitions to drop.",
-            fix=f"Pass at least one, such as where=less_than({t._alias}."
-            f"{t._partitioned_by[0]}, ...).",
+            fix=f"Pass at least one, such as {example}.",
         )
-    call = f"admin.drop_partitions({t._name}, where={python_text(where)})"
-    spec = [hive_text(part) for condition in conditions
-            for part in _dropped(t, condition._tree, call)]
-    hive = f"ALTER TABLE {_name(t)} DROP IF EXISTS PARTITION ({', '.join(spec)})"
-    picked = " and ".join(spec)
-    about = [f"{call} drops each Partition of {t._name} where {picked}, every row of it, so no "
-             "Statement reads it again.",
-             _purge_note(t, "those Partitions'"),
-             f"Check first: SHOW PARTITIONS {_name(t)} lists its Partitions: the ones where "
-             f"{picked} go."]
-    return _admin_statement(call, about, table_node(t._name), hive)
+    return conditions
 
 
 # The comparisons DROP PARTITION takes, by the kind of Node a condition holds.
@@ -261,7 +283,10 @@ def _dropped(t: Table, tree: Node, call: str) -> list[Node]:
     column of `t`, named alone, against a value; refused where DROP PARTITION can't take it."""
     tree = tree.unnest()
     if tree.kind == "And":
-        return [part for side in tree.flatten() for part in _dropped(t, side, call)]
+        comparisons = []
+        for side in tree.flatten():
+            comparisons += _dropped(t, side, call)
+        return comparisons
     if tree.kind == "Between":
         name = _partition_compared(t, tree.parts["this"], call)
         return [Node("GTE", this=Node("Column", name=name),
@@ -294,9 +319,10 @@ def _dropped(t: Table, tree: Node, call: str) -> list[Node]:
 def _partition_compared(t: Table, column: Node, call: str) -> str:
     """The name of the partition column of `t` a comparison tests, refused when it tests
     anything else."""
-    if column.kind == "Column" and column.table == t._alias and column.name in t._partitioned_by:
+    is_own_column = column.kind == "Column" and column.table == t._alias
+    if is_own_column and column.name in t._partitioned_by:
         return column.name
-    if column.kind == "Column" and column.table == t._alias and column.name in t._columns:
+    if is_own_column and column.name in t._columns:
         what = f"{t._alias}.{column.name} isn't one of {t._name}'s partition columns"
     elif column.kind == "Column":
         named = f"{column.table}.{column.name}" if column.table else column.name
@@ -378,10 +404,10 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
     described = describe.ask(t._name, query, "admin.add_columns(...)")
     new = _new_columns(t, described.columns, call)
     definitions = [hive_text(column_definition(t, column, call)) for column in new]
-    hive = f"ALTER TABLE {_name(t)} ADD COLUMNS {_listed(definitions)}"
-    named, them, its = (
-        f"the columns {in_words(new)}", "them", "their") if len(new) > 1 else (
-        f"the column {new[0]}", "it", "its")
+    hive = f"ALTER TABLE {_hive_table_name(t)} ADD COLUMNS {_bracketed_lines(definitions)}"
+    named = f"{singular_or_plural(len(new), 'the column', 'the columns')} {in_words(new)}"
+    them = singular_or_plural(len(new), "it", "them")
+    its = singular_or_plural(len(new), "its", "their")
     about = [f"{call} adds {named} to {t._name}, after its other columns. The rows already "
              f"there read NULL in {them} until they are written again."]
     if t._partitioned_by:
@@ -390,7 +416,7 @@ def add_columns(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
                      f"Partition written again keeps {its} values.")
     about += ["Hard to undo: Hive drops a column only when every other column is listed again "
               "by hand, with ALTER TABLE ... REPLACE COLUMNS.",
-              f"Check first: DESCRIBE {_name(t)} lists the table's columns now."]
+              f"Check first: DESCRIBE {_hive_table_name(t)} lists the table's columns now."]
     return _admin_statement(call, about, table_node(t._name), hive)
 
 
@@ -496,18 +522,20 @@ def set_properties(t: Table) -> Statement:
     about = [f"{call} sets {count} of {t._name}, as its Table reference says. Its other "
              "properties, and its rows, stay as they are."]
     if t._purge is not None:
-        about.append(f"With {PURGE} true, dropping the table or its Partitions deletes their "
-                     "files too, from now on." if t._purge else
-                     f"With {PURGE} false, dropping the table or its Partitions leaves their "
-                     "files in its folder, from now on.")
+        if t._purge:
+            about.append(f"With {PURGE} true, dropping the table or its Partitions deletes "
+                         "their files too, from now on.")
+        else:
+            about.append(f"With {PURGE} false, dropping the table or its Partitions leaves "
+                         "their files in its folder, from now on.")
     if t._compression is not None:
         compression = FILE_FORMATS[t._stored_as][0]
         about.append(f"{compression} applies to the files written from now on; the files "
                      "already there keep theirs.")
     about += ["Can be undone: change purge=, compression= or properties= in the Table "
               "reference back to what the table had, and send this again.",
-              f"Check first: DESCRIBE FORMATTED {_name(t)} lists the table's properties now, "
-              "under Table Parameters."]
+              f"Check first: DESCRIBE FORMATTED {_hive_table_name(t)} lists the table's "
+              "properties now, under Table Parameters."]
     return _admin_statement(call, about, table_node(t._name), hive)
 
 
@@ -594,9 +622,10 @@ def move_to_own_folder(t: Table, *, query: Callable[[str], pd.DataFrame] | None 
     t = need_saved_table(t, "admin.move_to_own_folder(...)")
     call = f"admin.move_to_own_folder({t._name}, query=...)"
     described = describe.ask(t._name, query, "admin.move_to_own_folder(...)", formatted=True)
-    managed = _check_movable(t, described, call)
+    _check_movable(t, described, call)
     copy_of = _copy_of(t)
-    return _numbered(call, [_create_step(t, copy_of, call, managed), _copy_step(t, copy_of)])
+    steps = [_create_step(t, copy_of, call, described.managed), _copy_step(t, copy_of)]
+    return _numbered(call, steps)
 
 
 def check_the_copy(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
@@ -648,13 +677,15 @@ def check_the_copy(t: Table, *, query: Callable[[str], pd.DataFrame] | None = No
     t = need_saved_table(t, "admin.check_the_copy(...)")
     call = f"admin.check_the_copy({t._name}, query=...)"
     described = describe.ask(t._name, query, "admin.check_the_copy(...)", formatted=True)
-    managed = _check_movable(t, described, call)
+    _check_movable(t, described, call)
     copy_of = _copy_of(t)
-    check = _counts_match(t, copy_of)
     logged_run("Admin statement", call, hive_statement(_counts_tree(t, copy_of)),
-               lambda hive: check(query(hive)))
-    steps = [] if managed else [_keep_files_step(t)]
-    return _numbered(call, steps + [_drop_step(t, managed), _rename_step(t, copy_of)])
+               _query_comparing_counts(t, copy_of, query))
+    steps = []
+    if not described.managed:
+        steps.append(_keep_files_step(t))
+    steps += [_drop_step(t, described.managed), _rename_step(t, copy_of)]
+    return _numbered(call, steps)
 
 
 def _copy_of(t: Table) -> Table:
@@ -672,8 +703,8 @@ def _numbered(call: str, steps: list[Statement]) -> list[Statement]:
     return steps
 
 
-def _check_movable(t: Table, described: describe.Description, call: str) -> bool:
-    """Refuse a table the move can't, or needn't, move; True for a managed table."""
+def _check_movable(t: Table, described: describe.Description, call: str) -> None:
+    """Refuse a table the move can't, or needn't, move."""
     location = described.location
     if not location:
         refuse(
@@ -687,9 +718,9 @@ def _check_movable(t: Table, described: describe.Description, call: str) -> bool
         refuse(
             what=f"{call}: {t._name}'s own folder, {t._location}, is inside the folder it is "
             f"in now, {location}.",
-            why="A table with no partitioned_by= reads every file under its folder, the folders "
-            "inside it too where the warehouse is set to, so the old table could read the "
-            "copy's files as its own while the move runs.",
+            why="A table with no partitioned_by= reads every file under its folder, the "
+            "folders inside it too where the warehouse is set to, so the old table could read "
+            "the copy's files as its own while the move runs.",
             fix="Give its Table reference a location= outside that folder, and move it there.",
             error=ValueError,
         )
@@ -712,7 +743,6 @@ def _check_movable(t: Table, described: describe.Description, call: str) -> bool
             "check_table_reference(t, query=...) lists what differs.",
             error=ValueError,
         )
-    return managed
 
 
 def _inside(folder: str, other: str) -> bool:
@@ -722,21 +752,26 @@ def _inside(folder: str, other: str) -> bool:
 
 
 def _create_step(t: Table, copy_of: Table, call: str, managed: bool) -> Statement:
+    """The move's first step: create the copy at the table's own folder."""
     folder = copy_of._location
     about = [f"{call} moves {t._name} to its own folder, {folder}. This first step creates "
              f"{copy_of._name} there, and the next copies the table's rows into it. Then "
              f"admin.check_the_copy compares the two and gives the steps that drop {t._name} "
              "and give the copy its name. Send them in order, one at a time."]
-    about.append("The old table's files are dropped with it: it is managed, so its files "
-                 "are its own." if managed else
-                 "The old table's files stay where they are, since its folder may hold other "
-                 "tables' files too: ask whoever looks after the folder before deleting any.")
+    if managed:
+        about.append("The old table's files are dropped with it: it is managed, so its files "
+                     "are its own.")
+    else:
+        about.append("The old table's files stay where they are, since its folder may hold "
+                     "other tables' files too: ask whoever looks after the folder before "
+                     "deleting any.")
     statement = create_table(copy_of, may_exist=True)
     statement._admin_about = about
     return statement
 
 
-def _column(t: Table, column: str) -> Node:
+def _aliased_column(t: Table, column: str) -> Node:
+    """A column of `t`, named by the table's alias, as job_runs.dt."""
     return Node("Column", name=column, table=t._alias)
 
 
@@ -748,7 +783,7 @@ def _copy_step(t: Table, copy_of: Table) -> Statement:
     # PARTITION(region, dt): none named, so each is filled from the rows.
     partition = partitions_named(t, None, "admin.move_to_own_folder",
                                  "then the copy fills each partition column from the rows").tree
-    select = Node("Select", outputs=[_column(t, column) for column in columns],
+    select = Node("Select", outputs=[_aliased_column(t, column) for column in columns],
                   source=table_node(t._name, alias=t._alias))
     tree = Node("Insert", target=table_node(copy_of._name, partition=partition), select=select,
                 overwrite=True)
@@ -763,7 +798,7 @@ def _copy_step(t: Table, copy_of: Table) -> Statement:
 def _partition_value(t: Table, column: str) -> Node:
     """A partition column's value as text, rows with none counted as Hive names their
     Partition, so that a comparison by = matches them too."""
-    return Node("Coalesce", this=Node("Cast", this=_column(t, column), to="STRING"),
+    return Node("Coalesce", this=Node("Cast", this=_aliased_column(t, column), to="STRING"),
                 expressions=[Node("Literal", this=ROWS_WITH_NO_VALUE, is_string=True)])
 
 
@@ -785,54 +820,64 @@ def _counts(t: Table, name: str) -> Node:
 
 def _counts_tree(t: Table, copy_of: Table) -> Node:
     """The comparison: each Partition whose rows differ between the table and its copy."""
-    old, new = Node("Column", name="row_count", table="old_counts"), Node(
-        "Column", name="row_count", table="copied_counts")
+    old = Node("Column", name="row_count", table="old_counts")
+    new = Node("Column", name="row_count", table="copied_counts")
     partitions = t._partitioned_by
-    outputs = [*[Node("Column", name=column, table="old_counts") for column in partitions],
-               Node("Alias", this=old.copy(), alias="old_rows"),
-               Node("Alias", this=new.copy(), alias="copied_rows")]
-    on = None
+    outputs = [Node("Column", name=column, table="old_counts") for column in partitions]
+    outputs += [Node("Alias", this=old.copy(), alias="old_rows"),
+                Node("Alias", this=new.copy(), alias="copied_rows")]
     if partitions:
-        on = combined("And", [Node("EQ", this=Node("Column", name=column, table="copied_counts"),
-                                   expression=Node("Column", name=column, table="old_counts"))
-                              for column in partitions])
+        same_partition = []
+        for column in partitions:
+            same_partition.append(Node(
+                "EQ", this=Node("Column", name=column, table="copied_counts"),
+                expression=Node("Column", name=column, table="old_counts")))
+        join = Node("Join", how="LEFT JOIN", this=table_node("copied_counts"),
+                    on=combined("And", same_partition))
+    else:
+        join = Node("Join", how="CROSS JOIN", this=table_node("copied_counts"), on=None)
     differs = Node("Or", this=Node("Is", this=new.copy(), expression=Node("Null")),
                    expression=Node("NEQ", this=new.copy(), expression=old.copy()))
     return Node("Select",
                 derived_tables=[_counts(t, "old_counts"), _counts(copy_of, "copied_counts")],
-                outputs=outputs, source=table_node("old_counts"),
-                joins=[Node("Join", how="LEFT JOIN" if on else "CROSS JOIN",
-                            this=table_node("copied_counts"), on=on)],
-                where=differs)
+                outputs=outputs, source=table_node("old_counts"), joins=[join], where=differs)
 
 
-def _counts_match(t: Table, copy_of: Table) -> Callable[[object], pd.DataFrame]:
-    """The check check_the_copy hands the comparison's result to: it refuses any Partition
-    that differs. Rows with no value in a partition column are counted under
-    ROWS_WITH_NO_VALUE, as Hive names their Partition."""
-    def check(result: object) -> pd.DataFrame:
+def _query_comparing_counts(t: Table, copy_of: Table, query: Callable[[str], pd.DataFrame]
+                     ) -> Callable[[str], pd.DataFrame]:
+    """How check_the_copy sends the comparison: through `query`, refusing any Partition that
+    differs. Rows with no value in a partition column are counted under ROWS_WITH_NO_VALUE, as
+    Hive names their Partition."""
+    def compare(hive: str) -> pd.DataFrame:
+        result = query(hive)
         refuse_what_isnt_a_dataframe(result)
         if len(result) == 0:
             return result
-        many = len(result)
-        refuse(
-            what=f"The move of {t._name} stopped: its copy, {copy_of._name}, doesn't hold the "
-            "same number of rows" + ("" if not t._partitioned_by else
-                                     f" in {counted(many, 'Partition')}")
-            + ":\n" + result.to_string(index=False),
-            why="The old table is dropped only once all of it is copied, so nothing was "
-            "dropped.",
-            fix="Send the copy step again, moves[1], which copies the whole table as it is now, "
-            "then call admin.check_the_copy again." + ("" if not t._partitioned_by else
-                                             " Where copied_rows is empty (NaN), that Partition "
-                                             "is missing from the copy: it was written since "
-                                             "the copy was made."),
-            error=ValueError,
-        )
-    return check
+        _refuse_differing_counts(t, copy_of, result)
+    return compare
+
+
+def _refuse_differing_counts(t: Table, copy_of: Table, differing: pd.DataFrame) -> NoReturn:
+    """Stop the move: the comparison found Partitions whose rows differ, or are missing."""
+    where = ""
+    missing = ""
+    if t._partitioned_by:
+        where = f" in {counted(len(differing), 'Partition')}"
+        missing = (" Where copied_rows is empty (NaN), that Partition is missing from the "
+                   "copy: it was written since the copy was made.")
+    refuse(
+        what=f"The move of {t._name} stopped: its copy, {copy_of._name}, doesn't hold the "
+        f"same number of rows{where}:\n" + differing.to_string(index=False),
+        why="The old table is dropped only once all of it is copied, so nothing was "
+        "dropped.",
+        fix="Send the copy step again, moves[1], which copies the whole table as it is now, "
+        "then call admin.check_the_copy again." + missing,
+        error=ValueError,
+    )
 
 
 def _keep_files_step(t: Table) -> Statement:
+    """The step that sets purge to false on the old table, so dropping it leaves its files."""
     hive = _set_tblproperties(t, [(PURGE, "false")])
     about = [f"Sets {PURGE} to false on {t._name}, so that dropping it next leaves the "
              "files in its folder, which other tables may read."]
@@ -840,15 +885,19 @@ def _keep_files_step(t: Table) -> Statement:
 
 
 def _drop_step(t: Table, managed: bool) -> Statement:
-    gone = ("its files go too, since it is managed" if managed else
-            "its files stay in the folder it shared")
+    """The step that drops the old table, once its copy holds every row."""
+    if managed:
+        gone = "its files go too, since it is managed"
+    else:
+        gone = "its files stay in the folder it shared"
     about = [f"Drops the old {t._name}: {gone}. Can't be undone: admin.check_the_copy gives "
              "it only once the copy holds every row."]
     return _admin_statement("", about, Node("Drop", target=table_node(t._name)))
 
 
 def _rename_step(t: Table, copy_of: Table) -> Statement:
-    hive = f"ALTER TABLE {_name(copy_of)} RENAME TO {_name(t)}"
+    """The move's last step: give the copy the table's name."""
+    hive = f"ALTER TABLE {_hive_table_name(copy_of)} RENAME TO {_hive_table_name(t)}"
     about = [f"Gives {copy_of._name} the name {t._name}. Its files stay at its own folder, "
              f"{copy_of._location}. If this step fails, send it alone again."]
     return _admin_statement("", about, table_node(copy_of._name), hive)

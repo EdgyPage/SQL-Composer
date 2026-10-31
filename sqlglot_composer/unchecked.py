@@ -77,8 +77,8 @@ class SessionSettings:
     >>> hive_settings("map_joins")
     <Session settings map_joins - show_hive(...) shows their SET lines>
 
-    It isn't a Statement, but run_execute sends it, one line at a time, and show_hive shows it. Make
-    one with hive_settings(...). Write the name in a type hint, to say that a function of
+    It isn't a Statement, but run_execute sends it, one line at a time, and show_hive shows it.
+    Make one with hive_settings(...). Write the name in a type hint, to say that a function of
     yours gives back Session settings:
 
     >>> def settings_for_joins() -> SessionSettings:
@@ -108,10 +108,10 @@ def hive_settings(*names: str,
     SET hive.exec.dynamic.partition.mode=nonstrict
 
     Hive keeps a Session setting for the rest of the session, so send them first, then your
-    Statements: run_execute(hive_settings(...), execute) sends each SET line through your execute,
-    as a call of its own, and gives back None. They hold only while your query and execute
-    share one session across their calls: if each call opens a new session, each SET is
-    gone before your Statement runs. show_hive prints them, and export_lineage, passed them
+    Statements: run_execute(hive_settings(...), execute) sends each SET line through your
+    execute, as a call of its own, and gives back None. They hold only while your query and
+    execute share one session across their calls: if each call opens a new session, each SET
+    is gone before your Statement runs. show_hive prints them, and export_lineage, passed them
     with the Statements, writes them at the foot of both its files.
 
     Name one or more sets. The Toolbox ships four:
@@ -160,10 +160,10 @@ def hive_settings(*names: str,
     for name in names:
         settings = _named_set(name, names, own)
         for setting, value in settings.items():
-            written = _value(name, setting, value)
+            written = _setting_value(name, setting, value)
             if given.get(setting, written) != written:
                 refuse(
-                    what=f"hive_settings{_call(names)} sets {setting} to "
+                    what=f"hive_settings{_settings_call(names)} sets {setting} to "
                     f"{given[setting]} and to {written}.",
                     why="Hive keeps the last SET of a setting, so one of the two would be "
                     "quietly lost.",
@@ -176,7 +176,7 @@ def hive_settings(*names: str,
     return SessionSettings(list(names), lines)
 
 
-def _call(names: tuple[object, ...]) -> str:
+def _settings_call(names: tuple[object, ...]) -> str:
     """How hive_settings was called, for a message: ("a", "b") is ("a", "b")."""
     return "(" + ", ".join(python_literal(name) for name in names) + ")"
 
@@ -222,24 +222,27 @@ def _own_sets(sets: object) -> dict[object, dict[object, object]]:
 
 def _named_set(name: object, names: tuple[object, ...],
                own: dict[object, dict[object, object]]) -> dict[object, object]:
-    """The settings of one set, the user's own or the Toolbox's, or a refusal naming them all."""
+    """The settings of one set, the user's own or the Toolbox's, or a refusal naming them
+    all."""
     if isinstance(name, str) and name in own:
         return own[name]
     if isinstance(name, str) and name in SHIPPED:
         return SHIPPED[name]
     if isinstance(name, (list, tuple)):
         refuse(
-            what=f"hive_settings{_call(names)} was given a list, where the sets' names go.",
+            what=f"hive_settings{_settings_call(names)} was given a list, where the sets' "
+            "names go.",
             why="It takes each set's name as text, one after the other.",
             fix="Pass the names one by one: hive_settings("
             + ", ".join(python_literal(each) for each in name) + ").",
         )
-    yours = (f"and your sets= gives {', '.join(own)}" if own
-             else "and no sets= of your own was given")
+    if own:
+        yours = f"and your sets= gives {', '.join(own)}"
+    else:
+        yours = "and no sets= of your own was given"
     refuse(
-        what=f"hive_settings{_call(names)}: there is no set named {python_literal(name)}. "
-        "The Toolbox "
-        f"ships {', '.join(SHIPPED)}, {yours}.",
+        what=f"hive_settings{_settings_call(names)}: there is no set named "
+        f"{python_literal(name)}. The Toolbox ships {', '.join(SHIPPED)}, {yours}.",
         why="It writes the SET lines of the sets it is given, by name.",
         fix="Check the spelling against the sets above. For a set of your own, keep it in a "
         'dict, as HIVE_SETTINGS = {"nightly": {"hive.exec.parallel": True}}, and pass it: '
@@ -248,7 +251,7 @@ def _named_set(name: object, names: tuple[object, ...],
     )
 
 
-def _value(name: str, setting: object, value: object) -> str:
+def _setting_value(name: str, setting: object, value: object) -> str:
     """A setting's value as a SET line writes it, or a refusal of what can't be one."""
     where = f'hive_settings(...): the set "{name}"'
     if not isinstance(setting, str) or not _SETTING_NAME.fullmatch(setting):
@@ -299,9 +302,8 @@ class UncheckedStatement:
     <Unchecked statement - show_hive(...) shows its Hive>
 
     It isn't a Statement, but run_query or run_execute sends it, and show_hive shows it, marked
-    as unchecked. Make
-    one with unchecked_hive(...). Write the name in a type hint, to say that a function of
-    yours gives back an Unchecked statement:
+    as unchecked. Make one with unchecked_hive(...). Write the name in a type hint, to say that
+    a function of yours gives back an Unchecked statement:
 
     >>> def count_all_runs() -> UncheckedStatement:
     ...     return unchecked_hive("SELECT COUNT(*) AS runs FROM ops.job_runs")
@@ -336,11 +338,11 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     for Hive that changes something, such as ALTER or INSERT, which gives back nothing.
 
     No Guard, Warning or Load limit looks inside it: the Toolbox sends the text as you wrote
-    it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it for
-    the one statement you need now, and keep using the clause functions for the rest. show_hive
-    marks it, export_lineage draws it as one step it can't see inside, and each run of it adds
-    an entry to the Admin log (help(set_admin_log) says where), whose Unchecked statements are
-    the list of what the Toolbox should learn to write next.
+    it, dropping a ; you end it with, and can't tell whether it gives the right answer. Use it
+    for the one statement you need now, and keep using the clause functions for the rest.
+    show_hive marks it, export_lineage draws it as one step it can't see inside, and each run
+    of it adds an entry to the Admin log (help(set_admin_log) says where), whose Unchecked
+    statements are the list of what the Toolbox should learn to write next.
 
     Text that starts DROP, ALTER or TRUNCATE gets a note at your line, naming the admin
     function that does the same job with its checks, where one does. For example, Hive refuses
@@ -393,11 +395,20 @@ def unchecked_hive(text: str) -> UncheckedStatement:
 
 def unchecked_text(unchecked: UncheckedStatement) -> str:
     """What show_hive prints for an Unchecked statement: a comment marking it, then its Hive."""
-    said = SAID.sub(lambda found: found.group() if found.group().startswith("--") else "''",
-                     unchecked._text)
+    last_line = _strings_blanked(unchecked._text).splitlines()[-1]
     # After a comment on the last line, a ; would be part of the comment.
-    end = "\n;" if "--" in said.splitlines()[-1] else ";"
+    end = "\n;" if "--" in last_line else ";"
     return f"{UNCHECKED_MARK}\n{unchecked._text}{end}"
+
+
+def _strings_blanked(text: str) -> str:
+    """The text with each string and name in quotes blanked out, and its comments kept, so a
+    -- inside quotes isn't taken for a comment."""
+    def blank(found: re.Match[str]) -> str:
+        if found.group().startswith("--"):
+            return found.group()
+        return "''"
+    return SAID.sub(blank, text)
 
 
 # The comment show_hive heads an Unchecked statement with, in a dry run too.
@@ -414,10 +425,12 @@ def _what_it_does(text: str) -> str:
     """The text in capitals with its strings and comments blanked out, and names in backticks
     kept without them, so a keyword is found only where it is one."""
     def blank(found: re.Match[str]) -> str:
-        said = found.group()
-        if said.startswith("`"):
-            return said[1:-1].replace("``", "`")
-        return "" if said.startswith("--") else "''"
+        piece = found.group()
+        if piece.startswith("`"):
+            return piece[1:-1].replace("``", "`")
+        if piece.startswith("--"):
+            return ""
+        return "''"
     return SAID.sub(blank, text).upper()
 
 
@@ -434,38 +447,52 @@ _ALTERED_BY = (
 def _note_a_change(text: str) -> None:
     """Note, at the user's line, text that drops, alters or truncates, naming the admin
     function that does that job checked, where one does."""
-    does = _what_it_does(text)
-    words = re.findall(r"[A-Z_]+", does)
-    command, then = (words + ["", ""])[:2]
+    note = _change_note(_what_it_does(text))
+    if note is not None:
+        warn_at_callers_line(note, UncheckedNote)
+
+
+def _change_note(does: str) -> str | None:
+    """The note for text that drops, alters or truncates, None for any other. `does` is the
+    text as _what_it_does gives it."""
+    words = re.findall(r"[A-Z_]+", does) + ["", ""]
+    command, then = words[0], words[1]
     if command == "TRUNCATE":
-        note = ("This Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
+        return ("This Unchecked statement truncates a table. Hive refuses TRUNCATE on an "
                 "external table (one whose files stay where you put them), and every Saved "
                 "table of yours is one. admin.drop_partitions(t, where=...) drops a Saved "
                 "table's Partitions with its checks, and writing a Partition again with "
-                "INSERT_OVERWRITE "
-                "replaces it.")
-    elif command in ("DROP", "ALTER"):
-        function = None
-        if command == "DROP" and then == "TABLE":
-            function = "admin.drop_table(t)"
-        elif command == "ALTER" and then == "TABLE":
-            function = next((call for pattern, call in _ALTERED_BY
-                             if re.search(pattern, does)), None)
-        verb = "drops" if command == "DROP" else "alters"
-        if function is not None:
-            note = (f"This Unchecked statement {verb} a table. {function} does the same job "
-                    "with its checks: it refuses a table that isn't one of your Saved tables, "
-                    "and says first what it changes and what can't be undone.")
-        else:
-            note = (f"This Unchecked statement {verb} something, and no admin function does "
-                    "that job yet. It runs as you wrote it, and the Admin log keeps it as "
-                    "something the Toolbox should learn to write.")
+                "INSERT_OVERWRITE replaces it.")
+    if command == "DROP":
+        verb = "drops"
+    elif command == "ALTER":
+        verb = "alters"
     else:
-        return
-    warn_at_callers_line(note, UncheckedNote)
+        return None
+    function = None
+    if command == "DROP" and then == "TABLE":
+        function = "admin.drop_table(t)"
+    if command == "ALTER" and then == "TABLE":
+        function = _admin_call_altering(does)
+    if function is None:
+        return (f"This Unchecked statement {verb} something, and no admin function does that "
+                "job yet. It runs as you wrote it, and the Admin log keeps it as something the "
+                "Toolbox should learn to write.")
+    return (f"This Unchecked statement {verb} a table. {function} does the same job with its "
+            "checks: it refuses a table that isn't one of your Saved tables, and says first "
+            "what it changes and what can't be undone.")
 
 
-# --- Unchecked expressions and Unchecked derived tables ----------------------------------------
+def _admin_call_altering(does: str) -> str | None:
+    """The admin function's call that does the ALTER TABLE job of `does`, None where no admin
+    function does it."""
+    for pattern, call in _ALTERED_BY:
+        if re.search(pattern, does):
+            return call
+    return None
+
+
+# --- Unchecked expressions and Unchecked derived tables --------------------------------------
 
 
 def unchecked_column(text: str, /, **columns: Column) -> Column:
@@ -525,9 +552,16 @@ def unchecked_column(text: str, /, **columns: Column) -> Column:
     that instead: the Toolbox checks it.
     """
     tree = _unchecked_tree("unchecked_column", text, columns)
-    because = next((column._not_adding_up_because for column in columns.values()
-                    if not column._adds_up), None)
+    because = _first_not_adding_up_reason(list(columns.values()))
     return Column(tree, adds_up=because is None, not_adding_up_because=because)
+
+
+def _first_not_adding_up_reason(columns: list[Column]) -> str | None:
+    """Why the first of the columns that doesn't add up doesn't, None when each one does."""
+    for column in columns:
+        if not column._adds_up:
+            return column._not_adding_up_because
+    return None
 
 
 def unchecked_condition(text: str, /, **columns: Column) -> Condition:
@@ -653,12 +687,16 @@ def _placeholders(call: str, text: str) -> list[str]:
                 fix=f"Name it, and pass the column by that name, as in {_EXAMPLES[call]}.",
             )
         if spec or conversion or not SIMPLE_NAME.fullmatch(field):
-            shown = "{" + field + (f"!{conversion}" if conversion else "") + (
-                f":{spec}" if spec else "") + "}"
+            shown = "{" + field
+            if conversion:
+                shown += f"!{conversion}"
+            if spec:
+                shown += f":{spec}"
+            shown += "}"
             refuse(
                 what=f"{call}({python_text(text)}, ...) has the placeholder {shown}.",
-                why="A placeholder is a plain name, filled with the column passed by that name; "
-                "the Toolbox writes the column's Hive itself.",
+                why="A placeholder is a plain name, filled with the column passed by that "
+                "name; the Toolbox writes the column's Hive itself.",
                 fix="Write it as a plain name, as in {team}, and pass the column by that name. "
                 "A brace you mean as a brace is written twice, {{ or }}.",
                 error=ValueError,
@@ -841,39 +879,54 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     (help(set_admin_log)). Like unchecked_hive, it marks something the Toolbox should learn to
     write: a search for unchecked_ finds it.
     """
-    if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
-        refuse(what=f"unchecked_derived({name!r}, ...) needs a plain name.",
-               why="The name is how the SQL calls it.",
-               fix='Use letters, digits and _, such as unchecked_derived("steps", ...).',
-               error=ValueError)
+    _check_derived_name(name)
     written = _hive_written("unchecked_derived", text)
-    if not isinstance(columns, dict) or not columns:
-        refuse(
-            what=f"unchecked_derived({name!r}, ..., columns={columns!r}) needs a dict of column "
-            "names and types.",
-            why="The Toolbox can't look inside the text, so the columns you declare are the "
-            "ones a Statement can read from it.",
-            fix='Write columns={"run_id": "bigint", "step": "string"}, with None for a type '
-            "you don't know.",
-            error=ValueError,
-        )
-    _check_key(name, key, columns)
+    _check_declared_columns(name, columns)
+    _check_declared_key(name, key, columns)
     facts = read_unchecked_select(written)
     _check_select(name, written, facts, columns)
     table = Table(name, columns=columns)
     table._statement = UncheckedSelect(written, facts.tables)
     if key:
         table._key = list(key)
-        table._keys = Keys(found=[Found(list(key), f"its key=[...] says its rows are told "
-                                        f"apart by {in_words(list(key))}", "not by")],
-                           lost=None)
-    else:
-        table._keys = Keys(found=[], lost="its Hive is written by hand in "
-                           "unchecked_derived(...), which the Toolbox can't look inside")
+    table._keys = _declared_keys(key)
     return table
 
 
-def _check_key(name: str, key: object, columns: dict[str, str | None]) -> None:
+def _check_derived_name(name: object) -> None:
+    """Refuse a name for an Unchecked derived table that isn't a plain name."""
+    if not isinstance(name, str) or not SIMPLE_NAME.fullmatch(name):
+        refuse(what=f"unchecked_derived({name!r}, ...) needs a plain name.",
+               why="The name is how the SQL calls it.",
+               fix='Use letters, digits and _, such as unchecked_derived("steps", ...).',
+               error=ValueError)
+
+
+def _check_declared_columns(name: str, columns: object) -> None:
+    """Refuse a columns= that isn't a dict of at least one column."""
+    if not isinstance(columns, dict) or not columns:
+        refuse(
+            what=f"unchecked_derived({name!r}, ..., columns={columns!r}) needs a dict of "
+            "column names and types.",
+            why="The Toolbox can't look inside the text, so the columns you declare are the "
+            "ones a Statement can read from it.",
+            fix='Write columns={"run_id": "bigint", "step": "string"}, with None for a type '
+            "you don't know.",
+            error=ValueError,
+        )
+
+
+def _declared_keys(key: list[str] | None) -> Keys:
+    """What the Toolbox knows of an Unchecked derived table's Key: the key= it is given, or
+    none, since it can't look inside the text."""
+    if not key:
+        return Keys(found=[], lost="its Hive is written by hand in unchecked_derived(...), "
+                    "which the Toolbox can't look inside")
+    says = f"its key=[...] says its rows are told apart by {in_words(list(key))}"
+    return Keys(found=[Found(list(key), says, "not by")], lost=None)
+
+
+def _check_declared_key(name: str, key: object, columns: dict[str, str | None]) -> None:
     """Refuse a key= that isn't a list of the columns declared."""
     if key is None:
         return
@@ -911,16 +964,18 @@ def _check_select(name: str, text: str, facts: SelectFacts,
             error=ValueError,
         )
     declared = [str(column) for column in columns]
-    if facts.outputs is not None and {n.lower() for n in facts.outputs} != {
-            n.lower() for n in declared}:
-        refuse(
-            what=f"unchecked_derived({name!r}, ...) declares the columns {', '.join(declared)}, "
-            f"and its SELECT gives {', '.join(facts.outputs)}.",
-            why="A Statement reads the columns declared, which the warehouse would look for in "
-            "the SELECT's rows.",
-            fix="Declare each column the SELECT gives, under the name it gives it.",
-            error=ValueError,
-        )
+    # None where sqlglot can't tell the SELECT's columns. Hive's names ignore case.
+    if facts.outputs is not None:
+        given = {column.lower() for column in facts.outputs}
+        if given != {column.lower() for column in declared}:
+            refuse(
+                what=f"unchecked_derived({name!r}, ...) declares the columns "
+                f"{', '.join(declared)}, and its SELECT gives {', '.join(facts.outputs)}.",
+                why="A Statement reads the columns declared, which the warehouse would look "
+                "for in the SELECT's rows.",
+                fix="Declare each column the SELECT gives, under the name it gives it.",
+                error=ValueError,
+            )
     _refuse_unwritable(f"unchecked_derived({name!r}, ...)", facts.unwritable)
 
 
@@ -1001,7 +1056,9 @@ def unchecked_call(unchecked: UncheckedStatement) -> str:
     whole = unchecked._text
     first = whole.splitlines()[0][:_CALL_LENGTH]
     quoted = '"' + first.replace("\\", "\\\\").replace('"', '\\"') + '"'
-    return f"unchecked_hive({quoted}{' ...' if first != whole else ''})"
+    if first != whole:
+        return f"unchecked_hive({quoted} ...)"
+    return f"unchecked_hive({quoted})"
 
 
 def logged_run(kind: str, call: str, hive: str,
@@ -1029,8 +1086,12 @@ def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> N
     caller = calling_file(frame)
     # The Project the script is in, or else the one Python is working in.
     project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
-    path = _admin_log["path"] or (project_log(project) if project is not None
-                                  else caller_folder(caller) / "admin_log.md")
+    if _admin_log["path"] is not None:
+        path = _admin_log["path"]
+    elif project is not None:
+        path = project_log(project)
+    else:
+        path = caller_folder(caller) / "admin_log.md"
     tables = tables_named(hive)
     fence = "`" * max(3, _longest_backticks(hive) + 1)
     lines = ["", f"## {now().strftime(TIME_SHOWN)}, {kind}", "", f"- Call: {inline_code(call)}"]

@@ -15,15 +15,13 @@ TREE_RULES = frozenset({"long body", "chained conditional", "next with a default
 
 KNOWN_BREAKS: dict[str, dict[str, int]] = {
     "sqlglot_composer/__init__.py": {"E501": 1, "private name twice": 1},
-    "sqlglot_composer/admin.py": {
-        "E501": 11, "dense comprehension": 2, "lambda": 1, "private name twice": 3},
     "sqlglot_composer/calculations.py": {
         "E501": 9, "next with a default": 3, "private name twice": 1, "walrus": 2},
     "sqlglot_composer/checks.py": {"E501": 1, "long body": 1, "next with a default": 1},
     "sqlglot_composer/clauses.py": {
         "E501": 5, "dense comprehension": 2, "private name twice": 2},
     "sqlglot_composer/comparisons.py": {
-        "E501": 7, "dense comprehension": 5, "next with a default": 2, "private name twice": 4},
+        "E501": 7, "dense comprehension": 5, "next with a default": 2, "private name twice": 3},
     "sqlglot_composer/conditions.py": {"lambda": 2},
     "sqlglot_composer/converting.py": {
         "E501": 24, "PLR0911": 1, "chained conditional": 3, "dense comprehension": 3,
@@ -46,25 +44,18 @@ KNOWN_BREAKS: dict[str, dict[str, int]] = {
         "E501": 35, "dense comprehension": 3, "lambda": 1, "long body": 5,
         "next with a default": 3, "private name twice": 3},
     "sqlglot_composer/project_templates.py": {"E501": 4},
-    "sqlglot_composer/python_steps.py": {"E501": 2, "private name twice": 1},
     "sqlglot_composer/refusals.py": {"E501": 14, "private name twice": 1},
     "sqlglot_composer/running.py": {
         "E501": 3, "dense comprehension": 3, "next with a default": 1, "private name twice": 3},
     "sqlglot_composer/stacking.py": {
         "E501": 3, "dense comprehension": 6, "next with a default": 2},
-    "sqlglot_composer/tables.py": {
-        "E501": 18, "chained conditional": 3, "dense comprehension": 1, "long body": 3,
-        "next with a default": 2, "private name twice": 2},
     "sqlglot_composer/trees.py": {
         "E501": 5, "PLR0911": 1, "dense comprehension": 2, "lambda": 1,
         "private name twice": 1},
-    "sqlglot_composer/unchecked.py": {
-        "E501": 8, "lambda": 1, "next with a default": 2, "private name twice": 2},
     "sqlglot_composer/upgrades.py": {"E501": 7},
-    "sqlglot_composer/upkeep.py": {"E501": 5},
     "sqlglot_composer/windows.py": {"E501": 8, "private name twice": 2},
     "sqlglot_composer/writing.py": {
-        "E501": 9, "dense comprehension": 2, "lambda": 23, "private name twice": 6},
+        "E501": 9, "dense comprehension": 2, "lambda": 23, "private name twice": 3},
     "tests/conftest.py": {"E501": 1},
     "tests/escaping_cases.py": {"E501": 2},
     "tests/hive_corpus_cases.py": {"E501": 10},
