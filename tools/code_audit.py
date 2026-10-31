@@ -113,8 +113,6 @@ CRAFTED_PATH = "a test's crafted path, which the hooks must strip before they sh
 AUDITED = (
     *(Audited("tests/repo/test_hooks.py", "hidden text", character, CRAFTED_PATH)
       for character in ("U+202E", "U+2066", "U+2069", "U+200F")),
-    Audited(".scratch/drift.md", "hidden text", "U+0000",
-            "a drift note quoting the NUL the Toolbox escapes in a Hive string"),
     Audited("tests/repo/test_code_audit.py", "outside the repo", "names ",
             "the audit's tests' samples, planted in a temporary folder"),
     Audited("tests/offline_trap.py", "hook", "sys.addaudithook",
