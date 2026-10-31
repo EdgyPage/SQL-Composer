@@ -14,6 +14,7 @@ import copy
 import datetime
 import decimal
 import difflib
+import json
 import keyword
 import re
 import urllib.parse
@@ -26,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 from . import _FOLDER, describe, kinds
-from .shared import python_literal, split_table_name
+from .shared import escaped_literal, python_literal, split_table_name
 from .writing import hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -862,8 +863,8 @@ def _checked_properties(name: str, properties: object,
             refuse(
                 what=f"Table({name!r}): properties= has {key!r}: {value!r}.",
                 why="Hive keeps each table property's name and value as text.",
-                fix=f"Write both as printed text, such as {python_literal(str(key))}: "
-                f"{python_literal(str(value))}.",
+                fix=f"Write both as printed text, such as {escaped_literal(str(key))}: "
+                f"{escaped_literal(str(value))}.",
                 error=ValueError,
             )
     return dict(properties)
@@ -1192,11 +1193,11 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
         "    columns={",
     ]
     for column, kind in columns.items():
-        lines.append(f"        {python_literal(column)}: {python_literal(kind)},")
+        lines.append(f"        {escaped_literal(column)}: {escaped_literal(kind)},")
     first_key = next(iter(columns))
     lines += [
         "    },",
-        *([f"    partitioned_by={python_text(partitions)},"] if partitions else []),
+        *([f"    partitioned_by={json.dumps(partitions)},"] if partitions else []),
         f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
     ]
@@ -1204,7 +1205,7 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
     described = {column: text for column, text in described.items() if text}
     if described:
         lines += ["    descriptions={",
-                  *[f"        {python_literal(column)}: {python_literal(text)},"
+                  *[f"        {escaped_literal(column)}: {escaped_literal(text)},"
                     for column, text
                     in described.items()],
                   "    },"]
@@ -1447,11 +1448,11 @@ def _column_differences(t: Table, columns: dict[str, str]) -> tuple[list[str], l
             problems.append(f"{column} isn't in the table: remove its line, or correct its name.")
         elif kind is not None and not _same_type(kind, columns[column]):
             problems.append(f"{column} is {columns[column]} in the table: change its line to "
-                            f"{python_literal(column)}: {python_literal(columns[column])},")
+                            f"{escaped_literal(column)}: {escaped_literal(columns[column])},")
     for column, kind in columns.items():
         if column not in t._columns:
             notes.append(f"{column} is in the table but not in the Table reference: add "
-                         f"{python_literal(column)}: {python_literal(kind)}, if you want it.")
+                         f"{escaped_literal(column)}: {escaped_literal(kind)}, if you want it.")
     return problems, notes
 
 
@@ -1462,7 +1463,7 @@ def _partition_problems(t: Table, partitions: list[str]) -> list[str]:
     if not partitions:
         return ["the table isn't partitioned: remove the line partitioned_by=."]
     return [f"the table is partitioned by {', '.join(partitions)}: change the line to "
-            f"partitioned_by={python_text(partitions)},"]
+            f"partitioned_by={json.dumps(partitions)},"]
 
 
 def _said(error: Exception) -> list[str]:
@@ -1535,7 +1536,8 @@ def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
                             f'compression="{found.upper()}",')
         elif not is_compression and found != value:
             problems.append(f"its property {name!r} is {found!r} in the table: change it in "
-                            f"properties= to {python_literal(name)}: {python_literal(found)},")
+                            f"properties= to {escaped_literal(name)}: "
+                            f"{escaped_literal(found)},")
     return problems
 
 
@@ -1580,10 +1582,10 @@ def _buckets_problems(t: Table, described: describe.Description) -> list[str]:
         else:
             number, bucketed_by, sorted_by = in_the_table
             sorted_text = f", sorted by {', '.join(sorted_by)}" if sorted_by else ""
-            sorted_line = f", sorted_by={python_text(sorted_by)}" if sorted_by else ""
+            sorted_line = f", sorted_by={json.dumps(sorted_by)}" if sorted_by else ""
             problems.append(f"the table is bucketed by {', '.join(bucketed_by)} into {number} "
                             f"Buckets{sorted_text}: change the lines to bucketed_by="
-                            f"{python_text(bucketed_by)}, buckets={number}{sorted_line},")
+                            f"{json.dumps(bucketed_by)}, buckets={number}{sorted_line},")
     return problems
 
 
@@ -1662,7 +1664,8 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
         refuse(
             what=f"create_table({t._alias}): {', '.join(untyped)} has no type.",
             why="Hive needs every column's type to create the table.",
-            fix=f'Give each one its Hive type, such as {python_literal(untyped[0])}: "string".',
+            fix="Give each one its Hive type, such as "
+            f'{escaped_literal(untyped[0])}: "string".',
             error=ValueError,
         )
     partitions = t._partitioned_by
