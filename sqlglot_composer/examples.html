@@ -4393,7 +4393,8 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.</pre>
-<pre class="python">_ = project.convert(&quot;spare&quot;, &quot;SELECT r.run_id FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27;&quot;,
+<pre class="python">_ = project.convert(&quot;spare&quot;,
+                    &quot;SELECT r.run_id FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27;&quot;,
                     query=example_database.query, database=&quot;ops&quot;)</pre>
 <pre class="python">project.remove_conversion(&quot;spare&quot;)</pre>
 <p class="label">Python shows</p>

@@ -161,7 +161,7 @@ def table_references(root: Path) -> list[Path]:
 
 def start_registry(root: Path) -> None:
     """Write a new Project's registry, listing nothing yet."""
-    _write(root, [])
+    _write_registry(root, [])
 
 
 class Registry:
@@ -190,7 +190,7 @@ class Registry:
         made = when.strftime(TIME_SHOWN)
         self.rows += [{"kind": kind.kind, "table": name, "created_at": made, "removed_at": ""}
                       for kind, name in listed]
-        _write(self.root, self.rows)
+        _write_registry(self.root, self.rows)
 
     def mark_removed(self, kind: FileKind, name: str, when: datetime.datetime) -> None:
         """Mark its row for `kind` of `name` archived at `when`, if it lists one, and write the
@@ -198,10 +198,10 @@ class Registry:
         for row in self.rows:
             if row["kind"] == kind.kind and row["table"] == name and not row["removed_at"]:
                 row["removed_at"] = when.strftime(TIME_SHOWN)
-        _write(self.root, self.rows)
+        _write_registry(self.root, self.rows)
 
 
-def _write(root: Path, rows: list[dict[str, str]]) -> None:
+def _write_registry(root: Path, rows: list[dict[str, str]]) -> None:
     """Write the registry of the Project at `root`: its header, then `rows`."""
     with open(root / REGISTRY, "w", encoding="utf-8", newline="") as registry:
         writer = csv.DictWriter(registry, REGISTRY_COLUMNS, lineterminator="\n")

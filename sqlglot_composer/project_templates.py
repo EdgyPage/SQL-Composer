@@ -95,15 +95,18 @@ _READS_COMMENT = '''\
 # than equals, such as between or is_in, needs it added to the import above.'''
 # What quality_checks says of READS and of the partition column, and above READS: the same,
 # for the rows it checks. Written out in full, so a rewording of one can't miss the other.
-_CHECKED_READS_FILL_IN = '''#   - `<READS>`: which of its rows are checked, as a condition on it, such as
+_CHECKED_READS_FILL_IN = '''\
+#   - `<READS>`: which of its rows are checked, as a condition on it, such as
 #     `equals(job_runs.dt, "2026-09-24")` or `equals(region_costs.region, "eu")`. On a
 #     partitioned table, it must filter one of its partition columns. A table that isn't
 #     partitioned can be read whole: delete the line `READS = <READS>` and each line
 #     `WHERE(READS),` instead;'''
-_CHECKED_PARTITION_FILL_IN = '''#   - `<PARTITION_COLUMN>`: the column of the table checked that fills this table's partition
+_CHECKED_PARTITION_FILL_IN = '''\
+#   - `<PARTITION_COLUMN>`: the column of the table checked that fills this table's partition
 #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
 #     naming `<PARTITION_COLUMN>` instead.'''
-_CHECKED_READS_COMMENT = '''# The rows checked: change it to check others. A condition that calls something other
+_CHECKED_READS_COMMENT = '''\
+# The rows checked: change it to check others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.'''
 
 SAVED_TABLE = _notebook(
@@ -224,7 +227,8 @@ def rows() -> list[Clause]:
     return [
         SELECT(
             AS(count_rows(), "row_count"),
-            <CHECKED>.<PARTITION_COLUMN>,  # the Partition counted: this table's partition column
+            <CHECKED>.<PARTITION_COLUMN>,  # the Partition counted: this table's partition \
+column
         ),
         FROM(<CHECKED>),
         WHERE(READS),
