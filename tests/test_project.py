@@ -1549,9 +1549,17 @@ def test_a_step_the_files_cant_tell_of_is_passed_once_a_later_one_is_done(
     daily_job_runs = Table("mart.daily_job_runs", columns={"job_id": "bigint", "dt": "string"},
                            partitioned_by=["dt"], location="/data/mart.db/daily_job_runs")
     run_execute(admin.drop_table(daily_job_runs), example_database.execute)
-    # The send is in sent.csv, so the Admin statement was written and its Hive read.
-    assert "change_a_saved_table.ipynb: 4. Run the check its report names. It is a call" in (
-        repr(project.check()))
+    # The send is in sent.csv, so the Admin statement was written and its Hive read, and the
+    # Workflow is done: the check no longer names it.
+    assert "change_a_saved_table" not in repr(project.check())
+
+
+def test_a_call_is_written_out_once_for_each_name_it_reads() -> None:
+    # TABLE inside the Hive is the Hive's own word, not the input TABLE.
+    ready_call = toolbox_module("workflows").ready_call
+    assert ready_call("project.convert(NAME, HIVE, table=TABLE)",
+                      {"NAME": "w", "HIVE": "INSERT OVERWRITE TABLE x", "TABLE": "mart.x"}) == (
+        'project.convert("w", "INSERT OVERWRITE TABLE x", table="mart.x")')
 
 
 def test_a_send_from_a_project_adds_a_row_to_sent_csv(started: Path) -> None:

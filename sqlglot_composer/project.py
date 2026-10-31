@@ -1234,7 +1234,7 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     name, its kind, and its call when it has one, ready to run."""
     number = workflow.steps.index(step) + 1
     where = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
-    said = f"  {where}: {number}. {step.name}. It {workflows.KIND_SAID[step.kind]}"
+    said = f"  {where}: {number}. {step.name}. It {workflows.step_said(workflow, step)}"
     if step.call:
         said += f": {workflows.ready_call(step.call, inputs)}"
     return said
@@ -1264,11 +1264,12 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     It runs them in order, up to the first it can't run for you: a decision, a call to the
     warehouse, or a step done by hand. A Workflow is started once its notebook's names cell, in
     admin/workflows/<name>/, names what it works on, such as TABLES = ["mart.daily_job_runs"]:
-    save the notebook, then run this. Each step says whether it is done from the Project's
-    files, so a step done already is passed over, and running it again does nothing more. It
-    reports each step it ran, and the next step left for you, with its call; it never sends
-    anything to the warehouse. `workflow` names one Workflow, such as "new_table", to run only
-    its steps.
+    save the notebook, then run this. A step whose done function, read from the Project's
+    files, says it is done is passed over, and so is each step before it, though the files
+    can't tell of some; a Workflow none of whose steps the files can tell of is named at its
+    first step. So running it again does nothing more. It reports each step it ran, and the
+    next step left for you, with its call; it never sends anything to the warehouse.
+    `workflow` names one Workflow, such as "new_table", to run only its steps.
     """
     root = _project_root("project.do_next()")
     lines = []

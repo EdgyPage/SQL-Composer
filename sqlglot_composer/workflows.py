@@ -396,11 +396,9 @@ CHANGE_A_SAVED_TABLE = Workflow(
              "change = admin.drop_partitions(...)  # or another of the admin module's"),
         Step("Print the Hive it sends, which sends nothing", FILE_STEP,
              ("an Admin statement",), ("its Hive, read",), "show_hive(change)"),
-        Step("Send it", PERMISSION, ("its Hive, read",),
-             ("the change sent", "the change logged"), "run_execute(change, execute)",
-             every_change_sent),
-        Step("Run the check its report names", PERMISSION, ("the change sent",),
-             ("its check passed",)),
+        Step("Send it, then run the check its report names", PERMISSION, ("its Hive, read",),
+             ("the change sent", "the change logged", "its check passed"),
+             "run_execute(change, execute)", every_change_sent),
     ),
     inputs=(Input("TABLE", "", 'the Saved table to change, such as "mart.daily_job_runs"',
                   starts=True),),
@@ -428,16 +426,23 @@ def inputs_cell(workflow: Workflow) -> str:
 
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
-KIND_SAID = {FILE_STEP: "changes only files, so project.do_next() runs it for you",
+KIND_SAID = {FILE_STEP: "changes only files: run its cell",
              PERMISSION: "is a call to the warehouse, yours to run",
              DECISION: "is a decision, yours to make",
              FIDDLING: "is done by hand, since no call does it yet"}
 
 
-def step_cell(number: int, step: Step) -> str:
+def step_said(workflow: Workflow, step: Step) -> str:
+    """What a step is, as its cell and check() say it: its kind in words, and, for a file step
+    project.do_next() runs, that it does."""
+    if step.kind == FILE_STEP and step.run is not None and is_startable(workflow):
+        return "changes only files, so project.do_next() runs it for you"
+    return KIND_SAID[step.kind]
+
+
+def step_cell(number: int, workflow: Workflow, step: Step) -> str:
     """A step's markdown cell in its Workflow's notebook: its number, name and kind."""
-    said = KIND_SAID[step.kind]
-    return f"## {number}. {step.name}\n\nIt {said}."
+    return f"## {number}. {step.name}\n\nIt {step_said(workflow, step)}."
 
 
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
@@ -453,7 +458,7 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
     for number, step in enumerate(workflow.steps, 1):
-        cells.append(("markdown", step_cell(number, step)))
+        cells.append(("markdown", step_cell(number, workflow, step)))
         if step.call:
             cells.append(("code", step.call))
     if workflow.inputs:
@@ -506,6 +511,11 @@ def is_started(workflow: Workflow, inputs: dict[str, object]) -> bool:
     return False
 
 
+def is_startable(workflow: Workflow) -> bool:
+    """Whether a Workflow has an input that starts it, so check() and do_next() read it."""
+    return any(each.starts for each in workflow.inputs)
+
+
 def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:
     """A Workflow's inputs, once it is started; None until then."""
     inputs = given_inputs(root, workflow)
@@ -531,8 +541,11 @@ def next_step(root: Path, workflow: Workflow, inputs: dict[str, object]) -> Step
 def ready_call(call: str, inputs: dict[str, object]) -> str:
     """A step's call with each input it reads written out as its value, such as
     project.new_table(["mart.daily_job_runs"]), ready to run from any notebook."""
-    for name, value in inputs.items():
-        # Split on the whole name, kept, so a value's text is never read as a pattern.
-        pieces = re.split(rf"\b({name})\b", call)
-        call = "".join(escaped_literal(value) if piece == name else piece for piece in pieces)
-    return call
+    if not inputs:
+        return call
+    # Split on every name at once, each kept, so a value's text is never read as a pattern,
+    # nor a name inside one value, such as TABLE in Hive, taken for another input.
+    names = "|".join(re.escape(name) for name in inputs)
+    pieces = re.split(rf"\b({names})\b", call)
+    return "".join(escaped_literal(inputs[piece]) if piece in inputs else piece
+                   for piece in pieces)
