@@ -44,8 +44,8 @@ refusal, and every place that does the job calls it:
 | A list with its repeats dropped, in order | `list(dict.fromkeys(items))`, Python's own |
 | A refusal, with its four parts | `refusals.refuse` |
 
-A new recurring job gets a row here and its function in `shared.py`, in the same change. Before
-writing a helper, look here: "use the table's function" is a finding.
+A new recurring job gets a row here and its function there, in the same change. Before writing
+a helper, look here: "use the table's function" is a finding.
 
 ## Names
 
