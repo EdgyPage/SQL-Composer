@@ -19,9 +19,9 @@ from sqlglot_composer.describe import (
     INPUT_FORMATS,
     Description,
     StandIn,
+    description_from_printed,
     of_table,
     printed,
-    read,
 )
 from sqlglot_composer.tables import FILE_FORMATS
 
@@ -49,7 +49,7 @@ MANAGED = Description(
 
 @pytest.mark.parametrize("way", WAYS)
 def test_describe_printed_is_read_back_as_itself(way: str) -> None:
-    assert read("ops.runs", printed(LISTED, way=way)) == LISTED
+    assert description_from_printed("ops.runs", printed(LISTED, way=way)) == LISTED
 
 
 @pytest.mark.parametrize("way", WAYS)
@@ -57,13 +57,13 @@ def test_describe_printed_is_read_back_as_itself(way: str) -> None:
                                                                        "managed"])
 def test_describe_formatted_printed_is_read_back_as_itself(way: str,
                                                            described: Description) -> None:
-    assert read(described.name, printed(described, formatted=True, way=way)) == (
-        described)
+    shown = printed(described, formatted=True, way=way)
+    assert description_from_printed(described.name, shown) == described
 
 
 @pytest.mark.parametrize("way", WAYS)
 def test_describe_alone_says_nothing_of_the_storage(way: str) -> None:
-    alone = read("mart.daily_runs", printed(STORED, way=way))
+    alone = description_from_printed("mart.daily_runs", printed(STORED, way=way))
     assert (alone.location, alone.managed, alone.stored_as, alone.buckets) == (
         None, False, None, None)
     assert alone.properties == {} and alone.bucketed_by == [] == alone.sorted_by
@@ -103,8 +103,8 @@ def test_every_way_is_one_the_toolbox_has_met() -> None:
 def test_a_table_reference_is_printed_as_its_warehouse_prints_it(way: str) -> None:
     expected = pd.DataFrame(PRINTED[way], columns=DESCRIBE_COLUMNS)
     pd.testing.assert_frame_equal(printed(of_table(RUNS), way=way), expected)
-    assert read("ops.runs", expected) == Description("ops.runs", RUNS._columns,
-                                                     partitioned_by=["dt"])
+    assert description_from_printed("ops.runs", expected) == Description(
+        "ops.runs", RUNS._columns, partitioned_by=["dt"])
 
 
 def test_hive_lists_a_partition_column_last_whatever_the_reference_order() -> None:
@@ -172,7 +172,8 @@ def test_the_stand_in_keeps_what_it_is_sent_and_answers_by_name() -> None:
 
 
 def test_the_stand_in_answers_describe_formatted_with_the_storage() -> None:
-    described = read(SAVED._name, StandIn(SAVED)(f"DESCRIBE FORMATTED {SAVED._name}"))
+    shown = StandIn(SAVED)(f"DESCRIBE FORMATTED {SAVED._name}")
+    described = description_from_printed(SAVED._name, shown)
     assert described == of_table(SAVED)
     assert described.location == "/data/your_team/mart.db/stand_in_runs"
 
