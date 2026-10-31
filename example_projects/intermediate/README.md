@@ -64,7 +64,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `admin/templates/`, the Templates | `project.start()` | nothing |
 | `references/ops__job_events.py`, `references/ops__job_owners.py`, `references/ops__region_costs.py`, `references/ops__region_budgets.py` and `references/ops__team_notes.py` | `project.add_references([...], query=query)` | their TODO lines, and an Alias, `ends_a_run`, the events that end a run, for ops.job_events, read by `building_blocks/events_per_job.py` |
 | `references/mart__job_day_costs.py`, `references/mart__job_day_facts.py`, `references/mart__team_days.py`, `references/mart__job_events_checks.py`, `references/mart__budget_overruns.py` and `references/mart__job_notes.py` | `project.new_table(...)` | their `<...>` and TODO lines |
-| `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location=, Key and TODO lines |
+| `references/mart__team_failures.py` | `project.convert("team_failures", ...)` | its location= and TODO lines, its Key proposed by convert |
 | `references/ops.py` and `references/mart.py`, the Database modules | each Project action that added a Table reference | nothing |
 | `references/reference_sheet.csv`, the Reference sheet | `project.refresh_reference_sheet()` | nothing |
 | `building_blocks/costs_per_job.py`, `building_blocks/days_rewritten.py`, `building_blocks/events_per_job.py` and `building_blocks/owner_on_day.py`, the Building blocks | `project.new_block(...)`, one Building block to a file | its `<...>` and TODO lines; `days_rewritten.py` and `owner_on_day.py` hold a number and a join, not a Derived table, so their Template's code was written over |

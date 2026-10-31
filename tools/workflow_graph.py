@@ -200,8 +200,14 @@ def _how_to_head() -> list[str]:
             "runs, in admin/workflows/, a folder for each.", "",
             "## When you'd use it", "",
             "Each time you start one of the jobs below. `project.check()` names the next",
-            "step of each Workflow you have started, and `project.do_next()` runs the steps",
-            "it can for you, up to the first that is yours.", "",
+            "step of each Workflow you have started. Run each step's cell in turn, or, in",
+            "their place, each notebook's last cell, `project.run_workflow(...)`, which runs",
+            "every step left, the calls to the warehouse too, up to the first only you can do:",
+            "a Decision, or a check of what a step printed. With `dry_run=True` it sends",
+            "nothing through your execute, says the Hive each step would send, and runs for",
+            "real only the steps that change files or only read, such as convert: run one",
+            "before you first send. `project.do_next()` runs only the steps that change files.",
+            ""
             "It needs [Start a Project](#start_a_project).", "", "## Steps", "",
             "### Start a Project", "",
             "Every Project has the Workflow notebooks, each waiting for its names cell:", "",
@@ -244,6 +250,8 @@ def _how_to_section(workflow: Workflow) -> list[str]:
                                break_on_hyphens=False)
         if step.call:
             lines += ["", *[f"    {line}" for line in step.call.split("\n")], ""]
+    lines += ["", "Its last cell runs every step left, in place of their cells:", "",
+              *[f"    {line}" for line in workflows.run_cell_text(workflow).split("\n")]]
     return [*lines, ""]
 
 

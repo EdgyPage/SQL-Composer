@@ -23,6 +23,17 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   the decisions cell. `project.compare_batch` checks it on the dev copy's rows, on the
   Partition it compares, and a Key they break fails the compare, naming each key that
   repeats. A query with no Key leaves it for you to decide.
+- **`project.run_workflow(workflow, query=query, execute=execute)` runs a Workflow.** Each
+  Workflow notebook's last cell runs every step left, in place of their cells, the calls to
+  the warehouse too, up to the first only you can do: an open Decision, which it names; a
+  check of what a step printed, such as change_a_saved_table's Hive, whose change you then
+  send with its own cell; a refusal or the warehouse's error; or a compare that failed. Mend
+  what it says, save the notebook, and run the last cell again: each step done is skipped.
+  `dry_run=True` sends nothing through your execute and says the Hive each step would send;
+  the steps that only change files or only read, such as convert, it runs for real. The
+  convert Workflow runs the batch its names cell names, and NAME may be a list of batches
+  converted already. `project.do_next()`, the cell before, still runs only the steps that
+  change files.
 - **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
   Session settings, its logic's `session_settings()`, before its write: a Conversion's
   checklist no longer asks you to send the original's SET lines by hand.

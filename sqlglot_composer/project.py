@@ -142,7 +142,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
-           "promoted_tables", "table_reference", "write_decisions"]
+           "promoted_tables", "table_reference", "write_decisions", "run_workflow"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -1366,6 +1366,161 @@ def _run_file_steps(root: Path, workflow: workflows.Workflow,
         lines += [f"    {line}" for line in report.lines]
         if step.done is None or not step.done(root, inputs):
             return lines
+
+
+def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None = None,
+                 execute: Callable[[str], None] | None = None, dry_run: bool = False,
+                 change: Statement | None = None) -> ProjectReport:
+    """Run every step left of a Workflow, up to the first only you can do.
+
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> # Only to stand in for typing the names cell and the decisions cell, and saving:
+    >>> notebook = Path("admin/workflows/references/references.ipynb")
+    >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
+    ...     "TABLES = []", "TABLES = ['ops.job_events']").replace(
+    ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': ['event_id']}}"),
+    ...     encoding="utf-8")
+    >>> project.run_workflow("references", query=example_database.query,
+    ...                      execute=example_database.execute)
+      references: 1. Write the Table references from DESCRIBE
+        Wrote references/ops__job_events.py: fill in its TODO lines.
+        Wrote references/ops.py: from references import ops gives ops.job_events.
+        Restart the kernel of a notebook that imported references, to see a table added
+        since.
+      references: 2. Answer each table's open Decisions in the decisions cell: done already,
+        skipped
+      references: 3. Write each answer into its table's Table reference
+        Wrote 1 answer into references/ops__job_events.py.
+        ops.job_events: 1 TODO line left in references/ops__job_events.py, which waits on
+        nothing: fill it in when you like.
+        Each Decision of ops.job_events is made.
+      references: 4. Refresh the Reference sheet and the Database modules
+        Wrote references/reference_sheet.csv: 5 rows, 1 table.
+      references: every step is done.
+
+    Its notebook's last cell runs it, with your query and execute, in place of each step's
+    cell. It reads the notebook as you last saved it: fill in its names cell, and its decisions
+    cell if you know the answers already, as above, and save it first. It runs each step the
+    Project's files don't say is done, in order, as the step's own cell runs it, its calls to
+    the warehouse too, and reports each, a step done already as skipped. A step that only
+    reads, such as new_table's preview, it runs, printing what it reads, and goes on.
+
+    It stops at the first step only you can do, and the steps after it don't run:
+
+    - a Decision open, which it names, as check() does: answer it in the decisions cell;
+    - a check of what a step printed, such as change_a_saved_table's Hive and its Check first
+      line: make the check, then run the next step's own cell, which only you start;
+    - a refusal or the warehouse's error, written in full: mend what it says;
+    - a step that ran and isn't done, such as a compare that failed: mend what it says.
+
+    Then save the notebook and run its last cell again: each step done is skipped, so it goes
+    on where it stopped. `workflow` is one Workflow's name, such as "convert". The convert
+    Workflow runs the batch its names cell's NAME names, or, when NAME is a list, each batch it
+    names in turn, each converted already: a stop in one stops the rest. It never runs a batch
+    you didn't name.
+
+    With dry_run=True it sends nothing through your execute: for each step that would send, it
+    says the Hive it would send, "would send: ...". The steps that only change files, and those
+    that only read, as convert's DESCRIBE does, it runs for real, so a dry run of a new batch
+    converts it and writes each answer of the decisions cell in, as the steps would; it stops,
+    as a run does, at a Decision still open. Run one before you send anything for the first
+    time. `change` is change_a_saved_table's Admin statement, which its notebook's step 1
+    writes: its last cell passes it, change=change.
+    """
+    root = _project_root(f"project.run_workflow({workflow!r})")
+    found = _workflow_named(workflow)
+    calls = workflows.Calls(query, execute, dry_run, change)
+    started = workflows.started_inputs(root, found)
+    if not workflows.is_startable(found):
+        started = {}
+    if started is None:
+        where = workflows.notebook_path(root, found).relative_to(root).as_posix()
+        return ProjectReport([f"{workflow} isn't started: name what it works on in the names "
+                              f"cell of {where}, and save it."])
+    # The names cell's instances alone: the runner sends, so only what you named.
+    instances = [workflows.read_again(root, found, each)
+                 for each in workflows.one_per_name(started)
+                 if not workflows.is_finished(root, each)]
+    if not instances:
+        return ProjectReport([f"  {workflow}: every step is done."])
+    again = ("    Then save the notebook, and run its last cell again: each step done is "
+             "skipped.")
+    lines = []
+    if dry_run:
+        lines.append("A dry run: nothing is sent through your execute.")
+    for inputs in instances:
+        ran, stopped = _run_steps(root, found, inputs, calls)
+        lines += ran
+        if stopped:
+            lines.append(again)
+            break
+    return ProjectReport(lines)
+
+
+def _workflow_named(name: str) -> workflows.Workflow:
+    """The Workflow `name` names, refusing a name none has."""
+    for each in workflows.WORKFLOWS:
+        if each.name == name:
+            return each
+    names = [each.name for each in workflows.WORKFLOWS]
+    refuse(what=f"project.run_workflow({name!r}) names no Workflow.",
+           why="It runs one of the Project's Workflows, each a notebook in admin/workflows/.",
+           fix=f"Name one of them: {in_words(names)}.", error=ValueError)
+
+
+def _run_steps(root: Path, workflow: workflows.Workflow, inputs: dict[str, object],
+               calls: workflows.Calls) -> tuple[list[str], bool]:
+    """Run each step left of one instance of a Workflow, up to the first that needs you: what
+    each did, and whether it stopped there."""
+    where = workflow.name
+    if inputs.get("NAME"):
+        where += f", {inputs['NAME']}"
+    lines = []
+    for step in workflows.steps_left(root, workflow, inputs):
+        heading = f"  {where}: {workflow.steps.index(step) + 1}. {step.name}"
+        if step.done is not None and step.done(root, inputs):
+            lines.append(f"{heading}: done already, skipped")
+            continue
+        if step.run is None and step.send is None:
+            return [*lines, _next_step_line(root, workflow, step, inputs)], True
+        lines.append(heading)
+        try:
+            if step.run is not None:
+                step_lines = step.run(inputs).lines
+            else:
+                step_lines = step.send(inputs, calls)
+        # Whatever stops a step, a refusal or the warehouse's error, stops the Workflow there.
+        except Exception as error:  # noqa: BLE001
+            stopped = [f"    {line}" for line in str(error).strip("\n").split("\n")]
+            return [*lines, "    Stopped by what this says: mend it.", *stopped], True
+        lines += [f"    {line}" for line in step_lines]
+        inputs = workflows.read_again(root, workflow, inputs)
+        stop = _stop_after(root, step, inputs, calls)
+        if stop:
+            return [*lines, stop], True
+    if calls.dry_run:
+        return [*lines, f"  {where}: each step left is shown above."], False
+    return [*lines, f"  {where}: every step is done."], False
+
+
+def _stop_after(root: Path, step: workflows.Step, inputs: dict[str, object],
+                calls: workflows.Calls) -> str:
+    """Why run_workflow stops once `step` has run, or "" when it goes on: a step that isn't
+    done, or a check of what it printed, which only you make. A dry run goes on."""
+    if calls.dry_run:
+        return ""
+    if step.done is not None and not step.done(root, inputs):
+        return "    Stopped: it ran, and isn't done, as it says above: mend what it says."
+    if step.done is None and not step.reads_only:
+        # A step no file tells of is a check of what it printed, which only you make.
+        return ("    Stopped: read what it printed, and make the check it names; then run the "
+                "next step's own cell, which only you start.")
+    return ""
 
 
 def _registry_mismatch_lines(root: Path, registry: Registry) -> list[str]:

@@ -57,6 +57,8 @@ class Warehouse:
         for name, (table, rows) in example_database._TABLES.items():
             self.tables[f"ops.{name}"] = Stored(table, list(rows))
         self.settings: dict[str, str] = {}
+        # Each Hive execute was given, in turn: a dry run adds none.
+        self.executed: list[str] = []
 
     # --- query --------------------------------------------------------------------------------
 
@@ -97,6 +99,7 @@ class Warehouse:
 
     def execute(self, hive: str) -> None:
         """Run Hive that changes something, keeping what it writes."""
+        self.executed.append(hive)
         # A Key, as Hive declares it: sqlglot can't read it, and the stand-in checks no Key.
         hive = re.sub(r",\s*PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE", "", hive)
         for tree in sqlglot.parse(hive, read="hive"):
