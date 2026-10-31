@@ -111,7 +111,9 @@ def _call_shown(node: Node) -> Node | None:
 # --- Columns and calculations --------------------------------------------------------------
 
 
-def _no_operator(symbol: str, instead: str) -> NoReturn:
+def _refuse_operator(symbol: str, instead: str) -> NoReturn:
+    """Refuse a column used with one of Python's operators, `symbol`, naming the Toolbox
+    function to use `instead`."""
     refuse(
         what=f"A column was used with Python's {symbol}.",
         why="Python would compare the Python objects, not the values in the table, and "
@@ -173,38 +175,39 @@ class Column:
     __hash__ = object.__hash__
 
     def __eq__(self, other: object) -> NoReturn:
-        _no_operator("==", "equals(column, value)")
+        _refuse_operator("==", "equals(column, value)")
 
     def __ne__(self, other: object) -> NoReturn:
-        _no_operator("!=", "not_equals(column, value)")
+        _refuse_operator("!=", "not_equals(column, value)")
 
     def __lt__(self, other: object) -> NoReturn:
-        _no_operator("<", "less_than(column, value)")
+        _refuse_operator("<", "less_than(column, value)")
 
     def __le__(self, other: object) -> NoReturn:
-        _no_operator("<=", "at_most(column, value)")
+        _refuse_operator("<=", "at_most(column, value)")
 
     def __gt__(self, other: object) -> NoReturn:
-        _no_operator(">", "more_than(column, value)")
+        _refuse_operator(">", "more_than(column, value)")
 
     def __ge__(self, other: object) -> NoReturn:
-        _no_operator(">=", "at_least(column, value)")
+        _refuse_operator(">=", "at_least(column, value)")
 
     def __and__(self, other: object) -> NoReturn:
-        _no_operator("&", "all_of(...), or separate conditions in WHERE(...)")
+        _refuse_operator("&", "all_of(...), or separate conditions in WHERE(...)")
 
     __rand__ = __and__
 
     def __or__(self, other: object) -> NoReturn:
-        _no_operator("|", "any_of(...)")
+        _refuse_operator("|", "any_of(...)")
 
     __ror__ = __or__
 
     def __invert__(self) -> NoReturn:
-        _no_operator("~", "the opposite condition, such as not_equals(...) or is_not_null(...)")
+        _refuse_operator("~", "the opposite condition, such as not_equals(...) or "
+                         "is_not_null(...)")
 
     def __bool__(self) -> NoReturn:
-        _no_operator("if, and, or or not", "a condition such as equals(...)")
+        _refuse_operator("if, and, or or not", "a condition such as equals(...)")
 
     def __add__(self, other: Column | int | float) -> Column:
         return arithmetic(self, other, "Add", "+")
@@ -258,13 +261,16 @@ def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
         sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
     left, right = sides
     adds_up = left._adds_up and right._adds_up and kind != "Div"
-    because = "a division" if kind == "Div" else (
-        left._not_adding_up_because or right._not_adding_up_because)
+    because = None
+    if kind == "Div":
+        because = "a division"
+    elif not adds_up:
+        because = left._not_adding_up_because or right._not_adding_up_because
     return Column(
         Node(kind, this=_bracketed(left._tree.copy()),
              expression=_bracketed(right._tree.copy())),
         adds_up=adds_up,
-        not_adding_up_because=None if adds_up else because,
+        not_adding_up_because=because,
     )
 
 
@@ -544,7 +550,7 @@ class Table:
     Traceback (most recent call last):
     ...
     AttributeError: job_runs has no column 'stauts'. Did you mean 'status'? Its columns are: run_id, job_id, status, duration_mins, avg_retry_secs, dt.
-    """
+    """  # noqa: E501 - its example's refusal is one line, as Python prints it
 
     def __init__(self, name: str, columns: dict[str, str | None], *,
                  partitioned_by: list[str] | None = None, key: list[str] | None = None,
@@ -693,7 +699,10 @@ def partitioned_by_name(name: str) -> list[str] | None:
              if table._statement is None and table._name.lower() == name.lower()]
     if not found:
         return None
-    return list(dict.fromkeys(column for columns in found for column in columns))
+    columns = []
+    for partitioned_by in found:
+        columns += partitioned_by
+    return list(dict.fromkeys(columns))
 
 
 def _refuse_a_day_argument(name: object, removed: dict[str, object]) -> None:
@@ -815,12 +824,11 @@ def _checked_folder(name: str, location: object) -> str:
     # Compared without the storage's name, as hdfs:///data/... and /data/... are one folder.
     path = urllib.parse.urlsplit(folder).path
     for other, theirs in _FOLDERS.items():
-        their_path = urllib.parse.urlsplit(theirs).path
-        if other == name.lower() or not (path == their_path or path.startswith(
-                their_path + "/") or their_path.startswith(path + "/")):
+        if other == name.lower():
             continue
-        where = ("the same folder as" if path == their_path else "inside the folder of"
-                 if path.startswith(their_path + "/") else "around the folder of")
+        where = _folder_overlap(path, urllib.parse.urlsplit(theirs).path)
+        if where is None:
+            continue
         refuse(
             what=f"Table({name!r}) would be at {folder}, {where} {other} ({theirs}).",
             why=f"Every Saved table needs a folder of its own: {SHARING}",
@@ -830,6 +838,18 @@ def _checked_folder(name: str, location: object) -> str:
         )
     _FOLDERS[name.lower()] = folder
     return folder
+
+
+def _folder_overlap(path: str, their_path: str) -> str | None:
+    """Where a folder is against another Saved table's, as a refusal says it, or None when
+    neither holds the other."""
+    if path == their_path:
+        return "the same folder as"
+    if path.startswith(their_path + "/"):
+        return "inside the folder of"
+    if their_path.startswith(path + "/"):
+        return "around the folder of"
+    return None
 
 
 def _checked_properties(name: str, properties: object,
@@ -871,7 +891,7 @@ def _checked_properties(name: str, properties: object,
 
 def _check_partitions(t: Table) -> None:
     """Refuse a partitioned_by= that names a column twice, or one that holds no plain value."""
-    _names_once(t, "partitioned_by", t._partitioned_by)
+    _check_names_once(t, "partitioned_by", t._partitioned_by)
     for column in t._partitioned_by:
         if (t._columns[column] or "").strip().lower().startswith(("array", "map", "struct")):
             refuse(
@@ -883,7 +903,7 @@ def _check_partitions(t: Table) -> None:
             )
 
 
-def _names_once(t: Table, argument: str, names: list[str]) -> None:
+def _check_names_once(t: Table, argument: str, names: list[str]) -> None:
     """Refuse an `argument`= such as partitioned_by= that names a column twice."""
     twice = repeated(names)
     if twice:
@@ -898,7 +918,7 @@ def _names_once(t: Table, argument: str, names: list[str]) -> None:
 def _check_buckets(t: Table) -> None:
     """Refuse Buckets that create_table couldn't write."""
     for argument, names in (("bucketed_by", t._bucketed_by), ("sorted_by", t._sorted_by)):
-        _names_once(t, argument, names)
+        _check_names_once(t, argument, names)
         # A Bucket holds the columns inside the files, so a Partition can't be one.
         inside = [column for column in names if column in t._partitioned_by]
         if inside:
@@ -921,8 +941,8 @@ def _check_buckets(t: Table) -> None:
             "columns: "
             "bucketed_by= names the columns and buckets= the number, and sorted_by= sorts "
             "the rows inside each Bucket.",
-            fix=f"Give both bucketed_by= and buckets=, such as bucketed_by=[\"{column_example(t)}"
-            "\"], buckets=8, or remove the ones you gave.",
+            fix="Give both bucketed_by= and buckets=, such as "
+            f'bucketed_by=["{column_example(t)}"], buckets=8, or remove the ones you gave.',
             error=ValueError,
         )
     if has_buckets and not is_count(t._buckets):
@@ -936,7 +956,10 @@ def _check_buckets(t: Table) -> None:
 
 def column_example(t: Table) -> str:
     """A column of the table to show in a fix: its first that isn't a Partition."""
-    return next((c for c in t._columns if c not in t._partitioned_by), next(iter(t._columns)))
+    for column in t._columns:
+        if column not in t._partitioned_by:
+            return column
+    return next(iter(t._columns))
 
 
 def aliased(table: Table, name: object) -> Table:
@@ -960,7 +983,8 @@ def table_node(name: str, **parts: object) -> Node:
 
 
 def source(table: Table) -> Node:
-    """How a table is named after FROM or JOIN: its name, and AS its alias where it needs one."""
+    """How a table is named after FROM or JOIN: its name, and AS its alias where it needs
+    one."""
     if table._statement is not None and table._alias == table._name:
         return table_node(table._name)
     return table_node(table._name, alias=table._alias)
@@ -980,10 +1004,10 @@ def all_columns(t: Table) -> list[Column]:
     FROM ops.jobs AS jobs
     LIMIT 20
     """
-    return _columns_of(t, "all_columns(...)")
+    return _table_columns(t, "all_columns(...)")
 
 
-def _columns_of(t: object, call: str) -> list[Column]:
+def _table_columns(t: object, call: str) -> list[Column]:
     """Every column of a Table reference, refusing what isn't one."""
     if not isinstance(t, Table):
         refuse(
@@ -1015,7 +1039,7 @@ def first_look(t: Table) -> Statement:
     """
     from .clauses import FROM, LIMIT, SELECT, statement
 
-    return statement(SELECT(_columns_of(t, "first_look(...)")),
+    return statement(SELECT(_table_columns(t, "first_look(...)")),
                      FROM(t, reads_all_partitions=bool(t._partitioned_by)), LIMIT(20))
 
 
@@ -1030,10 +1054,9 @@ class Verdict:
 
     Its `ok` is True when it found nothing wrong, and printing it shows what it found. The
     Verdict itself is true or false as its `ok` is, so `if check_key(...):` passes only when
-    the key holds. Make one with check_key(...), check_table_reference(...), compare_hive(...) or
-    compare_with_original(...), never Verdict(). Write the
-    name in a type hint, to say that a function of yours gives back what one of them
-    found:
+    the key holds. Make one with check_key(...), check_table_reference(...),
+    compare_hive(...) or compare_with_original(...), never Verdict(). Write the name in a type
+    hint, to say that a function of yours gives back what one of them found:
 
     >>> def key_holds(t: Table) -> Verdict:
     ...     return check_key(t, query=example_database.query)
@@ -1075,10 +1098,10 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     it is named for the table alone, or t_<table> for a table named like a Python word, such
     as t_class. Each column's comment, which DESCRIBE prints, becomes its description, and
     the columns DESCRIBE lists the table as partitioned by become its partitioned_by=. It
-    never guesses the key or which columns don't add up: those are TODOs for you. Below the Table reference,
-    under its Aliases heading, you can add your own names for its columns and conditions, as
-    its examples show. The file is yours from then on, and this refuses to overwrite it. The
-    file it wrote:
+    never guesses the key or which columns don't add up: those are TODOs for you. Below the
+    Table reference, under its Aliases heading, you can add your own names for its columns and
+    conditions, as its examples show. The file is yours from then on, and this refuses to
+    overwrite it. The file it wrote:
 
     >>> print(path.read_text())
     """ops.run_alerts - TODO: say in one line what one row is."""
@@ -1115,6 +1138,31 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
     refuse_removed_arguments("write_table_reference", removed, write_table_reference)
     need_warehouse_call("write_table_reference", "query", query, "It sends DESCRIBE through "
                         "your query, and reads what comes back.")
+    _check_reference_name(name)
+    path = _reference_path(name, folder)
+    call = f"write_table_reference({name!r}, ...)"
+    described = describe.describe_table(name, query, call)
+    if not described.columns:
+        refuse(
+            what=f"{call}: DESCRIBE {name} listed no columns.",
+            why="A Table reference is written from the table's columns.",
+            fix="Check the table's name, and that your query returns what DESCRIBE prints.",
+            error=ValueError,
+        )
+    variable = _reference_variable(split_table_name(name)[1])
+    if folder is None:
+        module = path.stem
+    else:
+        module = f"{Path(folder).name}.{path.stem}"
+    text = _reference_text(name, variable, described.columns, described.descriptions,
+                           described.partitioned_by, module)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def _check_reference_name(name: object) -> None:
+    """Refuse what isn't a table's name with its database, which a Table reference file is
+    named for."""
     if not isinstance(name, str) or not TABLE_NAME.fullmatch(name):
         refuse(
             what=f"write_table_reference({name!r}, ...) isn't a table name.",
@@ -1130,16 +1178,24 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             fix=f'Write the database first, like "ops.{name}".',
             error=ValueError,
         )
+
+
+def _reference_path(name: str, folder: str | Path | None) -> Path:
+    """The path of the Table reference file to write, such as references/ops__job_runs.py:
+    refused when its folder isn't there, or the file is there already."""
     database, short = split_table_name(name)
-    variable = short if short.isidentifier() and not keyword.iskeyword(short) else f"t_{short}"
-    where = Path(folder) if folder is not None else Path()
+    if folder is None:
+        where = Path()
+    else:
+        where = Path(folder)
     if not where.is_dir():
         refuse(
             what=f"write_table_reference({name!r}, ..., folder={folder!r}): there is no "
             "such folder.",
             why="It writes the file into a folder that is there already, so a typo never "
             "makes a folder of its own.",
-            fix='Make the folder first, or name one that is there, such as folder="references".',
+            fix="Make the folder first, or name one that is there, such as "
+            'folder="references".',
             error=FileNotFoundError,
         )
     path = where / f"{database}__{short}.py"
@@ -1153,21 +1209,15 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             "check_table_reference(t, query=...).",
             error=FileExistsError,
         )
-    call = f"write_table_reference({name!r}, ...)"
-    described = describe.describe_table(name, query, call)
-    columns, comments = described.columns, described.descriptions
-    partitions = described.partitioned_by
-    if not columns:
-        refuse(
-            what=f"{call}: DESCRIBE {name} listed no columns.",
-            why="A Table reference is written from the table's columns.",
-            fix="Check the table's name, and that your query returns what DESCRIBE prints.",
-            error=ValueError,
-        )
-    module = path.stem if folder is None else f"{Path(folder).name}.{path.stem}"
-    path.write_text(_reference_text(name, variable, columns, comments, partitions, module),
-                    encoding="utf-8")
     return path
+
+
+def _reference_variable(table: str) -> str:
+    """The name of a Table reference file's variable: the table's, or t_<table> for a table
+    named like a Python word, such as t_class."""
+    if table.isidentifier() and not keyword.iskeyword(table):
+        return table
+    return f"t_{table}"
 
 
 def _folder_name(folder: str | Path | None) -> str:
@@ -1193,33 +1243,53 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
     ]
     for column, kind in columns.items():
         lines.append(f"        {escaped_literal(column)}: {escaped_literal(kind)},")
+    lines.append("    },")
+    if partitions:
+        lines.append(f"    partitioned_by={escaped_literal(partitions)},")
     first_key = next(iter(columns))
     lines += [
-        "    },",
-        *([f"    partitioned_by={escaped_literal(partitions)},"] if partitions else []),
-        f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
+        "    key=None,  # TODO: the columns that pick out one row, such as "
+        f'key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
     ]
-    described = {column: " ".join(comments.get(column, "").split()) for column in columns}
-    described = {column: text for column, text in described.items() if text}
-    if described:
-        lines += ["    descriptions={",
-                  *[f"        {escaped_literal(column)}: {escaped_literal(text)},"
-                    for column, text
-                    in described.items()],
-                  "    },"]
-    # The examples' column: the first that is neither an id nor a partition column, if any.
-    example = next((column for column in columns
-                    if not column.endswith("_id") and column not in partitions), first_key)
-    lines += [
-        ")",
-        "",
+    lines += _description_lines(columns, comments)
+    lines += [")", ""]
+    lines += _aliases_lines(module, variable, _example_column(columns, partitions))
+    return "\n".join(lines)
+
+
+def _description_lines(columns: dict[str, str], comments: dict[str, str]) -> list[str]:
+    """The descriptions={...} lines of a Table reference file: each column's comment, on one
+    line, for the columns that have one; none when no column has one."""
+    described = []
+    for column in columns:
+        text = " ".join(comments.get(column, "").split())
+        if text:
+            described.append(f"        {escaped_literal(column)}: {escaped_literal(text)},")
+    if not described:
+        return []
+    return ["    descriptions={", *described, "    },"]
+
+
+def _example_column(columns: dict[str, str], partitions: list[str]) -> str:
+    """The column a Table reference file's examples use: its first that is neither an id nor
+    a partition column, or else its first."""
+    for column in columns:
+        if not column.endswith("_id") and column not in partitions:
+            return column
+    return next(iter(columns))
+
+
+def _aliases_lines(module: str, variable: str, example: str) -> list[str]:
+    """The foot of a Table reference file: its Aliases heading and the comments under it, whose
+    examples use the column `example`."""
+    return [
         ALIASES_HEADING,
         "# Your own names for this table's columns and conditions, written by hand below.",
         f"# Import one beside the table: from {module} import {variable}, <alias>",
         "#",
-        "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
-        "you",
+        "# A column Alias is a shorter name for one column, for you: the Hive, and the "
+        "DataFrame you",
         "# get back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {variable}.{example}",
         "# A condition Alias names a condition on this table alone, for WHERE or",
@@ -1227,7 +1297,6 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
         f"#     <alias> = equals({variable}.{example}, <value>)",
         "",
     ]
-    return "\n".join(lines)
 
 
 # --- Checking a Table reference against the warehouse ----------------------------------------
@@ -1258,10 +1327,10 @@ def need_saved_table(t: object, what: str) -> Table:
         refuse(
             what=f"{what} was given {t._name}, which isn't one of your Saved tables: its Table "
             "reference has no location=.",
-            why="It changes a table, or what the warehouse keeps about it, so it takes only your "
-            "own Saved tables, each in a folder of its own, its location=. A Table reference "
-            "with no location= is a table someone else owns, and changing it could break their "
-            "work.",
+            why="It changes a table, or what the warehouse keeps about it, so it takes only "
+            "your own Saved tables, each in a folder of its own, its location=. A Table "
+            "reference with no location= is a table someone else owns, and changing it could "
+            "break their work.",
             fix=f"If {t._name} is yours, add location=... to its Table(...) call, its own "
             'folder, such as location="/data/your_team/mart.db/daily_runs". If it '
             "isn't yours, ask whoever owns it.",
@@ -1295,16 +1364,41 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
      run_id  copies
         101       3
         103       2
-    """
+    """  # noqa: E501 - its example's Verdict is one line, as check_key prints it
     refuse_removed_arguments("check_key", removed, check_key)
     need_warehouse_call("check_key", "query", query, "It counts repeated keys with a query, "
                         "which gives back rows.")
-    from .calculations import count_rows
-    from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
-    from .conditions import Condition, more_than
-    from .running import run_query
+    from .running import run_query  # here, not at the top: running.py imports this file
 
     t = _real_table(t, "check_key(...)")
+    _check_key_arguments(t, where, reads_all_partitions)
+    repeats = run_query(_repeated_keys_statement(t, where, reads_all_partitions), query)
+    if len(repeats.columns) == 0:
+        refuse(
+            what=f"check_key({t._alias}): your query gave back a DataFrame with no columns.",
+            why="It reads the keys that repeat from the columns of what comes back, so with no "
+            "columns it can't tell a key that holds from one that doesn't.",
+            fix="Make your query return the warehouse's answer as it prints it, each column "
+            "named.",
+            error=ValueError,
+        )
+    listed = ", ".join(t._key)
+    when = ""
+    if where is not None:
+        when = f" where {where!r}"
+    if len(repeats) == 0:
+        return Verdict(True, [f"{t._name}: the key ({listed}) holds{when}."])
+    return Verdict(False, [
+        f"{t._name}: the key ({listed}) repeats{when}. Keys with more than one row:",
+        repeats.to_string(index=False),
+    ])
+
+
+def _check_key_arguments(t: Table, where: object, reads_all_partitions: bool) -> None:
+    """Refuse a check_key with no key to check, a where= that isn't a condition, and a
+    partitioned table with nothing to say which Partitions to check."""
+    from .conditions import Condition  # conditions.py imports this file
+
     if not t._key:
         refuse(
             what=f"check_key({t._alias}): its Table reference declares no key.",
@@ -1330,31 +1424,24 @@ def check_key(t: Table, *, query: Callable[[str], pd.DataFrame] | None = None,
             "reads_all_partitions=True to check them all.",
             error=ValueError,
         )
+
+
+def _repeated_keys_statement(t: Table, where: Condition | None, reads_all_partitions: bool
+                   ) -> Statement:
+    """The Statement check_key sends: at most 20 of the keys that more than one row has, on
+    the rows where= picks, each with its count of rows, as copies."""
+    # Here, not at the top: these files import this one.
+    from .calculations import count_rows
+    from .clauses import AS, FROM, GROUP_BY, HAVING, LIMIT, SELECT, WHERE, statement
+    from .conditions import more_than
+
     key = [t._column(column) for column in t._key]
     clauses = [SELECT(key, AS(count_rows(), "copies")),
                FROM(t, reads_all_partitions=reads_all_partitions)]
-    when = ""
     if where is not None:
         clauses.append(WHERE(where))
-        when = f" where {where!r}"
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
-    repeats = run_query(statement(*clauses), query)
-    if len(repeats.columns) == 0:
-        refuse(
-            what=f"check_key({t._alias}): your query gave back a DataFrame with no columns.",
-            why="It reads the keys that repeat from the columns of what comes back, so with no "
-            "columns it can't tell a key that holds from one that doesn't.",
-            fix="Make your query return the warehouse's answer as it prints it, each column "
-            "named.",
-            error=ValueError,
-        )
-    listed = ", ".join(t._key)
-    if len(repeats) == 0:
-        return Verdict(True, [f"{t._name}: the key ({listed}) holds{when}."])
-    return Verdict(False, [
-        f"{t._name}: the key ({listed}) repeats{when}. Keys with more than one row:",
-        repeats.to_string(index=False),
-    ])
+    return statement(*clauses)
 
 
 def _same_type(first: str, second: str) -> bool:
@@ -1371,9 +1458,9 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     It sends DESCRIBE through your `query`, and lists problems (which make Statements wrong)
     and notes (which may not matter), each with the line to change in the Table reference
     file. The columns, their types and the columns the table is partitioned by come from
-    DESCRIBE. It never edits the file, and refuses nothing but a missing query: a table the warehouse can't
-    describe, or a query that fails, is reported too. Comments, the key and does_not_add_up
-    aren't compared.
+    DESCRIBE. It never edits the file, and refuses nothing but a missing query: a table the
+    warehouse can't describe, or a query that fails, is reported too. Comments, the key and
+    does_not_add_up aren't compared.
 
     For one of your Saved tables, one with location=, it sends DESCRIBE FORMATTED instead, and
     compares its storage too: that it is external, its folder, its file format and its
@@ -1398,7 +1485,7 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
       - owner isn't in the table: remove its line, or correct its name.
     Notes:
       - region is in the table but not in the Table reference: add "region": "string", if you want it.
-    """
+    """  # noqa: E501 - its example's Verdict says each line as one line
     refuse_removed_arguments("check_table_reference", removed, check_table_reference)
     need_warehouse_call("check_table_reference", "query", query, "It sends DESCRIBE through "
                         "your query, and reads what comes back.")
@@ -1407,16 +1494,16 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
     try:
         described = describe.describe_table(t._name, query, "check_table_reference(...)",
-                                            formatted=saved)
+                                        formatted=saved)
     except Exception as error:  # it reports, and never raises: see the docstring
         return Verdict(False, [f"{t._name}: {command} failed, so nothing was compared. Check "
                                "the table's name, and that your query works. It said:",
-                               *_said(error)])
+                               *_error_lines(error)])
     columns, partitions = described.columns, described.partitioned_by
     if not columns:
         return Verdict(False, [f"{t._name}: {command} listed no columns, so nothing was "
-                               "compared. Check the table's name, and that your query returns what "
-                               f"{command} prints."])
+                               "compared. Check the table's name, and that your query "
+                               f"returns what {command} prints."])
     problems, notes = _column_differences(t, columns)
     problems += _partition_problems(t, partitions)
     if saved:
@@ -1445,7 +1532,8 @@ def _column_differences(t: Table, columns: dict[str, str]) -> tuple[list[str], l
     problems, notes = [], []
     for column, kind in t._columns.items():
         if column not in columns:
-            problems.append(f"{column} isn't in the table: remove its line, or correct its name.")
+            problems.append(f"{column} isn't in the table: remove its line, or correct its "
+                            "name.")
         elif kind is not None and not _same_type(kind, columns[column]):
             problems.append(f"{column} is {columns[column]} in the table: change its line to "
                             f"{escaped_literal(column)}: {escaped_literal(columns[column])},")
@@ -1466,10 +1554,13 @@ def _partition_problems(t: Table, partitions: list[str]) -> list[str]:
             f"partitioned_by={escaped_literal(partitions)},"]
 
 
-def _said(error: Exception) -> list[str]:
+def _error_lines(error: Exception) -> list[str]:
     """What an error said, as indented lines for a Verdict."""
     text = str(error).strip() or "(no message)"
-    return [f"    {type(error).__name__}:"] + [f"    {line.strip()}" for line in text.splitlines()]
+    lines = [f"    {type(error).__name__}:"]
+    for line in text.splitlines():
+        lines.append(f"    {line.strip()}")
+    return lines
 
 
 _SET_IT = "or set it with admin.set_properties(t)"
@@ -1486,28 +1577,39 @@ def _storage_problems(t: Table, described: describe.Description) -> tuple[list[s
     managed = described.managed
     # A table the move can take to its own folder, writing it again as its Table reference
     # says; one at its own folder already is written again there instead.
-    fix = MOVE_IT if managed or not same_folder(described.location, t._location) else (
-        WRITE_IT_AGAIN)
+    if managed or not same_folder(described.location, t._location):
+        fix = MOVE_IT
+    else:
+        fix = WRITE_IT_AGAIN
     if managed:
         # Its folder is the warehouse's choice, so this says all the folder check would.
         problems.append("it is a managed table, whose files the warehouse keeps where it "
-                        "chooses, where your Saved tables are external, each in a folder of its "
-                        f"own: {MOVE_IT}, which copies its rows into a table create_table "
+                        "chooses, where your Saved tables are external, each in a folder of "
+                        f"its own: {MOVE_IT}, which copies its rows into a table create_table "
                         "makes.")
     else:
         location_problems, notes = _location_problems(t, described.location)
         problems += location_problems
     stored_as = described.stored_as
     if stored_as is not None and stored_as != t._stored_as:
-        problems.append(f"the table is stored as {stored_as}: change the line to "
-                        f'stored_as="{stored_as}",' if stored_as in FILE_FORMATS else
-                        "the table's files are in a format the Toolbox doesn't write, not ORC "
-                        f"or Parquet (its InputFormat is {stored_as}): {fix}"
-                        + (", which writes it again as its Table reference says." if
-                           fix is MOVE_IT else "."))
+        problems.append(_stored_as_problem(stored_as, fix))
     problems += _property_problems(t, described.properties)
     problems += _buckets_problems(t, described)
     return problems, notes
+
+
+def _stored_as_problem(stored_as: str, fix: str) -> str:
+    """The problem when the table's files are in another format than its Table reference
+    says. `fix` is how to write the table again, for a format the Toolbox doesn't write."""
+    if stored_as in FILE_FORMATS:
+        return (f"the table is stored as {stored_as}: change the line to "
+                f'stored_as="{stored_as}",')
+    if fix == MOVE_IT:
+        end = ", which writes it again as its Table reference says."
+    else:
+        end = "."
+    return ("the table's files are in a format the Toolbox doesn't write, not ORC or Parquet "
+            f"(its InputFormat is {stored_as}): {fix}{end}")
 
 
 def _property_problems(t: Table, properties: dict[str, str]) -> list[str]:
@@ -1607,8 +1709,8 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     LOCATION '/data/your_team/mart.db/daily_runs'
 
     A Saved table is one your Statements write into. Send it once with
-    run_execute(create_table(t), execute). The table is external: its files are yours, in its own
-    folder, the Table reference's location=, and the warehouse only keeps a record of
+    run_execute(create_table(t), execute). The table is external: its files are yours, in its
+    own folder, the Table reference's location=, and the warehouse only keeps a record of
     where. It is stored as the Table reference says (help(Table) lists how), and a Table
     reference with no location= is refused. A location= holding a Hive variable, such as
     "${hivevar:root}/mart.db/daily_runs", needs its SET sent first, with
@@ -1659,6 +1761,22 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
     from .upkeep import ddl_statement  # here, not at the top: upkeep.py imports this file
 
     t = _real_table(t, "create_table(...)")
+    _check_every_column_typed(t)
+    # column_definition refuses a type Hive hasn't, so the types are checked before location=.
+    partitions = t._partitioned_by
+    columns = [column_definition(t, c) for c in t._columns if c not in partitions]
+    partitioned_by = [column_definition(t, c) for c in partitions]
+    _check_has_location(t)
+    tree = Node(
+        "Create", target=table_node(t._name), columns=columns, partitioned_by=partitioned_by,
+        exists=may_exist, bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
+        buckets=t._buckets, stored_as=t._stored_as, location=t._location,
+        properties=property_pairs(t), key=t._key)
+    return ddl_statement(kinds.CREATE, tree)
+
+
+def _check_every_column_typed(t: Table) -> None:
+    """Refuse a table to create with a column whose type its Table reference doesn't give."""
     untyped = [column for column, kind in t._columns.items() if not kind]
     if untyped:
         refuse(
@@ -1668,9 +1786,10 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
             f'{escaped_literal(untyped[0])}: "string".',
             error=ValueError,
         )
-    partitions = t._partitioned_by
-    columns = [column_definition(t, c) for c in t._columns if c not in partitions]
-    partitioned_by = [column_definition(t, c) for c in partitions]
+
+
+def _check_has_location(t: Table) -> None:
+    """Refuse a table to create whose Table reference has no folder of its own."""
     if t._location is None:
         refuse(
             what=f"create_table({t._alias}): its Table reference has no location=.",
@@ -1680,18 +1799,15 @@ def create_table(t: Table, may_exist: bool = False) -> Statement:
             'location="/data/your_team/mart.db/daily_runs".',
             error=ValueError,
         )
-    return ddl_statement(kinds.CREATE, Node(
-        "Create", target=table_node(t._name), columns=columns, partitioned_by=partitioned_by,
-        exists=may_exist, bucketed_by=list(t._bucketed_by), sorted_by=list(t._sorted_by),
-        buckets=t._buckets, stored_as=t._stored_as, location=t._location,
-        properties=property_pairs(t), key=t._key))
 
 
 def property_pairs(t: Table) -> list[tuple[str, str]]:
     """A Saved table's table properties as its Table reference gives them, each (name,
     value): purge= as external.table.purge, compression= by its file format's name for it,
     then properties=."""
-    pairs = [] if t._purge is None else [(PURGE, "true" if t._purge else "false")]
+    pairs = []
+    if t._purge is not None:
+        pairs.append((PURGE, "true" if t._purge else "false"))
     if t._compression is not None:
         pairs.append((FILE_FORMATS[t._stored_as][0], t._compression))
     return pairs + list(t._properties.items())
@@ -1719,24 +1835,38 @@ def partitions_named(t: Table, partition: object, call: str, left_out: str
     value. None names no Partition, so each partition column is by its name alone. `call` and
     `left_out` word the refusals: the function given partition=, such as "INSERT_OVERWRITE",
     and what it does with a partition column partition= doesn't name, after "then"."""
-    columns = t._partitioned_by
     if partition is None:
         named = {}
     else:
         named = _checked_partition(t, partition, call, left_out)
     values = {name: hive_text(value) for name, value in named.items()}
-    if not columns:
+    if not t._partitioned_by:
         return NamedPartitions(None, values)
-    return NamedPartitions(Node("Partition", expressions=[
-        Node("EQ", this=Node("Column", name=column), expression=named[column])
-        if column in named else Node("Column", name=column)
-        for column in columns]), values)
+    expressions = []
+    for column in t._partitioned_by:
+        if column in named:
+            expressions.append(Node("EQ", this=Node("Column", name=column),
+                                    expression=named[column]))
+        else:
+            expressions.append(Node("Column", name=column))
+    return NamedPartitions(Node("Partition", expressions=expressions), values)
 
 
 def _checked_partition(t: Table, partition: object, call: str, left_out: str
                        ) -> dict[str, Node]:
     """partitions_named's checks of a partition= that was given: each column it names, in
     partitioned_by order, with its value as a Hive literal."""
+    _check_partition_given(t, partition, call, left_out)
+    _check_partition_columns(t, partition, call, left_out)
+    named = {}
+    for name in t._partitioned_by[:len(partition)]:
+        named[name] = _partition_literal(t, name, partition[name], call, left_out)
+    return named
+
+
+def _check_partition_given(t: Table, partition: object, call: str, left_out: str) -> None:
+    """Refuse a partition= on a table that isn't partitioned, and one that isn't a dict of at
+    least one partition column."""
     columns = t._partitioned_by
     if not columns:
         refuse(
@@ -1750,8 +1880,8 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
     example = f'{call}({t._alias}, partition={{"{columns[0]}": ...}})'
     if not isinstance(partition, dict):
         refuse(
-            what=f"{call}({t._alias}, partition={python_text(partition)}): partition= is a dict "
-            "of partition columns and their values.",
+            what=f"{call}({t._alias}, partition={python_text(partition)}): partition= is a "
+            "dict of partition columns and their values.",
             why="It names Partitions by their partition columns: each column it names, with "
             "one value of it.",
             fix=f"Write it like {example}, or leave partition= out: {left_out}.",
@@ -1765,6 +1895,13 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
             fix=f"Name one, as in {example}, or leave partition= out: {left_out}.",
             error=ValueError,
         )
+
+
+def _check_partition_columns(t: Table, partition: dict[object, object], call: str,
+                             left_out: str) -> None:
+    """Refuse a partition= that names what isn't a partition column, or skips one that comes
+    before a column it names."""
+    columns = t._partitioned_by
     unknown = [name for name in partition if name not in columns]
     if unknown:
         refuse(
@@ -1790,23 +1927,26 @@ def _checked_partition(t: Table, partition: object, call: str, left_out: str
             f"well: {left_out}.",
             error=ValueError,
         )
-    named = {}
-    for name in first:
-        value = partition[name]
-        if value is None or isinstance(value, Column):
-            given = "None" if value is None else f"the column {python_text(value)}"
-            refuse(
-                what=f"{call}({t._alias}, partition=...) gives {name} {given}, not a value.",
-                why="partition= names one Partition of each column it gives, by a value Hive "
-                "writes as it is, such as 'EU' or 20260924: a column, or None, names none.",
-                fix=f"Give {name} a value, such as a string or a number, or leave {name} out: "
-                f"{left_out}.",
-                error=ValueError,
-            )
-        named[name] = literal(value, call=f"{call}({t._alias}, partition=...)",
-                              column=t._column(name), position=f"the value of {name}",
-                              in_condition=False)
-    return named
+
+
+def _partition_literal(t: Table, name: str, value: object, call: str, left_out: str) -> Node:
+    """The value partition= gives the partition column `name`, as a Hive literal: refused
+    when it is None or a column, which name no Partition."""
+    if value is None or isinstance(value, Column):
+        if value is None:
+            given = "None"
+        else:
+            given = f"the column {python_text(value)}"
+        refuse(
+            what=f"{call}({t._alias}, partition=...) gives {name} {given}, not a value.",
+            why="partition= names one Partition of each column it gives, by a value Hive "
+            "writes as it is, such as 'EU' or 20260924: a column, or None, names none.",
+            fix=f"Give {name} a value, such as a string or a number, or leave {name} out: "
+            f"{left_out}.",
+            error=ValueError,
+        )
+    return literal(value, call=f"{call}({t._alias}, partition=...)", column=t._column(name),
+                   position=f"the value of {name}", in_condition=False)
 
 
 # Types people often write for one create_table takes, and the one to write instead.
