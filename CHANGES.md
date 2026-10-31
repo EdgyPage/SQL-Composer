@@ -50,7 +50,8 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   stays the source: promoting again archives the prod copy and writes it afresh, keeping the
   `location=` you filled in, and `check()` reports a prod copy edited by hand.
   `project.promoted_tables(tables)` gives the prod names. The promote Workflow is now promote,
-  fill in each `location=`, then create, seed and write each in prod: no step is fiddling.
+  fill in each `location=`, then create, seed and write each in prod: no step needs you to
+  edit a file the Toolbox could write.
 - **The compare step.** `project.compare_batch(name, query=query)`, the convert Workflow's
   last step, compares each Saved table a batch made in dev, once written, with the table it
   copies, on the latest Partition both hold, or the one `partition=` gives; a table with no

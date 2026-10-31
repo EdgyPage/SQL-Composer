@@ -52,10 +52,10 @@ _Avoid_: live, production schema
 
 **Promotion**:
 The user's choice to carry one or more Saved tables from the Dev Database to the Prod
-Database: a copy of each table's code made for prod, each copy reading the prod copies of the
+Database: a prod copy of each table's code, each prod copy reading the prod copies of the
 others promoted with it. The dev table stays the source: a change is made in dev and promoted
-again, never in the prod copy. A table is promoted only once it is decided and compared, and
-with each dev table it reads.
+again, never in the prod copy. A table is promoted only once it is filled in, each box of
+its checklist ticked and, for a Conversion's table, compared, and with each dev table it reads.
 _Avoid_: deploy, release, convert to prod, publish
 
 ### The user's own scripts
@@ -88,12 +88,11 @@ _Avoid_: manifest, inventory, index
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
 folder or a Building block, adding Table references, upgrading the Project, converting Hive,
-comparing a Conversion's tables, promoting tables and archiving a Conversion folder - run from the admin folder or a Workflow's notebook, and recorded in
-the Admin log. One that
-takes a name takes a list of names too, each done in turn. Where an Admin statement changes the
-warehouse, a Project action changes only files. The user makes only the Project's folder and
-the copy of the Toolbox in it; a Project action makes every other file, for the user to fill
-in.
+comparing a Conversion's tables, promoting tables and archiving a Conversion folder - run from
+the admin folder or a Workflow's notebook, and recorded in the Admin log. One that takes a name
+takes a list of names too, each done in turn. Where an Admin statement changes the warehouse, a
+Project action changes only files. The user makes only the Project's folder and the copy of the
+Toolbox in it; a Project action makes every other file, for the user to fill in.
 _Avoid_: admin statement, migration, setup step
 
 **Workflow**:
@@ -269,9 +268,9 @@ own.
 _Avoid_: materialized view, cache, temp table, output table
 
 **Seed**:
-The one-time copy of an original table's rows into its dev copy, for a Saved table a
-Conversion made whose write reads its own table, as an incremental INSERT does: in dev that
-table starts empty, so its first write would start from nothing. It runs once, before that
+The one-time copy of an original table's rows into its copy, in dev or in prod, for a Saved
+table a Conversion made whose write reads its own table, as an incremental INSERT does: the
+copy starts empty, so its first write would start from nothing. It runs once, before that
 first write; a write runs every time. In Python, `seed()` in its Table notebook, an Unchecked
 statement.
 _Avoid_: backfill, preload, bootstrap

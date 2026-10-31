@@ -1826,8 +1826,8 @@ def with_seed(logic: str, seed_hive: str) -> str:
         "",
         "",
         "def seed() -> UncheckedStatement:",
-        '    """Copy the original\'s rows into this dev copy once, before its first write():',
-        '    the table reads itself, and in dev starts empty."""',
+        '    """Copy the original\'s rows into this table once, before its first write():',
+        '    its write reads its own table, which starts empty."""',
         f"    return unchecked_hive({python_literal(seed_hive)})",
     ]) + "\n"
 
