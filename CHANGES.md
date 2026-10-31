@@ -42,6 +42,15 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   different Partitions are all kept. A table whose write reads itself, as an
   incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
   its dev copy once, and the convert Workflow seeds it before its first write.
+- **Promotion.** `project.promote(tables)` writes a prod copy of dev Saved tables, named
+  for `PROD` in `admin/databases.py`, their names kept unless `rename=` names them: each Table
+  folder and Table reference, every notebook that reads another promoted table reading its
+  prod copy. It refuses, before writing anything, a table with a box unticked, a Conversion's
+  table whose compare hasn't passed, or one that reads a dev table not promoted with it. Dev
+  stays the source: promoting again archives the prod copy and writes it afresh, keeping the
+  `location=` you filled in, and `check()` reports a prod copy edited by hand.
+  `project.promoted_tables(tables)` gives the prod names. The promote Workflow is now promote,
+  fill in each `location=`, then create, seed and write each in prod: no step is fiddling.
 - **The compare step.** `project.compare_batch(name, query=query)`, the convert Workflow's
   last step, compares each Saved table a batch made in dev, once written, with the table it
   copies, on the latest Partition both hold, or the one `partition=` gives; a table with no

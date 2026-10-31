@@ -50,6 +50,14 @@ The database others read the user's finished Saved tables from. A table reaches 
 promoted from the Dev Database.
 _Avoid_: live, production schema
 
+**Promotion**:
+The user's choice to carry one or more Saved tables from the Dev Database to the Prod
+Database: a copy of each table's code made for prod, each copy reading the prod copies of the
+others promoted with it. The dev table stays the source: a change is made in dev and promoted
+again, never in the prod copy. A table is promoted only once it is decided and compared, and
+with each dev table it reads.
+_Avoid_: deploy, release, convert to prod, publish
+
 ### The user's own scripts
 
 **Project**:
@@ -79,8 +87,8 @@ _Avoid_: manifest, inventory, index
 
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
-folder or a Building block, adding Table references, upgrading the Project, converting Hive and
-archiving a Conversion folder - run from the admin folder or a Workflow's notebook, and recorded in
+folder or a Building block, adding Table references, upgrading the Project, converting Hive,
+comparing a Conversion's tables, promoting tables and archiving a Conversion folder - run from the admin folder or a Workflow's notebook, and recorded in
 the Admin log. One that
 takes a name takes a list of names too, each done in turn. Where an Admin statement changes the
 warehouse, a Project action changes only files. The user makes only the Project's folder and
