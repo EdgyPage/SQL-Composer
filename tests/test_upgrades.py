@@ -35,7 +35,8 @@ UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 # frozen copy holds them.
 GAINED_BY_HAND = {
     "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
-                     "references/mart__team_failures.py", "tables/mart__team_failures/"),
+                     "references/mart__team_failures.py", "tables/mart__team_failures/",
+                     "admin/workflows/convert/finished/"),
     "starter": ("README.md", "admin/databases.py"),
 }
 # What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's

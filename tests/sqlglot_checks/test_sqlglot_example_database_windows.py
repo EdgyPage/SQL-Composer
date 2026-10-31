@@ -182,7 +182,8 @@ def test_the_newest_of_each_group_through_a_query_in_brackets() -> None:
 
 
 def test_a_statement_with_a_window_runs() -> None:
-    """The newest run of each job, as how-to 10 shows it: through a Derived table."""
+    """The newest run of each job, as Latest row of each group shows it: through a Derived
+    table."""
     numbered = derived("numbered", statement(
         SELECT(job_runs.run_id, job_runs.job_id,
                AS(row_number(PARTITION_BY=job_runs.job_id,

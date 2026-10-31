@@ -11,8 +11,8 @@ tables' Table references, build Statements on them, share Building blocks, save 
 own, follow their Lineage, keep the Project in order, and convert someone else's Hive into
 your own code. Each job of a Project has a Workflow, a notebook in `admin/workflows/`: fill in
 its names cell and save it, and `project.check()` names its next step, while
-`project.do_next()` runs each step that changes only files for you, up to the first that is
-yours. The Workflows section below draws each one. The Starter Example project shows a
+`project.do_next()` runs the steps it can for you, those that change only files with a call of
+their own, up to the first it can't. The Workflows section below draws each one. The Starter Example project shows a
 Project much like the one the story leaves, filled in. Each step
 is a short summary of the Getting started how-to of the same name, which walks through it in
 full on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. Every
@@ -307,8 +307,8 @@ archive what you no longer need in admin/removed/, deleting nothing. And your fi
 three Levels, each importing only from the Toolbox and the Levels below it: the Table
 references and `warehouse.py`, then the Building blocks, then each Table notebook's logic.
 
-It also names the next step of each Workflow you have started, which `project.do_next()`
-runs for you when it changes only files.
+It also names the next step of each Workflow you have started, and `project.do_next()` runs
+the steps it can for you, up to the first it can't.
 
 How-to: [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order).
 
@@ -336,8 +336,8 @@ How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_so
 
 Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
 take you from what you start with to the end goal. Fill in its names cell and save it; then
-`project.check()` names its next step, and `project.do_next()` runs each step that changes only
-files for you, up to the first that is yours. Each chart below is drawn from the steps its
+`project.check()` names its next step, and `project.do_next()` runs the steps it can for you,
+those that change only files with a call of their own, up to the first it can't. Each chart below is drawn from the steps its
 notebook runs, beside the same steps as a list.
 
 ### How the Toolbox runs
@@ -732,8 +732,8 @@ in order: its goal, its steps, each run on the Example database with what it sho
 it worked, and the mistakes people make first.
 
 - Getting started: one story through one Project, a how-to for each of the README's steps: a
-  Project, its Table references, Statements, Building blocks, Saved tables, their Lineage and
-  the Project's upkeep.
+  Project, its Table references, Statements, Building blocks, Saved tables, their Lineage, the
+  Project's upkeep and a Conversion of someone else's Hive.
 - Intermediate: a menu, each starting from the Intermediate Example project: one job each,
   such as rewriting some partitions, rollups, Keys, quality checks and testing. Each says
   which Getting started how-tos it needs.
@@ -767,8 +767,8 @@ made, and how to run it:
   started how-tos leave, but not the same: it also holds `mart.alerts_per_job`, which no
   how-to makes, and it lacks what the how-tos add to show one thing each: the Table references
   of `ops.region_budgets` and `ops.team_notes`, from Count, join and stay safe,
-  `mart.run_speed`, from Follow lineage, and `ops.scheduler_runs`, from Keep the Project in
-  order.
+  `mart.run_speed`, from Follow lineage, `ops.scheduler_runs`, from Keep the Project in order,
+  and the four Saved tables of the ops_reports batch, from Convert someone else's Hive.
 - `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
   `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: seven Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the

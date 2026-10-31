@@ -105,3 +105,17 @@ Built in parts, each its own commit.
   Excel chart follows the README's Excel steps, five files and a Conversion per query, until
   19d changes both. D354: CHANGES names the charts and how-tos 9 and 29. D355:
   workflow_graph's docstring says what `steps_listed` gives.
+
+### The Intermediate Example project's Conversion (19c)
+
+- `tools/example_project.py` compares the Intermediate Example project's Conversion,
+  team_failures, with its original, through a query that reads both as the rows the converted
+  query gives (the Example database holds no Dev Database), so the batch is finished: its
+  folder is in `admin/workflows/convert/finished/team_failures/`, and its table's
+  `conversion/compare.md` says it passed, in place of the batch archived in admin/removed/.
+  Its README says so. The Upgrade test counts the finished folder among what the Example
+  project gained by hand since 7.2.
+- D356: the README says `do_next()` runs the steps it can, up to the first it can't. D357: the
+  Getting started summary, in the README and the how-to page, names a Conversion. D358: the
+  README's list of what the Starter project lacks names the ops_reports batch. D359: tests
+  name a how-to by its title, not its number.

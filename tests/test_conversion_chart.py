@@ -2,7 +2,7 @@
 ways on the Intermediate Example project (Toolbox 7.2, ticket 10).
 
 Each query is converted with project.convert, as a user converts one, into a Saved table in the
-Project's Dev Database, mart, then checked as how-to 27 checks one: its Hive is the original's,
+Project's Dev Database, mart, then checked: its Hive is the original's,
 once both are written out the same way, on every sqlglot the Toolbox takes; and its rows are the
 original's on a Partition that has rows, through the Example database. A query a Conversion
 can't take is refused, saying what to do.
@@ -91,7 +91,7 @@ def made(name: str) -> str:
 
 @pytest.fixture
 def intermediate(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A copy of the Intermediate Example project, worked in at its top, as how-to 27 does."""
+    """A copy of the Intermediate Example project, worked in at its top."""
     shutil.copytree(INTERMEDIATE, tmp_path, dirs_exist_ok=True)
     monkeypatch.chdir(tmp_path)
     monkeypatch.syspath_prepend(str(tmp_path))

@@ -31,7 +31,8 @@ Conversion: Hive the ops team wrote, which writes `ops_reports.team_failures`, c
 `project.convert("team_failures", ..., rename={"ops_reports.team_failures": "team_failures"})`
 into this Project's Dev Database, `mart`, as `admin/databases.py` names it. Its one
 `# CONVERSION:` mark was decided by keeping the opt-out, each box of its checklist ticked, and
-the batch's folder archived with `project.remove_conversion("team_failures")`. Its Table
+the table compared with its original, `project.compare_batch("team_failures", query=query)`,
+which finished the batch: its folder is in `admin/workflows/convert/finished/team_failures/`. Its Table
 folder's `conversion/` keeps the statement it came from, and its notebook the cells that
 compare the two.
 
@@ -70,7 +71,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and each box of `conversion/checklist.md`, ticked |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
-| admin/removed/, what is archived | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)` | nothing: it holds the batch's folder of team_failures, its scripts as given, `batch.md`, what each statement became, and `written.json`, archived once its checklist was ticked |
+| `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: its scripts as given, `batch.md`, what each statement became, and `written.json`, moved here once its table passed its compare |
 
 This README was written by hand, as an Example project's own note: a Project of yours needs
 none.
