@@ -125,15 +125,18 @@ class ConvertedQuery:
                       '    return hive_settings("converted", sets=HIVE_SETTINGS)', ""]
         if self.clauses is not None:
             lines += ["", "def rows() -> list[Clause]:",
-                      '    """The clauses of the query, which converted() and a write share."""',
+                      '    """The clauses of the query, which converted() and a write '
+                      'share."""',
                       "    return [\n" + "".join(f"        {_indented(clause, 8)},\n"
                                              for clause in self.clauses) + "    ]",
                       "", "", "def converted() -> Statement:",
-                      '    """The query, as the Hive this Conversion was made from writes it."""',
+                      '    """The query, as the Hive this Conversion was made from writes '
+                      'it."""',
                       "    return statement(*rows())"]
         else:
             lines += ["", "def converted() -> Statement:",
-                      '    """The query, as the Hive this Conversion was made from writes it."""',
+                      '    """The query, as the Hive this Conversion was made from writes '
+                      'it."""',
                       f"    return {_indented(self.query, 4)}"]
         return "\n".join(lines) + "\n"
 
@@ -153,7 +156,8 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         given = f", partition={{{values}}}"
     stem = saved_table.replace(".", "__", 1)
     imports = [f"from sqlglot_composer import {mode}, create_table  # for create() and write()",
-               f"from references.{stem} import {short}  # the Saved table's own Table reference"]
+               f"from references.{stem} import {short}  "
+               "# the Saved table's own Table reference"]
     if re.search(r"^def rows\(", logic, re.MULTILINE):
         body = [f"    return statement({mode}({short}{given}), *rows())"]
     else:
@@ -162,22 +166,14 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
                 f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
                 "FROM(made))"]
     lines = logic.rstrip("\n").split("\n")
-    # The imports go after the cell's own, which open it, so the logic still opens with them:
-    # after the last import line before the first line that is neither an import, nor inside
-    # one, nor a comment.
-    at, inside = 0, False
-    for number, line in enumerate(lines):
-        if inside or line.startswith(("from ", "import ")):
-            inside = line.endswith("(") or (inside and line != ")")
-            at = number + 1
-        elif line.strip() and not line.startswith("#"):
-            break
+    at = _after_imports(lines)
     lines[at:at] = imports
-    said = f"Save the rows into {saved_table}, as the original's INSERT did."
+    docstring = f"Save the rows into {saved_table}, as the original's INSERT did."
     if re.search(r"^def session_settings\(", logic, re.MULTILINE):
-        # run_tables sends only writes, so the SET lines are sent by hand, as the docstring says.
-        said += ("\n\n    Send session_settings() first, as the original sent its SET lines: "
-                 "run_tables\n    sends only what write() gives.\n    ")
+        # run_tables sends only writes, so the SET lines are sent by hand, as the docstring
+        # says.
+        docstring += ("\n\n    Send session_settings() first, as the original sent its SET "
+                      "lines: run_tables\n    sends only what write() gives.\n    ")
     return "\n".join(lines + [
         "",
         "",
@@ -192,9 +188,23 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         "",
         "",
         "def write() -> Statement:",
-        f'    """{said}"""',
+        f'    """{docstring}"""',
         *body,
     ]) + "\n"
+
+
+def _after_imports(lines: list[str]) -> int:
+    """Where imports added to a logic cell go: after the cell's own, which open it, so the
+    logic still opens with them. That is after the last import line before the first line
+    that is neither an import, nor inside one, nor a comment."""
+    at, inside = 0, False
+    for number, line in enumerate(lines):
+        if inside or line.startswith(("from ", "import ")):
+            inside = line.endswith("(") or (inside and line != ")")
+            at = number + 1
+        elif line.strip() and not line.startswith("#"):
+            break
+    return at
 
 
 def _indented(text: str, by: int) -> str:
@@ -218,7 +228,7 @@ def _start(node: exp.Expression, text: str) -> int | None:
     return at
 
 
-def _line(node: exp.Expression, text: str) -> int | None:
+def _hive_line(node: exp.Expression, text: str) -> int | None:
     """The line of `text`, the Hive, that a piece starts on.
 
     Failing that, it is the line of the nearest piece it is part of, as for a NULL, which
@@ -230,9 +240,10 @@ def _line(node: exp.Expression, text: str) -> int | None:
     return None if at is None else text.count("\n", 0, at) + 1
 
 
-def _literal(node: exp.Expression) -> str | None:
+def _python_of_literal(node: exp.Expression) -> str | None:
     """A Hive literal as a Python one, or None if it isn't a plain string or number."""
-    if isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal) and not node.this.is_string:
+    if (isinstance(node, exp.Neg) and isinstance(node.this, exp.Literal)
+            and not node.this.is_string):
         return f"-{node.this.this}"
     if isinstance(node, exp.Literal):
         if node.is_string:
@@ -249,7 +260,7 @@ def _python_name(text: str) -> str:
     return f"t_{name}" if name[0].isdigit() else name
 
 
-def _listed(values: list[str], indent: int = 0) -> str:
+def _python_list(values: list[str], indent: int = 0) -> str:
     """A Python list, one value a line when it is long."""
     flat = "[" + ", ".join(values) + "]"
     if len(flat) <= 72:
@@ -264,7 +275,7 @@ def _is_star(item: exp.Expression) -> bool:
                                           and isinstance(item.this, exp.Star))
 
 
-def _called(node: exp.Expression) -> str:
+def _call_name(node: exp.Expression) -> str:
     """The name a call is written with, in capitals, such as CAST or NTILE."""
     found = re.match(r"\s*(\w+)", sql_text(node))
     return found.group(1).upper() if found else type(node).__name__.upper()
@@ -321,13 +332,13 @@ class _Converter:
         self.result.names.add(name)
         return name
 
-    def found(self, node: exp.Expression, kind: str, said: str) -> None:
+    def note_finding(self, node: exp.Expression, kind: str, text: str) -> None:
         """Note a finding at the line of the Hive `node` starts on, once."""
-        finding = Finding(_line(node, self.text), kind, said)
+        finding = Finding(_hive_line(node, self.text), kind, text)
         if finding not in self.result.findings:
             self.result.findings.append(finding)
 
-    def constant(self, wanted: str, value: str, node: exp.Expression, said: str) -> str:
+    def constant(self, wanted: str, value: str, node: exp.Expression, what: str) -> str:
         """A named constant, such as STATUS_VALUES = [...], and a finding saying so; the same
         value a second time is the same constant."""
         for name, held in self.result.constants:
@@ -336,12 +347,12 @@ class _Converter:
         name = self.fresh(wanted).upper()
         self.taken.add(name)
         self.result.constants.append((name, value))
-        self.found(node, "constant", f"{said} is the constant {name}")
+        self.note_finding(node, "constant", f"{what} is the constant {name}")
         return name
 
-    # --- Tables read, before anything is converted ----------------------------------------------
+    # --- Tables read, before anything is converted --------------------------------------
 
-    def tables_read(self, query: exp.Expression) -> None:
+    def note_tables_read(self, query: exp.Expression) -> None:
         """Note every table the query reads, and each with no Table reference yet.
 
         Each is "db.table", in the order the Hive names them, however much of it converts."""
@@ -356,9 +367,9 @@ class _Converter:
             self.result.tables.append(full)
             if self.columns_of(full) is None:
                 self.result.missing.append(full)
-                self.found(table, "table", f"{full} has no Table reference yet")
+                self.note_finding(table, "table", f"{full} has no Table reference yet")
 
-    def variables(self) -> None:
+    def note_variables(self) -> None:
         """Note each ${...} in the Hive, such as ${hivevar:day}, kept in it as text."""
         for found in re.finditer(r"\$\{[^}]*\}", self.text):
             finding = Finding(self.text.count("\n", 0, found.start()) + 1, "variable",
@@ -397,7 +408,8 @@ class _Converter:
                        if len(items) > 1 or len(items[0]) > 60 or "\n" in items[0]
                        else f"{self.use(selected)}({items[0]})")
         if node.args.get("where"):
-            clauses.append(f"{self.use('WHERE')}({self.conditions(node.args['where'].this, scope)})")
+            where = self.conditions(node.args["where"].this, scope)
+            clauses.append(f"{self.use('WHERE')}({where})")
         if node.args.get("group"):
             clauses.append(self.group(node.args["group"], scope))
         if node.args.get("having"):
@@ -422,8 +434,8 @@ class _Converter:
             raise Unconvertible("a SELECT with no FROM, which statement(...) needs")
         for part, why in _DROPPED.items():
             if node.args.get(part):
-                self.found(node.args[part], "dropped",
-                           f"{sql_text(node.args[part])} is dropped: {why}")
+                self.note_finding(node.args[part], "dropped",
+                                  f"{sql_text(node.args[part])} is dropped: {why}")
         return from_
 
     def stack(self, node: exp.Expression) -> str:
@@ -436,10 +448,13 @@ class _Converter:
         for side in (node.this, node.expression):
             same = type(side) is type(node) and side.args.get("distinct") == node.args.get(
                 "distinct")
-            parts += self.stack(side)[len(name) + 2:-2].split(",\n    ") if same else [
-                self.query(side)]
-        return (f"{self.use(name)}(\n" + "".join(f"    {_indented(part, 4)},\n" for part in parts)
-                + ")")
+            if same:
+                # A stack of the same kind inside it: its parts, out of the Python just written.
+                parts += self.stack(side)[len(name) + 2:-2].split(",\n    ")
+            else:
+                parts.append(self.query(side))
+        return (f"{self.use(name)}(\n"
+                + "".join(f"    {_indented(part, 4)},\n" for part in parts) + ")")
 
     def outputs(self, node: exp.Select, scope: dict[str, _Source]) -> list[tuple[str, str]]:
         """Each SELECT item's Python, with the name of the column it gives.
@@ -453,9 +468,10 @@ class _Converter:
                 continue
             name = item.alias_or_name if isinstance(item, (exp.Alias, exp.Column)) else ""
             inner = item.this if isinstance(item, exp.Alias) else item
-            if _literal(inner) is not None or isinstance(inner, exp.Null):
-                value = self.unchecked(inner, scope, "unchecked_column",
-                                       "no Toolbox function gives a plain value as a column yet")
+            if _python_of_literal(inner) is not None or isinstance(inner, exp.Null):
+                value = self.unchecked(
+                    inner, scope, "unchecked_column",
+                    "no Toolbox function gives a plain value as a column yet")
             else:
                 value = self.column_or_unchecked(inner, scope)
             if isinstance(item, exp.Alias) or not isinstance(inner, exp.Column):
@@ -474,8 +490,9 @@ class _Converter:
         for alias in [table] if table else list(scope):
             source = scope[alias]
             columns = source.columns or []
-            self.found(item, "changed", f"the * of {alias} becomes its columns, "
-                       + (", ".join(columns) if columns else "as its Table reference lists them"))
+            listed = ", ".join(columns) if columns else "as its Table reference lists them"
+            self.note_finding(item, "changed",
+                              f"the * of {alias} becomes its columns, {listed}")
             found.append((f"*{self.use('all_columns')}({source.variable})",
                           columns[0] if columns else "*"))
             found += [("", column) for column in columns[1:]]
@@ -490,11 +507,13 @@ class _Converter:
             if not alias:
                 raise Unconvertible("a sub-query in FROM with no name")
             variable = self.fresh(alias)
+            query = self.query(node.this)
             self.result.assignments.append(
-                (variable, f"{self.use('derived')}({python_literal(alias)}, {self.query(node.this)})"))
+                (variable, f"{self.use('derived')}({python_literal(alias)}, {query})"))
             scope[alias] = _Source(variable, self.columns_named(node.this))
-            self.found(node, "changed", f"the sub-query {alias} becomes a Derived table, which "
-                       f"the Toolbox writes at the top, as WITH {alias} AS (...)")
+            self.note_finding(node, "changed", f"the sub-query {alias} becomes a Derived "
+                              f"table, which the Toolbox writes at the top, as WITH {alias} AS "
+                              "(...)")
             return variable
         if not isinstance(node, exp.Table):
             raise Unconvertible(f"{type(node).__name__.upper()} in FROM")
@@ -635,8 +654,8 @@ class _Converter:
         """An Unchecked expression: the piece's Hive, each column in it a {placeholder} bound
         to the Column, and a finding saying why it stays Hive."""
         if any(isinstance(part, (exp.Select, exp.Subquery)) for part in node.walk()):
-            raise Unconvertible(f"{why}; and an Unchecked expression can't hold it, as it reads "
-                                "a table of its own")
+            raise Unconvertible(f"{why}; and an Unchecked expression can't hold it, as it "
+                                "reads a table of its own")
         piece = node.copy()
         bound: dict[str, str] = {}
         for number, column in enumerate(list(piece.find_all(exp.Column))):
@@ -650,7 +669,8 @@ class _Converter:
             column.replace(exp.Var(this=marker))
         text = sql_text(piece).replace("{", "{{").replace("}", "}}")
         text = re.sub(r"__placeholder_(\w+?)__", r"{\1}", text)
-        self.found(node, "unchecked", f"{sql_text(node)} stays Hive, in {function}(...): {why}")
+        self.note_finding(node, "unchecked",
+                          f"{sql_text(node)} stays Hive, in {function}(...): {why}")
         arguments = "".join(f", {name}={value}" for name, value in bound.items())
         return f"{self.use(function)}({python_literal(text)}{arguments})"
 
@@ -658,7 +678,7 @@ class _Converter:
 
     def value(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """A Column's Python: a column, a literal, or a calculation the Toolbox writes."""
-        literal = _literal(node)
+        literal = _python_of_literal(node)
         if literal is not None:
             return literal
         for kinds, write in self._writers():
@@ -675,23 +695,36 @@ class _Converter:
                                      Callable[[exp.Expression, dict[str, _Source]], str]]]:
         """What writes each kind of piece value() takes, first match wins: a Window before
         the function it holds, a Count before the aggregates."""
-        part = self.column_or_unchecked
         return [
-            (exp.Paren, lambda node, scope: f"({part(node.this, scope)})"),
+            (exp.Paren, self.bracketed),
             (exp.Column, self.column),
-            (exp.Null, lambda node, scope: "None"),
-            (tuple(_BINARY), lambda node, scope: (f"{part(node.this, scope)} "
-                                                  f"{_BINARY[type(node)]} "
-                                                  f"{part(node.expression, scope)}")),
+            (exp.Null, self.null),
+            (tuple(_BINARY), self.arithmetic),
             (exp.Window, self.windowed),
             (exp.Count, self.count),
             (tuple(_AGGREGATES), self.aggregate),
             (exp.Case, self.case),
-            (exp.If, lambda node, scope: (
-                f"{self.use('if_else')}({self.condition_or_unchecked(node.this, scope)}, "
-                f"{part(node.args['true'], scope)}, "
-                f"{part(node.args.get('false') or exp.Null(), scope)})")),
+            (exp.If, self.if_else),
         ]
+
+    def bracketed(self, node: exp.Paren, scope: dict[str, _Source]) -> str:
+        """A calculation in round brackets, kept in them."""
+        return f"({self.column_or_unchecked(node.this, scope)})"
+
+    def null(self, node: exp.Null, scope: dict[str, _Source]) -> str:
+        """NULL, which is Python's None."""
+        return "None"
+
+    def arithmetic(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
+        """+, -, * or /, written in Python as in Hive."""
+        return (f"{self.column_or_unchecked(node.this, scope)} {_BINARY[type(node)]} "
+                f"{self.column_or_unchecked(node.expression, scope)}")
+
+    def if_else(self, node: exp.If, scope: dict[str, _Source]) -> str:
+        """IF(condition, a, b) as if_else(...), its b NULL where it has none."""
+        return (f"{self.use('if_else')}({self.condition_or_unchecked(node.this, scope)}, "
+                f"{self.column_or_unchecked(node.args['true'], scope)}, "
+                f"{self.column_or_unchecked(node.args.get('false') or exp.Null(), scope)})")
 
     def count(self, node: exp.Count, scope: dict[str, _Source]) -> str:
         """COUNT(*) as count_rows(), COUNT(DISTINCT x) as count_distinct(x)."""
@@ -730,8 +763,8 @@ class _Converter:
                   if node.this is not None else branch.this, branch.args["true"])
                  for branch in branches]
         looked_up = [compared for compared, then in keyed
-                     if isinstance(compared, exp.EQ) and _literal(compared.expression)
-                     and _literal(then)]
+                     if isinstance(compared, exp.EQ) and _python_of_literal(compared.expression)
+                     and _python_of_literal(then)]
         if (len(looked_up) == len(keyed) and (node.this is not None or len(keyed) > 1)
                 and len({sql_text(compared.this) for compared in looked_up}) == 1):
             return self.mapped(keyed, otherwise, node, scope)
@@ -743,8 +776,8 @@ class _Converter:
         pairs = [f"({self.condition_or_unchecked(condition, scope)}, "
                  f"{self.column_or_unchecked(then, scope)})" for condition, then in keyed]
         listed = "[\n" + "".join(f"    {_indented(pair, 4)},\n" for pair in pairs) + "]"
-        self.found(node, "changed", f"the CASE WHEN chain of {len(pairs)} conditions becomes "
-                   "first_match(...), which tries them in order, as CASE does")
+        self.note_finding(node, "changed", f"the CASE WHEN chain of {len(pairs)} conditions "
+                          "becomes first_match(...), which tries them in order, as CASE does")
         return f"{self.use('first_match')}({_indented(listed, 0)}{otherwise})"
 
     def mapped(self, keyed: list[tuple[exp.Expression, exp.Expression]], otherwise: str,
@@ -752,7 +785,7 @@ class _Converter:
         """A CASE comparing one column with plain values, each giving a plain value:
         mapped(column, A_NAMED_DICT)."""
         column = keyed[0][0].this
-        pairs = [f"{_literal(compared.expression)}: {_literal(then)}"
+        pairs = [f"{_python_of_literal(compared.expression)}: {_python_of_literal(then)}"
                  for compared, then in keyed]
         looked_up = self.value(column, scope)
         named = node.parent.alias if isinstance(node.parent, exp.Alias) else ""
@@ -761,9 +794,9 @@ class _Converter:
         value = "{\n" + "".join(f"    {pair},\n" for pair in pairs) + "}"
         constant = self.constant(wanted, value, node, f"the CASE on {sql_text(column)}")
         if node.this is None:
-            self.found(node, "changed", f"the CASE WHEN {sql_text(column)} = ... becomes "
-                       f"mapped(...), which the Toolbox writes as CASE {sql_text(column)} WHEN "
-                       "..., the same lookup")
+            self.note_finding(node, "changed", f"the CASE WHEN {sql_text(column)} = ... "
+                              "becomes mapped(...), which the Toolbox writes as CASE "
+                              f"{sql_text(column)} WHEN ..., the same lookup")
         return f"{self.use('mapped')}({looked_up}, {constant}{otherwise})"
 
     def function(self, node: exp.Func, scope: dict[str, _Source]) -> str:
@@ -783,7 +816,7 @@ class _Converter:
         arguments = [one for one in arguments if not isinstance(one, bool)]
         if not called or not all(isinstance(one, exp.Expression)
                                  and not isinstance(one, exp.DataType) for one in arguments):
-            raise Unconvertible(f"no Toolbox function writes {_called(node)} yet, and "
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} yet, and "
                                 "hive_function(...) writes only calls such as name(a, b)")
         name = called.group(1).lower()
         again = exp.Anonymous(this=name, expressions=[one.copy() for one in arguments])
@@ -792,11 +825,11 @@ class _Converter:
         except sqlglot.errors.ParseError:
             read_again = None
         if read_again is None or sql_text(read_again) != written:
-            raise Unconvertible(f"no Toolbox function writes {_called(node)} yet, and "
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} yet, and "
                                 "hive_function(...) would write it differently")
         values = [self.column_or_unchecked(one, scope) for one in arguments]
-        self.found(node, "changed", f"{name}(...) is a Hive function no Toolbox function wraps: "
-                   f'hive_function("{name}", ...) writes it')
+        self.note_finding(node, "changed", f"{name}(...) is a Hive function no Toolbox "
+                          f'function wraps: hive_function("{name}", ...) writes it')
         arguments = "".join(", " + v for v in values)
         return f"{self.use('hive_function')}({python_literal(name)}{arguments})"
 
@@ -811,7 +844,10 @@ class _Converter:
         if isinstance(inner, (exp.Lag, exp.Lead)):
             name = "lag" if isinstance(inner, exp.Lag) else "lead"
             steps = inner.args.get("offset")
-            far = f", {'back' if name == 'lag' else 'ahead'}={steps.this}" if steps else ""
+            far = ""
+            if steps:
+                way = "back" if name == "lag" else "ahead"
+                far = f", {way}={steps.this}"
             if inner.args.get("default"):
                 raise Unconvertible(f"{name} doesn't take a default value yet")
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over}{far})"
@@ -823,22 +859,23 @@ class _Converter:
         if isinstance(inner, (exp.FirstValue, exp.LastValue)):
             name = "first_value" if isinstance(inner, exp.FirstValue) else "last_value"
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over})"
-        raise Unconvertible(f"no Toolbox function writes {_called(inner)} OVER (...) yet")
+        raise Unconvertible(f"no Toolbox function writes {_call_name(inner)} OVER (...) yet")
 
     def window(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """The OVER (...) of a window function, as window(...)."""
         parts = []
         if node.args.get("partition_by"):
-            parts.append("PARTITION_BY=" + _listed(
+            parts.append("PARTITION_BY=" + _python_list(
                 [self.value(one, scope) for one in node.args["partition_by"]]))
         if node.args.get("order"):
-            parts.append("ORDER_BY=" + _listed(
+            parts.append("ORDER_BY=" + _python_list(
                 [self.ordering(one, scope) for one in node.args["order"].expressions]))
         spec = node.args.get("spec")
         if spec is not None:
             if (spec.args.get("kind") or "").upper() != "ROWS":
                 raise Unconvertible("window(...) writes ROWS frames only, not RANGE")
-            parts.append(f"rows=({self.frame_end(spec, 'start')}, {self.frame_end(spec, 'end')})")
+            start, end = self.frame_end(spec, "start"), self.frame_end(spec, "end")
+            parts.append(f"rows=({start}, {end})")
         return f"{self.use('window')}({', '.join(parts)})"
 
     @staticmethod
@@ -872,6 +909,10 @@ class _Converter:
             return (f"{self.use('between')}({self.value(node.this, scope)}, "
                     f"{self.value(node.args['low'], scope)}, "
                     f"{self.value(node.args['high'], scope)})")
+        return self.in_null_not_or_like(node, scope)
+
+    def in_null_not_or_like(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
+        """IN, IS NULL, NOT or LIKE, as the condition function that writes it."""
         if isinstance(node, exp.In):
             return self.in_list(node, scope, "is_in")
         if isinstance(node, exp.Is) and isinstance(node.expression, exp.Null):
@@ -889,9 +930,9 @@ class _Converter:
         if isinstance(left, exp.Null) or isinstance(right, exp.Null):
             raise Unconvertible("a comparison with NULL is never true, and no condition "
                                 "function writes one")
-        if _literal(left) is not None and _literal(right) is None:
+        if _python_of_literal(left) is not None and _python_of_literal(right) is None:
             left, right, name = right, left, swapped
-        if _literal(left) is not None:
+        if _python_of_literal(left) is not None:
             raise Unconvertible("no condition function compares two plain values")
         return f"{self.use(name)}({self.value(left, scope)}, {self.value(right, scope)})"
 
@@ -900,13 +941,13 @@ class _Converter:
         if node.args.get("query"):
             raise Unconvertible("no condition function writes IN (SELECT ...): SEMI_JOIN(...) "
                                 "writes it as a join")
-        values = [_literal(one) for one in node.expressions]
+        values = [_python_of_literal(one) for one in node.expressions]
         if None in values:
             raise Unconvertible("is_in(...) takes a list of plain values only")
-        listed = _listed(values)
+        listed = _python_list(values)
         if len(values) >= LONG_LIST:
             column = node.this.name if isinstance(node.this, exp.Column) else "listed"
-            listed = self.constant(f"{column}_values", _listed(values), node,
+            listed = self.constant(f"{column}_values", _python_list(values), node,
                                    f"the IN list of {len(values)} values")
         return f"{self.use(name)}({self.value(node.this, scope)}, {listed})"
 
@@ -958,9 +999,13 @@ class _Converter:
                  if not isinstance(one, (exp.Rollup, exp.Cube, exp.GroupingSets))]
         inside = [one for one in node.expressions if one not in plain]
         # Hive's older form: GROUP BY a, b WITH ROLLUP, WITH CUBE, or GROUPING SETS (...).
-        after = [(part, one) for part in ("rollup", "cube", "grouping_sets")
-                 for one in (node.args.get(part) if isinstance(node.args.get(part), list)
-                             else [node.args.get(part)] if node.args.get(part) else [])]
+        after = []
+        for part in ("rollup", "cube", "grouping_sets"):
+            given = node.args.get(part)
+            if isinstance(given, list):
+                after += [(part, one) for one in given]
+            elif given:
+                after.append((part, given))
         if len(inside) + len(after) > 1:
             raise Unconvertible("GROUP_BY takes one rollup, cube or grouping_sets")
         items = [self.grouped(one, scope, named) for one in plain]
@@ -985,8 +1030,9 @@ class _Converter:
             if kind != "grouping_sets":
                 sets, items = plain, []
             else:
-                listed = {sql_text(column) for each in sets for column in (
-                    each.expressions if isinstance(each, exp.Tuple) else [each.unnest()])}
+                listed = set()
+                for each in sets:
+                    listed |= {sql_text(column) for column in _grouping_set_columns(each)}
                 if listed != {sql_text(column) for column in plain}:
                     raise Unconvertible("grouping_sets(...) groups by the columns its sets "
                                         "name, and this GROUP BY names others too")
@@ -994,17 +1040,19 @@ class _Converter:
         if not sets:
             raise Unconvertible(f"{kind}(...) needs a column")
         if kind == "grouping_sets":
-            written = ", ".join(
-                "[" + ", ".join(self.grouped(column, scope, named) for column in (
-                    each.expressions if isinstance(each, exp.Tuple) else [each.unnest()]))
-                + "]" for each in sets)
+            each_set = []
+            for each in sets:
+                columns = [self.grouped(column, scope, named)
+                           for column in _grouping_set_columns(each)]
+                each_set.append("[" + ", ".join(columns) + "]")
+            written = ", ".join(each_set)
         else:
             written = ", ".join(self.grouped(column, scope, named) for column in sets)
         call = f"{self.use(kind)}({written})"
         if kind != "grouping_sets":
-            self.found(node, "changed", f"{sql_text(node)} becomes "
-                       f"GROUP_BY({', '.join([*items, call])}), which the Toolbox writes as the "
-                       "GROUPING SETS it stands for")
+            self.note_finding(node, "changed", f"{sql_text(node)} becomes "
+                              f"GROUP_BY({', '.join([*items, call])}), which the Toolbox "
+                              "writes as the GROUPING SETS it stands for")
         return [*items, call]
 
     def order(self, node: exp.Order, scope: dict[str, _Source],
@@ -1029,9 +1077,9 @@ class _Converter:
         written = self.value(node.this, scope)
         return f"{self.use('descending')}({written})" if node.args.get("desc") else written
 
-    # --- CTEs ---------------------------------------------------------------------------------
+    # --- CTEs -------------------------------------------------------------------------------
 
-    def cte(self, node: exp.CTE) -> None:
+    def add_cte(self, node: exp.CTE) -> None:
         """One CTE: a Derived table, or, when no Statement can be it, an Unchecked derived
         table holding its Hive."""
         name = node.alias
@@ -1041,23 +1089,33 @@ class _Converter:
             value = f"{self.use('derived')}({python_literal(name)}, {self.query(node.this)})"
         except Unconvertible as why:
             if columns is None:
-                raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * of a "
-                                    "table with no Table reference yet hides its columns") from why
+                raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * "
+                                    "of a table with no Table reference yet hides its "
+                                    "columns") from why
             text = sql_text(node.this, pretty=True)
             listed = "{\n" + "".join(f"    {python_literal(column)}: None,\n"
                                       for column in columns) + "}"
             value = (f"{self.use('unchecked_derived')}({python_literal(name)}, "
                      f"{python_literal(text)}, "
                      f"columns={listed})")
-            self.found(node, "unchecked", f"the CTE {name} stays Hive, in "
-                       f"unchecked_derived(...): {why}")
+            self.note_finding(node, "unchecked", f"the CTE {name} stays Hive, in "
+                              f"unchecked_derived(...): {why}")
         self.result.assignments.append((variable, value))
         self.ctes[name] = _Source(variable, columns)
 
 
+def _grouping_set_columns(each: exp.Expression) -> list[exp.Expression]:
+    """The columns of one of GROUPING SETS: a set's in brackets, or a lone column, its brackets
+    taken off."""
+    if isinstance(each, exp.Tuple):
+        return list(each.expressions)
+    return [each.unnest()]
+
+
 # A refusal's opt-out, as its four-part message ends: the call it names, the first thing that
 # call was given, and the keyword that opts out, such as FROM(r, reads_all_partitions=True).
-_OPT_OUT = re.compile(r"Opt-out:\s+(?P<call>\w+)\((?P<first>[^,)\n]*)[^\n]*?(?P<keyword>\w+)=True\)")
+_OPT_OUT = re.compile(r"Opt-out:\s+(?P<call>\w+)\((?P<first>[^,)\n]*)"
+                      r"[^\n]*?(?P<keyword>\w+)=True\)")
 # The mark a Conversion leaves on each opt-out it adds, for you to decide.
 CONVERSION_MARK = "# CONVERSION: {keyword}=True, as the original did; check it"
 CONVERSION_MARK_LINE = re.compile(r"#\s*CONVERSION: ")
@@ -1112,11 +1170,12 @@ def with_opt_out(logic: str, refusal: str) -> tuple[str, str] | None:
         else:
             added = before + f", {keyword_}=True" + logic[close:]
         mark = indent + CONVERSION_MARK.format(keyword=keyword_) + "\n"
-        return added[:line_start] + mark + added[line_start:], f"{call}({first}, {keyword_}=True)"
+        what_was_added = f"{call}({first}, {keyword_}=True)"
+        return added[:line_start] + mark + added[line_start:], what_was_added
     return None
 
 
-def _read_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
+def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
     """Note what an INSERT wrote, and how, and give back the query it wrote: INSERT INTO or
     INSERT OVERWRITE, with or without TABLE, PARTITION(...) with values or without, and a
     list of the table's columns. Your own Saved table is written in the same way instead."""
@@ -1141,7 +1200,7 @@ def _read_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
     for part in (partition.expressions if partition is not None else []):
         if isinstance(part, exp.EQ):
             name = part.this.name
-            value = _literal(part.expression)
+            value = _python_of_literal(part.expression)
             if value is None:
                 raise ConversionRefused(f"its PARTITION gives {name} the value "
                                         f"{sql_text(part.expression)}, not a plain one")
@@ -1149,30 +1208,31 @@ def _read_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
         else:
             name = part.name
         result.partition_columns.append(name)
-    said = f"its {result.write.replace('_', ' ')} {sql_text(table)}"
+    wrote = f"its {result.write.replace('_', ' ')} {sql_text(table)}"
     query = node.expression
     if result.insert_columns:
         # Hive fills the listed columns from the SELECT's by position: the SELECT names them.
         if (not isinstance(query, exp.Select)
                 or len(query.expressions) != len(result.insert_columns)):
             raise ConversionRefused(f"its INSERT lists the columns "
-                                    f"{', '.join(result.insert_columns)}, and its query doesn't "
-                                    "give one column for each, in one SELECT")
+                                    f"{', '.join(result.insert_columns)}, and its query "
+                                    "doesn't give one column for each, in one SELECT")
         query = query.copy()
-        query.set("expressions", [exp.alias_(item.unalias() if isinstance(item, exp.Alias)
-                                             else item, name)
-                                  for item, name in zip(query.expressions, result.insert_columns)])
-        said += f", naming the columns {', '.join(result.insert_columns)}, which its SELECT now names,"
+        named = [exp.alias_(item.unalias(), name)
+                 for item, name in zip(query.expressions, result.insert_columns)]
+        query.set("expressions", named)
+        wrote += (f", naming the columns {', '.join(result.insert_columns)}, which its SELECT "
+                  "now names,")
     # The line of the table it writes, which is INSERT's: a WITH before it starts the node.
-    result.findings.append(Finding(_line(node.this, text), "dropped",
-                                   f"{said} becomes your own Saved table's write, "
+    result.findings.append(Finding(_hive_line(node.this, text), "dropped",
+                                   f"{wrote} becomes your own Saved table's write, "
                                    f"{result.write}(...), with the same partitions"))
     return query
 
 
 # Hive's FROM ... INSERT ... INSERT, which a Conversion refuses, saying what to do instead.
-_SEVERAL_INSERTS = ("it is one FROM with {count} INSERTs, into {targets}, and a Conversion reads "
-                    "one query: write each INSERT as a query of its own, FROM first")
+_SEVERAL_INSERTS = ("it is one FROM with {count} INSERTs, into {targets}, and a Conversion "
+                    "reads one query: write each INSERT as a query of its own, FROM first")
 
 
 def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
@@ -1203,13 +1263,11 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
         for item in one.expressions:
             assigned = item.this
             value = assigned.expression
-            result.settings[sql_text(assigned.this)] = (
-                str(value.this).lower() if isinstance(value, exp.Boolean)
-                else value.this if isinstance(value, exp.Literal) else sql_text(value))
+            result.settings[sql_text(assigned.this)] = _setting_value(value)
     if sets:
         result.findings.append(Finding(
             # A Command notes no line, so the first SET is found in the text.
-            _line(sets[0], text) or text.count("\n", 0, re.search(
+            _hive_line(sets[0], text) or text.count("\n", 0, re.search(
                 r"^[ \t]*SET\b", text, re.IGNORECASE | re.MULTILINE).start()) + 1, "settings",
             f"its {singular_or_plural(len(sets), 'SET line is', f'{len(sets)} SET lines are')} "
             "the "
@@ -1220,7 +1278,16 @@ def _the_one_query(text: str, result: ConvertedQuery) -> exp.Expression:
     return queries[0]
 
 
-def _with(query: exp.Expression, with_: exp.Expression | None) -> exp.Expression:
+def _setting_value(value: exp.Expression) -> str:
+    """A SET line's value as text: true or false, a value's own text, or else its Hive."""
+    if isinstance(value, exp.Boolean):
+        return str(value.this).lower()
+    if isinstance(value, exp.Literal):
+        return value.this
+    return sql_text(value)
+
+
+def _query_with(query: exp.Expression, with_: exp.Expression | None) -> exp.Expression:
     """A copy of `query`, its WITH set to `with_`, or taken away when that is None."""
     query = query.copy()
     query.set("with_", with_.copy() if with_ is not None else None)
@@ -1248,18 +1315,18 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         raise ConversionRefused(_SEVERAL_INSERTS.format(count=len(targets),
                                                         targets=", ".join(targets)))
     if isinstance(query, exp.Insert):
-        query = _read_insert(query, result, text)
+        query = _note_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
         raise ConversionRefused(f"it is a {type(query).__name__.upper()}, not a query")
     with_ = with_ or query.args.get("with_")
-    whole = _with(query, with_)
-    converter.tables_read(whole)
-    converter.variables()
+    whole = _query_with(query, with_)
+    converter.note_tables_read(whole)
+    converter.note_variables()
     before = list(result.findings)
-    query = _with(query, None)
+    query = _query_with(query, None)
     try:
         for cte in (with_.expressions if with_ else []):
-            converter.cte(cte)
+            converter.add_cte(cte)
         if isinstance(query, exp.Select):
             result.clauses = converter.clauses(query)
             result.query = (f"{converter.use('statement')}(\n"
@@ -1271,7 +1338,7 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         # What was converted before it stopped is no use to the Unchecked statement.
         result.clauses, result.assignments, result.constants = None, [], []
         result.names, result.databases = set(), set()
-        result.findings = before + [Finding(_line(whole, text), "unchecked",
+        result.findings = before + [Finding(_hive_line(whole, text), "unchecked",
                                             f"the whole query stays an Unchecked statement, "
                                             f"unchecked_hive(...): {why}")]
         result.query = f"{converter.use('unchecked_hive')}({python_literal(sql_text(whole))})"
