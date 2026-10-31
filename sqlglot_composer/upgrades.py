@@ -16,6 +16,7 @@ admin/project_version.txt was made by 7.1.
 from __future__ import annotations
 
 import ast
+import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -367,6 +368,38 @@ def execute(hive: str) -> None:
 '''
 
 
+# The Templates 7.2 and 8.0 wrote, by the sha256 of their text, which 8.1's new_table, its
+# Table reference written from the logic, needs written again: one still as written is, and one
+# you changed is marked. (8.0 never shipped; 8.1's step takes this on, ticket 13.)
+TEMPLATES_BEFORE_8_1 = {
+    "saved_table": "2cd1eeedcd8d35574a46ffea8b115fe5c25db843c1c8c921e4351a5334181937",
+    "quality_checks": "3c46046763380f9e12d3eb37cf9185d5f3ab53c934baec5ede1bfb46f588598d",
+    "saved_table_reference": "8042a4ef5a603a3462ffca5f23456fb9dbeb3ed9e6e3396b5ac81da76381a633",
+}
+TEMPLATE_MARK = ("new_table now writes a table's Table reference from its logic: copy what "
+                 "changed from this Template in a new Project's admin/templates/, such as "
+                 "PARTITIONED_BY beside READS")
+
+
+def _write_templates_again(upgrade: Upgrade) -> None:
+    """Write again each Template still as 7.2 or 8.0 wrote it, and mark each you changed;
+    one already as this Toolbox writes it is left as it is."""
+    from .project_templates import TEMPLATES  # it is read here, when the step runs
+
+    for name, digest in TEMPLATES_BEFORE_8_1.items():
+        relative = f"admin/templates/{name}.py"
+        path = upgrade.root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if text == TEMPLATES[name]:
+            continue
+        if hashlib.sha256(text.encode("utf-8")).hexdigest() == digest:
+            upgrade.rewrite(relative, TEMPLATES[name])
+        else:
+            upgrade.mark(relative, 1, TEMPLATE_MARK)
+
+
 def to_8_0(upgrade: Upgrade) -> None:
     """7.2 to 8.0: the Project gets 8.0's admin layout: a notebook per Workflow in
     admin/workflows/, admin/remove.ipynb, admin/databases.py and admin/sent.csv. Each one-action
@@ -392,6 +425,7 @@ def to_8_0(upgrade: Upgrade) -> None:
     if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_7_2:
         upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
     upgrade.add_what_start_makes()
+    _write_templates_again(upgrade)
     databases = upgrade.root / DATABASES
     for start, what in DATABASE_MARKS.items():
         _, line = _line_starting(databases, start)

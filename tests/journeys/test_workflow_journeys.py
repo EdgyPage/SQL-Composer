@@ -44,8 +44,9 @@ KNOWN_FIDDLING = {
     "convert": (),
     # Its prod copies' locations follow the dev ones, their database's folder renamed.
     "promote": (),
+    # A hand-started table's logic is what the user writes: its Table reference is written
+    # from it.
     "new_table": (
-        "fill in the Table reference's <...>",
         "fill in the logic's <...>",
     ),
     "references": (),
@@ -394,13 +395,13 @@ def test_new_table_then_change_it(started: Started) -> None:
     table = "mart_dev.daily_runs"
     _run_references(started, "ops.job_runs", ["run_id"])
     journey = started.journey("new_table")
-    journey.type_names(TABLES=[table])
+    journey.type_names(TABLES=[table], DECISIONS={table: {"location": _location(table)}})
     journey.run_to(1)
-    journey.make_by_hand("fill in the Table reference's <...>", _fill_daily_runs_reference,
-                         _reference(started.root, table))
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
     journey.run_to()
+    written = _reference(started.root, table).read_text(encoding="utf-8")
+    assert '    key=["job_id", "dt"],  # proposed' in written
     written = started.warehouse.rows_of(table)
     assert sorted(written.columns) == ["dt", "job_id", "runs"]
     assert len(written) > 0
@@ -421,10 +422,8 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     table = "mart_dev.daily_runs"
     _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
     journey = started.journey("new_table")
-    journey.type_names(TABLES=[table])
-    assert "2. Fill in each Table reference" in journey.run_workflow()
-    journey.make_by_hand("fill in the Table reference's <...>", _fill_daily_runs_reference,
-                         _reference(started.root, table))
+    journey.type_names(TABLES=[table], DECISIONS={table: {"location": _location(table)}})
+    assert "2. Write each table's logic" in journey.run_workflow()
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
     sent = list(started.warehouse.executed)
@@ -448,18 +447,6 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     change.run_to(3)
     assert "change_a_saved_table: every step is done." in change.run_workflow()
     assert "2026-09-24" not in set(started.warehouse.rows_of(table)["dt"])
-
-
-def _fill_daily_runs_reference(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
-    columns = ('"job_id": "bigint",\n        "runs": "bigint",\n'
-               '        "dt": "string",')
-    text = text.replace("<COLUMN>: <COLUMN_TYPE>,", columns)
-    text = text.replace("partitioned_by=[],", 'partitioned_by=["dt"],')
-    text = text.replace("key=None,", 'key=["job_id", "dt"],')
-    location = _location("mart_dev.daily_runs")
-    text = text.replace("location=<LOCATION>,", f'location="{location}",')
-    path.write_text(text, encoding="utf-8")
 
 
 def _fill_daily_runs_logic(text: str) -> str:

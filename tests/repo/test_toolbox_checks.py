@@ -106,7 +106,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  "write_decisions",
                  # Toolbox 8.1, ticket 07: every step left of a Workflow, up to the first
                  # that needs you.
-                 "run_workflow"]
+                 "run_workflow",
+                 # Toolbox 8.1, ticket 08: a new table's Table reference, from its logic.
+                 "reference_from_logic"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

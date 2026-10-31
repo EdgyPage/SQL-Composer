@@ -44,12 +44,15 @@ PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
 COLUMN_LINE = re.compile(r'^        "(?P<column>[^"]+)": "(?P<type>[^"]*)",')
 # What a Conversion writes after a column whose type nothing told it.
 GUESSED = "  # TODO: guessed: nothing told its type"
+# What new_table's Table reference holds for a Saved table's columns, until
+# project.reference_from_logic writes them from its logic.
+COLUMNS = "<COLUMNS>"
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
 # What a Conversion writes after the Key it worked out of a table's query: a Decision made,
 # which an answer in the decisions cell may still change while the line keeps this mark.
-PROPOSED = ('  # proposed by project.convert from its query; if it is wrong, answer "key" in '
-            "the decisions cell")
+PROPOSED = ('  # proposed from its query; if it is wrong, answer "key" in the decisions '
+            "cell")
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,9 @@ class Decision:
             return "key: the columns whose values name one row, or None when none do"
         if self.kind == GUESSED_TYPE:
             return f'types: {self.subject}\'s type, written "string" as a guess'
+        if self.subject == COLUMNS:
+            return (f"{COLUMNS}, which project.reference_from_logic writes from its logic, "
+                    "once that runs")
         return f"{self.subject}, to fill in by hand"
 
 
@@ -80,6 +86,12 @@ class Answered:
     text: str
     written: list[str] = field(default_factory=list)
     unwritten: list[str] = field(default_factory=list)
+
+
+def has_columns_written(text: str) -> bool:
+    """Whether a Table reference's code lists its columns: not new_table's <COLUMNS>, nor an
+    older Template's <COLUMN> and <COLUMN_TYPE>, left for its logic to write."""
+    return COLUMNS[:-2] not in code_of(text)
 
 
 def code_of(text: str) -> str:

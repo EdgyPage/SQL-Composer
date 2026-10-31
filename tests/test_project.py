@@ -224,7 +224,8 @@ def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
     assert "<SOURCE_TABLE>" in logic
     reference = (started / "references" / "mart__daily_job_runs.py").read_text(encoding="utf-8")
     assert 'daily_job_runs = Table(\n    "mart.daily_job_runs",' in reference
-    assert "<LOCATION>" in reference
+    # Its columns are written from its logic, by project.reference_from_logic.
+    assert '    columns={"<COLUMNS>": "string"},' in reference
     assert [(row["kind"], row["table"], row["created_at"], row["removed_at"])
             for row in registry(started)] == [
         ("table_folder", "mart.daily_job_runs", "2026-10-21 09:30:00", ""),
@@ -232,7 +233,7 @@ def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
     assert repr(report) == (
         "Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from\n"
         "admin/templates/saved_table.py.\n"
-        "Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.")
+        "Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.")
     assert ('- Call: `project.new_table("mart.daily_job_runs")`\n'
             "- Tables named: mart.daily_job_runs\n"
             "- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, "
@@ -1529,11 +1530,12 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
     assert (started / "tables" / "mart__team_day").is_dir()
     assert report.splitlines()[0] == (
         '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"])')
-    assert report.splitlines()[-1] == (
-        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, in "
-        "references/, and save it. It is a decision, yours to make")
+    assert report.splitlines()[-2] == (
+        "  admin/workflows/new_table/new_table.ipynb: 2. Write each table's logic in its Table "
+        "notebook, and save it. It is a decision, yours to make: for table in "
+        '["mart.daily_job_runs", "mart.team_day"]:')
     # Run again, the Table folders are there, so the next step is still the decision.
-    assert repr(project.do_next("new_table")).splitlines() == [report.splitlines()[-1]]
+    assert repr(project.do_next("new_table")).splitlines() == report.splitlines()[-2:]
 
 
 def test_a_conversion_is_started_once_it_is_named(started: Path) -> None:

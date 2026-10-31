@@ -142,7 +142,8 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
-           "promoted_tables", "table_reference", "write_decisions", "run_workflow"]
+           "promoted_tables", "table_reference", "write_decisions", "run_workflow",
+           "reference_from_logic"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -536,7 +537,7 @@ def new_table(name: str | list[str], template: str = "saved_table") -> ProjectRe
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
-    Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+    Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
 
     `name` is the table's name in the warehouse, such as "mart.daily_job_runs". It makes
     tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from
@@ -595,7 +596,7 @@ def _new_table_one(name: str, template: str, frame: FrameType) -> ProjectReport:
         made.append(f"created {reference_shown}")
         if not registry.listed(REFERENCE, name):
             to_register.append((REFERENCE, name))
-        report.append(f"Wrote {reference_shown}: fill in its <...> and TODO lines.")
+        report.append(f"Wrote {reference_shown}: project.reference_from_logic writes it.")
     registry.add(to_register, unchecked.now())
     changed, databases_report = _write_databases(root)
     _log(root, call, [name], made + changed, frame)
@@ -689,7 +690,7 @@ def remove_table(name: str | list[str]) -> ProjectReport:
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
-    Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+    Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
     >>> project.remove_table("mart.daily_job_runs")  # the time it ran, as yyyymmdd-hhmmss
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
 
@@ -727,7 +728,7 @@ def remove_reference(name: str | list[str]) -> ProjectReport:
     >>> project.new_table("mart.daily_job_runs")
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
-    Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+    Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
     >>> project.remove_table("mart.daily_job_runs")
     Moved tables/mart__daily_job_runs/ to admin/removed/...-mart__daily_job_runs/.
     >>> project.remove_reference("mart.daily_job_runs")
@@ -1323,9 +1324,11 @@ def do_next(workflow: str | None = None) -> ProjectReport:
       new_table: ran project.new_table(["mart.daily_job_runs"])
         Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
         admin/templates/saved_table.py.
-        Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
-      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, in
-        references/, and save it. It is a decision, yours to make
+        Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
+      admin/workflows/new_table/new_table.ipynb: 2. Write each table's logic in its Table
+        notebook, and save it. It is a decision, yours to make: for table in
+        ["mart.daily_job_runs"]:
+        project.load(table).preview()  # says what stops it, if anything does
 
     It runs each step that changes only files and has a call of its own, in order, up to the
     first it can't run for you: a decision, a call to the warehouse, a step done by hand, or
@@ -1861,7 +1864,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     staging table, folded or kept, so convert, choose, then convert again with
     overwrite=True: a table kept before and folded now leaves its Table folder, which
     project.remove_table removes. One a statement reading it can't take as a Derived table,
-    such as a statement kept as Hive, is kept, and the report says so.
+    such as one sqlglot couldn't read, is kept, and the report says so.
 
     Each table in dev gets its Table folder, its notebook's logic cell building the same query
     from the Toolbox's own functions, with create(), preview() and write(): each CTE a Derived
@@ -3276,9 +3279,10 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     ... except ValueError as refused:
     ...     print(str(refused).strip().splitlines()[0])
     What happened:  project.promote("mart_dev.daily_runs") can't promote yet:
-    mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision open, <COLUMN>, to
-    fill in by hand; mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision
-    open, location: the folder its files go in; mart_dev.daily_runs: its notebook's logic
+    mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision open, <COLUMNS>,
+    which project.reference_from_logic writes from its logic, once that runs;
+    mart_dev.daily_runs: references/mart_dev__daily_runs.py has a Decision open, location: the
+    folder its files go in; mart_dev.daily_runs: its notebook's logic
     doesn't build its write() yet: project.load("mart_dev.daily_runs").write() says why.
 
     A table new_table just made isn't finished, so it isn't promoted: once its Table reference
@@ -4046,11 +4050,14 @@ def _table_call(tree: ast.Module) -> tuple[str, ast.Call] | None:
 def _reference_rows(path: Path, now: str) -> list[dict[str, object]] | None:
     """The Reference sheet's rows for one Table reference file, read without running it: its
     Table(...) call's name, columns, partition columns, Key and descriptions, and the Aliases
-    below it that read one column. None for a file that doesn't parse or has no Table(...)."""
+    below it that read one column. None for a file that doesn't parse or has no Table(...), or
+    whose columns are still new_table's <COLUMNS>, to be written from its logic."""
     read = _read_reference(path)
     if read is None:
         return None
     tree, variable, _, values = read
+    if not decisions.has_columns_written(path.read_text(encoding="utf-8")):
+        return None
     assigned = _simple_assignments(tree)
     aliases: dict[str, list[str]] = {}
     for target, value in assigned:
@@ -4345,18 +4352,139 @@ def load(name: str) -> TableLogic:
     return TableLogic(name, functions)
 
 
+def reference_from_logic(name: str | list[str]) -> ProjectReport:
+    """Write a Saved table's Table reference from its logic.
+
+    >>> from pathlib import Path
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> _ = project.new_table("mart_dev.daily_runs")
+    >>> # Only to stand in for writing its logic in its notebook, and saving it:
+    >>> notebook = Path("tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb")
+    >>> text = notebook.read_text(encoding="utf-8")
+    >>> for placeholder, value in [
+    ...         ("<SOURCE_NAME>", "ops__job_runs"), ("<SOURCE_TABLE>", "job_runs"),
+    ...         ("<READS>", "equals(job_runs.dt, '2026-09-24')"), ("<GROUP_COLUMN>", "job_id"),
+    ...         ("<COUNT_NAME>", "'runs'"), ("<PARTITION_COLUMN>", "dt")]:
+    ...     text = text.replace(placeholder, value)
+    >>> _ = notebook.write_text(text, encoding="utf-8")
+    >>> project.reference_from_logic("mart_dev.daily_runs")
+    Wrote references/mart_dev__daily_runs.py from its logic: job_id, runs and dt, partitioned by
+    dt.
+    Its Key, proposed from its query: job_id and dt.
+    Answer each open Decision in the new_table Workflow's decisions cell: mart_dev.daily_runs:
+    location: the folder its files go in.
+
+    It runs the table's logic cell, as project.load does, and builds its preview(): the
+    Table reference lists each column preview() gives, in its order, typed as the tables it
+    reads type them ("string", noted as a guess, where nothing tells); its partition columns,
+    PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its query
+    makes, proposed, as project.convert proposes one. location= is a Decision left to you,
+    which the new_table Workflow's decisions cell answers. It writes over only the file
+    new_table wrote, whose columns are still <COLUMNS>: a Table reference whose columns you
+    wrote is kept, and the report says so. It refuses a logic cell that doesn't run, one
+    that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming
+    columns preview() doesn't give last. `name` may be a list of tables' names, each written
+    in turn.
+    """
+    frame = callers_frame()
+    return _run_for_each_name(name, "project.reference_from_logic", _reference_from_logic_one,
+                              frame)
+
+
+def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
+    """reference_from_logic for one table."""
+    call = f"project.reference_from_logic({python_literal(name)})"
+    root = _project_root(call)
+    stem = table_stem(name)
+    path = REFERENCE.path(root, stem)
+    shown = REFERENCE.shown(stem)
+    if path.is_file() and decisions.has_columns_written(path.read_text(encoding="utf-8")):
+        return ProjectReport([f"Kept {shown}: its columns are written already, so it is "
+                              'yours. To write it from the logic again, make its columns= '
+                              '{"<COLUMNS>": "string"}.'])
+    namespace = _logic_namespace(root, name, table_notebook(stem), call)
+    preview = _preview_of(namespace, name, call)
+    columns = {column_name: column._type or "" for column, column_name in preview._outputs}
+    partitions = _partitions_of(namespace, columns, name, call)
+    proposed = _proposed_keys(preview, partitions)
+    text = table_reference_text(name, _untyped_as_string(columns), partitions,
+                                f"{REFERENCE.folder}.{stem}", guessed=_guessed(columns),
+                                proposed=proposed)
+    path.write_text(text, encoding="utf-8")
+    _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
+    said = f"Wrote {shown} from its logic: {in_words(list(columns))}"
+    if partitions:
+        said += f", partitioned by {in_words(partitions)}"
+    lines = [said + "."]
+    if proposed:
+        lines.append(f"Its Key, proposed from its query: {in_words(proposed[0])}.")
+    still_open = decisions.open_decisions(text, name)
+    if still_open:
+        lines.append("Answer each open Decision in the new_table Workflow's decisions cell: "
+                     + "; ".join(f"{name}: {each.question()}" for each in still_open) + ".")
+    return ProjectReport(lines)
+
+
+def _preview_of(namespace: dict[str, object], name: str, call: str) -> Statement:
+    """The Statement a logic cell's preview() builds, refusing a logic cell with none."""
+    preview = namespace.get("preview")
+    built = preview() if callable(preview) else None
+    if not isinstance(built, Statement):
+        refuse(what=f"{call}: the logic cell of {table_notebook(table_stem(name))} defines no "
+               "preview() that gives a Statement.",
+               why="Its Table reference is written from the columns preview() gives, the rows "
+               "write() would save.",
+               fix="Define preview(), as the Template's logic does: return statement(*rows()).",
+               error=ValueError)
+    return built
+
+
+def _partitions_of(namespace: dict[str, object], columns: dict[str, str], name: str,
+                   call: str) -> list[str]:
+    """The partition columns a logic cell's PARTITIONED_BY names, refusing a logic cell with
+    none, and one naming columns its preview() doesn't give last, in order: an older Template's
+    logic has no PARTITIONED_BY, and a partitioned table read as unpartitioned would be
+    wrong."""
+    partitions = namespace.get("PARTITIONED_BY")
+    is_a_list = isinstance(partitions, list)
+    if not is_a_list or list(columns)[len(columns) - len(partitions):] != partitions:
+        refuse(what=f"{call}: PARTITIONED_BY in the logic cell of "
+               f"{table_notebook(table_stem(name))} is {python_literal(partitions)}.",
+               why="It lists this table's partition columns, the last columns preview() "
+               "gives, in their order.",
+               fix=f"Write PARTITIONED_BY = [...] beside READS, naming the last of "
+               f"{in_words(list(columns))} that are its partition columns, or [] for none.",
+               error=ValueError)
+    return partitions
+
+
+def preview_builds(root: Path, name: str) -> bool:
+    """Whether a Table notebook's logic, in the Project at `root`, runs and its preview()
+    builds its Statement: the new_table Workflow's logic step is done then."""
+    return _logic_builds(root, name, "preview")
+
+
 def logic_loads(root: Path, name: str) -> bool:
     """Whether a Table notebook's logic, in the Project at `root`, runs and its write() builds
-    its Statement, as project.load(name).write() does: the new_table Workflow's logic step is
-    done then."""
+    its Statement, as project.load(name).write() does."""
+    return _logic_builds(root, name, "write")
+
+
+def _logic_builds(root: Path, name: str, function: str) -> bool:
+    """Whether a Table notebook's logic runs and its `function`, preview or write, builds."""
     shown = table_notebook(table_stem(name))
     try:
-        _logic_namespace(root, name, shown, f"project.load({python_literal(name)})")["write"]()
+        namespace = _logic_namespace(root, name, shown, f"project.load({python_literal(name)})")
+        return namespace[function]() is not None
     # Whatever stops it, a refusal, a name spelt wrong, a column the table hasn't, means its
     # logic isn't written yet.
     except Exception:  # noqa: BLE001
         return False
-    return True
 
 
 def _logic_namespace(root: Path, name: str, shown: str, call: str) -> dict[str, object]:

@@ -35,8 +35,8 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 # one left. They are:
 {fill_in}
 #
-# Then fill in this table's Table reference, `references/<NAME>.py`: its `<...>` and TODO
-# lines.
+# Then save it: `project.reference_from_logic("<DB>.<TABLE>")`, a new_table Workflow step,
+# writes its Table reference, `references/<NAME>.py`, from the logic, for you to answer.
 {saves}
 #
 # TODO: say in one line what one row of <DB>.<TABLE> is.
@@ -45,7 +45,7 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 #
 # Made by `project.new_table({call})` from
 # `admin/templates/{name}.py`, which filled in the database, the table and its file's name,
-# <NAME>. Run the cells top to bottom once both are filled in.
+# <NAME>. Run the cells top to bottom once its Table reference is written from the logic.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
@@ -88,7 +88,7 @@ _READS_FILL_IN = '''\
 _PARTITION_FILL_IN = '''\
 #   - `<PARTITION_COLUMN>`: the column of the table it reads that fills this table's partition
 #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
-#     naming `<PARTITION_COLUMN>` instead.'''
+#     of rows() naming `<PARTITION_COLUMN>`, and write `PARTITIONED_BY = []`, instead.'''
 # The comment above READS in every logic cell.
 _READS_COMMENT = '''\
 # The rows write() reads: change it to write others. A condition that calls something other
@@ -104,7 +104,7 @@ _CHECKED_READS_FILL_IN = '''\
 _CHECKED_PARTITION_FILL_IN = '''\
 #   - `<PARTITION_COLUMN>`: the column of the table checked that fills this table's partition
 #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
-#     naming `<PARTITION_COLUMN>` instead.'''
+#     of rows() naming `<PARTITION_COLUMN>`, and write `PARTITIONED_BY = []`, instead.'''
 _CHECKED_READS_COMMENT = '''\
 # The rows checked: change it to check others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.'''
@@ -113,12 +113,12 @@ SAVED_TABLE = _notebook(
     "saved_table",
     about='''\
 # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-# It is partitioned however its Table reference says, or not at all.''',
+# It is partitioned as PARTITIONED_BY says, or not at all.''',
     saves='''\
 # It lists the columns write() saves, in the order its SELECT gives them: here
 # <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint", and
-# last its partition column, if it has one, also named in partitioned_by=[...]. Its Key is
-# the column each row is for, and the partition column if it has one, such as
+# last its partition column, if it has one, as PARTITIONED_BY names it. Its Key, proposed from
+# the query, is the column each row is for, and the partition column if it has one, such as
 # key=["job_id", "region"].''',
     fill_in='''\
 #   - `<SOURCE_NAME>` and `<SOURCE_TABLE>`: the table it reads, by its file in references/ and
@@ -139,6 +139,9 @@ from references.<SOURCE_NAME> import <SOURCE_TABLE>
 
 {_READS_COMMENT}
 READS = <READS>
+
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["<PARTITION_COLUMN>"]
 
 
 def create() -> Statement:
@@ -214,6 +217,9 @@ from references.<CHECKED_NAME> import <CHECKED>
 {_CHECKED_READS_COMMENT}
 READS = <READS>
 
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["<PARTITION_COLUMN>"]
+
 
 def create() -> Statement:
     """Step 1: create <DB>.<TABLE> from its Table reference, if it isn't there yet."""
@@ -283,32 +289,25 @@ run_query(null_counts(), query)''',
 
 SAVED_TABLE_REFERENCE = '''"""<DB>.<TABLE> - TODO: say in one line what one row is.
 
-Fill in every <...> below, brackets and all: Python stops at one left in. They are:
-    <COLUMN> and <COLUMN_TYPE>: a column write() saves and its Hive type, each in quotes,
-        such as "job_id" and "bigint". Copy the line for each column, in the order write()
-        saves them, its partition columns last.
-    <LOCATION>: the table's own folder, in quotes, such as "/data/your_team/<DB>.db/<TABLE>".
-Then partitioned_by= and key=, and the TODO lines.
+project.reference_from_logic("<DB>.<TABLE>") writes this file again from the table's logic,
+filling in what is left. They are:
+    <COLUMNS>: the columns write() saves and their types, from its logic's preview().
 
 Why: TODO: who reads this table, and why it is saved rather than worked out each time.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table's Table reference is filled in by hand, since the table doesn't exist until its
-notebook's create() makes it from this file. Its notebook's text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table's logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn't exist until its notebook's create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
 """
 
 from sqlglot_composer import Table
 
 <TABLE> = Table(
     "<DB>.<TABLE>",
-    columns={
-        <COLUMN>: <COLUMN_TYPE>,  # a line per column write() saves, its partition columns last
-    },
-    partitioned_by=[],  # its partition columns, in order, such as ["region"]: [] for none
-    key=None,  # the columns whose values name one row, such as ["job_id"]: None if none do
-    location=<LOCATION>,  # its own folder, in quotes
-    descriptions={},  # optional: {"column": "what it holds"}, for the Reference sheet
+    columns={"<COLUMNS>": "string"},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as "/data/your_team/<DB>.db/<TABLE>"
 )
 
 # --- Aliases ------------------------------------------------------------------------------

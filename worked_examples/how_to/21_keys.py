@@ -72,7 +72,7 @@ table](#save_a_table) shows:
 >>> project.new_table("mart.job_day_events")
 Made tables/mart__job_day_events/: mart__job_day_events.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__job_day_events.py: fill in its <...> and TODO lines.
+Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.
 
 Then fill in its Table reference. A job has a row on every day, so its Key is the job and the
 day, as ops.job_owners' is:

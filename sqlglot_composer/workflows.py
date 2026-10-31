@@ -296,13 +296,6 @@ def every_source_decision_made(root: Path, inputs: dict[str, object]) -> bool:
     return _every_decision_made(root, names_in(inputs, "TABLES"), SOURCE_DECISIONS)
 
 
-def every_reference_filled_in(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each new table's Table reference leaves no Decision open: no <...> left in its
-    code, its location= filled in. Its docstring may still name the placeholders, as a
-    Template's says what each was, and a TODO line waits on nothing."""
-    return _every_decision_made(root, names_in(inputs, "TABLES"), decisions.KINDS)
-
-
 def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object],
                         step: Step) -> list[decisions.Decision]:
     """Each Decision a decision step waits on, for the tables of its Workflow's instance: the
@@ -323,14 +316,34 @@ def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     return project.write_decisions(answers if isinstance(answers, dict) else {})
 
 
-def every_logic_loads(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table's notebook's logic runs and its write() builds its Statement, as
-    project.load(table).write() does. Its text cells may still name a Template's
-    placeholders, as they say what each was."""
+def every_preview_builds(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each table's notebook's logic runs and its preview() builds its Statement."""
     from . import project  # project.py imports this file
 
     tables = names_in(inputs, "TABLES")
-    return bool(tables) and all(project.logic_loads(root, table) for table in tables)
+    return bool(tables) and all(project.preview_builds(root, table) for table in tables)
+
+
+def every_reference_from_logic(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each table's Table reference is written, its columns no longer new_table's
+    <COLUMNS>."""
+    paths = [reference_path(root, table) for table in names_in(inputs, "TABLES")]
+    return bool(paths) and all(path.is_file() and decisions.has_columns_written(file_text(path))
+                               for path in paths)
+
+
+def every_new_table_decision_answered(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the decisions cell answers each Decision the new tables' Table references,
+    written from their logic, leave open."""
+    return every_reference_from_logic(root, inputs) and _every_decision_answered(
+        root, names_in(inputs, "TABLES"), DEV_DECISIONS, inputs)
+
+
+def every_new_table_decision_made(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the new tables' Table references, written from their logic, leave no Decision
+    open."""
+    return every_reference_from_logic(root, inputs) and _every_decision_made(
+        root, names_in(inputs, "TABLES"), DEV_DECISIONS)
 
 
 def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
@@ -736,6 +749,13 @@ def make_table_folders(inputs: dict[str, object]) -> ProjectReport:
     return project.new_table(names_in(inputs, "TABLES"))
 
 
+def write_references_from_logic(inputs: dict[str, object]) -> ProjectReport:
+    """project.reference_from_logic for each table TABLES names."""
+    from . import project  # project.py imports this file
+
+    return project.reference_from_logic(names_in(inputs, "TABLES"))
+
+
 def refresh_the_sheet(inputs: dict[str, object]) -> ProjectReport:
     """project.refresh_reference_sheet for each table TABLES names."""
     from . import project  # project.py imports this file
@@ -875,17 +895,23 @@ NEW_TABLE = Workflow(
                    "its Table reference"),
     steps=(
         Step("Make each Table folder", FILE_STEP, ("the tables' names",),
-             ("a Table folder", "its Table reference to fill in"),
-             "project.new_table(TABLES)", every_table_folder_made, make_table_folders),
-        Step("Fill in each Table reference, in references/, and save it", DECISION,
-             ("its Table reference to fill in",), ("its Table reference",),
-             done=every_reference_filled_in),
+             ("a Table folder",), "project.new_table(TABLES)", every_table_folder_made,
+             make_table_folders),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
-             ("a Table folder", "what each table should hold"),
-             ("a dev Table folder whose logic loads",),
+             ("a Table folder", "what each table should hold"), ("its logic",),
              "for table in TABLES:\n"
-             "    project.load(table).write()  # says what stops it, if anything does",
-             every_logic_loads),
+             "    project.load(table).preview()  # says what stops it, if anything does",
+             every_preview_builds),
+        Step("Write each Table reference from its logic", FILE_STEP, ("its logic",),
+             ("its Table reference",), "project.reference_from_logic(TABLES)",
+             every_reference_from_logic, write_references_from_logic),
+        Step("Answer each table's open Decisions in the decisions cell", DECISION,
+             ("its Table reference",), ("each answer in the decisions cell",),
+             done=every_new_table_decision_answered, decides=DEV_DECISIONS),
+        Step("Write each answer into its table's Table reference", FILE_STEP,
+             ("each answer in the decisions cell",), ("a dev Table folder whose logic loads",),
+             "project.write_decisions(DECISIONS)", every_new_table_decision_made,
+             write_the_decisions),
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
              ("a dev Table folder whose logic loads",), ("its rows, checked",),
              "for table in TABLES:\n"
