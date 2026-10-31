@@ -38,7 +38,7 @@ here, so it is left out:
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
 Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.

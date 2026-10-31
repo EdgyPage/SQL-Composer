@@ -34,7 +34,11 @@ UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 GAINED_BY_HAND = {
     "intermediate": ("README.md", "admin/registry.csv", "references/mart.py",
                      "references/reference_sheet.csv", "references/mart__team_failures.py",
-                     "tables/mart__team_failures/"),
+                     "tables/mart__team_failures/",
+                     # Toolbox 8.0's warehouse.py, which holds conn (ticket 21). Ticket 20's
+                     # Upgrade step carries it, and takes this entry out.
+                     "warehouse.py"),
+    "starter": ("warehouse.py", "README.md"),  # the same, and the README that says to set conn
 }
 upgrades = toolbox_module("upgrades")
 

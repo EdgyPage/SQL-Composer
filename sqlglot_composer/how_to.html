@@ -126,7 +126,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -149,7 +149,7 @@ admin/upgrade.ipynb
 warehouse.py</pre>
 <h5>Know every file of a Project</h5>
 <p>Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action, and never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You write your two functions, query and execute, in it, below.</li><li><code>admin/</code>, a notebook per Project action, such as new_table.ipynb, add_references.ipynb and run_tables.ipynb: <code>project.start()</code>. You fill in the call each holds, such as the table&#x27;s name, and run it. Calling the same Project action from any notebook of the Project does just the same.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/conversions/, a Conversion folder per query of someone else&#x27;s Hive you convert, until you finish it: <code>project.convert(...)</code>, from admin/convert.ipynb. You make the checks its notebook asks for, then finish it, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as do <code>project.finish_conversion(...)</code> and <code>project.remove_conversion(...)</code> with a Conversion folder, and <code>project.upgrade()</code> keeps here each file as it was before it changed it.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, below.</li><li><code>admin/</code>, a notebook per Project action, such as new_table.ipynb, add_references.ipynb and run_tables.ipynb: <code>project.start()</code>. You fill in the call each holds, such as the table&#x27;s name, and run it. Calling the same Project action from any notebook of the Project does just the same.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/conversions/, a Conversion folder per query of someone else&#x27;s Hive you convert, until you finish it: <code>project.convert(...)</code>, from admin/convert.ipynb. You make the checks its notebook asks for, then finish it, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as do <code>project.finish_conversion(...)</code> and <code>project.remove_conversion(...)</code> with a Conversion folder, and <code>project.upgrade()</code> keeps here each file as it was before it changed it.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action refuses a file or folder that is already there, so nothing of yours is written over, and logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -161,62 +161,64 @@ print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;)
 - Result: worked</pre>
 <p>The Script line names the git commit your Project&#x27;s folder is at, when you keep it in git, and nogit when you don&#x27;t; this page shows a made-up one, 1a2b3c4.</p>
 <h5>Read the warehouse.py start wrote</h5>
-<p>The Toolbox never connects to anything itself. It writes Hive as text, and hands that text to a function of yours, which runs it. Your team&#x27;s API most likely runs Hive with two calls: one that gives back rows, as a SELECT does, and one that gives back nothing, as a statement that changes a table does, such as a write or a CREATE TABLE. So warehouse.py holds two functions, one over each call:</p>
-<ul><li><code>query</code> runs Hive and gives back its rows as a pandas DataFrame;</li><li><code>execute</code> runs Hive and gives back nothing.</li></ul>
-<p>You pick which one sends each Statement, by the Toolbox function you call, as <a href="#build_and_run_a_first_statement">Build and run a first statement</a> shows. <code>project.start()</code> wrote them to run Hive on the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs before you touch a real table:</p>
+<p>The Toolbox never connects to anything itself. It writes Hive as text, and hands that text to a function in warehouse.py, which hands it to your connection to the warehouse. Your team&#x27;s library most likely gives you a connection with two calls: one that gives back rows, as a SELECT does, and one that gives back nothing, as a statement that changes a table does, such as a write or a CREATE TABLE. So warehouse.py holds your connection, <code>conn</code>, set once, and two functions over it:</p>
+<ul><li><code>query</code> runs Hive through <code>conn.query</code>, and gives back its rows as a pandas DataFrame;</li><li><code>execute</code> runs Hive through <code>conn.execute</code>, and gives back nothing.</li></ul>
+<p>You pick which one sends each Statement, by the Toolbox function you call, as <a href="#build_and_run_a_first_statement">Build and run a first statement</a> shows. <code>project.start()</code> set <code>conn</code> to the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs before you touch a real table:</p>
 <pre class="python">print(Path(&quot;warehouse.py&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
-<p class="label">Python prints</p><pre class="output">&quot;&quot;&quot;warehouse - your two calls to the warehouse, query and execute.
+<p class="label">Python prints</p><pre class="output">&quot;&quot;&quot;warehouse - your connection to the warehouse, conn, and its two calls.
 
-Why: every notebook in the Project reaches the warehouse through these two functions, so a
-change to how you reach it is made here, once.
+Why: every notebook in the Project reaches the warehouse through query and execute, so a change
+to how you reach it is made here, once.
 
-You pick which one sends each Statement, by calling run_query(s, query) for what gives back
-rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
-Replace each example_database call with your warehouse&#x27;s own: the how-to Start a Project shows
-how to write them. Let the two share one session, so a Session setting sent through execute
-holds for what is sent after it, through either function; and let each raise when the warehouse
-reports a failure, since the Toolbox knows a step failed only when your function raises. It
-imports none of your own files, so any notebook or script of yours can import it.
+Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
+them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something and
+gives back nothing. Until you do, conn is the Example database, which the how-tos run on. You
+pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
+a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
+two share one session, so a Session setting sent through execute holds for what is sent after
+it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
+failed only when your connection raises. It imports none of your own files, so any notebook or
+script of yours can import it.
 &quot;&quot;&quot;
 
 import pandas as pd
 
 from sqlglot_composer import example_database
 
+# Your connection to the warehouse. At work, replace example_database with your own, such as
+# conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
+# execute(sql) gives back nothing.
+conn = example_database
+
 
 def query(hive: str) -&gt; pd.DataFrame:
     &quot;&quot;&quot;Run a Hive string that gives back rows, and give them back as a pandas DataFrame.&quot;&quot;&quot;
-    return example_database.query(hive)  # at work: your warehouse&#x27;s query call
+    return conn.query(hive)
 
 
 def execute(hive: str) -&gt; None:
     &quot;&quot;&quot;Run a Hive string that changes something, such as a write, and give back nothing.&quot;&quot;&quot;
-    example_database.execute(hive)  # at work: your warehouse&#x27;s execute call</pre>
+    conn.execute(hive)</pre>
 <p>Among the lines the <code>...</code> above leaves out, warehouse.py imports the Example database from the Toolbox:</p>
 <pre class="python">from sqlglot_composer import example_database</pre>
 <p><code>example_database.query</code> runs Hive on the Example database&#x27;s nine tables, and <code>example_database.execute</code> prints the first line of the Hive and changes nothing, since the Example database can&#x27;t be written to. The Getting started how-tos keep warehouse.py just so.</p>
-<h5>Write your query and execute</h5>
-<p>At work, open warehouse.py in your editor and replace the two calls with your team&#x27;s. Each calls your team&#x27;s API, whatever it uses to run a Hive string: <code>query</code> its call that gives back rows, turning them into a pandas DataFrame, each column named, and <code>execute</code> its call that gives back nothing. When your API gives each row as a dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, <code>pd.DataFrame(rows)</code> takes the column names from its keys:</p>
-<pre class="python">import pandas as pd
+<h5>Set your connection</h5>
+<p>At work, open warehouse.py in your editor and set <code>conn</code> to your team&#x27;s connection, once, in place of <code>example_database</code>:</p>
+<pre class="python">import my_api  # your team&#x27;s library
 
-import my_api  # your team&#x27;s query API
-
-def query(hive: str) -&gt; pd.DataFrame:
-    rows = my_api.query(hive)  # your team&#x27;s own call that gives back rows
-    return pd.DataFrame(rows)
-
-def execute(hive: str) -&gt; None:
-    my_api.execute(hive)  # your team&#x27;s own call that gives back nothing</pre>
-<p><code>hive: str</code>, <code>-&gt; pd.DataFrame</code> and <code>-&gt; None</code> are type hints: they say a Hive string goes in, and that a DataFrame comes out of <code>query</code> and nothing out of <code>execute</code>. Python doesn&#x27;t check them.</p>
-<p>When your API gives each row as a tuple, it gives the column names apart, as a database cursor does in <code>cursor.description</code>. Pass those names on; don&#x27;t type them yourself, since each Statement has its own columns:</p>
+conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) nothing</pre>
+<p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame, each column named, and its <code>execute</code> gives back nothing. <code>query</code> and <code>execute</code> below it pass each Hive string on.</p>
+<p>When your connection gives rows some other way, as each row a dict or a tuple, change <code>query</code> to turn them into a DataFrame. A dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, gives its column names from its keys:</p>
 <pre class="python">def query(hive: str) -&gt; pd.DataFrame:
-    cursor.execute(hive)  # your team&#x27;s own cursor, from its database library
+    return pd.DataFrame(conn.query(hive))</pre>
+<p>A database cursor gives each row as a tuple, and the column names apart, in <code>cursor.description</code>. Pass those names on; don&#x27;t type them yourself, since each Statement has its own columns:</p>
+<pre class="python">def query(hive: str) -&gt; pd.DataFrame:
+    cursor = conn.cursor()  # your connection&#x27;s cursor, from its database library
+    cursor.execute(hive)
     names = [column[0] for column in cursor.description]
-    return pd.DataFrame(cursor.fetchall(), columns=names)
-
-def execute(hive: str) -&gt; None:
-    cursor.execute(hive)  # the same cursor: nothing comes back to read</pre>
-<p>Both use one cursor, so they share one session: a Session setting sent through <code>execute</code> holds for what is sent after it, through either function. And let each raise when the warehouse reports a failure. If your API gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your function raises.</p>
+    return pd.DataFrame(cursor.fetchall(), columns=names)</pre>
+<p><code>hive: str</code>, <code>-&gt; pd.DataFrame</code> and <code>-&gt; None</code> are type hints: they say a Hive string goes in, and that a DataFrame comes out of <code>query</code> and nothing out of <code>execute</code>. Python doesn&#x27;t check them.</p>
+<p>Both functions use the one <code>conn</code>, so they share one session: a Session setting sent through <code>execute</code> holds for what is sent after it, through either function. And let each raise when the warehouse reports a failure. If your connection gives back an error rather than raising one, raise it yourself, such as <code>raise RuntimeError(answer.error)</code>: the Toolbox knows a step failed only when your connection raises.</p>
 <h5>Try your query</h5>
 <p>Every notebook of the Project imports the two from warehouse.py:</p>
 <pre class="python">from warehouse import query, execute</pre>
@@ -291,7 +293,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -706,7 +708,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -1153,7 +1155,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -2053,7 +2055,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -2555,7 +2557,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -3329,7 +3331,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md
@@ -5098,7 +5100,7 @@ from sqlglot_composer import project
 project.start()</pre>
 <p class="label">Python shows</p><pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">It writes 19 files</p>
 <pre class="file">admin/add_references.ipynb
 admin/admin_log.md

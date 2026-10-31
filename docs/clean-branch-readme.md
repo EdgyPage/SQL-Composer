@@ -42,7 +42,7 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 ```
 
 Import from `sqlglot_composer`, at its top level, never from a file inside it.
@@ -81,24 +81,17 @@ or made by hand.
 ### Your query and execute
 
 The Toolbox never connects to anything itself: it writes Hive as text, and hands that text to
-one of two functions of yours, in `warehouse.py`. `query` runs Hive that gives back rows, such
-as a SELECT, and gives them back as a pandas DataFrame; `execute` runs Hive that changes
-something, such as a write, and gives back nothing. You pick which one sends a Statement, by
-calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run
-on the Example database; at work, write them over your team's API, once:
+one of two functions in `warehouse.py`, which pass it to your connection, `conn`. `query` runs
+Hive that gives back rows, such as a SELECT, and gives them back as a pandas DataFrame;
+`execute` runs Hive that changes something, such as a write, and gives back nothing. You pick
+which one sends a Statement, by calling `run_query(s, query)` or `run_execute(s, execute)`.
+`project.start()` set `conn` to the Example database; at work, set it to yours, once:
 
 ```python
-import pandas as pd
+import my_api  # your team's library
 
-import my_api  # your team's query API
-
-
-def query(hive: str) -> pd.DataFrame:
-    return pd.DataFrame(my_api.query(hive))
-
-
-def execute(hive: str) -> None:
-    my_api.execute(hive)
+# Your connection: its query(sql) gives back a DataFrame, its execute(sql) gives back nothing.
+conn = my_api.connect()
 ```
 
 How-to: [Start a Project](../sqlglot_composer/how_to.html#start_a_project), with what to do when

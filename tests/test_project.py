@@ -111,9 +111,10 @@ def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: 
     assert sorted(defined) == ["execute", "query"]
     assert ast.unparse(defined["query"].returns) == "pd.DataFrame"
     assert ast.unparse(defined["execute"].returns) == "None"
-    assert "return example_database.query(hive)  # at work: your warehouse's query call" in text
-    assert ("    example_database.execute(hive)  # at work: your warehouse's execute call"
-            in text)
+    # Toolbox 8.0: your connection, conn, set once; query and execute pass each Hive string on.
+    assert "\nconn = example_database\n" in text
+    assert "    return conn.query(hive)\n" in text
+    assert "    conn.execute(hive)\n" in text
 
 
 def test_start_says_to_write_the_query_and_execute(
@@ -122,8 +123,8 @@ def test_start_says_to_write_the_query_and_execute(
     set_admin_log()
     assert " ".join(repr(project.start()).split()) == (
         "Started a Project in the folder you're working in: admin/, references/, "
-        "building_blocks/, tables/ and warehouse.py. Next: write your two functions, query and "
-        "execute, in warehouse.py.")
+        "building_blocks/, tables/ and warehouse.py. Next: set conn, your connection, in "
+        "warehouse.py.")
 
 
 def test_start_logs_a_project_action(started: Path) -> None:
@@ -176,9 +177,9 @@ def test_start_run_again_in_a_project_from_before_7_writes_no_warehouse_py(
     monkeypatch.chdir(started)
     (started / "warehouse.py").rename(started / "send.py")
     (started / "admin" / "new_block.ipynb").unlink()
-    says = ("send.py is from before 7.0, so no warehouse.py was written: write your two "
-            "functions, query and execute, in a new warehouse.py, as CHANGES.md's 7.0 says, "
-            "then delete send.py.")
+    says = ("send.py is from before 7.0, so no warehouse.py was written: write a new "
+            "warehouse.py, setting conn, your connection, as CHANGES.md's 8.0 says, then "
+            "delete send.py.")
     assert str(project.start()) == ("This folder is a Project already. Added what it lacked: "
                                     "admin/new_block.ipynb.\n" + says)
     assert str(project.start()) == "This folder is a Project already.\n" + says
