@@ -28,3 +28,9 @@ two functions one for overwrite, one that doesn't", settled as `overwrite=True` 
 - Each step has its done function (ticket 12 left them out). The convert Workflow's first two steps (convert, the checklist) are in its step list, and the
   graph's fiddling count for convert falls by every hand step they remove.
 - CONTEXT.md's Conversion folder entry says it is the batch's index.
+- From ticket 13's beginner reader: no Conversion or finish_conversion call the user never made
+  shows in the Admin log, admin/removed/ or a notebook; a CREATE's STORED AS reaches its Table
+  reference; the checklist names each guessed type, location= and the SET lines a write needs
+  sent first; `tables/<t>/conversion/` keeps the statement as the script wrote it; the batch
+  is the convert Workflow's instance, so check() and do_next() name its next step; the convert
+  notebook's names cell takes FILES.

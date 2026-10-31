@@ -30,9 +30,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 - **A Conversion reads a batch of scripts.** `project.convert("weekly", files=["daily.hql",
   "weekly.hql"], query=query)` splits each script into its statements, orders them by what
-  reads what, and makes each table they create or write a Saved table in your Dev Database,
-  named `<table>_<its database>`, with its Table folder and its Table reference, its types from
-  the CREATE. What reads it reads that copy; the original tables are never touched.
+  reads what, and makes each table they write a Saved table in your Dev Database, named
+  `<table>_<its database>`, with its Table folder and its Table reference, its types from the
+  CREATE; a table they only create gets its Table reference alone. What reads it after its
+  write reads that copy; the original tables are never touched.
   `admin/workflows/convert/<name>/batch.md` lists what each statement became.
 
 ### To update from 7.2
