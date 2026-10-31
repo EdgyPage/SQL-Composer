@@ -58,6 +58,9 @@ BATCH_RECORD = "written.json"
 # longer lists; and each table's result, in its conversion/ folder, its third line saying
 # whether it passed.
 FINISHED = "finished"
+# Each table promote made in prod: its dev table, whether it reads itself, and each file of its
+# prod Table folder, with its hash, to tell one edited by hand.
+PROMOTED = WORKFLOWS_FOLDER / "promote" / "promoted.json"
 COMPARED = "compare.md"
 PASSED = "Passed: "
 COMPARED_AT = "Compared at "
@@ -306,6 +309,63 @@ def compare_passed(root: Path, table: str) -> bool:
                if row["kind"] in ("write", "unchecked") and table in row["tables"].split(";"))
 
 
+def promoted_record(root: Path) -> dict[str, dict[str, object]]:
+    """admin/workflows/promote/promoted.json: each prod table promote made, by its name; none
+    before the first promote."""
+    path = root / PROMOTED
+    if not path.is_file():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def prod_inputs(root: Path, inputs: dict[str, object]) -> dict[str, object]:
+    """The promote Workflow's inputs as its prod steps read them: TABLES, the prod copy of each
+    dev table TABLES names, and SEEDED, those that read themselves; no TABLES when one isn't
+    promoted yet."""
+    prod_of = {entry["dev"]: prod for prod, entry in promoted_record(root).items()}
+    devs = names_in(inputs, "TABLES")
+    if not devs or any(dev not in prod_of for dev in devs):
+        return {"TABLES": [], "SEEDED": []}
+    record = promoted_record(root)
+    prods = [prod_of[dev] for dev in devs]
+    return {"TABLES": prods, "SEEDED": [prod for prod in prods if record[prod]["seeded"]]}
+
+
+def every_table_promoted(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each dev table TABLES names has its prod copy's Table folder."""
+    prods = names_in(prod_inputs(root, inputs), "TABLES")
+    return bool(prods) and all((root / "tables" / table_stem(prod)).is_dir() for prod in prods)
+
+
+def every_prod_location_filled(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether each prod copy's Table reference names its folder, location=."""
+    prods = names_in(prod_inputs(root, inputs), "TABLES")
+    return bool(prods) and all("location=None" not in file_text(reference_path(root, prod))
+                               for prod in prods)
+
+
+def every_prod_table_created(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records a create of each prod copy."""
+    return every_table_created(root, prod_inputs(root, inputs))
+
+
+def every_prod_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records the seed of each prod copy that reads itself."""
+    return every_table_seeded(root, prod_inputs(root, inputs))
+
+
+def every_prod_table_written(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records a write of each prod copy."""
+    return every_table_written(root, prod_inputs(root, inputs))
+
+
+def promote_tables(inputs: dict[str, object]) -> ProjectReport:
+    """project.promote for the tables TABLES names."""
+    from . import project  # project.py imports this file
+
+    return project.promote(names_in(inputs, "TABLES"))
+
+
 def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
     """Whether the Reference sheet was written after each of these tables' Table references."""
     sheet = root / "references" / "reference_sheet.csv"
@@ -419,17 +479,30 @@ PROMOTE = Workflow(
     start_materials=("dev Table folders, decided and compared", "your Prod Database's name"),
     end_artifacts=("prod Table folders", "each written in prod"),
     steps=(
-        Step("Copy each dev Table folder to a prod one", FIDDLING,
-             ("dev Table folders, decided and compared",), ("copied Table folders",)),
-        Step("Change each copy's database to prod, and its Table reference's", FIDDLING,
-             ("copied Table folders", "your Prod Database's name"), ("prod Table folders",)),
-        Step("Change each prod notebook that reads another promoted table", FIDDLING,
-             ("prod Table folders",), ("prod notebooks that read prod",)),
-        Step("Create and write each table in prod", PERMISSION,
-             ("prod notebooks that read prod",), ("each written in prod",),
-             "project.run_tables(execute=execute)  # or tables=[...], the promoted ones"),
+        Step("Promote each table: a prod copy of its Table folder and Table reference",
+             FILE_STEP,
+             ("dev Table folders, decided and compared", "your Prod Database's name"),
+             ("prod Table folders",), "project.promote(TABLES)", every_table_promoted,
+             promote_tables),
+        Step("Fill in each prod Table reference's location=", DECISION, ("prod Table folders",),
+             ("prod Table references",), done=every_prod_location_filled),
+        Step("Create each table in prod", PERMISSION, ("prod Table references",),
+             ("each made in prod",),
+             "for table in project.promoted_tables(TABLES):\n"
+             "    run_execute(project.load(table).create(), execute)",
+             every_prod_table_created),
+        Step("Seed each prod table that reads itself, once, from its original", PERMISSION,
+             ("each made in prod",), ("each seeded in prod",),
+             'run_execute(hive_settings("dynamic_partitions"), execute)\n'
+             "for table in project.promoted_tables(TABLES, seeded=True):\n"
+             "    run_execute(project.load(table).seed(), execute)", every_prod_table_seeded),
+        Step("Write each table in prod", PERMISSION, ("each seeded in prod",),
+             ("each written in prod",),
+             "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
+             every_prod_table_written),
     ),
     inputs=(TABLES_INPUT,),
+    databases=("DEV", "PROD"),
     about="Carries Saved tables from your Dev Database to your Prod Database.",
 )
 

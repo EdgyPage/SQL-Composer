@@ -81,7 +81,7 @@ for table in project.batch_tables(NAME, seeded=True):
 
 ## promote
 
-Steps: 0 file step, 1 permission, 0 decision, 3 fiddling.
+Steps: 1 file step, 3 permission, 1 decision, 0 fiddling.
 
 Starts from: dev Table folders, decided and compared, your Prod Database's name.
 
@@ -89,35 +89,44 @@ Ends with: prod Table folders, each written in prod.
 
 ```mermaid
 flowchart TD
-    s0>"1. Copy each dev Table folder to a prod one"]
-    class s0 fiddling
+    s0["1. Promote each table: a prod copy of its Table folder and Table reference: project.promote(TABLES)"]
+    class s0 file
     t0 --> s0
-    s0 --> t1
-    s1>"2. Change each copy's database to prod, and its Table reference's"]
-    class s1 fiddling
-    t1 --> s1
+    t1 --> s0
+    s0 --> t2
+    s1{"2. Fill in each prod Table reference's location="}
+    class s1 decision
     t2 --> s1
     s1 --> t3
-    s2>"3. Change each prod notebook that reads another promoted table"]
-    class s2 fiddling
+    s2[["3. Create each table in prod: for table in project.promoted_tables(TABLES):
+    run_execute(project.load(table).create(), execute)"]]
+    class s2 permission
     t3 --> s2
     s2 --> t4
-    s3[["4. Create and write each table in prod: project.run_tables(execute=execute)  #35; or tables=[...], the promoted ones"]]
+    s3[["4. Seed each prod table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
+for table in project.promoted_tables(TABLES, seeded=True):
+    run_execute(project.load(table).seed(), execute)"]]
     class s3 permission
     t4 --> s3
     s3 --> t5
+    s4[["5. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]
+    class s4 permission
+    t5 --> s4
+    s4 --> t6
     t0("dev Table folders, decided and compared")
     class t0 thing
-    t1("copied Table folders")
+    t1("your Prod Database's name")
     class t1 thing
-    t2("your Prod Database's name")
+    t2("prod Table folders")
     class t2 thing
-    t3("prod Table folders")
+    t3("prod Table references")
     class t3 thing
-    t4("prod notebooks that read prod")
+    t4("each made in prod")
     class t4 thing
-    t5("each written in prod")
+    t5("each seeded in prod")
     class t5 thing
+    t6("each written in prod")
+    class t6 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
