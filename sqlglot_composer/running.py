@@ -30,6 +30,7 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
+from .shared import in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
 from .trees import Node, combined, unchecked_calls
@@ -66,7 +67,8 @@ def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int
             why="A table's Partitions are its own, of any kind, so there is no count of days "
             "to cap. A read of a partitioned table must still filter one of its partition "
             "columns.",
-            fix=f"Leave dates= out: it takes {arguments_of(set_load_limits)}, and nothing else.",
+            fix=f"Leave dates= out: it takes {arguments_of(set_load_limits)}, and nothing "
+            "else.",
         )
     refuse_removed_arguments("set_load_limits", removed, set_load_limits)
     if rows is not None and not is_count(rows):
@@ -84,7 +86,7 @@ def set_load_limits(rows: int | None = None, **removed: object) -> dict[str, int
 # --- Building the Hive -----------------------------------------------------------------------
 
 
-def _output(column: Column, name: str) -> Node:
+def _select_entry(column: Column, name: str) -> Node:
     """One SELECT entry: the column as it is, or with AS name when the name differs."""
     if column._name == name and column._table is not None:
         return column._tree.copy()
@@ -119,7 +121,7 @@ def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
         outputs = sorted(outputs, key=lambda output: order.index(output[1]))
     return Node(
         "Select",
-        outputs=[_output(column, name) for column, name in outputs],
+        outputs=[_select_entry(column, name) for column, name in outputs],
         distinct=s._distinct,
         broadcast=broadcast(s),
         source=source(s._reads[0].table),
@@ -127,13 +129,22 @@ def _select_tree(s: Statement, order: list[str] | None = None) -> Node:
         # Each ANTI_JOIN keeps the rows whose matched column is NULL.
         where=_all_of(s._where, anti_join_tests(s)),
         group_by=[c._tree.copy() for c in s._group_by],
-        grouping_sets=None if s._grouping_sets is None else [
-            Node("Tuple", expressions=[c._tree.copy() for c in each])
-            for each in s._grouping_sets],
+        grouping_sets=_grouping_sets_trees(s),
         having=_all_of(s._having),
         order_by=[o.copy() for o in s._order_by],
         limit=s._limit,
     )
+
+
+def _grouping_sets_trees(s: Statement) -> list[Node] | None:
+    """Each grouping set of a Statement's GROUP_BY, as a Tuple of its columns, or None when
+    it has none."""
+    if s._grouping_sets is None:
+        return None
+    trees = []
+    for each in s._grouping_sets:
+        trees.append(Node("Tuple", expressions=[c._tree.copy() for c in each]))
+    return trees
 
 
 def _query_tree(s: Statement) -> Node:
@@ -147,7 +158,7 @@ def _query_tree(s: Statement) -> Node:
                 branches=[_select_tree(b, names) for b in branches])
 
 
-def _with(tree: Node, s: Statement) -> Node:
+def _put_derived_tables_in_with(tree: Node, s: Statement) -> Node:
     """Put each Derived table the Statement reads at the top, as WITH name AS (...)."""
     tree.set("derived_tables", [Node("CTE", this=_derived_tree(table), alias=table._name)
                                 for table in derived_tables(s)])
@@ -175,9 +186,14 @@ def statements_within(s: Statement) -> list[Statement]:
     """Every step of `s` that reads tables: itself and each Derived table it reads, or, for a
     Stack, each Statement it stacks. An Unchecked derived table has no Statement: its text
     is Hive written by hand."""
-    return [part for step in [s] + [table._statement for table in derived_tables(s)
-                                    if not is_unchecked(table)]
-            for part in stack_steps(step)]
+    steps = [s]
+    for table in derived_tables(s):
+        if not is_unchecked(table):
+            steps.append(table._statement)
+    within = []
+    for step in steps:
+        within += stack_steps(step)
+    return within
 
 
 def _write_tree(s: Statement) -> Node:
@@ -185,7 +201,9 @@ def _write_tree(s: Statement) -> Node:
     its rows fill, and those partition={...} names, or the whole of a table that isn't
     partitioned."""
     partition = s._partitions.tree
-    target = table_node(s._write._name, partition=None if partition is None else partition.copy())
+    if partition is not None:
+        partition = partition.copy()
+    target = table_node(s._write._name, partition=partition)
     return Node("Insert", target=target, select=_select_tree(s), overwrite=s._replaces_rows)
 
 
@@ -194,12 +212,12 @@ def statement_tree(s: Statement) -> Node:
     if not kinds.is_a_query(s):
         return s._ddl.copy()
     if kinds.kind(s) == kinds.WRITE:
-        return _with(_write_tree(s), s)
+        return _put_derived_tables_in_with(_write_tree(s), s)
     tree = _query_tree(s)
     limit = automatic_limit(s)
     if limit is not None:
         tree.set("limit", limit)
-    return _with(tree, s)
+    return _put_derived_tables_in_with(tree, s)
 
 
 def _self_check(text: str) -> None:
@@ -258,7 +276,7 @@ def hive_without_automatic_limit(s: Statement) -> str:
     set_load_limits(rows=...) adds when it is sent: the rows the Statement itself gives."""
     if automatic_limit(s) is None:
         return to_hive(s)
-    text = writing.hive_statement(_with(_query_tree(s), s))
+    text = writing.hive_statement(_put_derived_tables_in_with(_query_tree(s), s))
     _self_check(text)
     return text
 
@@ -278,11 +296,15 @@ def need_statement(s: object, call: str, frame: FrameType | None, why: str,
     writes = call == "run_execute"
     if isinstance(s, Table) and s._statement is not None:
         d = name or "d"
-        reads = (f"statement(INSERT_OVERWRITE(t), SELECT(all_columns({d})), FROM({d}))" if writes
-                 else f"statement(SELECT(all_columns({d})), FROM({d}))")
+        if writes:
+            wrapped = f"statement(INSERT_OVERWRITE(t), SELECT(all_columns({d})), FROM({d}))"
+            does = "writes its rows"
+        else:
+            wrapped = f"statement(SELECT(all_columns({d})), FROM({d}))"
+            does = "reads it"
         fix = (f"A Derived table is a step for another Statement to read, so wrap it in the "
-               f"smallest Statement that {'writes its rows' if writes else 'reads it'}: "
-               f"{call}({reads}{more})" + _where(name is None, writes))
+               f"smallest Statement that {does}: {call}({wrapped}{more})"
+               + _derived_table_fix_ending(name is None, writes))
     elif isinstance(s, (list, tuple)):
         fix = (f"Pass its Statements one at a time, with a loop: for step in "
                f"{name or 'steps'}: {call}(step{more}).")
@@ -298,11 +320,16 @@ def need_statement(s: object, call: str, frame: FrameType | None, why: str,
            given=s, call=call)
 
 
-def _where(unnamed: bool, writes: bool) -> str:
+def _derived_table_fix_ending(unnamed: bool, writes: bool) -> str:
     """The end of a Derived table's fix: what its d and t stand for, if anything."""
-    meant = (["d is the Derived table"] if unnamed else []) + (
-        ["t is the Saved table to write"] if writes else [])
-    return f", where {' and '.join(meant)}." if meant else "."
+    meant = []
+    if unnamed:
+        meant.append("d is the Derived table")
+    if writes:
+        meant.append("t is the Saved table to write")
+    if not meant:
+        return "."
+    return f", where {in_words(meant)}."
 
 
 def _refuse_a_python_step(call: str, why: str) -> NoReturn:
@@ -319,9 +346,11 @@ def _refuse_a_python_step(call: str, why: str) -> NoReturn:
 
 def name_in(frame: FrameType, value: object) -> str | None:
     """The caller's variable name for `value`, found by identity, or None if it has none."""
-    return next((name for scope in (frame.f_locals, frame.f_globals)
-                 for name, held in scope.items()
-                 if held is value and not name.startswith("_")), None)
+    for scope in (frame.f_locals, frame.f_globals):
+        for name, named_value in scope.items():
+            if named_value is value and not name.startswith("_"):
+                return name
+    return None
 
 
 def settings_needed(s: Statement) -> list[str]:
@@ -446,7 +475,9 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
                     fix="Pass the inner lists one by one, as show_hive(first, second), or put "
                     "their Statements in one list.",
                 )
-            own = name_in(frame, s) or (f"{list_name}[{index}]" if list_name else None)
+            own = name_in(frame, s)
+            if own is None and list_name:
+                own = f"{list_name}[{index}]"
             named.append((own, s))
     if not named:
         refuse(
@@ -456,9 +487,11 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
         )
     texts = []
     for position, (name, s) in enumerate(named, start=1):
-        hive = _shown(s, frame)
+        hive = _hive_to_show(s, frame)
         if len(named) > 1:
-            heading = f"-- {position} of {len(named)}" + (f": {name}" if name else "")
+            heading = f"-- {position} of {len(named)}"
+            if name:
+                heading += f": {name}"
             hive = f"{heading}\n{hive}"
         texts.append(hive)
     text = "\n\n".join(texts)
@@ -466,7 +499,7 @@ def show_hive(*statements: Statement | SessionSettings | UncheckedStatement | Py
     return HiveText(text)
 
 
-def _shown(s: object, frame: FrameType) -> str:
+def _hive_to_show(s: object, frame: FrameType) -> str:
     """What show_hive prints for one of the things it is given, or the refusal of what isn't
     one: `frame` is its caller's."""
     if kinds.kind(s) == kinds.SETTINGS:
@@ -563,13 +596,13 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     need_warehouse_call("run_execute", "execute", execute, "run_execute sends the Hive "
                         "through your execute, which changes something and gives back nothing.")
     _refuse_a_swap("run_execute", "execute", execute)
-    marked = kinds.kind(s)
-    if marked == kinds.SETTINGS:
+    kind = kinds.kind(s)
+    if kind == kinds.SETTINGS:
         for line in s._lines:  # Hive takes one SET per call
             execute(line)
-    elif marked == kinds.UNCHECKED:
+    elif kind == kinds.UNCHECKED:
         logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
-    elif marked == kinds.ADMIN:
+    elif kind == kinds.ADMIN:
         logged_run("Admin statement", s._admin_call, to_hive(s), execute)
     else:
         send_logged(s, to_hive(s), execute)
@@ -587,10 +620,14 @@ def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]
     if not calls:
         return warehouse_call(text)
     found = {node.kind for node in tree.find_all("Unchecked", "UncheckedSelect")}
-    held = [words for kind, words in (("Unchecked", "an Unchecked expression"),
-                                      ("UncheckedSelect", "an Unchecked derived table"))
-            if kind in found]
-    kind = f"Statement with {' and '.join(held)}" + (f", {sent_for}" if sent_for else "")
+    unchecked_pieces = []
+    if "Unchecked" in found:
+        unchecked_pieces.append("an Unchecked expression")
+    if "UncheckedSelect" in found:
+        unchecked_pieces.append("an Unchecked derived table")
+    kind = f"Statement with {in_words(unchecked_pieces)}"
+    if sent_for:
+        kind += f", {sent_for}"
     return logged_run(kind, "; ".join(calls), text, warehouse_call)
 
 
@@ -610,12 +647,16 @@ def _refuse_the_other_call(call: str, other: str, instead: str,
 def _refuse_a_swap(call: str, own: str, given: Callable[[str], object]) -> None:
     """Refuse your other function given in `own`'s place, known by its name, such as your
     execute given to run_query: it would get Hive it isn't for."""
-    other = "execute" if own == "query" else "query"
+    if own == "query":
+        other = "execute"
+        instead = "run_execute"
+        wrong = "a read whose rows it never gives back"
+    else:
+        other = "query"
+        instead = "run_query"
+        wrong = "a change sent as a query"
     if getattr(given, "__name__", "") != other:
         return
-    instead = "run_execute" if own == "query" else "run_query"
-    wrong = ("a read whose rows it never gives back" if own == "query"
-             else "a change sent as a query")
     refuse(
         what=f"{call} was given your {other} function where your {own} goes.",
         why=f"{call} sends through your {own}; your {other} would get Hive it isn't for, "
@@ -629,11 +670,11 @@ def _need_its_call(s: object, call: str, through: str, frame: FrameType | None) 
     """Refuse what `call` can't send: anything no maker made, a Python step, and the plain
     mix-up, a step that goes through your other call. `through` is the call it sends
     through."""
-    marked = kinds.kind(s)
-    if marked == kinds.PYTHON:
+    kind = kinds.kind(s)
+    if kind == kinds.PYTHON:
         _refuse_a_python_step(call, "It sends Hive through your query or execute, and a "
                               "Python step has none")
-    if marked is None:
+    if kind is None:
         need_statement(s, call, frame, why=f"{call} writes the Hive of one Statement made by "
                         "statement(...) and sends it.",
                         more=", query" if through == kinds.QUERY else ", execute")
@@ -648,7 +689,7 @@ def _need_its_call(s: object, call: str, through: str, frame: FrameType | None) 
         why = ("run_execute sends through your execute, which gives back nothing, and this "
                "reads rows, which come back only through your query.")
         fix = f"Send it with run_query({name or 's'}, query), which gives back its rows."
-    refuse(what=f"{call} was given {kinds.WORDS[marked]}.", why=why, fix=fix,
+    refuse(what=f"{call} was given {kinds.WORDS[kind]}.", why=why, fix=fix,
            error=ValueError)
 
 

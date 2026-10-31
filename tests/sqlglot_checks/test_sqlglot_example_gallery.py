@@ -1,4 +1,5 @@
-"""sqlglot Composer's Example gallery gives pandas results where its Example database can't run."""
+"""sqlglot Composer's Example gallery gives pandas results where its Example database
+can't run."""
 
 from __future__ import annotations
 

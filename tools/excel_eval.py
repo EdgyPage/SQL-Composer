@@ -103,8 +103,11 @@ def shared_text(arm: str) -> str | None:
     files."""
     if arm == "A0":
         return None
-    return "\n\n".join(path.read_text(encoding="utf-8") for number in EXCEL_FILES
-                       for path in sorted(COPILOT.glob(f"{number}_*.txt")))
+    texts = []
+    for number in EXCEL_FILES:
+        for path in sorted(COPILOT.glob(f"{number}_*.txt")):
+            texts.append(path.read_text(encoding="utf-8"))
+    return "\n\n".join(texts)
 
 
 def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
@@ -116,10 +119,11 @@ def proxy_message(arm: str, tasks: list[ExcelTask]) -> str:
     if shared is not None:
         head += ("Before asking anything, the user loaded these files:\n\n"
                  "<<<\n" + shared + "\n>>>\n\n")
-    ask = ("Each task below is a separate request the user sends next. Answer each as you would "
-           "in that chat: reply with its `## X..` heading, then your answer, with SQL in "
+    ask = ("Each task below is a separate request the user sends next. Answer each as you "
+           "would in that chat: reply with its `## X..` heading, then your answer, with SQL in "
            "```sql blocks and any Python in ```python blocks.")
-    return head + ask + "\n\n" + "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
+    prompts = "\n\n".join(f"## {task.id}\n\n{prompt(task)}" for task in tasks)
+    return head + ask + "\n\n" + prompts
 
 
 def template(split: str) -> str:
@@ -136,7 +140,7 @@ def read_answers(text: str) -> tuple[dict[str, str], dict[str, str]]:
     return header, {parts[i]: parts[i + 1] for i in range(1, len(parts), 2)}
 
 
-# --- Reading a reply ---------------------------------------------------------------------------
+# --- Reading a reply -----------------------------------------------------------------------
 
 BLOCK = re.compile(r"```[ \t]*(\w*)[ \t]*\n(.*?)```", re.DOTALL)
 SQL_LANGUAGES = ("sql", "hive", "hiveql", "hql")
@@ -166,14 +170,15 @@ def squashed(name: str) -> str:
 def filled(sql: str, task: ExcelTask) -> tuple[str, set[str]]:
     """A query with each `<...>` filled in as the person would, and the names filled in."""
     names = {squashed(given): hive for given, hive in task.names.items()}
-    placed = set()
+    placed: set[str] = set()
 
-    def name(found: re.Match[str]) -> str:
-        chosen = names.get(squashed(found.group(1)), re.sub(r"\W+", "_", found.group(1)).lower())
+    def fill_in(found: re.Match[str]) -> str:
+        given = found.group(1)
+        chosen = names.get(squashed(given), re.sub(r"\W+", "_", given).lower())
         placed.add(chosen)
         return chosen
 
-    return PLACEHOLDER.sub(name, DATABASE_PLACEHOLDER.sub(FILLED_DATABASE, sql)), placed
+    return PLACEHOLDER.sub(fill_in, DATABASE_PLACEHOLDER.sub(FILLED_DATABASE, sql)), placed
 
 
 def queries(sql: str) -> list[exp.Query]:
@@ -199,11 +204,14 @@ def workbook_names(task: ExcelTask) -> set[str]:
     """Every name the workbook gives, squashed: its Tables' and their headers, its queries'
     and each name their M quotes or brackets, its defined names, and its Parameters'."""
     workbook = task.workbook
-    names = {name for table in workbook.tables for name in (table.name, *table.headers)}
+    names: set[str] = set()
+    for table in workbook.tables:
+        names |= {table.name, *table.headers}
     names |= {name for name, _ in (*workbook.queries, *workbook.defined_names,
                                    *workbook.parameters)}
-    names |= {name for _, m in workbook.queries
-              for pattern in M_NAMES for name in pattern.findall(m)}
+    for _, m in workbook.queries:
+        for pattern in M_NAMES:
+            names |= set(pattern.findall(m))
     return {squashed(name) for name in names}
 
 
@@ -329,20 +337,44 @@ def _date_format(value: object, pattern: object) -> str:
     return _day(value).strftime(str(pattern).replace("strict", ""))
 
 
+def _last_day_text(value: object) -> str:
+    """Hive's LAST_DAY: the last day of the date's month."""
+    return str(_last_day(_day(value)))
+
+
+def _day_of_week(value: object) -> int:
+    """Hive's DAYOFWEEK: 1 for a Sunday to 7 for a Saturday."""
+    return _day(value).isoweekday() % 7 + 1
+
+
+def _date_add(value: object, days: object) -> str:
+    """Hive's DATE_ADD: the date `days` days on."""
+    return str(_day(value) + datetime.timedelta(days=int(days)))
+
+
+def _initcap(text: object) -> str:
+    """Hive's INITCAP: each word's first letter in upper case, the rest in lower."""
+    return " ".join(word[:1].upper() + word[1:].lower() for word in str(text).split(" "))
+
+
+def _repeat(text: object, times: object) -> str:
+    """Hive's REPEAT: the text `times` times over."""
+    return str(text) * int(times)
+
+
 # Hive's functions SQLite lacks, by the name each has in the stand-in Hive. Each gives NULL for
 # a NULL argument, as Hive's does.
 HIVE_FUNCTIONS: dict[str, Callable[..., object]] = {
-    "HIVE_LAST_DAY": lambda value: str(_last_day(_day(value))),
+    "HIVE_LAST_DAY": _last_day_text,
     "HIVE_ADD_MONTHS": _add_months,
     "HIVE_MONTHS_BETWEEN": _months_between,
-    "HIVE_DAYOFWEEK": lambda value: _day(value).isoweekday() % 7 + 1,
+    "HIVE_DAYOFWEEK": _day_of_week,
     "HIVE_NEXT_DAY": _next_day,
-    "HIVE_DATE_ADD": lambda value, days: str(_day(value) + datetime.timedelta(days=int(days))),
+    "HIVE_DATE_ADD": _date_add,
     "HIVE_TRUNC": _trunc,
     "HIVE_DATE_FORMAT": _date_format,
-    "HIVE_INITCAP": lambda text: " ".join(word[:1].upper() + word[1:].lower()
-                                          for word in str(text).split(" ")),
-    "HIVE_REPEAT": lambda text, times: str(text) * int(times),
+    "HIVE_INITCAP": _initcap,
+    "HIVE_REPEAT": _repeat,
 }
 
 
@@ -372,7 +404,8 @@ class _Spread:
     """Hive's STDDEV_SAMP or VAR_SAMP, as an aggregate or over a window, NULLs left out."""
 
     def __init__(self, kind: str) -> None:
-        self.kind, self.values = kind, []
+        self.kind = kind
+        self.values: list[float] = []
 
     def step(self, value: float | None) -> None:
         if value is not None:
@@ -437,16 +470,26 @@ def _stand_in_call(node: exp.Expression) -> exp.Expression:
 def _grouping_sets(group: exp.Group) -> list[list[exp.Expression]] | None:
     """The sets a GROUP BY with ROLLUP or GROUPING SETS groups by, or None for a plain one:
     `WITH ROLLUP` after its columns, or `ROLLUP(...)` among them."""
-    columns, rolled = [], bool(group.args.get("rollup"))
+    columns: list[exp.Expression] = []
+    rolled = bool(group.args.get("rollup"))
     for item in [*group.expressions, *group.args.get("rollup", [])]:
-        rolled |= isinstance(item, exp.Rollup)
-        columns += list(item.expressions) if isinstance(item, exp.Rollup) else [item]
+        if isinstance(item, exp.Rollup):
+            rolled = True
+            columns += list(item.expressions)
+        else:
+            columns.append(item)
     if rolled:
         return [columns[:size] for size in range(len(columns), -1, -1)]
-    if group.args.get("grouping_sets"):
-        return [list(item.expressions) if isinstance(item, exp.Tuple) else [item]
-                for sets in group.args["grouping_sets"] for item in sets.expressions]
-    return None
+    if not group.args.get("grouping_sets"):
+        return None
+    sets = []
+    for grouping in group.args["grouping_sets"]:
+        for item in grouping.expressions:
+            if isinstance(item, exp.Tuple):
+                sets.append(list(item.expressions))
+            else:
+                sets.append([item])
+    return sets
 
 
 def _one_group_by_per_set(select: exp.Expression) -> exp.Expression:
@@ -456,7 +499,9 @@ def _one_group_by_per_set(select: exp.Expression) -> exp.Expression:
     sets = _grouping_sets(group) if group else None
     if sets is None:
         return select
-    every = {column.sql() for kept in sets for column in kept}
+    every: set[str] = set()
+    for kept in sets:
+        every |= {column.sql() for column in kept}
     with_ = select.args.get("with_")
     parts = []
     for kept in sets:
@@ -470,7 +515,9 @@ def _one_group_by_per_set(select: exp.Expression) -> exp.Expression:
         part.set("group", exp.Group(expressions=[column.copy() for column in kept])
                  if kept else None)
         parts.append(part)
-    stacked = functools.reduce(lambda a, b: exp.union(a, b, distinct=False), parts)
+    stacked = parts[0]
+    for part in parts[1:]:
+        stacked = exp.union(stacked, part, distinct=False)
     if with_:
         stacked.set("with_", with_)
     return stacked
@@ -494,8 +541,10 @@ def _normal(value: object) -> object:
 def rows_of(hive: sqlite3.Connection, sql: str) -> list[tuple[object, ...]]:
     """A query's rows on the stand-in Hive, each value as rows are compared, in a steady
     order."""
-    return sorted((tuple(_normal(value) for value in row) for row in hive.execute(sql)),
-                  key=repr)
+    rows = []
+    for row in hive.execute(sql):
+        rows.append(tuple(_normal(value) for value in row))
+    return sorted(rows, key=repr)
 
 
 def reference_rows(hive: sqlite3.Connection, task: ExcelTask
@@ -520,7 +569,8 @@ class ExcelScore:
     mapped: bool = False
     unnamed: list[str] = field(default_factory=list)
     invented: list[str] = field(default_factory=list)
-    code: str = "none"  # its Toolbox code: "none", "parses", "doesn't parse", or names it invents
+    # Its Toolbox code: "none", "parses", "doesn't parse", or the names it invents.
+    code: str = "none"
     note: str = ""
 
     @property
@@ -563,10 +613,12 @@ def _toolbox_code(reply: str) -> str:
 def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
           expected: dict[str, list[tuple[object, ...]]]) -> ExcelScore:
     """One answer, scored check by check against the reference rows of each final Table."""
-    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task), code=_toolbox_code(reply))
+    result = ExcelScore(task.id, mapped=names_sources_and_finals(reply, task),
+                        code=_toolbox_code(reply))
     prose = BLOCK.sub("", reply).lower()
-    result.unnamed = [group[0] for group in (*task.refused, *task.marks, *task.ignored)
-                      if not any(word.lower() in prose for word in group)]
+    for group in (*task.refused, *task.marks, *task.ignored):
+        if not any(word.lower() in prose for word in group):
+            result.unnamed.append(group[0])
     code = blocks(reply, SQL_LANGUAGES)
     result.found = bool(code)
     if not code:
@@ -611,18 +663,36 @@ def _rate(values: list[bool]) -> int:
     return round(100 * sum(values) / len(values)) if values else 0
 
 
+def _rates_by_check(results: list[ExcelScore]) -> dict[str, int]:
+    """Each check's rate over the answers, by the check's name."""
+    rates = {}
+    for check in CHECKS:
+        rates[check] = _rate([getattr(one, check) for one in results])
+    return rates
+
+
+def _answer_line(one: ExcelScore) -> str:
+    """One answer's line of the report: pass or FAIL, the checks it passed, and what it
+    missed."""
+    line = f"{one.task}  {'pass' if one.passed else 'FAIL'}  "
+    line += " ".join(check for check in CHECKS if getattr(one, check))
+    if one.unnamed:
+        line += f"  unnamed: {', '.join(one.unnamed)}"
+    if one.invented:
+        line += f"  invented: {', '.join(one.invented)}"
+    line += f"  code: {one.code}"
+    if one.note:
+        line += f"  ({one.note})"
+    return line
+
+
 def report(header: dict[str, str], results: list[ExcelScore]) -> str:
     """The scores as text: a line per answer, then the totals."""
-    lines = [f"{one.task}  {'pass' if one.passed else 'FAIL'}  "
-             + " ".join(check for check in CHECKS if getattr(one, check))
-             + (f"  unnamed: {', '.join(one.unnamed)}" if one.unnamed else "")
-             + (f"  invented: {', '.join(one.invented)}" if one.invented else "")
-             + f"  code: {one.code}" + (f"  ({one.note})" if one.note else "")
-             for one in results]
+    lines = [_answer_line(one) for one in results]
     lines.append(f"\n{header.get('arm', '?')} on {header.get('model', '?')}: "
                  f"{_rate([one.passed for one in results])}% passed of {len(results)}; "
-                 + ", ".join(f"{check} {_rate([getattr(one, check) for one in results])}%"
-                             for check in CHECKS)
+                 + ", ".join(f"{check} {rate}%"
+                             for check, rate in _rates_by_check(results).items())
                  + f"; all named in {_rate([not one.unnamed for one in results])}%; "
                  f"invented names in {_rate([bool(one.invented) for one in results])}%; "
                  f"Toolbox code that parses with no invented name in "
@@ -633,7 +703,7 @@ def report(header: dict[str, str], results: list[ExcelScore]) -> str:
 def results_row(header: dict[str, str], split: str, results: list[ExcelScore]) -> str:
     """One row of results.md's Excel table for a scored answers file."""
     rates = [_rate([one.passed for one in results])]
-    rates += [_rate([getattr(one, check) for one in results]) for check in CHECKS]
+    rates += list(_rates_by_check(results).values())
     rates += [_rate([not one.unnamed for one in results]),
               _rate([bool(one.invented) for one in results]),
               _rate([one.code == "parses" for one in results])]

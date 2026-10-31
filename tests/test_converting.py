@@ -62,7 +62,8 @@ def test_a_column_named_without_its_table_is_found_by_its_name() -> None:
 
 
 def test_a_cte_is_a_derived_table() -> None:
-    done = convert_query("WITH failed AS (SELECT job_id FROM ops.job_runs WHERE status = 'FAILED') "
+    done = convert_query("WITH failed AS (SELECT job_id FROM ops.job_runs "
+                     "WHERE status = 'FAILED') "
                      "SELECT f.job_id FROM failed f")
     assert done.assignments[1] == ("failed", 'derived("failed", statement(\n'
                                    "    SELECT(job_runs.job_id),\n    FROM(job_runs),\n"
@@ -84,15 +85,16 @@ def test_a_short_in_list_stays_where_it_is() -> None:
 
 
 def test_a_lookup_case_is_mapped_from_a_named_dict() -> None:
-    done = convert_query("SELECT CASE job_id WHEN 1 THEN 'one' WHEN 2 THEN 'two' ELSE 'many' END "
-                     "AS label FROM ops.job_runs")
+    done = convert_query("SELECT CASE job_id WHEN 1 THEN 'one' WHEN 2 THEN 'two' "
+                     "ELSE 'many' END AS label FROM ops.job_runs")
     assert done.constants == [("LABEL_BY_JOB_ID", '{\n    1: "one",\n    2: "two",\n}')]
-    assert 'AS(mapped(job_runs.job_id, LABEL_BY_JOB_ID, otherwise="many"), "label")' in done.query
+    assert ('AS(mapped(job_runs.job_id, LABEL_BY_JOB_ID, otherwise="many"), "label")'
+            in done.query)
 
 
 def test_a_case_comparing_one_column_with_values_is_mapped_too() -> None:
-    done = convert_query("SELECT CASE WHEN status = 'F' THEN 1 WHEN status = 'O' THEN 0 END AS x "
-                     "FROM ops.job_runs")
+    done = convert_query("SELECT CASE WHEN status = 'F' THEN 1 WHEN status = 'O' THEN 0 END "
+                     "AS x FROM ops.job_runs")
     assert "mapped(job_runs.status, X_BY_STATUS)" in done.query
 
 
@@ -114,7 +116,8 @@ def test_one_when_is_if_else() -> None:
 def test_a_sum_over_one_when_with_no_else_is_its_where() -> None:
     done = convert_query("SELECT SUM(CASE WHEN status = 'FAILED' THEN duration_mins END) AS m "
                      "FROM ops.job_runs")
-    assert 'sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))' in done.query
+    assert ('sum_of(job_runs.duration_mins, where=equals(job_runs.status, "FAILED"))'
+            in done.query)
 
 
 def test_a_hive_function_is_kept_as_hive_function_when_it_writes_back_the_same() -> None:
@@ -136,7 +139,8 @@ def test_like_becomes_starts_with_or_contains() -> None:
 
 
 def test_a_window_function_is_the_toolboxs_own() -> None:
-    done = convert_query("SELECT ROW_NUMBER() OVER (PARTITION BY job_id ORDER BY dt DESC) AS n, "
+    done = convert_query("SELECT ROW_NUMBER() OVER (PARTITION BY job_id "
+                     "ORDER BY dt DESC) AS n, "
                      "LAG(duration_mins, 2) OVER (PARTITION BY job_id ORDER BY dt) AS before "
                      "FROM ops.job_runs")
     assert ("row_number(over=window(PARTITION_BY=[job_runs.job_id], "
@@ -146,7 +150,8 @@ def test_a_window_function_is_the_toolboxs_own() -> None:
 
 
 def test_union_all_is_a_stack() -> None:
-    done = convert_query("SELECT job_id FROM ops.jobs UNION ALL SELECT job_id FROM ops.job_runs")
+    done = convert_query("SELECT job_id FROM ops.jobs UNION ALL "
+                         "SELECT job_id FROM ops.job_runs")
     assert done.query.startswith("UNION_ALL(\n    statement(")
 
 
@@ -162,7 +167,7 @@ def test_a_table_with_no_table_reference_is_a_finding_not_a_refusal() -> None:
     assert found(done, "table") == ["line 1: ops.elsewhere has no Table reference yet"]
 
 
-# --- What stays Hive ---------------------------------------------------------------------------
+# --- What stays Hive --------------------------------------------------------------------------
 
 
 def test_an_expression_no_function_writes_is_an_unchecked_column() -> None:
@@ -172,7 +177,8 @@ def test_an_expression_no_function_writes_is_an_unchecked_column() -> None:
 
 
 def test_a_brace_in_kept_hive_is_doubled_so_only_placeholders_are_filled() -> None:
-    done = convert_query("SELECT CAST(regexp_extract(status, 'A{2}') AS INT) AS x FROM ops.job_runs")
+    done = convert_query("SELECT CAST(regexp_extract(status, 'A{2}') AS INT) AS x "
+                         "FROM ops.job_runs")
     assert "'A{{2}}'" in done.query and "{status}" in done.query
 
 
@@ -188,11 +194,13 @@ def test_a_cte_no_statement_can_be_is_an_unchecked_derived_table() -> None:
     name, value = done.assignments[0]
     assert name == "e" and value.startswith('unchecked_derived("e", ')
     assert value.endswith('columns={\n    "job_id": None,\n    "x": None,\n})')
-    assert "the CTE e stays Hive, in unchecked_derived(...): LATERAL VIEW" in found(done, "unchecked")[0]
+    assert ("the CTE e stays Hive, in unchecked_derived(...): LATERAL VIEW"
+            in found(done, "unchecked")[0])
 
 
 def test_a_query_the_toolbox_cant_read_is_one_unchecked_statement() -> None:
-    done = convert_query("SELECT job_id, x FROM ops.jobs LATERAL VIEW explode(array(1, 2)) t AS x")
+    done = convert_query("SELECT job_id, x FROM ops.jobs "
+                         "LATERAL VIEW explode(array(1, 2)) t AS x")
     assert done.query.startswith('unchecked_hive("SELECT')
     assert "the whole query stays an Unchecked statement" in found(done, "unchecked")[0]
 
@@ -214,8 +222,8 @@ def test_a_plain_value_selected_is_an_unchecked_column_as_as_takes_no_value() ->
 
 
 def test_a_piece_inside_a_case_stays_hive_alone() -> None:
-    done = convert_query("SELECT CASE WHEN status = 'F' THEN CAST(run_id AS STRING) ELSE 'x' END "
-                         "AS label FROM ops.job_runs")
+    done = convert_query("SELECT CASE WHEN status = 'F' THEN CAST(run_id AS STRING) "
+                         "ELSE 'x' END AS label FROM ops.job_runs")
     assert 'if_else(equals(job_runs.status, "F"), unchecked_column(' in done.query
     assert found(done, "unchecked")[0].startswith("line 1: CAST(run_id AS STRING) stays Hive")
 
@@ -226,7 +234,7 @@ def test_a_select_with_no_from_is_one_unchecked_statement() -> None:
     assert "a SELECT with no FROM" in found(done, "unchecked")[0]
 
 
-# --- Names, whatever their case ----------------------------------------------------------------
+# --- Names, whatever their case ---------------------------------------------------------------
 
 
 def test_names_are_read_whatever_their_case() -> None:
@@ -243,7 +251,7 @@ def test_a_cte_named_in_another_case_is_the_same_cte() -> None:
     assert "FROM(recent)" in done.query
 
 
-# --- *, whether its columns are known or not -----------------------------------------------------
+# --- *, whether its columns are known or not --------------------------------------------------
 
 
 def test_a_star_becomes_all_columns_and_a_finding_lists_them() -> None:
@@ -263,8 +271,8 @@ def test_a_star_of_a_table_with_no_table_reference_still_converts(hive: str) -> 
     done = convert_query(hive)
     assert done.missing == ["ops.elsewhere"]
     assert "all_columns(" in done.logic() and not found(done, "unchecked")
-    assert found(done, "changed")[0].endswith("becomes its columns, as its Table reference lists "
-                                              "them")
+    assert found(done, "changed")[0].endswith("becomes its columns, as its Table reference "
+                                              "lists them")
 
 
 def test_a_star_read_under_the_wrong_database_raises_nothing() -> None:
@@ -274,14 +282,15 @@ def test_a_star_read_under_the_wrong_database_raises_nothing() -> None:
     assert done.missing == ["mart.jobs"]
 
 
-def test_a_cte_that_cant_convert_and_hides_its_columns_makes_the_whole_query_unchecked() -> None:
-    done = convert_query("WITH e AS (SELECT * FROM ops.elsewhere LATERAL VIEW explode(a) t AS x) "
-                         "SELECT e.x FROM e")
+def test_a_cte_that_cant_convert_and_hides_its_columns_makes_the_whole_query_unchecked(
+) -> None:
+    done = convert_query("WITH e AS (SELECT * FROM ops.elsewhere "
+                         "LATERAL VIEW explode(a) t AS x) SELECT e.x FROM e")
     assert done.query.startswith('unchecked_hive("WITH e AS (SELECT * FROM ops.elsewhere')
     assert done.assignments == [] and done.tables == ["ops.elsewhere"]
 
 
-# --- What the Toolbox writes another way, said in a finding --------------------------------------
+# --- What the Toolbox writes another way, said in a finding -----------------------------------
 
 
 def test_a_sub_query_in_from_is_a_derived_table_written_as_a_cte() -> None:
@@ -293,15 +302,16 @@ def test_a_sub_query_in_from_is_a_derived_table_written_as_a_cte() -> None:
 
 
 def test_a_case_looking_one_column_up_says_it_is_written_as_case_column_when() -> None:
-    done = convert_query("SELECT CASE WHEN status = 'F' THEN 1 WHEN status = 'O' THEN 0 END AS x "
-                         "FROM ops.job_runs")
+    done = convert_query("SELECT CASE WHEN status = 'F' THEN 1 WHEN status = 'O' THEN 0 END "
+                         "AS x FROM ops.job_runs")
     assert found(done, "changed") == [
         "line 1: the CASE WHEN status = ... becomes mapped(...), which the Toolbox writes as "
         "CASE status WHEN ..., the same lookup"]
 
 
 @pytest.mark.parametrize(("group", "written"), [
-    ("GROUP BY job_id, status WITH ROLLUP", "GROUP_BY(rollup(job_runs.job_id, job_runs.status))"),
+    ("GROUP BY job_id, status WITH ROLLUP",
+     "GROUP_BY(rollup(job_runs.job_id, job_runs.status))"),
     ("GROUP BY job_id, status WITH CUBE", "GROUP_BY(cube(job_runs.job_id, job_runs.status))"),
     ("GROUP BY ROLLUP(job_id, status)", "GROUP_BY(rollup(job_runs.job_id, job_runs.status))"),
     ("GROUP BY CUBE(job_id, status)", "GROUP_BY(cube(job_runs.job_id, job_runs.status))"),
@@ -328,20 +338,22 @@ def test_grouping_sets_leaving_a_column_of_group_by_out_stay_hive() -> None:
     done = convert_query("SELECT job_id, status, dt, COUNT(*) AS n FROM ops.job_runs "
                          "GROUP BY job_id, status, dt GROUPING SETS ((job_id), (status))")
     assert done.query.startswith("unchecked_hive(")
-    assert "grouping_sets(...) groups by the columns its sets name" in found(done, "unchecked")[0]
+    assert ("grouping_sets(...) groups by the columns its sets name"
+            in found(done, "unchecked")[0])
 
 
 @pytest.mark.parametrize(("hive", "said"), [
     ("DISTRIBUTE BY job_id SORT BY run_id",
-     ["line 1: DISTRIBUTE BY job_id is dropped: it only said how Hive spreads the rows over its "
-      "workers",
+     ["line 1: DISTRIBUTE BY job_id is dropped: it only said how Hive spreads the rows over "
+      "its workers",
       "line 1: SORT BY run_id is dropped: it only sorted the rows within each worker, not the "
       "result, as ORDER_BY does"]),
     ("CLUSTER BY job_id",
      ["line 1: CLUSTER BY job_id is dropped: it only said how Hive spreads and sorts the rows "
       "over its workers"]),
 ])
-def test_distribute_sort_and_cluster_by_are_dropped_saying_so(hive: str, said: list[str]) -> None:
+def test_distribute_sort_and_cluster_by_are_dropped_saying_so(hive: str,
+                                                              said: list[str]) -> None:
     done = convert_query(f"SELECT run_id FROM ops.job_runs {hive}")
     assert found(done, "dropped") == said
     assert done.clauses == ["SELECT(job_runs.run_id)", "FROM(job_runs)"]
@@ -362,11 +374,12 @@ def test_a_hive_variable_stays_as_text_and_a_finding_says_so() -> None:
         "hive_settings(...), or have your query put the value in"]
 
 
-# --- Every table read, and the line each finding is on -----------------------------------------
+# --- Every table read, and the line each finding is on ----------------------------------------
 
 
 def test_lateral_view_lists_the_table_it_reads() -> None:
-    done = convert_query("SELECT job_id, x FROM ops.jobs LATERAL VIEW explode(array(1, 2)) t AS x")
+    done = convert_query("SELECT job_id, x FROM ops.jobs "
+                         "LATERAL VIEW explode(array(1, 2)) t AS x")
     assert done.tables == ["ops.jobs"]
 
 
@@ -375,23 +388,24 @@ def test_in_a_sub_query_lists_both_tables_and_says_what_stays_hive() -> None:
                          "WHERE job_id IN (SELECT job_id FROM ops.jobs WHERE team = 'data')")
     assert done.tables == ["ops.job_runs", "ops.jobs"]
     assert found(done, "unchecked") == [
-        "line 1: the whole query stays an Unchecked statement, unchecked_hive(...): no condition "
-        "function writes IN (SELECT ...): SEMI_JOIN(...) writes it as a join; and an Unchecked "
-        "expression can't hold it, as it reads a table of its own"]
+        "line 1: the whole query stays an Unchecked statement, unchecked_hive(...): no "
+        "condition function writes IN (SELECT ...): SEMI_JOIN(...) writes it as a join; and "
+        "an Unchecked expression can't hold it, as it reads a table of its own"]
 
 
 def test_a_case_over_several_lines_is_found_at_the_line_it_starts_on() -> None:
     done = convert_query("SELECT run_id,\n  CASE\n    WHEN status = 'F' THEN 'bad'\n"
                          "    WHEN status = 'S' THEN 'good'\n  END AS label\nFROM ops.job_runs")
-    assert found(done, "constant") == ["line 2: the CASE on status is the constant LABEL_BY_STATUS"]
+    assert found(done, "constant") == [
+        "line 2: the CASE on status is the constant LABEL_BY_STATUS"]
 
 
 def test_several_set_lines_are_one_finding() -> None:
     done = convert_query("SET hive.exec.parallel=true;\nSET hive.exec.dynamic.partition=true;\n"
                          "SELECT job_id FROM ops.jobs")
     assert found(done, "settings") == [
-        "line 1: its 2 SET lines are the Session settings HIVE_SETTINGS, which session_settings() "
-        "gives"]
+        "line 1: its 2 SET lines are the Session settings HIVE_SETTINGS, which "
+        "session_settings() gives"]
 
 
 def test_a_saved_tables_write_says_to_send_the_set_lines_first() -> None:
@@ -402,7 +416,7 @@ def test_a_saved_tables_write_says_to_send_the_set_lines_first() -> None:
         convert_query("SELECT job_id FROM ops.jobs").logic(), "mart.t", "t", None, {})
 
 
-# --- INSERT, every form ------------------------------------------------------------------------
+# --- INSERT, every form -----------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(("hive", "write"), [
@@ -442,7 +456,8 @@ def test_a_with_before_insert_is_read() -> None:
     ("INSERT OVERWRITE DIRECTORY '/tmp/x' SELECT run_id FROM ops.job_runs",
      "it writes files into DIRECTORY '/tmp/x', not a table"),
     ("FROM ops.job_runs INSERT OVERWRITE TABLE mart.a SELECT run_id "
-     "INSERT INTO TABLE mart.b SELECT job_id", "it is one FROM with 2 INSERTs, into mart.a, mart.b"),
+     "INSERT INTO TABLE mart.b SELECT job_id",
+     "it is one FROM with 2 INSERTs, into mart.a, mart.b"),
     ("SELECT 1 FROM ops.jobs; SELECT 2 FROM ops.jobs", "it holds 2 statements"),
     ("INSERT INTO mart.t (a, b) SELECT run_id FROM ops.job_runs",
      "its INSERT lists the columns a, b, and its query doesn't give one column for each"),
@@ -453,7 +468,7 @@ def test_what_a_conversion_cant_take_is_refused_saying_what_to_do(hive: str, sai
         convert_query(hive)
 
 
-# --- Opt-outs, from a refusal ----------------------------------------------------------------------
+# --- Opt-outs, from a refusal -----------------------------------------------------------------
 
 LOGIC = ('x = derived("x", statement(\n    SELECT(r.a),\n    FROM(r),\n))\n'
          'y = statement(\n    SELECT(AS(sum_of(p.fails), "f")),\n    FROM(p),\n'
@@ -481,7 +496,9 @@ def test_an_opt_out_goes_on_the_call_its_refusal_names_marked(refusal: str, adde
 
 
 def test_an_opt_out_already_there_or_named_by_no_refusal_is_none() -> None:
-    logic, _ = converting.with_opt_out(LOGIC, "Opt-out:        FROM(r, reads_all_partitions=True)")
-    assert converting.with_opt_out(logic, "Opt-out:        FROM(r, reads_all_partitions=True)") \
-        is None
-    assert converting.with_opt_out(LOGIC, "Opt-out:        none - it can't be switched off.") is None
+    logic, _ = converting.with_opt_out(LOGIC,
+                                       "Opt-out:        FROM(r, reads_all_partitions=True)")
+    assert converting.with_opt_out(logic,
+                                   "Opt-out:        FROM(r, reads_all_partitions=True)") is None
+    assert converting.with_opt_out(LOGIC,
+                                   "Opt-out:        none - it can't be switched off.") is None

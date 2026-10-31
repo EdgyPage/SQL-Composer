@@ -124,7 +124,8 @@ WITH numbered AS (
     job_events.job_id,
     job_events.event_id,
     job_events.minutes,
-    ROW_NUMBER() OVER (PARTITION BY job_events.job_id ORDER BY job_events.event_id DESC) AS last_first
+    ROW_NUMBER() OVER (PARTITION BY job_events.job_id ORDER BY job_events.event_id DESC) AS
+        last_first
   FROM ops.job_events AS job_events
   WHERE
     job_events.dt BETWEEN '2026-09-18' AND '2026-09-24'
@@ -282,7 +283,8 @@ of the Statement that makes it:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  WHERE has ROW_NUMBER() OVER (PARTITION BY job_events.job_id ORDER BY job_events.event_id DESC) = 1, which numbers rows.
+  What happened:  WHERE has ROW_NUMBER() OVER (PARTITION BY job_events.job_id ORDER BY
+                  job_events.event_id DESC) = 1, which numbers rows.
 ...
 
 Number the rows in a Derived table, then keep number 1 in the Statement that reads it, as the
@@ -326,7 +328,8 @@ where numbering last first says DESC.
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  SELECT has a calculation with no name: ROW_NUMBER() OVER (PARTITION BY job_events.job_id ORDER BY job_events.event_id DESC).
+  What happened:  SELECT has a calculation with no name: ROW_NUMBER() OVER (PARTITION BY
+                  job_events.job_id ORDER BY job_events.event_id DESC).
 ...
 
 Name it with `AS`, so the Statement that reads it can test it by that name.

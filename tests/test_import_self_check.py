@@ -93,8 +93,8 @@ def test_a_missing_refusals_file_still_says_what_is_missing(tmp_path: Path) -> N
 
     assert import_copy(tmp_path, missing).endswith(import_stop(
         what=f"refusals.py is missing from the {FOLDER} folder.",
-        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a part "
-        "of it fail later, far from the cause.",
+        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a "
+        "part of it fail later, far from the cause.",
         fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
         f"{VERSION} download.",
     ) + "\n")
@@ -118,8 +118,8 @@ def test_a_missing_page_stops_the_import_and_says_what_it_holds(
     assert import_copy(tmp_path, missing).endswith(import_stop(
         what=f"{', '.join(pages)} {'is' if len(pages) == 1 else 'are'} missing from the "
         f"{FOLDER} folder.",
-        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a part "
-        f"of it fail later, far from the cause, {lost}.",
+        why=f"Every file of {PRODUCT} {VERSION} is needed: a missing .py file would make a "
+        f"part of it fail later, far from the cause, {lost}.",
         fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
         f"{VERSION} download.",
     ) + "\n")
@@ -143,8 +143,8 @@ def test_a_folder_missing_its_version_file_stops_the_import(tmp_path: Path) -> N
     assert import_copy(tmp_path, lambda copy: (copy / VERSION_FILE).unlink()).endswith(
         import_stop(
             what=f"{VERSION_FILE} is missing from the {FOLDER} folder.",
-            why="It says which Toolbox version the folder is and lists its files, and the folder "
-            "can't check itself without it.",
+            why="It says which Toolbox version the folder is and lists its files, and the "
+            "folder can't check itself without it.",
             fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
             "download.",
         ) + "\n")
@@ -156,7 +156,8 @@ def test_an_unreadable_version_file_stops_the_import(tmp_path: Path, first: str)
         f"{first}\n", encoding="utf-8")).endswith(import_stop(
             what=f"{FOLDER}/{VERSION_FILE} doesn't start with \"{PRODUCT}\" and a version "
             "number, as the download's does.",
-            why="The folder can't tell which Toolbox version it is, so it can't check its files.",
+            why="The folder can't tell which Toolbox version it is, so it can't check its "
+            "files.",
             fix=f"Delete the {FOLDER} folder, then copy the whole folder in again from the "
             "download.",
         ) + "\n")
@@ -190,10 +191,10 @@ def test_a_file_that_differs_from_the_download_only_warns(tmp_path: Path, odd: s
     assert "UserWarning: sqlglot_composer on import:" in printed
     assert (f"What happened:  {odd} differs from the file the {PRODUCT} {VERSION} download "
             f"holds, which {VERSION_FILE} lists.") in printed
-    assert (f"Usual fix:      Delete the {FOLDER} folder and copy the whole folder in again from "
-            f"the {VERSION} download. If you changed a file on purpose, keep that change in a "
-            f"script of your own beside the {FOLDER} folder instead: this shows at every import "
-            "until the folder matches its download.") in printed
+    assert (f"Usual fix:      Delete the {FOLDER} folder and copy the whole folder in again "
+            f"from the {VERSION} download. If you changed a file on purpose, keep that change "
+            f"in a script of your own beside the {FOLDER} folder instead: this shows at every "
+            "import until the folder matches its download.") in printed
 
 
 def test_every_file_that_differs_is_named_in_one_warning(tmp_path: Path) -> None:
@@ -252,8 +253,8 @@ def test_an_older_python_stops_the_import(monkeypatch: pytest.MonkeyPatch) -> No
         what=f"{PRODUCT} needs Python 3.11 or newer, and this is Python 3.9.7.",
         why=f"{PRODUCT} is tested only on Python 3.11 and newer, and parts of it may not work "
         "on an older one.",
-        fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), or ask "
-        "whoever looks after your environment to add one.",
+        fix="Choose a Python 3.11 or newer kernel (Kernel > Change Kernel in JupyterLab), or "
+        "ask whoever looks after your environment to add one.",
     )
 
 

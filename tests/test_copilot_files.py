@@ -84,7 +84,8 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
         sorted([path.name for path in FILES]
                + ["all_in_one", "count_characters.py", "examples", "formula_workbook.xlsx"]))
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
-    assert [path.name for path in (COPILOT / "all_in_one").iterdir()] == ["all_copilot_files.txt"]
+    assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
+            == ["all_copilot_files.txt"])
     assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
 
 
@@ -196,7 +197,7 @@ def ran() -> dict[tuple[str, int], str | None]:
                                 function()
                     found[(name, number)] = None
                 except Exception as error:
-                    found[(name, number)] = copilot_eval._said(error)
+                    found[(name, number)] = copilot_eval._error_note(error)
     return found
 
 

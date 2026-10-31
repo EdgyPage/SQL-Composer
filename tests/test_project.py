@@ -112,7 +112,8 @@ def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: 
     assert ast.unparse(defined["query"].returns) == "pd.DataFrame"
     assert ast.unparse(defined["execute"].returns) == "None"
     assert "return example_database.query(hive)  # at work: your warehouse's query call" in text
-    assert "    example_database.execute(hive)  # at work: your warehouse's execute call" in text
+    assert ("    example_database.execute(hive)  # at work: your warehouse's execute call"
+            in text)
 
 
 def test_start_says_to_write_the_query_and_execute(
@@ -373,8 +374,8 @@ def test_new_table_doesnt_register_a_reference_twice(started: Path) -> None:
 
 
 def test_check_finds_nothing_in_a_new_project(started: Path) -> None:
-    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
-                                     "registered, and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block "
+                                     "is registered, and each one registered is there.")
 
 
 def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
@@ -386,7 +387,8 @@ def test_check_reports_what_was_made_or_moved_by_hand(started: Path) -> None:
         "Not registered, made by hand. Adopt each with the call beside it:\n"
         '  references/ops__jobs.py: project.register("ops.jobs")\n'
         '  tables/mart__by_hand/: project.register("mart.by_hand")\n'
-        "Registered, but not there. Put each back, or mark it removed with the call beside it:\n"
+        "Registered, but not there. Put each back, or mark it removed with the "
+        "call beside it:\n"
         '  references/mart__daily_job_runs.py: project.remove_reference("mart.daily_job_runs")')
 
 
@@ -516,13 +518,15 @@ def test_new_block_uses_the_projects_own_template(started: Path) -> None:
 def test_new_block_refuses_a_name_already_taken(started: Path) -> None:
     block = started / "building_blocks" / "runs_per_job.py"
     block.write_text("# mine", encoding="utf-8")
-    with pytest.raises(FileExistsError, match="building_blocks/runs_per_job.py is already there"):
+    with pytest.raises(FileExistsError,
+                       match="building_blocks/runs_per_job.py is already there"):
         project.new_block("runs_per_job")
     assert block.read_text(encoding="utf-8") == "# mine"
     block.unlink()
     project.new_block("runs_per_job")
     block.unlink()
-    with pytest.raises(FileExistsError, match="the registry lists a Building block runs_per_job"):
+    with pytest.raises(FileExistsError,
+                       match="the registry lists a Building block runs_per_job"):
         project.new_block("runs_per_job")
     assert len(registry(started)) == 1
 
@@ -545,7 +549,8 @@ def test_new_block_refuses_a_name_python_cant_import(
 
 def test_new_block_refuses_a_project_with_no_template(started: Path) -> None:
     (started / "admin" / "templates" / "building_block.py").unlink()
-    with pytest.raises(FileNotFoundError, match="there is no admin/templates/building_block.py"):
+    with pytest.raises(FileNotFoundError,
+                       match="there is no admin/templates/building_block.py"):
         project.new_block("runs_per_job")
     assert registry(started) == []
 
@@ -609,7 +614,8 @@ def test_remove_block_marks_removed_a_block_deleted_by_hand(started: Path) -> No
     project.new_block("runs_per_job")
     (started / "building_blocks" / "runs_per_job.py").unlink()
     assert repr(project.check()) == (
-        "Registered, but not there. Put each back, or mark it removed with the call beside it:\n"
+        "Registered, but not there. Put each back, or mark it removed with the "
+        "call beside it:\n"
         '  building_blocks/runs_per_job.py: project.remove_block("runs_per_job")')
     assert repr(project.remove_block("runs_per_job")) == (
         "building_blocks/runs_per_job.py wasn't there, so only its registry row is marked "
@@ -643,7 +649,8 @@ def test_a_building_block_made_by_hand_is_adopted_with_register(started: Path) -
     assert ('- Call: `project.register("runs_per_job")`\n'
             "- Files: registered building_blocks/runs_per_job.py\n") in log_text(started)
     assert repr(project.check()).startswith("Every Table folder")
-    with pytest.raises(ValueError, match="nothing to register: building_blocks/runs_per_job.py"):
+    with pytest.raises(ValueError,
+                       match="nothing to register: building_blocks/runs_per_job.py"):
         project.register("runs_per_job")
 
 
@@ -914,16 +921,16 @@ def test_a_database_module_says_what_it_is_and_lists_its_tables(started: Path) -
     text = (started / "references" / "ops.py").read_text(encoding="utf-8")
     assert text.splitlines()[0] == (
         '"""ops - a Database: written by the Project actions, never by hand.')
-    assert ("Its tables: job_runs (references/ops__job_runs.py), jobs (references/ops__jobs.py)."
-            in " ".join(text.split()))
+    assert ("Its tables: job_runs (references/ops__job_runs.py), "
+            "jobs (references/ops__jobs.py)." in " ".join(text.split()))
     assert ("from references.ops__job_runs import job_runs\n"
             "from references.ops__jobs import jobs\n") in text
 
 
 def test_check_and_the_reference_sheet_leave_a_database_module_out(started: Path) -> None:
     project.add_references(["ops.jobs"], query=example_database.query)
-    assert repr(project.check()) == ("Every Table folder, Table reference and Building block is "
-                                     "registered, and each one registered is there.")
+    assert repr(project.check()) == ("Every Table folder, Table reference and Building block "
+                                     "is registered, and each one registered is there.")
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
     assert [row["table"] for row in registry(started)] == ["ops.jobs"]
@@ -1007,7 +1014,8 @@ def test_a_database_python_cant_import_by_name_isnt_written(
         started: Path, name: str, said: str, instead: str) -> None:
     stem = project.table_stem(name)
     (started / "references" / f"{stem}.py").write_text(
-        f'from sqlglot_composer import Table\n\njobs = Table("{name}", columns={{"id": "int"}})\n',
+        'from sqlglot_composer import Table\n\n'
+        f'jobs = Table("{name}", columns={{"id": "int"}})\n',
         encoding="utf-8")
     report = " ".join(repr(project.register(name)).split())
     assert f"Didn't write references/{name.split('.')[0]}.py" in report
@@ -1328,11 +1336,16 @@ SETTINGS = "<Session settings map_joins - show_hive(...) shows their SET lines>"
 
 
 @pytest.mark.parametrize(("gives", "said"), [
-    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement that writes, an Unchecked statement or a Python step"),
-    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a Statement that writes, an Unchecked statement or a Python step"),
-    ("None", "None, which isn't a Statement that writes, an Unchecked statement or a Python step"),
-    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement that writes, an Unchecked statement or a Python step"),
-    ("(1, 2)", "a tuple, and 1 in it isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ('hive_settings("map_joins")', SETTINGS + ", which isn't a Statement that writes, an "
+     "Unchecked statement or a Python step"),
+    ('"INSERT OVERWRITE TABLE mart.odd"', "'INSERT OVERWRITE TABLE mart.odd', which isn't a "
+     "Statement that writes, an Unchecked statement or a Python step"),
+    ("None",
+     "None, which isn't a Statement that writes, an Unchecked statement or a Python step"),
+    ('[hive_settings("map_joins")]', "a list, and " + SETTINGS + " in it isn't a Statement "
+     "that writes, an Unchecked statement or a Python step"),
+    ("(1, 2)", "a tuple, and 1 in it isn't a Statement that writes, an Unchecked statement "
+     "or a Python step"),
     ("[]", "an empty list, with no write in it"),
 ])
 def test_run_tables_refuses_what_write_gives_that_it_cant_send(

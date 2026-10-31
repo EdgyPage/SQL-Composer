@@ -23,7 +23,8 @@ SITE = "tools/local_server.py"
 SITE_ALLOWED = (
     Allowed(SITE, "<module>", "network", "socket", "imports socket, for _launch's listener"),
     Allowed(SITE, "_launch", "network", "socket.create_server",
-            "the listener the process connects back to, on 127.0.0.1 only", address="127.0.0.1"),
+            "the listener the process connects back to, on 127.0.0.1 only",
+            address="127.0.0.1"),
     Allowed(SITE, "_serve", "network", "multiprocessing.connection.*",
             "connects back to the address its parent sent", address=offline_policy.PASSED_IN),
 )
@@ -224,7 +225,8 @@ def test_markdown_is_read_as_a_page_only_when_asked() -> None:
     assert findings_in(text, "example_projects/README.md") == []
     found = offline_policy.page_findings(text, "example_projects/README.md")
     assert [str(finding) for finding in found] == [
-        'example_projects/README.md:2 page reference: <img src="https://example.com/x.png">'] * 2
+        'example_projects/README.md:2 page reference: '
+        '<img src="https://example.com/x.png">'] * 2
 
 
 def test_user_copied_code_may_hold_nothing_at_all() -> None:
@@ -290,7 +292,8 @@ def test_every_allowed_entry_gives_its_reason() -> None:
 
 def test_a_notebook_s_code_cells_and_shell_lines_are_read() -> None:
     notebook = ('{"cells": [{"cell_type": "markdown", "source": ["https://x"]},'
-                ' {"cell_type": "code", "source": ["!curl example.com\\n", "import requests"]}]}')
+                ' {"cell_type": "code",'
+                ' "source": ["!curl example.com\\n", "import requests"]}]}')
     assert kinds(notebook, "example_projects/starter/start.ipynb") == ["process", "network"]
 
 
@@ -309,7 +312,7 @@ def test_the_command_line_prints_each_finding_and_fails(
     assert offline_policy.main(["offline_policy.py", str(clean)]) == 0
 
 
-# --- A workbook ------------------------------------------------------------------------------------
+# --- A workbook -------------------------------------------------------------------------------
 
 WORKBOOK_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
 MACRO_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.main+xml"
@@ -317,7 +320,8 @@ MACRO_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.main+xml"
 
 def workbook(tmp_path: Path, parts: dict[str, str | bytes], main_type: str = WORKBOOK_TYPE,
              path: str = "copilot/w.xlsx") -> Path:
-    """A workbook at `path` under `tmp_path`, holding the parts every workbook has and `parts`."""
+    """A workbook at `path` under `tmp_path`, holding the parts every workbook has and
+    `parts`."""
     file = tmp_path / path
     file.parent.mkdir(parents=True, exist_ok=True)
     types = (f'<Types><Override PartName="/xl/workbook.xml" ContentType="{main_type}"/>'

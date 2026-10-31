@@ -177,7 +177,8 @@ class HowTo:
     # The rest of its docstring: its six sections.
     text: str
     # Its pandas stand-ins, by the name of the Statement each stands in for: see stand_ins_of.
-    stand_ins: dict = field(default_factory=dict, compare=False)
+    stand_ins: dict[str, Callable[[], pd.DataFrame]] = field(default_factory=dict,
+                                                             compare=False)
 
 
 def how_to_paths() -> list[Path]:
@@ -214,8 +215,9 @@ def read_how_to(path: Path) -> HowTo:
     """A how-to, read from its file."""
     laid_out = LAYOUT.fullmatch(docstring_of(path))
     if laid_out is None:
-        raise HowToRefused(f"{path.name} must start with its title on line 1 and a line such as "
-                           "`For: Getting started` on line 3, each followed by a blank line.")
+        raise HowToRefused(f"{path.name} must start with its title on line 1 and a line such "
+                           "as `For: Getting started` on line 3, each followed by a blank "
+                           "line.")
     name = laid_out["group"]
     if name not in GROUP_NAMED:
         raise HowToRefused(f"{path.name} says `For: {name}`: write "
@@ -282,7 +284,8 @@ def with_file_blocks(text: str) -> list[str | FileBlock]:
             at += 1
             continue
         indent = " " * (len(lines[at]) - len(lines[at].lstrip()) + 4)
-        if at + 2 >= len(lines) or lines[at + 1].strip() or not lines[at + 2].startswith(indent):
+        if (at + 2 >= len(lines) or lines[at + 1].strip()
+                or not lines[at + 2].startswith(indent)):
             raise HowToRefused(f"{lines[at].strip()!r} must be followed by a blank line, then "
                                "the whole file, each line indented four more than it.")
         end = at + 2
@@ -375,11 +378,12 @@ def project_on_the_path(folder: Path) -> Iterator[None]:
     put_away = {name: sys.modules.pop(name) for name in list(sys.modules)
                 if is_the_projects(name)}
     sys.path.insert(0, str(folder))
-    writes_bytecode, sys.dont_write_bytecode = sys.dont_write_bytecode, True
+    dont_write_bytecode_before = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
     try:
         yield
     finally:
-        sys.dont_write_bytecode = writes_bytecode
+        sys.dont_write_bytecode = dont_write_bytecode_before
         sys.path.remove(str(folder))
         for name in [name for name in sys.modules if is_the_projects(name)]:
             del sys.modules[name]
@@ -423,8 +427,8 @@ def sections(how_to: HowTo) -> list[tuple[str, str]]:
     found = list(zip(parts[1::2], parts[2::2]))
     if parts[0].strip() or [heading for heading, _ in found] != list(HEADINGS):
         raise HowToRefused(f"How-to {how_to.number} must have the headings "
-                           f"{', '.join('## ' + heading for heading in HEADINGS)}, each once, in "
-                           "that order, with nothing before the first.")
+                           f"{', '.join('## ' + heading for heading in HEADINGS)}, each once, "
+                           "in that order, with nothing before the first.")
     return found
 
 
@@ -447,15 +451,15 @@ class Notebook:
     """A how-to's steps, run in order as one notebook."""
 
     # What the steps have made, by name.
-    scope: dict
+    scope: dict[str, object]
     # The folder the steps run in, where any file they write goes.
     folder: Path
     # Each step's Python, in order.
-    sources: list = field(default_factory=list)
+    sources: list[str] = field(default_factory=list)
     # The Hive of each query a pandas stand-in answered: see pandas_standing_in.
-    answered: list = field(default_factory=list)
+    answered: list[str] = field(default_factory=list)
     # Each .py or .md file the steps have shown, by its text: see written_files_html.
-    files_shown: dict = field(default_factory=dict)
+    files_shown: dict[str, str] = field(default_factory=dict)
 
 
 @contextlib.contextmanager
@@ -528,9 +532,11 @@ def written_files_html(folder: Path, before: dict[Path, bytes], after: dict[Path
             kind = "python" if path.suffix == ".py" else "file"
             lines = len(text.splitlines())
             shown.append(label(f"It writes {name}"))
-            shown.append(code_html(text, kind) if lines <= FOLD_AFTER else
-                         f"<details><summary>Show its {lines} lines</summary>\n"
-                         f"{code_html(text, kind)}\n</details>")
+            if lines <= FOLD_AFTER:
+                shown.append(code_html(text, kind))
+            else:
+                shown.append(f"<details><summary>Show its {lines} lines</summary>\n"
+                             f"{code_html(text, kind)}\n</details>")
         elif path.suffix == ".html":
             shown.append(f'<p class="note">It writes <code>{escape(name)}</code> too, a page '
                          "to open in your browser.</p>")
@@ -566,9 +572,12 @@ def value_html(source: str, value: object, in_pandas: bool) -> str:
         return label("Python stops with this message") + code_html(message_text(value),
                                                                    "refusal")
     if isinstance(value, pd.DataFrame):
-        on = (f"Result, {PANDAS_LABEL}" if in_pandas
-              else "Result on the Example database" if ON_THE_EXAMPLE_DATABASE.search(source)
-              else "Python shows")
+        if in_pandas:
+            on = f"Result, {PANDAS_LABEL}"
+        elif ON_THE_EXAMPLE_DATABASE.search(source):
+            on = "Result on the Example database"
+        else:
+            on = "Python shows"
         return label(on) + table_html(value)
     return label("Python shows") + code_html(repr(value), "output")
 
@@ -581,14 +590,16 @@ def toolbox_warnings(caught: list[warnings.WarningMessage]) -> list[Warning]:
 
 def step_output_html(source: str, notebook: Notebook) -> str:
     """Run one `>>>` step: what it prints, warns, gives and writes, or "" if nothing."""
-    before, printed, answered = files_in(notebook.folder), io.StringIO(), len(notebook.answered)
+    before = files_in(notebook.folder)
+    printed = io.StringIO()
+    answered_before = len(notebook.answered)
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
         value = run_step(source, notebook.scope, printed)
     shown = [printed_html(source, printed.getvalue())]
     shown += [label("It builds, with a Warning") + code_html(message_text(message), "refusal")
               for message in toolbox_warnings(caught)]
-    shown += [value_html(source, value, len(notebook.answered) > answered),
+    shown += [value_html(source, value, len(notebook.answered) > answered_before),
               written_files_html(notebook.folder, before, files_in(notebook.folder),
                                  notebook.files_shown)]
     html = "\n".join(part for part in shown if part)
@@ -601,6 +612,18 @@ def step_output_html(source: str, notebook: Notebook) -> str:
     return html
 
 
+def parts_of(text: str) -> list[str | doctest.Example | FileBlock]:
+    """Prose and `>>>` steps, as doctest reads them, with each file shown as it is after an
+    edit where it stands: see with_file_blocks."""
+    parts: list[str | doctest.Example | FileBlock] = []
+    for piece in with_file_blocks(text):
+        if isinstance(piece, FileBlock):
+            parts.append(piece)
+        else:
+            parts += doctest.DocTestParser().parse(piece)
+    return parts
+
+
 def live_steps_html(text: str, notebook: Notebook) -> str:
     """Prose and `>>>` steps, run in `notebook`, each shown with what it really gives.
 
@@ -610,10 +633,7 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
     written where it stands: see with_file_blocks.
     """
     shown, waiting = [], []
-    parts = []
-    for piece in with_file_blocks(text):
-        parts += [piece] if isinstance(piece, FileBlock) else doctest.DocTestParser().parse(piece)
-    for part in parts:
+    for part in parts_of(text):
         if isinstance(part, FileBlock):
             if waiting:
                 shown.append(code_html("".join(waiting)))
@@ -657,9 +677,19 @@ def times_pinned() -> Iterator[None]:
     Without a notebook's name in the environment, a lineage is named as from a notebook.
     """
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
-    with (mock.patch.object(unchecked, "now", lambda: LINEAGE_TIME),
-          mock.patch.object(lineage, "scripts_commit", lambda folder: LINEAGE_COMMIT),
-          mock.patch.object(lineage, "_version", lambda: version),
+
+    def pinned_now() -> datetime.datetime:
+        return LINEAGE_TIME
+
+    def pinned_commit(folder: Path) -> str:
+        return LINEAGE_COMMIT
+
+    def pinned_version() -> str:
+        return version
+
+    with (mock.patch.object(unchecked, "now", pinned_now),
+          mock.patch.object(lineage, "scripts_commit", pinned_commit),
+          mock.patch.object(lineage, "_version", pinned_version),
           mock.patch.dict(os.environ)):
         os.environ.pop("JPY_SESSION_NAME", None)
         yield
@@ -696,7 +726,8 @@ def how_to_html(how_to: HowTo) -> str:
 def gallery_ids() -> set[str]:
     """The id of each entry on the Example gallery beside the page."""
     page = GALLERY.read_text(encoding="utf-8") if GALLERY.exists() else ""
-    return {unescape(found) for found in re.findall(r'<section class="entry" id="([^"]+)"', page)}
+    ids = re.findall(r'<section class="entry" id="([^"]+)"', page)
+    return {unescape(found) for found in ids}
 
 
 def check_links(page: str) -> None:
@@ -708,8 +739,8 @@ def check_links(page: str) -> None:
         if (page_name == "" and place in on_page) or (
                 page_name == "examples.html" and (not place or place in entries)):
             continue
-        raise HowToRefused(f"A how-to links to {target}, which is neither a how-to nor an entry "
-                           "of the Example gallery. Link to [text](#slug) or "
+        raise HowToRefused(f"A how-to links to {target}, which is neither a how-to nor an "
+                           "entry of the Example gallery. Link to [text](#slug) or "
                            "[text](examples.html#entry).")
 
 
@@ -743,8 +774,11 @@ def how_to_page() -> str:
         "GROUPS": "\n".join(groups),
         "SCRIPT": FILTER_SCRIPT + HOW_TO_SCRIPT,
     }
+    def filled_in(found: re.Match[str]) -> str:
+        return filled[found[1]]
+
     # One pass, so text that happens to look like a marker is never filled in itself.
-    page = re.sub(r"__([A-Z]+)__", lambda found: filled[found[1]], PAGE)
+    page = re.sub(r"__([A-Z]+)__", filled_in, PAGE)
     check_links(page)
     return page
 
@@ -752,7 +786,8 @@ def how_to_page() -> str:
 # The chain of types a Statement is built along, atop the page: each call, the type of the
 # value it gives, in the type hints' names, and what that value is.
 CHAIN = (
-    ("`ops.jobs`, a Table reference", "Table", "a table: its columns, its Partitions and its Key"),
+    ("`ops.jobs`, a Table reference", "Table",
+     "a table: its columns, its Partitions and its Key"),
     ("`ops.jobs.job_id`", "Column", "one of its columns"),
     ("a test, such as `equals(...)`", "Condition", "a test of each row, for WHERE or ON"),
     ("`SELECT(...)`, `FROM(...)`, `WHERE(...)` and the others", "Clause",
@@ -771,16 +806,20 @@ def chain_html() -> str:
             f"</tr>\n{rows}\n</table>")
 
 
+# A `\` at the end of a line, here and in HOW_TO_SCRIPT, joins the next line on.
 HOW_TO_STYLE = """h5{font-size:15px;margin:16px 0 4px;color:#333}
 .groups{display:grid;grid-template-columns:1fr 1fr;gap:18px}
 @media (max-width:800px){.groups{grid-template-columns:1fr}}
 .groups ul{margin:4px 0}
-.badge{font-size:12px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:2px}
-.badge.getting-started{color:#1f5a2a;background:#e6f4e8} .badge.intermediate{color:#6b4500;background:#fbefdc}
+.badge{font-size:12px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;\
+vertical-align:2px}
+.badge.getting-started{color:#1f5a2a;background:#e6f4e8} \
+.badge.intermediate{color:#6b4500;background:#fbefdc}
 pre.file{white-space:pre-wrap}
 details summary{cursor:pointer;color:#555;margin:4px 0}
 .code{position:relative} .code pre{padding-right:64px}
-.copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
+.copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;\
+cursor:pointer}
 """
 
 # What the how-to page's script adds to the Example gallery's, FILTER_SCRIPT: each how-to's
@@ -798,7 +837,8 @@ for (const pre of document.querySelectorAll("pre.python, pre.hive")) {
   button.textContent = "Copy";
   button.onclick = () => Promise.resolve().then(() => navigator.clipboard.writeText(text)).then(
     () => { button.textContent = "Copied"; },
-    () => { window.getSelection().selectAllChildren(pre); button.textContent = "Press Ctrl+C"; });
+    () => { window.getSelection().selectAllChildren(pre); \
+button.textContent = "Press Ctrl+C"; });
   holder.className = "code";
   pre.replaceWith(holder);
   holder.append(pre, button);

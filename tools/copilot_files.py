@@ -61,7 +61,8 @@ REPLACED_ARGUMENTS = "removed"
 
 
 def named(name: str) -> object:
-    """The Toolbox's object a name in a {names: ...} list stands for, such as project.convert."""
+    """The Toolbox's object a name in a {names: ...} list stands for, such as
+    project.convert."""
     module, _, attribute = name.rpartition(".")
     owner = MODULES.get(module)
     if owner is None or attribute not in owner.__all__:
@@ -100,7 +101,8 @@ def signature(name: str) -> str:
 
 def names_block(names: str) -> str:
     """The lines a {names: ...} placeholder becomes."""
-    return "\n".join(f"- {signature(name.strip())}" for name in names.split(",") if name.strip())
+    return "\n".join(f"- {signature(name.strip())}" for name in names.split(",")
+                     if name.strip())
 
 
 def rendered(source: str) -> str:
@@ -108,7 +110,12 @@ def rendered(source: str) -> str:
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     text = source.replace("{version}", version)
     text = text.replace("{always}", ALWAYS.read_text(encoding="utf-8").strip())
-    return NAMES.sub(lambda found: names_block(found.group(1)), text)
+    return NAMES.sub(_names_block_of, text)
+
+
+def _names_block_of(placeholder: re.Match[str]) -> str:
+    """The lines a {names: ...} placeholder, as NAMES finds it, becomes."""
+    return names_block(placeholder.group(1))
 
 
 def copilot_files() -> dict[str, str]:
@@ -120,8 +127,8 @@ def copilot_files() -> dict[str, str]:
                    count_characters.characters_on_windows(text))
         if most > count_characters.LIMIT:
             raise CopilotFileRefused(
-                f"{source.name} comes to {most:,} characters, over the {count_characters.LIMIT:,} "
-                "Copilot takes: shorten its source.")
+                f"{source.name} comes to {most:,} characters, over the "
+                f"{count_characters.LIMIT:,} Copilot takes: shorten its source.")
         files[source.name] = text
     return files
 
@@ -134,7 +141,10 @@ def main() -> int:
         (COPILOT / name).write_text(text, encoding="utf-8", newline="\n")
     print(f"Wrote {len(files)} Copilot files in copilot/.")
     merge_copilot_files.main()
-    return formula_workbook.main() or formula_workbook_examples.main()
+    status = formula_workbook.main()
+    if status != 0:
+        return status
+    return formula_workbook_examples.main()
 
 
 if __name__ == "__main__":

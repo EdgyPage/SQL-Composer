@@ -103,8 +103,9 @@ def test_repair_partitions_is_sent_to_execute_as_written_and_again() -> None:
 
 
 def test_repair_partitions_refuses_a_table_with_no_partitions() -> None:
-    with pytest.raises(ValueError, match=r"repair_partitions\(job_names\): mart.job_names has "
-                                         r"no partitioned_by=, so it has no Partitions to find"):
+    with pytest.raises(ValueError,
+                       match=r"repair_partitions\(job_names\): mart.job_names has "
+                             r"no partitioned_by=, so it has no Partitions to find"):
         repair_partitions(JOB_NAMES)
 
 

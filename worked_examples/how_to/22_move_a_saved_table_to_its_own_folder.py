@@ -72,7 +72,12 @@ answers DESCRIBE FORMATTED for a mart.job_day_facts that was made by hand in
 >>> check_table_reference(job_day_facts, query=query_at_work)  # -> Verdict
 mart.job_day_facts differs from its Table reference.
 Problems:
-  - it is at hdfs://namenode:8020/data/your_team/tables, not at /data/your_team/mart.db/job_day_facts, the folder location= names: change the line to location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the table. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at
+    /data/your_team/mart.db/job_day_facts, the folder location= names: change the line to
+    location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the
+    table. A folder that isn't a table's own may hold other tables' files: two tables in one
+    folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the
+    other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
 
 Here /data/your_team/tables isn't mart.job_day_facts' own folder, so the line to change isn't
 the Table reference's: the table is the one to move.
@@ -149,7 +154,8 @@ Partition matches:
 ...     if hive.startswith("WITH old_counts"):  # the count of each Partition's rows
 ...         return pd.DataFrame(columns=["dt", "old_rows", "copied_rows"])
 ...     return query_at_work(hive)
->>> finish = admin.check_the_copy(job_day_facts, query=query_after_the_copy)  # -> list[Statement]
+>>> finish = admin.check_the_copy(job_day_facts,
+...                               query=query_after_the_copy)  # -> list[Statement]
 >>> text = show_hive(finish)
 -- 1 of 3: finish[0]
 -- Sets external.table.purge to false on mart.job_day_facts, so that dropping it next leaves
@@ -257,7 +263,8 @@ The admin module changes only your own Saved tables, the ones whose Table refere
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  admin.move_to_own_folder(...) was given ops.job_events, which isn't one of your Saved tables: its Table reference has no location=.
+  What happened:  admin.move_to_own_folder(...) was given ops.job_events, which isn't one of
+                  your Saved tables: its Table reference has no location=.
 ...
 
 ### Moving a table that is at its own folder already
@@ -269,7 +276,9 @@ so a notebook that moves a table can't move it twice:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  admin.move_to_own_folder(mart.job_day_facts, query=...): mart.job_day_facts is at its own folder already, hdfs://namenode:8020/data/your_team/mart.db/job_day_facts.
+  What happened:  admin.move_to_own_folder(mart.job_day_facts, query=...): mart.job_day_facts is
+                  at its own folder already,
+                  hdfs://namenode:8020/data/your_team/mart.db/job_day_facts.
 ...
 
 ### Dropping the table without the check

@@ -80,7 +80,7 @@ def list_text(counts: dict[str, dict[str, int]]) -> list[str]:
 
 
 def write_list(counts: dict[str, dict[str, int]]) -> None:
-    """known_breaks.py with its KNOWN_BREAKS written as `counts`, the rest of it kept."""
+    """Write known_breaks.py's KNOWN_BREAKS as `counts`, keeping the rest of the file."""
     text = LIST.read_text(encoding="utf-8")
     start = text.index("KNOWN_BREAKS: dict[str, dict[str, int]] = {\n")
     end = text.index("\n}\n", start)

@@ -102,8 +102,8 @@ def file_blocks(path: Path) -> list[how_to_page.FileBlock]:
 def code_and_prose(path: Path) -> tuple[list[str], list[str]]:
     """A how-to's code, its >>> steps and indented code, and its `backticked` spans of prose.
 
-    A file it shows after an edit is neither: see test_each_python_file_a_how_to_shows_names_only
-    _what_it_defines_or_imports."""
+    A file it shows after an edit is neither: see
+    test_each_python_file_a_how_to_shows_names_only_what_it_defines_or_imports."""
     code, spans = [], []
     for piece in how_to_page.with_file_blocks(how_to_page.docstring_of(path)):
         if isinstance(piece, how_to_page.FileBlock):
@@ -211,7 +211,8 @@ def test_each_group_has_its_heading_and_contents_and_each_how_to_its_badge() -> 
     how_tos = [how_to_page.read_how_to(path) for path in HOW_TOS]
     for group in how_to_page.GROUPS:
         assert f'<h2 id="{group.id}">{group.name}</h2>' in text
-        contents = re.search(rf'<a href="#{group.id}">{group.name}</a>.*?</div>', text, re.DOTALL)
+        contents = re.search(rf'<a href="#{group.id}">{group.name}</a>.*?</div>', text,
+                             re.DOTALL)
         listed = re.findall(r'data-for="([^"]+)"', contents.group(0))
         in_group = [how_to for how_to in how_tos if how_to.group == group.name]
         assert listed == [how_to.slug for how_to in in_group]
@@ -346,7 +347,7 @@ def test_every_element_the_script_reaches_is_on_the_page() -> None:
 
 # A stand-in for the browser: the page's elements the script reaches, its clipboard and its
 # selection. It runs the script, then checks what it did, and prints "ok".
-BROWSER = """
+BROWSER = ("""
 const script = __SCRIPT__;
 function element(tag, more = {}) {
   return Object.assign({tag, hidden: false, textContent: "", className: "", children: [],
@@ -364,7 +365,8 @@ const count = element("span");
 const filter = element("p", {hidden: true, querySelector: () => input});
 const entries = [element("section", {id: "start", textContent: "Start a notebook: send"}),
                  element("section", {id: "join", textContent: "Join tables safely"})];
-const items = [element("li", {dataset: {for: "start"}}), element("li", {dataset: {for: "join"}})];
+const items = [element("li", {dataset: {for: "start"}}), """
+"""element("li", {dataset: {for: "join"}})];
 const blocks = [element("pre", {className: "python", textContent: "x = 1"}),
                 element("pre", {className: "hive", textContent: "SELECT 1;"})];
 const copied = [];
@@ -406,7 +408,7 @@ function check(ok, what) { if (!ok) throw new Error(what); }
   check(blocks[1].replacedBy.children[1].textContent === "Press Ctrl+C", "and says so");
   console.log("ok");
 })().catch(error => { console.error(error.message); process.exit(1); });
-"""
+""")
 
 
 def test_the_script_filters_the_how_tos_and_puts_a_copy_button_on_each_block(
@@ -425,7 +427,8 @@ def test_the_script_filters_the_how_tos_and_puts_a_copy_button_on_each_block(
     assert ran.returncode == 0 and ran.stdout.strip() == "ok", ran.stderr
 
 
-def test_the_script_gives_every_block_of_python_and_hive_a_copy_button_and_nothing_else() -> None:
+def test_the_script_gives_every_block_of_python_and_hive_a_copy_button_and_nothing_else(
+) -> None:
     assert 'querySelectorAll("pre.python, pre.hive")' in the_script()
     kinds = set(re.findall(r'<pre class="([a-z]+)">', page()))
     assert {"python", "hive"} <= kinds
@@ -440,8 +443,8 @@ def a_how_to(tmp_path: Path, steps: str, name: str = "01_try_it.py",
              stand_ins: str = "") -> Path:
     """A how-to's file with `steps` under Steps, a line of prose under each other heading, and
     `stand_ins` after its docstring."""
-    body = "".join(f"## {heading}\n\n" + (steps if heading == "Steps" else "Some words.") + "\n\n"
-                   for heading in headings)
+    body = "".join(f"## {heading}\n\n" + (steps if heading == "Steps" else "Some words.")
+                   + "\n\n" for heading in headings)
     path = tmp_path / name
     path.write_text(f'"""Try it\n\nFor: {group}\n\n{body}"""\n{stand_ins}', encoding="utf-8")
     return path
@@ -499,7 +502,8 @@ def test_a_long_file_a_step_writes_is_folded_and_a_file_shown_before_is_not_show
 >>> size = Path("long.md").write_text(long_text)
 >>> size = Path("again.md").write_text(long_text)""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
-    assert '<p class="label">It writes short.md</p>\n<pre class="file">A short file.</pre>' in shown
+    assert ('<p class="label">It writes short.md</p>\n<pre class="file">A short file.</pre>'
+            in shown)
     assert (f'<p class="label">It writes long.md</p>\n<details><summary>Show its '
             f'{lines} lines</summary>\n<pre class="file">line 0\n') in shown
     assert shown.count("line 0\n") == 1
@@ -695,8 +699,8 @@ def test_the_page_shows_a_file_after_an_edit_in_a_box_headed_by_its_path(
     box = re.search(r'<p class="label">The file <code>references/ops__little.py</code>, after '
                     r'you write it</p>\n<pre class="python">(.*?)</pre>', shown, re.DOTALL)
     assert page_text(box.group(1)).startswith('"""ops.little - a made-up Table reference."""')
-    assert ('<p class="label">The file <code>tables/ops__little/ops__little.ipynb</code>, after '
-            'you fill it in</p>\n<pre class="python"># %% [markdown]') in shown
+    assert ('<p class="label">The file <code>tables/ops__little/ops__little.ipynb</code>, '
+            'after you fill it in</p>\n<pre class="python"># %% [markdown]') in shown
     assert ('<p class="label">The file <code>notes.md</code>, after you add a line</p>\n'
             '<pre class="file">A note.') in shown
     # The steps read what the files hold, and none is shown as written by a step.

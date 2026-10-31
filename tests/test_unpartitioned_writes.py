@@ -91,7 +91,8 @@ def test_a_window_over_several_days_may_be_written_into_it() -> None:
     with_before = derived("with_before", statement(
         SELECT(job_runs.job_id, job_runs.dt,
                AS(lag(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
-                                                          ORDER_BY=job_runs.run_id)), "before")),
+                                                          ORDER_BY=job_runs.run_id)),
+                  "before")),
         FROM(job_runs), WHERE(DAYS)))
     s = statement(INSERT_OVERWRITE(job_teams, unproven_key=True),
                   SELECT(AS(with_before.job_id, "job_id"), AS(with_before.dt, "team")),
@@ -103,8 +104,8 @@ def test_a_stack_writes_the_whole_table() -> None:
     each = [statement(SELECT(jobs.team, jobs.job_id), FROM(jobs),
                       WHERE(equals(jobs.team, team))) for team in ("data", "finance")]
     both = derived("both", UNION(*each))
-    s = statement(INSERT_OVERWRITE(job_teams, unproven_key=True), SELECT(both.team, both.job_id),
-                  FROM(both))
+    s = statement(INSERT_OVERWRITE(job_teams, unproven_key=True),
+                  SELECT(both.team, both.job_id), FROM(both))
     hive = to_hive(s)
     assert "UNION" in hive and "INSERT OVERWRITE TABLE mart.job_teams\nSELECT\n" in hive
 
@@ -168,7 +169,8 @@ def test_lineage_draws_a_write_into_an_unpartitioned_table(tmp_path: Path) -> No
 
 
 def test_lineage_draws_a_write_that_reads_every_partition(tmp_path: Path) -> None:
-    unbounded = statement(INSERT_OVERWRITE(team_runs), SELECT(jobs.team, AS(count_rows(), "runs")),
+    unbounded = statement(INSERT_OVERWRITE(team_runs),
+                          SELECT(jobs.team, AS(count_rows(), "runs")),
                           FROM(job_runs, reads_all_partitions=True),
                           JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                           GROUP_BY(jobs.team))

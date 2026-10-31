@@ -35,8 +35,10 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 The file `references/ops__job_runs.py`, after you fill it in:
@@ -146,8 +148,10 @@ that region; and ops.team_notes, the notes each team wrote about its jobs, not p
 all. Add their Table references, before any notebook imports references:
 
 >>> project.add_references(["ops.region_budgets", "ops.team_notes"], query=query)
-Wrote references/ops__region_budgets.py and references/ops__team_notes.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs, ops.region_budgets, ops.run_alerts and ops.team_notes.
+Wrote references/ops__region_budgets.py and references/ops__team_notes.py: fill in their TODO
+    lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs,
+    ops.region_budgets, ops.run_alerts and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 A job has one budget in each region it is billed in, so the Key of ops.region_budgets is the
@@ -492,7 +496,8 @@ every Partition:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(region_budgets) reads ops.region_budgets, but filters none of its partition columns: region.
+  What happened:  FROM(region_budgets) reads ops.region_budgets, but filters none of its
+                  partition columns: region.
 ...
 
 The usual fix is the right one: name the regions to read, here both, with `is_in`. A region
@@ -531,14 +536,15 @@ act as a `JOIN`. A Guard stops it:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  WHERE has region_budgets.region = 'eu', a condition on region_budgets, which LEFT_JOIN brought in.
+  What happened:  WHERE has region_budgets.region = 'eu', a condition on region_budgets, which
+                  LEFT_JOIN brought in.
 ...
 
 Before the Guard refused it, it also warned at the `LEFT_JOIN`, since a Statement can get a
 Warning and a refusal both: matched on `budgets.job_id` alone, a job meets its budget in
-every region, and the region is the other column of the Key. The Guard's usual fix mends both: move
-the Condition into `ON=`, beside the join's own, with `all_of`. It filters the partition column
-there too, and the join now matches on the whole Key:
+every region, and the region is the other column of the Key. The Guard's usual fix mends both:
+move the Condition into `ON=`, beside the join's own, with `all_of`. It filters the partition
+column there too, and the join now matches on the whole Key:
 
 >>> eu_budgets = statement(  # -> Statement
 ...     SELECT(jobs.job_name, budgets.budget_cents),
@@ -554,9 +560,9 @@ there too, and the join now matches on the whole Key:
 3  report_build           NaN
 
 report_build is billed in us, so it has no eu budget, and is kept, with NaN, pandas' empty
-value; a column of whole numbers holding a NaN is made floats, so the budgets show as 50.0. The opt-out,
-`keeps_only_matches=True`, is almost never right: if you want only the jobs that have a match,
-`JOIN` says so plainly.
+value; a column of whole numbers holding a NaN is made floats, so the budgets show as 50.0. The
+opt-out, `keeps_only_matches=True`, is almost never right: if you want only the jobs that have a
+match, `JOIN` says so plainly.
 
 ### A Warning: a table with no Key
 
@@ -608,7 +614,8 @@ is a good start. The Example database is tiny, so this page sets 5:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  run_query(...) got back 5 rows, exactly the automatic LIMIT set by set_load_limits(rows=...).
+  What happened:  run_query(...) got back 5 rows, exactly the automatic LIMIT set by
+                  set_load_limits(rows=...).
 ...
 
 The usual fix is to ask for fewer rows. Its opt-out, `returns_all_rows=True` on
@@ -695,7 +702,8 @@ of it stops as you build it:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is listed in does_not_add_up in its Table reference.
+  What happened:  sum_of(job_runs.avg_retry_secs) adds up job_runs.avg_retry_secs, which is
+                  listed in does_not_add_up in its Table reference.
 ...
 
 If you leave `does_not_add_up=[]` empty, nothing stops it, and the total means nothing.
@@ -753,7 +761,8 @@ the joined one too:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but filters none of its partition columns: dt.
+  What happened:  JOIN(run_alerts, ON=...) reads ops.run_alerts, but filters none of its
+                  partition columns: dt.
 ...
 
 ### The opt-out on the wrong call
@@ -787,4 +796,4 @@ Copy the opt-out from the message as it is written.
   and the traps beside their fixes: [repeated rows](examples.html#repeated_rows),
   [a LEFT_JOIN then WHERE](examples.html#left_join_then_where) and
   [jobs that never ran](examples.html#jobs_that_never_ran).
-"""
+"""  # noqa: E501 - a file it writes, shown byte for byte as the Project writes it

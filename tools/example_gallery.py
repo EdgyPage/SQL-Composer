@@ -17,11 +17,13 @@ The page holds two kinds of Worked example:
   Statement functions in turn, as the steps of a common job;
 - every docstring's `>>>` example, in the cheat sheet's order, step by step as the docstring
   shows it, then the Hive and the result of each Statement it hands to `to_hive(...)`,
-  `run_query(...)`, `run_execute(...)` or `export_lineage(...)` (the Hive only when the docstring doesn't print it).
+  `run_query(...)`, `run_execute(...)` or `export_lineage(...)` (the Hive only when the
+  docstring doesn't print it).
 
 Each entry lists the Toolbox names its Python uses. Where the Example database can't run a
-Statement, as it can't run week_start, a pandas result from the Worked example
-that builds the same Hive stands in, labelled as such. Everything is plain HTML; a few lines of script add a filter box.
+Statement, as it can't run week_start, a pandas result from the Worked example that builds the
+same Hive stands in, labelled as such. Everything is plain HTML; a few lines of script add a
+filter box.
 """
 
 from __future__ import annotations
@@ -93,7 +95,8 @@ def toolbox_modules() -> list[ModuleType]:
 
 
 def docstrings() -> list[tuple[list[str], str]]:
-    """Every docstring with a >>> example, with the names it is about, in the cheat sheet's order.
+    """Every docstring with a >>> example, with the names it is about, in the cheat sheet's
+    order.
 
     The two constants share the Toolbox's own docstring. A docstring that isn't a public
     name's, such as example_database.query's, comes after the public names.
@@ -125,13 +128,18 @@ def names_in(code: str) -> list[str]:
 # --- Running a Statement on the Example database ---------------------------------------------
 
 
+def _example_today() -> datetime.date:
+    """Today on the page, 2026-09-25, standing in for conditions.today."""
+    return TODAY
+
+
 @contextlib.contextmanager
 def example_setting() -> Iterator[None]:
     """Today is 2026-09-25, and a file an example writes goes to a folder deleted afterwards."""
     real_today, here = conditions.today, os.getcwd()
     with tempfile.TemporaryDirectory() as folder, warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        conditions.today = lambda: TODAY
+        conditions.today = _example_today
         os.chdir(folder)
         # An example that runs an Unchecked statement logs it there too, not beside this file.
         sqlglot_composer.set_admin_log(Path(folder) / "admin_log.md")
@@ -168,15 +176,8 @@ def result_html(s: Statement | SessionSettings | UncheckedStatement,
                 result = sqlglot_composer.run_execute(s, example_database.execute)
             else:
                 result = sqlglot_composer.run_query(s, example_database.query)
-        if result is None and isinstance(s, SessionSettings):  # each SET line to execute
-            return ('<p class="note">Sent to the Example database one SET line at a time; '
-                    "run_execute gives back None.</p>")
-        if result is None and pandas_result is not None:
-            return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
-        if result is None:  # a write, or other Hive that changes something, sent to execute
-            return ('<p class="note">No result here. The Example database is never written to: '
-                    "its execute prints the Hive's first line and changes nothing, and "
-                    "run_execute gives back None.</p>")
+        if result is None:
+            return _no_result_html(s, pandas_result, which)
         if isinstance(result, str):
             # explain's plan, as text: only its heading.
             heading = result.splitlines()[0] if result else ""
@@ -189,18 +190,31 @@ def result_html(s: Statement | SessionSettings | UncheckedStatement,
         return f'<p class="note">No result here. {inline(what_happened(error))}</p>'
 
 
+def _no_result_html(s: Statement | SessionSettings | UncheckedStatement,
+                    pandas_result: Callable[..., pd.DataFrame] | None, which: str) -> str:
+    """What stands for the result when running `s` gives back None."""
+    if isinstance(s, SessionSettings):  # each SET line to execute
+        return ('<p class="note">Sent to the Example database one SET line at a time; '
+                "run_execute gives back None.</p>")
+    if pandas_result is not None:
+        return label(f"Result{which}, {PANDAS_LABEL}") + table_html(pandas_result())
+    # A write, or other Hive that changes something, sent to execute.
+    return ('<p class="note">No result here. The Example database is never written to: '
+            "its execute prints the Hive's first line and changes nothing, and "
+            "run_execute gives back None.</p>")
+
+
 def table_html(frame: pd.DataFrame) -> str:
     if frame.empty:
         return '<p class="note">No rows.</p>'
     head = "".join(f"<th>{escape(str(column))}</th>" for column in frame.columns)
-    rows = "".join(
-        "<tr>" + "".join(f"<td>{cell(value)}</td>" for value in row) + "</tr>\n"
-        for row in frame.itertuples(index=False)
-    )
+    rows = ""
+    for row in frame.itertuples(index=False):
+        rows += "<tr>" + "".join(f"<td>{cell_html(value)}</td>" for value in row) + "</tr>\n"
     return f'<div class="scroll"><table class="result">\n<tr>{head}</tr>\n{rows}</table></div>'
 
 
-def cell(value: object) -> str:
+def cell_html(value: object) -> str:
     return "<i>NULL</i>" if pd.isna(value) else escape(str(value))
 
 
@@ -269,7 +283,8 @@ def names_html(names: list[str]) -> str:
 
 
 def entry_html(entry_id: str, title: str, body: str) -> str:
-    return f'<section class="entry" id="{escape(entry_id)}">\n<h3>{title}</h3>\n{body}\n</section>'
+    return (f'<section class="entry" id="{escape(entry_id)}">\n<h3>{title}</h3>\n{body}\n'
+            "</section>")
 
 
 # --- A docstring's example --------------------------------------------------------------------
@@ -378,8 +393,8 @@ def docstring_entry(names: list[str], doc: str,
     scope = example_scope(handed)
     with example_setting():
         steps, sources = steps_html(doctest.DocTestParser().parse(rest), scope)
-        body = [f'<p class="why">{inline(first)}</p>', *steps, *handed_html(handed, pandas_results),
-                week_start_on_each_day(names)]
+        body = [f'<p class="why">{inline(first)}</p>', *steps,
+                *handed_html(handed, pandas_results), week_start_on_each_day(names)]
     used = [name for name in PUBLIC if name in names] + [
         name for name in names_in("\n".join(sources)) if name not in names]
     body.append(names_html(used))
@@ -414,8 +429,10 @@ def week_start_on_each_day(names: list[str]) -> str:
 
 
 def used_by_html(found: list[list[tuple[str, str]]]) -> str:
-    links = [f'<a href="#{escape(entry_id)}">{inline(title)}</a>'
-             for per_name in found for entry_id, title in per_name]
+    links = []
+    for per_name in found:
+        links += [f'<a href="#{escape(entry_id)}">{inline(title)}</a>'
+                  for entry_id, title in per_name]
     if not links:
         return ""
     return f'<p class="names">Worked examples that use it: {"; ".join(links)}</p>'
@@ -433,7 +450,8 @@ def script_parts(module: ModuleType) -> tuple[str, str, list[str]]:
 
 
 def script_top(module: ModuleType) -> str:
-    """The top of a script: its imports and settings, between its docstring and first function."""
+    """The top of a script: its imports and settings, between its docstring and first
+    function."""
     source = Path(module.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     start = tree.body[0].end_lineno
@@ -446,7 +464,8 @@ LOWER_LEVELS = {"references": "The Table reference", "building_blocks": "The Bui
 
 
 def lower_levels_of(module: ModuleType) -> list[tuple[str, Path]]:
-    """The Table references and Building blocks a script imports: how each is named, its file."""
+    """The Table references and Building blocks a script imports: how each is named, its
+    file."""
     tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
     found = []
     for node in tree.body:
@@ -548,7 +567,8 @@ def other_statements(
         if (function.__module__ != module.__name__ or name in {"careless", "fixed"}
                 or name.endswith("_in_pandas")):
             continue
-        if all(p.default is not p.empty for p in inspect.signature(function).parameters.values()):
+        parameters = inspect.signature(function).parameters.values()
+        if all(p.default is not p.empty for p in parameters):
             with example_setting(), mock.patch.object(example_database, "query",
                                                       _refuse_to_query):
                 try:
@@ -568,7 +588,8 @@ def is_demonstration(module: ModuleType) -> bool:
 def function_html(heading: str, function: Callable[..., Statement | list[Statement]],
                   module: ModuleType, name: str) -> str:
     """One Statement function of a script: a heading, its source, then its Hive and result."""
-    return (f"<h4>{heading}<code>{name}()</code></h4>" + source_html(inspect.getsource(function))
+    return (f"<h4>{heading}<code>{name}()</code></h4>"
+            + source_html(inspect.getsource(function))
             + statement_html(function(), module, name))
 
 
@@ -596,7 +617,9 @@ def script_entry(module: ModuleType) -> tuple[str, str, list[str], str]:
     names = names_in("\n".join([top] + [text for *_, text in lower]
                                + [inspect.getsource(function) for function in functions]))
     body = [f'<p class="why">{inline(why)}</p>', *(f"<p>{inline(note)}</p>" for note in notes),
-            label(f"The top of its script, {entry_id}.py, a Table notebook's logic cell in a Project"), source_html(top)]
+            label(f"The top of its script, {entry_id}.py, a Table notebook's logic cell in a "
+                  "Project"),
+            source_html(top)]
     for kind, name, folder, text in lower:
         body += [label(f"{kind} it imports, {folder}/{name}"), source_html(text)]
     body += [steps, names_html(names)]
@@ -635,7 +658,10 @@ def gallery_page() -> str:
     for module in scripts:
         entry_id, title, names, entry = script_entry(module)
         # Each entry travels as (its id, its title, its HTML).
-        (fixes if is_demonstration(module) else common).append((entry_id, title, entry))
+        if is_demonstration(module):
+            fixes.append((entry_id, title, entry))
+        else:
+            common.append((entry_id, title, entry))
         for name in names:
             used_by.setdefault(name, []).append((entry_id, title))
     # A name every Worked example uses (SELECT, statement) gets no links: they'd say nothing.
@@ -643,16 +669,18 @@ def gallery_page() -> str:
     documented = [(names, docstring_entry(names, doc, pandas_results, used_by))
                   for names, doc in docstrings()]
     # Only a page with a pandas result says where pandas stands in.
-    from_pandas = any(PANDAS_LABEL in entry for entry in
-                      [entry for *_, entry in common + fixes] + [entry for _, entry in documented])
+    every_entry = [entry for *_, entry in common + fixes] + [entry for _, entry in documented]
+    or_pandas, but_not_pandas = "", ""
+    if any(PANDAS_LABEL in entry for entry in every_entry):
+        or_pandas = ", or computed in pandas where the Example database can't\nrun it"
+        but_not_pandas = (", but not\nthe pandas that computes a result the Example database "
+                          "can't run")
     return PAGE.format(
         style=STYLE,
         product=escape(toolbox_registry.PRODUCT),
         folder=escape(toolbox_registry.FOLDER),
-        or_pandas=(", or computed in pandas where the Example database can't\nrun it"
-                   if from_pandas else ""),
-        but_not_pandas=(", but not\nthe pandas that computes a result the Example database can't run"
-                        if from_pandas else ""),
+        or_pandas=or_pandas,
+        but_not_pandas=but_not_pandas,
         version=escape(sqlglot_composer.TOOLBOX_VERSION),
         worked_count=len(common) + len(fixes),
         docstring_count=len(documented),
@@ -675,9 +703,10 @@ def contents_html(entries: list[tuple[str, str, str]]) -> str:
 
 
 # The page's look, which the how-to page (tools/how_to_page.py) shares.
-STYLE = """body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
+STYLE = ("""body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
-h1{font-size:22px;margin:8px 0} h2{font-size:19px;margin:32px 0 8px;border-bottom:2px solid #ddd}
+h1{font-size:22px;margin:8px 0} """
+         """h2{font-size:19px;margin:32px 0 8px;border-bottom:2px solid #ddd}
 h3{font-size:17px;margin:0 0 4px} h4{font-size:15px;margin:12px 0 4px}
 .entry{border:1px solid #ddd;border-radius:6px;padding:12px 16px;margin:14px 0}
 .entry[hidden]{display:none} .why{font-weight:600;margin:0 0 6px}
@@ -691,9 +720,10 @@ code{font-family:ui-monospace,Consolas,monospace;font-size:13px}
 @media (max-width:800px){.pair{grid-template-columns:1fr}}
 table.result{border-collapse:collapse;margin:4px 0;font-size:13px} .scroll{overflow-x:auto}
 table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align:left}
-#filter{position:sticky;top:0;z-index:1;background:#fff;padding:8px 16px;border-bottom:1px solid #eee}
+#filter{position:sticky;top:0;z-index:1;background:#fff;padding:8px 16px;"""
+         """border-bottom:1px solid #eee}
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
-"""
+""")
 
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
@@ -755,7 +785,8 @@ number beside its fix:</p>
 # The script that shows the filter box, `<p id="filter" hidden>`, and keeps only the entries
 # holding every word typed in it, which the how-to page (tools/how_to_page.py) shares. This is
 # an ordinary Python string, so a backslash in the script is written twice.
-FILTER_SCRIPT = """const filter = document.getElementById("filter"), box = filter.querySelector("input");
+FILTER_SCRIPT = ('const filter = document.getElementById("filter"), '
+                 """box = filter.querySelector("input");
 const entries = [...document.querySelectorAll(".entry")];
 filter.hidden = false;
 box.oninput = () => {
@@ -767,7 +798,7 @@ box.oninput = () => {
   }
   document.getElementById("count").textContent = shown + " of " + entries.length + " shown";
 };
-"""
+""")
 
 
 def main() -> int:

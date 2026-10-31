@@ -50,7 +50,8 @@ def may_import(file_name: str) -> frozenset[str]:
 
 
 def imports_outside(folder: Path) -> list[str]:
-    """Each import in the Toolbox's folder that `may_import` refuses, as "<file> imports <name>"."""
+    """Each import in the Toolbox's folder that `may_import` refuses, as
+    "<file> imports <name>"."""
     found = []
     for path in sorted(folder.glob("*.py")):
         allowed = sys.stdlib_module_names | may_import(path.name) | {"__future__"}
@@ -60,7 +61,8 @@ def imports_outside(folder: Path) -> list[str]:
 
 
 def _imported(path: Path) -> list[str]:
-    """Every module a file imports by name; its own folder's, imported relatively, aren't listed."""
+    """Every module a file imports by name; its own folder's, imported relatively, aren't
+    listed."""
     names = []
     for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
         if isinstance(node, ast.Import):

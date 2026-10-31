@@ -160,7 +160,8 @@ HAVING
     &quot;&quot;&quot;The 2 jobs with the most minutes in total (ORDER BY with LIMIT).
 
     A sort needs a LIMIT: without one, the warehouse puts every row in order before any comes
-    back, so the Toolbox refuses a sort that would bring back every row. To sort a whole result, sort it in pandas.
+    back, so the Toolbox refuses a sort that would bring back every row. To sort a whole
+    result, sort it in pandas.
     &quot;&quot;&quot;
     return statement(
         SELECT(job_runs.job_id, AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;)),
@@ -616,8 +617,8 @@ runs_to_review = Table(
 <h4><code>create()</code></h4><pre class="python">def create() -&gt; Statement:
     &quot;&quot;&quot;Step 1, once: create the table from its Table reference.
 
-    The warehouse refuses if the table already exists. That is on purpose: after you edit the Table
-    reference, sending this again can&#x27;t quietly look like it changed the real table.
+    The warehouse refuses if the table already exists. That is on purpose: after you edit the
+    Table reference, sending this again can&#x27;t quietly look like it changed the real table.
     &quot;&quot;&quot;
     return create_table(runs_to_review)</pre><p class="label">Hive</p><pre class="hive">CREATE EXTERNAL TABLE mart.runs_to_review (
   run_id BIGINT,
@@ -928,7 +929,8 @@ GROUP BY
     &quot;&quot;&quot;Number each job&#x27;s runs from the newest, then keep number 1: one whole run per job.&quot;&quot;&quot;
     numbered = derived(&quot;numbered&quot;, statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
-               AS(row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
+               AS(row_number(PARTITION_BY=job_runs.job_id,
+                             ORDER_BY=descending(job_runs.run_id)),
                   &quot;newest_first&quot;)),
         FROM(job_runs),
         WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),
@@ -1415,7 +1417,8 @@ WHERE
     &quot;&quot;&quot;
     alerts = alerts_per_run(DAY, DAY)
     return statement(
-        SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;), AS(sum_of(alerts.alerts), &quot;alerts&quot;)),
+        SELECT(AS(sum_of(job_runs.duration_mins), &quot;minutes&quot;),
+               AS(sum_of(alerts.alerts), &quot;alerts&quot;)),
         FROM(job_runs),
         LEFT_JOIN(alerts, ON=equals(alerts.run_id, job_runs.run_id)),
         WHERE(between(job_runs.dt, DAY, DAY)),

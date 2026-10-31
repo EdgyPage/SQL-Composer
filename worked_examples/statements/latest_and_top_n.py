@@ -34,7 +34,8 @@ def fixed() -> Statement:
     """Number each job's runs from the newest, then keep number 1: one whole run per job."""
     numbered = derived("numbered", statement(
         SELECT(job_runs.job_id, job_runs.run_id, job_runs.status,
-               AS(row_number(PARTITION_BY=job_runs.job_id, ORDER_BY=descending(job_runs.run_id)),
+               AS(row_number(PARTITION_BY=job_runs.job_id,
+                             ORDER_BY=descending(job_runs.run_id)),
                   "newest_first")),
         FROM(job_runs),
         WHERE(between(job_runs.dt, FIRST_DAY, LAST_DAY)),

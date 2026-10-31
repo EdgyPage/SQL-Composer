@@ -33,8 +33,10 @@ tables/ and warehouse.py.
 Next: write your two functions, query and execute, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
-Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
+Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
+    fill in their TODO lines.
+Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
+    ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 A notebook of the Project starts with three imports: every Toolbox name, your query and
@@ -94,8 +96,8 @@ same Statement.
 
 ### Read its Hive
 
-`to_hive` gives the Hive as text, a `str`, exactly what `run_query` sends. `print` shows it as it
-is, one clause to a line:
+`to_hive` gives the Hive as text, a `str`, exactly what `run_query` sends. `print` shows it as
+it is, one clause to a line:
 
 >>> hive = to_hive(failed)  # -> str
 >>> print(hive)
@@ -267,7 +269,8 @@ names doesn't:
 
 >>> every_column = all_columns(job_runs)  # -> list[Column]
 >>> every_column
-[job_runs.run_id, job_runs.job_id, job_runs.status, job_runs.duration_mins, job_runs.avg_retry_secs, job_runs.dt]
+[job_runs.run_id, job_runs.job_id, job_runs.status, job_runs.duration_mins,
+    job_runs.avg_retry_secs, job_runs.dt]
 
 When the names you want come as text, from a list in your settings or another table's columns,
 Python's own `getattr` takes each Column by its name:
@@ -312,7 +315,8 @@ Partitions it reads. Here, `to_check`: the runs that failed or took 30 minutes o
 ...     FROM(job_runs),
 ...     WHERE(between(job_runs.dt, "2026-09-23", "2026-09-24")),
 ... ), query)
->>> in_pandas = every_run[(every_run["status"] == "FAILED") | (every_run["duration_mins"] >= 30)]
+>>> in_pandas = every_run[(every_run["status"] == "FAILED")
+...                       | (every_run["duration_mins"] >= 30)]
 >>> sorted(in_pandas["run_id"]) == sorted(run_query(to_check, query)["run_id"])
 True
 
@@ -335,7 +339,8 @@ Partition the table holds. The Toolbox refuses it as you build it, before anythi
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns: dt.
+  What happened:  FROM(job_runs) reads ops.job_runs, but filters none of its partition columns:
+                  dt.
 ...
   Opt-out:        FROM(job_runs, reads_all_partitions=True)
 
@@ -346,8 +351,8 @@ Partition: use it only for a small table you truly need whole.
 
 ### Giving run_query the Hive text
 
-`run_query` takes the Statement and makes the Hive itself, so it can check it first. Given the text,
-it stops:
+`run_query` takes the Statement and makes the Hive itself, so it can check it first. Given the
+text, it stops:
 
 >>> run_query(hive, query)
 Traceback (most recent call last):
@@ -391,7 +396,8 @@ it. Leaving out the TEST runs on 2026-09-23 also leaves out run 98, still runnin
 2      97   FAILED
 
 Nothing stops this, since the Toolbox can't know which columns may be NULL. To keep run 98,
-ask for the NULL rows too: `any_of(not_equals(job_runs.status, "TEST"), is_null(job_runs.status))`.
+ask for the NULL rows too:
+`any_of(not_equals(job_runs.status, "TEST"), is_null(job_runs.status))`.
 
 ### A value of the wrong type
 
@@ -402,7 +408,8 @@ warehouse to convert one into the other, which can quietly match nothing. The To
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with '3'.
+  What happened:  equals(job_runs.job_id, ...) compares job_runs.job_id, a bigint column, with
+                  '3'.
 ...
 
 Write `equals(job_runs.job_id, 3)`.
@@ -410,13 +417,15 @@ Write `equals(job_runs.job_id, 3)`.
 ## Next
 
 - Count and add up per group, join tables without counting a row twice, and read what the
-  Toolbox says when it stops a Statement: [Count, join and stay safe](#count_join_and_stay_safe).
+  Toolbox says when it stops a Statement:
+  [Count, join and stay safe](#count_join_and_stay_safe).
 - Write the rare Hive the Toolbox has no function for, with your Table references in it:
   [Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references).
 - The gallery's Worked examples of [`statement`](examples.html#statement),
   [`to_hive`](examples.html#to_hive), [`show_hive`](examples.html#show_hive),
-  [`run_query`](examples.html#run_query) and each Condition, such as [`between`](examples.html#between),
-  [`is_in`](examples.html#is_in) and [`any_of`](examples.html#any_of), and the traps beside
-  their fixes: [`not_equals` drops NULL](examples.html#not_equals_drops_null) and
+  [`run_query`](examples.html#run_query) and each Condition, such as
+  [`between`](examples.html#between), [`is_in`](examples.html#is_in) and
+  [`any_of`](examples.html#any_of), and the traps beside their fixes:
+  [`not_equals` drops NULL](examples.html#not_equals_drops_null) and
   [None in `equals`](examples.html#none_in_equals).
 """

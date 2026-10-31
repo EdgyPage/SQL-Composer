@@ -123,7 +123,8 @@ def test_a_read_that_filters_no_partition_column_is_refused(
 def test_a_read_with_no_where_is_refused_with_its_fix_and_opt_out() -> None:
     said = refusal(lambda: statement(SELECT(sales.order_id), FROM(sales)))
     assert "filters none of its partition columns: region." in said
-    assert "Usual fix: Filter one of them in WHERE, as in WHERE(equals(sales.region, ...))" in said
+    assert ("Usual fix: Filter one of them in WHERE, as in WHERE(equals(sales.region, ...))"
+            in said)
     assert "Opt-out: FROM(sales, reads_all_partitions=True)" in said
 
 
@@ -185,7 +186,8 @@ def test_a_joined_table_is_filtered_in_where_or_in_its_on() -> None:
 def test_a_joined_table_with_no_filter_is_refused_naming_its_join() -> None:
     said = refusal(lambda: statement(SELECT(orders.customer, sales.amount), FROM(orders),
                                      JOIN(sales, ON=ON_ORDER)))
-    assert "JOIN(sales, ON=...) reads ops.sales, but filters none of its partition columns" in said
+    assert ("JOIN(sales, ON=...) reads ops.sales, but filters none of its partition columns"
+            in said)
     assert "Opt-out: JOIN(sales, ON=..., reads_all_partitions=True)" in said
     statement(SELECT(orders.customer, sales.amount), FROM(orders),
               JOIN(sales, ON=ON_ORDER, reads_all_partitions=True))
@@ -253,7 +255,8 @@ def test_show_hive_prints_the_session_setting_a_dynamic_write_needs(
                   WHERE(TWO_DAYS), GROUP_BY(job_runs.job_id, jobs.region, job_runs.dt))
     lines = show_hive(s).splitlines()
     assert lines[:3] == [
-        '-- The Session setting "dynamic_partitions": this write fills region, dt from its rows.',
+        '-- The Session setting "dynamic_partitions": this write fills region, dt '
+        'from its rows.',
         "SET hive.exec.dynamic.partition=true;",
         "SET hive.exec.dynamic.partition.mode=nonstrict;",
     ]

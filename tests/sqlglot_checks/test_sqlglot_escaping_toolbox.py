@@ -1,4 +1,5 @@
-"""Where sqlglot Composer writes SQL text: in one function of writing.py, never from an f-string.
+"""Where sqlglot Composer writes SQL text: in one function of writing.py, never from an
+f-string.
 
 These read sqlglot Composer's own source to hold that sqlglot writes every piece of SQL text in
 one place, and that nothing but writing.py and engine.py speaks sqlglot. The escaping checks
@@ -37,7 +38,8 @@ def test_sql_text_is_written_in_exactly_one_function() -> None:
 
 
 def test_only_the_edition_files_read_hive_or_name_its_dialect() -> None:
-    """parse_one, ErrorLevel and dialect= are sqlglot's alone: writing.py and engine.py hold them."""
+    """parse_one, ErrorLevel and dialect= are sqlglot's alone: writing.py and engine.py hold
+    them."""
     for name, tree in _toolbox_trees().items():
         if name in ("writing.py", "engine.py"):
             continue
@@ -48,11 +50,13 @@ def test_only_the_edition_files_read_hive_or_name_its_dialect() -> None:
                 named = getattr(node, "id", None) or getattr(node, "attr", None) or node.name
                 assert named not in ("parse_one", "ErrorLevel"), f"{name}: {named}"
             if isinstance(node, ast.Constant):
-                assert node.value != "hive", f"{name} names the hive dialect, line {node.lineno}"
+                assert node.value != "hive", (f"{name} names the hive dialect, "
+                                              f"line {node.lineno}")
 
 
 def test_no_sql_text_is_built_with_an_f_string() -> None:
-    """No f-string or .format() is handed to sqlglot or a Node, so no value is pasted into SQL."""
+    """No f-string or .format() is handed to sqlglot or a Node, so no value is pasted into
+    SQL."""
     for name, tree in _toolbox_trees().items():
         for call in ast.walk(tree):
             if not isinstance(call, ast.Call):

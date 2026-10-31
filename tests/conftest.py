@@ -172,7 +172,7 @@ def standing_in(hive: str, saved: dict[str, pd.DataFrame]) -> str:
     return hive
 
 
-# --- Example projects and Templates ------------------------------------------------------------
+# --- Example projects and Templates -----------------------------------------------------------
 
 
 

@@ -84,11 +84,15 @@ and changes nothing:
 Found:
   line 1: its SET line is the Session settings HIVE_SETTINGS, which session_settings() gives
   line 7: the IN list of 4 values is the constant EVENT_TYPE_VALUES
-  line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved table's write, INSERT_OVERWRITE(...), with the same partitions
+  line 15: its INSERT OVERWRITE ops_reports.weekly_events PARTITION(dt) becomes your own Saved
+      table's write, INSERT_OVERWRITE(...), with the same partitions
   line 17: the CASE on o.team is the constant TEAM_NAME_BY_TEAM
-  line 20: the CASE WHEN chain of 2 conditions becomes first_match(...), which tries them in order, as CASE does
-  line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it yet
-  line 22: upper(...) is a Hive function no Toolbox function wraps: hive_function("upper", ...) writes it
+  line 20: the CASE WHEN chain of 2 conditions becomes first_match(...), which tries them in
+      order, as CASE does
+  line 21: p.minutes DIV 60 stays Hive, in unchecked_column(...): no Toolbox function writes it
+      yet
+  line 22: upper(...) is a Hive function no Toolbox function wraps: hive_function("upper", ...)
+      writes it
 
 Both tables have Table references in this Project already. One that has none is listed by the
 scan, under "No Table reference yet", and the next step adds it, through your query.
@@ -104,9 +108,12 @@ Give the Conversion a name of its own, a plain lowercase one: the Saved table's 
 to choose when you finish it.
 
 >>> print(project.convert("weekly_events", HIVE, query=query))
-Converted weekly_events: 25 lines of Hive into admin/conversions/weekly_events/weekly_events.ipynb.
-1 piece kept as Hive, 3 named constants, 1 opt-out marked # CONVERSION: for you to check: JOIN(o, reads_all_partitions=True).
-Its Hive and the original's: The Statement's Hive and the original are the same query, once both are written out the same way.
+Converted weekly_events: 25 lines of Hive into
+    admin/conversions/weekly_events/weekly_events.ipynb.
+1 piece kept as Hive, 3 named constants, 1 opt-out marked # CONVERSION: for you to check:
+    JOIN(o, reads_all_partitions=True).
+Its Hive and the original's: The Statement's Hive and the original are the same query, once both
+    are written out the same way.
 admin/conversions/weekly_events/scan.md lists what it found, line by line.
 
 Open admin/conversions/weekly_events/weekly_events.ipynb. Its logic cell holds your code: the
@@ -127,10 +134,14 @@ join needs, reads_all_partitions=True on that JOIN, with a mark on the line abov
 lists each mark left:
 
 >>> print(project.check())
-Conversions not finished yet: finish each with project.finish_conversion(...), or archive it with project.remove_conversion(...):
+Conversions not finished yet: finish each with project.finish_conversion(...), or archive it
+    with project.remove_conversion(...):
   admin/conversions/weekly_events/
-Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it, or change what made it needed, such as a WHERE on the partition column or a key= in a Table reference, and take it off; then delete its mark.
-  admin/conversions/weekly_events/weekly_events.ipynb, cell 3, line ...: # CONVERSION: reads_all_partitions=True, as the original did; check it
+Marked by project.convert(...) for you to check: decide each opt-out the original took: keep it,
+    or change what made it needed, such as a WHERE on the partition column or a key= in a Table
+    reference, and take it off; then delete its mark.
+  admin/conversions/weekly_events/weekly_events.ipynb, cell 3, line ...: # CONVERSION:
+      reads_all_partitions=True, as the original did; check it
 
 An opt-out is a keyword that tells a Guard or a Load limit you have checked what it refuses.
 Here the other table holds five days only, so the join reads only those: keep the opt-out, and
@@ -145,15 +156,20 @@ on one Partition:
 >>> print(compare_with_original(logic.converted(), HIVE, query=query,
 ...                             partition={"dt": "2026-09-24"}))
 The Statement and the original give the same rows where dt = '2026-09-24': 2 rows each.
-The Statement holds Hive written by hand, which the Toolbox can't look inside: unchecked_column("{minutes} DIV 60", minutes=p.minutes). The rows match, so it gives what the original gives here.
+The Statement holds Hive written by hand, which the Toolbox can't look inside:
+    unchecked_column("{minutes} DIV 60", minutes=p.minutes). The rows match, so it gives what
+    the original gives here.
 
 ### Finish it
 
 When it gives the rows you want, finish it under the name of a Saved table of yours:
 
 >>> print(project.finish_conversion("weekly_events", table="mart.weekly_events"))
-Finished the Conversion weekly_events as mart.weekly_events: tables/mart__weekly_events/mart__weekly_events.ipynb, and its Table reference, references/mart__weekly_events.py.
-Fill in references/mart__weekly_events.py: its <LOCATION>, any <COLUMN_TYPE>, key=, and its TODO lines; then run the notebook's create() and write().
+Finished the Conversion weekly_events as mart.weekly_events:
+    tables/mart__weekly_events/mart__weekly_events.ipynb, and its Table reference,
+    references/mart__weekly_events.py.
+Fill in references/mart__weekly_events.py: its <LOCATION>, any <COLUMN_TYPE>, key=, and its TODO
+    lines; then run the notebook's create() and write().
 The Conversion folder is archived, kept as it was, in admin/removed/...-weekly_events/.
 
 Its Table reference lists the columns the query gives, the types the Toolbox knows, and
@@ -210,6 +226,7 @@ Intermediate Example project's days_rewritten.py does. Its INSERT line:
 
 - [Hand-written Hive with your Table references](#hand_written_hive_with_your_table_references):
   the Unchecked pieces a Conversion leaves, and how to replace them.
-- [Upgrade your Project to a new Toolbox version](#upgrade_your_project_to_a_new_toolbox_version).
+- [Upgrade your Project to a new Toolbox
+  version](#upgrade_your_project_to_a_new_toolbox_version).
 - The gallery's [`compare_with_original`](examples.html#compare_with_original) entry.
-"""
+"""  # noqa: E501 - the Hive it converts, whose line numbers its output reports

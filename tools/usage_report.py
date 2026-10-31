@@ -1,6 +1,8 @@
-"""How much of the Toolbox the test suite uses: each function's calls, and the lines no test reaches.
+"""How much of the Toolbox the test suite uses: each function's calls, and the lines no test
+reaches.
 
-Run from the repo's top, on dev only (coverage is in requirements-dev.txt, not requirements.txt):
+Run from the repo's top, on dev only (coverage is in requirements-dev.txt, not
+requirements.txt):
 
     .venv/Scripts/python tools/usage_report.py
 
@@ -32,7 +34,8 @@ TOOL = 4
 
 def count_calls() -> Counter[tuple[str, str, int]]:
     """Start counting each call of a Toolbox function, as (file, function, first line); the
-    count fills in as the suite runs. Code outside the Toolbox is let go after its first call."""
+    count fills in as the suite runs. Code outside the Toolbox is let go after its first
+    call."""
     calls: Counter[tuple[str, str, int]] = Counter()
     folder = str(TOOLBOX)
     monitoring = sys.monitoring

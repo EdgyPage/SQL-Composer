@@ -46,7 +46,8 @@ Key is read in Hive you write by hand.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
+Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners,
+    ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> from references import ops
 
@@ -81,7 +82,8 @@ string, and each name in `{...}`:
 ...     f"WHERE {job_events.dt} = '2026-09-24')")
 >>> text = show_hive(busy_jobs)  # -> str
 -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
-SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SELECT job_events.job_id FROM ops.job_events AS job_events WHERE job_events.dt = '2026-09-24');
+SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SELECT
+    job_events.job_id FROM ops.job_events AS job_events WHERE job_events.dt = '2026-09-24');
 >>> run_query(busy_jobs, query)  # -> DataFrame
    job_id      job_name
 0       1  nightly_load
@@ -104,7 +106,8 @@ database's prints the first line it is given, and changes nothing:
 ...     f"CREATE VIEW IF NOT EXISTS mart.finance_jobs AS "
 ...     f"SELECT {jobs.job_id}, {jobs.job_name} FROM {jobs} WHERE {jobs.team} = 'finance'")
 >>> run_execute(finance_jobs, execute)
-execute: CREATE VIEW IF NOT EXISTS mart.finance_jobs AS SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.team = 'finance'
+execute: CREATE VIEW IF NOT EXISTS mart.finance_jobs AS SELECT jobs.job_id, jobs.job_name FROM
+    ops.jobs AS jobs WHERE jobs.team = 'finance'
 
 Each run of an Unchecked statement adds an entry to the Admin log, admin/admin_log.md: its
 entries are the list of what the Toolbox should learn to write next.
@@ -125,11 +128,13 @@ yourself, as the warehouse knows it:
 `export_lineage` draws an Unchecked statement as one step it can't see inside, reading each
 table its text names, whole: no column is followed through it.
 
->>> html_file, markdown_file = export_lineage(busy_jobs, to="lineage/busy_jobs.html")  # -> tuple[Path, Path]
+>>> html_file, markdown_file = export_lineage(
+...     busy_jobs, to="lineage/busy_jobs.html")  # -> tuple[Path, Path]
 >>> print(markdown_file.read_text(encoding="utf-8").split("## busy_jobs")[1].split("###")[0])
 <BLANKLINE>
 <BLANKLINE>
-⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can't be followed through it. It reads ops.job_events and ops.jobs.
+⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked
+    inside, so its columns can't be followed through it. It reads ops.job_events and ops.jobs.
 <BLANKLINE>
 <BLANKLINE>
 
@@ -185,7 +190,8 @@ Send Hive that gives back rows with `run_query`, as the steps do.
 No Load limit looks inside the text, so a read of a partitioned table that filters none of
 its days is sent as written, and reads every day: here all 14 days of ops.job_events.
 
->>> every_day = unchecked_hive(f"SELECT COUNT(*) AS events FROM {job_events}")  # -> UncheckedStatement
+>>> every_day = unchecked_hive(
+...     f"SELECT COUNT(*) AS events FROM {job_events}")  # -> UncheckedStatement
 >>> run_query(every_day, query)
    events
 0      57

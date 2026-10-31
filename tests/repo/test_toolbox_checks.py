@@ -1,7 +1,8 @@
 """The checks `dev` holds the Toolbox to, as decided in "What does `dev` enforce?".
 
-- each Toolbox file imports only the standard library, itself and what `tools/toolbox_registry.py`
-  allows it: pandas and numpy, and sqlglot in the files that need it;
+- each Toolbox file imports only the standard library, itself and what
+  `tools/toolbox_registry.py` allows it: pandas and numpy, and sqlglot in the files that
+  need it;
 - the Toolbox's version is written in one place, its version.txt, and CHANGES.md, at the repo's
   top, has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
@@ -70,7 +71,8 @@ PUBLIC_NAMES = [
     "Named", "Ordering", "Subtotals", "Verdict",
     # Toolbox 7.0, ticket 08: Python steps, declared for Lineage.
     "python_step", "PythonStep",
-    # Toolbox 7.1 (7.0's map, ticket 09): you pick the call, so run_query and run_execute replace run.
+    # Toolbox 7.1 (7.0's map, ticket 09): you pick the call, so run_query and run_execute
+    # replace run.
     "run_query", "run_execute",
     # Toolbox 7.2, ticket 03: Unchecked expressions and the Unchecked derived table.
     "unchecked_column", "unchecked_condition", "unchecked_derived",
@@ -82,7 +84,8 @@ PUBLIC_NAMES = [
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
 # days, so drop_partitions replaced drop_days and by_day left the names above. Toolbox 7.0,
-# ticket 09, 7.1: check_the_copy compares a move's copy through query, then gives its last steps.
+# ticket 09, 7.1: check_the_copy compares a move's copy through query, then gives its last
+# steps.
 ADMIN_NAMES = ["drop_table", "drop_partitions", "add_columns", "set_properties",
                "move_to_own_folder", "check_the_copy"]
 # The project module's names, `from sqlglot_composer import project`, as decided in Toolbox
@@ -136,7 +139,8 @@ def test_each_toolbox_file_imports_only_what_toolbox_folder_allows() -> None:
 @pytest.mark.parametrize("path", toolbox_files(), ids=lambda p: f"{p.parent.name}/{p.name}")
 def test_no_toolbox_file_but_version_txt_names_the_version(path: Path) -> None:
     """The version is written in one place, version.txt (ADR 0013)."""
-    assert not re.search(r'^TOOLBOX_VERSION = "', path.read_text(encoding="utf-8"), re.MULTILINE)
+    assert not re.search(r'^TOOLBOX_VERSION = "', path.read_text(encoding="utf-8"),
+                         re.MULTILINE)
 
 
 def test_version_txt_holds_the_toolbox_and_its_version_alone() -> None:
@@ -217,7 +221,8 @@ def _requirements() -> dict[str, str]:
         line = line.split("#")[0].strip()
         if line:
             pinned = re.fullmatch(r"([A-Za-z0-9_.-]+)==([\w.]+)", line)
-            assert pinned, f"requirements.txt gives {line!r}, not an exact pin such as name==1.2.3"
+            assert pinned, (f"requirements.txt gives {line!r}, not an exact pin such as "
+                            "name==1.2.3")
             found[pinned.group(1)] = pinned.group(2)
     return found
 
@@ -250,7 +255,8 @@ def _needs(package: str) -> set[str] | None:
 
 
 def test_requirements_names_every_library_the_toolbox_may_import() -> None:
-    # A new library the Toolbox imports must be allowed in tools/toolbox_registry.py, and so here.
+    # A new library the Toolbox imports must be allowed in tools/toolbox_registry.py, and so
+    # here.
     assert _the_libraries() <= set(_requirements())
 
 
@@ -266,7 +272,8 @@ def test_requirements_lists_what_each_listed_package_needs_in_turn() -> None:
     for name in listed:
         needs = _needs(name)
         if needs is not None:
-            assert needs <= listed, f"{name} needs {sorted(needs - listed)}, not in requirements.txt"
+            assert needs <= listed, (f"{name} needs {sorted(needs - listed)}, "
+                                     "not in requirements.txt")
             needed |= needs
     if all(_needs(name) is not None for name in listed):
         assert listed == {_normal(name) for name in _the_libraries()} | needed | KEPT_UNNEEDED

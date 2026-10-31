@@ -614,7 +614,8 @@ minutes  # -&gt; Column</pre>
 <p>It gives back a Verdict: what the check found, which prints as the sentence above, and whose <code>.ok</code> is True when it found nothing wrong. When something differs, it lists each problem with the line to change in the file. It never edits the file itself.</p>
 <h5>Check the Key you wrote</h5>
 <p>The warehouse never checks a Key: nothing stops two rows sharing one run_id. <code>check_key</code> counts the rows for each Key, and lists any Key that repeats. ops.job_runs is partitioned, so <code>where=</code> says which Partitions to check, here those whose dt is 2026-09-24; a table that isn&#x27;t partitioned, such as ops.jobs, is checked whole:</p>
-<pre class="python">check_key(ops.job_runs, query=query, where=equals(ops.job_runs.dt, &quot;2026-09-24&quot;))  # -&gt; Verdict</pre>
+<pre class="python">check_key(ops.job_runs, query=query,
+          where=equals(ops.job_runs.dt, &quot;2026-09-24&quot;))  # -&gt; Verdict</pre>
 <p class="label">Python shows</p><pre class="output">ops.job_runs: the key (run_id) holds where job_runs.dt = &#x27;2026-09-24&#x27;.</pre>
 <pre class="python">check_key(ops.jobs, query=query)  # -&gt; Verdict</pre>
 <p class="label">Python shows</p><pre class="output">ops.jobs: the key (job_id) holds.</pre>
@@ -1073,7 +1074,8 @@ LIMIT 20;</pre>
     FROM(job_runs),
     WHERE(between(job_runs.dt, &quot;2026-09-23&quot;, &quot;2026-09-24&quot;)),
 ), query)
-in_pandas = every_run[(every_run[&quot;status&quot;] == &quot;FAILED&quot;) | (every_run[&quot;duration_mins&quot;] &gt;= 30)]
+in_pandas = every_run[(every_run[&quot;status&quot;] == &quot;FAILED&quot;)
+                      | (every_run[&quot;duration_mins&quot;] &gt;= 30)]
 sorted(in_pandas[&quot;run_id&quot;]) == sorted(run_query(to_check, query)[&quot;run_id&quot;])</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
 <p>Both lists are sorted first: without <code>ORDER_BY</code>, the warehouse may give the rows in any order. At work, do this on a Partition small enough to look at, and look at a few of the rows left out too.</p>
@@ -7230,7 +7232,8 @@ results[&quot;ops.job_runs&quot;]</pre>
 <h5>Export one Lineage for them all</h5>
 <p>Pass every Statement to <a href="examples.html#export_lineage"><code>export_lineage</code></a> at once, and it writes one HTML page and one Markdown file for them all, laid out as in <a href="#follow_lineage">Follow lineage</a>. <code>to=</code> names the HTML file, and the Markdown file goes beside it.</p>
 <p><code>export_lineage</code> names each Statement after the variable that holds it. These sit in a dict, in no variable of their own, so it numbers them in the order you passed them: in the file below, statement_1 is <code>ops.job_runs</code>&#x27;s, statement_2 <code>ops.run_alerts</code>&#x27;s and statement_3 <code>ops.scheduler_runs</code>&#x27;s, and each one&#x27;s Hive, at the end of its part, names its table.</p>
-<pre class="python">html_file, markdown_file = export_lineage(*daily.values(), to=&quot;daily_totals.html&quot;)  # -&gt; tuple[Path, Path]</pre>
+<pre class="python">html_file, markdown_file = export_lineage(*daily.values(),
+                                          to=&quot;daily_totals.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes daily_totals.md</p>
 <details><summary>Show its 205 lines</summary>
 <pre class="file"># Lineage: statement_1, statement_2, statement_3
@@ -9839,7 +9842,8 @@ test_team_day(team_day, &quot;2026-09-18&quot;, ending=[&quot;finish&quot;, &quo
 <p>It printed nothing, so the <code>assert</code> held. Choose the days to hold the awkward cases: here 2026-09-18, when report_build failed, so a run ended without finishing.</p>
 <h5>Export the Lineage before the change</h5>
 <p>Pass both Statements to <a href="examples.html#export_lineage"><code>export_lineage</code></a>, so one Lineage covers everything the Building block feeds. <code>to=</code> gives the files a name you can find again; otherwise each export gets a new name, from the time it ran:</p>
-<pre class="python">html_file, markdown_file = export_lineage(facts_write, team_day, to=&quot;before.html&quot;)  # -&gt; tuple[Path, Path]</pre>
+<pre class="python">html_file, markdown_file = export_lineage(facts_write, team_day,
+                                          to=&quot;before.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes before.md</p>
 <details><summary>Show its 362 lines</summary>
 <pre class="file"># Lineage: facts_write, team_day
@@ -10252,7 +10256,8 @@ def events_per_job(first_day: str, last_day: str) -&gt; Table:
 <p>Then build the Statements again, since each holds the Building block as it was when it was built, and export the Lineage after:</p>
 <pre class="python">team_day_before = team_day
 facts_write, team_day = build_statements(&quot;2026-09-18&quot;)
-html_file, markdown_file = export_lineage(facts_write, team_day, to=&quot;after.html&quot;)  # -&gt; tuple[Path, Path]</pre>
+html_file, markdown_file = export_lineage(facts_write, team_day,
+                                          to=&quot;after.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes after.md</p>
 <details><summary>Show its 352 lines</summary>
 <pre class="file"># Lineage: facts_write, team_day
@@ -10677,9 +10682,11 @@ assert same_rows(result, expected), f&quot;2026-09-18:\n{result}\n{expected}&quo
     test_team_day(team_day, day, ending=[&quot;finish&quot;])</pre>
 <h4>Check it worked</h4>
 <p>The two Markdown files differ, and the after file names the new condition:</p>
-<pre class="python">&#x27;where=equals(job_events.event_type, &quot;finish&quot;)&#x27; in Path(&quot;after.md&quot;).read_text(encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">&#x27;where=equals(job_events.event_type, &quot;finish&quot;)&#x27; in Path(&quot;after.md&quot;).read_text(
+    encoding=&quot;utf-8&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">True</pre>
-<pre class="python">&#x27;where=equals(job_events.event_type, &quot;finish&quot;)&#x27; in Path(&quot;before.md&quot;).read_text(encoding=&quot;utf-8&quot;)</pre>
+<pre class="python">&#x27;where=equals(job_events.event_type, &quot;finish&quot;)&#x27; in Path(&quot;before.md&quot;).read_text(
+    encoding=&quot;utf-8&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">False</pre>
 <h4>Common mistakes</h4>
 <h5>Exporting the Statements built before the change</h5>
@@ -12933,7 +12940,8 @@ FROM mart.job_day_facts AS job_day_facts;</pre>
     if hive.startswith(&quot;WITH old_counts&quot;):  # the count of each Partition&#x27;s rows
         return pd.DataFrame(columns=[&quot;dt&quot;, &quot;old_rows&quot;, &quot;copied_rows&quot;])
     return query_at_work(hive)
-finish = admin.check_the_copy(job_day_facts, query=query_after_the_copy)  # -&gt; list[Statement]</pre>
+finish = admin.check_the_copy(job_day_facts,
+                              query=query_after_the_copy)  # -&gt; list[Statement]</pre>
 <p class="label">It writes admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -13540,7 +13548,8 @@ execute: SET hive.stats.column.autogather=true</pre>
 <p><code>run_execute</code> sends each SET line through your execute, as a call of its own, and gives back nothing; the Example database&#x27;s execute prints each one. They hold only while your query and execute keep one session across their calls.</p>
 <h5>Give Hive the statistics it plans joins from</h5>
 <p>Hive picks how to join two tables from their statistics: how many rows and bytes each Partition holds. Without them it guesses, and may sort two big tables to join them where copying a small one would do. A Partition written with &quot;statistics_on_write&quot; is counted as it is written; count one written without that setting with <code>compute_statistics</code>, and add <code>columns=True</code> to count each column&#x27;s values too, which Hive reads to order several joins:</p>
-<pre class="python">count_day = compute_statistics(job_day_facts, partition={&quot;dt&quot;: &quot;2026-09-24&quot;})  # -&gt; Statement
+<pre class="python">count_day = compute_statistics(job_day_facts,
+                               partition={&quot;dt&quot;: &quot;2026-09-24&quot;})  # -&gt; Statement
 print(to_hive(count_day))</pre>
 <p class="label">Hive</p><pre class="hive">ANALYZE TABLE mart.job_day_facts PARTITION(dt = &#x27;2026-09-24&#x27;) COMPUTE STATISTICS</pre>
 <pre class="python">print(to_hive(compute_statistics(job_day_facts, partition={&quot;dt&quot;: &quot;2026-09-24&quot;},
@@ -14584,8 +14593,9 @@ Passed over 1 Python step, of mart.run_speed: run each one&#x27;s notebook, whos
 <h5>Export the Lineage, the step drawn as one box</h5>
 <p>Pass the step to <code>export_lineage</code> with the Statements around it: the one that pulls its rows, and the write that reads what it saved:</p>
 <pre class="python">slow = project.load(&quot;mart.slow_runs&quot;)  # -&gt; the notebook&#x27;s functions
-html_file, markdown_file = export_lineage(speed.rows(), speed_step, slow.write(),  # -&gt; tuple[Path, Path]
-                                          to=&quot;lineage/run_speed.html&quot;)</pre>
+html_file, markdown_file = export_lineage(
+    speed.rows(), speed_step, slow.write(),  # -&gt; tuple[Path, Path]
+    to=&quot;lineage/run_speed.html&quot;)</pre>
 <p class="label">It writes lineage/run_speed.md</p>
 <details><summary>Show its 169 lines</summary>
 <pre class="file"># Lineage: statement_1, speed_step, statement_3
@@ -15211,7 +15221,8 @@ SHOW PARTITIONS ops.job_events
 </table></div>
 <h5>Its Lineage: one step over whole tables</h5>
 <p><code>export_lineage</code> draws an Unchecked statement as one step it can&#x27;t see inside, reading each table its text names, whole: no column is followed through it.</p>
-<pre class="python">html_file, markdown_file = export_lineage(busy_jobs, to=&quot;lineage/busy_jobs.html&quot;)  # -&gt; tuple[Path, Path]</pre>
+<pre class="python">html_file, markdown_file = export_lineage(
+    busy_jobs, to=&quot;lineage/busy_jobs.html&quot;)  # -&gt; tuple[Path, Path]</pre>
 <p class="label">It writes lineage/busy_jobs.md</p>
 <pre class="file"># Lineage: busy_jobs
 
@@ -15378,7 +15389,8 @@ SHOW PARTITIONS ops.job_events
 <p>Send Hive that gives back rows with <code>run_query</code>, as the steps do.</p>
 <h5>Expecting a Load limit</h5>
 <p>No Load limit looks inside the text, so a read of a partitioned table that filters none of its days is sent as written, and reads every day: here all 14 days of ops.job_events.</p>
-<pre class="python">every_day = unchecked_hive(f&quot;SELECT COUNT(*) AS events FROM {job_events}&quot;)  # -&gt; UncheckedStatement
+<pre class="python">every_day = unchecked_hive(
+    f&quot;SELECT COUNT(*) AS events FROM {job_events}&quot;)  # -&gt; UncheckedStatement
 run_query(every_day, query)</pre>
 <p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>events</th></tr>
