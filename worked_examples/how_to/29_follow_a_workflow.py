@@ -15,9 +15,13 @@ step of each Workflow you have started. Run each step's cell in turn, or, in
 their place, each notebook's last cell, `project.run_workflow(...)`, which runs
 every step left, the calls to the warehouse too, up to the first only you can do:
 a Decision, or a check of what a step printed. With `dry_run=True` it sends
-nothing through your execute, says the Hive each step would send, and runs for
-real only the steps that change files or only read, such as convert: run one
-before you first send. `project.do_next()` runs only the steps that change files.
+nothing through your execute and says the Hive each step would send. It runs for
+real convert and the references Workflow's first step, which read DESCRIBE, and
+each step that changes only files up to the first that would send; after that it
+names each such step, "would run: ...", and runs none. Run one before you first
+send.
+`project.do_next()` runs only the steps that change files.
+
 It needs [Start a Project](#start_a_project).
 
 ## Steps
@@ -156,7 +160,8 @@ Its steps:
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("convert", query=query, execute=execute)
 
 ### The promote Workflow
@@ -173,6 +178,7 @@ flowchart TD
     s3[["4. Create each table in prod"]]:::warehouse_call
     s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
     s5[["6. Write each table in prod"]]:::warehouse_call
+    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -182,6 +188,7 @@ flowchart TD
     t6("each made in prod"):::thing
     t7("each seeded in prod"):::thing
     t8("each written in prod"):::thing
+    t9("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -196,6 +203,8 @@ flowchart TD
     s4 --> t7
     t7 --> s5
     s5 --> t8
+    t8 --> s6
+    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -247,10 +256,16 @@ Its steps:
 
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
+- 7. Refresh the Reference sheet and the Database modules (it changes only files, so
+  project.do_next() runs it for you).
+
+    project.refresh_reference_sheet(project.promoted_tables(TABLES))
+
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("promote", query=query, execute=execute)
 
 ### The new_table Workflow
@@ -328,7 +343,8 @@ Its steps:
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("new_table", query=query, execute=execute)
 
 ### The references Workflow
@@ -398,7 +414,8 @@ Its steps:
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("references", query=query, execute=execute)
 
 ### The upgrade Workflow
@@ -438,7 +455,8 @@ Its steps:
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("upgrade")
 
 ### The change_a_saved_table Workflow
@@ -499,7 +517,8 @@ Its steps:
 
 Its last cell runs every step left, in place of their cells:
 
-    # Every step left, in place of their cells, up to the first only you can do:
+    # Every step left, in place of their cells, up to the first only you can do.
+    # Add dry_run=True to see first the Hive it would send, sending nothing:
     project.run_workflow("change_a_saved_table", query=query, execute=execute, change=change)
 
 ## Check it worked

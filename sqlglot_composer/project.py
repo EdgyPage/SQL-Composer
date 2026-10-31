@@ -1424,17 +1424,25 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     names in turn, each converted already: a stop in one stops the rest. It never runs a batch
     you didn't name.
 
-    With dry_run=True it sends nothing through your execute: for each step that would send, it
-    says the Hive it would send, "would send: ...". The steps that only change files, and those
-    that only read, as convert's DESCRIBE does, it runs for real, so a dry run of a new batch
-    converts it and writes each answer of the decisions cell in, as the steps would; it stops,
-    as a run does, at a Decision still open. Run one before you send anything for the first
-    time. `change` is change_a_saved_table's Admin statement, which its notebook's step 1
-    writes: its last cell passes it, change=change.
+    With dry_run=True it sends nothing through your execute. Each step that would send says
+    the Hive it would send, "would send: ...", and a preview or a compare says what it would
+    read. Some steps it runs for real, since the steps after them read their files:
+
+    - convert, and the references Workflow's first step, which read DESCRIBE through your query
+      and write Table references;
+    - each step that changes only files, such as promote's first, which writes the prod Table
+      folders, up to the first step that would send. After that, such a step is named with its
+      call, "would run: ...", and not run.
+
+    So a dry run of a new batch converts it and writes each answer of the decisions cell in; it
+    stops, as a run does, at a Decision still open. Run one before you send anything for the
+    first time.
+
+    `change` is change_a_saved_table's Admin statement, which its notebook's step 1 writes: its
+    last cell passes it, change=change.
     """
     root = _project_root(f"project.run_workflow({workflow!r})")
     found = _workflow_named(workflow)
-    calls = workflows.Calls(query, execute, dry_run, change)
     started = workflows.started_inputs(root, found)
     if not workflows.is_startable(found):
         started = {}
@@ -1454,6 +1462,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     if dry_run:
         lines.append("A dry run: nothing is sent through your execute.")
     for inputs in instances:
+        # Each instance its own: a dry run of one batch says nothing of what another sends.
+        calls = workflows.Calls(query, execute, dry_run, change)
         ran, stopped = _run_steps(root, found, inputs, calls)
         lines += ran
         if stopped:
@@ -1490,10 +1500,7 @@ def _run_steps(root: Path, workflow: workflows.Workflow, inputs: dict[str, objec
             return [*lines, _next_step_line(root, workflow, step, inputs)], True
         lines.append(heading)
         try:
-            if step.run is not None:
-                step_lines = step.run(inputs).lines
-            else:
-                step_lines = step.send(inputs, calls)
+            step_lines = _step_lines(step, inputs, calls)
         # Whatever stops a step, a refusal or the warehouse's error, stops the Workflow there.
         except Exception as error:  # noqa: BLE001
             stopped = [f"    {line}" for line in str(error).strip("\n").split("\n")]
@@ -1506,6 +1513,18 @@ def _run_steps(root: Path, workflow: workflows.Workflow, inputs: dict[str, objec
     if calls.dry_run:
         return [*lines, f"  {where}: each step left is shown above."], False
     return [*lines, f"  {where}: every step is done."], False
+
+
+def _step_lines(step: workflows.Step, inputs: dict[str, object],
+                calls: workflows.Calls) -> list[str]:
+    """What one step does, run or sent. In a dry run, a file step after one that would have
+    sent is only named, with its call: run, its files would say the steps before it are done,
+    though nothing was sent."""
+    if step.run is None:
+        return step.send(inputs, calls)
+    if calls.dry_run and calls.would_have_sent:
+        return [f"would run: {workflows.ready_call(step.call, inputs)}"]
+    return step.run(inputs).lines
 
 
 def _stop_after(root: Path, step: workflows.Step, inputs: dict[str, object],

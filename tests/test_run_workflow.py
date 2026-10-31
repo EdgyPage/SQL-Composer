@@ -138,3 +138,10 @@ def test_each_workflow_notebook_ends_with_its_run_cell(started: Path) -> None:
     for notebook in sorted((started / "admin" / "workflows").glob("*/*.ipynb")):
         last = notebooks.read_cells(notebook)[-1][1]
         assert last.split(chr(10))[-1].startswith(f'project.run_workflow("{notebook.stem}"')
+
+
+def test_a_promote_named_in_a_project_with_a_reference_sheet_starts_at_its_first_step(
+        started: Path) -> None:
+    project.refresh_reference_sheet()  # a sheet, as any Project that has run a Workflow has
+    typed(started, "promote", "TABLES = []", [f"{DEV}.spare"])
+    assert "promote: 1. Promote each table" in run("promote")

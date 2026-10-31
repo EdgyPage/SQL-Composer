@@ -32,7 +32,7 @@ import io
 import json
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -465,9 +465,10 @@ def promote_tables(inputs: dict[str, object]) -> ProjectReport:
 
 
 def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether the Reference sheet was written after each of these tables' Table references."""
+    """Whether the Reference sheet was written after each of these tables' Table references:
+    no when it names none, as promote's before any prod copy is made."""
     sheet = root / "references" / "reference_sheet.csv"
-    if not sheet.is_file():
+    if not names_in(inputs, "TABLES") or not sheet.is_file():
         return False
     written = sheet.stat().st_mtime
     for table in names_in(inputs, "TABLES"):
@@ -475,6 +476,11 @@ def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
         if not path.is_file() or path.stat().st_mtime > written:
             return False
     return True
+
+
+def prod_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the Reference sheet was written after each prod copy's Table reference."""
+    return reference_sheet_is_fresh(root, prod_inputs(root, inputs))
 
 
 def project_is_current(root: Path, inputs: dict[str, object]) -> bool:
@@ -528,6 +534,8 @@ class Calls:
     dry_run: bool = False
     # change_a_saved_table's Admin statement, which its notebook's first step writes.
     change: Statement | None = None
+    # In a dry run, each line of Hive it said it would send, so far.
+    hive_lines_said: list[str] = field(default_factory=list)
 
     def send(self, statement: Statement | SessionSettings) -> list[str]:
         """Send a Statement through your execute, as run_execute does; in a dry run, the Hive
@@ -535,9 +543,19 @@ class Calls:
         from .running import run_execute  # running imports what imports this
 
         if self.dry_run:
-            return hive_lines(statement, "would send")
+            return self.say_would_send(hive_lines(statement, "would send"))
         run_execute(statement, self.execute)
         return []
+
+    def say_would_send(self, lines: list[str]) -> list[str]:
+        """Keep a dry run's lines of Hive it would send, and give them back to report."""
+        self.hive_lines_said.extend(lines)
+        return lines
+
+    @property
+    def would_have_sent(self) -> bool:
+        """Whether a dry run has said it would send something."""
+        return bool(self.hive_lines_said)
 
 
 def hive_lines(statement: Statement | SessionSettings, said: str) -> list[str]:
@@ -616,8 +634,8 @@ def _send_writes(tables: list[str], calls: Calls) -> list[str]:
     with contextlib.redirect_stdout(printed):
         project.run_tables(tables=tables)
     # Its heading lines start "--", as "-- 1 of 2: mart.daily_job_runs": the rest is Hive.
-    return [line if line.startswith("--") else f"would send: {line}"
-            for line in printed.getvalue().rstrip("\n").split("\n")]
+    return calls.say_would_send([line if line.startswith("--") else f"would send: {line}"
+                             for line in printed.getvalue().rstrip("\n").split("\n")])
 
 
 def create_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -723,6 +741,13 @@ def refresh_the_sheet(inputs: dict[str, object]) -> ProjectReport:
     return project.refresh_reference_sheet(names_in(inputs, "TABLES"))
 
 
+def refresh_the_prod_sheet(inputs: dict[str, object]) -> ProjectReport:
+    """project.refresh_reference_sheet for the prod copy of each table TABLES names."""
+    from . import project  # project.py imports this file
+
+    return project.refresh_reference_sheet(project.promoted_tables(names_in(inputs, "TABLES")))
+
+
 def upgrade_the_project(inputs: dict[str, object]) -> ProjectReport:
     """project.upgrade()."""
     from . import project  # project.py imports this file
@@ -793,7 +818,8 @@ PROMOTE = Workflow(
     "promote",
     start_materials=("dev Table folders, each Decision made and compared",
                      "your Prod Database's name"),
-    end_artifacts=("prod Table folders", "each written in prod"),
+    end_artifacts=("prod Table folders", "each written in prod",
+                   "each in the Reference sheet"),
     steps=(
         Step("Promote each table: a prod copy of its folder and Table reference",
              FILE_STEP,
@@ -824,6 +850,10 @@ PROMOTE = Workflow(
              ("each written in prod",),
              "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
              every_prod_table_written, send=write_the_prod_copies),
+        Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
+             ("each written in prod",), ("each in the Reference sheet",),
+             "project.refresh_reference_sheet(project.promoted_tables(TABLES))",
+             prod_sheet_is_fresh, refresh_the_prod_sheet),
     ),
     inputs=(Input("TABLES", [], 'the dev tables, by their names in your Dev Database, such '
                   'as ["mart_dev.daily_job_runs"]', starts=True),),
@@ -1017,7 +1047,8 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
 def run_cell_text(workflow: Workflow) -> str:
     """A Workflow notebook's last cell: project.run_workflow, which runs every step left."""
     given = "".join(f", {name}={name}" for name in workflow.run_with)
-    return (f"# Every step left, in place of their cells, up to the first only you can do:\n"
+    return ("# Every step left, in place of their cells, up to the first only you can do.\n"
+            "# Add dry_run=True to see first the Hive it would send, sending nothing:\n"
             f'project.run_workflow("{workflow.name}"{given})')
 
 

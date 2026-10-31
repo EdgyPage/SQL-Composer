@@ -68,11 +68,11 @@ for table in project.batch_tables(NAME, seeded=True):
 
 ## promote
 
-Steps: 2 file step, 3 permission, 1 decision, 0 fiddling.
+Steps: 3 file step, 3 permission, 1 decision, 0 fiddling.
 
 Starts from: dev Table folders, each Decision made and compared, your Prod Database's name.
 
-Ends with: prod Table folders, each written in prod.
+Ends with: prod Table folders, each written in prod, each in the Reference sheet.
 
 ```mermaid
 flowchart TD
@@ -85,6 +85,7 @@ flowchart TD
 for table in project.promoted_tables(TABLES, seeded=True):
     run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
     s5[["6. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
+    s6["7. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(project.promoted_tables(TABLES))"]:::files_only
     t0("dev Table folders, each Decision made and compared"):::thing
     t1("your Prod Database's name"):::thing
     t2("prod Table folders"):::thing
@@ -94,6 +95,7 @@ for table in project.promoted_tables(TABLES, seeded=True):
     t6("each made in prod"):::thing
     t7("each seeded in prod"):::thing
     t8("each written in prod"):::thing
+    t9("each in the Reference sheet"):::thing
     t0 --> s0
     t1 --> s0
     s0 --> t2
@@ -108,6 +110,8 @@ for table in project.promoted_tables(TABLES, seeded=True):
     s4 --> t7
     t7 --> s5
     s5 --> t8
+    t8 --> s6
+    s6 --> t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a

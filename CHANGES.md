@@ -29,11 +29,16 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   check of what a step printed, such as change_a_saved_table's Hive, whose change you then
   send with its own cell; a refusal or the warehouse's error; or a compare that failed. Mend
   what it says, save the notebook, and run the last cell again: each step done is skipped.
-  `dry_run=True` sends nothing through your execute and says the Hive each step would send;
-  the steps that only change files or only read, such as convert, it runs for real. The
+  `dry_run=True` sends nothing through your execute and says the Hive each step would send.
+  It runs for real convert and the references Workflow's first step, which read DESCRIBE, and
+  each step that changes only files up to the first that would send; after that, it names
+  each such step, "would run: ...", and runs none. The
   convert Workflow runs the batch its names cell names, and NAME may be a list of batches
   converted already. `project.do_next()`, the cell before, still runs only the steps that
   change files.
+- **Promote ends with the prod tables referenced.** Its last step, a file step
+  `project.do_next()` and the runner run, refreshes the Reference sheet and the Database
+  modules for the prod copies: `project.refresh_reference_sheet(project.promoted_tables(TABLES))`.
 - **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
   Session settings, its logic's `session_settings()`, before its write: a Conversion's
   checklist no longer asks you to send the original's SET lines by hand.

@@ -1885,6 +1885,11 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
        project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(project.promoted_tables(TABLES))
+
 
 ## new_table: a Saved table of your own
 
