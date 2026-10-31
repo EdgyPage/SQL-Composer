@@ -134,7 +134,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
-           "promoted_tables"]
+           "promoted_tables", "table_reference"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -1272,6 +1272,9 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     said = f"  {where}: {number}. {step.name}. It {workflows.step_said(workflow, step)}"
     if step.call:
         said += f": {workflows.ready_call(step.call, inputs)}"
+    if step.done is None:
+        said += ("\n    No file tells when it is done, so this names it until a later step is "
+                 "done: once you have, go on.")
     return said
 
 
@@ -1293,8 +1296,8 @@ def do_next(workflow: str | None = None) -> ProjectReport:
         Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
         admin/templates/saved_table.py.
         Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
-      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference. It is a
-        decision, yours to make
+      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, in
+        references/, and save it. It is a decision, yours to make
 
     It runs each step that changes only files and has a call of its own, in order, up to the
     first it can't run for you: a decision, a call to the warehouse, a step done by hand, or
@@ -2596,7 +2599,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     originals = json.loads((index / BATCH_RECORD).read_text(encoding="utf-8")).get(
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
-    read = {dev: _dev_table(root, dev) for dev in chosen}
+    read = {dev: _table_in(root, dev) for dev in chosen}
     _refuse_a_partition_no_table_has(call, partition, read)
     lines = []
     for dev in chosen:
@@ -2636,11 +2639,44 @@ def _tables_compared(call: str, tables: str | list[str] | None,
     return list(tables)
 
 
-def _dev_table(root: Path, dev: str) -> Table:
-    """A dev table's Table reference, as its file in references/ holds it now."""
-    short = split_table_name(dev)[1]
-    return run_logic(root, f"from references.{table_stem(dev)} import {short}",
-                     "compare")[short]
+def table_reference(name: str) -> Table:
+    """A table's Table reference in your Project, by the table's name.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> _ = Path("references/mart__daily_runs.py").write_text(
+    ...     'from sqlglot_composer import Table\\n\\n'
+    ...     'daily_runs = Table("mart.daily_runs", columns={"job_id": "bigint"})\\n')
+    >>> project.table_reference("mart.daily_runs")
+    Table('mart.daily_runs', columns: job_id)
+
+    It reads the table's file, references/<db>__<table>.py, as it is now, from anywhere in
+    the Project, for a notebook that has a table's name, such as a Workflow's, and needs its
+    Table reference, as an Admin statement does. Elsewhere, import it: from
+    references.mart__daily_runs import daily_runs. It refuses a table with no file there.
+    """
+    call = f"project.table_reference({python_literal(name)})"
+    root = _project_root(call)
+    if not REFERENCE.path(root, table_stem(name)).is_file():
+        refuse(
+            what=f"{call}: there is no {REFERENCE.shown(table_stem(name))}.",
+            why="It reads a table's Table reference from its file in references/.",
+            fix="Check the name, or write its Table reference first, with "
+            "project.add_references(...).",
+            error=FileNotFoundError,
+        )
+    return _table_in(root, name)
+
+
+def _table_in(root: Path, name: str) -> Table:
+    """A table's Table reference, as its file in references/ holds it now."""
+    short = split_table_name(name)[1]
+    return run_logic(root, f"from references.{table_stem(name)} import {short}",
+                     "table_reference")[short]
 
 
 def _refuse_a_partition_no_table_has(call: str, partition: object,

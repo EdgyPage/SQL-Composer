@@ -152,11 +152,11 @@ flowchart TD
     t0 --> s0
     s0 --> t1
     s0 --> t2
-    s1{"2. Fill in each Table reference"}
+    s1{"2. Fill in each Table reference, in references/, and save it"}
     class s1 decision
     t2 --> s1
     s1 --> t3
-    s2{"3. Write each table's logic in its notebook"}
+    s2{"3. Write each table's logic in its Table notebook, in tables/, and save it: project.load(table).write() says what stops it"}
     class s2 decision
     t1 --> s2
     t4 --> s2
@@ -279,39 +279,37 @@ Steps: 1 file step, 1 permission, 1 decision, 0 fiddling.
 
 Starts from: a Saved table, the change wanted.
 
-Ends with: the change sent, the change logged, its check passed.
+Ends with: the change sent, the change logged.
 
 ```mermaid
 flowchart TD
-    s0{"1. Write the Admin statement for the change: change = admin.drop_partitions(...)  #35; or another of the admin module's"}
+    s0{"1. Write the Admin statement for the change: table = project.table_reference(TABLE)
+change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}
     class s0 decision
     t0 --> s0
     t1 --> s0
     s0 --> t2
-    s1["2. Print the Hive it sends, which sends nothing: show_hive(change)"]
+    s1["2. Print the Hive it sends, which sends nothing, and run the check its Check first line names: show_hive(change)"]
     class s1 file
     t2 --> s1
     s1 --> t3
-    s2[["3. Send it, then run the check its report names: run_execute(change, execute)"]]
+    s2[["3. Send it: run_execute(change, execute)"]]
     class s2 permission
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    s2 --> t6
     t0("a Saved table")
     class t0 thing
     t1("the change wanted")
     class t1 thing
     t2("an Admin statement")
     class t2 thing
-    t3("its Hive, read")
+    t3("its Hive, read and checked")
     class t3 thing
     t4("the change sent")
     class t4 thing
     t5("the change logged")
     class t5 thing
-    t6("its check passed")
-    class t6 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a

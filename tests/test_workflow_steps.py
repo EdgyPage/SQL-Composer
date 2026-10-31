@@ -91,24 +91,53 @@ def test_the_change_is_written_once_the_change_cell_names_an_admin_statement(
         "change_a_saved_table.ipynb")
     inputs = {"TABLE": ["mart.daily_runs"]}
     assert not workflows.change_written(started, inputs)
-    commented = [(kind, text.replace("change = admin.drop_partitions(...)",
-                                     "# change = admin.drop_partitions(daily_runs)"))
+    commented = [(kind, text.replace("change = admin.drop_partitions(table, where=...)",
+                                     "# change = admin.drop_partitions(table)"))
                  for kind, text in notebooks.read_cells(path)]
     path.write_bytes(notebooks.notebook_bytes(commented))
     assert not workflows.change_written(started, inputs)
     # A call on several lines, as a formatter writes one.
-    cells = [(kind, text.replace("# change = admin.drop_partitions(daily_runs)",
-                                 "change = admin.drop_partitions(\n    daily_runs,\n"
-                                 '    before="2026-09-01",\n)'))
+    cells = [(kind, text.replace("# change = admin.drop_partitions(table)",
+                                 "change = admin.drop_partitions(\n    table,\n"
+                                 '    where=less_than(table.dt, "2026-09-01"),\n)'))
              for kind, text in commented]
     path.write_bytes(notebooks.notebook_bytes(cells))
     assert workflows.change_written(started, inputs)
 
 
-def test_change_a_saved_table_ends_with_the_send_and_the_check_its_report_names() -> None:
-    # The check is in the send's step, which admin/sent.csv knows done; no file tells of the
-    # check alone, so a step of its own would never be done.
-    last = workflows.CHANGE_A_SAVED_TABLE.steps[-1]
-    assert last.name == "Send it, then run the check its report names"
-    assert workflows.CHANGE_A_SAVED_TABLE.steps[0].done is workflows.change_written
+def test_the_check_is_run_before_the_send_from_the_hive_show_hive_prints() -> None:
+    steps = workflows.CHANGE_A_SAVED_TABLE.steps
+    assert "run the check its Check first line names" in steps[1].name
+    assert steps[-1].name == "Send it"
+    assert steps[0].done is workflows.change_written
+    assert "project.table_reference(TABLE)" in steps[0].call
+
+
+def test_a_table_reference_is_filled_in_with_its_docstring_still_naming_placeholders(
+        started: Path) -> None:
+    project.new_table(TABLE)
+    inputs = {"TABLES": [TABLE]}
+    path = started / "references" / "mart__daily_runs.py"
+    text = path.read_text(encoding="utf-8")
+    code_starts = text.index("from sqlglot_composer import Table")
+    docstring = text[:code_starts].replace("TODO:", "Done:")
+    filled = REFERENCE[REFERENCE.index("from sqlglot_composer import Table"):]
+    path.write_text(docstring + filled, encoding="utf-8")
+    assert "<COLUMN>" in path.read_text(encoding="utf-8")
+    assert workflows.every_reference_filled_in(started, inputs)
+    path.write_text(text, encoding="utf-8")
+    assert not workflows.every_reference_filled_in(started, inputs)
+
+
+def test_a_step_no_file_tells_of_says_so(started: Path) -> None:
+    path = started / "admin" / "workflows" / "change_a_saved_table" / (
+        "change_a_saved_table.ipynb")
+    cells = [(kind, text.replace("TABLE = ''", 'TABLE = "mart.daily_runs"')
+              .replace("change = admin.drop_partitions(table, where=...)",
+                       "change = admin.drop_table(table)"))
+             for kind, text in notebooks.read_cells(path)]
+    path.write_bytes(notebooks.notebook_bytes(cells))
+    said = repr(project.check())
+    assert "2. Print the Hive it sends" in said
+    assert "No file tells when it is done" in said
 

@@ -202,12 +202,26 @@ def reference_path(root: Path, table: str) -> Path:
 
 
 def every_reference_filled_in(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether each table's Table reference holds no TODO line and no placeholder left."""
+    """Whether each table's Table reference holds no TODO: line and no placeholder left in its
+    code; its docstring may still name the placeholders, as a Template's says what each was."""
     for table in names_in(inputs, "TABLES"):
         text = file_text(reference_path(root, table))
-        if not text or "TODO" in text or PLACEHOLDER.search(text):
+        if not text or "TODO:" in text or PLACEHOLDER.search(code_of(text)):
             return False
     return bool(names_in(inputs, "TABLES"))
+
+
+def code_of(text: str) -> str:
+    """A Python file's text but its module docstring; all of it when it doesn't parse yet, as
+    a placeholder left in its code stops Python."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return text
+    docstring = ast.get_docstring(tree, clean=False)
+    if docstring is None:
+        return text
+    return "\n".join(text.split("\n")[tree.body[0].end_lineno:])
 
 
 def every_logic_loads(root: Path, inputs: dict[str, object]) -> bool:
@@ -405,7 +419,7 @@ def change_written(root: Path, inputs: dict[str, object]) -> bool:
     found = re.search(r"^change = admin\.\w+\(\s*(.*?)\s*\)", notebook_code(path),
                       re.MULTILINE | re.DOTALL)
     return (bool(names_in(inputs, "TABLE")) and found is not None
-            and found.group(1) not in ("", "..."))
+            and found.group(1) != "" and "..." not in found.group(1))
 
 
 def notebook_code(path: Path) -> str:
@@ -498,8 +512,7 @@ CONVERT = Workflow(
     instances=batch_instances,
 )
 
-# Promote dev tables to prod: no Project action does it yet, so it is all by hand. Ticket 17
-# builds it.
+# Promote dev tables to prod, project.promote's copies reading each other's.
 PROMOTE = Workflow(
     "promote",
     start_materials=("dev Table folders, each box ticked and compared",
@@ -547,9 +560,11 @@ NEW_TABLE = Workflow(
         Step("Make each Table folder", FILE_STEP, ("the tables' names",),
              ("a Table folder", "its Table reference to fill in"),
              "project.new_table(TABLES)", every_table_folder_made, make_table_folders),
-        Step("Fill in each Table reference", DECISION, ("its Table reference to fill in",),
-             ("its Table reference",), done=every_reference_filled_in),
-        Step("Write each table's logic in its notebook", DECISION,
+        Step("Fill in each Table reference, in references/, and save it", DECISION,
+             ("its Table reference to fill in",), ("its Table reference",),
+             done=every_reference_filled_in),
+        Step("Write each table's logic in its Table notebook, in tables/, and save it: "
+             "project.load(table).write() says what stops it", DECISION,
              ("a Table folder", "what each table should hold"),
              ("a dev Table folder whose logic loads",), done=every_logic_loads),
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
@@ -612,17 +627,19 @@ UPGRADE = Workflow(
 CHANGE_A_SAVED_TABLE = Workflow(
     "change_a_saved_table",
     start_materials=("a Saved table", "the change wanted"),
-    end_artifacts=("the change sent", "the change logged", "its check passed"),
+    end_artifacts=("the change sent", "the change logged"),
     steps=(
         Step("Write the Admin statement for the change", DECISION,
              ("a Saved table", "the change wanted"), ("an Admin statement",),
-             "change = admin.drop_partitions(...)  # or another of the admin module's",
+             "table = project.table_reference(TABLE)\n"
+             "change = admin.drop_partitions(table, where=...)  # or another: help(admin)",
              change_written),
-        Step("Print the Hive it sends, which sends nothing", FILE_STEP,
-             ("an Admin statement",), ("its Hive, read",), "show_hive(change)"),
-        Step("Send it, then run the check its report names", PERMISSION, ("its Hive, read",),
-             ("the change sent", "the change logged", "its check passed"),
-             "run_execute(change, execute)", every_change_sent),
+        Step("Print the Hive it sends, which sends nothing, and run the check its Check first "
+             "line names", FILE_STEP, ("an Admin statement",), ("its Hive, read and checked",),
+             "show_hive(change)"),
+        Step("Send it", PERMISSION, ("its Hive, read and checked",),
+             ("the change sent", "the change logged"), "run_execute(change, execute)",
+             every_change_sent),
     ),
     inputs=(Input("TABLE", "", 'the Saved table to change, such as "mart.daily_job_runs"',
                   starts=True),),
@@ -650,7 +667,7 @@ def inputs_cell(workflow: Workflow) -> str:
 
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
-KIND_SAID = {FILE_STEP: "changes only files: run its cell",
+KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
              PERMISSION: "is a call to the warehouse, yours to run",
              DECISION: "is a decision, yours to make",
              FIDDLING: "is done by hand, since no call does it yet"}

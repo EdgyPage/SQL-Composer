@@ -100,7 +100,8 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 8.0, ticket 12: do_next runs a Workflow's next file steps.
                  "do_next",
                  # Toolbox 8.0, ticket 14: the Saved tables a batch made, for run_tables.
-                 "batch_tables", "compare_batch", "promote", "promoted_tables"]
+                 "batch_tables", "compare_batch", "promote", "promoted_tables",
+                 "table_reference"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER
