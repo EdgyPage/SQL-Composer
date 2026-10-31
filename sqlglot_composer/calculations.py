@@ -15,6 +15,7 @@ from .conditions import Condition
 from .refusals import (
     guard_unsafe_regrouping,
     refuse,
+    with_article,
 )
 from .tables import (
     COMPARABLE_VALUES,
@@ -43,7 +44,9 @@ from .writing import check_writable_call
 if TYPE_CHECKING:
     from .windows import Window  # here only: windows.py imports this file
 
+
 def need_column(column: object, call: str) -> Column:
+    """The column a calculation works on; it refuses anything else."""
     if isinstance(column, Column):
         return column
     refuse(
@@ -65,33 +68,35 @@ def _only_where(tree: Node, where: object, call: str, then: Node | None = None) 
             fix='Pass a condition, such as where=equals(job_runs.status, "FAILED").',
             given=where, call=call,
         )
-    _not_inside(call, where)
+    _check_no_total_or_window_inside(call, where)
     return Node("Case", ifs=[Node("If", this=where._tree.copy(), true=then or tree)])
 
 
-def _not_inside(call: str, inner: Column | Condition) -> None:
+def _check_no_total_or_window_inside(call: str, inner: Column | Condition) -> None:
     """Refuse a count, a sum or a calculation over a Window inside a function that works over
     many rows."""
-    window = has_window(inner._tree)
-    if window or has_aggregate(inner._tree):
+    if not has_window(inner._tree) and not has_aggregate(inner._tree):
+        return
+    if numbers_rows(inner._tree):
+        made = "is a row number"
+    elif has_window(inner._tree):
+        made = "looks across rows through a Window"
+    else:
         made = "already works over many rows itself"
-        if window:
-            made = ("is a row number" if numbers_rows(inner._tree)
-                    else "looks across rows through a Window")
-        refuse(
-            what=f"{call} has {inner!r} inside it, which {made}.",
-            why="In one SELECT, Hive can't put a count, a sum or a calculation over a Window "
-            "inside a function that works over many rows, such as a count, a sum, a max or "
-            "collect_set.",
-            fix="Work it out as a named column in a derived(...) table, then use it in the "
-            "Statement that reads that table; help(derived) shows how.",
-            error=ValueError,
-        )
+    refuse(
+        what=f"{call} has {inner!r} inside it, which {made}.",
+        why="In one SELECT, Hive can't put a count, a sum or a calculation over a Window "
+        "inside a function that works over many rows, such as a count, a sum, a max or "
+        "collect_set.",
+        fix="Work it out as a named column in a derived(...) table, then use it in the "
+        "Statement that reads that table; help(derived) shows how.",
+        error=ValueError,
+    )
 
 
-def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: bool = True,
-               because: str | None = None, distinct: bool = False,
-               over: object = None, column_adds_up: bool | None = None) -> Column:
+def _aggregate_column(name: str, kind: str, column: object, where: object, *,
+                      adds_up: bool = True, because: str | None = None, distinct: bool = False,
+                      over: object = None, column_adds_up: bool | None = None) -> Column:
     """`kind` over `column`, made by the function `name`. `column_adds_up` is sum_of's and
     average_of's adds_up=: given, the column must add up, unless it is True."""
     call = f"{name}({python_text(column)})"
@@ -99,11 +104,11 @@ def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: 
     if column_adds_up is not None:
         guard_unsafe_regrouping(call, python_text(column), column._not_adding_up_because,
                                 column_adds_up)
-    _not_inside(call, column)
+    _check_no_total_or_window_inside(call, column)
     inner = _only_where(column._tree.copy(), where, call)
     if distinct:
         inner = Node("Distinct", expressions=[inner])
-    tree, adds_up, because = _over(Node(kind, this=inner), over, call, adds_up, because)
+    tree, adds_up, because = _over_window(Node(kind, this=inner), over, call, adds_up, because)
     made_by(tree, name, column, where=where, over=over)
     return Column(tree, adds_up=adds_up, not_adding_up_because=because)
 
@@ -112,8 +117,8 @@ def _aggregate(name: str, kind: str, column: object, where: object, *, adds_up: 
 OVER_A_WINDOW = "worked out over a Window"
 
 
-def _over(tree: Node, over: object, call: str, adds_up: bool,
-          because: str | None) -> tuple[Node, bool, str | None]:
+def _over_window(tree: Node, over: object, call: str, adds_up: bool,
+                 because: str | None) -> tuple[Node, bool, str | None]:
     """A count's or a sum's tree worked out over the Window `over`, if one is given, with
     whether it adds up: rows share the rows their Windows cover, so it doesn't."""
     if over is None:
@@ -137,7 +142,7 @@ def count_rows(where: Condition | None = None, over: Window | None = None) -> Co
     """
     call = "count_rows(...)"
     tree = _only_where(Node("Star"), where, call, then=number("1"))
-    tree, adds_up, because = _over(Node("Count", this=tree), over, call, True, None)
+    tree, adds_up, because = _over_window(Node("Count", this=tree), over, call, True, None)
     return Column(made_by(tree, "count_rows", where=where, over=over), type="bigint",
                   adds_up=adds_up, not_adding_up_because=because)
 
@@ -151,8 +156,8 @@ def count_distinct(column: Column, where: Condition | None = None) -> Column:
     A distinct count doesn't add up: counts for two days can't be added to give the count
     for both, since a value seen on both days would be counted twice.
     """
-    return _aggregate("count_distinct", "Count", column, where, adds_up=False,
-                      because="a distinct count", distinct=True)
+    return _aggregate_column("count_distinct", "Count", column, where, adds_up=False,
+                             because="a distinct count", distinct=True)
 
 
 def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False,
@@ -176,8 +181,8 @@ def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False
     >>> sum_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                            ORDER_BY=job_runs.run_id, rows=(None, 0)))
     SUM(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
-    """
-    return _aggregate("sum_of", "Sum", column, where, over=over, column_adds_up=adds_up)
+    """  # noqa: E501 - its example's Hive is one line, as the Toolbox writes it
+    return _aggregate_column("sum_of", "Sum", column, where, over=over, column_adds_up=adds_up)
 
 
 def average_of(column: Column, where: Condition | None = None, adds_up: bool = False,
@@ -198,9 +203,9 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
     >>> average_of(job_runs.duration_mins, over=window(PARTITION_BY=job_runs.job_id,
     ...                                                ORDER_BY=job_runs.run_id, rows=(-2, 0)))
     AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
-    """
-    return _aggregate("average_of", "Avg", column, where, adds_up=False,
-                      because="an average", over=over, column_adds_up=adds_up)
+    """  # noqa: E501 - its example's Hive is one line, as the Toolbox writes it
+    return _aggregate_column("average_of", "Avg", column, where, adds_up=False,
+                             because="an average", over=over, column_adds_up=adds_up)
 
 
 def min_of(column: Column, where: Condition | None = None,
@@ -212,7 +217,7 @@ def min_of(column: Column, where: Condition | None = None,
 
     over=window(...) gives each row the smallest of its Window's rows; see help(window).
     """
-    return _aggregate("min_of", "Min", column, where, over=over)
+    return _aggregate_column("min_of", "Min", column, where, over=over)
 
 
 def max_of(column: Column, where: Condition | None = None,
@@ -224,7 +229,7 @@ def max_of(column: Column, where: Condition | None = None,
 
     over=window(...) gives each row the largest of its Window's rows; see help(window).
     """
-    return _aggregate("max_of", "Max", column, where, over=over)
+    return _aggregate_column("max_of", "Max", column, where, over=over)
 
 
 def _as_column(value: object, call: str) -> Column:
@@ -297,15 +302,15 @@ def first_match(
 
     It writes a whole if/else chain as one CASE, however many pairs it has. For one condition,
     if_else(...) is shorter; where every pair tests one column against a value, mapped(...)
-    reads plainer. Each value is a number, a string, a date, True or False, None or a column, and
-    all of them, otherwise= included, are of one kind, as a column's values are: numbers, whole
-    or not; text and dates, which Hive compares as text; or True and False. A string beside a
-    number is refused, as is a condition where a value goes.
+    reads plainer. Each value is a number, a string, a date, True or False, None or a column,
+    and all of them, otherwise= included, are of one kind, as a column's values are: numbers,
+    whole or not; text and dates, which Hive compares as text; or True and False. A string
+    beside a number is refused, as is a condition where a value goes.
     """
     call = "first_match(...)"
     if not isinstance(cases, list):
         refuse(
-            what=f"first_match was given {_written(cases)} where a list of (condition, "
+            what=f"first_match was given {_as_written(cases)} where a list of (condition, "
             "value) pairs goes.",
             why="Each pair is one test and the value it gives, and the list keeps them in the "
             "order they are tried.",
@@ -321,19 +326,20 @@ def first_match(
             "itself.",
             error=ValueError,
         )
-    pairs = [_pair(item, number, call) for number, item in enumerate(cases, start=1)]
+    pairs = [_first_match_pair(item, place, call)
+             for place, item in enumerate(cases, start=1)]
     written = ", ".join(f"({python_text(condition)}, {python_text(value)})"
                         for condition, value in pairs)
     return _case_column(None, [(condition._tree.copy(), value) for condition, value in pairs],
                         otherwise, call, f"first_match([{written}]",
-                        [f"pair {number}'s value" for number in range(1, len(pairs) + 1)])
+                        [f"pair {place}'s value" for place in range(1, len(pairs) + 1)])
 
 
-def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
+def _first_match_pair(item: object, place: int, call: str) -> tuple[Condition, object]:
     """One of first_match's pairs, checked: a condition, then the value it gives."""
     if not isinstance(item, (tuple, list)) or len(item) != 2:
         refuse(
-            what=f"first_match: pair {number} is {_written(item)}, which isn't a "
+            what=f"first_match: pair {place} is {_as_written(item)}, which isn't a "
             "(condition, value) pair.",
             why="Each item of the list is a condition and the value a row gets when it holds, "
             "as a pair in round brackets.",
@@ -345,23 +351,23 @@ def _pair(item: object, number: int, call: str) -> tuple[Condition, object]:
     if not isinstance(condition, Condition):
         if isinstance(value, Condition):
             refuse(
-                what=f"first_match: pair {number} has the condition second: "
-                f"{_written(item)}.",
+                what=f"first_match: pair {place} has the condition second: "
+                f"{_as_written(item)}.",
                 why="Each pair is a condition, then the value a row gets when it holds.",
                 fix="Swap the two, as in (equals(job_runs.status, \"FAILED\"), \"failed\").",
             )
         refuse(
-            what=f"first_match: pair {number} has {python_text(condition)} where a condition "
+            what=f"first_match: pair {place} has {python_text(condition)} where a condition "
             "goes.",
             why="Each pair starts with the test a row must pass to get the pair's value.",
-            fix="Start the pair with a condition, such as (equals(job_runs.status, \"FAILED\"), "
-            "\"failed\").",
+            fix="Start the pair with a condition, such as (equals(job_runs.status, "
+            "\"FAILED\"), \"failed\").",
             given=condition, call=call,
         )
     return condition, value
 
 
-def _written(value: object) -> str:
+def _as_written(value: object) -> str:
     """A value as the user wrote it, a tuple in round brackets: python_text writes one as a
     list."""
     if isinstance(value, tuple):
@@ -407,12 +413,12 @@ def mapped(column: Column,
     "one" for a bigint column, is refused, as equals(...) refuses it. The values are checked
     as first_match's are: all one type, otherwise= included, and never a condition. A key
     written twice in the dict is one key to Python, which keeps its last value.
-    """
+    """  # noqa: E501 - its example's Hive is one line, as the Toolbox writes it
     call = f"mapped({python_text(column)}, ...)"
     column = need_column(column, call)
     if not isinstance(values, dict):
         refuse(
-            what=f"{call} was given {_written(values)} where a dict of values goes.",
+            what=f"{call} was given {_as_written(values)} where a dict of values goes.",
             why="The dict pairs each value the column may hold with the value a row holding it "
             "gets.",
             fix=f'Write it as a dict, such as mapped({python_text(column)}, {{"FAILED": '
@@ -446,7 +452,7 @@ def mapped(column: Column,
                 error=ValueError,
             )
     keys = [literal(key, call=call, column=column) for key in values]
-    _one_type(list(values), call, "keys")
+    _check_one_type(list(values), call, "keys")
     written = ", ".join(f"{python_text(key)}: {python_text(value)}"
                         for key, value in values.items())
     return _case_column(column, list(zip(keys, values.values())), otherwise, call,
@@ -466,8 +472,12 @@ def _null_key_fix(column: Column, keys: list[object]) -> str:
     """How to give a lookup's NULL rows a label: fill the NULL in with a value of the column's
     kind, then look that up; for a column of True and False, which has no other value, ask
     first_match to test is_null first."""
-    family = type_family(column._type) or next(
-        (found for key in keys if key is not None and (found := value_family(key))), "string")
+    family = type_family(column._type)
+    for key in keys:
+        if family is not None:
+            break
+        family = value_family(key)
+    family = family or "string"
     shown = python_text(column)
     if family not in _NULL_FILLERS:
         return (f'Test is_null first, with first_match: first_match([(is_null({shown}), "the '
@@ -498,7 +508,7 @@ def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherw
                 given=value, call=call,
             )
     values = [_as_column(value, call) for value in given]
-    _one_type(given, call, "values", otherwise)
+    _check_one_type(given, call, "values", otherwise)
     tree = Node("Case", ifs=[Node("If", this=when, true=value._tree.copy())
                              for (when, _), value in zip(pairs, values)])
     if column is not None:
@@ -507,9 +517,17 @@ def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherw
         tree.set("default", values[-1]._tree.copy())
         written += f", otherwise={python_text(otherwise)}"
     tree.meta["call"] = f"{written})"
-    because = next((value._not_adding_up_because for value in values if not value._adds_up),
-                   None)
+    because = _not_adding_up_reason(values)
     return Column(tree, adds_up=because is None, not_adding_up_because=because)
+
+
+def _not_adding_up_reason(parts: list[Column]) -> str | None:
+    """Why a calculation made from `parts` doesn't add up: the reason of the first part that
+    doesn't, or None when they all do."""
+    for part in parts:
+        if not part._adds_up:
+            return part._not_adding_up_because
+    return None
 
 
 # How a refusal names the type of a value, by its family (tables.value_family).
@@ -517,15 +535,21 @@ _FAMILY_WORDS = {"number": "a number", "string": "a string", "date": "a date",
                  "timestamp": "a timestamp", "boolean": "True or False"}
 
 
-def _one_type(given: list[object], call: str, what: str, otherwise: object = None) -> None:
+def _check_one_type(given: list[object], call: str, what: str,
+                    otherwise: object = None) -> None:
     """Refuse `what`, first_match's or mapped's values or mapped's keys, when two of them are of
     types that can't stand in one column; one whose type isn't known, as NULL's, goes with any.
     When `otherwise`, the otherwise= value, which `given` holds last, is one of the two, the fix
     says it may be left out."""
-    known = [(place, value, family) for place, value in enumerate(given)
-             if (family := value_family(value)) is not None]
+    known = []
+    for place, value in enumerate(given):
+        family = value_family(value)
+        if family is not None:
+            known.append((place, value, family))
+    if len(known) < 2:
+        return
+    _, first, first_family = known[0]
     for place, value, family in known[1:]:
-        _, first, first_family = known[0]
         if family in COMPARABLE_VALUES[first_family]:
             continue
         fix = _MIXED_FIX[what]
@@ -552,9 +576,9 @@ _MIXED_WHY = {
     "values": "A CASE gives back one column, of one type, so the warehouse would turn one into "
     "the other's type: a row could quietly get NULL or a changed value, or the whole Statement "
     "stop with an error.",
-    "keys": "Each key is compared with the column's value, so the warehouse would turn one into "
-    "the other's type: a row could quietly match the wrong key or none, or the whole Statement "
-    "stop with an error.",
+    "keys": "Each key is compared with the column's value, so the warehouse would turn one "
+    "into the other's type: a row could quietly match the wrong key or none, or the whole "
+    "Statement stop with an error.",
 }
 
 
@@ -562,8 +586,8 @@ def _with_type(value: object, family: str) -> str:
     """A value and its type, as a refusal names them: "0, a number" or "job_runs.dt, a string
     column"."""
     if isinstance(value, Column):
-        article = "an" if value._type[0] in "aeiou" else "a"
-        return f"{python_text(value)}, {article} {value._type} column"
+        kind = with_article(f"{value._type} column")
+        return f"{python_text(value)}, {kind}"
     return f"{python_text(value)}, {_FAMILY_WORDS[family]}"
 
 
@@ -585,7 +609,7 @@ def fill_null(column: Column, value: Column | str | int | float | datetime.date)
     )
 
 
-def _call(name: str, *args: Node) -> Node:
+def _date_function_call(name: str, *args: Node) -> Node:
     """A call to one of Hive's date functions, such as next_day."""
     return Node("Call", name=name, args=list(args))
 
@@ -605,8 +629,9 @@ def week_start(column: Column) -> Column:
     "2026-09-25".
     """
     column = need_column(column, "week_start(...)")
-    week_ago = _call("date_sub", column._tree.copy(), number("7"))
-    tree = Node("Cast", this=_call("next_day", week_ago, string("MO")), to="STRING")
+    week_ago = _date_function_call("date_sub", column._tree.copy(), number("7"))
+    monday = _date_function_call("next_day", week_ago, string("MO"))
+    tree = Node("Cast", this=monday, to="STRING")
     return Column(made_by(tree, "week_start", column), type="string")
 
 
@@ -622,7 +647,8 @@ def month_start(column: Column) -> Column:
     "2026-09-25".
     """
     column = need_column(column, "month_start(...)")
-    tree = Node("Cast", this=_call("trunc", column._tree.copy(), string("MM")), to="STRING")
+    month = _date_function_call("trunc", column._tree.copy(), string("MM"))
+    tree = Node("Cast", this=month, to="STRING")
     return Column(made_by(tree, "month_start", column), type="string")
 
 
@@ -691,10 +717,10 @@ def hive_function(name: str, *args: Column | str | int | float | datetime.date) 
 
     The Toolbox writes the function's name in capitals, and writes the call in its usual form:
     sometimes by another name that does the same, as COALESCE for nvl, or without an
-    argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group 1
-    is what the warehouse takes when none is given. Either way it does the same. In a date_format
-    pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to, which differs
-    from the year in the last days of December and the first of January.
+    argument that is filled in anyway, as regexp_extract(col, pattern, 1) without its 1: group
+    1 is what the warehouse takes when none is given. Either way it does the same. In a
+    date_format pattern, write yyyy for the year, not YYYY: YYYY is the year a week belongs to,
+    which differs from the year in the last days of December and the first of January.
 
     It checks the call before writing it:
 
@@ -730,8 +756,8 @@ def hive_function(name: str, *args: Column | str | int | float | datetime.date) 
     parts = [arg for arg in args if isinstance(arg, Column)]
     if tree.parts["aggregate"]:
         for part in parts:
-            _not_inside(call, part)
-    because = next((p._not_adding_up_because for p in parts if not p._adds_up), None)
+            _check_no_total_or_window_inside(call, part)
+    because = _not_adding_up_reason(parts)
     return Column(tree, adds_up=because is None, not_adding_up_because=because)
 
 
