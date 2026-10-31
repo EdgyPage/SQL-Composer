@@ -78,7 +78,8 @@ file, the call that makes it, and what you fill in:
 - `admin/workflows/`, a folder per Workflow, such as new_table/, references/ and convert/,
   each holding its notebook: `project.start()`. You name what the Workflow works on in its
   notebook's names cell, such as the tables, and save it; then run each step's cell in turn,
-  or `project.do_next()`, which runs each step that changes only files for you.
+  or `project.do_next()`, which runs the steps it can for you, those that change only files,
+  up to the first it can't.
   `project.check()` names the next step.
 - admin/databases.py, the names of your Dev Database and Prod Database: `project.start()`.
   You fill in the two names, DEV and PROD.

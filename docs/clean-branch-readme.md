@@ -63,7 +63,7 @@ or made by hand.
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
 | `warehouse.py` | `project.start()` | `conn`, your connection |
 | `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb | `project.start()` | the names some ask for in their names cell, such as the tables to remove |
-| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's names cell, such as the tables, then save it; run each step's cell in turn, or `project.do_next()`, which runs each step that changes only files for you; `project.check()` names the next step |
+| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's names cell, such as the tables, then save it; run each step's cell in turn, or `project.do_next()`, which runs the steps it can for you, those that change only files, up to the first it can't; `project.check()` names the next step |
 | `admin/databases.py`, the names of your Dev Database and Prod Database | `project.start()` | `DEV` and `PROD` |
 | `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` and `project.run_tables` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |

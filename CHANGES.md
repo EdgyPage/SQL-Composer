@@ -14,8 +14,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   name what it works on, such as `TABLES = ["mart.daily_job_runs"]`, then a cell per step,
   each call reading those names, so there is no `"your_name"` left to edit.
 - **`project.check()` names each started Workflow's next step**, and **`project.do_next()`**
-  runs each next step that changes only files, in order, up to the first that is yours: a
-  decision, or a call to the warehouse, which it names with its call. It never sends anything.
+  runs each next step it can for you, one that changes only files, in order, up to the first
+  it can't: a decision, a call to the warehouse, or a step done by hand, which it names with
+  its call. It never sends anything.
 - **`admin/` holds only what is not one Workflow's**: `check_project.ipynb` (with a
   `project.do_next()` cell), `check_references.ipynb`, `refresh_reference_sheet.ipynb`,
   `run_tables.ipynb`, `new_block.ipynb`, and `remove.ipynb`, which archives the tables,

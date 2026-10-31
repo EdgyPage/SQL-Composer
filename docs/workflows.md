@@ -326,7 +326,7 @@ flowchart TD
 
 ## change_a_saved_table
 
-Steps: 1 file step, 2 permission, 1 decision, 0 fiddling.
+Steps: 1 file step, 1 permission, 1 decision, 0 fiddling.
 
 Starts from: a Saved table, the change wanted.
 
@@ -343,15 +343,12 @@ flowchart TD
     class s1 file
     t2 --> s1
     s1 --> t3
-    s2[["3. Send it: run_execute(change, execute)"]]
+    s2[["3. Send it, then run the check its report names: run_execute(change, execute)"]]
     class s2 permission
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    s3[["4. Run the check its report names"]]
-    class s3 permission
-    t4 --> s3
-    s3 --> t6
+    s2 --> t6
     t0("a Saved table")
     class t0 thing
     t1("the change wanted")
