@@ -72,21 +72,26 @@ class Started:
     warehouse: Warehouse
     hand_edits: dict[str, list[str]]
 
-    def journey(self, workflow: str) -> Journey:
-        return Journey(self, workflow)
+    def journey(self, workflow: str, by_hand: bool = True) -> Journey:
+        """A Workflow's journey; one not `by_hand` may make no hand edit at all, as new_table
+        from a query makes none, where the same Workflow started by hand makes those
+        KNOWN_FIDDLING lists."""
+        return Journey(self, workflow, by_hand)
 
 
 class Journey:
     """One Workflow's notebook, run cell by cell as the user runs it, in one namespace."""
 
-    def __init__(self, started: Started, workflow: str) -> None:
+    def __init__(self, started: Started, workflow: str, by_hand: bool = True) -> None:
         self.started = started
         self.workflow = workflow
+        self.by_hand = by_hand
         self.folder = started.root / "admin" / "workflows" / workflow
         self.notebook = self.folder / f"{workflow}.ipynb"
         self.scope: dict[str, object] = {}
         self.cells_run = 0
-        started.hand_edits.setdefault(workflow, [])
+        if by_hand:
+            started.hand_edits.setdefault(workflow, [])
 
     def type_names(self, **values: object) -> None:
         """Type each name into the names cell, or the decisions cell, and save the notebook,
@@ -137,6 +142,7 @@ class Journey:
 
     def make_by_hand(self, edit: str, make: Callable[..., object], *args: object) -> None:
         """Make an edit by hand that KNOWN_FIDDLING lists for this Workflow, and note it."""
+        assert self.by_hand, f"{self.workflow}: this journey makes no hand edit: {edit}"
         assert edit in KNOWN_FIDDLING[self.workflow], (
             f"{self.workflow}: a hand edit KNOWN_FIDDLING doesn't list: {edit}")
         self.started.hand_edits[self.workflow].append(edit)
@@ -447,6 +453,27 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     change.run_to(3)
     assert "change_a_saved_table: every step is done." in change.run_workflow()
     assert "2026-09-24" not in set(started.warehouse.rows_of(table)["dt"])
+
+
+def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
+    """A query typed into new_table's names cell becomes a dev table, compared with its query
+    and promoted, with no hand edit but its Decisions."""
+    _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
+    table = "mart_dev.job_counts"
+    query = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
+             "WHERE r.status = 'FAILED' GROUP BY r.job_id")
+    journey = started.journey("new_table", by_hand=False)
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": query},
+                       DECISIONS={table: {"location": _location(table)}})
+    sent = list(started.warehouse.executed)
+    assert "would send: CREATE" in journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert "new_table: every step is done." in journey.run_workflow()
+    written = _reference(started.root, table).read_text(encoding="utf-8")
+    assert '    key=["job_id"],  # proposed' in written
+    assert _sorted_rows(started.warehouse, table) == sorted(
+        started.warehouse.query(query).astype(str).values.tolist())
+    _promote_through_the_runner(started, [table])
 
 
 def _fill_daily_runs_logic(text: str) -> str:

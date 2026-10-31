@@ -592,12 +592,12 @@ LAST_DAY = &quot;2026-09-24&quot;</pre>
 <p class="label">The Table reference it imports, references/mart__runs_to_review.py</p>
 <pre class="python">&quot;&quot;&quot;The Table reference of mart.runs_to_review, a Saved table the Worked examples write.
 
-A Saved table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until
-create_table makes it from this: in a Project, project.new_table writes the file, and you fill
-it in. It is partitioned by dt, and each day&#x27;s Partition holds the runs someone should look at
-that day. Its files live in a folder of its own, location=, a folder in the warehouse, not one
-in your Project, written exactly as the Hive should name it. purge=True makes dropping it
-delete its files too.
+A Saved table&#x27;s Table reference can&#x27;t be read from the warehouse, since the table doesn&#x27;t exist
+until create_table makes it from this: in a Project, project.reference_from_logic writes it from
+the table&#x27;s logic, or you write it yourself, as here. It is partitioned by dt, and each day&#x27;s
+Partition holds the runs someone should look at that day. Its files live in a folder of its own,
+location=, a folder in the warehouse, not one in your Project, written exactly as the Hive
+should name it. purge=True makes dropping it delete its files too.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
@@ -4325,7 +4325,7 @@ Next: set conn, your connection, in warehouse.py.</pre>
     &quot;TABLES = []&quot;, &quot;TABLES = [&#x27;mart.daily_job_runs&#x27;]&quot;), encoding=&quot;utf-8&quot;)</pre>
 <pre class="python">project.do_next()</pre>
 <p class="label">Python shows</p>
-<pre class="output">  new_table: ran project.new_table([&quot;mart.daily_job_runs&quot;])
+<pre class="output">  new_table: ran project.new_table([&quot;mart.daily_job_runs&quot;], queries={})
     Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
     admin/templates/saved_table.py.
     Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.
@@ -4391,7 +4391,8 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__daily_job_runs.py: project.reference_from_logic writes it.</pre>
-<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/saved_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference to fill in, from admin/templates/saved_table_reference.py, unless that file is there already. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in every other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<p><code>name</code> is the table&#x27;s name in the warehouse, such as &quot;mart.daily_job_runs&quot;. It makes tables/mart__daily_job_runs/, holding mart__daily_job_runs.ipynb, made from admin/templates/saved_table.py (or the Template <code>template</code> names), and an empty lineage/; and references/mart__daily_job_runs.py, the table&#x27;s Table reference, from admin/templates/saved_table_reference.py, unless that file is there already: a stand-in until project.reference_from_logic writes it from the logic. In both, &lt;DB&gt;, &lt;TABLE&gt; and &lt;NAME&gt; are filled in; fill in the notebook&#x27;s other &lt;...&gt; yourself. It registers both and logs them. It refuses a table that has a Table folder, or that the registry lists, and never touches the warehouse: the notebook&#x27;s create() makes the table.</p>
+<p><code>queries</code> gives a table&#x27;s query, by its name without its database, as Hive text or a .hql file in the folder you&#x27;re working in, such as {&quot;daily_runs&quot;: &quot;daily_runs.hql&quot;} for mart_dev.daily_runs: that table is made from it, in your Dev Database, DEV in admin/databases.py, as project.convert makes one query alone a batch of one, template= passed over. Its logic is written for you, and its Table reference from the logic, its Key proposed; you answer its location, and the new_table Workflow writes it, then compares it with its query, so the promote Workflow takes it to prod. Each table the query reads needs its Table reference first. A query for a table it isn&#x27;t given, or outside DEV, or Hive that is more than one query, is refused before anything is made.</p>
 <p><code>name</code> may also be a list of names, each done in turn, in one report. A name refused stops the rest, and its refusal says which were done before it, which stay done, and how to run the rest.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>

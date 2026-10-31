@@ -1,10 +1,11 @@
-# Copilot file 13: the Workflows ({version})
+# Copilot file 13: the Workflows, Hive to prod ({version})
 
-Objective: take the user through a whole job, step by step, from its Workflow notebook.
-Load this file when the user asks how to do a job end to end: convert Hive, promote to prod,
-make a Saved table, add Table references, upgrade, or change a Saved table. You write the
-steps for {version}, a Toolbox that writes Hive: the steps left, each its cell, in order.
-For the Python inside a step, the user loads that step's file.
+Objective: take the user through converting Hive and promoting it to prod, step by step,
+from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
+own tables end to end, or carry dev tables to prod. You write the steps for {version}, a
+Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
+own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
+the Python inside a step, that step's file.
 
 ## Names for this objective, with their arguments
 
@@ -31,22 +32,6 @@ saved beside the notebook, in admin/workflows/convert/, where it reads them.
 TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
 {workflow: promote}
-
-## new_table: a Saved table of your own
-
-{workflow: new_table}
-
-## references: Table references for tables you read
-
-{workflow: references}
-
-## upgrade: a new Toolbox copied in
-
-{workflow: upgrade}
-
-## change_a_saved_table: an Admin statement on a Saved table
-
-{workflow: change_a_saved_table}
 
 ## Worked example
 

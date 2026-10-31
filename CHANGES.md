@@ -36,6 +36,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   convert Workflow runs the batch its names cell names, and NAME may be a list of batches
   converted already. `project.do_next()`, the cell before, still runs only the steps that
   change files.
+- **A new table from a query.** new_table's names cell takes each table's query,
+  `QUERIES = {"daily_runs": "daily_runs.hql"}`, as Hive text or a .hql file:
+  `project.new_table(TABLES, queries=QUERIES)` converts it into your Dev Database, a batch
+  of one, its logic written for you with no `<...>` to fill in, and the Workflow's last
+  step compares it with its query, so the promote Workflow takes it to prod as it takes a
+  Conversion's table.
 - **A new table's Table reference is written from its logic.** new_table's steps run
   logic first: once its logic cell runs, `project.reference_from_logic(TABLES)` writes the
   table's Table reference, its columns and types from `preview()`, its partition columns
@@ -179,6 +185,9 @@ Conversion now makes its Saved tables itself.
 - **A line of yours that calls `finish_conversion`** is marked `# UPGRADE 8.0:`: delete it.
   The table it named, such as `mart.team_runs`, is now your Prod copy: set `PROD` to its
   database, `mart`, and promote the batch's table with the promote Workflow.
+- **The Templates in `admin/templates/`** that new_table copies are written again where they
+  are still as 7.2 wrote them; one you changed is marked `# UPGRADE 8.0:`, to copy what
+  changed from a new Project's, such as the logic's `PARTITIONED_BY`.
 
 ### Also new
 

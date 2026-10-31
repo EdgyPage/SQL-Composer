@@ -16527,17 +16527,18 @@ for table in project.promoted_tables(TABLES, seeded=True):
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <h5>The new_table Workflow</h5>
-<p>Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
+<p>Makes a Table folder for each new Saved table: from its query, when QUERIES gives one, its logic written for you; else from a Template, its logic for you to write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/new_table/new_table.ipynb:</p>
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
-    s0[&quot;1. Make each Table folder&quot;]:::files_only
+    s0[&quot;1. Make each Table folder, converting each table&#x27;s query QUERIES gives&quot;]:::files_only
     s1{&quot;2. Write each table&#x27;s logic in its Table notebook, and save it&quot;}:::your_decision
     s2[&quot;3. Write each Table reference from its logic&quot;]:::files_only
     s3{&quot;4. Answer each table&#x27;s open Decisions in the decisions cell&quot;}:::your_decision
     s4[&quot;5. Write each answer into its table&#x27;s Table reference&quot;]:::files_only
     s5[[&quot;6. Check each table&#x27;s rows with preview(), which writes nothing&quot;]]:::warehouse_call
     s6[[&quot;7. Create and write each in dev&quot;]]:::warehouse_call
+    s7[[&quot;8. Compare each table made from a query with its query&quot;]]:::warehouse_call
     t0(&quot;the tables&#x27; names&quot;):::thing
     t1(&quot;a Table folder&quot;):::thing
     t2(&quot;what each table should hold&quot;):::thing
@@ -16547,6 +16548,7 @@ flowchart TD
     t6(&quot;a dev Table folder whose logic loads&quot;):::thing
     t7(&quot;its rows, checked&quot;):::thing
     t8(&quot;written in dev&quot;):::thing
+    t9(&quot;each from a query compared with it&quot;):::thing
     t0 --&gt; s0
     s0 --&gt; t1
     t1 --&gt; s1
@@ -16563,6 +16565,8 @@ flowchart TD
     t7 --&gt; s6
     t4 --&gt; s6
     s6 --&gt; t8
+    t8 --&gt; s7
+    s7 --&gt; t9
     classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
@@ -16570,7 +16574,12 @@ flowchart TD
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
-TABLES = []</pre>
+TABLES = []
+# each table&#x27;s query, by its name without its database, as Hive text or a .hql file
+# in admin/workflows/new_table/, such as {&quot;daily_job_runs&quot;: &quot;daily_job_runs.hql&quot;}
+# for mart_dev.daily_job_runs: it is made in your Dev Database, its logic written
+# from its query
+QUERIES = {}</pre>
 <p>Its decisions cell, beside it, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
@@ -16579,8 +16588,8 @@ TABLES = []</pre>
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
 # a Key project.convert proposed is made, but an answer here changes it</pre>
 <p>Its steps:</p>
-<ul><li>1. Make each Table folder (it changes only files, so project.do_next() runs it for you).</li></ul>
-<pre class="python">project.new_table(TABLES)</pre>
+<ul><li>1. Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ul>
+<pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
 <ul><li>2. Write each table&#x27;s logic in its Table notebook, and save it (it is a decision, yours to make).</li></ul>
 <pre class="python">for table in TABLES:
     project.load(table).preview()  # says what stops it, if anything does</pre>
@@ -16595,6 +16604,9 @@ TABLES = []</pre>
 <pre class="python">for table in TABLES:
     run_execute(project.load(table).create(), execute)
 project.run_tables(tables=TABLES, execute=execute)</pre>
+<ul><li>8. Compare each table made from a query with its query (it is a call to the warehouse, yours to run).</li></ul>
+<pre class="python">for name in QUERIES:
+    print(project.compare_batch(name, query=query))</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
 # Add dry_run=True to see the Hive it would send, sending nothing through your

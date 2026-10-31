@@ -25,8 +25,15 @@ PAGES = (
     "docs/workflows.md",
     "docs/clean-branch-readme.md",
     "worked_examples/how_to/29_follow_a_workflow.py",
-    "copilot/13_workflows.txt",
 )
+# The Workflows Copilot file 13 lists, Hive to prod: file 14 lists the rest.
+HIVE_TO_PROD = ("convert", "promote")
+
+
+def copilot_file_of(workflow: workflows.Workflow) -> str:
+    if workflow.name in HIVE_TO_PROD:
+        return "copilot/13_workflows.txt"
+    return "copilot/14_workflows_new_tables_and_upkeep.txt"
 # A Workflow's step heading in its notebook, such as "## 3. Create each table in dev".
 STEP_HEADING = re.compile(r"^## (\d+)\. (.+)$")
 # A call of the project module a Copilot file quotes, such as project.convert(.
@@ -44,6 +51,16 @@ def _flat(text: str) -> str:
 @pytest.mark.parametrize("workflow", workflows.WORKFLOWS, ids=lambda workflow: workflow.name)
 def test_each_page_lists_each_workflows_steps_in_order(page: str,
                                                        workflow: workflows.Workflow) -> None:
+    _lists_its_steps_in_order(page, workflow)
+
+
+@pytest.mark.parametrize("workflow", workflows.WORKFLOWS, ids=lambda workflow: workflow.name)
+def test_its_copilot_file_lists_each_workflows_steps_in_order(
+        workflow: workflows.Workflow) -> None:
+    _lists_its_steps_in_order(copilot_file_of(workflow), workflow)
+
+
+def _lists_its_steps_in_order(page: str, workflow: workflows.Workflow) -> None:
     text = _flat((ROOT / page).read_text(encoding="utf-8"))
     start = text.find(f"1. {_flat(workflow.steps[0].name)}")
     assert start >= 0, f"{page} doesn't list {workflow.name}'s first step"
@@ -74,11 +91,12 @@ def test_each_example_projects_workflow_notebook_runs_its_steps_in_order(
 
 
 @pytest.mark.parametrize("workflow", workflows.WORKFLOWS, ids=lambda workflow: workflow.name)
-def test_copilot_file_13_quotes_each_steps_call(workflow: workflows.Workflow) -> None:
-    text = _flat((ROOT / "copilot" / "13_workflows.txt").read_text(encoding="utf-8"))
+def test_its_copilot_file_quotes_each_steps_call(workflow: workflows.Workflow) -> None:
+    page = copilot_file_of(workflow)
+    text = _flat((ROOT / page).read_text(encoding="utf-8"))
     for step in workflow.steps:
         if step.call:
-            assert _flat(step.call) in text, f"file 13 doesn't quote {step.name}'s call"
+            assert _flat(step.call) in text, f"{page} doesn't quote {step.name}'s call"
 
 
 QUOTING = sorted([*(ROOT / "tools" / "copilot_sources").glob("*.txt"),

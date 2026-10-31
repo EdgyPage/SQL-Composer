@@ -109,9 +109,10 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 **Decision**:
 One thing about one table that only the user decides, which the table's files show made or
 not: its location, its Key, a column type the Toolbox could only guess, or a `<...>` left to
-fill in. The user answers each in a Workflow's decisions cell, but a `<...>`, filled in by
-hand, and a step writes each answer into the table's Table reference; a Workflow's step that waits on Decisions is done once
-each is made. A Decision is never ticked by hand: the files say whether it is made.
+fill in. The user answers each in a Workflow's decisions cell, and a step writes each answer
+into the table's Table reference. A `<...>` is filled in by hand. A new Saved table's
+`<COLUMNS>` is the one a step writes, from its logic. A Workflow's step that waits on Decisions
+is done once each is made. A Decision is never ticked by hand: the files say whether it is made.
 _Avoid_: box, checklist item, TODO
 
 **Upgrade**:

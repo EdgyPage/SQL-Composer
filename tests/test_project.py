@@ -1517,9 +1517,10 @@ def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Pat
     assert repr(project.check()).endswith(
         "The next step of each Workflow you have started; project.do_next() runs the steps it "
         "can for you:\n"
-        "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder. It changes "
-        "only files, so project.do_next() runs it for you: "
-        'project.new_table(["mart.daily_job_runs"])')
+        "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder, converting "
+        "each table's query QUERIES gives. It changes only files, so project.do_next() runs "
+        "it for you: "
+        'project.new_table(["mart.daily_job_runs"], queries=QUERIES)')
 
 
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
@@ -1529,7 +1530,8 @@ def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) ->
     assert (started / "tables" / "mart__daily_job_runs").is_dir()
     assert (started / "tables" / "mart__team_day").is_dir()
     assert report.splitlines()[0] == (
-        '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"])')
+        '  new_table: ran project.new_table(["mart.daily_job_runs", "mart.team_day"], '
+        'queries=QUERIES)')
     assert report.splitlines()[-2] == (
         "  admin/workflows/new_table/new_table.ipynb: 2. Write each table's logic in its Table "
         "notebook, and save it. It is a decision, yours to make: for table in "

@@ -15,14 +15,15 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 13),
+1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 14),
    `project.new_table("mart.job_day_events")` makes the Table notebook,
-   tables/mart__job_day_events/mart__job_day_events.ipynb, and the Table reference,
-   references/mart__job_day_events.py. The user fills in the reference's columns and its
-   `<LOCATION>` (file 02).
+   tables/mart__job_day_events/mart__job_day_events.ipynb, and a stand-in Table reference;
+   once the logic runs, `project.reference_from_logic` writes the reference from it, and the
+   user answers its location in the Workflow's decisions cell.
 2. The notebook's logic cell starts with the line `# logic` and holds only imports,
    constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
    - `READS`, the Condition that picks the rows it reads, such as a day;
+   - `PARTITIONED_BY`, the table's partition columns, last in SELECT: `[]` for none;
    - `create()` returns `create_table(job_day_events, may_exist=True)`;
    - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
      GROUP_BY;
@@ -59,6 +60,7 @@ from references.mart__job_day_events import job_day_events
 from references.ops__job_events import job_events
 
 READS = equals(job_events.dt, "2026-09-24")
+PARTITIONED_BY = ["dt"]
 
 
 def create() -> Statement:

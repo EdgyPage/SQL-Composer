@@ -196,8 +196,8 @@ QUALITY_CHECKS = _notebook(
 # NULLs.''',
     saves='''\
 # It lists one column, "row_count", a count, "bigint", then the partition column counted,
-# typed as the table checked types it, also named in partitioned_by=[...]. Give it that
-# partition column as its Key: one row per Partition counted.''',
+# typed as the table checked types it, as PARTITIONED_BY names it. Its Key, proposed from the
+# query, is that partition column: one row per Partition counted.''',
     fill_in='''\
 #   - `<CHECKED_NAME>` and `<CHECKED>`: the table checked, by its file in references/ and
 #     its name there, such as `ops__job_events` and `job_events`;

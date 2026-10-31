@@ -45,7 +45,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 - project.start()
 - project.add_references(names, *, query=None)
-- project.new_table(name, template='saved_table')
+- project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)

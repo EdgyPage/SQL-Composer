@@ -50,9 +50,10 @@ you can ask it in plain words.
   `formula_workbook.xlsx` shows, into Hive and Toolbox code: its steps and formulas.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
   Rows, loaded with file 11.
-- `13_workflows.txt`: a whole job, step by step, from its Workflow notebook in
-  admin/workflows/: converting Hive, promoting to prod, a new Saved table, Table references,
-  an upgrade, a change to a Saved table.
+- `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
+  from its Workflow notebook in admin/workflows/.
+- `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
+  Table references, an upgrade, a change to a Saved table, each a whole job step by step.
 
 ## Fitting Copilot
 
@@ -110,7 +111,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 - project.start()
 - project.add_references(names, *, query=None)
-- project.new_table(name, template='saved_table')
+- project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - statement(*clauses, returns_all_rows=False)
 - SELECT(*columns)
@@ -840,7 +841,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Names for this objective, with their arguments
 
-- project.new_table(name, template='saved_table')
+- project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
@@ -857,14 +858,15 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 13),
+1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 14),
    `project.new_table("mart.job_day_events")` makes the Table notebook,
-   tables/mart__job_day_events/mart__job_day_events.ipynb, and the Table reference,
-   references/mart__job_day_events.py. The user fills in the reference's columns and its
-   `<LOCATION>` (file 02).
+   tables/mart__job_day_events/mart__job_day_events.ipynb, and a stand-in Table reference;
+   once the logic runs, `project.reference_from_logic` writes the reference from it, and the
+   user answers its location in the Workflow's decisions cell.
 2. The notebook's logic cell starts with the line `# logic` and holds only imports,
    constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
    - `READS`, the Condition that picks the rows it reads, such as a day;
+   - `PARTITIONED_BY`, the table's partition columns, last in SELECT: `[]` for none;
    - `create()` returns `create_table(job_day_events, may_exist=True)`;
    - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
      GROUP_BY;
@@ -901,6 +903,7 @@ from references.mart__job_day_events import job_day_events
 from references.ops__job_events import job_events
 
 READS = equals(job_events.dt, "2026-09-24")
+PARTITIONED_BY = ["dt"]
 
 
 def create() -> Statement:
@@ -1789,13 +1792,14 @@ r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(j
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the Workflows (sqlglot Composer 8.0)
+# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.0)
 
-Objective: take the user through a whole job, step by step, from its Workflow notebook.
-Load this file when the user asks how to do a job end to end: convert Hive, promote to prod,
-make a Saved table, add Table references, upgrade, or change a Saved table. You write the
-steps for sqlglot Composer 8.0, a Toolbox that writes Hive: the steps left, each its cell, in order.
-For the Python inside a step, the user loads that step's file.
+Objective: take the user through converting Hive and promoting it to prod, step by step,
+from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
+own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.0, a
+Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
+own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
+the Python inside a step, that step's file.
 
 ## Names for this objective, with their arguments
 
@@ -1890,11 +1894,62 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 
+## Worked example
+
+The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
+convert notebook's names cell, then its first step's cell:
+
+```python
+NAME = "ops_reports"
+FILES = ["daily.hql", "weekly.hql"]
+project.convert(NAME, None, files=FILES, query=query, database="default")
+```
+
+## Do and don't
+
+- Do give each step's cell as listed, with the user's names in it.
+- Don't skip a Decision, such as a table's location: say what it asks of the user, to answer in the decisions cell.
+- Don't promote a table before its compare has passed.
+
+## Before you answer
+
+- Name the Workflow and the step the user is at; give each later step's cell as it is.
+- Never invent a step or a call: only those listed here.
+
+===== 14_workflows_new_tables_and_upkeep.txt =====
+
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.0)
+
+Objective: take the user through a job on their own Project, step by step, from each
+Workflow's notebook. Load this file when the user asks how to make a new Saved table, from a
+query or by hand, add Table references for tables they read, upgrade to a new Toolbox, or
+change a Saved table. You write the steps for sqlglot Composer 8.0, a Toolbox that writes Hive: the
+steps left, each its cell, in order. For converting Hive or promoting to prod, the user loads
+file 13; for the Python inside a step, that step's file.
+
+## Names for this objective, with their arguments
+
+- project.check()
+- project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
+- project.new_table(name, template='saved_table', queries=None)
+- project.reference_from_logic(name)
+- project.add_references(names, *, query=None)
+
+## How a Workflow runs
+
+Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
+cell (NAME, TABLES: the names in capitals) and its decisions cell, DECISIONS, and saves it.
+Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
+left, up to the first only the user can do, and `dry_run=True` sends nothing.
+`project.check()` names the next step. A Decision is the user's: never answer it for them.
+DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
+
 ## new_table: a Saved table of your own
 
-1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
+1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
+   so project.do_next() runs it for you).
 
-       project.new_table(TABLES)
+       project.new_table(TABLES, queries=QUERIES)
 
 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
    make).
@@ -1924,6 +1979,12 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
        for table in TABLES:
            run_execute(project.load(table).create(), execute)
        project.run_tables(tables=TABLES, execute=execute)
+
+8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
+   run).
+
+       for name in QUERIES:
+           print(project.compare_batch(name, query=query))
 
 
 ## references: Table references for tables you read
@@ -1973,20 +2034,23 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
 ## Worked example
 
-The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
-convert notebook's names cell, then its first step's cell:
+The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
+notebook's names cell, its decisions cell once the table's location is known, then its last
+cell, which makes the table from the query, writes it in dev and compares it with the query:
 
 ```python
-NAME = "ops_reports"
-FILES = ["daily.hql", "weekly.hql"]
-project.convert(NAME, None, files=FILES, query=query, database="default")
+TABLES = ["mart_dev.failed_per_job"]
+QUERIES = {"failed_per_job": "failed_per_job.hql"}
+DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/failed_per_job"}}
+project.run_workflow("new_table", query=query, execute=execute)
 ```
 
 ## Do and don't
 
 - Do give each step's cell as listed, with the user's names in it.
-- Don't skip a Decision, such as a table's location: say what it asks of the user, to answer in the decisions cell.
-- Don't promote a table before its compare has passed.
+- Do make a table from its query with QUERIES when the user has one: no `<...>` to fill in.
+- Don't write a new table's Table reference by hand: its logic writes it.
+- Don't skip a Decision, such as a table's location: answer it in the decisions cell.
 
 ## Before you answer
 

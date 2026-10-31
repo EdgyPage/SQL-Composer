@@ -1,10 +1,11 @@
-# Copilot file 13: the Workflows (sqlglot Composer 8.0)
+# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.0)
 
-Objective: take the user through a whole job, step by step, from its Workflow notebook.
-Load this file when the user asks how to do a job end to end: convert Hive, promote to prod,
-make a Saved table, add Table references, upgrade, or change a Saved table. You write the
-steps for sqlglot Composer 8.0, a Toolbox that writes Hive: the steps left, each its cell, in order.
-For the Python inside a step, the user loads that step's file.
+Objective: take the user through converting Hive and promoting it to prod, step by step,
+from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
+own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.0, a
+Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
+own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
+the Python inside a step, that step's file.
 
 ## Names for this objective, with their arguments
 
@@ -97,87 +98,6 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
    project.do_next() runs it for you).
 
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
-
-
-## new_table: a Saved table of your own
-
-1. Make each Table folder (it changes only files, so project.do_next() runs it for you).
-
-       project.new_table(TABLES)
-
-2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
-   make).
-
-       for table in TABLES:
-           project.load(table).preview()  # says what stops it, if anything does
-
-3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
-   it for you).
-
-       project.reference_from_logic(TABLES)
-
-4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
-5. Write each answer into its table's Table reference (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.write_decisions(DECISIONS)
-
-6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
-   yours to run).
-
-       for table in TABLES:
-           print(run_query(project.load(table).preview(), query))
-
-7. Create and write each in dev (it is a call to the warehouse, yours to run).
-
-       for table in TABLES:
-           run_execute(project.load(table).create(), execute)
-       project.run_tables(tables=TABLES, execute=execute)
-
-
-## references: Table references for tables you read
-
-1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
-
-       project.add_references(TABLES, query=query)
-
-2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
-3. Write each answer into its table's Table reference (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.write_decisions(DECISIONS)
-
-4. Refresh the Reference sheet and the Database modules (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.refresh_reference_sheet(TABLES)
-
-
-## upgrade: a new Toolbox copied in
-
-1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
-
-       project.upgrade()
-
-2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
-   make).
-
-## change_a_saved_table: an Admin statement on a Saved table
-
-1. Write the Admin statement for the change (it is a decision, yours to make).
-
-       table = project.table_reference(TABLE)
-       change = admin.drop_partitions(table, where=...)  # or another: help(admin)
-
-2. Print its Hive, and run the check its Check first line names (it changes only files, or only
-   prints: run its cell).
-
-       show_hive(change)
-
-3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
-   warehouse, yours to run).
-
-       run_execute(change, execute)
 
 
 ## Worked example
