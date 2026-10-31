@@ -19,7 +19,6 @@ KNOWN_BREAKS: dict[str, dict[str, int]] = {
         "E501": 11, "dense comprehension": 2, "lambda": 1, "private name twice": 3},
     "sqlglot_composer/calculations.py": {
         "E501": 9, "next with a default": 3, "private name twice": 1, "walrus": 2},
-    "sqlglot_composer/checks.py": {"E501": 1, "long body": 1, "next with a default": 1},
     "sqlglot_composer/clauses.py": {
         "E501": 5, "dense comprehension": 2, "private name twice": 2},
     "sqlglot_composer/comparisons.py": {
@@ -27,11 +26,11 @@ KNOWN_BREAKS: dict[str, dict[str, int]] = {
     "sqlglot_composer/conditions.py": {"lambda": 2},
     "sqlglot_composer/converting.py": {
         "E501": 24, "PLR0911": 1, "chained conditional": 3, "dense comprehension": 3,
-        "lambda": 4, "private name twice": 5},
+        "lambda": 4, "private name twice": 4},
     "sqlglot_composer/describe.py": {"E501": 3},
     "sqlglot_composer/engine.py": {
         "E501": 10, "chained conditional": 2, "dense comprehension": 4,
-        "private name twice": 5},
+        "private name twice": 4},
     "sqlglot_composer/example_database.py": {
         "E501": 1, "dense comprehension": 2, "lambda": 1, "private name twice": 1},
     "sqlglot_composer/joins.py": {"E501": 3, "next with a default": 1},
@@ -41,11 +40,6 @@ KNOWN_BREAKS: dict[str, dict[str, int]] = {
     "sqlglot_composer/lineage.py": {
         "E501": 28, "chained conditional": 2, "dense comprehension": 10, "lambda": 2,
         "next with a default": 1, "private name twice": 1},
-    "sqlglot_composer/notebooks.py": {"private name twice": 1},
-    "sqlglot_composer/project.py": {
-        "E501": 35, "dense comprehension": 3, "lambda": 1, "long body": 5,
-        "next with a default": 3, "private name twice": 3},
-    "sqlglot_composer/project_templates.py": {"E501": 4},
     "sqlglot_composer/python_steps.py": {"E501": 2, "private name twice": 1},
     "sqlglot_composer/refusals.py": {"E501": 14, "private name twice": 1},
     "sqlglot_composer/running.py": {
@@ -60,7 +54,6 @@ KNOWN_BREAKS: dict[str, dict[str, int]] = {
         "private name twice": 1},
     "sqlglot_composer/unchecked.py": {
         "E501": 8, "lambda": 1, "next with a default": 2, "private name twice": 2},
-    "sqlglot_composer/upgrades.py": {"E501": 7},
     "sqlglot_composer/upkeep.py": {"E501": 5},
     "sqlglot_composer/windows.py": {"E501": 8, "private name twice": 2},
     "sqlglot_composer/writing.py": {
