@@ -157,7 +157,7 @@ def count_distinct(column: Column, where: Condition | None = None) -> Column:
     for both, since a value seen on both days would be counted twice.
     """
     return _aggregate_column("count_distinct", "Count", column, where, adds_up=False,
-                      because="a distinct count", distinct=True)
+                             because="a distinct count", distinct=True)
 
 
 def sum_of(column: Column, where: Condition | None = None, adds_up: bool = False,
@@ -205,7 +205,7 @@ def average_of(column: Column, where: Condition | None = None, adds_up: bool = F
     AVG(job_runs.duration_mins) OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id ASC ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)
     """  # noqa: E501 - its example's Hive is one line, as the Toolbox writes it
     return _aggregate_column("average_of", "Avg", column, where, adds_up=False,
-                      because="an average", over=over, column_adds_up=adds_up)
+                             because="an average", over=over, column_adds_up=adds_up)
 
 
 def min_of(column: Column, where: Condition | None = None,
@@ -332,14 +332,14 @@ def first_match(
                         for condition, value in pairs)
     return _case_column(None, [(condition._tree.copy(), value) for condition, value in pairs],
                         otherwise, call, f"first_match([{written}]",
-                        [f"pair {number}'s value" for number in range(1, len(pairs) + 1)])
+                        [f"pair {place}'s value" for place in range(1, len(pairs) + 1)])
 
 
-def _first_match_pair(item: object, number: int, call: str) -> tuple[Condition, object]:
+def _first_match_pair(item: object, place: int, call: str) -> tuple[Condition, object]:
     """One of first_match's pairs, checked: a condition, then the value it gives."""
     if not isinstance(item, (tuple, list)) or len(item) != 2:
         refuse(
-            what=f"first_match: pair {number} is {_as_written(item)}, which isn't a "
+            what=f"first_match: pair {place} is {_as_written(item)}, which isn't a "
             "(condition, value) pair.",
             why="Each item of the list is a condition and the value a row gets when it holds, "
             "as a pair in round brackets.",
@@ -351,13 +351,13 @@ def _first_match_pair(item: object, number: int, call: str) -> tuple[Condition, 
     if not isinstance(condition, Condition):
         if isinstance(value, Condition):
             refuse(
-                what=f"first_match: pair {number} has the condition second: "
+                what=f"first_match: pair {place} has the condition second: "
                 f"{_as_written(item)}.",
                 why="Each pair is a condition, then the value a row gets when it holds.",
                 fix="Swap the two, as in (equals(job_runs.status, \"FAILED\"), \"failed\").",
             )
         refuse(
-            what=f"first_match: pair {number} has {python_text(condition)} where a condition "
+            what=f"first_match: pair {place} has {python_text(condition)} where a condition "
             "goes.",
             why="Each pair starts with the test a row must pass to get the pair's value.",
             fix="Start the pair with a condition, such as (equals(job_runs.status, "
@@ -474,8 +474,9 @@ def _null_key_fix(column: Column, keys: list[object]) -> str:
     first_match to test is_null first."""
     family = type_family(column._type)
     for key in keys:
-        if family is None:
-            family = value_family(key)
+        if family is not None:
+            break
+        family = value_family(key)
     family = family or "string"
     shown = python_text(column)
     if family not in _NULL_FILLERS:
@@ -585,7 +586,8 @@ def _with_type(value: object, family: str) -> str:
     """A value and its type, as a refusal names them: "0, a number" or "job_runs.dt, a string
     column"."""
     if isinstance(value, Column):
-        return f"{python_text(value)}, {with_article(value._type + ' column')}"
+        kind = with_article(f"{value._type} column")
+        return f"{python_text(value)}, {kind}"
     return f"{python_text(value)}, {_FAMILY_WORDS[family]}"
 
 
