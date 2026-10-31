@@ -5,6 +5,7 @@
 ## Tables
 
 - ops_reports.team_failures: mart.team_failures, tables/mart__team_failures/, its checklist tables/mart__team_failures/conversion/checklist.md
+  - # CONVERSION: JOIN(o, reads_all_partitions=True), a box on its checklist
 
 ## Each statement, in the order they run
 

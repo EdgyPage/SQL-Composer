@@ -98,7 +98,9 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # Toolbox 7.2, ticket 07: a Conversion, from scan to Saved table.
                  "scan_hive", "convert", "remove_conversion",
                  # Toolbox 8.0, ticket 12: do_next runs a Workflow's next file steps.
-                 "do_next"]
+                 "do_next",
+                 # Toolbox 8.0, ticket 14: the Saved tables a batch made, for run_tables.
+                 "batch_tables"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

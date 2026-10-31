@@ -57,8 +57,8 @@ Built 2026-10-31.
   A CREATE's STORED AS (ORC or PARQUET) and LOCATION reach the Table reference.
 - **Running again** (`_BatchFiles`): `written.json` records each file's hash and the batch's
   tables; a file still as written is written afresh, one changed (or not the batch's) is kept
-  and the fresh one written beside it as `.new`, and `overwrite=True` archives each into
-  admin/removed/ first.
+  and a fresh copy written into the batch's folder, under `fresh/`, and `overwrite=True`
+  archives each into admin/removed/ first. A checklist keeps each box you ticked.
 - **The convert Workflow**: four steps, convert (a call to the warehouse, for DESCRIBE), the
   checklist (done when no box is open), run_tables (done when sent.csv has each write), and
   compare (ticket 16 gives it its done function). Its names cell takes FILES. Each batch is an
@@ -78,3 +78,28 @@ Settled differently from Done when:
   the user's query, which do_next never does.
 - **scan.md's line numbers** are of in_dev.hql, the Hive rewritten in dev, which the compare
   cell reads; statement.hql keeps the script's own text.
+- **A fresh copy goes under the batch's fresh/, not beside the file**, as Done when has it:
+  beside, a fresh reference was read as a Table reference, broke its Database module's
+  import, and a fresh notebook's mark was listed as a decision still open (the beginner
+  reader, below).
+- **A write whose query gives no column at all**, and whose original DESCRIBE fails, is named
+  and kept as Hive in batch.md: a Table reference needs a column. One that didn't build but
+  names its columns is made, its types "string", each a box.
+- **A table that reads itself** is named and kept as Hive in batch.md, until ticket 15's seed.
+
+Review (2026-10-31):
+- Code review, Standards: names say what each does (`_write_missing_references`,
+  `_write_reference_of_a_create_alone`, `_result_of` no longer changes its argument, the
+  record's tables set by `_convert_batch`); the batch's file names are workflows.py's, one
+  name each; plain `if`s for the conditional loop and the dev name; `_writes_to` and
+  `_create_of` for the repeated finds; stored_as and location written by `_reference_text`'s
+  caller in their place. Left: the `ordered, names, database` clump, and the empty-string
+  failure of `_convert_one_table`, for ticket 15, which adds more paths through it.
+- Code review, Spec: a write that didn't build is made from the names its SELECT gives
+  (`selected_columns`); a batch that only creates has no box to tick; a checklist deleted is
+  not ticked; batch.md lists each table's marks under it. The compare step's done function is
+  ticket 16's.
+- Drift: D331 to D333, fixed in the commit after 37ad6e9.
+- Beginner reader: [reports/14-beginner-reader.md](../reports/14-beginner-reader.md), with what
+  was done for each stop: fresh copies apart, ticks kept, batch_tables, location=, the try-it
+  cell, the SET lines' call and honest step titles.

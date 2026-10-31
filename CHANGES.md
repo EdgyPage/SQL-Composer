@@ -40,11 +40,14 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `finish_conversion` is gone. Each Table folder's `conversion/` keeps the statement as the
   script wrote it, the scan, and `checklist.md`, a box for each thing only you can decide:
   each `# CONVERSION:` mark, each column type it couldn't tell, `location=`, the Key, the SET
-  lines to send first. A CREATE's STORED AS and LOCATION reach the Table reference. The
-  convert Workflow's notebook names the next step of each batch, and waits on every box.
+  lines to send first, with their call, and each piece kept as Hive. A CREATE's STORED AS and
+  LOCATION reach the Table reference. The convert Workflow's notebook names the next step of
+  each batch, and waits on every box; `project.batch_tables(name)` gives the Saved tables a
+  batch made, which its write step passes to `run_tables`.
 - **Running a Conversion again is safe.** It writes afresh each file still as it wrote it,
-  keeps one you changed and writes the fresh one beside it, named `.new`; with
-  `overwrite=True` it writes over each, kept as it was in `admin/removed/`.
+  keeping each box you ticked; it keeps one you changed, and writes a fresh copy of it into
+  the batch's folder, under `fresh/`, for you to compare; with `overwrite=True` it writes
+  over each, kept as it was in `admin/removed/`.
 
 ### To update from 7.2
 

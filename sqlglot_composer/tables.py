@@ -1236,19 +1236,23 @@ def table_reference_text(name: str, columns: dict[str, str], partitions: list[st
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
     descriptions, and stored_as= and location= when the CREATE gave them."""
     variable = _reference_variable(split_table_name(name)[1])
-    text = _reference_text(name, variable, columns, {}, partitions, module)
-    storage = ""
+    storage = {}
     if stored_as is not None:
-        storage += f"    stored_as={escaped_literal(stored_as)},\n"
-    if location is not None:
-        storage += f"    location={escaped_literal(location)},\n"
-    # They go just after key=, which every reference has.
+        storage["stored_as"] = stored_as
+    text = _reference_text(name, variable, columns, {}, partitions, module, storage)
+    # location= after key=, filled in when the CREATE gave it, else None with a TODO: a Table
+    # reference with no location is a table someone else owns, which writes refuse.
+    line = f"    location={escaped_literal(location)},"
+    if location is None:
+        line = ("    location=None,  # TODO: its own folder, such as "
+                '"/data/your_team/mart_dev.db/this_table"')
     at = text.index("    does_not_add_up=")
-    return text[:at] + storage + text[at:]
+    return text[:at] + line + "\n" + text[at:]
 
 
 def _reference_text(name: str, variable: str, columns: dict[str, str],
-                    comments: dict[str, str], partitions: list[str], module: str) -> str:
+                    comments: dict[str, str], partitions: list[str], module: str,
+                    storage: dict[str, str] | None = None) -> str:
     """A Table reference file's text. `module` is the name the file is imported by, such as
     references.ops__job_runs, which its Aliases heading shows."""
     lines = [
@@ -1270,6 +1274,8 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
         f'key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
     ]
+    lines += [f"    {argument}={escaped_literal(value)},"
+              for argument, value in (storage or {}).items()]
     lines += _description_lines(columns, comments)
     lines += [")", ""]
     lines += _aliases_lines(module, variable, _example_column(columns, partitions))

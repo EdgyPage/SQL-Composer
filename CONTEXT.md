@@ -80,7 +80,7 @@ _Avoid_: manifest, inventory, index
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
 folder or a Building block, adding Table references, upgrading the Project, converting Hive and
-finishing a Conversion - run from the admin folder or a Workflow's notebook, and recorded in
+archiving a Conversion folder - run from the admin folder or a Workflow's notebook, and recorded in
 the Admin log. One that
 takes a name takes a list of names too, each done in turn. Where an Admin statement changes the
 warehouse, a Project action changes only files. The user makes only the Project's folder and

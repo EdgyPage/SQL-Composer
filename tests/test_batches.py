@@ -314,10 +314,12 @@ def test_a_batch_run_again_writes_afresh_only_what_you_left_as_it_wrote_it(
     report = repr(project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
                                   query=example_database.query, database="ops"))
     assert notebook.read_text(encoding="utf-8") == kept
-    assert (started / "tables" / stem / f"{stem}.new.ipynb").is_file()
-    assert f"tables/{stem}/{stem}.new.ipynb" in report
-    # A file left as the batch wrote it is written afresh, nothing beside it.
-    assert not (started / "references" / f"{stem}.new.py").exists()
+    fresh = f"admin/workflows/convert/ops_reports/fresh/tables/{stem}/{stem}.ipynb"
+    assert (started / fresh).is_file() and fresh in report
+    # A file left as the batch wrote it is written afresh, no fresh copy beside.
+    assert not (batch_folder(started) / "fresh" / "references").exists()
+    # The fresh copy, apart from your files, adds no mark for check() to list.
+    assert "fresh/" not in repr(project.check())
 
 
 def test_a_batch_run_again_with_overwrite_keeps_each_file_it_writes_over(
@@ -355,7 +357,9 @@ def test_each_table_keeps_its_statement_its_scan_and_its_checklist(started: Path
     assert (conversion / "scan.md").is_file()
     items = checklist(started, "mart_dev.failed_runs_ops_reports")
     assert "- [ ] Fill in location= in references/mart_dev__failed_runs_ops_reports.py" in items
-    assert "- [ ] Send session_settings() before write()" in items
+    assert ("- [ ] Send the original's SET lines before you write it, as it sent them: "
+            'run_execute(project.load("mart_dev.failed_runs_ops_reports").session_settings(), '
+            "execute), then run_tables.") in items
 
 
 def test_no_conversion_the_user_never_made_shows(started: Path, batch: str) -> None:
@@ -378,4 +382,65 @@ def test_check_names_the_batchs_next_step_and_ticking_the_boxes_moves_it_on(
         path = started / "tables" / stem / "conversion" / "checklist.md"
         path.write_text(path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] "),
                         encoding="utf-8")
-    assert "ops_reports: 3. Create and write each table in dev" in repr(project.check())
+    assert "ops_reports: 3. Create each table once" in repr(project.check())
+
+
+# --- What ticket 14's review found -----------------------------------------------------------
+
+
+def test_a_write_that_cant_convert_is_still_made_and_the_batch_goes_on(started: Path) -> None:
+    report = convert_script(
+        started, "INSERT OVERWRITE TABLE ops_reports.bad SELECT r.run_id, y "
+                 "FROM ops.job_runs r LATERAL VIEW explode(array(1, 2)) t AS y "
+                 "WHERE r.dt = '2026-09-24';\n"
+                 "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
+    assert "mart_dev.tot_ops_reports" in report
+    assert '"run_id": "string"' in reference(started, "mart_dev.bad_ops_reports")
+    assert "- [ ] Check the type of run_id" in checklist(started, "mart_dev.bad_ops_reports")
+
+
+def test_a_fresh_reference_for_one_you_changed_leaves_your_references_alone(
+        started: Path, batch: str) -> None:
+    path = started / "references" / "mart_dev__failed_runs_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace("TODO: say", "Mine: say"),
+                    encoding="utf-8")
+    project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                    query=example_database.query, database="ops")
+    assert (batch_folder(started) / "fresh" / "references"
+            / "mart_dev__failed_runs_ops_reports.py").is_file()
+    assert sorted(path.name for path in (started / "references").glob("mart_dev__*")) == [
+        "mart_dev__failed_runs_ops_reports.py", "mart_dev__fails_per_job_ops_reports.py"]
+    assert "Not registered" not in repr(project.check())
+
+
+def test_a_batch_run_again_keeps_each_box_you_ticked(started: Path, batch: str) -> None:
+    path = (started / "tables" / "mart_dev__failed_runs_ops_reports" / "conversion"
+            / "checklist.md")
+    ticked = path.read_text(encoding="utf-8").replace("- [ ] ", "- [x] ")
+    path.write_text(ticked, encoding="utf-8")
+    project.convert("ops_reports", files=["daily.hql", "weekly.hql"],
+                    query=example_database.query, database="ops")
+    assert path.read_text(encoding="utf-8") == ticked
+    assert not (batch_folder(started) / "fresh").exists()
+
+
+def test_a_batch_that_only_creates_has_no_box_to_tick(started: Path) -> None:
+    convert_script(started, "CREATE TABLE ops_reports.lonely (a INT);\n")
+    said = repr(project.check())
+    assert "script: 2. Tick each box" not in said
+    assert "script: 3. Create each table once" in said
+
+
+def test_a_checklist_deleted_is_not_taken_as_ticked(started: Path, batch: str) -> None:
+    for stem in ("mart_dev__failed_runs_ops_reports", "mart_dev__fails_per_job_ops_reports"):
+        (started / "tables" / stem / "conversion" / "checklist.md").unlink()
+    assert "ops_reports: 2. Tick each box" in repr(project.check())
+
+
+def test_batch_md_lists_each_tables_marks(started: Path) -> None:
+    convert_script(started, "CREATE TABLE ops_reports.both AS SELECT r.run_id, j.team "
+                            "FROM ops.job_runs r JOIN ops.jobs j ON r.job_id = j.job_id "
+                            "WHERE r.dt = '2026-09-24';\n")
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "  - # CONVERSION: JOIN(j, many_matches=True), a box on its checklist" in index
