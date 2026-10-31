@@ -1514,8 +1514,8 @@ def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Pat
     assert "Workflow" not in repr(project.check())
     fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs"]')
     assert repr(project.check()).endswith(
-        "The next step of each Workflow you have started; project.do_next() runs those that "
-        "change only files:\n"
+        "The next step of each Workflow you have started; project.do_next() runs the steps it "
+        "can for you:\n"
         "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder. It changes "
         "only files, so project.do_next() runs it for you: "
         'project.new_table(["mart.daily_job_runs"])')

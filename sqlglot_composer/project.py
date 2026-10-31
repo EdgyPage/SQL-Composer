@@ -90,7 +90,7 @@ from typing import NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, kinds, unchecked, upgrades, workflows
+from . import converting, describe, kinds, unchecked, upgrades, workflows
 from .clauses import Statement
 from .comparisons import compare_hive
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
@@ -119,7 +119,7 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
 from .running import to_hive
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
-from .tables import TABLE_NAME, write_table_reference
+from .tables import TABLE_NAME, table_reference_text, write_table_reference
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
@@ -311,11 +311,11 @@ ADMIN_NOTEBOOKS = {
         "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
         "reference or Building block no Project action made (one made by hand), and one the "
         "registry lists that isn't there, and the next step of each Workflow you have started, "
-        "in `workflows/`. `project.do_next()` runs those steps that change only files. Adopt "
+        "in `workflows/`. `project.do_next()` runs the steps it can for you. Adopt "
         "one made by hand with `project.register(...)`, given its table's name, or the "
         "Building block's.",
         ["project.check()",
-         "project.do_next()  # runs each started Workflow's next steps that change only files",
+         "project.do_next()  # runs the next steps it can of each Workflow you have started",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
     ),
     "check_references": (
@@ -1173,7 +1173,7 @@ def check() -> ProjectReport:
     Conversion not finished yet, with finish_conversion and remove_conversion to run; each
     `# CONVERSION:` mark project.convert left for you, with its file and line; and the next
     step of each Workflow you have started, in admin/workflows/, with its call, which
-    project.do_next() runs for you when it changes only files.
+    project.do_next() runs for you when it can.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1208,6 +1208,7 @@ def check() -> ProjectReport:
                      "delete its mark.")
         lines += [f"  {mark}" for mark in marks]
     lines += _workflow_lines(root)
+    lines += _databases_lines(root)
     return ProjectReport(lines or ["Every Table folder, Table reference and Building block is "
                                    "registered, and each one registered is there."])
 
@@ -1224,8 +1225,41 @@ def _workflow_lines(root: Path) -> list[str]:
             lines.append(_next_step_line(root, workflow, step, inputs))
     if lines:
         lines.insert(0, "The next step of each Workflow you have started; project.do_next() "
-                        "runs those that change only files:")
+                        "runs the steps it can for you:")
     return lines
+
+
+def _databases_lines(root: Path) -> list[str]:
+    """What check() says of admin/databases.py: each name a started Workflow reads that it
+    doesn't fill in yet."""
+    wanted: list[str] = []
+    for workflow in workflows.WORKFLOWS:
+        if workflows.started_inputs(root, workflow) is not None:
+            wanted += [name for name in workflow.databases if name not in wanted]
+    left = workflows.databases_to_fill(root, tuple(wanted))
+    if not left:
+        return []
+    return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Databases a "
+            "Workflow you have started writes to."]
+
+
+def _scripts_given(call: str, files: object) -> list[tuple[str, str]]:
+    """Each script `files` names, a path or a list of them from the folder you're working
+    in, as (its file's name, its Hive); refused when one isn't there."""
+    if isinstance(files, str):
+        files = [files]
+    scripts = []
+    for file in files:
+        path = _working_folder() / Path(file)
+        if not path.is_file():
+            refuse(
+                what=f"{call}: there is no file {path}.",
+                why="files= names each script of the batch, from the folder you're working in.",
+                fix="Check each path, such as files=[\"daily.hql\", \"weekly.hql\"].",
+                error=FileNotFoundError,
+            )
+        scripts.append((path.name, path.read_text(encoding="utf-8")))
+    return scripts
 
 
 def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step,
@@ -1241,7 +1275,7 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
-    """Run each started Workflow's next steps that change only files.
+    """Run the next steps it can of each Workflow you have started.
 
     >>> from sqlglot_composer import project
     >>> project.start()
@@ -1261,8 +1295,9 @@ def do_next(workflow: str | None = None) -> ProjectReport:
       admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference. It is a
         decision, yours to make
 
-    It runs them in order, up to the first it can't run for you: a decision, a call to the
-    warehouse, or a step done by hand. A Workflow is started once its notebook's names cell, in
+    It runs each step that changes only files and has a call of its own, in order, up to the
+    first it can't run for you: a decision, a call to the warehouse, a step done by hand, or
+    one only its cell runs. A Workflow is started once its notebook's names cell, in
     admin/workflows/<name>/, names what it works on, such as TABLES = ["mart.daily_job_runs"]:
     save the notebook, then run this. A step whose done function, read from the Project's
     files, says it is done is passed over, and so is each step before it, though the files
@@ -1563,8 +1598,9 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
 
 
 def convert(name: str, hive: str | None = None, *, file: str | None = None,
+            files: str | list[str] | None = None,
             query: Callable[[str], pd.DataFrame] | None = None,
-            database: str = "default") -> ProjectReport:
+            database: str = "default", rename: dict[str, str] | None = None) -> ProjectReport:
     """Turn Hive someone else wrote into your own code: a Conversion.
 
     >>> from sqlglot_composer import example_database, project
@@ -1603,18 +1639,43 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     own name is yours to choose when you finish it, with project.finish_conversion(...). It
     refuses a name taken by another Conversion. It needs your query only when a table has no
     Table reference yet, and never your execute.
+
+    Given files=[...], several scripts, or Hive with more than one statement or a CREATE, it
+    converts a batch: it splits each script into its statements and orders them by what reads
+    what, refusing two tables that read each other. Each table the batch creates or writes
+    becomes a Saved table in your Dev Database, the one DEV names in admin/databases.py,
+    named <table>_<its database>, such as mart_dev.weekly_events_ops_reports, or the name
+    rename={"ops_reports.weekly_events": "weekly"} gives it; two tables with one name in dev
+    are refused, naming both, before anything is written. Every statement that reads a table
+    the batch writes reads its copy in dev; a table it only reads keeps its name, and gets a
+    Table reference from DESCRIBE, through your query. Each table in dev gets its Table folder,
+    through convert(...) and finish_conversion(...) on its first write, and its Table reference,
+    its columns, types and Partitions from its CREATE, or from its query and DESCRIBE of the
+    original. A table it can't make is named, with why, and the rest are still made. The batch
+    keeps its scripts and batch.md, what each statement became, in
+    admin/workflows/convert/<name>/: a SET line becomes the Session settings of the writes
+    after it, a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR nothing, and any other statement
+    an Unchecked statement, with its names in dev.
     """
     frame = callers_frame()
     call = _action_call("convert", name, ", ...")
     root = _project_root(call)
     _check_conversion_name(name, call)
+    if files is not None:
+        return _convert_batch(name, _scripts_given(call, files), query, database,
+                              rename or {}, frame)
+    text = _hive_given(call, hive, file)
+    if _is_a_batch(text, database):
+        script = "hive.hql"
+        if file is not None:
+            script = Path(file).name
+        return _convert_batch(name, [(script, text)], query, database, rename or {}, frame)
     folder = CONVERSION_FOLDER.path(root, name)
     _registry_for_new(
         call, CONVERSION_FOLDER, name, root, folder, CONVERSION_FOLDER.shown(name),
         f"a Conversion named {name}", writes_over="your Conversion's notebook",
         fix=f"Choose another name, or archive that one first with "
         f'project.remove_conversion("{name}").')
-    text = _hive_given(call, hive, file)
     hive_read = _converted_query(call, text, root, database)
     added = list(hive_read.missing)
     if added:
@@ -1645,6 +1706,255 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
         *[f"added {opt_out}" for opt_out in opt_outs]], frame)
     return ProjectReport(
         _converted_report(name, text, hive_read, added, opt_outs, stopped, compared))
+
+
+# --- A batch of scripts (Toolbox 8.0, ticket 13) ---------------------------------------------
+
+# Where a batch's index is kept: the scripts as given, and batch.md, what each statement became.
+BATCH_LIST = "batch.md"
+BATCH_SCRIPTS = "scripts"
+def _is_a_batch(text: str, database: str) -> bool:
+    """Whether Hive is a batch, not one query: more than one statement besides its SET lines,
+    or one that creates a table."""
+    statements = [each for each in converting.batch_statements([("the Hive", text)], database)
+                  if each.kind != converting.SETTING]
+    return len(statements) > 1 or (len(statements) == 1 and statements[0].kind in (
+        converting.CREATE_AS, converting.CREATE, converting.NOTHING))
+
+
+def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
+                   pd.DataFrame] | None, database: str, rename: dict[str, str],
+                   frame: FrameType) -> ProjectReport:
+    """convert(...) for a batch: each script split into its statements, ordered by what reads
+    what, and each table it writes a Saved table in the Dev Database, as convert says."""
+    call = _action_call("convert", name, ", files=[...]")
+    root = _project_root(call)
+    dev = _dev_database(root, call)
+    index = root / workflows.WORKFLOWS_FOLDER / "convert" / name
+    if index.exists():
+        refuse(
+            what=f"{call}: {index.relative_to(root).as_posix()}/ is there already.",
+            why="A batch keeps its scripts and its list there, and never writes over them.",
+            fix="Choose another name for the batch.",
+            error=FileExistsError,
+        )
+    statements = converting.batch_statements(scripts, database)
+    try:
+        names = converting.dev_names(statements, dev, rename)
+        ordered = converting.in_batch_order(statements)
+    except converting.ConversionRefused as why:
+        refuse(
+            what=f"{call} can't convert the batch: {why}.",
+            why="Each table the batch writes is a Saved table in the Dev Database, written "
+            "after every table it reads.",
+            fix="Change the scripts, or rename= a table, then run it again.",
+            error=ValueError,
+        )
+    sources = []
+    for statement in ordered:
+        for table in statement.reads:
+            if table not in names and table not in sources:
+                sources.append(table)
+    missing = [table for table in sources
+               if not REFERENCE.path(root, REFERENCE.stem(table)).exists()]
+    added, skipped = [], []
+    if missing:
+        need_warehouse_call(call, "query", query, "It writes a Table reference for each table "
+                            f"the scripts read that has none ({in_words(missing)}), through "
+                            "your query, which gives back DESCRIBE's rows.")
+        added, skipped = _write_each_reference(root, missing, query)
+        _write_databases(root)
+    made = []
+    for table in _tables_in_order(ordered):
+        problem = _convert_one_table(root, table, ordered, names, query, database)
+        if problem:
+            skipped.append(f"{names[table]} ({problem})")
+        else:
+            made.append(names[table])
+    _write_batch_index(index, name, scripts, ordered, names, database, dev)
+    converted = f"converted {counted(len(scripts), 'script')} into {in_words(made)}"
+    _log(root, call, made, [converted,
+                            f"wrote {index.relative_to(root).as_posix()}/"], frame, skipped)
+    return ProjectReport(_batch_report(name, scripts, statements, made, added, skipped, dev,
+                                       index.relative_to(root).as_posix()))
+
+
+def _dev_database(root: Path, call: str) -> str:
+    """The Dev Database admin/databases.py names; refused until it is filled in."""
+    dev = workflows.databases(root).get("DEV", "")
+    if not dev or workflows.PLACEHOLDER.fullmatch(dev):
+        refuse(
+            what=f"{call}: DEV in admin/databases.py isn't filled in.",
+            why="A batch makes each table its scripts write a Saved table in your Dev "
+            "Database, the one DEV names.",
+            fix='Write your Dev Database\'s name in admin/databases.py, such as DEV = '
+            '"mart_dev", and save it.',
+            error=ValueError,
+        )
+    return dev
+
+
+def _tables_in_order(ordered: list[converting.BatchStatement]) -> list[str]:
+    """Each table the batch writes, once, in the order of its first write."""
+    tables = []
+    for statement in ordered:
+        if statement.kind in converting.WRITES and statement.table not in tables:
+            tables.append(statement.table)
+    return tables
+
+
+def _convert_one_table(root: Path, table: str, ordered: list[converting.BatchStatement],
+                       names: dict[str, str], query: Callable[[str], pd.DataFrame] | None,
+                       database: str) -> str:
+    """Make one table a batch writes a Saved table in dev, through convert(...) and
+    finish_conversion(...) on its first write, then write its Table reference: what went
+    wrong, or "" when nothing did."""
+    first = next(each for each in ordered if each.kind in converting.WRITES
+                 and each.table == table)
+    earlier = [each for each in ordered[:ordered.index(first)] if each.script == first.script]
+    truncated = any(each.table == table and each.text.upper().startswith("TRUNCATE")
+                    for each in earlier)
+    settings = [f"{each.text};\n" for each in earlier if each.kind == converting.SETTING]
+    text = "".join(settings) + converting.write_hive(first, names, database, truncated)
+    dev = names[table]
+    conversion = dev.split(".", 1)[1]
+    try:
+        convert(conversion, text, query=query, database=database)
+        statement = load(conversion).converted()
+        finish_conversion(conversion, table=dev)
+    # Whatever stops one table is reported, and the rest still made.
+    except Exception as error:  # noqa: BLE001
+        return _what_happened(str(error))
+    columns, partitions = _batch_columns(table, ordered, first, statement, query)
+    stem = REFERENCE.stem(dev)
+    REFERENCE.path(root, stem).write_text(
+        table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}"),
+        encoding="utf-8")
+    # The next table's logic imports this one through its Database module.
+    _write_databases(root)
+    return ""
+
+
+def _batch_columns(table: str, ordered: list[converting.BatchStatement],
+                   first: converting.BatchStatement, statement: object,
+                   query: Callable[[str], pd.DataFrame] | None
+                   ) -> tuple[dict[str, str], list[str]]:
+    """A batch table's columns and types, and its partition columns: its CREATE's when the
+    batch has one; else its query's, each type the query doesn't tell taken from DESCRIBE of
+    the original, through your query, or "string" when that fails too."""
+    for each in ordered:
+        if each.kind == converting.CREATE and each.table == table:
+            return converting.created_columns(each)
+    columns: dict[str, str] = {}
+    if isinstance(statement, Statement):
+        for column, column_name in statement._outputs:
+            columns[column_name] = column._type or ""
+    partitions = converting.insert_partitions(first)
+    for column in partitions:
+        columns.setdefault(column, "")
+    if query is not None and "" in columns.values():
+        for column, kind in _described_columns(table, query).items():
+            if columns.get(column) == "":
+                columns[column] = kind
+    return {column: kind or "string" for column, kind in columns.items()}, partitions
+
+
+def _described_columns(table: str, query: Callable[[str], pd.DataFrame]) -> dict[str, str]:
+    """The columns and types DESCRIBE gives of a table, through your query; none when it
+    fails, as it does for a table that isn't there."""
+    try:
+        return describe.describe_table(table, query, f"DESCRIBE {table}").columns
+    # The original may not be there to DESCRIBE: its types are then left to the caller.
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _write_batch_index(index: Path, name: str, scripts: list[tuple[str, str]],
+                       ordered: list[converting.BatchStatement], names: dict[str, str],
+                       database: str, dev: str) -> None:
+    """Keep the batch's scripts as given, and write batch.md: each table and its copy in dev,
+    then each statement, in the order they run, and what it became."""
+    (index / BATCH_SCRIPTS).mkdir(parents=True)
+    for script, text in scripts:
+        (index / BATCH_SCRIPTS / script).write_text(text, encoding="utf-8")
+    lines = [f"# Batch {name}", "",
+             f"{counted(len(scripts), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
+             f"{in_words([script for script, _ in scripts])}. Each table they create or write "
+             f"is a Saved table in the Dev Database, {dev}.", "", "## Tables", ""]
+    for table in _tables_in_order(ordered):
+        copy = names[table]
+        lines.append(f"- {table}: {copy}, {TABLE_FOLDER.shown(TABLE_FOLDER.stem(copy))}")
+    lines += ["", "## Each statement, in the order they run", ""]
+    written: set[str] = set()
+    for number, statement in enumerate(ordered, 1):
+        became = _became(statement, names, database, written)
+        lines.append(f"{number}. {statement.where()}, `{_first_words(statement.text)}`: "
+                     f"{became}")
+    (index / BATCH_LIST).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _became(statement: converting.BatchStatement, names: dict[str, str], database: str,
+            written: set[str]) -> str:
+    """What batch.md says one statement became."""
+    if statement.kind in converting.WRITES and statement.table not in written:
+        written.add(statement.table)
+        note = ""
+        if statement.note:
+            note = f" ({statement.note})"
+        return f"{names[statement.table]}, written by its notebook{note}"
+    if statement.kind == converting.CREATE:
+        return (f"the columns, types and Partitions of {names[statement.table]}'s Table "
+                "reference")
+    if statement.kind == converting.SETTING:
+        return "the Session settings of the writes after it in its script"
+    if statement.kind == converting.NOTHING:
+        return _nothing_said(statement.text)
+    hive = python_literal(converting.with_dev_names(statement, names, database))
+    if statement.kind in converting.WRITES:
+        return (f"a further write to {names[statement.table]}, kept as Hive for its notebook: "
+                f"unchecked_hive({hive})")
+    return f"kept as Hive, an Unchecked statement: unchecked_hive({hive})"
+
+
+def _nothing_said(text: str) -> str:
+    """Why a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR becomes nothing."""
+    upper = text.upper()
+    if upper.startswith("DROP"):
+        return "nothing: the Saved table's create() makes it new"
+    if upper.startswith("TRUNCATE"):
+        return "nothing: the write after it replaces every row"
+    return "nothing: write() adds each Partition it writes"
+
+
+def _first_words(text: str) -> str:
+    """A statement's Hive on one line, cut short after 80 characters."""
+    one_line = " ".join(text.split())
+    if len(one_line) > 80:
+        return one_line[:77] + "..."
+    return one_line
+
+
+def _batch_report(name: str, scripts: list[tuple[str, str]],
+                  statements: list[converting.BatchStatement], made: list[str],
+                  added: list[str], skipped: list[str], dev: str, index: str) -> list[str]:
+    """What convert says of a batch: what it read, the Saved tables it made in dev, the Table
+    references it added, what it skipped and why, and where the list is."""
+    made_said = "."
+    if made:
+        made_said = f": {in_words(made)}."
+    lines = [f"Converted {name}: {counted(len(scripts), 'script')}, "
+             f"{counted(len(statements), 'statement')}, into "
+             f"{counted(len(made), 'Saved table')} in {dev}{made_said}"]
+    if added:
+        lines.append(f"Added Table references, from DESCRIBE: {in_words(added)}.")
+    if skipped:
+        lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
+    lines.append(f"{index}/{BATCH_LIST} lists each statement, in the order they run, and what "
+                 "it became.")
+    lines.append("Next: fill in each new Table reference's TODO lines, decide each "
+                 "# CONVERSION: mark project.check() lists, then write each table with "
+                 "project.run_tables(tables=[...], execute=execute).")
+    return lines
 
 
 def _add_missing_references(call: str, missing: list[str],

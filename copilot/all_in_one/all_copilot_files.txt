@@ -975,7 +975,7 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 ## Names for this objective, with their arguments
 
 - project.scan_hive(hive=None, *, file=None, database='default')
-- project.convert(name, hive=None, *, file=None, query=None, database='default')
+- project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None)
 - project.load(name)
 - project.check()
 - project.finish_conversion(name, table)

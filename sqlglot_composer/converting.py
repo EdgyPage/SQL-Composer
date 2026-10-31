@@ -1348,3 +1348,320 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
             for name, value in result.settings.items())
             + "}}"))
     return result
+
+
+# --- A batch of scripts (Toolbox 8.0, ticket 13) ---------------------------------------------
+
+# What each statement of a batch is, by what it does: what a Conversion makes of it follows.
+CREATE_AS = "create as"  # CREATE TABLE or VIEW ... AS a query: a Saved table of its query
+CREATE = "create"  # CREATE TABLE (columns): the Saved table's columns, types and Partitions
+INSERT = "insert"  # INSERT OVERWRITE or INTO: a Saved table, its logic the query
+SETTING = "setting"  # SET: the Session settings of the writes after it in its script
+NOTHING = "nothing"  # DROP, TRUNCATE, ADD PARTITION, MSCK REPAIR: the Saved table does it
+OTHER = "other"  # anything else, or what sqlglot can't read: an Unchecked statement
+WRITES = (CREATE_AS, INSERT)
+
+
+@dataclass
+class BatchStatement:
+    """One statement of a batch: the script it is in and its line there, its Hive as written,
+    sqlglot's tree of it (None when sqlglot can't read it), its kind, the table it creates or
+    writes, as db.table, the tables it reads, and a note, such as that it was a view."""
+
+    script: str
+    line: int
+    text: str
+    tree: exp.Expression | None
+    kind: str
+    table: str | None = None
+    reads: list[str] = field(default_factory=list)
+    note: str = ""
+
+    def where(self) -> str:
+        """Its script and line, as a list of the batch says them."""
+        return f"{self.script} line {self.line}"
+
+
+def split_statements(text: str) -> list[tuple[int, str]]:
+    """Each statement of a script, with the line it starts on: the text between semicolons
+    that aren't inside quotes or a -- comment, empty ones left out."""
+    found = []
+    start, quote, in_comment = 0, "", False
+    for at, letter in enumerate(text):
+        if in_comment:
+            in_comment = letter != "\n"
+        elif quote:
+            if letter == quote:
+                quote = ""
+        elif letter in "'\"`":
+            quote = letter
+        elif text.startswith("--", at):
+            in_comment = True
+        elif letter == ";":
+            found.append((start, text[start:at]))
+            start = at + 1
+    found.append((start, text[start:]))
+    statements = []
+    for begins, piece in found:
+        if not _without_comments(piece).strip():
+            continue
+        # The statement's line is that of its first character after blank lines and comments.
+        lead = len(piece) - len(piece.lstrip())
+        statements.append((text.count("\n", 0, begins + lead) + 1, piece.strip()))
+    return statements
+
+
+def _without_comments(text: str) -> str:
+    """Hive text with each -- comment taken out, to tell an empty statement."""
+    return re.sub(r"--[^\n]*", "", text)
+
+
+def batch_statements(scripts: list[tuple[str, str]], database: str) -> list[BatchStatement]:
+    """Each statement of each script, `scripts` as (its name, its text), in the order given:
+    what it is, what it writes and what it reads. A table named without its database is in
+    `database`."""
+    statements = []
+    for script, text in scripts:
+        for line, piece in split_statements(text):
+            statements.append(_read_statement(script, line, piece, database))
+    return statements
+
+
+def _read_statement(script: str, line: int, text: str, database: str) -> BatchStatement:
+    """One statement, read by sqlglot where it can be, and sorted by what it does."""
+    try:
+        trees = read_hive(text)
+    except sqlglot.errors.ParseError:
+        trees = []
+    if len(trees) != 1:
+        return BatchStatement(script, line, text, None, OTHER)
+    tree = trees[0]
+    statement = BatchStatement(script, line, text, tree, _kind(tree))
+    if statement.kind in (CREATE_AS, CREATE, INSERT, NOTHING):
+        statement.table = _full_name(_target(tree), database)
+    if statement.kind in WRITES:
+        statement.reads = _tables_it_reads(tree, statement.table, database)
+    if statement.kind == CREATE_AS:
+        statement.note = _create_note(tree)
+    return statement
+
+
+def _kind(tree: exp.Expression) -> str:
+    """What a statement does, as one of the kinds above."""
+    if isinstance(tree, exp.Set) or _is_command(tree, "SET"):
+        return SETTING
+    if isinstance(tree, exp.Create) and tree.args.get("kind") in ("TABLE", "VIEW"):
+        return _create_kind(tree)
+    if isinstance(tree, exp.Insert) and isinstance(_target(tree), exp.Table):
+        return INSERT
+    if _does_nothing(tree):
+        return NOTHING
+    return OTHER
+
+
+def _is_command(tree: exp.Expression, word: str) -> bool:
+    """Whether sqlglot read a statement as a Command starting with `word`, as it reads a SET
+    line it can't look inside, or MSCK REPAIR."""
+    return isinstance(tree, exp.Command) and str(tree.this).upper() == word
+
+
+def _create_kind(tree: exp.Expression) -> str:
+    """A CREATE TABLE or VIEW's kind: a CREATE ... AS, a CREATE of its columns, or another."""
+    if tree.expression is not None:
+        return CREATE_AS
+    if isinstance(tree.this, exp.Schema):
+        return CREATE
+    return OTHER
+
+
+def _does_nothing(tree: exp.Expression) -> bool:
+    """Whether a statement is one a Saved table does itself: a DROP or TRUNCATE of a table, an
+    ADD PARTITION, or MSCK REPAIR."""
+    if isinstance(tree, (exp.Drop, exp.TruncateTable)):
+        return isinstance(_target(tree), exp.Table)
+    if isinstance(tree, exp.Alter):
+        return "ADD PARTITION" in sql_text(tree).upper()
+    return _is_command(tree, "MSCK")
+
+
+def _target(tree: exp.Expression) -> exp.Expression | None:
+    """The table a statement creates, writes, drops or empties."""
+    target = tree.this
+    # A TRUNCATE lists its tables, and so does a DROP from sqlglot 30.23.0 on.
+    listed = tree.args.get("tables")
+    if isinstance(tree, exp.TruncateTable):
+        listed = tree.expressions
+    if target is None and listed:
+        target = listed[0]
+    if isinstance(target, exp.Schema):
+        target = target.this
+    return target
+
+
+def _full_name(table: exp.Expression | None, database: str) -> str | None:
+    """A table's name as db.table, in small letters, as Hive keeps it; `database` when it is
+    named without one."""
+    if not isinstance(table, exp.Table):
+        return None
+    return f"{(table.db or database).lower()}.{table.name.lower()}"
+
+
+def _tables_it_reads(tree: exp.Expression, written: str | None, database: str) -> list[str]:
+    """Each table a statement reads, once, in order: every table it names but the one it
+    writes, and each CTE's own name."""
+    derived = {cte.alias_or_name.lower() for cte in tree.find_all(exp.CTE)}
+    read = []
+    for table in tree.find_all(exp.Table):
+        if not table.db and table.name.lower() in derived:
+            continue
+        name = _full_name(table, database)
+        if name != written and name not in read:
+            read.append(name)
+    return read
+
+
+def _create_note(tree: exp.Expression) -> str:
+    """What the checklist says of a CREATE ... AS: that it was a view, or a temporary table."""
+    if tree.args.get("kind") == "VIEW":
+        return "was a view"
+    properties = tree.args.get("properties")
+    if properties is not None and any(isinstance(each, exp.TemporaryProperty)
+                                      for each in properties.expressions):
+        return "was a temporary table"
+    return ""
+
+
+def dev_names(statements: list[BatchStatement], dev: str,
+              rename: dict[str, str]) -> dict[str, str]:
+    """Each table the batch creates or writes, by its name, and its name in the Dev Database:
+    <table>_<its database>, or the name `rename` gives it. Two tables with one name in dev are
+    refused, naming both."""
+    names: dict[str, str] = {}
+    taken: dict[str, str] = {}
+    for statement in statements:
+        table = statement.table
+        if statement.kind not in (CREATE_AS, CREATE, INSERT) or table in names:
+            continue
+        database, short = table.split(".", 1)
+        name = f"{dev}.{rename.get(table, f'{short}_{database}')}"
+        if name in taken:
+            raise ConversionRefused(
+                f"{taken[name]} and {table} are both {name} in the Dev Database: rename one "
+                f'with rename={{"{table}": "<another name>"}}')
+        taken[name] = table
+        names[table] = name
+    return names
+
+
+def in_batch_order(statements: list[BatchStatement]) -> list[BatchStatement]:
+    """The statements, each after every one that writes a table it reads, and otherwise in the
+    order given; a statement that isn't a write stays after the one before it in its script. Two
+    tables that read each other are refused, naming each."""
+    _give_each_create_its_reads(statements)
+    after = _what_each_follows(statements)
+    ordered: list[int] = []
+    while len(ordered) < len(statements):
+        ready = [number for number in range(len(statements))
+                 if number not in ordered and after[number] <= set(ordered)]
+        if not ready:
+            left = sorted({statements[number].table for number in range(len(statements))
+                           if number not in ordered and statements[number].table})
+            raise ConversionRefused(f"{' and '.join(left)} each read the other, so neither "
+                                    "can be written first")
+        ordered.append(ready[0])
+    return [statements[number] for number in ordered]
+
+
+def _give_each_create_its_reads(statements: list[BatchStatement]) -> None:
+    """Give a CREATE of a table's columns what that table's writes read, so it comes just
+    before the first of them."""
+    for statement in statements:
+        if statement.kind == CREATE:
+            statement.reads = []
+            for each in statements:
+                if each.kind in WRITES and each.table == statement.table:
+                    statement.reads += each.reads
+
+
+def _what_each_follows(statements: list[BatchStatement]) -> list[set[int]]:
+    """For each statement, by its place, the places of the statements it comes after: each
+    other one that writes a table it reads, and, for one that isn't a write, the statement
+    before it in its script."""
+    writers: dict[str, list[int]] = {}
+    for number, statement in enumerate(statements):
+        if statement.kind in WRITES:
+            writers.setdefault(statement.table, []).append(number)
+    after: list[set[int]] = []
+    for number, statement in enumerate(statements):
+        needs = set()
+        for table in statement.reads:
+            needs.update(writers.get(table, []))
+        needs.discard(number)
+        follows_its_script = (number > 0
+                              and statements[number - 1].script == statement.script)
+        if statement.kind not in WRITES and follows_its_script:
+            needs.add(number - 1)
+        after.append(needs)
+    return after
+
+
+def with_dev_names(statement: BatchStatement, names: dict[str, str], database: str) -> str:
+    """A statement's Hive with each table the batch writes named as its copy in the Dev
+    Database: through sqlglot's tree where it read the statement, else by the names as
+    written, `db.table` with or without backticks."""
+    if statement.tree is None:
+        text = statement.text
+        for table, dev in names.items():
+            database_name, short = table.split(".", 1)
+            text = re.sub(rf"(?<![\w.`])`?{re.escape(database_name)}`?\.`?{re.escape(short)}`?"
+                          r"(?![\w`])", dev, text, flags=re.IGNORECASE)
+        return text
+    tree = statement.tree.copy()
+    for table in list(tree.find_all(exp.Table)):
+        dev = names.get(_full_name(table, database))
+        if dev is not None:
+            dev_database, short = dev.split(".", 1)
+            table.set("db", exp.to_identifier(dev_database))
+            table.set("this", exp.to_identifier(short))
+    return sql_text(tree)
+
+
+def write_hive(statement: BatchStatement, names: dict[str, str], database: str,
+               overwrite: bool) -> str:
+    """The Hive of a write as its Saved table makes it: a CREATE ... AS as an INSERT OVERWRITE
+    of its query, an INSERT as written, INSERT OVERWRITE when `overwrite`, as a TRUNCATE before
+    an INSERT INTO makes it; every table the batch writes named as its copy in dev."""
+    swapped = read_hive(with_dev_names(statement, names, database))[0]
+    if statement.kind == CREATE_AS:
+        written = exp.to_table(names[statement.table])
+        return sql_text(exp.Insert(this=written, expression=swapped.expression, overwrite=True))
+    if overwrite:
+        swapped.set("overwrite", True)
+    return sql_text(swapped)
+
+
+def created_columns(statement: BatchStatement) -> tuple[dict[str, str], list[str]]:
+    """A CREATE TABLE's columns and their types, its partition columns among them, and its
+    partition columns, in order."""
+    columns = {}
+    for each in statement.tree.this.expressions:
+        if isinstance(each, exp.ColumnDef):
+            columns[each.name.lower()] = sql_text(each.args["kind"]).lower()
+    partitions = []
+    for each in statement.tree.find_all(exp.PartitionedByProperty):
+        for column in each.this.expressions:
+            if isinstance(column, exp.ColumnDef):
+                columns[column.name.lower()] = sql_text(column.args["kind"]).lower()
+                partitions.append(column.name.lower())
+    return columns, partitions
+
+
+def insert_partitions(statement: BatchStatement) -> list[str]:
+    """The columns an INSERT's PARTITION(...) names, in order: none for another statement."""
+    if statement.kind != INSERT:
+        return []
+    partition = statement.tree.this.args.get("partition")
+    if partition is None:
+        return []
+    return [(part.this if isinstance(part, exp.EQ) else part).name.lower()
+            for part in partition.expressions]

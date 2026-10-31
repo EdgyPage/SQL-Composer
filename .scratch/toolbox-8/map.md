@@ -289,13 +289,15 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   Workflow generated from its steps; agnostic notebooks in `admin/` with one `remove`;
   `databases.py`, `sent.csv` (from `run_execute`); done functions; `check()` names next steps
   and `do_next()` runs file steps. The version rose to 8.0 here, with `to_8_0`; fiddling 12.
+- [13 A Conversion reads n scripts](issues/13-n-scripts.md): `convert(name, files=[...])` splits,
+  orders and renames into `<dev>.<table>_<db>`, writes each Table folder through convert and
+  finish_conversion, and the references from CREATE, query and DESCRIBE; `batch.md` lists it all.
 - [21 warehouse.py takes a connection](issues/21-warehouse-conn.md): `conn`, set once, and
   `query`/`execute` that pass each Hive string to `conn.query` and `conn.execute`.
 
 ## Not yet specified
 
 - Which partition a compare uses when the original has none in common with the dev copy (16).
-- How an Unchecked statement's names are swapped when its Hive can't be parsed at all (13).
 
 ## Out of scope
 

@@ -107,8 +107,10 @@ Toolbox version ships the step from the one before.
 _Avoid_: migration, port, conversion, update script
 
 **Conversion**:
-A Project action that reads one query of Hive someone else wrote and writes the user's own code
-for it, in a Conversion folder: Table references for the tables it reads that have none, and a
+A Project action that reads Hive someone else wrote, one query or one or more scripts, and
+writes the user's own code for it. Each table scripts create or write becomes a Saved table in
+the user's Dev Database, named <table>_<its database>, and what reads it reads that copy. One
+query is written in a Conversion folder: Table references for the tables it reads that have none, and a
 notebook whose Statement gives the same rows. What no Toolbox function writes yet is left as
 Unchecked pieces, and each risk the original took is marked `# CONVERSION:` for the user to
 decide.
