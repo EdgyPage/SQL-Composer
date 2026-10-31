@@ -26,9 +26,9 @@ from typing import NoReturn
 from . import kinds, unchecked
 from .clauses import Statement, derived_tables
 from .conditions import Condition
-from .keys import Keys, possessive, statement_keys, unproven, wanted_key
+from .keys import Keys, statement_keys, wanted_key, why_key_unproven
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
-from .refusals import refuse
+from .refusals import possessive, refuse
 from .running import name_in, statement_tree, statements_within, to_hive
 from .shared import singular_or_plural
 from .stacking import STACK_HOW, nth
@@ -347,7 +347,7 @@ def _write_key_line(s: Statement) -> str | None:
         return None
     if not table._key:
         return f"{table._name} declares no Key, so its rows aren't checked."
-    key, why = ", ".join(table._key), unproven(s)
+    key, why = ", ".join(table._key), why_key_unproven(s)
     if why is not None:
         return (f"{possessive(table._name)} Key ({key}) isn't shown to hold, since {why}: "
                 "the write says unproven_key=True.")

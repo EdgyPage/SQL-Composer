@@ -8,7 +8,6 @@ is no `not_(...)`. Values are escaped by the Toolbox, so any string is safe to p
 from __future__ import annotations
 
 import datetime
-from collections.abc import Callable
 from typing import NoReturn
 
 from .refusals import (
@@ -66,23 +65,24 @@ class Condition:
         return {column.table for column in self._tree.find_all("Column") if column.table}
 
     def __and__(self, other: object) -> NoReturn:
-        _no_combining("&", "all_of(...), or separate conditions in WHERE(...)")
+        _refuse_combining("&", "all_of(...), or separate conditions in WHERE(...)")
 
     __rand__ = __and__
 
     def __or__(self, other: object) -> NoReturn:
-        _no_combining("|", "any_of(...)")
+        _refuse_combining("|", "any_of(...)")
 
     __ror__ = __or__
 
     def __invert__(self) -> NoReturn:
-        _no_combining("~", "the opposite condition, such as not_equals(...)")
+        _refuse_combining("~", "the opposite condition, such as not_equals(...)")
 
     def __bool__(self) -> NoReturn:
-        _no_combining("if, and, or or not", "all_of(...) or any_of(...)")
+        _refuse_combining("if, and, or or not", "all_of(...) or any_of(...)")
 
 
-def _no_combining(symbol: str, instead: str) -> NoReturn:
+def _refuse_combining(symbol: str, instead: str) -> NoReturn:
+    """Refuse a condition used with Python's `symbol`, naming the function to use `instead`."""
     refuse(
         what=f"A condition was used with Python's {symbol}.",
         why="Python would combine the Python objects, not the conditions, and the result "
@@ -91,7 +91,8 @@ def _no_combining(symbol: str, instead: str) -> NoReturn:
     )
 
 
-def _need_column(column: object, call: str) -> Column:
+def _condition_column(column: object, call: str) -> Column:
+    """The column a condition tests; it refuses anything else."""
     if isinstance(column, Column):
         return column
     fix = ("Pass the column as an attribute of its Table reference, such as "
@@ -117,7 +118,7 @@ _COMPARING = ("equals", "not_equals", "at_least", "at_most", "more_than", "less_
               "between")
 
 
-def _bound(column: Column) -> frozenset[tuple[str, str]]:
+def _bounds_of(column: Column) -> frozenset[tuple[str, str]]:
     """(table alias, column name) of a column a condition holds to values, for its _bounds;
     none for a column made by a calculation, which has no table."""
     if column._table is None or column._tree.kind != "Column":
@@ -125,12 +126,12 @@ def _bound(column: Column) -> frozenset[tuple[str, str]]:
     return frozenset([(column._table._alias, column._name)])
 
 
-def _compare(name: str, kind: str, column: object, value: object,
+def _comparison(name: str, kind: str, column: object, value: object,
              bounds: bool = True) -> Condition:
     """A comparison of a column with one value. `bounds` says whether it holds the column to
     some values, as at_least(...) does and not_equals(...) doesn't."""
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = _condition_column(column, call)
     if value is None:
         guard_none_in_condition(f"{name}({python_text(column)}, None)")
     tree = Node(kind, this=column._tree.copy(),
@@ -138,7 +139,7 @@ def _compare(name: str, kind: str, column: object, value: object,
     made_by(tree, name, column, value)
     if not bounds or isinstance(value, Column):
         return Condition(tree)
-    return Condition(tree, bounds=_bound(column))
+    return Condition(tree, bounds=_bounds_of(column))
 
 
 def equals(column: Column,
@@ -153,7 +154,7 @@ def equals(column: Column,
     To find missing values use is_null(column): equals(column, None) is refused, because in
     SQL nothing equals NULL.
     """
-    return _compare("equals", "EQ", column, value)
+    return _comparison("equals", "EQ", column, value)
 
 
 def not_equals(column: Column,
@@ -166,7 +167,7 @@ def not_equals(column: Column,
     Unlike pandas' !=, SQL's <> leaves out rows where the column is NULL. To keep them, use
     any_of(not_equals(column, value), is_null(column)).
     """
-    return _compare("not_equals", "NEQ", column, value, bounds=False)
+    return _comparison("not_equals", "NEQ", column, value, bounds=False)
 
 
 def at_least(column: Column,
@@ -176,7 +177,7 @@ def at_least(column: Column,
     >>> at_least(job_runs.duration_mins, 30)
     job_runs.duration_mins >= 30
     """
-    return _compare("at_least", "GTE", column, value)
+    return _comparison("at_least", "GTE", column, value)
 
 
 def at_most(column: Column,
@@ -186,7 +187,7 @@ def at_most(column: Column,
     >>> at_most(job_runs.duration_mins, 30)
     job_runs.duration_mins <= 30
     """
-    return _compare("at_most", "LTE", column, value)
+    return _comparison("at_most", "LTE", column, value)
 
 
 def more_than(column: Column,
@@ -196,7 +197,7 @@ def more_than(column: Column,
     >>> more_than(job_runs.duration_mins, 30)
     job_runs.duration_mins > 30
     """
-    return _compare("more_than", "GT", column, value)
+    return _comparison("more_than", "GT", column, value)
 
 
 def less_than(column: Column,
@@ -206,7 +207,7 @@ def less_than(column: Column,
     >>> less_than(job_runs.duration_mins, 30)
     job_runs.duration_mins < 30
     """
-    return _compare("less_than", "LT", column, value)
+    return _comparison("less_than", "LT", column, value)
 
 
 def between(column: Column, low: str | int | float | bool | datetime.date | Column,
@@ -220,7 +221,7 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
     Statement reads.
     """
     call = f"between({python_text(column)}, ...)"
-    column = _need_column(column, call)
+    column = _condition_column(column, call)
     if low is None or high is None:
         guard_none_in_condition(f"between({python_text(column)}, {low!r}, {high!r})")
     tree = Node(
@@ -232,7 +233,7 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
     made_by(tree, "between", column, low, high)
     if isinstance(low, Column) or isinstance(high, Column):
         return Condition(tree)
-    if _comparable(low, high) and low > high:
+    if _are_comparable(low, high) and low > high:
         refuse(
             what=f"between({python_text(column)}, {low!r}, {high!r}) starts after it ends.",
             why="No value is both at least the first and at most the second, so this would "
@@ -240,15 +241,18 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
             fix="Put the lower value first.",
             error=ValueError,
         )
-    return Condition(tree, bounds=_bound(column))
+    return Condition(tree, bounds=_bounds_of(column))
 
 
-def _comparable(low: object, high: object) -> bool:
+def _are_comparable(low: object, high: object) -> bool:
     """Whether between's two ends compare as Hive compares them: two numbers, two dates, or
     two strings, which Hive compares as text, as Python does."""
-    kinds = (int, float, datetime.date, str)
-    return any(isinstance(low, kind) and isinstance(high, kind) for kind in kinds) and not (
-        isinstance(low, bool) or isinstance(high, bool))
+    if isinstance(low, bool) or isinstance(high, bool):
+        return False
+    for kind in (int, float, datetime.date, str):
+        if isinstance(low, kind) and isinstance(high, kind):
+            return True
+    return False
 
 
 def last_n_days(column: Column, n: int) -> Condition:
@@ -262,7 +266,7 @@ def last_n_days(column: Column, n: int) -> Condition:
     is yesterday. It works on any column of dates, a partition column or not.
     """
     call = f"last_n_days({python_text(column)}, {n!r})"
-    column = _need_column(column, call)
+    column = _condition_column(column, call)
     if not is_count(n):
         refuse(
             what=f"{call}: n must be a whole number of days, 1 or more.",
@@ -288,10 +292,12 @@ def last_n_days(column: Column, n: int) -> Condition:
             high=literal(last, call=call, column=column),
         )
     made_by(tree, "last_n_days", column, n)
-    return Condition(tree, bounds=_bound(column))
+    return Condition(tree, bounds=_bounds_of(column))
 
 
-def _values(values: object, call: str) -> list[object]:
+def _value_list(values: object, call: str) -> list[object]:
+    """is_in's or is_not_in's values as a list, a set's sorted; it refuses anything that isn't
+    a list of them, and an empty one."""
     if isinstance(values, (str, bytes, dict)) or not hasattr(values, "__iter__"):
         refuse(
             what=f"{call} was given {values!r} where a list of values goes.",
@@ -311,10 +317,11 @@ def _values(values: object, call: str) -> list[object]:
     return values
 
 
-def _in(name: str, column: object, values: object, negated: bool) -> Condition:
+def _in_list(name: str, column: object, values: object, negated: bool) -> Condition:
+    """The column IN the values, or NOT IN them when `negated`, made by the function `name`."""
     call = f"{name}({python_text(column)}, ...)"
-    column = _need_column(column, call)
-    values = _values(values, call)
+    column = _condition_column(column, call)
+    values = _value_list(values, call)
     if any(value is None for value in values):
         guard_none_in_condition(f"{name}({python_text(column)}, [..., None, ...])")
     items = [
@@ -325,7 +332,7 @@ def _in(name: str, column: object, values: object, negated: bool) -> Condition:
     if negated:
         tree = Node("Not", this=tree)
     made_by(tree, name, column, values)
-    return Condition(tree, bounds=frozenset() if negated else _bound(column))
+    return Condition(tree, bounds=frozenset() if negated else _bounds_of(column))
 
 
 def is_in(column: Column, values: list[str | int | float | bool | datetime.date]) -> Condition:
@@ -334,7 +341,7 @@ def is_in(column: Column, values: list[str | int | float | bool | datetime.date]
     >>> is_in(job_runs.status, ["FAILED", "TEST"])
     job_runs.status IN ('FAILED', 'TEST')
     """
-    return _in("is_in", column, values, negated=False)
+    return _in_list("is_in", column, values, negated=False)
 
 
 def is_not_in(column: Column,
@@ -346,7 +353,7 @@ def is_not_in(column: Column,
 
     A None in the list is refused: in SQL it would make the whole test match nothing.
     """
-    return _in("is_not_in", column, values, negated=True)
+    return _in_list("is_not_in", column, values, negated=True)
 
 
 def is_null(column: Column) -> Condition:
@@ -355,7 +362,7 @@ def is_null(column: Column) -> Condition:
     >>> is_null(job_runs.status)
     job_runs.status IS NULL
     """
-    column = _need_column(column, "is_null(...)")
+    column = _condition_column(column, "is_null(...)")
     tree = Node("Is", this=column._tree.copy(), expression=Node("Null"))
     # A table's row with no match has NULL in every column, so is_null of one keeps it.
     keeps = frozenset([column._tree.table]) if column._tree.kind == "Column" else frozenset()
@@ -368,15 +375,17 @@ def is_not_null(column: Column) -> Condition:
     >>> is_not_null(job_runs.status)
     NOT job_runs.status IS NULL
     """
-    column = _need_column(column, "is_not_null(...)")
+    column = _condition_column(column, "is_not_null(...)")
     tree = Node("Not", this=Node("Is", this=column._tree.copy(), expression=Node("Null")))
     return Condition(made_by(tree, "is_not_null", column))
 
 
-def _like(name: str, column: object, text: object,
-          pattern: Callable[[str], str]) -> Condition:
+def _like_condition(name: str, column: object, text: object, before: str,
+                    after: str) -> Condition:
+    """A LIKE of the column with `text`, its % and _ escaped, between `before` and `after`:
+    the % that matches any run of characters on that side."""
     call = f"{name}({python_text(column)}, {text!r})"
-    column = _need_column(column, call)
+    column = _condition_column(column, call)
     if not isinstance(text, str):
         refuse(
             what=f"{call} needs a string to look for.",
@@ -385,7 +394,7 @@ def _like(name: str, column: object, text: object,
         )
     escaped = text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     tree = Node("Like", this=column._tree.copy(),
-                expression=literal(pattern(escaped), call=call))
+                expression=literal(f"{before}{escaped}{after}", call=call))
     return Condition(made_by(tree, name, column, text))
 
 
@@ -401,7 +410,7 @@ def contains(column: Column, text: str) -> Condition:
     So the Hive puts a backslash before each % or _ of your own text, for it to match just
     itself, and writes that backslash as \\\\ inside the quotes.
     """
-    return _like("contains", column, text, lambda escaped: f"%{escaped}%")
+    return _like_condition("contains", column, text, before="%", after="%")
 
 
 def starts_with(column: Column, text: str) -> Condition:
@@ -412,7 +421,7 @@ def starts_with(column: Column, text: str) -> Condition:
 
     As in contains(...), a backslash before your own % or _ makes LIKE match it as itself.
     """
-    return _like("starts_with", column, text, lambda escaped: f"{escaped}%")
+    return _like_condition("starts_with", column, text, before="", after="%")
 
 
 def conditions_in(items: list[object] | tuple[object, ...], call: str,
@@ -460,10 +469,10 @@ def any_of(*conditions: Condition | list[Condition]) -> Condition:
     """
     found = conditions_in(conditions, "any_of(...)")
     # A column is held to values by OR only when every part holds it.
-    bounds = frozenset.intersection(*(c._bounds for c in found))
-    tree = combined("Or", [c._tree.copy() for c in found])
+    bounds = frozenset.intersection(*(condition._bounds for condition in found))
+    tree = combined("Or", [condition._tree.copy() for condition in found])
     # Any one part that keeps a table's rows with no match keeps them for the whole.
-    keeps = frozenset().union(*(c._keeps_unmatched for c in found))
+    keeps = frozenset().union(*(condition._keeps_unmatched for condition in found))
     return Condition(made_by(tree, "any_of", *found), bounds=bounds, keeps_unmatched=keeps)
 
 
@@ -478,7 +487,8 @@ def all_of(*conditions: Condition | list[Condition]) -> Condition:
     any_of(...) or in JOIN's ON=.
     """
     found = conditions_in(conditions, "all_of(...)")
-    tree = made_by(combined("And", [c._tree.copy() for c in found]), "all_of", *found)
+    tree = combined("And", [condition._tree.copy() for condition in found])
+    made_by(tree, "all_of", *found)
     return Condition(tree, bounds=bounded_columns(found), keeps_unmatched=_kept_by_all(found))
 
 
@@ -488,8 +498,8 @@ def _kept_by_all(found: list[Condition]) -> frozenset[str]:
     kept = set()
     for condition in found:
         for table in condition._keeps_unmatched:
-            mentioning = [c for c in found if table in c._tables()]
-            if all(table in c._keeps_unmatched for c in mentioning):
+            mentioning = [other for other in found if table in other._tables()]
+            if all(table in other._keeps_unmatched for other in mentioning):
                 kept.add(table)
     return frozenset(kept)
 

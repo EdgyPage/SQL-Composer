@@ -1,10 +1,11 @@
 """What DESCRIBE and DESCRIBE FORMATTED say of a table: read once, and printed for stand-ins.
 
-ask(...) sends DESCRIBE, or DESCRIBE FORMATTED, through your query and reads what comes back
-into a Description, which answers in the Toolbox's words: the table's columns and their types,
-its partition columns, its folder, whether it is managed, its file format, its Buckets and its
-table properties. Warehouses print DESCRIBE in a few ways, and read(...) reads each of them, so
-no other part of the Toolbox reads a label the warehouse prints.
+describe_table(...) sends DESCRIBE, or DESCRIBE FORMATTED, through your query and reads what
+comes back into a Description, which answers in the Toolbox's words: the table's columns and
+their types, its partition columns, its folder, whether it is managed, its file format, its
+Buckets and its table properties. Warehouses print DESCRIBE in a few ways, and
+description_from_printed(...) reads each of them, so no other part of the Toolbox reads a label
+the warehouse prints.
 
 The other way round, printed(...) gives what a warehouse prints for a Description, in each of
 those ways, and of_table(...) the Description of the table a Table reference describes. A
@@ -31,15 +32,15 @@ if TYPE_CHECKING:  # tables.py imports this file
 # The three columns a warehouse prints DESCRIBE in, and the header Hive repeats them in.
 DESCRIBE_COLUMNS = ["col_name", "data_type", "comment"]
 COLUMNS_HEADER = ("# col_name", "data_type", "comment")
-# The ways a warehouse prints DESCRIBE: Hive 3's own, with its details labelled with a colon and
-# a table property on each line; a compact way, with no comment where there is none and the table
-# properties on one line; and the compact way for a newer kind of table, which lists its
+# The ways a warehouse prints DESCRIBE: Hive 3's own, with its details labelled with a colon
+# and a table property on each line; a compact way, with no comment where there is none and the
+# table properties on one line; and the compact way for a newer kind of table, which lists its
 # partitioning as one row per column.
 WAYS = ("hive3", "compact", "partitioning")
 
 # DESCRIBE's headers, as Hive prints them: the partition list and its own column header, the
 # partitioning a newer kind of table lists, and DESCRIBE FORMATTED's sections about the table
-# itself. read knows each whatever its case.
+# itself. description_from_printed knows each whatever its case.
 PARTITION_INFORMATION = "# Partition Information"
 COLUMN_HEADER = "# col_name"
 PARTITIONING = "# Partitioning"
@@ -96,19 +97,20 @@ class Description:
         return f"Description({', '.join(f'{k}={v!r}' for k, v in vars(self).items())})"
 
 
-# --- Reading what the warehouse prints ----------------------------------------------------------
+# --- Reading what the warehouse prints -------------------------------------------------------
 
 
-def ask(name: str, query: object, call: str, formatted: bool = False) -> Description:
+def describe_table(name: str, query: object, call: str, formatted: bool = False) -> Description:
     """Send DESCRIBE, or DESCRIBE FORMATTED, of the table `name` through `query`, for `call`,
     and read what comes back."""
     from .tables import table_node  # here, not at the top: tables.py imports this file
 
     command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
-    return read(name, _answer(query, f"{command} {hive_text(table_node(name))}", call))
+    hive = f"{command} {hive_text(table_node(name))}"
+    return description_from_printed(name, _send_describe(query, hive, call))
 
 
-def _answer(query: object, hive: str, call: str) -> pd.DataFrame:
+def _send_describe(query: object, hive: str, call: str) -> pd.DataFrame:
     """Send `hive` through `query`, and refuse an answer that can't be read."""
     need_warehouse_call(call, "query", query, "It sends DESCRIBE to the warehouse, and reads "
                         "what the warehouse prints back.")
@@ -138,7 +140,7 @@ def _cell(row: tuple[object, ...], at: int) -> str:
     return "" if text in ("None", "nan") else text
 
 
-def read(name: str, frame: pd.DataFrame) -> Description:
+def description_from_printed(name: str, frame: pd.DataFrame) -> Description:
     """What DESCRIBE, or DESCRIBE FORMATTED, of the table `name` printed, as a Description,
     whichever way the warehouse prints it."""
     columns, descriptions, partitioned_by = {}, {}, []
@@ -158,24 +160,27 @@ def read(name: str, frame: pd.DataFrame) -> Description:
         if section in DETAILS:
             if column:
                 label = column.rstrip(":").strip().lower()
-            _read_detail(details, properties, label, column, kind, comment)
+            _keep_detail_line(details, properties, label, column, kind, comment)
             continue
         if column:
-            _read_column(columns, descriptions, partitioned_by, section, column, kind, comment)
+            _keep_column_line(columns, descriptions, partitioned_by, section, column, kind,
+                              comment)
     buckets = _bucket_count(details.get("num buckets", ""))
+    bucketed_by, sorted_by = [], []
+    if buckets:
+        bucketed_by = _bucket_or_sort_columns(details.get("bucket columns", ""))
+        sorted_by = _bucket_or_sort_columns(details.get("sort columns", ""))
     table_type = details.get("table type") or details.get("type") or ""
     return Description(
         name, columns, descriptions=descriptions, partitioned_by=partitioned_by,
         location=details.get("location"), managed="MANAGED" in table_type.upper(),
         stored_as=_stored_as(details.get("inputformat", "")), buckets=buckets,
-        bucketed_by=_listed_names(details.get("bucket columns", "")) if buckets else [],
-        sorted_by=_listed_names(details.get("sort columns", "")) if buckets else [],
-        properties=properties)
+        bucketed_by=bucketed_by, sorted_by=sorted_by, properties=properties)
 
 
-def _read_column(columns: dict[str, str], descriptions: dict[str, str],
-                 partitioned_by: list[str], section: str, column: str, kind: str,
-                 comment: str) -> None:
+def _keep_column_line(columns: dict[str, str], descriptions: dict[str, str],
+                      partitioned_by: list[str], section: str, column: str, kind: str,
+                      comment: str) -> None:
     """Keep one line of DESCRIBE's columns, or of its partitions: a column, its type and its
     comment, or a newer kind of table's partitioning, such as Part 0 with dt."""
     # DESCRIBE FORMATTED in Hive lists a partition column only under its partitions.
@@ -189,8 +194,8 @@ def _read_column(columns: dict[str, str], descriptions: dict[str, str],
         partitioned_by.append(kind)
 
 
-def _read_detail(details: dict[str, str], properties: dict[str, str], label: str, column: str,
-                 kind: str, comment: str) -> None:
+def _keep_detail_line(details: dict[str, str], properties: dict[str, str], label: str,
+                      column: str, kind: str, comment: str) -> None:
     """Keep one line of DESCRIBE FORMATTED's details: a labelled value, or, under Hive's
     "Table Parameters:", a table property on a line of its own."""
     if column:
@@ -227,7 +232,7 @@ def _stored_as(input_format: str) -> str | None:
     return input_format
 
 
-def _listed_names(text: str) -> list[str]:
+def _bucket_or_sort_columns(text: str) -> list[str]:
     """The columns of DESCRIBE FORMATTED's Bucket Columns or Sort Columns: Hive's [a, b] or
     [Order(col:a, order:1)], or [`a`, `b`], in lower case, as the warehouse keeps them."""
     if "col:" in text:
@@ -236,7 +241,7 @@ def _listed_names(text: str) -> list[str]:
     return [name.strip().strip("`").lower() for name in inner.split(",") if name.strip()]
 
 
-# --- Printing a table as the warehouse would --------------------------------------------------
+# --- Printing a table as the warehouse would -------------------------------------------------
 
 
 def of_table(t: Table, *, location: str | None = None, managed: bool = False,
@@ -258,7 +263,8 @@ def of_table(t: Table, *, location: str | None = None, managed: bool = False,
         partitioned_by=partitions, location=location or t._location, managed=managed,
         stored_as=stored_as or t._stored_as, buckets=t._buckets,
         bucketed_by=[column.lower() for column in t._bucketed_by],
-        sorted_by=[column.lower() for column in t._sorted_by], properties=dict(property_pairs(t)))
+        sorted_by=[column.lower() for column in t._sorted_by],
+        properties=dict(property_pairs(t)))
 
 
 def printed(described: Description, formatted: bool = False,
@@ -284,17 +290,21 @@ def _hive_columns(described: Description,
     formatted, the table's own columns under a header, then the partition columns only under
     theirs, each part followed by a blank row."""
     partitions = described.partitioned_by
-    listed = [("", None, None), (PARTITION_INFORMATION, None, None), COLUMNS_HEADER,
-              *[_hive_column(described, column) for column in partitions]]
-    if not formatted:
-        return ([_hive_column(described, column) for column in described.columns]
-                + (listed if partitions else []))
-    own = [column for column in described.columns if column not in partitions]
-    return ([COLUMNS_HEADER, *[_hive_column(described, column) for column in own]]
-            + (listed if partitions else []) + [("", None, None)])
+    if formatted:
+        own = [column for column in described.columns if column not in partitions]
+        rows = [COLUMNS_HEADER] + [_hive_column_row(described, column) for column in own]
+    else:
+        rows = [_hive_column_row(described, column) for column in described.columns]
+    if partitions:
+        rows += [("", None, None), (PARTITION_INFORMATION, None, None), COLUMNS_HEADER]
+        rows += [_hive_column_row(described, column) for column in partitions]
+    if formatted:
+        rows.append(("", None, None))
+    return rows
 
 
-def _hive_column(described: Description, column: str) -> tuple[str, str | None, str | None]:
+def _hive_column_row(described: Description, column: str) -> tuple[str, str | None, str | None]:
+    """One column's row as Hive prints it: its name, its type and its comment, "" for none."""
     return (column, described.columns[column], described.descriptions.get(column, ""))
 
 
@@ -348,15 +358,15 @@ def _compact_details(described: Description) -> list[tuple[str, str | None, str 
         rows.append(("InputFormat", _input_format(described.stored_as), ""))
     if described.buckets:
         rows += [("Num Buckets", str(described.buckets), ""),
-                 ("Bucket Columns", _quoted_names(described.bucketed_by), ""),
-                 ("Sort Columns", _quoted_names(described.sorted_by), "")]
+                 ("Bucket Columns", _backticked_names(described.bucketed_by), ""),
+                 ("Sort Columns", _backticked_names(described.sorted_by), "")]
     if described.properties:
         listed = ", ".join(f"{name}={value}" for name, value in described.properties.items())
         rows.append(("Table Properties", f"[{listed}]", ""))
     return rows
 
 
-def _quoted_names(names: list[str]) -> str:
+def _backticked_names(names: list[str]) -> str:
     return "[" + ", ".join(f"`{name}`" for name in names) + "]"
 
 
@@ -366,7 +376,7 @@ def _input_format(stored_as: str) -> str:
     return INPUT_FORMATS.get(stored_as, stored_as)
 
 
-# --- A stand-in warehouse ---------------------------------------------------------------------
+# --- A stand-in warehouse --------------------------------------------------------------------
 
 
 class StandIn:
@@ -383,10 +393,13 @@ class StandIn:
     def __init__(self, *tables: Table | Description, way: str = "hive3",
                  partitions: dict[str, list[str]] | None = None,
                  rows: pd.DataFrame | None = None) -> None:
-        self.tables = {_key(t.name if isinstance(t, Description) else t._name):
-                       t if isinstance(t, Description) else of_table(t) for t in tables}
+        self.tables: dict[str, Description] = {}
+        for table in tables:
+            if not isinstance(table, Description):
+                table = of_table(table)
+            self.tables[_lookup_name(table.name)] = table
         self.way = way
-        self.partitions = {_key(name): list(listed) for name, listed in
+        self.partitions = {_lookup_name(name): list(listed) for name, listed in
                            (partitions or {}).items()}
         self.rows = pd.DataFrame() if rows is None else rows
         self.sent: list[str] = []
@@ -405,22 +418,23 @@ class StandIn:
         words = hive.split()
         command = [word.upper() for word in words[:2]]
         if command[:1] == ["DESCRIBE"]:
-            described = self._held(words[-1])
+            described = self._description_of(words[-1])
             return printed(described, command == ["DESCRIBE", "FORMATTED"], self.way)
         if command == ["SHOW", "PARTITIONS"]:
-            described = self._held(words[-1])
+            described = self._description_of(words[-1])
             if not described.partitioned_by:
                 raise ValueError(f"Table {described.name} is not a partitioned table.")
-            return pd.DataFrame({"partition": self.partitions.get(_key(described.name), [])})
+            listed = self.partitions.get(_lookup_name(described.name), [])
+            return pd.DataFrame({"partition": listed})
         return self.rows.copy()
 
-    def _held(self, name: str) -> Description:
+    def _description_of(self, name: str) -> Description:
         """The table it holds by this name, whatever its case or backticks."""
-        if _key(name) not in self.tables:
+        if _lookup_name(name) not in self.tables:
             raise RuntimeError(f"Table not found: {name}")
-        return self.tables[_key(name)]
+        return self.tables[_lookup_name(name)]
 
 
-def _key(name: str) -> str:
+def _lookup_name(name: str) -> str:
     """A table's name as a warehouse reads it: in any case, a name in backticks or not."""
     return ".".join(part.strip("`") for part in name.strip().split(".")).lower()

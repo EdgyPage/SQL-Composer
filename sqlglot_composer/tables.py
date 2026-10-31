@@ -1154,7 +1154,7 @@ def write_table_reference(name: str, *, query: Callable[[str], pd.DataFrame] | N
             error=FileExistsError,
         )
     call = f"write_table_reference({name!r}, ...)"
-    described = describe.ask(name, query, call)
+    described = describe.describe_table(name, query, call)
     columns, comments = described.columns, described.descriptions
     partitions = described.partitioned_by
     if not columns:
@@ -1406,7 +1406,8 @@ def check_table_reference(t: Table, *, query: Callable[[str], pd.DataFrame] | No
     saved = t._location is not None
     command = "DESCRIBE FORMATTED" if saved else "DESCRIBE"
     try:
-        described = describe.ask(t._name, query, "check_table_reference(...)", formatted=saved)
+        described = describe.describe_table(t._name, query, "check_table_reference(...)",
+                                            formatted=saved)
     except Exception as error:  # it reports, and never raises: see the docstring
         return Verdict(False, [f"{t._name}: {command} failed, so nothing was compared. Check "
                                "the table's name, and that your query works. It said:",
