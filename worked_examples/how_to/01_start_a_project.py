@@ -71,10 +71,18 @@ file, the call that makes it, and what you fill in:
   you, in Jupyter. Keep it for trying things out, or delete it.
 - `warehouse.py`: `project.start()`. You set `conn`, your connection, in it,
   below.
-- `admin/`, a notebook per Project action, such as new_table.ipynb, add_references.ipynb
-  and run_tables.ipynb: `project.start()`. You fill in the call each holds, such as the
-  table's name, and run it. Calling the same Project action from any notebook of the Project
-  does just the same.
+- `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
+  run_tables.ipynb and remove.ipynb: `project.start()`. You fill in the names some ask for in
+  their first cell, such as the tables to remove, and run them. Calling the same Project
+  action from any notebook of the Project does just the same.
+- `admin/workflows/`, a folder per Workflow, such as new_table/, references/ and convert/,
+  each holding its notebook: `project.start()`. You name what the Workflow works on in its
+  notebook's first cell, such as the tables; `project.check()` then names its next step, and
+  `project.do_next()` runs each step that changes only files.
+- admin/databases.py, the names of your Dev database and Prod database: `project.start()`.
+  You fill in the two names, DEV and PROD.
+- admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse:
+  `project.start()`, then each send of a change. You fill in nothing.
 - admin/admin_log.md, the Admin log: `project.start()`, then each Project action adds an
   entry. You fill in nothing.
 - admin/registry.csv, the registry: `project.start()`, then each Project action that makes or
@@ -83,7 +91,7 @@ file, the call that makes it, and what you fill in:
 - admin/project_version.txt, the Toolbox version that last wrote the Project:
   `project.start()`, then `project.upgrade()`. You fill in nothing.
 - admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until
-  you finish it: `project.convert(...)`, from admin/convert.ipynb. You make the checks its
+  you finish it: `project.convert(...)`, from admin/workflows/convert/convert.ipynb. You make the checks its
   notebook asks for, then finish it, as
   [Convert someone else's Hive](#convert_someone_elses_hive) shows.
 - an Upgrade's checklist in admin/, named for the version it upgraded to, such as
@@ -264,7 +272,8 @@ Template writes it:
     from warehouse import query
 
 `pathlib.Path.cwd()` is the folder the notebook runs in, and `.parents[1]` the folder two above
-it: the Project's. An admin notebook, one folder down, starts with `.parent` in its place.
+it: the Project's. An admin notebook, one folder down, starts with `.parent` in its place,
+and a Workflow's, three down, with `.parents[2]`.
 `project.new_table` and `project.start` write these lines into each notebook they make.
 
 ## Check it worked

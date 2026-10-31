@@ -10,7 +10,11 @@ A Project is the folder you work in, laid out the same way every time:
     ├── sqlglot_composer/    the Toolbox, copied in
     ├── warehouse.py         your connection, conn, and its query and execute: each notebook
     │                        imports them
-    ├── admin/               the Project actions' notebooks, run once each time you need one
+    ├── admin/               the notebooks you run each time you need one
+    │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
+    │   │                    name what it works on in its first cell, and run each step
+    │   ├── databases.py     DEV and PROD, the two Databases you own, set once
+    │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
     │   ├── registry.csv     every Table folder, Table reference, Building block and Conversion
     │   │                    folder a Project action made
@@ -86,7 +90,7 @@ from typing import NoReturn
 import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
-from . import converting, kinds, unchecked, upgrades
+from . import converting, kinds, unchecked, upgrades, workflows
 from .clauses import Statement
 from .comparisons import compare_hive
 from .notebooks import LOGIC, logic_cell, read_cells, template_cells, write_notebook
@@ -121,7 +125,7 @@ from .unchecked import UncheckedStatement, inline_code, script_line, write_entry
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
            "remove_reference", "register", "check", "refresh_reference_sheet", "load",
            "run_tables", "upgrade", "scan_hive", "convert", "finish_conversion",
-           "remove_conversion"]
+           "remove_conversion", "do_next"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -146,8 +150,9 @@ Why: every notebook in the Project reaches the warehouse through query and execu
 to how you reach it is made here, once.
 
 Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
-them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something and
-gives back nothing. Until you do, conn is the Example database, which the how-tos run on. You
+them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something:
+whatever it gives back, execute drops. Until you do, conn is the Example database, which the
+how-tos run on. You
 pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
 a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
 two share one session, so a Session setting sent through execute holds for what is sent after
@@ -162,7 +167,7 @@ from sqlglot_composer import example_database
 
 # Your connection to the warehouse. At work, replace example_database with your own, such as
 # conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
-# execute(sql) gives back nothing.
+# execute(sql) runs Hive that changes something.
 conn = example_database
 
 
@@ -184,6 +189,28 @@ ADMIN_PATH_LINES = [
     "",
     "from sqlglot_composer import project",
 ]
+# The first code cell of every Workflow's notebook: the Project folder, three up from
+# admin/workflows/<name>/, on Python's path, and the warehouse's two calls.
+WORKFLOW_PATH_LINES = [
+    "import pathlib",
+    "import sys",
+    "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))  # the Project: three up",
+    "",
+    "from sqlglot_composer import project",
+    "from warehouse import query, execute",
+]
+# admin/databases.py: the two Databases the user owns, set once (help(project)).
+DATABASES = Path("admin") / "databases.py"
+DATABASES_TEXT = '''"""databases - the two Databases you own: DEV, where you build and check
+tables, and PROD, where tables other people rely on are written. Set each once; the Workflows
+read them.
+"""
+
+DEV = "<DEV_DATABASE>"  # such as "mart_dev"
+PROD = "<PROD_DATABASE>"  # such as "mart"
+'''
+# admin/sent.csv: one row for each send to the Warehouse of a Project's notebook or script.
+SENT_HEADER = "time,kind,tables,script\n"
 # The code cells of admin/check_references.ipynb, after the path: the Reference sheet read,
 # each table it lists checked, and a last cell for a check on a table's own Table reference.
 CHECK_REFERENCES_CELLS = [
@@ -234,44 +261,32 @@ for name in sorted({row["table"] for row in rows}):
 ]
 # The admin notebooks start() writes: each one's text cell, then its code cells after the path.
 ADMIN_NOTEBOOKS = {
-    "new_table": (
-        "# New table\n\nMakes a Table folder for one Saved table you build: "
-        "`tables/<db>__<table>/` with its notebook and an empty `lineage/`, and the table's "
-        "Table reference in `references/` to fill in. Refuses a table that already has a Table "
-        "folder or is in the registry. Never touches the warehouse: the new notebook's "
-        "`create()` does that. Change the name, and `template=` to make it from another "
-        "Template in `templates/`.",
-        ['project.new_table("mart.your_table", template="saved_table")'],
-    ),
-    "remove_table": (
-        "# Remove a table\n\nMoves a Table folder into `admin/removed/`, named by the time, "
-        "and logs it. Nothing is deleted, and the table stays in the warehouse: drop it with "
-        "`admin.drop_table` in `change_a_saved_table.ipynb`. Its Table reference stays in "
-        "`references/` until you archive it too, with the last cell.",
-        ['project.remove_table("mart.your_table")',
-         '# project.remove_reference("mart.your_table")'],
-    ),
     "new_block": (
         "# New Building block\n\nWrites a Building block, a piece several Table notebooks "
         "share, into `building_blocks/<name>.py`, from `templates/building_block.py`, and "
         "registers it. Its name is a Python name, such as `runs_per_job`, and a notebook's "
         "logic cell imports it by that name: `from building_blocks.runs_per_job import "
-        "runs_per_job`. Refuses a name already taken. Never touches the warehouse. Change the "
-        "name, uncomment the line and run it, then fill in the new file's `<...>` and TODO "
-        "lines. The last cell archives a Building block into `admin/removed/`, once no "
-        "notebook imports it.",
-        ['# project.new_block("your_block")',
-         '# project.remove_block("your_block")'],
+        "runs_per_job`. Refuses a name already taken. Never touches the warehouse. Name each "
+        "in `BLOCKS`, run the cells, then fill in each new file's `<...>` and TODO lines. "
+        "`remove.ipynb` archives one once no notebook imports it.",
+        ['BLOCKS = []  # each Building block to make, by its Python name, such as '
+         '["runs_per_job"]',
+         "if BLOCKS:\n    print(project.new_block(BLOCKS))"],
     ),
-    "add_references": (
-        "# Add references\n\nWrites one Table reference per table into `references/`, "
-        "named `<db>__<table>.py`, from the table's DESCRIBE, sent through your query. A table "
-        "already there, or one DESCRIBE can't read, is skipped; the rest are still written, "
-        "and one error at the end names every table skipped, and why. Then fill in each file's "
-        "TODO lines and add your Aliases.",
-        ["from warehouse import query",
-         'project.add_references([\n    "ops.your_table",\n    "ops.another_table",\n], '
-         "query=query)"],
+    "remove": (
+        "# Remove\n\nMoves Table folders, Table references, Building blocks and Conversion "
+        "folders into `admin/removed/`, each named by the time, and logs it. Nothing is "
+        "deleted, and a table stays in the warehouse: drop it with `admin.drop_table` in "
+        "`workflows/change_a_saved_table/`. Name what to archive in the first cell, then run "
+        "the rest: each list left empty is passed over.",
+        ['TABLES = []  # Table folders to archive, such as ["mart.daily_job_runs"]\n'
+         "REFERENCES = []  # Table references to archive, by their tables' names\n"
+         'BLOCKS = []  # Building blocks to archive, such as ["runs_per_job"]\n'
+         'CONVERSIONS = []  # Conversion folders to archive, such as ["weekly"]',
+         "if TABLES:\n    print(project.remove_table(TABLES))",
+         "if REFERENCES:\n    print(project.remove_reference(REFERENCES))",
+         "if BLOCKS:\n    print(project.remove_block(BLOCKS))",
+         "if CONVERSIONS:\n    print(project.remove_conversion(CONVERSIONS))"],
     ),
     "refresh_reference_sheet": (
         "# Refresh the Reference sheet\n\nRebuilds `references/reference_sheet.csv` from "
@@ -295,9 +310,12 @@ ADMIN_NOTEBOOKS = {
     "check_project": (
         "# Check the Project\n\nReports, and changes nothing: a Table folder, Table "
         "reference or Building block no Project action made (one made by hand), and one the "
-        "registry lists that isn't there. Adopt one made by hand with `project.register(...)`, "
-        "given its table's name, or the Building block's.",
+        "registry lists that isn't there, and the next step of each Workflow you have started, "
+        "in `workflows/`. `project.do_next()` runs those steps that change only files. Adopt "
+        "one made by hand with `project.register(...)`, given its table's name, or the "
+        "Building block's.",
         ["project.check()",
+         "project.do_next()  # runs each started Workflow's next steps that change only files",
          '# project.register("mart.your_table")\n# project.register("your_block")'],
     ),
     "check_references": (
@@ -314,54 +332,6 @@ ADMIN_NOTEBOOKS = {
         "its folder and file format, isn't in the sheet: the last cell checks each on the "
         "table's own Table reference, and the check prints the lines to write there.",
         CHECK_REFERENCES_CELLS,
-    ),
-    "change_a_saved_table": (
-        "# Change a Saved table in the warehouse\n\nThe admin module's Admin statements, run "
-        "from here so each lands in `admin/admin_log.md`. `show_hive` prints what each changes "
-        "and what can't be undone, before its Hive. Uncomment one, check its `show_hive`, then "
-        "send it with `run_execute`.",
-        ["from sqlglot_composer import admin, run_execute, show_hive\n"
-         "from warehouse import query, execute",
-         "# your table's file and its name, as in references/:\n"
-         "# from references.mart__your_table import your_table\n"
-         "# drop = admin.drop_table(your_table)\n# show_hive(drop)\n"
-         "# run_execute(drop, execute)",
-         "# from sqlglot_composer import less_than\n"
-         "# your table's partitions before a day, by its partition column, such as dt:\n"
-         "# old = admin.drop_partitions(your_table, where=less_than(your_table.dt, "
-         '"2025-10-01"))\n'
-         "# show_hive(old)\n# run_execute(old, execute)",
-         "# new_columns = admin.add_columns(your_table, query=query)  # once its Table "
-         "reference lists them\n# show_hive(new_columns)\n# run_execute(new_columns, execute)"],
-    ),
-    "convert": (
-        "# Convert Hive someone else wrote\n\nTurns one query of Hive into your own code: a "
-        "Conversion, in `conversions/<name>/`. Paste the Hive into the `HIVE` cell below, or "
-        "name its file, and set `DATABASE` to the database of a table it names without "
-        "one. The scan says what a Conversion would make, and changes nothing; "
-        "`convert` makes it, adding a Table reference for each table it reads that has "
-        "none, through your query; then open its notebook, check it, and `finish_conversion` "
-        "makes it a Saved table of yours, under the name you choose. "
-        "`remove_conversion` archives one you no longer want into `removed/`.",
-        ['HIVE = """\n-- Paste the Hive here, between the triple quotes.\n"""\n'
-         '# or, for Hive kept in a file, from this folder: FILE = "report.hql"\n'
-         'DATABASE = "default"  # the database of a table named without one, such as job_runs',
-         "print(project.scan_hive(HIVE, database=DATABASE))  # or file=FILE in place of HIVE",
-         "from warehouse import query\n"
-         '# project.convert("your_name", HIVE, query=query, database=DATABASE)',
-         '# project.finish_conversion("your_name", table="mart.your_table")',
-         '# project.remove_conversion("your_name")'],
-    ),
-    "upgrade": (
-        "# Upgrade the Project\n\nRun it once you have copied in a newer `sqlglot_composer` "
-        "and restarted the kernel. It carries the Project's files from the Toolbox version "
-        "that last wrote them, in `admin/project_version.txt`, to the one copied in: it makes "
-        "the changes that need no judgement, keeping each file it changes as it was in "
-        "`admin/removed/`, and marks each change left for you with an `# UPGRADE <version>:` "
-        "comment at its line. `admin/upgrade_<version>.md` lists what it did and a box for "
-        "each mark. It never touches the warehouse. Run again before you copy in a newer "
-        "Toolbox, it does nothing.",
-        ["project.upgrade()"],
     ),
 }
 
@@ -396,7 +366,8 @@ def start() -> ProjectReport:
     whose first entry is this one, and project_version.txt, the Toolbox version that made the
     Project, which project.upgrade() reads. It refuses a folder that isn't a Project but has
     any of them already, and a folder inside a Project. Then set conn, your connection, in
-    warehouse.py, and make your first Table folder from admin/new_table.ipynb.
+    warehouse.py, and make your first Table folder from
+    admin/workflows/new_table/new_table.ipynb.
 
     Run again in a Project's own folder, from a notebook there, it completes the Project: it
     adds only what start() makes and the Project is missing, and writes over nothing. That is
@@ -501,6 +472,16 @@ def _add_admin_files(root: Path) -> list[str]:
             write_notebook(path, [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
                                   *[("code", cell) for cell in cells]])
             added.append(f"admin/{name}.ipynb")
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(root, workflow)
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            write_notebook(path, workflows.notebook_cells(workflow, WORKFLOW_PATH_LINES))
+            added.append(path.relative_to(root).as_posix())
+    for path, text in ((DATABASES, DATABASES_TEXT), (unchecked.SENT, SENT_HEADER)):
+        if not (root / path).exists():
+            (root / path).write_text(text, encoding="utf-8")
+            added.append(path.as_posix())
     return added
 
 
@@ -1217,8 +1198,97 @@ def check() -> ProjectReport:
         lines.append("Marked by project.upgrade() for you to change: make each change, then "
                      "delete its mark.")
         lines += [f"  {mark}" for mark in marks]
+    lines += _workflow_lines(root)
     return ProjectReport(lines or ["Every Table folder, Table reference and Building block is "
                                    "registered, and each one registered is there."])
+
+
+def _workflow_lines(root: Path) -> list[str]:
+    """What check() says of the Workflows: each started one's next step, and its call."""
+    lines = []
+    for workflow in workflows.WORKFLOWS:
+        inputs = workflows.given_inputs(root, workflow)
+        if not workflow.inputs or not workflows.is_started(workflow, inputs):
+            continue
+        step = workflows.next_step(root, workflow, inputs)
+        if step is not None:
+            lines.append(_next_step_line(root, workflow, step))
+    if lines:
+        lines.insert(0, "The next step of each Workflow you have started; project.do_next() "
+                        "runs those that change only files:")
+    return lines
+
+
+def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step) -> str:
+    """One Workflow's next step as check() and do_next() say it: its notebook, its number and
+    name, its kind, and its call when it has one."""
+    number = workflow.steps.index(step) + 1
+    where = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
+    said = f"  {where}: {number}. {step.name}, a {step.kind}"
+    if step.call:
+        said += f": {step.call}"
+    return said
+
+
+def do_next(workflow: str | None = None) -> ProjectReport:
+    """Run each started Workflow's next steps that change only files.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> # Only to stand in for typing the name in the notebook's first cell, and saving it:
+    >>> notebook = Path("admin/workflows/new_table/new_table.ipynb")
+    >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
+    ...     "TABLES = []", "TABLES = ['mart.daily_job_runs']"), encoding="utf-8")
+    >>> project.do_next()
+      new_table: ran project.new_table(TABLES)
+        Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
+        admin/templates/saved_table.py.
+        Wrote references/mart__daily_job_runs.py: fill in its <...> and TODO lines.
+      admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, a decision
+
+    It runs them in order, up to the first step that is yours: a decision, or a call to the
+    warehouse. A Workflow is started once its notebook's first cell, in
+    admin/workflows/<name>/, names what it works on, such as TABLES = ["mart.daily_job_runs"]:
+    save the notebook, then run this. Each step says whether it is done from the Project's
+    files, so a step done already is passed over, and running it again does nothing more. It
+    reports each step it ran, and the next step left for you, with its call; it never sends
+    anything to the warehouse. `workflow` names one Workflow, such as "new_table", to run only
+    its steps.
+    """
+    root = _project_root("project.do_next()")
+    lines = []
+    for each in workflows.WORKFLOWS:
+        if workflow is not None and each.name != workflow:
+            continue
+        inputs = workflows.given_inputs(root, each)
+        if not each.inputs or not workflows.is_started(each, inputs):
+            continue
+        lines += _run_file_steps(root, each, inputs)
+    return ProjectReport(lines or ["No Workflow is started: name what one works on in the "
+                                   "first cell of its notebook, in admin/workflows/, and save "
+                                   "it."])
+
+
+def _run_file_steps(root: Path, workflow: workflows.Workflow,
+                    inputs: workflows.Inputs) -> list[str]:
+    """Run a Workflow's next steps while each is a file step that can run itself, and say
+    what ran and what is next."""
+    lines = []
+    while True:
+        step = workflows.next_step(root, workflow, inputs)
+        if step is None:
+            return [*lines, f"  {workflow.name}: every step is done."]
+        if step.kind != workflows.FILE_STEP or step.run is None:
+            return [*lines, _next_step_line(root, workflow, step)]
+        report = step.run(inputs)
+        lines.append(f"  {workflow.name}: ran {step.call}")
+        lines += [f"    {line}" for line in report.lines]
+        if step.done is None or not step.done(root, inputs):
+            return lines
 
 
 def _registry_mismatch_lines(root: Path, registry: Registry) -> list[str]:
@@ -1263,12 +1333,14 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 7.2.
+    Upgraded the Project from 7.1 to 8.0.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
+    8.0: nothing to change by hand. admin/upgrade_8.0.md lists what it did.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
-    cell of admin/check_project.ipynb, which imports project already, or of admin/upgrade.ipynb,
-    which a Project's first Upgrade adds. It reads the version that last wrote the Project from
+    cell of admin/check_project.ipynb, which imports project already, or of
+    admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which start()
+    writes and an Upgrade adds. It reads the version that last wrote the Project from
     admin/project_version.txt, and runs each version's step from there to this Toolbox's, in
     order. A step makes the changes that need no judgement, keeping each file it changes, as it
     was, in admin/removed/, and marks each change that needs you with a
@@ -1354,10 +1426,11 @@ def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
     return have
 
 
-# Where to run project.upgrade(): a Project 7.1 made has no admin/upgrade.ipynb until its
-# first Upgrade adds one, and every admin notebook imports project already.
+# Where to run project.upgrade(): a Project an older Toolbox made has no
+# admin/workflows/upgrade/upgrade.ipynb until an Upgrade adds one, and every admin notebook
+# imports project already.
 RUN_UPGRADE = ("run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-               "admin/upgrade.ipynb once the Project has one")
+               "admin/workflows/upgrade/upgrade.ipynb once the Project has one")
 
 
 def _recorded_version(root: Path) -> str | None:
@@ -1454,20 +1527,19 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     Found:
       line 4: the IN list of 4 values is the constant STATUS_VALUES
 
-    Give it the Hive as text, pasted between triple quotes in admin/convert.ipynb, or as
-    file=, a .hql or .sql file's path from the folder you're working in. It reads the one query
-    in it with sqlglot, the way project.convert(...) does, and reports, with the line of each:
-    the tables it reads and which have no Table reference yet, each long IN list and lookup
-    CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays
-    Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an
-    Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each
-    ${...} such as ${hivevar:day}, kept as written for Hive to fill in from a SET line sent
-    first, and each piece
-    written another way: a * as its table's columns, a CASE WHEN chain as first_match(...), a
-    lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the
-    like. It
-    changes no file and sends nothing. A table named without its database, such as job_runs,
-    is taken to be in `database`.
+    Give it the Hive as text, pasted between triple quotes in
+    admin/workflows/convert/convert.ipynb, or as file=, a .hql or .sql file's path from the
+    folder you're working in. It reads the one query in it with sqlglot, the way
+    project.convert(...) does, and reports, with the line of each: the tables it reads and which
+    have no Table reference yet, each long IN list and lookup CASE that becomes a named
+    constant, each piece no Toolbox function writes yet, which stays Hive (an Unchecked
+    expression, an Unchecked derived table, or the whole query as an Unchecked statement), what
+    becomes of its SET lines and its INSERT, if it has them, each ${...} such as ${hivevar:day},
+    kept as written for Hive to fill in from a SET line sent first, and each piece written
+    another way: a * as its table's columns, a CASE WHEN chain as first_match(...), a lookup as
+    mapped(...), a function no Toolbox function wraps as hive_function(...), and the like. It
+    changes no file and sends nothing. A table named without its database, such as job_runs, is
+    taken to be in `database`.
 
     A script of several queries, an INSERT ... VALUES, an INSERT into a folder, and a FROM with
     several INSERTs are refused, each saying what to do instead.
@@ -1501,20 +1573,20 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     both are written out the same way.
     admin/conversions/failed_runs/scan.md lists what it found, line by line.
 
-    Run it from admin/convert.ipynb, once project.scan_hive(...) has shown what it will make,
-    with your own query: project.convert("team_runs", HIVE, query=query). It reads the one
-    query in the Hive, as scan_hive does, adds a Table reference for each table it reads that
-    has none, through your query, as add_references does, and writes the Conversion folder
+    Run it from admin/workflows/convert/convert.ipynb, once project.scan_hive(...) has shown
+    what it will make, with your own query: project.convert(NAME, HIVE, query=query). It reads
+    the one query in the Hive, as scan_hive does, adds a Table reference for each table it reads
+    that has none, through your query, as add_references does, and writes the Conversion folder
     admin/conversions/<name>/: original.hql, the Hive as given; scan.md, what it found; and
-    <name>.ipynb, a notebook whose logic cell builds the same query from the
-    Toolbox's own functions, its converted() giving the Statement. Each CTE is a Derived
-    table, each long IN list and lookup CASE a named constant at the top, and what no Toolbox
-    function writes yet stays Hive at the smallest size it can (an Unchecked expression, then
-    an Unchecked derived table, then the whole query as an Unchecked statement). Where a Guard
-    or Load limit refuses what the original did, such as a join that may repeat rows, it adds
-    that opt-out, marked `# CONVERSION:` at its line, for you to decide; project.check() lists
-    each mark left. Then it compares the Statement's Hive with the original's, as compare_hive
-    does, and says whether they are the same query.
+    <name>.ipynb, a notebook whose logic cell builds the same query from the Toolbox's own
+    functions, its converted() giving the Statement. Each CTE is a Derived table, each long IN
+    list and lookup CASE a named constant at the top, and what no Toolbox function writes yet
+    stays Hive at the smallest size it can (an Unchecked expression, then an Unchecked derived
+    table, then the whole query as an Unchecked statement). Where a Guard or Load limit refuses
+    what the original did, such as a join that may repeat rows, it adds that opt-out, marked `#
+    CONVERSION:` at its line, for you to decide; project.check() lists each mark left. Then it
+    compares the Statement's Hive with the original's, as compare_hive does, and says whether
+    they are the same query.
 
     `name` is the Conversion's, a plain lowercase name such as team_runs: the Saved table's
     own name is yours to choose when you finish it, with project.finish_conversion(...). It
@@ -1646,21 +1718,21 @@ def finish_conversion(name: str, table: str) -> ProjectReport:
     and key=, and its TODO lines; then run the notebook's create() and write().
     The Conversion folder is archived, kept as it was, in admin/removed/...-failed_runs/.
 
-    Run it once the Conversion's notebook gives the rows you want, from admin/convert.ipynb,
-    with the name you choose for the Saved table. It makes the Table folder
-    tables/<db>__<table>/, as new_table does, whose notebook's logic cell is the Conversion's,
-    as you left it, with create(), preview() and write() added: write() writes the table as the
-    original's INSERT did, INSERT_OVERWRITE or INSERT_INTO, with its partition values,
-    INSERT_OVERWRITE when it had none. The notebook keeps the Conversion's cells that compare it
-    with the original, until you remove them. It writes the table's Table reference,
-    references/<db>__<table>.py, with the columns the Statement gives and the types it knows,
-    `<COLUMN_TYPE>` for each it doesn't, and each partition column the original's
+    Run it once the Conversion's notebook gives the rows you want, from
+    admin/workflows/convert/convert.ipynb, with the name you choose for the Saved table. It
+    makes the Table folder tables/<db>__<table>/, as new_table does, whose notebook's logic cell
+    is the Conversion's, as you left it, with create(), preview() and write() added: write()
+    writes the table as the original's INSERT did, INSERT_OVERWRITE or INSERT_INTO, with its
+    partition values, INSERT_OVERWRITE when it had none. The notebook keeps the Conversion's
+    cells that compare it with the original, until you remove them. It writes the table's Table
+    reference, references/<db>__<table>.py, with the columns the Statement gives and the types
+    it knows, `<COLUMN_TYPE>` for each it doesn't, and each partition column the original's
     PARTITION(...) gave a value, which the query doesn't give, as "string", to check;
     partitioned_by=[...] filled in from the original's PARTITION(...), or with a
     "<PARTITION_COLUMN>" that Table refuses until you name one of its columns, or write [] for a
-    table with none; and `<LOCATION>`, the
-    folder its files go in, for you to fill in. Then it archives the Conversion folder into
-    admin/removed/. It never touches the warehouse: the notebook's create() does.
+    table with none; and `<LOCATION>`, the folder its files go in, for you to fill in. Then it
+    archives the Conversion folder into admin/removed/. It never touches the warehouse: the
+    notebook's create() does.
     """
     frame = callers_frame()
     call = _action_call("finish_conversion", name, f", table={python_literal(table)}")
@@ -1949,7 +2021,7 @@ def _write_conversion_notebook(root: Path, name: str, hive_read: converting.Conv
          "piece a Toolbox function where you can. The cells below compare it with the "
          "original: its Hive, then its rows, through your query. When it gives the rows you "
          "want, finish it "
-         f'from `admin/convert.ipynb`: `project.finish_conversion("{name}", '
+         f'from `admin/workflows/convert/convert.ipynb`: `project.finish_conversion("{name}", '
          'table="<db>.<table>")`.'),
         ("code", "import pathlib\nimport sys\n"
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))  # the Project: three up\n\n"
@@ -2895,8 +2967,8 @@ def _project_root(call: str) -> Path:
             "nor one above it holds admin/registry.csv.",
             why="A Project action changes a Project's folders and logs it in the Project's "
             "admin/.",
-            fix="Run it from a notebook in the Project, such as admin/new_table.ipynb. If you "
-            "have no Project yet, make one with project.start().",
+            fix="Run it from a notebook in the Project, such as admin/check_project.ipynb. If "
+            "you have no Project yet, make one with project.start().",
             error=FileNotFoundError,
         )
     return root

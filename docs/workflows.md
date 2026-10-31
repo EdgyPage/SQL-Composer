@@ -14,7 +14,7 @@ Toolbox 8.0 takes each Workflow's fiddling to nothing.
 
 ## convert
 
-Steps: 1 file step, 3 permission, 4 decision, 11 fiddling.
+Steps: 1 file step, 3 permission, 4 decision, 9 fiddling.
 
 Starts from: Hive scripts, your Dev Database's name, read access to the sources.
 
@@ -30,7 +30,7 @@ flowchart TD
     class s1 fiddling
     t1 --> s1
     s1 --> t2
-    s2>"3. Paste each query into admin/convert.ipynb"]
+    s2>"3. Paste each query into the notebook's HIVE, or name its file in FILE"]
     class s2 fiddling
     t2 --> s2
     s2 --> t3
@@ -38,74 +38,66 @@ flowchart TD
     class s3 decision
     t3 --> s3
     s3 --> t4
-    s4>"5. Type a Conversion's name into the commented-out convert call, and uncomment it"]
-    class s4 fiddling
+    s4[["5. Convert the query, reading the sources' DESCRIBE: project.convert(NAME, HIVE, query=query, database=DATABASE)"]]
+    class s4 permission
     t4 --> s4
-    s4 --> t5
-    s5[["6. Convert the query, reading the sources' DESCRIBE: project.convert(name, hive, query=query)"]]
-    class s5 permission
-    t5 --> s5
-    t6 --> s5
-    s5 --> t7
+    t5 --> s4
+    s4 --> t6
+    s4 --> t7
+    s5{"6. Fill in the new Table references' TODO lines"}
+    class s5 decision
+    t7 --> s5
     s5 --> t8
-    s6{"7. Fill in the new Table references' TODO lines"}
-    class s6 decision
-    t8 --> s6
-    s6 --> t9
-    s7>"8. Point each query that reads an earlier one's table at your copy: no step of the Toolbox does it"]
-    class s7 fiddling
-    t7 --> s7
+    s6>"7. Point each query that reads an earlier one's table at your copy: no step of the Toolbox does it"]
+    class s6 fiddling
+    t6 --> s6
+    t9 --> s6
+    s6 --> t10
+    s7{"8. Decide each CONVERSION mark project.convert left"}
+    class s7 decision
     t10 --> s7
     s7 --> t11
-    s8{"9. Decide each #35; CONVERSION: mark"}
-    class s8 decision
+    s8>"9. Fill in the compare cell's partition, and uncomment it"]
+    class s8 fiddling
     t11 --> s8
     s8 --> t12
-    s9>"10. Fill in the compare cell's partition, and uncomment it"]
-    class s9 fiddling
+    s9[["10. Compare each query with its original: compare_with_original(...)"]]
+    class s9 permission
     t12 --> s9
     s9 --> t13
-    s10[["11. Compare each query with its original: compare_with_original(...)"]]
-    class s10 permission
+    s10["11. Finish the Conversion as the Saved table TABLE names: project.finish_conversion(NAME, table=TABLE)"]
+    class s10 file
     t13 --> s10
+    t9 --> s10
     s10 --> t14
-    s11>"12. Type the Saved table's name into finish_conversion, and uncomment it"]
+    s10 --> t15
+    s10 --> t16
+    s11>"12. Delete the compare cells the Table notebook keeps"]
     class s11 fiddling
-    t14 --> s11
-    t10 --> s11
-    s11 --> t15
-    s12["13. Finish the Conversion: project.finish_conversion(name, table)"]
-    class s12 file
+    t16 --> s11
+    s11 --> t17
+    s12>"13. Fill in each <COLUMN_TYPE> and the partitions, which the original's DESCRIBE gives"]
+    class s12 fiddling
     t15 --> s12
-    s12 --> t16
-    s12 --> t17
     s12 --> t18
-    s13>"14. Delete the compare cells the Table notebook keeps"]
+    s13>"14. Fill in its <LOCATION>"]
     class s13 fiddling
     t18 --> s13
     s13 --> t19
-    s14>"15. Fill in each <COLUMN_TYPE> and the partitions, which the original's DESCRIBE gives"]
-    class s14 fiddling
-    t17 --> s14
+    s14{"15. Choose its Key, if it has one"}
+    class s14 decision
+    t19 --> s14
     s14 --> t20
-    s15>"16. Fill in its <LOCATION>"]
+    s15>"16. Send the original's SET lines with session_settings() by hand"]
     class s15 fiddling
-    t20 --> s15
+    t17 --> s15
     s15 --> t21
-    s16{"17. Choose its Key, if it has one"}
-    class s16 decision
+    s16[["17. Create and write each table in dev: run_tables(execute=execute)"]]
+    class s16 permission
+    t20 --> s16
+    t8 --> s16
     t21 --> s16
     s16 --> t22
-    s17>"18. Send the original's SET lines with session_settings() by hand"]
-    class s17 fiddling
-    t19 --> s17
-    s17 --> t23
-    s18[["19. Create and write each table in dev: run_tables(execute=execute)"]]
-    class s18 permission
-    t22 --> s18
-    t9 --> s18
-    t23 --> s18
-    s18 --> t24
     t0("Hive scripts")
     class t0 thing
     t1("a file per query")
@@ -116,46 +108,42 @@ flowchart TD
     class t3 thing
     t4("the Hive with its database")
     class t4 thing
-    t5("a convert call to run")
+    t5("read access to the sources")
     class t5 thing
-    t6("read access to the sources")
+    t6("a Conversion folder")
     class t6 thing
-    t7("a Conversion folder")
+    t7("Table references for the sources")
     class t7 thing
-    t8("Table references for the sources")
+    t8("filled-in source references")
     class t8 thing
-    t9("filled-in source references")
+    t9("your Dev Database's name")
     class t9 thing
-    t10("your Dev Database's name")
+    t10("Conversions that read your tables")
     class t10 thing
-    t11("Conversions that read your tables")
+    t11("each decision made")
     class t11 thing
-    t12("each decision made")
+    t12("a compare call to run")
     class t12 thing
-    t13("a compare call to run")
+    t13("each compared with its original")
     class t13 thing
-    t14("each compared with its original")
+    t14("a dev Table folder per table the scripts create")
     class t14 thing
-    t15("a finish call to run")
+    t15("its Table reference")
     class t15 thing
-    t16("a dev Table folder per table the scripts create")
+    t16("leftover compare cells")
     class t16 thing
-    t17("its Table reference")
+    t17("a Table notebook of its own")
     class t17 thing
-    t18("leftover compare cells")
+    t18("its columns filled in")
     class t18 thing
-    t19("a Table notebook of its own")
+    t19("its place filled in")
     class t19 thing
-    t20("its columns filled in")
+    t20("a filled-in Table reference")
     class t20 thing
-    t21("its place filled in")
+    t21("the settings sent")
     class t21 thing
-    t22("a filled-in Table reference")
+    t22("each written in dev")
     class t22 thing
-    t23("the settings sent")
-    class t23 thing
-    t24("each written in dev")
-    class t24 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
@@ -211,53 +199,47 @@ flowchart TD
 
 ## new_table
 
-Steps: 1 file step, 1 permission, 2 decision, 1 fiddling.
+Steps: 1 file step, 1 permission, 2 decision, 0 fiddling.
 
-Starts from: a table name, what the table should hold.
+Starts from: the tables' names, what each table should hold.
 
 Ends with: a dev Table folder whose logic loads, written in dev, its Table reference.
 
 ```mermaid
 flowchart TD
-    s0>"1. Type the table's name over #quot;mart.your_table#quot; in the notebook"]
-    class s0 fiddling
+    s0["1. Make each Table folder: project.new_table(TABLES)"]
+    class s0 file
     t0 --> s0
     s0 --> t1
-    s1["2. Make the Table folder: project.new_table(name)"]
-    class s1 file
-    t1 --> s1
-    s1 --> t2
+    s0 --> t2
+    s1{"2. Fill in each Table reference"}
+    class s1 decision
+    t2 --> s1
     s1 --> t3
-    s2{"3. Fill in its Table reference"}
+    s2{"3. Write each table's logic in its notebook"}
     class s2 decision
-    t3 --> s2
-    s2 --> t4
-    s3{"4. Write its logic"}
-    class s3 decision
-    t2 --> s3
+    t1 --> s2
+    t4 --> s2
+    s2 --> t5
+    s3[["4. Create and write each in dev: project.run_tables(tables=TABLES, execute=execute)"]]
+    class s3 permission
     t5 --> s3
+    t3 --> s3
     s3 --> t6
-    s4[["5. Create and write it in dev: run_tables(execute=execute)"]]
-    class s4 permission
-    t6 --> s4
-    t4 --> s4
-    s4 --> t7
-    t0("a table name")
+    t0("the tables' names")
     class t0 thing
-    t1("a new_table call to run")
+    t1("a Table folder")
     class t1 thing
-    t2("a Table folder")
+    t2("its Table reference to fill in")
     class t2 thing
-    t3("its Table reference to fill in")
+    t3("its Table reference")
     class t3 thing
-    t4("its Table reference")
+    t4("what each table should hold")
     class t4 thing
-    t5("what the table should hold")
+    t5("a dev Table folder whose logic loads")
     class t5 thing
-    t6("a dev Table folder whose logic loads")
+    t6("written in dev")
     class t6 thing
-    t7("written in dev")
-    class t7 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
@@ -267,7 +249,7 @@ flowchart TD
 
 ## references
 
-Steps: 1 file step, 1 permission, 1 decision, 1 fiddling.
+Steps: 1 file step, 1 permission, 1 decision, 0 fiddling.
 
 Starts from: table names your query can DESCRIBE.
 
@@ -275,35 +257,29 @@ Ends with: filled-in Table references, the Reference sheet, the Database modules
 
 ```mermaid
 flowchart TD
-    s0>"1. Type the table names over the notebook's #quot;ops.your_table#quot; placeholders"]
-    class s0 fiddling
+    s0[["1. Write the Table references from DESCRIBE: project.add_references(TABLES, query=query)"]]
+    class s0 permission
     t0 --> s0
     s0 --> t1
-    s1[["2. Write the Table references from DESCRIBE: project.add_references(names, query=query)"]]
-    class s1 permission
+    s1{"2. Fill in each TODO line and Alias"}
+    class s1 decision
     t1 --> s1
     s1 --> t2
-    s2{"3. Fill in each TODO line and Alias"}
-    class s2 decision
+    s2["3. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(TABLES)"]
+    class s2 file
     t2 --> s2
     s2 --> t3
-    s3["4. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet()"]
-    class s3 file
-    t3 --> s3
-    s3 --> t4
-    s3 --> t5
+    s2 --> t4
     t0("table names your query can DESCRIBE")
     class t0 thing
-    t1("an add_references call to run")
+    t1("Table references with TODO lines")
     class t1 thing
-    t2("Table references with TODO lines")
+    t2("filled-in Table references")
     class t2 thing
-    t3("filled-in Table references")
+    t3("the Reference sheet")
     class t3 thing
-    t4("the Reference sheet")
+    t4("the Database modules")
     class t4 thing
-    t5("the Database modules")
-    class t5 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a
@@ -350,7 +326,7 @@ flowchart TD
 
 ## change_a_saved_table
 
-Steps: 1 file step, 2 permission, 0 decision, 1 fiddling.
+Steps: 1 file step, 2 permission, 1 decision, 0 fiddling.
 
 Starts from: a Saved table, the change wanted.
 
@@ -358,16 +334,16 @@ Ends with: the change sent, the change logged, its check passed.
 
 ```mermaid
 flowchart TD
-    s0>"1. Pick the notebook's example for the change, uncomment it and fill it in"]
-    class s0 fiddling
+    s0{"1. Write the Admin statement for the change: change = admin.drop_partitions(...)  #35; or another of the admin module's"}
+    class s0 decision
     t0 --> s0
     t1 --> s0
     s0 --> t2
-    s1["2. Print the Hive it sends, which sends nothing: show_hive(statement)"]
+    s1["2. Print the Hive it sends, which sends nothing: show_hive(change)"]
     class s1 file
     t2 --> s1
     s1 --> t3
-    s2[["3. Send it: run_execute(statement, execute)"]]
+    s2[["3. Send it: run_execute(change, execute)"]]
     class s2 permission
     t3 --> s2
     s2 --> t4

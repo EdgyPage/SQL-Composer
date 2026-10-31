@@ -39,6 +39,7 @@ from .unchecked import (
     SessionSettings,
     UncheckedStatement,
     logged_run,
+    record_sent,
     settings_text,
     unchecked_call,
     unchecked_text,
@@ -600,12 +601,17 @@ def run_execute(s: Statement | SessionSettings | UncheckedStatement,
     if kind == kinds.SETTINGS:
         for line in s._lines:  # Hive takes one SET per call
             execute(line)
-    elif kind == kinds.UNCHECKED:
-        logged_run("Unchecked statement", unchecked_call(s), s._text, execute)
+        return
+    if kind == kinds.UNCHECKED:
+        sent = s._text
+        logged_run("Unchecked statement", unchecked_call(s), sent, execute)
     elif kind == kinds.ADMIN:
-        logged_run("Admin statement", s._admin_call, to_hive(s), execute)
+        sent = to_hive(s)
+        logged_run("Admin statement", s._admin_call, sent, execute)
     else:
-        send_logged(s, to_hive(s), execute)
+        sent = to_hive(s)
+        send_logged(s, sent, execute)
+    record_sent(kind, sent, inspect.currentframe().f_back)
 
 
 def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object],

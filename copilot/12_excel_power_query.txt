@@ -1,4 +1,4 @@
-# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 7.2)
+# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 8.0)
 
 Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
 workbook into Hive, with file 11.

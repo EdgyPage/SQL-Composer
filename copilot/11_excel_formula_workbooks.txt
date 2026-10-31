@@ -1,4 +1,4 @@
-# Copilot file 11: a Formula workbook's formulas into Hive (sqlglot Composer 7.2)
+# Copilot file 11: a Formula workbook's formulas into Hive (sqlglot Composer 8.0)
 
 Objective: turn an attached Excel workbook's calculations into Hive, a query per final
 Table, then into Toolbox code.

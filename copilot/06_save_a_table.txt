@@ -1,10 +1,10 @@
-# Copilot file 06: saving a table (sqlglot Composer 7.2)
+# Copilot file 06: saving a table (sqlglot Composer 8.0)
 
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
 it, add to it, or write the logic cell of a Table notebook.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always

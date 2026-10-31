@@ -1,6 +1,6 @@
-# Copilot files for sqlglot Composer 7.2: start here
+# Copilot files for sqlglot Composer 8.0: start here
 
-sqlglot Composer 7.2 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.0 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.

@@ -19,7 +19,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
-from .notebooks import read_cells, read_cells_if_readable, write_cell_text
+from .notebooks import read_cells, read_cells_if_readable, write_cell_text, write_notebook
 from .shared import counted
 
 PROJECT_VERSION = Path("admin") / "project_version.txt"
@@ -139,6 +139,13 @@ class Upgrade:
                 listed.append(f"{relative}, cell {cell}, line {line}: {what}")
         return listed
 
+    def retire(self, relative: str) -> None:
+        """Take a file this version no longer has out of the Project, once it is kept in the
+        archive."""
+        self._archive_original(relative)
+        (self.root / relative).unlink()
+        self.changed.append(f"archived {relative}, which this version no longer has")
+
     def _archive_original(self, relative: str) -> None:
         """Copy the file as it is into the archive, unless this step did already."""
         archived = self.archive / relative
@@ -231,11 +238,76 @@ def _searched_texts(path: Path) -> list[tuple[str, str]]:
 
 
 def to_7_2(upgrade: Upgrade) -> None:
-    """7.1 to 7.2: nothing of yours changes. The Project gets what 7.2's project.start() makes
-    that it lacks, such as admin/upgrade.ipynb."""
+    """7.1 to 7.2: nothing of yours changes. The Project gets what project.start() makes
+    that it lacks, such as admin/conversions/."""
+    upgrade.add_what_start_makes()
+
+
+# The one-action admin notebooks 7.2's start() wrote, which 8.0's Workflow notebooks, in
+# admin/workflows/, and admin/remove.ipynb take the place of.
+RETIRED_IN_8_0 = ("new_table", "remove_table", "add_references", "change_a_saved_table",
+                  "convert", "upgrade")
+# The admin notebooks 8.0 writes again: their cells changed, and the user only runs them.
+REWRITTEN_IN_8_0 = ("new_block", "check_project")
+# The warehouse.py 7.2's start() wrote, which 8.0 writes again where it is still as it was.
+WAREHOUSE_TEXT_7_2 = '''"""warehouse - your two calls to the warehouse, query and execute.
+
+Why: every notebook in the Project reaches the warehouse through these two functions, so a
+change to how you reach it is made here, once.
+
+You pick which one sends each Statement, by calling run_query(s, query) for what gives back
+rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
+Replace each example_database call with your warehouse's own: the how-to Start a Project shows
+how to write them. Let the two share one session, so a Session setting sent through execute
+holds for what is sent after it, through either function; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your function raises. It
+imports none of your own files, so any notebook or script of yours can import it.
+"""
+
+import pandas as pd
+
+from sqlglot_composer import example_database
+
+
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return example_database.query(hive)  # at work: your warehouse's query call
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    example_database.execute(hive)  # at work: your warehouse's execute call
+'''
+
+
+def to_8_0(upgrade: Upgrade) -> None:
+    """7.2 to 8.0: the Project gets 8.0's admin layout: a notebook per Workflow in
+    admin/workflows/, admin/remove.ipynb, admin/databases.py and admin/sent.csv. Each one-action
+    notebook a Workflow's notebook takes the place of is archived; new_block.ipynb and
+    check_project.ipynb are written again, each kept in the archive first; and a warehouse.py
+    still as 7.2 wrote it gets 8.0's, which holds conn, your connection. A warehouse.py you
+    changed is yours, and stays."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import ADMIN_NOTEBOOKS, ADMIN_PATH_LINES, WAREHOUSE, WAREHOUSE_TEXT
+
+    for name in RETIRED_IN_8_0:
+        if (upgrade.root / "admin" / f"{name}.ipynb").exists():
+            upgrade.retire(f"admin/{name}.ipynb")
+    for name in REWRITTEN_IN_8_0:
+        relative = f"admin/{name}.ipynb"
+        if (upgrade.root / relative).exists():
+            upgrade.retire(relative)
+            about, cells = ADMIN_NOTEBOOKS[name]
+            write_notebook(upgrade.root / relative,
+                           [("markdown", about), ("code", "\n".join(ADMIN_PATH_LINES)),
+                            *[("code", cell) for cell in cells]])
+            upgrade.changed[-1] = f"wrote {relative} again, for 8.0's admin layout"
+    warehouse = upgrade.root / WAREHOUSE
+    if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_7_2:
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
     upgrade.add_what_start_makes()
 
 
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds.
-STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2}
+STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0}

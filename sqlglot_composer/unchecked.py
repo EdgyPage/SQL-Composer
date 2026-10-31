@@ -13,6 +13,7 @@ which logs its Project actions too.
 
 from __future__ import annotations
 
+import csv
 import datetime
 import os
 import re
@@ -1061,6 +1062,10 @@ def unchecked_call(unchecked: UncheckedStatement) -> str:
     return f"unchecked_hive({quoted})"
 
 
+# The file each send to the warehouse of a Project's notebook or script adds a row to.
+SENT = Path("admin") / "sent.csv"
+
+
 def logged_run(kind: str, call: str, hive: str,
                warehouse_call: Callable[[str], object]) -> object:
     """Send `hive`, then add its entry to the Admin log: worked, or failed with its error,
@@ -1099,6 +1104,25 @@ def _append(kind: str, call: str, hive: str, frame: FrameType, result: str) -> N
         lines.append(f"- Tables named: {', '.join(tables)}")
     lines += [script_line(caller), f"- Result: {result}", "", f"{fence}sql", hive, fence, ""]
     write_entry(path, lines)
+
+
+def record_sent(kind: str, hive: str, frame: FrameType) -> None:
+    """Add a row to the Project's admin/sent.csv for one send to the warehouse: when, its kind,
+    such as "write", the tables it writes, and the script that sent it. A Workflow reads it to
+    know a step that sends is done. Outside a Project, or in one with no admin/sent.csv, it does
+    nothing."""
+    from .lineage import caller_folder, calling_file  # it imports this file
+    from .project import project_folder  # it imports this file
+
+    caller = calling_file(frame)
+    project = project_folder(caller_folder(caller)) or project_folder(Path.cwd())
+    if project is None or not (project / SENT).is_file():
+        return
+    written = [name for name, does in tables_read_and_written(hive) if does == "writes"]
+    script = caller.name if caller is not None else "a notebook"
+    with open(project / SENT, "a", encoding="utf-8", newline="") as rows:
+        csv.writer(rows, lineterminator="\n").writerow(
+            [now().strftime(TIME_SHOWN), kind, ";".join(written), script])
 
 
 def script_line(caller: Path | None) -> str:

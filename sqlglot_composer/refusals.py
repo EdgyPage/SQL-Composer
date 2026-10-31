@@ -469,8 +469,8 @@ def warn_upgrade_needed(have: str, toolbox: str) -> None:
         "changes, or marks them for you. The import worked, and your notebooks still run "
         "meanwhile: this only warns.",
         fix="Run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-        "admin/upgrade.ipynb once the Project has one, then work through the checklist it "
-        f"writes, admin/upgrade_{toolbox}.md.",
+        "admin/workflows/upgrade/upgrade.ipynb once the Project has one, then work through "
+        f"the checklist it writes, admin/upgrade_{toolbox}.md.",
         opt_out="none - it shows at each import until the Project is upgraded.",
     )
     warn_at_callers_line(message, UserWarning)

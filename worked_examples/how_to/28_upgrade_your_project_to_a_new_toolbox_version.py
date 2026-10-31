@@ -23,17 +23,20 @@ It needs [Start a Project](#start_a_project) and
 ### Start from a Project an older Toolbox wrote
 
 Work in your own Project. This page makes one to upgrade: a copy of the Intermediate Example
-project, with the files and the folder 7.2's Upgrade adds taken out, so it looks to
-`project.upgrade()` like a Project 7.1 left:
+project, with the files and the folder 8.0's Upgrade adds taken out, and 7.2 recorded as the
+version that last wrote it, so it looks to `project.upgrade()` like a Project 7.2 left:
 
 >>> import shutil
 >>> from pathlib import Path
 >>> import sqlglot_composer
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
->>> for added in ["admin/project_version.txt", "admin/upgrade.ipynb", "admin/convert.ipynb"]:
+>>> for added in ["admin/databases.py", "admin/sent.csv", "admin/remove.ipynb"]:
 ...     Path(added).unlink()
->>> shutil.rmtree("admin/conversions", ignore_errors=True)
+>>> shutil.rmtree("admin/workflows")
+>>> version = Path("admin/project_version.txt")  # -> Path
+>>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.0", "7.2", 1),
+...                        encoding="utf-8")
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
 none, and is taken to be 7.1.
@@ -47,8 +50,9 @@ run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.1, and this Toolbox is 7.2: run project.upgrade() in a
-    new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb once the Project has one.
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.0: run project.upgrade() in a
+    new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the
+    Project has one.
 
 ### Upgrade it
 
@@ -56,15 +60,28 @@ Run `project.upgrade()` from a notebook in the Project: the first time, in a new
 admin/check_project.ipynb, which imports `project` already.
 
 >>> print(project.upgrade())
-Upgraded the Project from 7.1 to 7.2.
-7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
+Upgraded the Project from 7.2 to 8.0.
+8.0: nothing to change by hand. admin/upgrade_8.0.md lists what it did.
 
 It ran the step from each version to the next, here one, and wrote a checklist for each:
 
->>> checklist = Path("admin/upgrade_7.2.md").read_text(encoding="utf-8")  # -> str
->>> [line for line in checklist.splitlines() if line.startswith(("- ", "Nothing"))]
-['- added admin/conversions/', '- added admin/convert.ipynb', '- added admin/upgrade.ipynb',
- '- recorded 7.2 in admin/project_version.txt', 'Nothing: 7.2 needs nothing changed by hand.']
+>>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
+>>> for line in checklist.splitlines():
+...     if line.startswith(("- ", "Nothing")):
+...         print(line)
+- wrote admin/new_block.ipynb again, for 8.0's admin layout
+- wrote admin/check_project.ipynb again, for 8.0's admin layout
+- added admin/remove.ipynb
+- added admin/workflows/convert/convert.ipynb
+- added admin/workflows/promote/promote.ipynb
+- added admin/workflows/new_table/new_table.ipynb
+- added admin/workflows/references/references.ipynb
+- added admin/workflows/upgrade/upgrade.ipynb
+- added admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+- added admin/databases.py
+- added admin/sent.csv
+- recorded 8.0 in admin/project_version.txt
+Nothing: 8.0 needs nothing changed by hand.
 
 Under Done for you, it lists each change it made, and under For you to do, each it left you.
 
@@ -83,7 +100,7 @@ Every Table folder, Table reference and Building block is registered, and each o
 Run again, the Upgrade does nothing:
 
 >>> print(project.upgrade())
-The Project is at 7.2 already, as this Toolbox is: nothing to upgrade.
+The Project is at 8.0 already, as this Toolbox is: nothing to upgrade.
 
 ## Common mistakes
 
@@ -98,6 +115,6 @@ The Project is at 7.2 already, as this Toolbox is: nothing to upgrade.
 ## Next
 
 - [Keep the Project in order](#keep_the_project_in_order): `project.check()` and the registry.
-- [Convert someone else's Hive](#convert_someone_elses_hive): what 7.2's admin/convert.ipynb
-  is for.
+- [Convert someone else's Hive](#convert_someone_elses_hive): what
+  admin/workflows/convert/convert.ipynb is for.
 """

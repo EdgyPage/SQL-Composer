@@ -27,7 +27,7 @@ It builds six Saved tables, each in a Table folder of its own, five made from th
   not partitioned and with no Key, so each write replaces the whole table.
 
 And a seventh, `mart.team_failures`, each team's events and fails per day, is a finished
-Conversion: Hive the ops team wrote, pasted into `admin/convert.ipynb`, converted with
+Conversion: Hive the ops team wrote, pasted into `admin/workflows/convert/convert.ipynb`, converted with
 `project.convert("team_failures", ...)`, its one `# CONVERSION:` mark decided by keeping the
 opt-out, then made a Saved table with `project.finish_conversion(...)`. Its Table folder keeps
 the Hive it replaced, `original.hql`, and its notebook the cells that compare the two.

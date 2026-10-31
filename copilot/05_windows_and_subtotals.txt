@@ -1,4 +1,4 @@
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 7.2)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.0)
 
 Objective: work out a value from the rows around each row, keep the latest or top rows of
 each group, add subtotals, or stack Statements.
@@ -6,7 +6,7 @@ Load this file when the user asks for a rank, a row number, the latest row of ea
 top N per group, the row before or after, a running total, subtotals or a grand total, or
 the rows of several Statements together.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always

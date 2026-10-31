@@ -74,8 +74,8 @@ of dt.
 `project.add_references` takes a list of tables. For each, it sends those two commands through
 your query, turns what comes back into a Table reference file in `references/`, and adds it to
 the registry, admin/registry.csv; then it logs what it did in the Admin log. Run it from the
-admin notebook admin/add_references.ipynb, which holds this call ready for your tables' names,
-or from any notebook in the Project's folder, as here:
+references Workflow's notebook, admin/workflows/references/references.ipynb, which runs this
+call on the names in its first cell, or from any notebook in the Project's folder, as here:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
