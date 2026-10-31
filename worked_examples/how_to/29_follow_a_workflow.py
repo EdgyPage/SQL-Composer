@@ -114,6 +114,9 @@ Its names cell, which you fill in and save first:
     HIVE = None
     # the database of a table the Hive names without one
     DATABASE = 'default'
+    # each staging table convert names, kept or folded, such as {"ops_reports.failed":
+    # "keep"}: left out, a temporary or DROPped one is folded, any other kept
+    STAGING = {}
 
 Its decisions cell, beside it, where you answer each open Decision:
 
@@ -129,7 +132,8 @@ Its steps:
 - 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
   warehouse, yours to run).
 
-    project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)
+    project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                    staging=STAGING)
 
 - 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 - 3. Write each answer into its table's Table reference (it changes only files, so
@@ -161,7 +165,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("convert", query=query, execute=execute)
 
 ### The promote Workflow
@@ -265,7 +270,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("promote", query=query, execute=execute)
 
 ### The new_table Workflow
@@ -344,7 +350,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("new_table", query=query, execute=execute)
 
 ### The references Workflow
@@ -415,7 +422,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("references", query=query, execute=execute)
 
 ### The upgrade Workflow
@@ -456,7 +464,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("upgrade")
 
 ### The change_a_saved_table Workflow
@@ -518,7 +527,8 @@ Its steps:
 Its last cell runs every step left, in place of their cells:
 
     # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see first the Hive it would send, sending nothing:
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("change_a_saved_table", query=query, execute=execute, change=change)
 
 ## Check it worked

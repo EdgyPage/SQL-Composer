@@ -44,7 +44,7 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 
 ## Names for this objective, with their arguments
 
-- project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False)
+- project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.load(name)
 - project.check()
 - compare_with_original(statement, original, *, query=None, partition=None, reads_all_partitions=False)

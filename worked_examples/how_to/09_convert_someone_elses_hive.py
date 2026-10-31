@@ -83,7 +83,9 @@ Converted ops_reports: ...
 
 The scripts' order doesn't matter: the batch orders each statement by what reads what. Each
 table the scripts write is a Saved table in mart, with its Table folder, its Table reference and
-its Decisions to answer: the temporary table too, which the weekly script reads, so it is made first. The
+its Decisions to answer, but the temporary table: a staging table, which the weekly script
+reads, it is folded into fail_history, its query a Derived table there, and never made a table
+of its own. To keep it one instead, give staging={"ops_reports.failed_runs": "keep"}. The
 FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line
 become nothing and the Session settings of the writes after them.
 admin/workflows/convert/ops_reports/batch.md lists what each statement became:
@@ -136,10 +138,6 @@ a guessed type to answer too: the day as text, "string".
 >>> for table in ["mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"]:
 ...     DECISIONS[table]["types"] = {"dt": "string"}
 >>> print(project.write_decisions(DECISIONS))
-Wrote 1 answer into references/mart__failed_runs_ops_reports.py.
-mart.failed_runs_ops_reports: 1 TODO line left in references/mart__failed_runs_ops_reports.py, which waits
-on nothing: fill it in when you like.
-Each Decision of mart.failed_runs_ops_reports is made.
 Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits
 on nothing: fill it in when you like.
@@ -179,11 +177,11 @@ execute: ...
 execute: ...
 >>> print(project.run_tables(tables=project.batch_tables("ops_reports"), execute=execute))
 execute: SET hive.exec.parallel=true
-execute: INSERT OVERWRITE TABLE mart.failed_runs_ops_reports
-1 of 4: mart.failed_runs_ops_reports         worked
+execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = '2026-09-24')
+1 of 3: mart.alerts_by_severity_ops_reports  worked
 ...
-4 of 4: mart.fail_history                    worked
-Wrote 4 tables, in order.
+3 of 3: mart.fail_history                    worked
+Wrote 3 tables, in order.
 
 ### Compare each with its original
 
@@ -196,7 +194,6 @@ the batch is finished:
 mart.alerted_runs_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerted_runs_ops_reports'.
 mart.alerts_by_severity_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerts_by_severity_ops_reports'.
 mart.fail_history: failed, couldn't compare: The Example database has no table 'mart.fail_history'.
-mart.failed_runs_ops_reports: failed, couldn't compare: The Example database couldn't run this Hive: it has no table mart.failed_runs_ops_reports.
 
 ### Promote them
 
@@ -211,12 +208,12 @@ stands in for your edit, and it refuses before each compare has passed, naming e
 ...     project.promote(project.batch_tables("ops_reports"))
 ... except ValueError as refused:
 ...     print(str(refused).strip().splitlines()[0])
-What happened:  project.promote([...]) can't promote yet: mart.failed_runs_ops_reports: its compare hasn't passed; ...
+What happened:  project.promote([...]) can't promote yet: mart.alerts_by_severity_ops_reports: its compare hasn't passed; ...
 
 At work, in admin/workflows/promote/promote.ipynb, name the dev tables and run its cells:
 
-    project.promote(["mart.failed_runs_ops_reports", "mart.fail_history",
-                     "mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"])
+    project.promote(["mart.fail_history", "mart.alerts_by_severity_ops_reports",
+                     "mart.alerted_runs_ops_reports"])
 
 ## Check it worked
 

@@ -379,9 +379,6 @@ def test_convert_then_promote_one_script_through_the_runner(started: Started) ->
     _promote_through_the_runner(started, tables)
 
 
-@pytest.mark.xfail(strict=True, raises=AssertionError,
-                   reason="8.1 ticket 10: convert skips the table that reads a CREATE "
-                   "TEMPORARY ... AS staging table, and batch_tables still lists it")
 def test_convert_then_promote_the_long_script(started: Started) -> None:
     tables = _convert(started, LONG_SCRIPT, {
         "mart_dev.team_fails_mart": ["team", "dt"],

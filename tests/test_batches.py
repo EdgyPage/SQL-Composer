@@ -735,3 +735,84 @@ def test_the_decisions_cell_changes_a_proposed_key(started: Path, batch: str) ->
     said = repr(project.write_decisions({table: {"key": ["job_id", "dt"]}}))
     assert "kept as" not in said
     assert '    key=["job_id", "dt"],\n' in reference(started, table)
+
+
+# --- Staging tables, kept or folded (Toolbox 8.1, ticket 10) ----------------------------------
+
+# A long script's staging table, read by the write after it, then DROPped: a scratch table.
+STAGED = """\
+CREATE TABLE ops_reports.failed AS
+SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs r WHERE r.status = 'FAILED';
+INSERT OVERWRITE TABLE ops_reports.fails_per_job
+SELECT f.job_id, COUNT(*) AS fails FROM ops_reports.failed f GROUP BY f.job_id;
+DROP TABLE ops_reports.failed;
+"""
+
+
+def test_a_scratch_table_dropped_after_its_read_is_folded(started: Path) -> None:
+    said = convert_script(started, STAGED)
+    assert project.batch_tables("script") == ["mart_dev.fails_per_job_ops_reports"]
+    assert "Folded ops_reports.failed, each a staging table, a Derived table" in said
+    text = logic(started, "mart_dev.fails_per_job_ops_reports")
+    assert "derived(" in text and "ops_reports.failed" not in text
+    listed = (batch_folder(started).parent / "script" / "batch.md").read_text(encoding="utf-8")
+    assert "folded into ops_reports.fails_per_job: a Derived table there" in listed
+
+
+def test_a_temporary_staging_table_is_folded(started: Path) -> None:
+    convert_script(started, STAGED.replace("CREATE TABLE ops_reports.failed AS",
+                                           "CREATE TEMPORARY TABLE failed AS").replace(
+        "FROM ops_reports.failed f", "FROM failed f").replace(
+        "DROP TABLE ops_reports.failed;\n", ""))
+    assert project.batch_tables("script") == ["mart_dev.fails_per_job_ops_reports"]
+
+
+def test_a_staging_table_neither_temporary_nor_dropped_is_kept(started: Path) -> None:
+    convert_script(started, STAGED.replace("DROP TABLE ops_reports.failed;\n", ""))
+    assert project.batch_tables("script") == ["mart_dev.failed_ops_reports",
+                                              "mart_dev.fails_per_job_ops_reports"]
+
+
+def test_staging_keeps_or_folds_what_it_names(started: Path) -> None:
+    (started / "script.hql").write_text(STAGED, encoding="utf-8")
+    project.convert("script", files=["script.hql"], query=example_database.query,
+                    database="ops", staging={"ops_reports.failed": "keep"})
+    assert "mart_dev.failed_ops_reports" in project.batch_tables("script")
+
+
+def test_staging_naming_no_staging_table_is_refused(started: Path) -> None:
+    (started / "script.hql").write_text(STAGED, encoding="utf-8")
+    with pytest.raises(ValueError, match="Its staging tables are ops_reports.failed"):
+        project.convert("script", files=["script.hql"], query=example_database.query,
+                        database="ops", staging={"fails_per_job": "fold"})
+
+
+def test_a_staging_tables_own_ctes_come_before_it_in_the_table_that_reads_it(
+        started: Path) -> None:
+    convert_script(started, STAGED.replace(
+        "SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs r",
+        "WITH r AS (SELECT * FROM ops.job_runs)\nSELECT r.run_id, r.job_id, r.dt FROM r"))
+    assert project.batch_tables("script") == ["mart_dev.fails_per_job_ops_reports"]
+    assert "derived(" in logic(started, "mart_dev.fails_per_job_ops_reports")
+
+
+def test_a_staging_table_read_by_another_folds_into_both(started: Path) -> None:
+    convert_script(started, """\
+CREATE TEMPORARY TABLE failed AS
+SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.status = 'FAILED';
+CREATE TEMPORARY TABLE per_job AS
+SELECT f.job_id, COUNT(*) AS fails FROM failed f GROUP BY f.job_id;
+INSERT OVERWRITE TABLE ops_reports.most_failed
+SELECT p.job_id, p.fails FROM per_job p WHERE p.fails > 1;
+""")
+    assert project.batch_tables("script") == ["mart_dev.most_failed_ops_reports"]
+
+
+def test_a_read_before_the_create_in_its_script_reads_the_table_as_it_was(
+        started: Path) -> None:
+    said = convert_script(started, "INSERT OVERWRITE TABLE ops_reports.before_it\n"
+                          "SELECT f.job_id FROM ops_reports.failed f;\n" + STAGED)
+    assert "Folded ops_reports.failed" in said
+    # It still reads the table as it was, which the Example database doesn't hold.
+    assert ("mart_dev.before_it_ops_reports (it reads ops_reports.failed, which has no Table "
+            "reference)") in said

@@ -6267,10 +6267,11 @@ GROUP BY f.job_id;</pre>
 os.chdir(&quot;admin/workflows/convert&quot;)  # where the notebook runs: this page stands in
 print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &quot;weekly.hql&quot;], query=query,
                       database=&quot;ops&quot;, rename={&quot;ops_reports.fail_history&quot;: &quot;fail_history&quot;}))</pre>
-<p class="label">Python prints</p><pre class="output">Converted ops_reports: 2 scripts, 7 statements, into 4 Saved tables in mart: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
+<p class="label">Python prints</p><pre class="output">Converted ops_reports: 2 scripts, 7 statements, into 3 Saved tables in mart: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history.
+Folded ops_reports.failed_runs, each a staging table, a Derived table in the tables that read it: batch.md says where.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
 Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, seed each that reads itself, write each, and compare each with its original.</pre>
-<p class="label">It writes 31 files</p>
+<p class="label">It writes 25 files</p>
 <pre class="file">admin/admin_log.md
 admin/registry.csv
 admin/workflows/convert/ops_reports/batch.md
@@ -6281,7 +6282,6 @@ references/mart.py
 references/mart__alerted_runs_ops_reports.py
 references/mart__alerts_by_severity_ops_reports.py
 references/mart__fail_history.py
-references/mart__failed_runs_ops_reports.py
 tables/mart__alerted_runs_ops_reports/conversion/checklist.md
 tables/mart__alerted_runs_ops_reports/conversion/in_dev.hql
 tables/mart__alerted_runs_ops_reports/conversion/scan.md
@@ -6296,14 +6296,9 @@ tables/mart__fail_history/conversion/checklist.md
 tables/mart__fail_history/conversion/in_dev.hql
 tables/mart__fail_history/conversion/scan.md
 tables/mart__fail_history/conversion/statement.hql
-tables/mart__fail_history/mart__fail_history.ipynb
-tables/mart__failed_runs_ops_reports/conversion/checklist.md
-tables/mart__failed_runs_ops_reports/conversion/in_dev.hql
-tables/mart__failed_runs_ops_reports/conversion/scan.md
-tables/mart__failed_runs_ops_reports/conversion/statement.hql
-tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
+tables/mart__fail_history/mart__fail_history.ipynb</pre>
 <pre class="python">os.chdir(&quot;../../..&quot;)  # back to the Project&#x27;s folder, where the rest of this page runs</pre>
-<p>The scripts&#x27; order doesn&#x27;t matter: the batch orders each statement by what reads what. Each table the scripts write is a Saved table in mart, with its Table folder, its Table reference and its Decisions to answer: the temporary table too, which the weekly script reads, so it is made first. The FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line become nothing and the Session settings of the writes after them. admin/workflows/convert/ops_reports/batch.md lists what each statement became:</p>
+<p>The scripts&#x27; order doesn&#x27;t matter: the batch orders each statement by what reads what. Each table the scripts write is a Saved table in mart, with its Table folder, its Table reference and its Decisions to answer, but the temporary table: a staging table, which the weekly script reads, it is folded into fail_history, its query a Derived table there, and never made a table of its own. To keep it one instead, give staging={&quot;ops_reports.failed_runs&quot;: &quot;keep&quot;}. The FROM with two INSERTs gives each target a Saved table of its own. The DROP and the SET line become nothing and the Session settings of the writes after them. admin/workflows/convert/ops_reports/batch.md lists what each statement became:</p>
 <pre class="python">print(Path(&quot;admin/workflows/convert/ops_reports/batch.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
 <p class="label">Python prints</p><pre class="output"># Batch ops_reports
 
@@ -6311,7 +6306,6 @@ tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
 
 ## Tables
 
-- ops_reports.failed_runs: mart.failed_runs_ops_reports, tables/mart__failed_runs_ops_reports/, its checklist tables/mart__failed_runs_ops_reports/conversion/checklist.md
 - ops_reports.alerts_by_severity: mart.alerts_by_severity_ops_reports, tables/mart__alerts_by_severity_ops_reports/, its checklist tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md
 - ops_reports.alerted_runs: mart.alerted_runs_ops_reports, tables/mart__alerted_runs_ops_reports/, its checklist tables/mart__alerted_runs_ops_reports/conversion/checklist.md
 - ops_reports.fail_history: mart.fail_history, tables/mart__fail_history/, its checklist tables/mart__fail_history/conversion/checklist.md
@@ -6320,7 +6314,7 @@ tables/mart__failed_runs_ops_reports/mart__failed_runs_ops_reports.ipynb</pre>
 
 1. daily.hql line 1, `SET hive.exec.parallel=true`: the Session settings of the writes after it in its script
 2. daily.hql line 2, `DROP TABLE IF EXISTS ops_reports.failed_runs`: nothing: the Saved table&#x27;s create() makes it new
-3. daily.hql line 3, `CREATE TEMPORARY TABLE ops_reports.failed_runs AS SELECT r.run_id, r.job_id, ...`: mart.failed_runs_ops_reports, written by its notebook (was a temporary table)
+3. daily.hql line 3, `CREATE TEMPORARY TABLE ops_reports.failed_runs AS SELECT r.run_id, r.job_id, ...`: folded into ops_reports.fail_history: a Derived table there, never created, written, compared or promoted
 4. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerts_by_severity_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
 5. daily.hql line 7, `FROM ops.run_alerts a INSERT OVERWRITE TABLE ops_reports.alerts_by_severity P...`: mart.alerted_runs_ops_reports, written by its notebook (was one target of a FROM with several INSERTs)
 6. weekly.hql line 1, `CREATE TABLE IF NOT EXISTS ops_reports.fail_history (job_id BIGINT, fails BIG...`: the columns, types and Partitions of mart.fail_history&#x27;s Table reference
@@ -6342,10 +6336,7 @@ print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].s
 <pre class="python">for table in [&quot;mart.alerts_by_severity_ops_reports&quot;, &quot;mart.alerted_runs_ops_reports&quot;]:
     DECISIONS[table][&quot;types&quot;] = {&quot;dt&quot;: &quot;string&quot;}
 print(project.write_decisions(DECISIONS))</pre>
-<p class="label">Python prints</p><pre class="output">Wrote 1 answer into references/mart__failed_runs_ops_reports.py.
-mart.failed_runs_ops_reports: 1 TODO line left in references/mart__failed_runs_ops_reports.py, which waits on nothing: fill it in when you like.
-Each Decision of mart.failed_runs_ops_reports is made.
-Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
+<p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
@@ -6354,99 +6345,6 @@ Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
 mart.fail_history: 1 TODO line left in references/mart__fail_history.py, which waits on nothing: fill it in when you like.
 Each Decision of mart.fail_history is made.</pre>
-<p class="label">It writes 9 files</p>
-<pre class="file">admin/admin_log.md
-references/mart__alerted_runs_ops_reports.py
-references/mart__alerts_by_severity_ops_reports.py
-references/mart__fail_history.py
-references/mart__failed_runs_ops_reports.py
-tables/mart__alerted_runs_ops_reports/conversion/checklist.md
-tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md
-tables/mart__fail_history/conversion/checklist.md
-tables/mart__failed_runs_ops_reports/conversion/checklist.md</pre>
-<p><code>project.check()</code> names the batch&#x27;s next step in the Workflow, the first call to the warehouse:</p>
-<pre class="python">print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
-  admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. It is a call to the warehouse, yours to run: for table in project.batch_tables(&quot;ops_reports&quot;):
-    run_execute(project.load(table).create(), execute)</pre>
-<h5>Create, seed and write each table in dev</h5>
-<p>Steps 4 to 6 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. The write step sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
-<pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;):
-    run_execute(project.load(table).create(), execute)</pre>
-<p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.failed_runs_ops_reports (
-execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerts_by_severity_ops_reports (
-execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerted_runs_ops_reports (
-execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.fail_history (</pre>
-<p class="note">It writes <code>admin/sent.csv</code> too.</p>
-<pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)</pre>
-<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
-execute: SET hive.exec.dynamic.partition.mode=nonstrict</pre>
-<pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;, seeded=True):
-    run_execute(project.load(table).seed(), execute)</pre>
-<p class="label">Python prints</p><pre class="output">execute: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history</pre>
-<p class="label">It writes admin_log.md</p>
-<pre class="file"># Admin log
-
-Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
-
-## 2026-09-25 09:00:00, Unchecked statement
-
-- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
-- Tables named: mart.fail_history, ops_reports.fail_history
-- Script: a notebook, at commit 1a2b3c4
-- Result: worked
-
-```sql
-INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history
-```</pre>
-<p class="note">It writes <code>admin/sent.csv</code> too.</p>
-<pre class="python">print(project.run_tables(tables=project.batch_tables(&quot;ops_reports&quot;), execute=execute))</pre>
-<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.parallel=true
-execute: INSERT OVERWRITE TABLE mart.failed_runs_ops_reports
-1 of 4: mart.failed_runs_ops_reports         worked
-execute: SET hive.exec.parallel=true
-execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
-2 of 4: mart.alerts_by_severity_ops_reports  worked
-execute: SET hive.exec.parallel=true
-execute: INSERT OVERWRITE TABLE mart.alerted_runs_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
-3 of 4: mart.alerted_runs_ops_reports        worked
-execute: INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM mart.failed_runs_ops_reports AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id
-4 of 4: mart.fail_history                    worked
-Wrote 4 tables, in order.</pre>
-<p class="label">It writes admin_log.md</p>
-<pre class="file"># Admin log
-
-Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
-
-## 2026-09-25 09:00:00, Unchecked statement
-
-- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
-- Tables named: mart.fail_history, ops_reports.fail_history
-- Script: a notebook, at commit 1a2b3c4
-- Result: worked
-
-```sql
-INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history
-```
-
-## 2026-09-25 09:00:00, Unchecked statement
-
-- Call: `unchecked_hive(&quot;INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT&quot; ...)`
-- Tables named: mart.fail_history, mart.failed_runs_ops_reports
-- Script: a notebook, at commit 1a2b3c4
-- Result: worked
-
-```sql
-INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM mart.failed_runs_ops_reports AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id
-```</pre>
-<p class="note">It writes <code>admin/sent.csv</code> too.</p>
-<h5>Compare each with its original</h5>
-<p>Step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
-<pre class="python">print(project.compare_batch(&quot;ops_reports&quot;, query=query))</pre>
-<p class="label">Python prints</p><pre class="output">mart.alerted_runs_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
-mart.alerts_by_severity_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
-mart.fail_history: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.
-mart.failed_runs_ops_reports: failed, couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.failed_runs_ops_reports.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
 
@@ -6509,24 +6407,297 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.convert(&quot;ops_reports&quot;, ...)`
-- Tables named: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
-- Files: converted 2 scripts into 4 Saved tables; wrote admin/workflows/convert/ops_reports/
+- Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
+- Files: converted 2 scripts into 3 Saved tables; wrote admin/workflows/convert/ops_reports/
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.write_decisions(...)`
-- Tables named: mart.failed_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
-- Files: wrote references/mart__failed_runs_ops_reports.py; wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
+- Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
+- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked</pre>
+<p class="label">It writes references/mart__alerted_runs_ops_reports.py</p>
+<pre class="python">&quot;&quot;&quot;mart.alerted_runs_ops_reports - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+alerted_runs_ops_reports = Table(
+    &quot;mart.alerted_runs_ops_reports&quot;,
+    columns={
+        &quot;run_id&quot;: &quot;bigint&quot;,
+        &quot;alerts&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;run_id&quot;, &quot;dt&quot;],  # proposed by project.convert from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
+    location=&quot;/data/mart.db/alerted_runs_ops_reports&quot;,
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__alerted_runs_ops_reports import alerted_runs_ops_reports, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = alerted_runs_ops_reports.alerts
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(alerted_runs_ops_reports.alerts, &lt;value&gt;)</pre>
+<p class="label">It writes references/mart__alerts_by_severity_ops_reports.py</p>
+<pre class="python">&quot;&quot;&quot;mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+alerts_by_severity_ops_reports = Table(
+    &quot;mart.alerts_by_severity_ops_reports&quot;,
+    columns={
+        &quot;severity&quot;: &quot;string&quot;,
+        &quot;alerts&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=[&quot;severity&quot;, &quot;dt&quot;],  # proposed by project.convert from its query; if it is wrong, answer &quot;key&quot; in the decisions cell
+    location=&quot;/data/mart.db/alerts_by_severity_ops_reports&quot;,
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__alerts_by_severity_ops_reports import alerts_by_severity_ops_reports, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = alerts_by_severity_ops_reports.severity
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(alerts_by_severity_ops_reports.severity, &lt;value&gt;)</pre>
+<p class="label">It writes references/mart__fail_history.py</p>
+<pre class="python">&quot;&quot;&quot;mart.fail_history - TODO: say in one line what one row is.&quot;&quot;&quot;
+from sqlglot_composer import Table
+
+fail_history = Table(
+    &quot;mart.fail_history&quot;,
+    columns={
+        &quot;job_id&quot;: &quot;bigint&quot;,
+        &quot;fails&quot;: &quot;bigint&quot;,
+        &quot;dt&quot;: &quot;string&quot;,
+    },
+    partitioned_by=[&quot;dt&quot;],
+    key=None,
+    location=&quot;/data/mart.db/fail_history&quot;,
+    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
+    stored_as=&quot;ORC&quot;,
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table&#x27;s columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__fail_history import fail_history, &lt;alias&gt;
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     &lt;alias&gt; = fail_history.fails
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     &lt;alias&gt; = equals(fail_history.fails, &lt;value&gt;)</pre>
+<p class="label">It writes tables/mart__alerted_runs_ops_reports/conversion/checklist.md</p>
+<pre class="file"># Checklist: mart.alerted_runs_ops_reports
+
+Written again each time its Decisions are written: don&#x27;t tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
+
+## Open Decisions
+
+None: each Decision in references/mart__alerted_runs_ops_reports.py is made.
+
+## Notes, which block nothing
+
+- project.convert proposed its Key, (run_id, dt), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- The original was one target of a FROM with several INSERTs.</pre>
+<p class="label">It writes tables/mart__alerts_by_severity_ops_reports/conversion/checklist.md</p>
+<pre class="file"># Checklist: mart.alerts_by_severity_ops_reports
+
+Written again each time its Decisions are written: don&#x27;t tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
+
+## Open Decisions
+
+None: each Decision in references/mart__alerts_by_severity_ops_reports.py is made.
+
+## Notes, which block nothing
+
+- project.convert proposed its Key, (severity, dt), from its query: if it is wrong, answer &quot;key&quot; in the decisions cell, such as &quot;key&quot;: [&quot;a&quot;, &quot;b&quot;], or &quot;key&quot;: None when no columns name one row.
+- The original was one target of a FROM with several INSERTs.</pre>
+<p class="label">It writes tables/mart__fail_history/conversion/checklist.md</p>
+<pre class="file"># Checklist: mart.fail_history
+
+Written again each time its Decisions are written: don&#x27;t tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.
+
+## Open Decisions
+
+None: each Decision in references/mart__fail_history.py is made.
+
+## Notes, which block nothing
+
+- Make each unchecked_ piece a Toolbox function where you can.
+- Its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s seed step, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed().</pre>
+<p><code>project.check()</code> names the batch&#x27;s next step in the Workflow, the first call to the warehouse:</p>
+<pre class="python">print(project.check())</pre>
+<p class="label">Python prints</p><pre class="output">The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
+  admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. It is a call to the warehouse, yours to run: for table in project.batch_tables(&quot;ops_reports&quot;):
+    run_execute(project.load(table).create(), execute)</pre>
+<h5>Create, seed and write each table in dev</h5>
+<p>Steps 4 to 6 are calls to the warehouse, yours to run, each a cell of the Workflow&#x27;s notebook. At work they create each table in your Dev Database, seed mart.fail_history from the original, and write each, in the order they read each other. The write step sends each table&#x27;s SET lines, the original&#x27;s, before its write: here hive.exec.parallel, which makes Hive faster and changes no row. Here execute is the Example database&#x27;s, which prints the first line of each and changes nothing:</p>
+<pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;):
+    run_execute(project.load(table).create(), execute)</pre>
+<p class="label">Python prints</p><pre class="output">execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerts_by_severity_ops_reports (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerted_runs_ops_reports (
+execute: CREATE EXTERNAL TABLE IF NOT EXISTS mart.fail_history (</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)</pre>
+<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.dynamic.partition=true
+execute: SET hive.exec.dynamic.partition.mode=nonstrict</pre>
+<pre class="python">for table in project.batch_tables(&quot;ops_reports&quot;, seeded=True):
+    run_execute(project.load(table).seed(), execute)</pre>
+<p class="label">Python prints</p><pre class="output">execute: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history</pre>
+<p class="label">It writes admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 09:00:00, Unchecked statement
+
+- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
+- Tables named: mart.fail_history, ops_reports.fail_history
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+```sql
+INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history
+```</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<pre class="python">print(project.run_tables(tables=project.batch_tables(&quot;ops_reports&quot;), execute=execute))</pre>
+<p class="label">Python prints</p><pre class="output">execute: SET hive.exec.parallel=true
+execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
+1 of 3: mart.alerts_by_severity_ops_reports  worked
+execute: SET hive.exec.parallel=true
+execute: INSERT OVERWRITE TABLE mart.alerted_runs_ops_reports PARTITION(dt = &#x27;2026-09-24&#x27;)
+2 of 3: mart.alerted_runs_ops_reports        worked
+execute: WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs AS r WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status = &#x27;FAILED&#x27;) INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM failed_runs AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id
+3 of 3: mart.fail_history                    worked
+Wrote 3 tables, in order.</pre>
+<p class="label">It writes admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 09:00:00, Unchecked statement
+
+- Call: `unchecked_hive(&quot;INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * &quot; ...)`
+- Tables named: mart.fail_history, ops_reports.fail_history
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+```sql
+INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history
+```
+
+## 2026-09-25 09:00:00, Unchecked statement
+
+- Call: `unchecked_hive(&quot;WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job&quot; ...)`
+- Tables named: ops.job_runs, mart.fail_history
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+```sql
+WITH failed_runs AS (SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs AS r WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status = &#x27;FAILED&#x27;) INSERT INTO mart.fail_history PARTITION(dt = &#x27;2026-09-24&#x27;) SELECT f.job_id, COUNT(*) AS fails FROM failed_runs AS f WHERE NOT f.job_id IN (SELECT h.job_id FROM mart.fail_history AS h WHERE h.dt = &#x27;2026-09-24&#x27;) GROUP BY f.job_id
+```</pre>
+<p class="note">It writes <code>admin/sent.csv</code> too.</p>
+<h5>Compare each with its original</h5>
+<p>Step 7 compares each dev table&#x27;s rows with the table it copies, on the latest Partition both hold, and writes each result in its conversion/compare.md. The Example database holds no Dev Database, so here each says it couldn&#x27;t read its dev table; at work, once every table passes, the batch is finished:</p>
+<pre class="python">print(project.compare_batch(&quot;ops_reports&quot;, query=query))</pre>
+<p class="label">Python prints</p><pre class="output">mart.alerted_runs_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
+mart.alerts_by_severity_ops_reports: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
+mart.fail_history: failed, couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.</pre>
+<p class="label">It writes admin/admin_log.md</p>
+<pre class="file"># Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;, &quot;ops.run_alerts&quot;], query=...)`
+- Tables named: ops.jobs, ops.job_runs, ops.run_alerts
+- Files: created references/ops__jobs.py; created references/ops__job_runs.py; created references/ops__run_alerts.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block(&quot;runs_per_job&quot;)`
+- Files: created building_blocks/runs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_severity&quot;)`
+- Tables named: mart.alerts_per_severity
+- Files: created tables/mart__alerts_per_severity/ (mart__alerts_per_severity.ipynb, lineage/); created references/mart__alerts_per_severity.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.daily_job_runs&quot;)`
+- Tables named: mart.daily_job_runs
+- Files: created tables/mart__daily_job_runs/ (mart__daily_job_runs.ipynb, lineage/); created references/mart__daily_job_runs.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.alerts_per_job&quot;)`
+- Tables named: mart.alerts_per_job
+- Files: created tables/mart__alerts_per_job/ (mart__alerts_per_job.ipynb, lineage/); created references/mart__alerts_per_job.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table(&quot;mart.team_day&quot;)`
+- Tables named: mart.team_day
+- Files: created tables/mart__team_day/ (mart__team_day.ipynb, lineage/); created references/mart__team_day.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.convert(&quot;ops_reports&quot;, ...)`
+- Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
+- Files: converted 2 scripts into 3 Saved tables; wrote admin/workflows/convert/ops_reports/
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports, mart.fail_history
+- Files: wrote references/mart__alerts_by_severity_ops_reports.py; wrote references/mart__alerted_runs_ops_reports.py; wrote references/mart__fail_history.py
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked
 
 ## 2026-09-25 09:00:00, Project action
 
 - Call: `project.compare_batch(&quot;ops_reports&quot;)`
-- Tables named: mart.alerted_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.fail_history, mart.failed_runs_ops_reports
-- Files: wrote tables/mart__alerted_runs_ops_reports/conversion/compare.md; wrote tables/mart__alerts_by_severity_ops_reports/conversion/compare.md; wrote tables/mart__fail_history/conversion/compare.md; wrote tables/mart__failed_runs_ops_reports/conversion/compare.md
+- Tables named: mart.alerted_runs_ops_reports, mart.alerts_by_severity_ops_reports, mart.fail_history
+- Files: wrote tables/mart__alerted_runs_ops_reports/conversion/compare.md; wrote tables/mart__alerts_by_severity_ops_reports/conversion/compare.md; wrote tables/mart__fail_history/conversion/compare.md
 - Script: a notebook, at commit 1a2b3c4
 - Result: worked</pre>
 <p class="label">It writes tables/mart__alerted_runs_ops_reports/conversion/compare.md</p>
@@ -6565,18 +6736,6 @@ What happened:  The Example database has no table &#x27;mart.fail_history&#x27;.
   Why it matters: It holds nine made-up tables, all in the database ops.
   Usual fix:      Use ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes.
   Opt-out:        none - this one can&#x27;t be switched off.</pre>
-<p class="label">It writes tables/mart__failed_runs_ops_reports/conversion/compare.md</p>
-<pre class="file"># mart.failed_runs_ops_reports against ops_reports.failed_runs
-
-Below, the Statement is mart.failed_runs_ops_reports&#x27;s rows, and the original ops_reports.failed_runs&#x27;s.
-
-Failed: couldn&#x27;t compare: The Example database couldn&#x27;t run this Hive: it has no table mart.failed_runs_ops_reports.
-Compared at 2026-09-25 09:00:00.
-
-What happened:  The Example database couldn&#x27;t run this Hive: it has no table mart.failed_runs_ops_reports.
-  Why it matters: Most often a table, column or hive_function(...) name is spelt wrong, which your warehouse would refuse too. Or the Hive uses a part of Hive your warehouse knows but the Example database&#x27;s small executor doesn&#x27;t.
-  Usual fix:      Check the names: the tables are ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets and ops.team_notes, and all_columns(...) of one, such as all_columns(example_database.jobs), lists its columns, as the table alone on a cell&#x27;s last line does. If they&#x27;re right, see the Hive with to_hive(...), and run it at work with your own query.
-  Opt-out:        none - this one can&#x27;t be switched off.</pre>
 <h5>Promote them</h5>
 <p>Once each table has passed, <code>project.promote</code> copies their code to your Prod Database, PROD in admin/databases.py, each notebook reading the others&#x27; prod copies. Fill PROD in, as this page stands in for your edit, and it refuses before each compare has passed, naming each table:</p>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)
@@ -6594,10 +6753,10 @@ PROD = &quot;mart_prod&quot;  # such as &quot;mart&quot;</pre>
     project.promote(project.batch_tables(&quot;ops_reports&quot;))
 except ValueError as refused:
     print(str(refused).strip().splitlines()[0])</pre>
-<p class="label">Python prints</p><pre class="output">What happened:  project.promote([&#x27;mart.failed_runs_ops_reports&#x27;, &#x27;mart.alerts_by_severity_ops_reports&#x27;, &#x27;mart.alerted_runs_ops_reports&#x27;, &#x27;mart.fail_history&#x27;]) can&#x27;t promote yet: mart.failed_runs_ops_reports: its compare hasn&#x27;t passed; mart.alerts_by_severity_ops_reports: its compare hasn&#x27;t passed; mart.alerted_runs_ops_reports: its compare hasn&#x27;t passed; mart.fail_history: its compare hasn&#x27;t passed.</pre>
+<p class="label">Python prints</p><pre class="output">What happened:  project.promote([&#x27;mart.alerts_by_severity_ops_reports&#x27;, &#x27;mart.alerted_runs_ops_reports&#x27;, &#x27;mart.fail_history&#x27;]) can&#x27;t promote yet: mart.alerts_by_severity_ops_reports: its compare hasn&#x27;t passed; mart.alerted_runs_ops_reports: its compare hasn&#x27;t passed; mart.fail_history: its compare hasn&#x27;t passed.</pre>
 <p>At work, in admin/workflows/promote/promote.ipynb, name the dev tables and run its cells:</p>
-<pre class="python">project.promote([&quot;mart.failed_runs_ops_reports&quot;, &quot;mart.fail_history&quot;,
-                 &quot;mart.alerts_by_severity_ops_reports&quot;, &quot;mart.alerted_runs_ops_reports&quot;])</pre>
+<pre class="python">project.promote([&quot;mart.fail_history&quot;, &quot;mart.alerts_by_severity_ops_reports&quot;,
+                 &quot;mart.alerted_runs_ops_reports&quot;])</pre>
 <h4>Check it worked</h4>
 <p>Each table&#x27;s conversion/compare.md starts &quot;Passed:&quot;, <code>project.check()</code> names no step of the batch, which is in admin/workflows/convert/finished/, and the promote Workflow writes each in prod.</p>
 <h4>Common mistakes</h4>
@@ -16340,7 +16499,10 @@ FILES = []
 # the Hive as text, such as &quot;&quot;&quot;SELECT ...&quot;&quot;&quot;, or None to read FILES
 HIVE = None
 # the database of a table the Hive names without one
-DATABASE = &#x27;default&#x27;</pre>
+DATABASE = &#x27;default&#x27;
+# each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
+# &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
+STAGING = {}</pre>
 <p>Its decisions cell, beside it, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
@@ -16350,7 +16512,8 @@ DATABASE = &#x27;default&#x27;</pre>
 # a Key project.convert proposed is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ul>
-<pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)</pre>
+<pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)</pre>
 <ul><li>2. Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>3. Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.write_decisions(DECISIONS)</pre>
 <ul><li>4. Create each table in dev (it is a call to the warehouse, yours to run).</li></ul>
@@ -16366,7 +16529,8 @@ for table in project.batch_tables(NAME, seeded=True):
 <pre class="python">project.compare_batch(NAME, query=query)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <h5>The promote Workflow</h5>
 <p>Carries Saved tables from your Dev Database to your Prod Database.</p>
@@ -16440,7 +16604,8 @@ for table in project.promoted_tables(TABLES, seeded=True):
 <pre class="python">project.refresh_reference_sheet(project.promoted_tables(TABLES))</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <h5>The new_table Workflow</h5>
 <p>Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
@@ -16496,7 +16661,8 @@ TABLES = []</pre>
 project.run_tables(tables=TABLES, execute=execute)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 <h5>The references Workflow</h5>
 <p>Writes a Table reference for each table your Project reads, from its DESCRIBE.</p>
@@ -16546,7 +16712,8 @@ TABLES = []</pre>
 <pre class="python">project.refresh_reference_sheet(TABLES)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 <h5>The upgrade Workflow</h5>
 <p>Carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel.</p>
@@ -16576,7 +16743,8 @@ flowchart TD
 <ul><li>2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to make).</li></ul>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;upgrade&quot;)</pre>
 <h5>The change_a_saved_table Workflow</h5>
 <p>Changes a Saved table in the warehouse with one of the admin module&#x27;s Admin statements, each logged in admin/admin_log.md.</p>
@@ -16618,7 +16786,8 @@ change = admin.drop_partitions(table, where=...)  # or another: help(admin)</pre
 <pre class="python">run_execute(change, execute)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
-# Add dry_run=True to see first the Hive it would send, sending nothing:
+# Add dry_run=True to see the Hive it would send, sending nothing through your
+# execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;change_a_saved_table&quot;, query=query, execute=execute, change=change)</pre>
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says each Workflow&#x27;s next step, or that every step is done.</p>

@@ -586,9 +586,11 @@ def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
 
     files = inputs.get("FILES") or None
     hive = inputs.get("HIVE")
+    staging = inputs.get("STAGING")
     report = project.convert(str(inputs.get("NAME")), hive if isinstance(hive, str) else None,
                              files=files, query=calls.query,
-                             database=str(inputs.get("DATABASE", "default")))
+                             database=str(inputs.get("DATABASE", "default")),
+                             staging=staging if isinstance(staging, dict) else None)
     return report.lines
 
 
@@ -771,7 +773,8 @@ CONVERT = Workflow(
         Step("Convert the scripts: each table they write a Saved table in dev", PERMISSION,
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
              ("a dev Table folder per table the scripts write", "a Table reference per table"),
-             "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)",
+             "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,\n"
+             "                staging=STAGING)",
              every_batch_converted, send=convert_the_batch),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table",), ("each answer in the decisions cell",),
@@ -805,7 +808,10 @@ CONVERT = Workflow(
                   "or [] to read HIVE"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
                   "to read FILES"),
-            Input("DATABASE", "default", "the database of a table the Hive names without one")),
+            Input("DATABASE", "default", "the database of a table the Hive names without one"),
+            Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
+                  '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
+                  "folded, any other kept")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
     "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",
@@ -1048,7 +1054,8 @@ def run_cell_text(workflow: Workflow) -> str:
     """A Workflow notebook's last cell: project.run_workflow, which runs every step left."""
     given = "".join(f", {name}={name}" for name in workflow.run_with)
     return ("# Every step left, in place of their cells, up to the first only you can do.\n"
-            "# Add dry_run=True to see first the Hive it would send, sending nothing:\n"
+            "# Add dry_run=True to see the Hive it would send, sending nothing through your\n"
+            "# execute: help(project.run_workflow) says the steps it still runs:\n"
             f'project.run_workflow("{workflow.name}"{given})')
 
 

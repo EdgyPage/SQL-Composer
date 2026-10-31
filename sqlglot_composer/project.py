@@ -1800,7 +1800,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
             files: str | list[str] | None = None,
             query: Callable[[str], pd.DataFrame] | None = None,
             database: str = "default", rename: dict[str, str] | None = None,
-            overwrite: bool = False) -> ProjectReport:
+            overwrite: bool = False, staging: dict[str, str] | None = None) -> ProjectReport:
     """Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
 
     >>> from sqlglot_composer import example_database, project
@@ -1851,6 +1851,18 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     reads its copy in dev; one that reads it before its write, in the same script, reads it as
     it was; a table it only reads keeps its name, and gets a Table reference from DESCRIBE.
 
+    A staging table, a table one CREATE TABLE ... AS SELECT of the batch writes and a
+    statement after it reads, is either kept, a Saved table of its own in dev, or folded: its
+    query a Derived table in each table that reads it, never created, written, compared or
+    promoted. Left out of `staging`, a temporary table, or one a DROP later in its script
+    removes, is folded, as it was scratch; any other is kept, as something else may read it.
+    `staging` chooses for each, by its name as db.table, such as {"ops_reports.failed":
+    "keep"} or "fold"; a name without its database is in `database`. The report names each
+    staging table, folded or kept, so convert, choose, then convert again with
+    overwrite=True: a table kept before and folded now leaves its Table folder, which
+    project.remove_table removes. One a statement reading it can't take as a Derived table,
+    such as a statement kept as Hive, is kept, and the report says so.
+
     Each table in dev gets its Table folder, its notebook's logic cell building the same query
     from the Toolbox's own functions, with create(), preview() and write(): each CTE a Derived
     table, each long IN list and lookup CASE a named constant, and what no Toolbox function
@@ -1892,7 +1904,8 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
         if file is not None:
             script = Path(file).name
         scripts = [(script, _hive_given(call, hive, file))]
-    return _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame)
+    return _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame,
+                          staging or {})
 
 
 # --- A batch of scripts (Toolbox 8.0, tickets 13 and 14) -------------------------------------
@@ -1994,7 +2007,7 @@ def _hash(content: bytes) -> str:
 
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
-                   overwrite: bool, frame: FrameType) -> ProjectReport:
+                   overwrite: bool, frame: FrameType, staging: dict[str, str]) -> ProjectReport:
     """convert(...) for a batch: each script split into its statements, ordered by what reads
     what, and each table it writes a Saved table in the Dev Database, as convert says."""
     call = _action_call("convert", name, ", ...")
@@ -2003,6 +2016,9 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
     statements = converting.batch_statements(scripts, database, f"{database}.{name}")
+    staging_found = converting.staging_tables(statements)
+    folded, unfoldable = converting.fold_staging(
+        statements, _staging_choices(call, staging_found, staging, database), database)
     _refuse_a_query_named_like_another(call, statements)
     names, ordered = _batch_plan(call, statements, dev, rename)
     if not names:
@@ -2038,8 +2054,54 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
              for each in files.fresh]
     done += [f"kept {each}, before writing over it" for each in files.archived]
     _log(root, call, made, done, frame, skipped)
-    return ProjectReport(_batch_report(name, scripts, statements, made, created_only, added,
-                                       skipped, files, dev))
+    report = _batch_report(name, scripts, statements, made, created_only, added, skipped,
+                           files, dev)
+    # After its first line, which says what it converted: each staging table, and its choice.
+    report[1:1] = _staging_lines(staging_found, folded, unfoldable)
+    return ProjectReport(report)
+
+
+def _staging_lines(found: dict[str, str], folded: list[str],
+                   unfoldable: list[str]) -> list[str]:
+    """What convert's report says of the batch's staging tables: those folded, those kept, and
+    how to choose otherwise."""
+    lines = []
+    if folded:
+        lines.append(f"Folded {in_words(folded)}, each a staging table, a Derived table in the "
+                     "tables that read it: batch.md says where.")
+    kept = [table for table in found if table not in folded and table not in unfoldable]
+    if kept:
+        lines.append(f"Kept {in_words(kept)}, each a staging table, a Saved table of its own: "
+                     'staging={"<table>": "fold"} folds one.')
+    if unfoldable:
+        lines.append(f"Kept {in_words(unfoldable)}, though folded was chosen: a statement "
+                     "reading it can't take its query as a Derived table.")
+    return lines
+
+
+def _staging_choices(call: str, found: dict[str, str], staging: dict[str, str],
+                     database: str) -> dict[str, str]:
+    """The choice `staging` makes for each staging table `found`, by its name as db.table,
+    refusing a choice but "fold" or "keep", or a name that isn't one."""
+    choices = {}
+    for name, choice in staging.items():
+        given = f"staging={{{python_literal(name)}: {python_literal(choice)}}}"
+        if choice not in (converting.FOLD, converting.KEEP):
+            refuse(what=f"{call} was given {given}.",
+                   why='Each staging table is folded or kept: "fold" or "keep", in small '
+                   "letters.",
+                   fix=f'Give {python_literal(name)}: "fold" or "keep".', error=ValueError)
+        bare = name.replace("`", "").lower()
+        table = bare if "." in bare else f"{database}.{bare}"
+        if table not in found:
+            refuse(what=f"{call} was given {given}, but {table} isn't one of its staging "
+                   "tables.",
+                   why="A staging table is one CREATE TABLE ... AS SELECT of the batch writes "
+                   "and a statement after it reads.",
+                   fix=f"Its staging tables are {in_words(list(found)) or 'none'}.",
+                   error=ValueError)
+        choices[table] = choice
+    return choices
 
 
 def _refuse_a_finished_name(root: Path, name: str, call: str) -> None:

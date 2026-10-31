@@ -85,7 +85,8 @@ def test_start_makes_the_convert_workflows_notebook(started: Path) -> None:
     code = "".join("".join(cell["source"]) for cell in cells)
     # Toolbox 8.0: the calls read the names cell; no finish_conversion is left to call.
     assert "NAME = ''" in code and "FILES = []" in code and "HIVE = None" in code
-    assert "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)" in code
+    assert "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE," in code
+    assert "staging=STAGING)" in code
     assert "finish_conversion" not in code
 
 

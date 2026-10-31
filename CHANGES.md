@@ -36,6 +36,14 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   convert Workflow runs the batch its names cell names, and NAME may be a list of batches
   converted already. `project.do_next()`, the cell before, still runs only the steps that
   change files.
+- **A long script's staging table is folded.** A staging table is one a CREATE TABLE ...
+  AS SELECT of the batch writes and a statement after it reads. `project.convert` folds a
+  temporary one, or one a DROP later in its script removes, into each table that reads it,
+  a Derived table there, never created, written, compared or promoted, and keeps any other
+  a Saved table, as something else may read it; its report names each. To choose otherwise,
+  give `staging={"ops_reports.failed": "keep"}`, or `"fold"`, in the convert notebook's
+  `STAGING`, and convert again with overwrite=True; batch.md says where each folded table
+  went.
 - **Promote ends with the prod tables referenced.** Its last step, a file step
   `project.do_next()` and the runner run, refreshes the Reference sheet and the Database
   modules for the prod copies: `project.refresh_reference_sheet(project.promoted_tables(TABLES))`.
