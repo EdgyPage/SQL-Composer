@@ -7,8 +7,8 @@
   top, has a section for it;
 - the public names are exactly the list below, so a name is added or removed only here, and
   so are the admin module's and the project module's, which the star import leaves out;
-- ruff passes, with its complexity limit (C901, at most 10) on every function, but for the
-  breaks of the standard known_breaks.py lists, which may only fall;
+- ruff passes, with its complexity limit (C901, at most 10) on every function, and the
+  standard's rules, known_breaks.py listing no break;
 - requirements.txt, what a user installs, names exactly the libraries the Toolbox may import,
   pinned to the version requirements-dev.txt pins;
 - sqlglot's pin in requirements-dev.txt falls inside the range engine.py supports, and CI runs
@@ -154,8 +154,8 @@ def test_changes_has_a_section_for_the_version() -> None:
 
 
 def test_ruff_passes_with_its_complexity_limit() -> None:
-    """ruff passes, but for each break known_breaks.py lists, which may only fall, and with the
-    complexity limit the standard keeps."""
+    """ruff passes, with no break but those known_breaks.py lists (none, since Toolbox 8.0's
+    refactor), and with the complexity limit the standard keeps."""
     result = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "--no-cache", "--output-format", "json",
          toolbox_registry.FOLDER, "tests", "tools", "worked_examples"],
