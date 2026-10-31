@@ -73,16 +73,17 @@ file, the call that makes it, and what you fill in:
   below.
 - `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb,
   run_tables.ipynb and remove.ipynb: `project.start()`. You fill in the names some ask for in
-  their first cell, such as the tables to remove, and run them. Calling the same Project
+  their names cell, such as the tables to remove, and run them. Calling the same Project
   action from any notebook of the Project does just the same.
 - `admin/workflows/`, a folder per Workflow, such as new_table/, references/ and convert/,
   each holding its notebook: `project.start()`. You name what the Workflow works on in its
-  notebook's first cell, such as the tables; `project.check()` then names its next step, and
-  `project.do_next()` runs each step that changes only files.
-- admin/databases.py, the names of your Dev database and Prod database: `project.start()`.
+  notebook's names cell, such as the tables, and save it; then run each step's cell in turn,
+  or `project.do_next()`, which runs each step that changes only files for you.
+  `project.check()` names the next step.
+- admin/databases.py, the names of your Dev Database and Prod Database: `project.start()`.
   You fill in the two names, DEV and PROD.
 - admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse:
-  `project.start()`, then each send of a change. You fill in nothing.
+  `project.start()`, then each change you run on the warehouse. You fill in nothing.
 - admin/admin_log.md, the Admin log: `project.start()`, then each Project action adds an
   entry. You fill in nothing.
 - admin/registry.csv, the registry: `project.start()`, then each Project action that makes or

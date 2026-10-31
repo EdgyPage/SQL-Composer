@@ -65,8 +65,8 @@ def test_start_makes_the_conversions_folder_and_its_notebook(started: Path) -> N
                        .read_text(encoding="utf-8"))["cells"]
     code = "".join("".join(cell["source"]) for cell in cells)
     # Toolbox 8.0, ticket 12: the calls read the first cell's names, uncommented.
-    assert "NAME = ''" in code and "DATABASE = 'default'" in code
-    assert "project.convert(NAME, HIVE, query=query, database=DATABASE)" in code
+    assert "NAME = ''" in code and "HIVE = None" in code and "DATABASE = 'default'" in code
+    assert "project.convert(NAME, HIVE, file=FILE, query=query, database=DATABASE)" in code
     assert "project.finish_conversion(NAME, table=TABLE)" in code
 
 

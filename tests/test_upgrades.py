@@ -32,6 +32,10 @@ UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 # and the intermediate's naming the convert Workflow's notebook (ticket 12). Empty it when the
 # next version's frozen copy holds them.
 GAINED_BY_HAND = {"intermediate": ("README.md",), "starter": ("README.md",)}
+# What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
+# check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and
+# a notebook written while it is open is saved over. Empty it with GAINED_BY_HAND.
+LEFT_AS_IT_WAS = ("admin/check_project.ipynb",)
 upgrades = toolbox_module("upgrades")
 
 
@@ -98,11 +102,12 @@ def test_the_example_projects_of_the_version_before_are_kept_frozen() -> None:
 def files_of(folder: Path, name: str) -> dict[str, bytes]:
     """Each file of an Example project, by its path, leaving out the history an Upgrade keeps
     as it was or adds to: Lineage pages, the Admin log and the Upgrade's own checklists; and
-    what the project gained by hand in this version, GAINED_BY_HAND."""
+    what the project gained by hand in this version, GAINED_BY_HAND, and what its Upgrade
+    leaves as it was, LEFT_AS_IT_WAS."""
     def kept(relative: str) -> bool:
         return not ("/lineage/" in f"/{relative}" or relative == "admin/admin_log.md"
                     or relative.startswith(("admin/upgrade_", "admin/removed/",
-                                            *GAINED_BY_HAND.get(name, ()))))
+                                            *GAINED_BY_HAND.get(name, ()), *LEFT_AS_IT_WAS)))
 
     return {path.relative_to(folder).as_posix(): path.read_bytes().replace(b"\r\n", b"\n")
             for path in sorted(folder.rglob("*"))

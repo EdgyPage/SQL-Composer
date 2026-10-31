@@ -75,7 +75,7 @@ of dt.
 your query, turns what comes back into a Table reference file in `references/`, and adds it to
 the registry, admin/registry.csv; then it logs what it did in the Admin log. Run it from the
 references Workflow's notebook, admin/workflows/references/references.ipynb, which runs this
-call on the names in its first cell, or from any notebook in the Project's folder, as here:
+call on the names in its names cell, or from any notebook in the Project's folder, as here:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:

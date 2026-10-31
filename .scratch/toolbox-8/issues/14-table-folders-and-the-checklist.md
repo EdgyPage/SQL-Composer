@@ -25,6 +25,6 @@ two functions one for overwrite, one that doesn't", settled as `overwrite=True` 
 - Running `convert` again rewrites a file whose hash is the one it wrote, keeps an edited one
   and writes the fresh one beside it, listed; `overwrite=True` replaces every file, archiving
   each first.
-- The convert Workflow's first two steps (convert, the checklist) are in its step list, and the
+- Each step has its done function (ticket 12 left them out). The convert Workflow's first two steps (convert, the checklist) are in its step list, and the
   graph's fiddling count for convert falls by every hand step they remove.
 - CONTEXT.md's Conversion folder entry says it is the batch's index.

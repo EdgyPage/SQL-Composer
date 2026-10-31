@@ -18,7 +18,7 @@ in.
   user gives, and writes its result in `tables/<t>/conversion/`.
 - A table with no partition is compared whole, within the Load limit, or the step names the
   opt-out it needs as a decision on the checklist.
-- The step is done when every table of the instance has a passing result; a failed one names its
+- The step is done, its done function says, when every table of the instance has a passing result; a failed one names its
   differing rows, as `compare_with_original` does.
 - When the original has no partition in common with the dev copy: settled while building and
   recorded here.

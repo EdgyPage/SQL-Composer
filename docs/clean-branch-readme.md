@@ -62,10 +62,10 @@ or made by hand.
 | `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
 | `warehouse.py` | `project.start()` | `conn`, your connection |
-| `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb | `project.start()` | the names some ask for in their first cell, such as the tables to remove |
-| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's first cell, such as the tables; `project.check()` names its next step, and `project.do_next()` runs each step that changes only files |
-| `admin/databases.py`, the names of your Dev database and Prod database | `project.start()` | `DEV` and `PROD` |
-| `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` | nothing |
+| `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb | `project.start()` | the names some ask for in their names cell, such as the tables to remove |
+| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's names cell, such as the tables, then save it; run each step's cell in turn, or `project.do_next()`, which runs each step that changes only files for you; `project.check()` names the next step |
+| `admin/databases.py`, the names of your Dev Database and Prod Database | `project.start()` | `DEV` and `PROD` |
+| `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` and `project.run_tables` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
 | admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
@@ -415,8 +415,8 @@ To hand over an Excel workbook's calculations, one chat holds five files:
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
 5. In `admin/workflows/convert/convert.ipynb`, give each filled-in query to a Conversion:
-   name it in the first cell, `NAME = "sales_summary"`, paste the query as
-   `HIVE = """..."""`, and run the notebook's `project.convert(NAME, HIVE, query=query)`. Its code is checked; Copilot's Python after the Hive is only for
+   name it in the names cell, `NAME = "sales_summary"`, paste the query as
+   `HIVE = """..."""`, and run the notebook's `project.convert(...)` cell. Its code is checked; Copilot's Python after the Hive is only for
    reading, and the Conversion's code wins where the two differ.
 
 ## Update
@@ -430,7 +430,8 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Restart the kernel, which still holds the old code.
 5. If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
    new cell of `admin/check_project.ipynb`, which imports `project` already, or of
-   `admin/workflows/upgrade/upgrade.ipynb` once your Project has one (an Upgrade adds it).
+   `admin/workflows/upgrade/upgrade.ipynb` once your Project has one (`project.start()` writes
+   it, and an Upgrade adds it to a Project made before 8.0).
    Updating is copying in the new folder; an Upgrade carries your Project's files to the new version, one
    version at a time: it makes each change that needs no judgement, keeping the file as it was in the
    folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment

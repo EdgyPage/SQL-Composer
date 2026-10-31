@@ -10,7 +10,7 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 - **A notebook per Workflow, in `admin/workflows/`.** `project.start()` writes a folder for each
   Workflow, such as `new_table/`, `references/`, `convert/`, `promote/`,
-  `change_a_saved_table/` and `upgrade/`, each holding its notebook: a first cell where you
+  `change_a_saved_table/` and `upgrade/`, each holding its notebook: a names cell where you
   name what it works on, such as `TABLES = ["mart.daily_job_runs"]`, then a cell per step,
   each call reading those names, so there is no `"your_name"` left to edit.
 - **`project.check()` names each started Workflow's next step**, and **`project.do_next()`**
@@ -19,11 +19,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **`admin/` holds only what is not one Workflow's**: `check_project.ipynb` (with a
   `project.do_next()` cell), `check_references.ipynb`, `refresh_reference_sheet.ipynb`,
   `run_tables.ipynb`, `new_block.ipynb`, and `remove.ipynb`, which archives the tables,
-  Table references, Building blocks and Conversions named in its first cell.
-- **`admin/databases.py`** holds the names of your Dev database and Prod database, `DEV` and
+  Table references, Building blocks and Conversions named in its names cell.
+- **`admin/databases.py`** holds the names of your Dev Database and Prod Database, `DEV` and
   `PROD`, for you to fill in.
 - **`admin/sent.csv`** gets a row for each change a notebook of the Project sends with
-  `run_execute`: when, its kind, the tables it writes, and the notebook. A Workflow reads it to
+  `run_execute`, `project.run_tables` among them: when, its kind (such as write), the tables
+  it writes, and the notebook or script that sent it. A Workflow reads it to
   know a step that writes is done.
 
 ### To update from 7.2
@@ -33,8 +34,9 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `admin/databases.py` and `admin/sent.csv`; archives `new_table.ipynb`, `remove_table.ipynb`,
   `add_references.ipynb`, `change_a_saved_table.ipynb`, `convert.ipynb` and `upgrade.ipynb`
   from `admin/` into `admin/removed/`, since a Workflow's notebook takes the place of each; and
-  writes `new_block.ipynb` and `check_project.ipynb` again, keeping each as it was in
-  `admin/removed/`. A `warehouse.py` still as 7.2 wrote it gets 8.0's, which holds `conn`; one
+  writes `new_block.ipynb` again, keeping it as it was in `admin/removed/`.
+  `check_project.ipynb`, where you run the Upgrade, is left as it is: run `project.do_next()`
+  from any notebook. A `warehouse.py` still as 7.2 wrote it gets 8.0's, which holds `conn`; one
   you changed is yours, and stays.
 
 ### Also new

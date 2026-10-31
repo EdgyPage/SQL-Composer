@@ -90,7 +90,9 @@ _Avoid_: admin statement, migration, setup step
 
 **Workflow**:
 An ordered list of steps that takes a Project from its start materials, what the user brings,
-to one end goal, such as converting scripts or promoting tables. Each step touches only files
+to one end goal, such as converting scripts or promoting tables. The user names its inputs,
+the start materials it works on, such as the tables, once, in its notebook.
+Each step touches only files
 (or only prints), makes a call to the Warehouse the user makes on purpose, asks a decision only
 the user can make, or is fiddling: a step done by hand though the code already knows the
 answer, which the Toolbox works to remove.
