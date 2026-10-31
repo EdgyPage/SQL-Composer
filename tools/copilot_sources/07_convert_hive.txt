@@ -15,8 +15,8 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 
 ## In the Project: a Conversion
 
-A Conversion writes the code for the user. In admin/convert.ipynb, with the Hive pasted as
-`HIVE = """..."""`: `project.scan_hive(HIVE)` says what it would make; `project.convert("weekly_events", HIVE,
+A Conversion writes the code for the user. In admin/workflows/convert/convert.ipynb, with the
+Hive pasted as `HIVE = """..."""`: `project.scan_hive(HIVE)` says what it would make; `project.convert("weekly_events", HIVE,
 query=query)` writes admin/conversions/weekly_events/; `project.load("weekly_events").converted()`
 gives the Statement; `project.check()` lists each `# CONVERSION:` mark, a line above each opt-out the original
 needed, for the user to keep or take out;

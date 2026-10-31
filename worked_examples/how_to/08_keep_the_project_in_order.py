@@ -301,7 +301,7 @@ Made tables/mart__job_minutes/: mart__job_minutes.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__job_minutes.py: fill in its <...> and TODO lines.
 
-`project.remove_table`, from admin/remove_table.ipynb, moves the Table folder, whole, into
+`project.remove_table`, from admin/remove.ipynb, moves the Table folder, whole, into
 admin/removed/, named by the time, and marks its registry row removed.
 `project.remove_reference` then archives its Table reference the same way:
 
@@ -318,11 +318,11 @@ import leaves it out:
 >>> from sqlglot_composer import admin
 
 `admin.drop_table(...)` gives the one that drops a table, which you send with
-`run_execute(..., execute)`, as admin/change_a_saved_table.ipynb does. `help(admin)` lists
+`run_execute(..., execute)`, as
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb does. `help(admin)` lists
 every Admin statement.
 
-`project.remove_block` archives a Building block the same way, from admin/new_block.ipynb's
-last cell. Each refuses while something still needs what it archives:
+`project.remove_block` archives a Building block the same way, from admin/remove.ipynb. Each refuses while something still needs what it archives:
 `project.remove_reference` while the table has a Table folder, whose notebook imports it, and
 `project.remove_block` while a Table notebook or another Building block imports the block,
 naming each.

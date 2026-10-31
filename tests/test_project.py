@@ -35,12 +35,15 @@ from sqlglot_composer import (
     run_execute,
     set_admin_log,
     to_hive,
+    unchecked_hive,
 )
 
 NOW = datetime.datetime(2026, 10, 21, 9, 30, 0)
-ADMIN_NOTEBOOKS = ["add_references", "change_a_saved_table", "check_project",
-                   "check_references", "convert", "new_block", "new_table",
-                   "refresh_reference_sheet", "remove_table", "run_tables", "upgrade"]
+# The notebooks start() writes in admin/: since Toolbox 8.0 (ticket 12) only those for no
+# Workflow in particular, each Workflow's own being in admin/workflows/<name>/.
+ADMIN_NOTEBOOKS = ["check_project", "check_references", "new_block", "refresh_reference_sheet",
+                   "remove", "run_tables"]
+WORKFLOWS = toolbox_module("workflows").WORKFLOWS
 
 
 @pytest.fixture
@@ -73,8 +76,13 @@ def test_start_lays_out_a_project(started: Path) -> None:
     assert sorted(path.name for path in started.iterdir()) == [
         "admin", "building_blocks", "references", "tables", "warehouse.py"]
     assert sorted(path.name for path in (started / "admin").iterdir()) == sorted(
-        ["admin_log.md", "conversions", "project_version.txt", "registry.csv", "templates"]
+        ["admin_log.md", "conversions", "databases.py", "project_version.txt", "registry.csv",
+         "sent.csv", "templates", "workflows"]
         + [f"{name}.ipynb" for name in ADMIN_NOTEBOOKS])
+    # Toolbox 8.0, ticket 12: a folder per Workflow, each holding its notebook.
+    for workflow in WORKFLOWS:
+        assert (started / "admin" / "workflows" / workflow.name
+                / f"{workflow.name}.ipynb").is_file()
     assert sorted(path.name for path in (started / "admin" / "templates").iterdir()) == [
         "building_block.py", "quality_checks.py", "saved_table.py",
         "saved_table_reference.py"]
@@ -91,16 +99,23 @@ def test_each_admin_notebook_puts_the_project_on_the_path_and_parses(started: Pa
         for kind, text in found:
             if kind == "code":
                 ast.parse(text)
+    for workflow in WORKFLOWS:
+        found = cells(started / "admin" / "workflows" / workflow.name
+                      / f"{workflow.name}.ipynb")
+        assert "sys.path.insert(0, str(pathlib.Path.cwd().parents[2]))" in found[1][1]
+        for kind, text in found:
+            if kind == "code":
+                ast.parse(text)
 
 
 def test_the_admin_notebooks_speak_of_no_day(started: Path) -> None:
     run_tables = "\n".join(text for _, text in cells(started / "admin" / "run_tables.ipynb"))
     assert "DAY" not in run_tables and "write_day" not in run_tables
     assert "project.run_tables()" in run_tables
-    change = "\n".join(text for _, text in
-                       cells(started / "admin" / "change_a_saved_table.ipynb"))
+    folder = started / "admin" / "workflows" / "change_a_saved_table"
+    change = "\n".join(text for _, text in cells(folder / "change_a_saved_table.ipynb"))
     assert "drop_days" not in change
-    assert "admin.drop_partitions(your_table, where=" in change
+    assert "admin.drop_partitions(" in change
 
 
 def test_warehouse_py_reaches_the_example_database_until_you_change_it(started: Path) -> None:
@@ -658,14 +673,16 @@ def test_a_building_block_made_by_hand_is_adopted_with_register(started: Path) -
 def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path) -> None:
     notebook = started / "admin" / "new_block.ipynb"
     code = [text for kind, text in cells(notebook) if kind == "code"]
-    # Both lines wait, commented, for a name: run as it is, the notebook makes nothing.
-    assert code[1:] == ['# project.new_block("your_block")',
-                        '# project.remove_block("your_block")']
+    # BLOCKS waits, empty, for a name: run as it is, the notebook makes nothing.
+    assert code[1].startswith("BLOCKS = []")
     run_admin_notebook(notebook)
     assert not (started / "building_blocks" / "your_block.py").exists()
-    project.new_block("your_block")
+    run_admin_notebook(notebook, [code[0], 'BLOCKS = ["your_block"]', code[2]])
     assert (started / "building_blocks" / "your_block.py").is_file()
-    run_admin_notebook(notebook, [code[0], code[2].removeprefix("# ")])
+    remove = started / "admin" / "remove.ipynb"
+    removal = [text for kind, text in cells(remove) if kind == "code"]
+    run_admin_notebook(remove, [removal[0], 'TABLES = REFERENCES = CONVERSIONS = []\n'
+                                'BLOCKS = ["your_block"]', *removal[2:]])
     assert not (started / "building_blocks" / "your_block.py").exists()
     assert [row["removed_at"] for row in registry(started)] == ["2026-10-21 09:30:00"]
 
@@ -1480,3 +1497,48 @@ def test_an_admin_statement_run_inside_a_project_logs_in_its_admin_folder(
     run_execute(admin.drop_table(t), lambda hive: None)
     assert "## 2026-10-21 09:30:00, Admin statement\n" in log_text(started)
     assert not (started / "tables" / "admin_log.md").exists()
+
+
+# --- Workflows: check() names the next step, do_next() runs file steps (Toolbox 8.0, 12) ---
+
+
+def fill_in(started: Path, workflow: str, cell: str) -> None:
+    """Write `cell` as the first input cell of a Workflow's notebook, as a user saves it."""
+    path = started / "admin" / "workflows" / workflow / f"{workflow}.ipynb"
+    number = next(number for number, (kind, text) in enumerate(cells(path), 1)
+                  if kind == "code" and text.startswith(cell.split(" =")[0] + " ="))
+    notebooks.write_cell_text(path, number, cell)
+
+
+def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Path) -> None:
+    assert "Workflow" not in repr(project.check())
+    fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs"]')
+    assert repr(project.check()).endswith(
+        "The next step of each Workflow you have started; project.do_next() runs those that "
+        "change only files:\n"
+        "  admin/workflows/new_table/new_table.ipynb: 1. Make each Table folder, a file step: "
+        "project.new_table(TABLES)")
+
+
+def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
+    assert repr(project.do_next()).startswith("No Workflow is started")
+    fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs", "mart.team_day"]')
+    report = repr(project.do_next())
+    assert (started / "tables" / "mart__daily_job_runs").is_dir()
+    assert (started / "tables" / "mart__team_day").is_dir()
+    assert report.splitlines()[0] == "  new_table: ran project.new_table(TABLES)"
+    assert report.splitlines()[-1] == (
+        "  admin/workflows/new_table/new_table.ipynb: 2. Fill in each Table reference, a "
+        "decision")
+    # Run again, the Table folders are there, so the next step is still the decision.
+    assert repr(project.do_next("new_table")).splitlines() == [report.splitlines()[-1]]
+
+
+def test_a_send_from_a_project_adds_a_row_to_sent_csv(started: Path) -> None:
+    sent = started / "admin" / "sent.csv"
+    assert sent.read_text(encoding="utf-8") == "time,kind,tables,script\n"
+    run_execute(unchecked_hive("INSERT OVERWRITE TABLE mart.daily_job_runs SELECT 1"),
+                example_database.execute)
+    with open(sent, encoding="utf-8", newline="") as rows:
+        recorded = [(row["kind"], row["tables"]) for row in csv.DictReader(rows)]
+    assert recorded == [("unchecked", "mart.daily_job_runs")]

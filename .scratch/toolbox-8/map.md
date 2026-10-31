@@ -285,6 +285,10 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [11 One or many: every Project action takes a list](issues/11-one-or-many.md): nine actions take
   a name or a list, through `_run_for_each_name`; a refusal mid-batch notes what was done and the
   call for the rest; convert and finish_conversion wait for tickets 13 and 14.
+- [12 The admin layout](issues/12-the-admin-layout.md): `admin/workflows/<name>/` a notebook per
+  Workflow generated from its steps; agnostic notebooks in `admin/` with one `remove`;
+  `databases.py`, `sent.csv` (from `run_execute`); done functions; `check()` names next steps
+  and `do_next()` runs file steps. The version rose to 8.0 here, with `to_8_0`; fiddling 12.
 - [21 warehouse.py takes a connection](issues/21-warehouse-conn.md): `conn`, set once, and
   `query`/`execute` that pass each Hive string to `conn.query` and `conn.execute`.
 

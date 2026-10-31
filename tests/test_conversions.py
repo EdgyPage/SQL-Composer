@@ -61,12 +61,13 @@ def files(root: Path) -> list[str]:
 
 def test_start_makes_the_conversions_folder_and_its_notebook(started: Path) -> None:
     assert (started / "admin" / "conversions").is_dir()
-    cells = json.loads((started / "admin" / "convert.ipynb").read_text(
-        encoding="utf-8"))["cells"]
+    cells = json.loads((started / "admin" / "workflows" / "convert" / "convert.ipynb")
+                       .read_text(encoding="utf-8"))["cells"]
     code = "".join("".join(cell["source"]) for cell in cells)
-    assert 'HIVE = """' in code and "project.scan_hive(HIVE, database=DATABASE)" in code
-    assert '# project.convert("your_name", HIVE, query=query, database=DATABASE)' in code
-    assert '# project.finish_conversion("your_name", table="mart.your_table")' in code
+    # Toolbox 8.0, ticket 12: the calls read the first cell's names, uncommented.
+    assert "NAME = ''" in code and "DATABASE = 'default'" in code
+    assert "project.convert(NAME, HIVE, query=query, database=DATABASE)" in code
+    assert "project.finish_conversion(NAME, table=TABLE)" in code
 
 
 # --- scan_hive --------------------------------------------------------------------------------

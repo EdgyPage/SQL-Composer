@@ -6,13 +6,44 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 8.0 is being built on dev; this section grows with it, and ships when it is done.
 
+### Workflows
+
+- **A notebook per Workflow, in `admin/workflows/`.** `project.start()` writes a folder for each
+  Workflow, such as `new_table/`, `references/`, `convert/`, `promote/`,
+  `change_a_saved_table/` and `upgrade/`, each holding its notebook: a first cell where you
+  name what it works on, such as `TABLES = ["mart.daily_job_runs"]`, then a cell per step,
+  each call reading those names, so there is no `"your_name"` left to edit.
+- **`project.check()` names each started Workflow's next step**, and **`project.do_next()`**
+  runs each next step that changes only files, in order, up to the first that is yours: a
+  decision, or a call to the warehouse, which it names with its call. It never sends anything.
+- **`admin/` holds only what is not one Workflow's**: `check_project.ipynb` (with a
+  `project.do_next()` cell), `check_references.ipynb`, `refresh_reference_sheet.ipynb`,
+  `run_tables.ipynb`, `new_block.ipynb`, and `remove.ipynb`, which archives the tables,
+  Table references, Building blocks and Conversions named in its first cell.
+- **`admin/databases.py`** holds the names of your Dev database and Prod database, `DEV` and
+  `PROD`, for you to fill in.
+- **`admin/sent.csv`** gets a row for each change a notebook of the Project sends with
+  `run_execute`: when, its kind, the tables it writes, and the notebook. A Workflow reads it to
+  know a step that writes is done.
+
+### To update from 7.2
+
+- **Run `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, then read
+  `admin/upgrade_8.0.md`. It adds `admin/workflows/`, `admin/remove.ipynb`,
+  `admin/databases.py` and `admin/sent.csv`; archives `new_table.ipynb`, `remove_table.ipynb`,
+  `add_references.ipynb`, `change_a_saved_table.ipynb`, `convert.ipynb` and `upgrade.ipynb`
+  from `admin/` into `admin/removed/`, since a Workflow's notebook takes the place of each; and
+  writes `new_block.ipynb` and `check_project.ipynb` again, keeping each as it was in
+  `admin/removed/`. A `warehouse.py` still as 7.2 wrote it gets 8.0's, which holds `conn`; one
+  you changed is yours, and stays.
+
 ### Also new
 
 - **warehouse.py holds your connection.** A new Project's warehouse.py holds `conn`, your
   connection to the warehouse, which you set once, in place of the Example database; its
   `query` and `execute` pass each Hive string to `conn.query`, which gives back a DataFrame, and
-  `conn.execute`, which gives back nothing. Every notebook still imports `query` and `execute`
-  from it, and every Toolbox call takes them as before. A Project's own warehouse.py is yours:
+  `conn.execute`, which runs a change: whatever it gives back, `execute` drops. Every
+  notebook still imports `query` and `execute` from it, and every Toolbox call takes them as before. A Project's own warehouse.py is yours:
   one written the 7.x way, with its own query and execute, keeps working as it is. A Project
   from before 7.0, which still holds send.py, writes a new warehouse.py, setting `conn` as
   above, and deletes send.py, as 7.0's notes said.

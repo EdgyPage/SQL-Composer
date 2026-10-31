@@ -27,19 +27,11 @@ NOW = datetime.datetime(2026, 10, 26, 9, 30, 0)
 VERSION = sqlglot_composer.TOOLBOX_VERSION
 ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
-# What each Example project gained by hand in this version, which no Upgrade makes: 7.2's
-# Intermediate project finished a Conversion, mart.team_failures, so its files, and the files
-# that list it, are left out of the comparison. Empty it when the next version's frozen copy
-# holds them.
-GAINED_BY_HAND = {
-    "intermediate": ("README.md", "admin/registry.csv", "references/mart.py",
-                     "references/reference_sheet.csv", "references/mart__team_failures.py",
-                     "tables/mart__team_failures/",
-                     # Toolbox 8.0's warehouse.py, which holds conn (ticket 21). Ticket 20's
-                     # Upgrade step carries it, and takes this entry out.
-                     "warehouse.py"),
-    "starter": ("warehouse.py", "README.md"),  # the same, and the README that says to set conn
-}
+# What each Example project gained by hand in this version, which no Upgrade makes, left out of
+# the comparison: 8.0's READMEs, the starter's saying to set conn, your connection (ticket 21),
+# and the intermediate's naming the convert Workflow's notebook (ticket 12). Empty it when the
+# next version's frozen copy holds them.
+GAINED_BY_HAND = {"intermediate": ("README.md",), "starter": ("README.md",)}
 upgrades = toolbox_module("upgrades")
 
 
@@ -57,9 +49,12 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> Pa
 
 
 def made_by_7_1(root: Path) -> Path:
-    """The Project as 7.1 left it: no admin/project_version.txt, and no admin/upgrade.ipynb."""
+    """The Project as 7.1 left it, as far as an Upgrade reads: no admin/project_version.txt, and
+    none of what 7.2 and 8.0 added, such as admin/workflows/upgrade/upgrade.ipynb."""
     (root / "admin" / "project_version.txt").unlink()
-    (root / "admin" / "upgrade.ipynb").unlink()
+    shutil.rmtree(root / "admin" / "workflows")
+    for name in ("databases.py", "sent.csv", "remove.ipynb"):
+        (root / "admin" / name).unlink()
     return root
 
 
@@ -136,11 +131,13 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     made_by_7_1(started)
     assert repr(project.upgrade()) == (
         f"Upgraded the Project from 7.1 to {VERSION}.\n"
+        "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.\n"
         f"{VERSION}: nothing to change by hand. admin/upgrade_{VERSION}.md lists what it did.")
     assert upgrades.project_version(started) == VERSION
-    assert (started / "admin" / "upgrade.ipynb").is_file()
+    assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
+    checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
+    assert "- added admin/workflows/upgrade/upgrade.ipynb\n" in checklist
     checklist = (started / "admin" / f"upgrade_{VERSION}.md").read_text(encoding="utf-8")
-    assert "- added admin/upgrade.ipynb\n" in checklist
     assert f"Nothing: {VERSION} needs nothing changed by hand." in checklist
 
 
@@ -150,8 +147,9 @@ def test_an_upgrade_is_logged_as_a_project_action(started: Path) -> None:
     log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
     entry = log.split("## 2026-10-26 09:30:00, Project action")[-1]
     assert "- Call: `project.upgrade()`" in entry
-    assert (f"- Files: added admin/upgrade.ipynb; wrote admin/upgrade_{VERSION}.md; wrote "
-            f"admin/project_version.txt: {VERSION}") in entry
+    assert "added admin/workflows/upgrade/upgrade.ipynb" in log
+    assert (f"wrote admin/upgrade_{VERSION}.md; wrote admin/project_version.txt: {VERSION}"
+            in entry)
 
 
 def test_an_upgrade_run_again_does_nothing(started: Path) -> None:
@@ -289,7 +287,7 @@ def test_check_says_a_project_behind_its_toolbox_needs_an_upgrade(started: Path)
     assert repr(project.check()) == (
         f"The Project was last written by Toolbox 7.1, and this Toolbox is {VERSION}: run "
         "project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-        "admin/upgrade.ipynb once the Project has one.")
+        "admin/workflows/upgrade/upgrade.ipynb once the Project has one.")
 
 
 def test_check_says_a_newer_toolbox_last_wrote_the_project(started: Path) -> None:

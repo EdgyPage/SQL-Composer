@@ -1,11 +1,11 @@
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 7.2)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.0)
 
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always

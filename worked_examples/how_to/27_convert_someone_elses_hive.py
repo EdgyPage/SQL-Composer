@@ -35,8 +35,9 @@ Work in a copy of the Intermediate Example project, at its top, as
 
 ### Paste the Hive in
 
-Open admin/convert.ipynb, which `project.start()` wrote, and paste the Hive between the triple
-quotes of its `HIVE` cell. Set DATABASE there too: a table the Hive names without its
+Open admin/workflows/convert/convert.ipynb, which `project.start()` wrote, and fill in its
+first cell: the Conversion's name as NAME, and the Hive between the triple quotes of HIVE. Set
+DATABASE there too: a table the Hive names without its
 database, such as job_events, is taken to be in it. This Hive names each table's database,
 so the calls below leave database= out.
 

@@ -29,4 +29,6 @@ exports references and renames tables. This scales from 1 to n statements." Thei
 - A DESCRIBE that fails stops nothing already written and names each table skipped, as
   `add_references` does.
 - CONTEXT.md's Conversion entry says "one or more scripts" and the naming rule.
+- `project.check()` names `admin/databases.py` while `DEV` or `PROD` still holds its `<...>`
+  (moved here from ticket 12, since this is the first ticket that reads `DEV`).
 - Settled while building and recorded here: how an unparseable statement's names are swapped.

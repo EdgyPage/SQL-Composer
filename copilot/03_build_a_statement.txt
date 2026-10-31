@@ -1,9 +1,9 @@
-# Copilot file 03: building a Statement (sqlglot Composer 7.2)
+# Copilot file 03: building a Statement (sqlglot Composer 8.0)
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
 Load this file when the user asks for rows, counts, totals or a list from their tables.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always

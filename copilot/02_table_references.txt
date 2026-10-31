@@ -1,10 +1,10 @@
-# Copilot file 02: Table references (sqlglot Composer 7.2)
+# Copilot file 02: Table references (sqlglot Composer 8.0)
 
 Objective: describe a table to the Toolbox with a Table reference, and check what it says.
 Load this file when the user adds a table to read, writes the Table reference of a new Saved
 table, or asks about a table's columns, partitions or Key.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.0, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell or a file, then a few plain sentences.
 
 ## Always

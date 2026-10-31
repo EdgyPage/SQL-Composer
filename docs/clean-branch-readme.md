@@ -62,10 +62,13 @@ or made by hand.
 | `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
 | `warehouse.py` | `project.start()` | `conn`, your connection |
-| `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
+| `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb | `project.start()` | the names some ask for in their first cell, such as the tables to remove |
+| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's first cell, such as the tables; `project.check()` names its next step, and `project.do_next()` runs each step that changes only files |
+| `admin/databases.py`, the names of your Dev database and Prod database | `project.start()` | `DEV` and `PROD` |
+| `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
-| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
 | an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
@@ -90,7 +93,7 @@ which one sends a Statement, by calling `run_query(s, query)` or `run_execute(s,
 ```python
 import my_api  # your team's library
 
-# Your connection: its query(sql) gives back a DataFrame, its execute(sql) gives back nothing.
+# Your connection: its query(sql) gives back a DataFrame, its execute(sql) runs a change.
 conn = my_api.connect()
 ```
 
@@ -411,9 +414,9 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
-5. In `admin/convert.ipynb`, give each filled-in query to a Conversion:
-   `project.convert("sales_summary", HIVE, query=query)`, with the query pasted as
-   `HIVE = """..."""`. Its code is checked; Copilot's Python after the Hive is only for
+5. In `admin/workflows/convert/convert.ipynb`, give each filled-in query to a Conversion:
+   name it in the first cell, `NAME = "sales_summary"`, paste the query as
+   `HIVE = """..."""`, and run the notebook's `project.convert(NAME, HIVE, query=query)`. Its code is checked; Copilot's Python after the Hive is only for
    reading, and the Conversion's code wins where the two differ.
 
 ## Update
@@ -427,8 +430,8 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Restart the kernel, which still holds the old code.
 5. If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
    new cell of `admin/check_project.ipynb`, which imports `project` already, or of
-   `admin/upgrade.ipynb` once your Project has one (its first Upgrade adds it). Updating is
-   copying in the new folder; an Upgrade carries your Project's files to the new version, one
+   `admin/workflows/upgrade/upgrade.ipynb` once your Project has one (an Upgrade adds it).
+   Updating is copying in the new folder; an Upgrade carries your Project's files to the new version, one
    version at a time: it makes each change that needs no judgement, keeping the file as it was in the
    folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
    at the line. Work through the boxes in the checklist it writes in admin/, named for the

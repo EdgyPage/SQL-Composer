@@ -40,12 +40,22 @@ Project's warehouse.py. The user chooses which call sends each
 Statement; the Toolbox never chooses for them.
 _Avoid_: backend, engine, server, platform, send
 
+**Dev Database**:
+The database in the Warehouse where the user may create and write tables of their own: each
+Saved table is built, written and compared there first.
+_Avoid_: sandbox, scratch schema, my db
+
+**Prod Database**:
+The database others read the user's finished Saved tables from. A table reaches it only once
+promoted from the Dev Database.
+_Avoid_: live, production schema
+
 ### The user's own scripts
 
 **Project**:
 The user's folder at work holding the Toolbox and their own scripts in one fixed layout: an
-admin folder, a flat folder of Table references, Building blocks, and a Table folder for each
-Saved table they build. It records, in its admin folder, the Toolbox version that last wrote it.
+admin folder, which holds a folder per Workflow, a flat folder of Table references, Building
+blocks, and a Table folder for each Saved table they build. It records, in its admin folder, the Toolbox version that last wrote it.
 _Avoid_: workspace, repo, codebase
 
 **Table folder**:
@@ -70,7 +80,8 @@ _Avoid_: manifest, inventory, index
 **Project action**:
 A one-time change to a Project's files - starting a Project, creating or removing a Table
 folder or a Building block, adding Table references, upgrading the Project, converting Hive and
-finishing a Conversion - run from the admin folder and recorded in the Admin log. One that
+finishing a Conversion - run from the admin folder or a Workflow's notebook, and recorded in
+the Admin log. One that
 takes a name takes a list of names too, each done in turn. Where an Admin statement changes the
 warehouse, a Project action changes only files. The user makes only the Project's folder and
 the copy of the Toolbox in it; a Project action makes every other file, for the user to fill
