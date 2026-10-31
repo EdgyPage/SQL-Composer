@@ -176,11 +176,14 @@ def test_a_source_whose_describe_fails_is_named_and_the_rest_written(started: Pa
 
 
 def test_two_tables_that_read_each_other_are_refused(started: Path) -> None:
-    (started / "loop.hql").write_text(
-        "INSERT OVERWRITE TABLE a.x SELECT y.id FROM a.y y;\n"
-        "INSERT OVERWRITE TABLE a.y SELECT x.id FROM a.x x;\n", encoding="utf-8")
+    # In one script, a read before its table's write reads the table as it was; across two
+    # scripts, each must come first.
+    (started / "x.hql").write_text("INSERT OVERWRITE TABLE a.x SELECT y.id FROM a.y y;\n",
+                                   encoding="utf-8")
+    (started / "y.hql").write_text("INSERT OVERWRITE TABLE a.y SELECT x.id FROM a.x x;\n",
+                                   encoding="utf-8")
     with pytest.raises(ValueError, match=r"a\.x.*a\.y|a\.y.*a\.x"):
-        project.convert("loop", files=["loop.hql"], query=example_database.query)
+        project.convert("loop", files=["x.hql", "y.hql"], query=example_database.query)
 
 
 def test_two_tables_with_one_dev_name_are_refused_until_one_is_renamed(started: Path) -> None:
@@ -201,3 +204,71 @@ def test_one_query_still_converts_as_one(started: Path) -> None:
     project.convert("failed", "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
                     query=example_database.query)
     assert (started / "admin" / "conversions" / "failed" / "failed.ipynb").is_file()
+
+
+# --- What the spec review found -------------------------------------------------------------
+
+
+def convert_script(root: Path, text: str) -> str:
+    (root / "script.hql").write_text(text, encoding="utf-8")
+    return repr(project.convert("script", files=["script.hql"], query=example_database.query,
+                                database="ops"))
+
+
+def test_a_comment_above_a_truncate_still_makes_its_insert_into_an_overwrite(
+        started: Path) -> None:
+    convert_script(started, "CREATE TABLE ops_reports.tot (job_id BIGINT);\n"
+                            "-- empty it first\nTRUNCATE TABLE ops_reports.tot;\n"
+                            "INSERT INTO ops_reports.tot SELECT j.job_id FROM ops.jobs j;\n")
+    assert "INSERT_OVERWRITE(tot_ops_reports" in logic(started, "mart_dev.tot_ops_reports")
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "`TRUNCATE TABLE ops_reports.tot`: nothing: the write after it" in index
+
+
+def test_msck_repair_becomes_nothing(started: Path) -> None:
+    convert_script(started, "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n"
+                            "MSCK REPAIR TABLE ops_reports.tot;\n")
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "`MSCK REPAIR TABLE ops_reports.tot`: nothing: write() adds" in index
+
+
+def test_a_statement_sqlglot_reads_as_a_command_still_gets_its_names_swapped(
+        started: Path) -> None:
+    convert_script(started, "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n"
+                            "LOAD DATA INPATH '/landing/tot' INTO TABLE ops_reports.tot;\n")
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert "INTO TABLE mart_dev.tot_ops_reports" in index
+
+
+def test_a_create_with_no_write_still_gets_its_table_reference(started: Path) -> None:
+    convert_script(started,
+                   "CREATE TABLE ops_reports.lonely (a INT) PARTITIONED BY (dt STRING);\n"
+                   "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
+    text = reference(started, "mart_dev.lonely_ops_reports")
+    assert '"a": "int"' in text and 'partitioned_by=["dt"]' in text
+
+
+def test_a_table_read_before_the_batch_writes_it_is_read_as_it_was(started: Path) -> None:
+    # The first statement reads ops.jobs before the second writes it: it reads the original.
+    convert_script(started,
+                   "CREATE TABLE ops_reports.before AS SELECT j.job_id FROM ops.jobs j;\n"
+                   "INSERT OVERWRITE TABLE ops.jobs SELECT j.job_id, j.job_name, j.team, "
+                   "j.region FROM ops.jobs j;\n")
+    before = logic(started, "mart_dev.before_ops_reports")
+    assert "ops.jobs" in before and "jobs_ops" not in before
+
+
+def test_a_table_that_reads_itself_is_named_and_kept_as_hive(started: Path) -> None:
+    report = convert_script(
+        started, "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n"
+                 "INSERT INTO TABLE ops_reports.grows SELECT g.job_id "
+                 "FROM ops_reports.grows g;\n")
+    assert "mart_dev.grows_ops_reports (it reads its own table" in report
+    assert not (started / "tables" / "mart_dev__grows_ops_reports").exists()
+    index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+    assert ("a write to mart_dev.grows_ops_reports its notebook doesn't make, kept as Hive"
+            in index)

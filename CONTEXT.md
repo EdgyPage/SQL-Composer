@@ -116,6 +116,12 @@ Unchecked pieces, and each risk the original took is marked `# CONVERSION:` for 
 decide.
 _Avoid_: migration, port, translation, import, upgrade
 
+**Batch**:
+One or more scripts of Hive converted together by one Conversion, with every statement in
+them ordered by what reads what. Its scripts, as given, and the list of what each statement
+became are kept in the convert Workflow's folder, under the batch's name.
+_Avoid_: job, bundle, script set
+
 **Conversion folder**:
 The folder in a Project's admin folder holding one Conversion until it becomes a Table folder:
 the Hive as given, the scan of it, and the converted notebook with the cells that compare it
