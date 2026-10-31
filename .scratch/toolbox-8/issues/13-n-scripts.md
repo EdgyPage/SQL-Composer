@@ -84,3 +84,7 @@ Review (2026-10-31):
   reads the table as it was (settled here: a cycle is only across scripts); a table that reads
   itself is named, its write kept as Hive in batch.md, until ticket 15's seed.
 - Drift: D324 to D326, fixed in the commit after 7e20352.
+- Drift: D327 to D329, fixed in the commit after 062bb4a.
+- Beginner reader: [reports/13-beginner-reader.md](../reports/13-beginner-reader.md), with what
+  was done for each stop: an unknown rename= key and a batch run again are refused before
+  anything is written, a guessed type is named, and Next names location=.

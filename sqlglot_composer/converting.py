@@ -55,7 +55,9 @@ class Unconvertible(Exception):
 
 
 class ConversionRefused(Exception):
-    """Hive a Conversion of one query can't take, such as an INSERT ... VALUES."""
+    """Hive a Conversion can't take: one query it can't read, such as an INSERT ...
+    VALUES, or a batch it can't order or name, such as two tables in different scripts that
+    read each other."""
 
 
 @dataclass
@@ -1687,7 +1689,8 @@ def insert_hive(statement: BatchStatement, names: dict[str, str], database: str,
                overwrite: bool) -> str:
     """The Hive of a write as its Saved table makes it: a CREATE ... AS as an INSERT OVERWRITE
     of its query, an INSERT as written, INSERT OVERWRITE when `overwrite`, as a TRUNCATE before
-    an INSERT INTO makes it; every table the batch writes named as its copy in dev."""
+    an INSERT INTO makes it; each table `names` holds named as its copy in dev, those the
+    batch writes before it, as names_by_then gives them."""
     swapped = read_hive(with_dev_names(statement, names, database))[0]
     if statement.kind == CREATE_AS:
         written = exp.to_table(names[statement.table])

@@ -249,6 +249,17 @@ def test_a_create_with_no_write_still_gets_its_table_reference(started: Path) ->
                    "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
     text = reference(started, "mart_dev.lonely_ops_reports")
     assert '"a": "int"' in text and 'partitioned_by=["dt"]' in text
+    # It has no logic, so no Table folder, and the report says so.
+    assert not (started / "tables" / "mart_dev__lonely_ops_reports").exists()
+
+
+def test_the_report_names_a_table_only_created_apart(started: Path) -> None:
+    report = convert_script(
+        started, "CREATE TABLE ops_reports.lonely (a INT);\n"
+                 "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
+    assert "into 1 Saved table in mart_dev: mart_dev.tot_ops_reports." in report
+    assert ("A Table reference alone, since the scripts create it and never write it: "
+            "mart_dev.lonely_ops_reports.") in report
 
 
 def test_a_table_read_before_the_batch_writes_it_is_read_as_it_was(started: Path) -> None:
@@ -272,3 +283,30 @@ def test_a_table_that_reads_itself_is_named_and_kept_as_hive(started: Path) -> N
         encoding="utf-8")
     assert ("a write to mart_dev.grows_ops_reports its notebook doesn't make, kept as Hive"
             in index)
+
+
+# --- What the beginner reader found ----------------------------------------------------------
+
+
+def test_a_rename_of_a_table_the_scripts_dont_write_is_refused(started: Path) -> None:
+    with pytest.raises(ValueError, match="rename= names team_failures"):
+        project.convert("ops_reports", files=["weekly.hql"], query=example_database.query,
+                        database="ops", rename={"team_failures": "teams"})
+    assert not batch_folder(started).exists()
+
+
+def test_a_batch_run_again_is_refused_before_anything_is_written(started: Path,
+                                                                batch: str) -> None:
+    with pytest.raises(FileExistsError, match="mart_dev.failed_runs_ops_reports"):
+        project.convert("again", files=["daily.hql", "weekly.hql"],
+                        query=example_database.query, database="ops")
+    assert not (started / "admin" / "conversions" / "failed_runs_ops_reports").exists()
+    assert not (started / "admin" / "workflows" / "convert" / "again").exists()
+
+
+def test_a_type_neither_its_query_nor_describe_tells_is_named_to_check(started: Path) -> None:
+    report = convert_script(
+        started, "CREATE TABLE ops_reports.labels AS SELECT j.job_id, "
+                 "CASE WHEN j.team = 'a' THEN 'x' ELSE 'y' END AS label FROM ops.jobs j;\n")
+    assert 'Types to check, each written as "string"' in report
+    assert "mart_dev.labels_ops_reports.label" in report

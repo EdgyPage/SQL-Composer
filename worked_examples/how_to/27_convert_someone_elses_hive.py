@@ -218,7 +218,7 @@ Intermediate Example project's days_rewritten.py does. Its INSERT line:
 
 - **Scanning a script.** `project.scan_hive` reads one query, and refuses a script of
   several, SET lines aside. `project.convert` takes the script as it is, as a batch: each
-  table it creates or writes becomes a Saved table in your Dev Database. Give it several
+  table it writes becomes a Saved table in your Dev Database. Give it several
   scripts with `files=[...]`.
 - **Leaving the marks.** A `# CONVERSION:` mark is a chance the original took, such as a join
   that may repeat rows. Decide each: keep the opt-out, or fix the query, then delete the mark.
