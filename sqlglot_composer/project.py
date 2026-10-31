@@ -1175,7 +1175,8 @@ def check() -> ProjectReport:
     project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
     needs that newer Toolbox copied in; an admin/project_version.txt that holds no version;
     each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line; each
-    `# CONVERSION:` mark project.convert left for you, with its file and line; and the next
+    `# CONVERSION:` mark project.convert left for you, with its file and line; each file of
+    a prod copy project.promote wrote that was changed or deleted by hand since; and the next
     step of each Workflow you have started, in admin/workflows/, with its call, which
     project.do_next() runs for you when it can.
 
@@ -1915,8 +1916,8 @@ def _dev_database(root: Path, call: str) -> str:
     if not dev or workflows.PLACEHOLDER.fullmatch(dev):
         refuse(
             what=f"{call}: DEV in admin/databases.py isn't filled in.",
-            why="A batch makes each table its scripts write a Saved table in your Dev "
-            "Database, the one DEV names.",
+            why="A Conversion makes each table a Saved table in your Dev Database, and a "
+            "Promotion copies tables from it: the one DEV names.",
             fix='Write your Dev Database\'s name in admin/databases.py, such as DEV = '
             '"mart_dev", and save it.',
             error=ValueError,
@@ -2797,30 +2798,43 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"', '"mart_dev"')
     ...                          .replace('"<PROD_DATABASE>"', '"mart"'))
     >>> _ = project.new_table("mart_dev.daily_runs")
-    >>> print(project.promote("mart_dev.daily_runs"))
-    Promoted mart_dev.daily_runs to mart.daily_runs: tables/mart__daily_runs/ and
-    references/mart__daily_runs.py.
-    Next: fill in location= in each prod Table reference that has none, then run the promote
-    Workflow's next steps, in admin/workflows/promote/promote.ipynb: create each table in prod,
-    seed each that reads itself, and write each.
+    >>> try:
+    ...     project.promote("mart_dev.daily_runs")
+    ... except ValueError as refused:
+    ...     print(str(refused).strip().splitlines()[0])
+    What happened:  project.promote("mart_dev.daily_runs") can't promote yet:
+    mart_dev.daily_runs: references/mart_dev__daily_runs.py still has <COLUMN> to fill in;
+    mart_dev.daily_runs:
+    tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb still has <SOURCE_NAME> to fill in.
+
+    A table new_table just made isn't finished, so it isn't promoted: once its Table reference
+    and notebook are filled in and its write runs in dev, promote copies it to prod.
 
     Your Dev Database, DEV in admin/databases.py, is where you build and check; your Prod
-    Database, PROD, where tables other people rely on are written. A table reaches prod only
-    by this call: each dev Table folder and Table reference gets a prod copy, named for PROD,
-    its name kept, such as mart_dev.weekly_events_ops_reports becoming
-    mart.weekly_events_ops_reports, unless rename= names it, as rename={"mart_dev.weekly_events_
-    ops_reports": "weekly_events"} does. Every promoted notebook that reads another promoted
-    table reads its prod copy. Its Table reference keeps its columns and Key; its location= is
-    the dev one with the Dev Database's name made the Prod Database's, or None for you to fill
-    in when the dev one doesn't name it, or the one you filled in when promoted before.
+    Database, PROD, where tables other people rely on are written. A table reaches prod only by
+    this call: each dev table's Table folder and Table reference get a prod copy, named for
+    PROD with its name kept, such as mart_dev.weekly_events_ops_reports, which a Conversion
+    named for its original, ops_reports.weekly_events, becoming mart.weekly_events_ops_reports.
+    rename= gives a prod copy a name of its own, by its dev name, the name alone, without a
+    database:
+
+        project.promote(tables, rename={"mart_dev.weekly_events_ops_reports": "weekly_events"})
+
+    A table promoted before keeps its prod name when promoted again without rename=. Every
+    promoted notebook that reads another promoted table reads its prod copy; a renamed one is
+    imported under its dev name, so the code that uses it reads as it did. Its Table reference
+    keeps its columns and Key; its location= is the one you filled in when promoted before,
+    else the dev one with each folder named for the Dev Database, such as mart_dev.db, named
+    for the Prod Database, or None for you to fill in, as the report says.
 
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
-    with no Table folder, one whose conversion/checklist.md has a box unticked, one a Conversion
-    made whose compare hasn't passed (project.compare_batch), and one that reads a dev table not
-    promoted with it. Dev stays the source: change the dev copy and promote it again, which
-    archives the prod copy into admin/removed/ first. A prod copy edited by hand is reported by
-    project.check(), as promote would write over it. `tables` is one name or a list, each a dev
-    table's.
+    with no Table reference; one with a <...> left to fill in; one whose
+    conversion/checklist.md has a box unticked; one a Conversion made whose compare hasn't
+    passed (project.compare_batch); one that reads a dev table not promoted with it; and one
+    whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
+    promote it again, which archives the prod copy into admin/removed/ first. project.check()
+    reports a prod copy edited by hand, its notebook or its Table reference but its location=,
+    as promote would write over it. `tables` is one name or a list, each a dev table's.
     """
     frame = callers_frame()
     call = _action_call("promote", tables)
@@ -2831,62 +2845,83 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
         tables = [tables]
     if rename is None:
         rename = {}
-    names = _prod_names(root, call, tables, rename, dev_db, prod_db)
+    names = _prod_names(root, call, tables, rename, (dev_db, prod_db))
+    _refuse_a_full_name(call, rename)
     problems = _promotion_problems(root, names, dev_db)
     if problems:
         refuse(
             what=f"{call} can't promote yet: " + "; ".join(problems) + ".",
-            why="A table reaches prod only once it is decided, compared with its original, and "
-            "promoted with each dev table it reads, so prod never reads dev.",
-            fix="Tick each box, run project.compare_batch(...) for a Conversion's tables, and "
-            "promote each table a promoted one reads with it, then promote again.",
+            why="A table reaches prod only once it is filled in, each box ticked, compared "
+            "with its original if a Conversion made it, and promoted with each dev table it "
+            "reads, so prod never reads dev.",
+            fix="Fill in each <...>, tick each box, run project.compare_batch(...) for a "
+            "Conversion's tables, and promote each table a promoted one reads with it, then "
+            "promote again.",
             error=ValueError,
         )
-    record = workflows.promoted_record(root)
+    # A table promoted before under another name is promoted under this one alone now.
+    record = {prod: entry for prod, entry in workflows.promoted_record(root).items()
+              if entry["dev"] not in names}
     now = unchecked.now()
-    written = []
+    written, lines = [], []
     for dev, prod in names.items():
-        promoted_before = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
-        written += _archive_prod_copy(root, prod, now)
-        _write_prod_reference(root, dev, prod, names, (dev_db, prod_db), promoted_before)
-        record[prod] = {"dev": dev,
-                        "seeded": "def seed(" in _logic_text(root, dev),
-                        "files": _write_prod_folder(root, dev, prod, names, dev_db, prod_db)}
-        _register_table(root, prod, folder=True)
-        written.append(f"wrote {TABLE_FOLDER.shown(table_stem(prod))} and "
-                       f"{REFERENCE.shown(table_stem(prod))}")
+        record[prod], done, line = _promote_one(root, dev, prod, names, (dev_db, prod_db), now)
+        written += done
+        lines.append(line)
     _write_databases(root)
-    (root / workflows.PROMOTED).parent.mkdir(parents=True, exist_ok=True)
-    (root / workflows.PROMOTED).write_text(json.dumps(record, indent=1, sort_keys=True),
-                                           encoding="utf-8")
+    workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
-    lines = [f"Promoted {dev} to {prod}: {TABLE_FOLDER.shown(table_stem(prod))} and "
-             f"{REFERENCE.shown(table_stem(prod))}." for dev, prod in names.items()]
     lines.append("Next: fill in location= in each prod Table reference that has none, then run "
                  "the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: "
                  "create each table in prod, seed each that reads itself, and write each.")
     return ProjectReport(lines)
 
 
+def _promote_one(root: Path, dev: str, prod: str, names: dict[str, str],
+                 databases: tuple[str, str], now: datetime.datetime
+                 ) -> tuple[dict[str, object], list[str], str]:
+    """Promote one dev table, `databases` the Dev and Prod Database: archive its prod copy
+    promoted before, write its prod Table reference, and its Table folder when it has one, and
+    register them. Gives its record, what it did for the Admin log, and its report's line."""
+    promoted_before = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
+    done = _archive_prod_copy(root, prod, now)
+    said = _write_prod_reference(root, dev, prod, databases, promoted_before)
+    folder = TABLE_FOLDER.path(root, table_stem(dev)).is_dir()
+    files = {}
+    if folder:
+        files = _write_prod_folder(root, dev, prod, names, databases)
+    reference = REFERENCE.path(root, table_stem(prod)).read_text(encoding="utf-8")
+    entry = {"dev": dev, "seeded": "def seed(" in _logic_text(root, dev), "files": files,
+             "reference": _reference_hash(reference)}
+    _register_table(root, prod, folder=folder)
+    copies = [REFERENCE.shown(table_stem(prod))]
+    if folder:
+        copies.insert(0, TABLE_FOLDER.shown(table_stem(prod)))
+    done.append(f"wrote {in_words(copies)}")
+    line = f"Promoted {dev} to {prod}: {in_words(copies)}."
+    if said:
+        line = f"Promoted {dev} to {prod}: {in_words(copies)}; {said}."
+    return entry, done, line
+
+
 def promoted_tables(tables: str | list[str], seeded: bool = False) -> list[str]:
-    """The prod copies promote made of dev tables, by their names in prod.
+    """The prod copies project.promote made of dev tables, by their names in prod.
 
     >>> from sqlglot_composer import project
     >>> project.start()
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
     Next: set conn, your connection, in warehouse.py.
-    >>> from pathlib import Path
-    >>> databases = Path("admin/databases.py")  # only to stand in for filling in DEV and PROD
-    >>> _ = databases.write_text(databases.read_text().replace('"<DEV_DATABASE>"', '"mart_dev"')
-    ...                          .replace('"<PROD_DATABASE>"', '"mart"'))
-    >>> _ = project.new_table("mart_dev.daily_runs")
-    >>> _ = project.promote("mart_dev.daily_runs", rename={"mart_dev.daily_runs": "runs"})
-    >>> project.promoted_tables("mart_dev.daily_runs")
-    ['mart.runs']
+    >>> try:
+    ...     project.promoted_tables("mart_dev.daily_runs")
+    ... except ValueError as refused:
+    ...     print(str(refused).strip().splitlines()[0])
+    What happened:  project.promoted_tables("mart_dev.daily_runs"): mart_dev.daily_runs is not
+    promoted.
 
-    It reads admin/workflows/promote/promoted.json, which promote writes, so the promote
-    Workflow's notebook writes them with project.run_tables(tables=
+    Once mart_dev.daily_runs is promoted, it gives ["mart.daily_runs"], or the name rename=
+    gave it. It reads admin/workflows/promote/promoted.json, which promote writes, so the
+    promote Workflow's notebook creates and writes them with project.run_tables(tables=
     project.promoted_tables(TABLES), execute=execute). With seeded=True, it gives only those
     that need a seed, as their write reads their own table. It refuses a table not promoted.
     """
@@ -2899,7 +2934,8 @@ def promoted_tables(tables: str | list[str], seeded: bool = False) -> list[str]:
     missing = [table for table in tables if table not in prod_of]
     if missing:
         refuse(
-            what=f"{call}: {in_words(missing)} isn't promoted.",
+            what=f"{call}: {in_words(missing)} "
+            f"{singular_or_plural(len(missing), 'is', 'are')} not promoted.",
             why="It gives the prod copies project.promote made, from its record, "
             "admin/workflows/promote/promoted.json.",
             fix="Promote it first with project.promote(...), or check the name: it takes each "
@@ -2927,21 +2963,24 @@ def _prod_database(root: Path, call: str) -> str:
 
 
 def _prod_names(root: Path, call: str, tables: list[str], rename: dict[str, str],
-                dev_db: str, prod_db: str) -> dict[str, str]:
-    """Each dev table promote copies and its prod copy's name: refused when one isn't in the
-    Dev Database or has no Table folder, or rename= names a table not promoted."""
+                databases: tuple[str, str]) -> dict[str, str]:
+    """Each dev table promote copies and its prod copy's name, `databases` the Dev and Prod
+    Database: refused when one isn't in the Dev Database or has no Table reference, or rename=
+    names a table not promoted."""
+    dev_db, prod_db = databases
     names = {}
     for table in tables:
         database, short = split_table_name(table)
-        if database != dev_db or not TABLE_FOLDER.path(root, table_stem(table)).is_dir():
+        if database != dev_db or not REFERENCE.path(root, table_stem(table)).is_file():
             refuse(
-                what=f"{call}: {table} isn't a Saved table in your Dev Database, {dev_db}, "
-                "with a Table folder.",
-                why="Promotion copies a dev table's Table folder and Table reference to prod.",
-                fix=f"Name a table in {dev_db} that has its folder in tables/.",
+                what=f"{call}: {table} isn't a table in your Dev Database, {dev_db}, with a "
+                "Table reference.",
+                why="Promotion copies a dev table's Table reference to prod, and its Table "
+                "folder when it has one.",
+                fix=f"Name a table in {dev_db} that has its Table reference in references/.",
                 error=ValueError,
             )
-        names[table] = f"{prod_db}.{rename.get(table, short)}"
+        names[table] = _prod_name_of(root, table, rename, prod_db)
     unknown = [table for table in rename if table not in names]
     if unknown:
         refuse(
@@ -2953,9 +2992,34 @@ def _prod_names(root: Path, call: str, tables: list[str], rename: dict[str, str]
     return names
 
 
+def _prod_name_of(root: Path, table: str, rename: dict[str, str], prod_db: str) -> str:
+    """A dev table's prod copy's name: as rename= names it; else as it was promoted before;
+    else its own name, in the Prod Database."""
+    if table in rename:
+        return f"{prod_db}.{rename[table]}"
+    for prod, entry in workflows.promoted_record(root).items():
+        if entry["dev"] == table:
+            return prod
+    return f"{prod_db}.{split_table_name(table)[1]}"
+
+
+def _refuse_a_full_name(call: str, rename: dict[str, str]) -> None:
+    """Refuse a rename= value that names a database, as the Prod Database is its own."""
+    full = [name for name in rename.values() if "." in name]
+    if full:
+        refuse(
+            what=f"{call}: rename= gives {in_words(full)}, with a database.",
+            why="rename= gives the prod copy's name alone: its database is your Prod "
+            "Database, PROD in admin/databases.py.",
+            fix='Give the name alone, such as rename={"mart_dev.weekly_events_ops_reports": '
+            '"weekly_events"}.',
+            error=ValueError,
+        )
+
+
 def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[str]:
     """Why each table can't be promoted yet: a box unticked, a compare not passed, a dev table
-    it reads not promoted with it."""
+    it reads not promoted with it, a Building block it uses that reads the Dev Database."""
     problems = []
     for dev in names:
         folder = TABLE_FOLDER.path(root, table_stem(dev)) / CONVERSION
@@ -2964,41 +3028,77 @@ def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[
             problems.append(f"{dev}: its {CONVERSION}/{CHECKLIST} has a box unticked")
         if folder.is_dir() and not workflows.compare_passed(root, dev):
             problems.append(f"{dev}: its compare hasn't passed")
+        for shown, path in ((REFERENCE.shown(table_stem(dev)),
+                             REFERENCE.path(root, table_stem(dev))),
+                            (table_notebook(table_stem(dev)),
+                             root / table_notebook(table_stem(dev)))):
+            left = workflows.PLACEHOLDER.search(workflows.file_text(path))
+            if left is not None:
+                problems.append(f"{dev}: {shown} still has {left.group()} to fill in")
+        code = _logic_text(root, dev)
         problems += [f"{dev}: it reads {read}, which isn't promoted with it"
-                     for read in _dev_tables_read(root, dev, dev_db) if read not in names]
+                     for read in _dev_names_in(code, dev_db, dev) if read not in names]
+        problems += [f"{dev}: its Building block {block} reads the Dev Database, which its "
+                     "prod copy would read too: a Building block serves dev and prod alike, "
+                     "so have it take the table, given by the notebook"
+                     for block in _blocks_reading(root, code, dev_db)]
     return problems
 
 
 def _logic_text(root: Path, dev: str) -> str:
-    """The code of a Table notebook, each code cell, joined."""
+    """The code of a Table notebook, each code cell, joined; nothing for a table with no
+    Table folder."""
     stem = table_stem(dev)
+    if not TABLE_FOLDER.path(root, stem).is_dir():
+        return ""
     cells = read_cells(root / table_notebook(stem))
     return "\n".join(text for kind, text in cells if kind == "code")
 
 
-def _dev_tables_read(root: Path, dev: str, dev_db: str) -> list[str]:
-    """Each other table of the Dev Database a Table notebook's code names, as a Database's
-    table or through its Table reference's file."""
-    code = _logic_text(root, dev)
+def _dev_names_in(code: str, dev_db: str, own: str) -> list[str]:
+    """Each table of the Dev Database `code` names, as a Database's table or through its Table
+    reference's file, but `own`."""
     found = re.findall(rf"\b{re.escape(dev_db)}(?:\.|__)(\w+)", code)
     read = [f"{dev_db}.{short}" for short in found]
-    return [table for table in dict.fromkeys(read) if table != dev]
+    return [table for table in dict.fromkeys(read) if table != own]
 
 
-def _in_prod(text: str, names: dict[str, str], dev_db: str, prod_db: str) -> str:
-    """A promoted notebook's or Table reference's text naming each promoted table's prod copy:
-    by its name, its files' name and its Database, and, where it is renamed, imported under
-    its dev name, so the code that uses it reads as it did."""
+def _blocks_reading(root: Path, code: str, dev_db: str) -> list[str]:
+    """Each Building block `code` imports that names a table of the Dev Database."""
+    blocks = dict.fromkeys(re.findall(r"\bbuilding_blocks\.(\w+)", code))
+    return [block for block in blocks
+            if _dev_names_in(workflows.file_text(BUILDING_BLOCK.path(root, block)), dev_db, "")]
+
+
+def _prod_text(text: str, names: dict[str, str], databases: tuple[str, str]) -> str:
+    """A promoted notebook's code or Hive naming each promoted table's prod copy: by its name,
+    its files' name and its Database; a renamed one imported under its dev name, so the code
+    that uses it reads as it did."""
+    dev_db, prod_db = databases
     for dev, prod in names.items():
-        dev_short = split_table_name(dev)[1]
-        prod_short = split_table_name(prod)[1]
         text = re.sub(rf"\b{re.escape(dev)}\b", prod, text)
         text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
-        if dev_short != prod_short:
-            imported = rf"(from references\.{re.escape(table_stem(prod))} import ){dev_short}\b"
-            text = re.sub(imported, rf"\g<1>{prod_short} as {dev_short}", text)
-    return re.sub(rf"^from references import {re.escape(dev_db)}$",
-                  f"from references import {prod_db}", text, flags=re.MULTILINE)
+        text = _renamed_in_imports(text, f"references.{table_stem(prod)}",
+                                   split_table_name(dev)[1], split_table_name(prod)[1],
+                                   keep_old=True)
+    return _renamed_in_imports(text, "references", dev_db, prod_db, keep_old=False)
+
+
+def _renamed_in_imports(text: str, module: str, old: str, new: str, keep_old: bool) -> str:
+    """`text` with each `from <module> import ...`, on one line or in brackets, importing
+    `new` where it imported `old`: as `old` when `keep_old`, so the code reads as it did."""
+    if old == new:
+        return text
+    bare = new
+    if keep_old:
+        bare = f"{new} as {old}"
+    pieces, at = [], 0
+    for found in re.finditer(rf"(from {re.escape(module)} import )(\([^)]*\)|[^\n]*)", text):
+        imported = re.sub(rf"\b{re.escape(old)}\b(?= as\b)", new, found.group(2))
+        imported = re.sub(rf"\b{re.escape(old)}\b(?! as\b)", bare, imported)
+        pieces += [text[at:found.start(2)], imported]
+        at = found.end(2)
+    return "".join(pieces) + text[at:]
 
 
 def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[str]:
@@ -3012,21 +3112,33 @@ def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[st
     return moved
 
 
-def _write_prod_reference(root: Path, dev: str, prod: str, names: dict[str, str],
-                          databases: tuple[str, str], promoted_before: str) -> None:
-    """Write a prod copy's Table reference: the dev one naming prod, `databases` the Dev and
-    Prod Database, its location= as promote says, kept from `promoted_before`, the text of the
-    one promoted before, when you filled it in."""
+def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str, str],
+                          promoted_before: str) -> str:
+    """Write a prod copy's Table reference, `databases` the Dev and Prod Database: the dev one
+    naming prod, its location= kept from `promoted_before`, the text of the one promoted
+    before, when you filled it in, else made from the dev one. Gives what promote's report
+    says of its location=, or nothing when it was kept."""
     dev_db, prod_db = databases
     dev_text = REFERENCE.path(root, table_stem(dev)).read_text(encoding="utf-8")
-    location = _prod_location(promoted_before, dev_text, dev, prod, databases)
-    text = _in_prod(dev_text, names, dev_db, prod_db)
-    dev_short = split_table_name(dev)[1]
-    prod_short = split_table_name(prod)[1]
-    if dev_short != prod_short:
-        text = re.sub(rf"\b{dev_short}\b", prod_short, text)
+    location, said = _prod_location(promoted_before, dev_text, dev, prod, databases)
+    text = re.sub(rf"\b{re.escape(dev)}\b", prod, dev_text)
+    text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
+    # The table's own name, never a column's, which is in quotes.
+    text = re.sub(rf"(?<![\"'\w.]){split_table_name(dev)[1]}\b(?![\"'])",
+                  split_table_name(prod)[1], text)
     text = re.sub(r"^    location=.*$", location, text, count=1, flags=re.MULTILINE)
+    text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
+    text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
+            "that one and promote it again. Its\n# location= is the one line yours to change "
+            "here.\n" + text)
     REFERENCE.path(root, table_stem(prod)).write_text(text, encoding="utf-8")
+    return said
+
+
+def _reference_hash(text: str) -> str:
+    """A prod Table reference's hash, its location= line left out, which is yours to fill
+    in."""
+    return _hash(re.sub(r"^    location=.*$", "", text, flags=re.MULTILINE).encode("utf-8"))
 
 
 # The location= line a prod Table reference gets when nothing tells its folder.
@@ -3035,40 +3147,49 @@ _NO_LOCATION = ('    location=None,  # TODO: its own folder, such as '
 
 
 def _prod_location(promoted_before: str, dev_text: str, dev: str, prod: str,
-                   databases: tuple[str, str]) -> str:
-    """A prod Table reference's location= line: the one filled in when promoted before; else
-    the dev one with the Dev Database's name made the Prod Database's, and the table's;
-    else None to fill in."""
+                   databases: tuple[str, str]) -> tuple[str, str]:
+    """A prod Table reference's location= line, and what promote's report says of it: the one
+    filled in when promoted before; else the dev one with each folder named for the Dev
+    Database, such as mart_dev or mart_dev.db, named for the Prod Database, and its last for
+    the prod table when renamed; else None to fill in."""
     dev_db, prod_db = databases
     before = re.search(r'^    location="([^"]*)"', promoted_before, re.MULTILINE)
     if before is not None:
-        return f'    location="{before.group(1)}",'
+        return f'    location="{before.group(1)}",', ""
     in_dev = re.search(r'^    location="([^"]*)"', dev_text, re.MULTILINE)
-    if in_dev is None or dev_db not in in_dev.group(1):
-        return _NO_LOCATION
-    location = in_dev.group(1).replace(dev_db, prod_db)
-    location = location.replace(split_table_name(dev)[1], split_table_name(prod)[1])
-    return f'    location="{location}",'
+    folders = []
+    if in_dev is not None:
+        folders = in_dev.group(1).split("/")
+    named = {dev_db: prod_db, f"{dev_db}.db": f"{prod_db}.db"}
+    if not any(folder in named for folder in folders):
+        return _NO_LOCATION, "its location= is None: fill it in"
+    folders = [named.get(folder, folder) for folder in folders]
+    if folders[-1] == split_table_name(dev)[1]:
+        folders[-1] = split_table_name(prod)[1]
+    location = "/".join(folders)
+    said = f"its location= is {location}, made from dev's: check it"
+    return f'    location="{location}",', said
 
 
-def _write_prod_folder(root: Path, dev: str, prod: str, names: dict[str, str], dev_db: str,
-                       prod_db: str) -> dict[str, str]:
-    """Write a prod copy's Table folder from the dev one: its notebook naming prod, each other
-    file as it is, but its compare and lineage, which are dev's; each file written, by its path
-    in the Project, with its hash."""
+def _write_prod_folder(root: Path, dev: str, prod: str, names: dict[str, str],
+                       databases: tuple[str, str]) -> dict[str, str]:
+    """Write a prod copy's Table folder from the dev one, `databases` the Dev and Prod
+    Database: its notebook naming prod, saying it is a copy, and the statements it was
+    converted from, their Hive in dev naming prod; the rest, its checklist, scan, compare and
+    lineage, are dev's. Each file written, by its path in the Project, with its hash."""
     source = TABLE_FOLDER.path(root, table_stem(dev))
     target = TABLE_FOLDER.path(root, table_stem(prod))
     files = {}
-    for path in sorted(source.rglob("*")):
-        relative = path.relative_to(source)
-        if path.is_dir() or relative.parts[0] == "lineage" or path.name == COMPARED:
+    for path in sorted(source.rglob("*.ipynb")) + [source / CONVERSION / STATEMENT,
+                                                   source / CONVERSION / IN_DEV]:
+        if not path.is_file():
             continue
+        name = path.relative_to(source).as_posix()
         content = path.read_bytes()
-        name = relative.as_posix()
+        if path.name == IN_DEV:
+            content = _prod_text(content.decode("utf-8"), names, databases).encode("utf-8")
         if path.suffix == ".ipynb":
-            cells = [(kind, _in_prod(text, names, dev_db, prod_db))
-                     for kind, text in read_cells(path)]
-            content = notebook_bytes(cells)
+            content = notebook_bytes(_prod_cells(read_cells(path), dev, names, databases))
             name = name.replace(table_stem(dev), table_stem(prod))
         (target / name).parent.mkdir(parents=True, exist_ok=True)
         (target / name).write_bytes(content)
@@ -3077,11 +3198,38 @@ def _write_prod_folder(root: Path, dev: str, prod: str, names: dict[str, str], d
     return files
 
 
+def _prod_cells(cells: list[tuple[str, str]], dev: str, names: dict[str, str],
+                databases: tuple[str, str]) -> list[tuple[str, str]]:
+    """A promoted notebook's cells: its code naming prod, its first text cell saying it is a
+    copy, which is changed in dev and promoted again, never here."""
+    copied = []
+    said = False
+    for kind, text in cells:
+        if kind == "code" and "ORIGINAL" in text:
+            continue  # its rows against the original's: dev's to compare, before promoting
+        text = _prod_text(text, names, databases)
+        if kind == "markdown" and not said:
+            text = (f"A prod copy project.promote made of {dev}: change "
+                    f"{table_notebook(table_stem(dev))} and promote it again, never this "
+                    f"one.\n\n{text}")
+            said = True
+        copied.append((kind, text))
+    return copied
+
+
 def _edited_by_hand_lines(root: Path) -> list[str]:
-    """What check() says of each file of a prod copy changed since promote wrote it."""
+    """What check() says of each file of a prod copy changed or deleted since promote wrote it;
+    nothing of one archived since, as remove_table does."""
     lines = []
-    for entry in workflows.promoted_record(root).values():
+    for prod, entry in workflows.promoted_record(root).items():
+        if not TABLE_FOLDER.path(root, table_stem(prod)).is_dir():
+            continue
         dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
+        reference = workflows.file_text(REFERENCE.path(root, table_stem(prod)))
+        if reference and _reference_hash(reference) != entry.get("reference"):
+            lines.append(f"Edited by hand, which project.promote writes over: "
+                         f"{REFERENCE.shown(table_stem(prod))}, but its location= (change "
+                         f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
         for relative, written in entry["files"].items():
             path = root / relative
             if not path.is_file() or _hash(path.read_bytes()) != written:

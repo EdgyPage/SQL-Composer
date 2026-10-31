@@ -208,3 +208,125 @@ def test_the_promote_workflow_has_no_fiddling_and_a_done_function_for_each_step(
     for step in workflows.PROMOTE.steps:
         assert step.kind != workflows.FIDDLING, step.name
         assert step.done is not None, step.name
+
+
+# --- What ticket 17's reviews found ----------------------------------------------------------
+
+
+def change_logic(root: Path, table: str, old: str, new: str) -> None:
+    """Change a Table notebook's code by hand, as its author might."""
+    notebooks = toolbox_module("notebooks")
+    stem = table.replace(".", "__")
+    path = root / "tables" / stem / f"{stem}.ipynb"
+    cells = [(kind, text.replace(old, new)) for kind, text in notebooks.read_cells(path)]
+    path.write_bytes(notebooks.notebook_bytes(cells))
+
+
+def test_a_database_imported_beside_another_is_named_for_prod(started: Path) -> None:
+    change_logic(started, PER_JOB, "from references import mart_dev\n",
+                 "from references import mart_dev, ops\n")
+    project.promote([FAILED, PER_JOB])
+    prod = logic(started, "mart.fails_per_job_ops_reports")
+    assert "from references import mart, ops\n" in prod
+
+
+def test_a_renamed_table_imported_beside_another_keeps_its_dev_name_in_the_code(
+        started: Path) -> None:
+    change_logic(started, PER_JOB, "import fails_per_job_ops_reports  #",
+                 "import (\n    INSERT_OVERWRITE_UNUSED,\n    fails_per_job_ops_reports,\n)  #")
+    project.promote([FAILED, PER_JOB], rename={PER_JOB: "per_job"})
+    assert "    per_job as fails_per_job_ops_reports,\n" in logic(started, "mart.per_job")
+
+
+def test_a_renamed_reference_keeps_its_columns_and_names_itself(started: Path) -> None:
+    project.promote([FAILED, PER_JOB], rename={FAILED: "failed"})
+    text = reference(started, "mart.failed")
+    assert 'failed = Table(\n    "mart.failed",' in text
+    assert "from references.mart__failed import failed, <alias>" in text
+    assert '"run_id": "bigint"' in text
+
+
+def test_a_building_block_reading_the_dev_database_is_refused(started: Path) -> None:
+    (started / "building_blocks" / "dev_runs.py").write_text(
+        "from references import mart_dev\n\nRUNS = mart_dev.failed_runs_ops_reports\n",
+        encoding="utf-8")
+    change_logic(started, PER_JOB, "from references import mart_dev\n",
+                 "from references import mart_dev\nfrom building_blocks.dev_runs import RUNS\n")
+    with pytest.raises(ValueError, match=f"{PER_JOB}: its Building block dev_runs reads the "
+                       "Dev Database"):
+        project.promote([FAILED, PER_JOB])
+
+
+def test_a_table_only_created_is_promoted_by_its_table_reference(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: NOW)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    set_admin_log()
+    monkeypatch.chdir(tmp_path)
+    project.start()
+    databases = tmp_path / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8")
+                         .replace('"<DEV_DATABASE>"', '"mart_dev"')
+                         .replace('"<PROD_DATABASE>"', '"mart"'), encoding="utf-8")
+    (tmp_path / "lookup.hql").write_text(
+        "CREATE TABLE ops_reports.lookup (job_id BIGINT);\n"
+        "INSERT OVERWRITE TABLE ops_reports.uses SELECT l.job_id FROM ops_reports.lookup l;\n",
+        encoding="utf-8")
+    project.convert("lookup", files=["lookup.hql"], query=example_database.query,
+                    database="ops")
+    uses = "mart_dev.uses_ops_reports"
+    fill_in(tmp_path, uses)
+    forget_the_projects_modules()
+    rows = "SELECT job_id FROM ops.jobs"
+    copies = {uses: rows, "ops_reports.uses": rows}
+
+    def query(hive: str) -> pd.DataFrame:
+        for table, stands_for in copies.items():
+            hive = hive.replace(table, f"({stands_for})")
+        return example_database.query(hive)
+
+    project.compare_batch("lookup", query=query)
+    report = repr(project.promote([uses, "mart_dev.lookup_ops_reports"]))
+    assert ("Promoted mart_dev.lookup_ops_reports to mart.lookup_ops_reports: "
+            "references/mart__lookup_ops_reports.py") in report
+    assert not (tmp_path / "tables" / "mart__lookup_ops_reports").exists()
+    assert "mart.lookup_ops_reports" in logic(tmp_path, "mart.uses_ops_reports")
+    forget_the_projects_modules()
+
+
+def test_a_prod_copy_archived_by_remove_table_isnt_said_edited(started: Path) -> None:
+    project.promote([FAILED, PER_JOB])
+    project.remove_table("mart.failed_runs_ops_reports")
+    assert "Edited by hand" not in repr(project.check())
+
+
+def test_promoting_again_under_another_name_forgets_the_old_one(started: Path) -> None:
+    project.promote([FAILED, PER_JOB])
+    project.promote([FAILED, PER_JOB], rename={FAILED: "failed"})
+    assert project.promoted_tables(FAILED) == ["mart.failed"]
+
+
+def test_only_a_whole_folder_named_for_the_dev_database_is_renamed(started: Path) -> None:
+    path = started / "references" / "mart_dev__failed_runs_ops_reports.py"
+    path.write_text(path.read_text(encoding="utf-8").replace(
+        "/data/team/mart_dev.db/", "/data/mart_dev_team/mart_dev.db/"), encoding="utf-8")
+    report = repr(project.promote([FAILED, PER_JOB]))
+    expected = "/data/mart_dev_team/mart.db/failed_runs_ops_reports"
+    assert f'location="{expected}"' in reference(started, "mart.failed_runs_ops_reports")
+    assert f"its location= is {expected}, made from dev's: check it" in report
+
+
+def test_the_prod_copy_says_it_is_one_and_leaves_dev_records_behind(started: Path) -> None:
+    project.promote([FAILED, PER_JOB])
+    folder = started / "tables" / "mart__failed_runs_ops_reports"
+    notebooks = toolbox_module("notebooks")
+    cells = notebooks.read_cells(folder / "mart__failed_runs_ops_reports.ipynb")
+    assert cells[0][1].startswith(f"A prod copy project.promote made of {FAILED}:")
+    assert not (folder / "conversion" / "checklist.md").exists()
+    assert not (folder / "conversion" / "compare.md").exists()
+    assert "mart_dev" not in (folder / "conversion" / "in_dev.hql").read_text(encoding="utf-8")
+
+
+def test_promoted_tables_refuses_several_not_promoted_in_one_sentence(started: Path) -> None:
+    with pytest.raises(ValueError, match=f"{FAILED} and {PER_JOB} are not promoted"):
+        project.promoted_tables([FAILED, PER_JOB])

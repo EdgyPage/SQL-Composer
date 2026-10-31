@@ -56,3 +56,44 @@ Built 2026-10-31.
 - CONTEXT.md gains **Promotion**; the Project action entry names comparing and promoting.
 - Tests: `tests/test_promotion.py`.
 - D343 fixed here: remove_conversion's docstring names the finished folder.
+
+### Review (098a483)
+
+Code review: the Standards and Spec axes (`review-standards`, `review-spec`, on Sonnet), the
+drift review (D344 to D346), and the beginner reader
+([report](../reports/17-beginner-reader.md)). Fixed in the next commit:
+
+- **Spec, imports:** a renamed table imported beside others, or in brackets, and a Database
+  imported beside another (`from references import mart_dev, ops`), are named for prod
+  (`_renamed_in_imports`).
+- **Spec, a table only created** (a Table reference, no folder) is promoted by its Table
+  reference alone, so one that reads it can be promoted with it.
+- **Spec, a Building block that reads the Dev Database** is refused: it serves dev and prod
+  alike, so promote can't name prod in it.
+- **Spec, a prod copy archived by remove_table** isn't reported as edited (D345 too); one
+  promoted again under another name forgets the old.
+- **Spec, the prod Table reference** renames the table's own name only, never a column's, which
+  is in quotes; its Aliases comment imports its own name.
+- **Spec, dev text in the prod copy:** the prod Table folder holds its notebook, opening with a
+  line saying it is a copy, without the compare cells, and statement.hql and in_dev.hql, the
+  latter naming prod; the checklist, scan, compare and lineage stay dev's.
+- **Spec, the location guess:** only a whole folder named for the Dev Database (`mart_dev` or
+  `mart_dev.db`) is renamed, and the report says the location= was made from dev's, to check.
+  Kept rather than dropped: it saves a step for the common layout, and is said, not silent.
+- **Beginner reader:** rename= remembered, and refused with a database in it; the prod Table
+  reference held, but its location=; a table with a <...> left refused, the example showing it;
+  "decided" gone; the promote Workflow's TABLES asks for dev names; plainer docstrings.
+- **Standards:** `_in_prod` is `_prod_text`; "is/are" agrees with the count; the Dev and Prod
+  Database travel as one tuple; `promoted_record` read once in `prod_inputs`, and written by
+  `workflows.write_promoted_record`; "prod copy" is in CONTEXT.md's **Promotion**; the Project
+  action entry rewrapped; promote's loop is `_promote_one`.
+- **D344:** check's docstring names the prod copies it reports. **D346:** seed()'s docstring
+  fits a prod copy, and CONTEXT's **Seed** too.
+
+Answered, not changed:
+
+- **Standards, `promoted_record`'s hint** stays `dict[str, dict[str, object]]`: a TypedDict is
+  machinery the standard keeps out.
+- **Standards, `split_table_name(x)[1]` repeated:** one call each, as elsewhere in the file.
+- **Spec, the decision and seed steps** beyond "promote, then run_tables": a table that reads
+  itself needs its seed in prod as in dev, and the location= a decision only you can make.

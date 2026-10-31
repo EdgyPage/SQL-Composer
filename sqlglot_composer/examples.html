@@ -4238,7 +4238,7 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each <code># CONVERSION:</code> mark project.convert left for you, with its file and line; and the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each <code># CONVERSION:</code> mark project.convert left for you, with its file and line; each file of a prod copy project.promote wrote that was changed or deleted by hand since; and the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4405,37 +4405,40 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;)
                          .replace(&#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart&quot;&#x27;))</pre>
 <pre class="python">_ = project.new_table(&quot;mart_dev.daily_runs&quot;)</pre>
-<pre class="python">print(project.promote(&quot;mart_dev.daily_runs&quot;))</pre>
+<pre class="python">try:
+    project.promote(&quot;mart_dev.daily_runs&quot;)
+except ValueError as refused:
+    print(str(refused).strip().splitlines()[0])</pre>
 <p class="label">Python shows</p>
-<pre class="output">Promoted mart_dev.daily_runs to mart.daily_runs: tables/mart__daily_runs/ and
-references/mart__daily_runs.py.
-Next: fill in location= in each prod Table reference that has none, then run the promote
-Workflow&#x27;s next steps, in admin/workflows/promote/promote.ipynb: create each table in prod,
-seed each that reads itself, and write each.</pre>
-<p>Your Dev Database, DEV in admin/databases.py, is where you build and check; your Prod Database, PROD, where tables other people rely on are written. A table reaches prod only by this call: each dev Table folder and Table reference gets a prod copy, named for PROD, its name kept, such as mart_dev.weekly_events_ops_reports becoming mart.weekly_events_ops_reports, unless rename= names it, as rename={&quot;mart_dev.weekly_events_ ops_reports&quot;: &quot;weekly_events&quot;} does. Every promoted notebook that reads another promoted table reads its prod copy. Its Table reference keeps its columns and Key; its location= is the dev one with the Dev Database&#x27;s name made the Prod Database&#x27;s, or None for you to fill in when the dev one doesn&#x27;t name it, or the one you filled in when promoted before.</p>
-<p>It refuses, naming each, before it writes anything: a table not in your Dev Database or with no Table folder, one whose conversion/checklist.md has a box unticked, one a Conversion made whose compare hasn&#x27;t passed (project.compare_batch), and one that reads a dev table not promoted with it. Dev stays the source: change the dev copy and promote it again, which archives the prod copy into admin/removed/ first. A prod copy edited by hand is reported by project.check(), as promote would write over it. <code>tables</code> is one name or a list, each a dev table&#x27;s.</p>
+<pre class="output">What happened:  project.promote(&quot;mart_dev.daily_runs&quot;) can&#x27;t promote yet:
+mart_dev.daily_runs: references/mart_dev__daily_runs.py still has &lt;COLUMN&gt; to fill in;
+mart_dev.daily_runs:
+tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb still has &lt;SOURCE_NAME&gt; to fill in.</pre>
+<p>A table new_table just made isn&#x27;t finished, so it isn&#x27;t promoted: once its Table reference and notebook are filled in and its write runs in dev, promote copies it to prod.</p>
+<p>Your Dev Database, DEV in admin/databases.py, is where you build and check; your Prod Database, PROD, where tables other people rely on are written. A table reaches prod only by this call: each dev table&#x27;s Table folder and Table reference get a prod copy, named for PROD with its name kept, such as mart_dev.weekly_events_ops_reports, which a Conversion named for its original, ops_reports.weekly_events, becoming mart.weekly_events_ops_reports. rename= gives a prod copy a name of its own, by its dev name, the name alone, without a database:</p>
+<pre class="python">project.promote(tables, rename={&quot;mart_dev.weekly_events_ops_reports&quot;: &quot;weekly_events&quot;})</pre>
+<p>A table promoted before keeps its prod name when promoted again without rename=. Every promoted notebook that reads another promoted table reads its prod copy; a renamed one is imported under its dev name, so the code that uses it reads as it did. Its Table reference keeps its columns and Key; its location= is the one you filled in when promoted before, else the dev one with each folder named for the Dev Database, such as mart_dev.db, named for the Prod Database, or None for you to fill in, as the report says.</p>
+<p>It refuses, naming each, before it writes anything: a table not in your Dev Database or with no Table reference; one with a &lt;...&gt; left to fill in; one whose conversion/checklist.md has a box unticked; one a Conversion made whose compare hasn&#x27;t passed (project.compare_batch); one that reads a dev table not promoted with it; and one whose Building block reads the Dev Database. Dev stays the source: change the dev copy and promote it again, which archives the prod copy into admin/removed/ first. project.check() reports a prod copy edited by hand, its notebook or its Table reference but its location=, as promote would write over it. <code>tables</code> is one name or a list, each a dev table&#x27;s.</p>
 <p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code></p>
 </section>
 <section class="entry" id="project.promoted_tables">
 <h3><code>project.promoted_tables</code></h3>
-<p class="why">The prod copies promote made of dev tables, by their names in prod.</p>
+<p class="why">The prod copies project.promote made of dev tables, by their names in prod.</p>
 <pre class="python">from sqlglot_composer import project</pre>
 <pre class="python">project.start()</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.</pre>
-<pre class="python">from pathlib import Path</pre>
-<pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # only to stand in for filling in DEV and PROD</pre>
-<pre class="python">_ = databases.write_text(databases.read_text().replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;)
-                         .replace(&#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart&quot;&#x27;))</pre>
-<pre class="python">_ = project.new_table(&quot;mart_dev.daily_runs&quot;)</pre>
-<pre class="python">_ = project.promote(&quot;mart_dev.daily_runs&quot;, rename={&quot;mart_dev.daily_runs&quot;: &quot;runs&quot;})</pre>
-<pre class="python">project.promoted_tables(&quot;mart_dev.daily_runs&quot;)</pre>
+<pre class="python">try:
+    project.promoted_tables(&quot;mart_dev.daily_runs&quot;)
+except ValueError as refused:
+    print(str(refused).strip().splitlines()[0])</pre>
 <p class="label">Python shows</p>
-<pre class="output">[&#x27;mart.runs&#x27;]</pre>
-<p>It reads admin/workflows/promote/promoted.json, which promote writes, so the promote Workflow&#x27;s notebook writes them with project.run_tables(tables= project.promoted_tables(TABLES), execute=execute). With seeded=True, it gives only those that need a seed, as their write reads their own table. It refuses a table not promoted.</p>
-<p class="names">Toolbox names used: <code>project.start</code>, <code>project.new_table</code>, <code>project.promote</code></p>
+<pre class="output">What happened:  project.promoted_tables(&quot;mart_dev.daily_runs&quot;): mart_dev.daily_runs is not
+promoted.</pre>
+<p>Once mart_dev.daily_runs is promoted, it gives [&quot;mart.daily_runs&quot;], or the name rename= gave it. It reads admin/workflows/promote/promoted.json, which promote writes, so the promote Workflow&#x27;s notebook creates and writes them with project.run_tables(tables= project.promoted_tables(TABLES), execute=execute). With seeded=True, it gives only those that need a seed, as their write reads their own table. It refuses a table not promoted.</p>
+<p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.refresh_reference_sheet">
 <h3><code>project.refresh_reference_sheet</code></h3>

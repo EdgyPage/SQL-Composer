@@ -83,7 +83,7 @@ for table in project.batch_tables(NAME, seeded=True):
 
 Steps: 1 file step, 3 permission, 1 decision, 0 fiddling.
 
-Starts from: dev Table folders, decided and compared, your Prod Database's name.
+Starts from: dev Table folders, each box ticked and compared, your Prod Database's name.
 
 Ends with: prod Table folders, each written in prod.
 
@@ -94,26 +94,27 @@ flowchart TD
     t0 --> s0
     t1 --> s0
     s0 --> t2
+    s0 --> t3
     s1{"2. Fill in each prod Table reference's location="}
     class s1 decision
-    t2 --> s1
-    s1 --> t3
+    t3 --> s1
+    s1 --> t4
     s2[["3. Create each table in prod: for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)"]]
     class s2 permission
-    t3 --> s2
-    s2 --> t4
+    t4 --> s2
+    s2 --> t5
     s3[["4. Seed each prod table that reads itself, once, from its original: run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
 for table in project.promoted_tables(TABLES, seeded=True):
     run_execute(project.load(table).seed(), execute)"]]
     class s3 permission
-    t4 --> s3
-    s3 --> t5
+    t5 --> s3
+    s3 --> t6
     s4[["5. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]
     class s4 permission
-    t5 --> s4
-    s4 --> t6
-    t0("dev Table folders, decided and compared")
+    t6 --> s4
+    s4 --> t7
+    t0("dev Table folders, each box ticked and compared")
     class t0 thing
     t1("your Prod Database's name")
     class t1 thing
@@ -121,12 +122,14 @@ for table in project.promoted_tables(TABLES, seeded=True):
     class t2 thing
     t3("prod Table references")
     class t3 thing
-    t4("each made in prod")
+    t4("each with its location=")
     class t4 thing
-    t5("each seeded in prod")
+    t5("each made in prod")
     class t5 thing
-    t6("each written in prod")
+    t6("each seeded in prod")
     class t6 thing
+    t7("each written in prod")
+    class t7 thing
     classDef file fill:#e3f2e1,stroke:#4a8a3f
     classDef permission fill:#e1ecf7,stroke:#3f6a9a
     classDef decision fill:#fbf1d6,stroke:#a8842a

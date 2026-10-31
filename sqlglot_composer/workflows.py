@@ -318,15 +318,21 @@ def promoted_record(root: Path) -> dict[str, dict[str, object]]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def write_promoted_record(root: Path, record: dict[str, dict[str, object]]) -> None:
+    """Write admin/workflows/promote/promoted.json, as promoted_record reads it."""
+    (root / PROMOTED).parent.mkdir(parents=True, exist_ok=True)
+    (root / PROMOTED).write_text(json.dumps(record, indent=1, sort_keys=True), encoding="utf-8")
+
+
 def prod_inputs(root: Path, inputs: dict[str, object]) -> dict[str, object]:
     """The promote Workflow's inputs as its prod steps read them: TABLES, the prod copy of each
     dev table TABLES names, and SEEDED, those that read themselves; no TABLES when one isn't
     promoted yet."""
-    prod_of = {entry["dev"]: prod for prod, entry in promoted_record(root).items()}
+    record = promoted_record(root)
+    prod_of = {entry["dev"]: prod for prod, entry in record.items()}
     devs = names_in(inputs, "TABLES")
     if not devs or any(dev not in prod_of for dev in devs):
         return {"TABLES": [], "SEEDED": []}
-    record = promoted_record(root)
     prods = [prod_of[dev] for dev in devs]
     return {"TABLES": prods, "SEEDED": [prod for prod in prods if record[prod]["seeded"]]}
 
@@ -476,17 +482,21 @@ CONVERT = Workflow(
 # builds it.
 PROMOTE = Workflow(
     "promote",
-    start_materials=("dev Table folders, decided and compared", "your Prod Database's name"),
+    start_materials=("dev Table folders, each box ticked and compared",
+                     "your Prod Database's name"),
     end_artifacts=("prod Table folders", "each written in prod"),
     steps=(
         Step("Promote each table: a prod copy of its Table folder and Table reference",
              FILE_STEP,
-             ("dev Table folders, decided and compared", "your Prod Database's name"),
-             ("prod Table folders",), "project.promote(TABLES)", every_table_promoted,
+             ("dev Table folders, each box ticked and compared",
+              "your Prod Database's name"),
+             ("prod Table folders", "prod Table references"), "project.promote(TABLES)",
+             every_table_promoted,
              promote_tables),
-        Step("Fill in each prod Table reference's location=", DECISION, ("prod Table folders",),
-             ("prod Table references",), done=every_prod_location_filled),
-        Step("Create each table in prod", PERMISSION, ("prod Table references",),
+        Step("Fill in each prod Table reference's location=", DECISION,
+             ("prod Table references",), ("each with its location=",),
+             done=every_prod_location_filled),
+        Step("Create each table in prod", PERMISSION, ("each with its location=",),
              ("each made in prod",),
              "for table in project.promoted_tables(TABLES):\n"
              "    run_execute(project.load(table).create(), execute)",
@@ -501,7 +511,8 @@ PROMOTE = Workflow(
              "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
              every_prod_table_written),
     ),
-    inputs=(TABLES_INPUT,),
+    inputs=(Input("TABLES", [], 'the dev tables, by their names in your Dev Database, such '
+                  'as ["mart_dev.daily_job_runs"]', starts=True),),
     databases=("DEV", "PROD"),
     about="Carries Saved tables from your Dev Database to your Prod Database.",
 )
