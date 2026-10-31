@@ -19,8 +19,9 @@ block the user can paste into a notebook cell or a file, then a few plain senten
    such as references/ops__job_runs.py. It defines one Table, named by the table's own name:
    `job_runs = Table("ops.job_runs", columns={...}, ...)`. Other code imports it:
    `from references.ops__job_runs import job_runs`.
-2. A table that exists: `project.add_references(["ops.job_runs"], query=query)` writes its
-   Table reference from the warehouse's own description, so its columns and types are right.
+2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
+   runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
+   reference from the warehouse's own description, so its columns and types are right.
    The user fills in `key=` by hand, where it says TODO.
 3. A new Saved table, one the user's notebook will write: write the Table reference by
    hand, or let `project.new_table("mart.job_day_runs")` start it (file 06).

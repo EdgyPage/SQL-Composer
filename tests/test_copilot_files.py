@@ -86,7 +86,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(13)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(14)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -114,7 +114,9 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
                  "## Names for this objective, with their arguments", "## Worked example",
                  "## Do and don't", "## Before you answer"):
         assert part in text, part
-    if path.name not in EXCEL_FILES:  # loaded with files 03, 04 and 05, which hold it
+    # The Excel files are loaded with files 03, 04 and 05, which hold it; file 13 gives steps,
+    # each a cell, and the file of the step's objective the code.
+    if path.name not in (*EXCEL_FILES, "13_workflows.txt"):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
 
 

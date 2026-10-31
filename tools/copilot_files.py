@@ -20,7 +20,10 @@ A source is the file's text, with three kinds of placeholder, each on a line of 
   but files 11 and 12, which are loaded with 03, 04 and 05 and so have it already;
 - `{names: SELECT, FROM, project.convert, ...}`: a list of those names, each with its
   signature as the Toolbox defines it, so a file never names a function that isn't there or
-  calls one with arguments it doesn't take.
+  calls one with arguments it doesn't take;
+- `{workflow: convert}`: a Workflow's steps as a numbered list, each its kind and its call,
+  as `tools/workflow_graph.py` lists them from `sqlglot_composer/workflows.py`, so a file's
+  steps are always the ones its notebook runs.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ import formula_workbook  # noqa: E402
 import formula_workbook_examples  # noqa: E402
 import merge_copilot_files  # noqa: E402
 import toolbox_registry  # noqa: E402
+import workflow_graph  # noqa: E402
 
 import sqlglot_composer  # noqa: E402
 from sqlglot_composer import admin, project  # noqa: E402
@@ -46,6 +50,7 @@ SOURCES = ROOT / "tools" / "copilot_sources"
 COPILOT = ROOT / "copilot"
 ALWAYS = SOURCES / "_always.txt"
 NAMES = re.compile(r"^\{names: ([^}]*)\}$", re.MULTILINE)
+WORKFLOW = re.compile(r"^\{workflow: (\w+)\}$", re.MULTILINE)
 
 
 class CopilotFileRefused(Exception):
@@ -110,7 +115,15 @@ def rendered(source: str) -> str:
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     text = source.replace("{version}", version)
     text = text.replace("{always}", ALWAYS.read_text(encoding="utf-8").strip())
+    text = WORKFLOW.sub(_steps_of, text)
     return NAMES.sub(_names_block_of, text)
+
+
+def _steps_of(placeholder: re.Match[str]) -> str:
+    """The lines a {workflow: NAME} placeholder, as WORKFLOW finds it, becomes."""
+    workflow = next(each for each in workflow_graph.workflows.WORKFLOWS
+                    if each.name == placeholder.group(1))
+    return "\n".join(workflow_graph.steps_listed(workflow))
 
 
 def _names_block_of(placeholder: re.Match[str]) -> str:

@@ -3,8 +3,7 @@
 Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
 workbook into Hive, with file 11.
 Load this file when the user attaches a workbook and asks for its calculations as Hive or
-Toolbox code, with file 11, which holds the steps, the map and the formulas, and files 03,
-04 and 05.
+Toolbox code, with files 11, 03, 04 and 05.
 
 ## Names for this objective, with their arguments
 
@@ -16,7 +15,8 @@ Toolbox code, with file 11, which holds the steps, the map and the formulas, and
 
 ## Steps
 
-1. Follow file 11's steps, reading each query's steps in order, as below.
+1. Follow file 11's steps, its map to its batch for the convert Workflow, reading each
+   query's steps in order, as below.
 2. A query another query reads is a step, a CTE as file 11's step 5 says. A query and the
    Table it loads are two things in the map, as a formula reads the Table, never the query:
    the Table, its query's rows and any formula columns it adds, is a step when a formula reads

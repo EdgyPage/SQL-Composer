@@ -48,6 +48,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   workbook to prod. The new how-to "Follow a Workflow" gives each Workflow's chart, names cell
   and steps, and "Convert someone else's Hive" is now how-to 9, the README's ninth step, a
   batch of scripts from convert to promote. Each is written from the Workflows' steps.
+- **The Copilot files, 8.0's way.** A new `copilot/13_workflows.txt` takes Copilot through a
+  whole job, each Workflow's steps written from the steps its notebook runs. Files 01, 02 and
+  06 name the Workflow notebooks and `project.do_next()`; file 07 runs the convert Workflow
+  for any Hive, a query or scripts of any length, and converts by hand only to explain a
+  piece; files 11 and 12 send a workbook's Hive to the convert Workflow as one batch, as the
+  README's Excel steps do.
 - **A Table reference by its name.** `project.table_reference(name)` gives a table's Table
   reference from its file in `references/`, for a notebook that has the table's name, such as
   the change_a_saved_table Workflow's, which hands it to an Admin statement.

@@ -1,0 +1,72 @@
+# Copilot file 13: the Workflows ({version})
+
+Objective: take the user through a whole job, step by step, from its Workflow notebook.
+Load this file when the user asks how to do a job end to end: convert Hive, promote tables
+to prod, make a Saved table, add Table references, upgrade, or change a Saved table.
+
+You write the steps for {version}, a Toolbox that writes Hive. Answer with the steps left,
+each its cell, in order. For the Python inside a step, the user loads that step's file.
+
+## Names for this objective, with their arguments
+
+{names: project.check, project.do_next, project.convert, project.compare_batch, project.promote, project.promoted_tables}
+
+## How a Workflow runs
+
+Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
+cell and saves it; then `project.check()` names the next step of each Workflow started, and
+`project.do_next()` runs the steps it can, up to the first it can't. A step that is a call
+to the warehouse or a decision is the user's: give its cell, never run it for them. Names in
+capitals, such as NAME and TABLES, are the names cell's. DEV and PROD, the Dev and Prod
+Databases, are set once in admin/databases.py.
+
+## convert: someone else's Hive into Saved tables in dev
+
+For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files.
+
+{workflow: convert}
+
+## promote: dev tables to prod
+
+TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
+
+{workflow: promote}
+
+## new_table: a Saved table of your own
+
+{workflow: new_table}
+
+## references: Table references for tables you read
+
+{workflow: references}
+
+## upgrade: a new Toolbox copied in
+
+{workflow: upgrade}
+
+## change_a_saved_table: an Admin statement on a Saved table
+
+{workflow: change_a_saved_table}
+
+## Worked example
+
+The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
+convert notebook's names cell, then its first step's cell:
+
+```python
+NAME = "ops_reports"
+FILES = ["daily.hql", "weekly.hql"]
+project.convert(NAME, None, files=FILES, query=query, database="default")
+```
+
+## Do and don't
+
+- Do give each step's cell as listed, with the user's names in it.
+- Don't skip a decision, such as ticking a checklist: say what it asks of the user.
+- Don't promote a table before its compare has passed.
+
+## Before you answer
+
+- Name the Workflow and the step the user is at; give each later step's cell as it is.
+- Never invent a step or a call: only those listed here.
+- A step `project.check()` names again after it ran is one no file tells of: go on.

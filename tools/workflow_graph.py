@@ -101,8 +101,8 @@ PROGRAM_FLOW = ("""flowchart TD
 EXCEL_FLOW = ("""flowchart TD
     workbook("a Formula workbook")
     copilot{{"Copilot, given files 03, 04, 05, 11 and 12: the workbook as Hive"}}
-    scripts("its Hive, each name in angle brackets filled in")
-    convert["the convert Workflow: project.convert(NAME, HIVE)"]
+    scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
+    convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     dev[["each table created, seeded and written in dev"]]
     compare[["project.compare_batch: each against its original"]]
     promote["project.promote: each copied to prod"]
@@ -111,9 +111,9 @@ EXCEL_FLOW = ("""flowchart TD
               [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is", ""),
                ("Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the "
                 "workbook as Hive, a query for each final Table", ""),
-               ("Fill in each name it writes in angle brackets, then give each query to the "
-                "convert Workflow, its names cell holding NAME and HIVE, DEV filled in",
-                'project.convert("budget", HIVE)'),
+               ("Fill in each name it writes in angle brackets, save each query as a .hql "
+                "file, and convert them as one batch in the convert Workflow, DEV filled in",
+                'project.convert("budget", files=["sales.hql", "regions.hql"], query=query)'),
                ("Tick each checklist, then create, seed and write each table in dev, as the "
                 "Workflow's steps say", ""),
                ("Compare each with its original",

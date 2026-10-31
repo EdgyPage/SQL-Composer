@@ -15,7 +15,8 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. `project.new_table("mart.job_day_events")` makes the Table notebook,
+1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 13),
+   `project.new_table("mart.job_day_events")` makes the Table notebook,
    tables/mart__job_day_events/mart__job_day_events.ipynb, and the Table reference,
    references/mart__job_day_events.py. The user fills in the reference's columns and its
    `<LOCATION>` (file 02).

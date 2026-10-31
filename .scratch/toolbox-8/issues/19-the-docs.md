@@ -119,3 +119,25 @@ Built in parts, each its own commit.
   Getting started summary, in the README and the how-to page, names a Conversion. D358: the
   README's list of what the Starter project lacks names the ops_reports batch. D359: tests
   name a how-to by its title, not its number.
+
+### The Copilot files (19d)
+
+- The user, 2026-10-31: "You can add a workflow txt file." A new Copilot file,
+  `13_workflows.txt`, takes Copilot through a whole job: how a Workflow runs, then each
+  Workflow's steps as a numbered list, through a new `{workflow: NAME}` placeholder in
+  `tools/copilot_files.py`, which `workflow_graph.steps_listed` fills from `workflows.py`, so
+  its steps are always the ones its notebook runs. Like the Excel files, it leaves out the
+  block of rules for writing code: it gives steps, each a cell, and each step's own file the
+  code. 00 lists it.
+- 01 and 02 run add_references and new_table from their Workflow notebooks, and 01 names
+  `project.check()`, `project.do_next()` and file 13; 06 starts from the new_table Workflow.
+- 07: the convert Workflow writes the code for any Hive, one query or scripts of any length;
+  its later steps write, compare and promote; converting by hand, as the rest of the file
+  shows, is only to explain a piece. scan_hive left its names list, for room.
+- 11 and 12: the workbook's Hive, its `<...>` filled in, is saved as .hql files and run through
+  the convert Workflow as one batch, DEV filled in. The README's Excel steps and its Excel
+  chart say the same. Each file fits: 11 at 7,993 characters with Windows line breaks, 12 at
+  7,982.
+- The evaluation's three file-07 tasks ask for the Hive "piece by piece" as Toolbox code, the
+  use file 07 keeps for converting by hand. File 13 has no tasks: its answers are cells to
+  run, not code whose rows the scorer compares.
