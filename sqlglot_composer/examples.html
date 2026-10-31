@@ -4515,7 +4515,7 @@ No Table reference yet for ops.job_runs: project.convert(...) adds it through yo
 Found:
   line 4: the IN list of 4 values is the constant STATUS_VALUES</pre>
 <p>Give it the Hive as text, pasted between triple quotes in admin/workflows/convert/convert.ipynb, or as file=, a .hql or .sql file&#x27;s path from the folder you&#x27;re working in. It reads the one query in it with sqlglot, the way project.convert(...) does, and reports, with the line of each: the tables it reads and which have no Table reference yet, each long IN list and lookup CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each ${...} such as ${hivevar:day}, kept as written for Hive to fill in from a SET line sent first, and each piece written another way: a * as its table&#x27;s columns, a CASE WHEN chain as first_match(...), a lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the like. It changes no file and sends nothing. A table named without its database, such as job_runs, is taken to be in <code>database</code>.</p>
-<p>A script of several queries, an INSERT ... VALUES, an INSERT into a folder, and a FROM with several INSERTs are refused, each saying what to do instead.</p>
+<p>It reads one query: a script of several, which project.convert(...) takes as a batch, an INSERT ... VALUES, an INSERT into a folder, and a FROM with several INSERTs are refused, each saying what to do instead.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.start">

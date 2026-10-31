@@ -69,3 +69,18 @@ Built 2026-10-31.
 Left for later tickets: the Table folder's `conversion/` folder, the checklist and edited-file
 hashes (14); multi-inserts, stacking and the seed (15); the compare (16). The single query's
 Conversion folder stays until ticket 14 retires it.
+
+Review (2026-10-31):
+- Code review, Standards: dedupes are `list(dict.fromkeys(...))`, names split with
+  `split_table_name`, the cycle refusal uses `in_words`; `write_hive` is `insert_hive`, and
+  `_became`, `_nothing_said` and `problem` are `_result_of`, the statement's note and `failure`;
+  why a statement becomes nothing is its note, read from the tree (`DROPPED`, `TRUNCATED`,
+  `PARTITIONED`), so no text is sniffed; `MAKES` and `NAMES_A_TABLE` name the kind groups;
+  "Batch" is in CONTEXT.md; the hints are precise. Left as judgement: the `names, database`
+  clump and `_batch_columns` reading `Statement._outputs`, as finish_conversion already does.
+- Code review, Spec: a comment above a statement is no longer part of it; MSCK REPAIR is
+  nothing; a statement sqlglot reads as a Command has its names swapped as written; a CREATE
+  with no write gets its Table reference; a read before its table's write in the same script
+  reads the table as it was (settled here: a cycle is only across scripts); a table that reads
+  itself is named, its write kept as Hive in batch.md, until ticket 15's seed.
+- Drift: D324 to D326, fixed in the commit after 7e20352.

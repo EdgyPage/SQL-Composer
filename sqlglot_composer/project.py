@@ -1235,15 +1235,15 @@ def _databases_lines(root: Path) -> list[str]:
     wanted: list[str] = []
     for workflow in workflows.WORKFLOWS:
         if workflows.started_inputs(root, workflow) is not None:
-            wanted += [name for name in workflow.databases if name not in wanted]
-    left = workflows.databases_to_fill(root, tuple(wanted))
+            wanted += workflow.databases
+    left = workflows.databases_to_fill(root, tuple(dict.fromkeys(wanted)))
     if not left:
         return []
     return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Databases a "
             "Workflow you have started writes to."]
 
 
-def _scripts_given(call: str, files: object) -> list[tuple[str, str]]:
+def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
     """Each script `files` names, a path or a list of them from the folder you're working
     in, as (its file's name, its Hive); refused when one isn't there."""
     if isinstance(files, str):
@@ -1587,8 +1587,9 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     changes no file and sends nothing. A table named without its database, such as job_runs, is
     taken to be in `database`.
 
-    A script of several queries, an INSERT ... VALUES, an INSERT into a folder, and a FROM with
-    several INSERTs are refused, each saying what to do instead.
+    It reads one query: a script of several, which project.convert(...) takes as a batch, an
+    INSERT ... VALUES, an INSERT into a folder, and a FROM with several INSERTs are refused,
+    each saying what to do instead.
     """
     call = "project.scan_hive(...)"
     root = _project_root(call)
@@ -1713,6 +1714,8 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
 # Where a batch's index is kept: the scripts as given, and batch.md, what each statement became.
 BATCH_LIST = "batch.md"
 BATCH_SCRIPTS = "scripts"
+
+
 def _is_a_batch(text: str, database: str) -> bool:
     """Whether Hive is a batch, not one query: more than one statement besides its SET lines,
     or one that creates a table."""
@@ -1750,11 +1753,11 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             fix="Change the scripts, or rename= a table, then run it again.",
             error=ValueError,
         )
-    sources = []
+    read = []
     for statement in ordered:
-        for table in statement.reads:
-            if table not in names and table not in sources:
-                sources.append(table)
+        in_dev = converting.names_by_then(ordered, statement, names)
+        read += [table for table in statement.reads if table not in in_dev]
+    sources = list(dict.fromkeys(read))
     missing = [table for table in sources
                if not REFERENCE.path(root, REFERENCE.stem(table)).exists()]
     added, skipped = [], []
@@ -1766,12 +1769,12 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
         _write_databases(root)
     made = []
     for table in _tables_in_order(ordered):
-        problem = _convert_one_table(root, table, ordered, names, query, database)
-        if problem:
-            skipped.append(f"{names[table]} ({problem})")
+        failure = _convert_one_table(root, table, ordered, names, query, database)
+        if failure:
+            skipped.append(f"{names[table]} ({failure})")
         else:
             made.append(names[table])
-    _write_batch_index(index, name, scripts, ordered, names, database, dev)
+    _write_batch_index(index, name, scripts, ordered, names, database, dev, made)
     converted = f"converted {counted(len(scripts), 'script')} into {in_words(made)}"
     _log(root, call, made, [converted,
                             f"wrote {index.relative_to(root).as_posix()}/"], frame, skipped)
@@ -1796,11 +1799,8 @@ def _dev_database(root: Path, call: str) -> str:
 
 def _tables_in_order(ordered: list[converting.BatchStatement]) -> list[str]:
     """Each table the batch writes, once, in the order of its first write."""
-    tables = []
-    for statement in ordered:
-        if statement.kind in converting.WRITES and statement.table not in tables:
-            tables.append(statement.table)
-    return tables
+    return list(dict.fromkeys(statement.table for statement in ordered
+                              if statement.kind in converting.MAKES))
 
 
 def _convert_one_table(root: Path, table: str, ordered: list[converting.BatchStatement],
@@ -1809,15 +1809,22 @@ def _convert_one_table(root: Path, table: str, ordered: list[converting.BatchSta
     """Make one table a batch writes a Saved table in dev, through convert(...) and
     finish_conversion(...) on its first write, then write its Table reference: what went
     wrong, or "" when nothing did."""
-    first = next(each for each in ordered if each.kind in converting.WRITES
-                 and each.table == table)
+    writes = [each for each in ordered
+              if each.kind in converting.WRITES and each.table == table]
+    if not writes:
+        return _reference_of_a_create_alone(root, table, ordered, names)
+    first = writes[0]
+    if converting.reads_itself(first, database):
+        return ("it reads its own table, so its rows depend on what the table held: it is kept "
+                "as Hive in batch.md")
     earlier = [each for each in ordered[:ordered.index(first)] if each.script == first.script]
-    truncated = any(each.table == table and each.text.upper().startswith("TRUNCATE")
+    truncated = any(each.table == table and each.note == converting.TRUNCATED
                     for each in earlier)
     settings = [f"{each.text};\n" for each in earlier if each.kind == converting.SETTING]
-    text = "".join(settings) + converting.write_hive(first, names, database, truncated)
+    now_names = converting.names_by_then(ordered, first, names)
+    text = "".join(settings) + converting.insert_hive(first, now_names, database, truncated)
     dev = names[table]
-    conversion = dev.split(".", 1)[1]
+    conversion = split_table_name(dev)[1]
     try:
         convert(conversion, text, query=query, database=database)
         statement = load(conversion).converted()
@@ -1835,8 +1842,27 @@ def _convert_one_table(root: Path, table: str, ordered: list[converting.BatchSta
     return ""
 
 
+def _reference_of_a_create_alone(root: Path, table: str,
+                                 ordered: list[converting.BatchStatement],
+                                 names: dict[str, str]) -> str:
+    """Write the Table reference of a table the batch creates and never writes, from its
+    CREATE, and register it: it has no logic, so no Table folder. "" for nothing wrong."""
+    create = next(each for each in ordered
+                  if each.kind == converting.CREATE and each.table == table)
+    columns, partitions = converting.created_columns(create)
+    dev = names[table]
+    stem = REFERENCE.stem(dev)
+    REFERENCE.path(root, stem).write_text(
+        table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}"),
+        encoding="utf-8")
+    Registry(root).add([(REFERENCE, dev)], unchecked.now())
+    _write_databases(root)
+    return ""
+
+
 def _batch_columns(table: str, ordered: list[converting.BatchStatement],
-                   first: converting.BatchStatement, statement: object,
+                   first: converting.BatchStatement,
+                   statement: Statement | UncheckedStatement,
                    query: Callable[[str], pd.DataFrame] | None
                    ) -> tuple[dict[str, str], list[str]]:
     """A batch table's columns and types, and its partition columns: its CREATE's when the
@@ -1871,7 +1897,7 @@ def _described_columns(table: str, query: Callable[[str], pd.DataFrame]) -> dict
 
 def _write_batch_index(index: Path, name: str, scripts: list[tuple[str, str]],
                        ordered: list[converting.BatchStatement], names: dict[str, str],
-                       database: str, dev: str) -> None:
+                       database: str, dev: str, made: list[str]) -> None:
     """Keep the batch's scripts as given, and write batch.md: each table and its copy in dev,
     then each statement, in the order they run, and what it became."""
     (index / BATCH_SCRIPTS).mkdir(parents=True)
@@ -1885,17 +1911,19 @@ def _write_batch_index(index: Path, name: str, scripts: list[tuple[str, str]],
         copy = names[table]
         lines.append(f"- {table}: {copy}, {TABLE_FOLDER.shown(TABLE_FOLDER.stem(copy))}")
     lines += ["", "## Each statement, in the order they run", ""]
-    written: set[str] = set()
+    # A table not made is taken as written already, so each of its writes is kept as Hive.
+    written = {table for table, copy in names.items() if copy not in made}
     for number, statement in enumerate(ordered, 1):
-        became = _became(statement, names, database, written)
+        result = _result_of(statement, ordered, names, database, written)
         lines.append(f"{number}. {statement.where()}, `{_first_words(statement.text)}`: "
-                     f"{became}")
+                     f"{result}")
     (index / BATCH_LIST).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def _became(statement: converting.BatchStatement, names: dict[str, str], database: str,
-            written: set[str]) -> str:
-    """What batch.md says one statement became."""
+def _result_of(statement: converting.BatchStatement,
+               ordered: list[converting.BatchStatement], names: dict[str, str], database: str,
+               written: set[str]) -> str:
+    """What one statement became, as batch.md says it."""
     if statement.kind in converting.WRITES and statement.table not in written:
         written.add(statement.table)
         note = ""
@@ -1908,22 +1936,13 @@ def _became(statement: converting.BatchStatement, names: dict[str, str], databas
     if statement.kind == converting.SETTING:
         return "the Session settings of the writes after it in its script"
     if statement.kind == converting.NOTHING:
-        return _nothing_said(statement.text)
-    hive = python_literal(converting.with_dev_names(statement, names, database))
+        return statement.note
+    now_names = converting.names_by_then(ordered, statement, names)
+    hive = python_literal(converting.with_dev_names(statement, now_names, database))
     if statement.kind in converting.WRITES:
-        return (f"a further write to {names[statement.table]}, kept as Hive for its notebook: "
+        return (f"a write to {names[statement.table]} its notebook doesn't make, kept as Hive: "
                 f"unchecked_hive({hive})")
     return f"kept as Hive, an Unchecked statement: unchecked_hive({hive})"
-
-
-def _nothing_said(text: str) -> str:
-    """Why a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR becomes nothing."""
-    upper = text.upper()
-    if upper.startswith("DROP"):
-        return "nothing: the Saved table's create() makes it new"
-    if upper.startswith("TRUNCATE"):
-        return "nothing: the write after it replaces every row"
-    return "nothing: write() adds each Partition it writes"
 
 
 def _first_words(text: str) -> str:
@@ -1939,12 +1958,12 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                   added: list[str], skipped: list[str], dev: str, index: str) -> list[str]:
     """What convert says of a batch: what it read, the Saved tables it made in dev, the Table
     references it added, what it skipped and why, and where the list is."""
-    made_said = "."
+    tables_listed = "."
     if made:
-        made_said = f": {in_words(made)}."
+        tables_listed = f": {in_words(made)}."
     lines = [f"Converted {name}: {counted(len(scripts), 'script')}, "
              f"{counted(len(statements), 'statement')}, into "
-             f"{counted(len(made), 'Saved table')} in {dev}{made_said}"]
+             f"{counted(len(made), 'Saved table')} in {dev}{tables_listed}"]
     if added:
         lines.append(f"Added Table references, from DESCRIBE: {in_words(added)}.")
     if skipped:
@@ -2239,7 +2258,8 @@ def _converted_query(call: str, text: str, root: Path,
     except converting.ConversionRefused as why:
         refuse(
             what=f"{call}: a Conversion can't take this Hive: {why}.",
-            why="A Conversion reads one query and writes your own code for it.",
+            why="It reads one query and writes your own code for it; a batch of several is "
+            "convert's.",
             fix="Do as it says, then scan it again; or keep it as an Unchecked statement, "
             "unchecked_hive(...).",
             error=ValueError,
