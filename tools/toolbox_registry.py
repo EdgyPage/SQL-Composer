@@ -30,7 +30,8 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "project_files.py", "project_templates.py", "public.py", "python_steps.py",
                 "refusals.py", "running.py", "shared.py", "stacking.py", "tables.py",
                 "trees.py",
-                "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "writing.py")
+                "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workflows.py",
+                "writing.py")
 PAGES = ("examples.html", "how_to.html")
 # The one file that says which Toolbox version the folder is (ADR 0013). On dev it holds the
 # version alone; the export adds when it was exported, from which commit, and each file's hash.

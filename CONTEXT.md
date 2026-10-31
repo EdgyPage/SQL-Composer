@@ -75,6 +75,14 @@ files. The user makes only the Project's folder and the copy of the Toolbox in i
 action makes every other file, for the user to fill in.
 _Avoid_: admin statement, migration, setup step
 
+**Workflow**:
+An ordered list of steps that takes a Project from its start materials, what the user brings,
+to one end goal, such as converting scripts or promoting tables. Each step is a Project action,
+a call to the Warehouse the user makes on purpose, a decision only the user can make, or
+fiddling: a step done by hand though the code already knows the answer, which the Toolbox works
+to remove.
+_Avoid_: wizard, menu, pipeline, recipe, playbook
+
 **Upgrade**:
 A Project action that carries a Project's files from the Toolbox version that last wrote them
 to the one copied in, one version at a time. It makes the changes that need no judgement,
