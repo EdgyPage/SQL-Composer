@@ -43,12 +43,13 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
   its dev copy once, and the convert Workflow seeds it before its first write.
 - **The compare step.** `project.compare_batch(name, query=query)`, the convert Workflow's
-  last step, compares each table a batch wrote in dev with its original table, on the latest
-  Partition both hold, or the one `partition=` gives; a table with no Partitions on every
-  row, and a query alone with its query. Each result is in the table's
+  last step, compares each Saved table a batch made in dev, once written, with the table it
+  copies, on the latest Partition both hold, or the one `partition=` gives; a table with no
+  Partitions is compared on every row, and a query alone with its query. Each result is in the table's
   `conversion/compare.md`, with the rows that differ. When the two hold no Partition in
   common, the table fails, naming the last each holds. Once every table passes, the batch
-  moves to `admin/workflows/convert/finished/<name>/`, which `check()` no longer lists.
+  moves to `admin/workflows/convert/finished/<name>/`, which `check()` no longer lists;
+  `project.remove_conversion(name)` archives it, freeing its name.
 - **A Conversion makes its Saved tables itself.** `project.convert` writes each table's Table
   folder and Table reference at once, one query alone too, as `<dev>.<name>`:
   `finish_conversion` is gone. Each Table folder's `conversion/` keeps each statement of its

@@ -60,6 +60,7 @@ BATCH_RECORD = "written.json"
 FINISHED = "finished"
 COMPARED = "compare.md"
 PASSED = "Passed: "
+COMPARED_AT = "Compared at "
 # A converted table's own folder, in its Table folder, its checklist there, and a box on it
 # not yet ticked.
 CONVERSION = "conversion"
@@ -293,10 +294,16 @@ def every_table_compared(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def compare_passed(root: Path, table: str) -> bool:
-    """Whether a converted table's conversion/compare.md says it passed."""
+    """Whether a converted table's conversion/compare.md says it passed, and admin/sent.csv
+    records no write of it since."""
     path = root / "tables" / table_stem(table) / CONVERSION / COMPARED
-    lines = file_text(path).split("\n")
-    return len(lines) > 2 and lines[2].startswith(PASSED)
+    said = [line for line in file_text(path).split("\n")
+            if line.startswith((PASSED, COMPARED_AT))]
+    if len(said) != 2 or not said[0].startswith(PASSED):
+        return False
+    compared_at = said[1].removeprefix(COMPARED_AT).rstrip(".")
+    return all(row["time"] <= compared_at for row in sent_rows(root)
+               if row["kind"] in ("write", "unchecked") and table in row["tables"].split(";"))
 
 
 def reference_sheet_is_fresh(root: Path, inputs: dict[str, object]) -> bool:
@@ -387,7 +394,7 @@ CONVERT = Workflow(
         Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
              every_table_written),
-        Step("Compare each table with its original, on the latest Partition both hold",
+        Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
              "project.compare_batch(NAME, query=query)", every_table_compared),
     ),

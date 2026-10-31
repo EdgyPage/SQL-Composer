@@ -14,6 +14,7 @@ dev table as Hive the test gives, and answers SHOW PARTITIONS from a list.
 from __future__ import annotations
 
 import datetime
+import json
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -22,7 +23,13 @@ import pandas as pd
 import pytest
 from conftest import toolbox_module
 
-from sqlglot_composer import example_database, project, set_admin_log
+from sqlglot_composer import (
+    example_database,
+    project,
+    run_execute,
+    set_admin_log,
+    unchecked_hive,
+)
 
 NOW = datetime.datetime(2026, 10, 31, 9, 30, 0)
 DEV = "mart_dev.failed_ops_reports"
@@ -164,3 +171,78 @@ def test_the_workflows_compare_step_calls_compare_batch(started: Path) -> None:
     assert ('failed: 2. Tick each box' in repr(project.check()))
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert step.call == "project.compare_batch(NAME, query=query)"
+
+
+# --- What ticket 16's review found -----------------------------------------------------------
+
+
+def test_a_batch_that_wrote_no_table_is_never_finished(started: Path) -> None:
+    record = started / "admin" / "workflows" / "convert" / "failed" / "written.json"
+    kept = json.loads(record.read_text(encoding="utf-8"))
+    kept["originals"] = {}
+    record.write_text(json.dumps(kept), encoding="utf-8")
+    report = repr(project.compare_batch("failed", query=SAME))
+    assert "finished" not in report
+    assert record.is_file()
+
+
+def test_a_finished_batchs_name_is_refused(started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    with pytest.raises(FileExistsError, match="a batch named failed is finished"):
+        project.convert("failed", files=["failed.hql"], query=example_database.query,
+                        database="ops")
+
+
+def test_a_partition_naming_no_partition_column_is_refused(started: Path) -> None:
+    with pytest.raises(ValueError, match="partition= names day, which no table it compares"):
+        project.compare_batch("failed", query=SAME, partition={"day": "2026-09-23"})
+
+
+def test_a_write_after_a_passing_compare_makes_it_stale(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project.compare_batch("failed", query=SAME)
+    workflows = toolbox_module("workflows")
+    assert workflows.compare_passed(started, DEV)
+    later = datetime.datetime(2026, 10, 31, 10, 0, 0)
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: later)
+    run_execute(unchecked_hive(f"INSERT INTO TABLE {DEV} PARTITION (dt) {FAILED_ROWS}"),
+                example_database.execute)
+    assert not workflows.compare_passed(started, DEV)
+
+
+def test_what_stops_a_compare_is_its_result_whole(started: Path) -> None:
+    def query(hive: str) -> pd.DataFrame:
+        raise RuntimeError("The warehouse said no.\nIts second line says why.")
+
+    report = repr(project.compare_batch("failed", query=query))
+    assert f"{DEV}: failed, couldn't compare: The warehouse said no." in report
+    assert "Its second line says why." in compared(started)
+
+
+# --- What ticket 16's beginner reader found ---------------------------------------------------
+
+
+def test_a_partition_you_give_that_neither_holds_fails_and_finishes_nothing(
+        started: Path) -> None:
+    report = repr(project.compare_batch("failed", query=SAME, partition={"dt": "2030-01-01"}))
+    assert (f"{DEV}: failed, there is no Partition where dt = '2030-01-01' in {DEV} and "
+            f"{ORIGINAL}: give one both hold") in report
+    assert "finished" not in report
+
+
+def test_a_finished_batch_is_archived_by_remove_conversion_which_frees_its_name(
+        started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    project.remove_conversion("failed")
+    convert = started / "admin" / "workflows" / "convert"
+    assert not (convert / "finished" / "failed").exists()
+    assert list((started / "admin" / "removed").glob("*-failed"))
+    project.convert("failed", files=["failed.hql"], query=example_database.query,
+                    database="ops")
+    assert (convert / "failed" / "written.json").is_file()
+
+
+def test_compare_md_says_what_the_statement_is(started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    assert (f"Below, the Statement is {DEV}'s rows, and the original {ORIGINAL}'s."
+            in compared(started))

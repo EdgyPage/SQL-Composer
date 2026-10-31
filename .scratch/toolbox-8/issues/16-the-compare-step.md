@@ -65,3 +65,36 @@ Built 2026-10-31.
 - **D340 and D341 fixed here:** a later INSERT OVERWRITE now replaces only the writes to its
   own Partition (`_pieces_of` groups the writes by their PARTITION(...) values), as convert's
   docstring and CHANGES say; how-to 27 and CHANGES list the seed's box.
+
+### Review (5b81459)
+
+Code review: the Standards and Spec axes (`review-standards`, `review-spec`, on Sonnet), and
+the drift review (D342). Fixed in the next commit:
+
+- **Spec, a batch with no table to compare** was finished vacuously; now it needs at least one
+  table the batch wrote, as `every_table_compared` does.
+- **Spec, a finished batch's name:** convert refuses it, so no second batch can collide with
+  `finished/<name>/` (also D342's first part).
+- **Spec, `partition=` naming no partition column** of a table was dropped silently; now the
+  result says it was passed over, and why.
+- **Spec, a stale pass:** compare.md records when it compared, and `compare_passed` is false
+  once admin/sent.csv records a write of the table after that; a convert run again drops the
+  table's old compare.md.
+- **Spec, what stopped a compare** is kept whole in compare.md, its first line in the report;
+  a SHOW PARTITIONS that fails is now that table's result too, not a stop to the rest.
+- **Standards:** `_compare_one` chooses its heading and Hive with one if/else; `original` is
+  `str` wherever it can't be None (`_partition_to_compare`, `_partitions_listed`), and a
+  query alone is never partition-compared; `_partition_said` is `_partition_in_words`, `on` is
+  `chosen`, `how` is `described`; the text is written by `_compare_text`; `passed` picks its
+  words from one map; `_original_of` sets each table's original once.
+- **D342:** convert's and batch_tables' docstrings name the finished folder.
+
+Answered, not changed:
+
+- **Spec (a1), a test that no Load limit refuses the whole-table compare:** a Load limit
+  refuses only a partitioned read with no filter, ORDER_BY with no LIMIT, or a result filling
+  the automatic LIMIT; the compare sets none of them, and the no-Partitions test runs it.
+- **Standards, the path to compare.md built in workflows.py:** workflows.py reads files by
+  their paths, as its other done functions do; it doesn't import project_files' kinds.
+- **Standards, compare.md read back by its third line:** the file is the step's record, as
+  checklist.md's boxes are; the format is one constant each (`PASSED`, `COMPARED_AT`).

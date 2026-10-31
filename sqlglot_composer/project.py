@@ -94,8 +94,8 @@ import pandas as pd
 
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import converting, describe, kinds, unchecked, upgrades, workflows
-from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, CONVERSION,
-                        FINISHED, OPEN_BOX, PASSED)
+from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
+                        CONVERSION, FINISHED, OPEN_BOX, PASSED)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
@@ -125,7 +125,8 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
 from .running import to_hive
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
-from .tables import TABLE_NAME, all_columns, table_reference_text, write_table_reference
+from .tables import (TABLE_NAME, Table, Verdict, all_columns, table_reference_text,
+                     write_table_reference)
 from .unchecked import UncheckedStatement, inline_code, script_line, write_entry, hive_settings
 
 __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "add_references",
@@ -1612,7 +1613,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     and what it became.
     Next: tick each box of each table's conversion/checklist.md, then run the convert
     Workflow's next steps, in admin/workflows/convert/convert.ipynb: create each table in dev,
-    seed each that reads itself, and write each.
+    seed each that reads itself, write each, and compare each with its original.
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -1658,7 +1659,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     other statement an Unchecked statement, with its names in dev. Run again, it writes afresh
     each file still as it wrote it, keeping each box you ticked; it keeps one you changed, and
     writes a fresh copy of it into the batch's folder, under fresh/, for you to compare; and
-    with overwrite=True it writes over each, kept as it was in admin/removed/.
+    with overwrite=True it writes over each, kept as it was in admin/removed/. A batch whose
+    tables have all passed project.compare_batch is finished, in
+    admin/workflows/convert/finished/<name>/, and its name is refused.
     project.batch_tables(name) gives the Saved tables a batch made, for run_tables.
     """
     frame = callers_frame()
@@ -1794,6 +1797,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     root = _project_root(call)
     dev = _dev_database(root, call)
     index = CONVERSION_FOLDER.path(root, name)
+    _refuse_a_finished_name(root, name, call)
     statements = converting.batch_statements(scripts, database, f"{database}.{name}")
     names, ordered = _batch_plan(call, statements, dev, rename)
     if not names:
@@ -1813,9 +1817,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             skipped.append(f"{names[table]} ({failure})")
         elif _writes_to(ordered, table):
             made.append(names[table])
-            files.originals[names[table]] = table
-            if _writes_to(ordered, table)[0].kind == converting.QUERY:
-                files.originals[names[table]] = None
+            files.originals[names[table]] = _original_of(ordered, table)
         else:
             created_only.append(names[table])
     _write_batch_index(files, name, scripts, ordered, names, database, dev, made)
@@ -1833,6 +1835,28 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     _log(root, call, made, done, frame, skipped)
     return ProjectReport(_batch_report(name, scripts, statements, made, created_only, added,
                                        skipped, files, dev))
+
+
+def _refuse_a_finished_name(root: Path, name: str, call: str) -> None:
+    """Refuse a batch's name that a finished batch has, in admin/workflows/convert/finished/."""
+    if (root / BATCHES / FINISHED / name).exists():
+        refuse(
+            what=f"{call}: a batch named {name} is finished, in admin/workflows/convert/"
+            f"{FINISHED}/{name}/.",
+            why="Each batch keeps its name, which its finished folder holds; converting "
+            "another under it would mix the two.",
+            fix="Give this batch a name of its own, or archive the finished one first with "
+            f'project.remove_conversion("{name}"), which frees its name.',
+            error=FileExistsError,
+        )
+
+
+def _original_of(ordered: list[converting.BatchStatement], table: str) -> str | None:
+    """What a table the batch writes is compared with: the original table, or None for a
+    query alone, which is compared with its query."""
+    if _writes_to(ordered, table)[0].kind == converting.QUERY:
+        return None
+    return table
 
 
 def _batch_plan(call: str, statements: list[converting.BatchStatement], dev: str,
@@ -2063,6 +2087,9 @@ def _write_conversion_folder(files: _BatchFiles, dev: str,
     checklist = f"{conversion}/{CHECKLIST}"
     files.write_text(checklist, _ticks_kept(_checklist_text(dev, items, first.note),
                                             files.root / checklist))
+    # Its old result compared the rows the last conversion wrote: the next compare writes it.
+    (TABLE_FOLDER.path(files.root, TABLE_FOLDER.stem(dev)) / CONVERSION / COMPARED).unlink(
+        missing_ok=True)
 
 
 def _logic_with_opt_outs(root: Path, hive_read: converting.ConvertedQuery
@@ -2205,6 +2232,9 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
 def _rows_compared(hive_read: converting.ConvertedQuery) -> str:
     """The cell comparing a converted table's rows with the original's, commented until you
     choose the Partition to compare on."""
+    # The batch's own compare, its Workflow's step 6, comes once the table is written.
+    ahead = ("# The convert Workflow's step 6, project.compare_batch, compares this table once "
+             "written.\n# This compares its query with the original's first:\n")
     given = [column for column in hive_read.partition_columns
              if column not in hive_read.static_partition]
     if given or not hive_read.static_partition:
@@ -2212,10 +2242,10 @@ def _rows_compared(hive_read: converting.ConvertedQuery) -> str:
         compared_on = "dt"
         if given:
             compared_on = given[0]
-        return ("# Its rows against the original's, through your query, on one Partition:\n"
-                "# print(compare_with_original(preview(), ORIGINAL, query=query, "
+        return (ahead + "# Its rows against the original's, through your query, on one "
+                "Partition:\n# print(compare_with_original(preview(), ORIGINAL, query=query, "
                 f'partition={{"{compared_on}": "<a value>"}}))')
-    return ("# Its rows against the original's, through your query. Its query gives no "
+    return (ahead + "# Its rows against the original's, through your query. Its query gives no "
             "partition column,\n# as the original's PARTITION(...) names its value: check its "
             "WHERE keeps it small.\n# print(compare_with_original(preview(), ORIGINAL, "
             "query=query, reads_all_partitions=True))")
@@ -2429,7 +2459,8 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                  "order they run, and what it became.")
     lines.append(f"Next: tick each box of each table's {CONVERSION}/{CHECKLIST}, then run the "
                  "convert Workflow's next steps, in admin/workflows/convert/convert.ipynb: "
-                 "create each table in dev, seed each that reads itself, and write each.")
+                 "create each table in dev, seed each that reads itself, write each, and "
+                 "compare each with its original.")
     return lines
 
 
@@ -2464,7 +2495,8 @@ def batch_tables(name: str, seeded: bool = False) -> list[str]:
     ['mart_dev.spare']
 
     It reads the batch's record, admin/workflows/convert/<name>/written.json, which convert
-    writes, so the convert Workflow's notebook writes them with
+    writes, or admin/workflows/convert/finished/<name>/written.json once compare_batch has
+    finished the batch, so the convert Workflow's notebook writes them with
     project.run_tables(tables=project.batch_tables(NAME), execute=execute). With seeded=True,
     it gives only those that read themselves, which the Workflow seeds first. It refuses a
     name no batch has.
@@ -2497,7 +2529,7 @@ def _batch_index(root: Path, name: str, call: str) -> Path:
 def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
                   tables: str | list[str] | None = None,
                   partition: dict[str, object] | None = None) -> ProjectReport:
-    """Compare each table a batch wrote in dev with its original.
+    """Compare each Saved table a batch made in dev with the table it copies.
 
     >>> from sqlglot_composer import example_database, project
     >>> project.start()
@@ -2512,27 +2544,43 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     ...                     "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'",
     ...                     query=example_database.query, database="ops")
     >>> print(project.compare_batch("spare", query=example_database.query))
-    mart_dev.spare: failed, couldn't compare: What happened:  The Example database couldn't
-    run this Hive: it has no table mart_dev.spare.
+    mart_dev.spare: failed, couldn't compare: The Example database couldn't run this Hive: it
+    has no table mart_dev.spare.
 
     The Example database holds no Dev Database, so mart_dev.spare isn't there to read: at
     work, once the convert Workflow has written it, its rows are compared with the query's,
-    and its tables/mart_dev__spare/conversion/compare.md says whether they are the same.
+    and its tables/mart_dev__spare/conversion/compare.md says whether they are the same, as in:
 
-    It is the convert Workflow's last step. Each dev table's rows are compared with its original
-    table's, through your query, as compare_with_original compares them: on the last Partition
-    SHOW PARTITIONS lists for both, or the one partition= gives, such as {"dt": "2026-09-24"},
-    for each table partitioned by its columns; a table with no Partitions on every row. A query
-    alone has no original table, so its Saved table is compared with the query, kept in its
-    conversion/statement.hql. When the two hold no Partition in common, the table fails, naming
-    the last each holds: write the dev copy for a Partition the original holds, or give one with
-    partition=.
+        # mart_dev.spare against its query, in conversion/statement.hql
 
-    Each result is written in the table's conversion/compare.md, with the rows that differ,
-    at most 5 from each, as compare_with_original gives them. `tables` names which, one or a
-    list; left out, each the batch wrote. Once every table the batch wrote has passed, the
-    batch's folder moves to admin/workflows/convert/finished/<name>/, and check no longer
-    lists it; batch_tables still reads it. It never needs your execute: it only reads.
+        Below, the Statement is mart_dev.spare's rows, and the original its query's.
+
+        Passed: every row: it has no Partitions.
+        Compared at 2026-10-31 09:30:00.
+
+        The Statement and the original give the same rows: 4 rows each.
+
+    It is the convert Workflow's last step. It compares the tables once written, not their
+    queries: each dev table's rows with the rows of the table it copies, its original, through
+    your query, as compare_with_original compares them. A table partitioned by a column, such
+    as dt, is compared on one Partition: the one partition= gives, such as {"dt":
+    "2026-09-24"}, when both tables hold it; else the latest both hold, of the Partitions Hive's
+    SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in
+    common, or none you gave, the table fails, naming what each holds: write the dev copy for a
+    Partition the original holds, or give one both hold. A table with no Partitions is compared
+    on every row. A query alone, which convert made a Saved table named for the batch, has no
+    original table: its rows are compared with the query's, kept in its
+    conversion/statement.hql. A partition= that names no column any of them is partitioned by
+    is refused.
+
+    Each result is written in the table's conversion/compare.md, with the rows that differ, at
+    most 5 from each, as compare_with_original gives them, where the Statement is the dev
+    table's rows. `tables` names which, by their names in dev, such as
+    mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
+    every one has passed, the batch's folder moves to admin/workflows/convert/finished/<name>/,
+    and check no longer lists it; batch_tables still reads it, and compare_batch run on it
+    again compares again, moving nothing. project.remove_conversion(name) archives a finished
+    batch, which frees its name. It never needs your execute: it only reads.
     """
     frame = callers_frame()
     call = _action_call("compare_batch", name)
@@ -2543,12 +2591,15 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     originals = json.loads((index / BATCH_RECORD).read_text(encoding="utf-8")).get(
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
+    read = {dev: _dev_table(root, dev) for dev in chosen}
+    _refuse_a_partition_no_table_has(call, partition, read)
     lines = []
     for dev in chosen:
-        lines.append(f"{dev}: {_compare_one(root, dev, originals[dev], query, partition)}")
+        result = _compare_one(root, read[dev], originals[dev], query, partition)
+        lines.append(f"{dev}: {result}")
     written = [f"wrote tables/{table_stem(dev)}/{CONVERSION}/{COMPARED}" for dev in chosen]
-    if index.parent.name != FINISHED and all(workflows.compare_passed(root, dev)
-                                             for dev in originals):
+    if index.parent.name != FINISHED and originals and all(
+            workflows.compare_passed(root, dev) for dev in originals):
         finished = root / BATCHES / FINISHED / name
         finished.parent.mkdir(parents=True, exist_ok=True)
         index.rename(finished)
@@ -2580,75 +2631,144 @@ def _tables_compared(call: str, tables: str | list[str] | None,
     return list(tables)
 
 
-def _compare_one(root: Path, dev: str, original: str | None,
+def _dev_table(root: Path, dev: str) -> Table:
+    """A dev table's Table reference, as its file in references/ holds it now."""
+    short = split_table_name(dev)[1]
+    return run_logic(root, f"from references.{table_stem(dev)} import {short}",
+                     "compare")[short]
+
+
+def _refuse_a_partition_no_table_has(call: str, partition: object,
+                                     read: dict[str, Table]) -> None:
+    """Refuse a partition= that names a column none of the tables compared is partitioned by,
+    as a name spelt wrong: every compare would leave it out."""
+    if not isinstance(partition, dict):
+        return
+    columns: list[str] = []
+    for table in read.values():
+        if set(partition) <= set(table._partitioned_by):
+            return
+        columns += table._partitioned_by
+    refuse(
+        what=f"{call}: partition= names {in_words(list(partition))}, which no table it "
+        "compares is partitioned by.",
+        why="Each table would be compared on its latest Partition instead, which isn't the "
+        "one you asked for.",
+        fix=f"Name their partition columns ({in_words(list(dict.fromkeys(columns))) or 'none'})"
+        ", or leave partition= out.",
+        error=ValueError,
+    )
+
+
+def _compare_one(root: Path, table: Table, original: str | None,
                  query: Callable[[str], pd.DataFrame],
                  partition: dict[str, object] | None) -> str:
     """Compare one dev table with its original, `original`, or its query when None, and
     write the result in its conversion/compare.md: what the report says of it."""
+    dev = table._name
     stem = table_stem(dev)
-    short = split_table_name(dev)[1]
-    table = run_logic(root, f"from references.{stem} import {short}", "compare")[short]
+    columns = table._partitioned_by
     copy = statement(SELECT(all_columns(table)),
-                     FROM(table, reads_all_partitions=bool(table._partitioned_by)))
+                     FROM(table, reads_all_partitions=bool(columns)))
     folder = TABLE_FOLDER.path(root, stem) / CONVERSION
-    heading = f"# {dev} against {original}"
-    hive = f"SELECT {', '.join(column._name for column in all_columns(table))} FROM {original}"
     if original is None:
-        heading = f"# {dev} against its query, in {CONVERSION}/{STATEMENT}"
+        heading = (f"# {dev} against its query, in {CONVERSION}/{STATEMENT}\n\nBelow, the "
+                   f"Statement is {dev}'s rows, and the original its query's.")
         hive = (folder / STATEMENT).read_text(encoding="utf-8")
-    on, how = None, "every row: it has no Partitions"
-    if table._partitioned_by:
-        on, how = _partition_to_compare(query, dev, original, table._partitioned_by, partition)
-    if table._partitioned_by and on is None:
-        verdict = None
     else:
-        try:
-            verdict = compare_with_original(copy, hive, query=query, partition=on)
-        # Whatever stops the compare, such as a table not there yet, is its result.
-        except Exception as error:  # noqa: BLE001
-            verdict = None
-            how = f"couldn't compare: {str(error).strip().splitlines()[0]}"
+        heading = (f"# {dev} against {original}\n\nBelow, the Statement is {dev}'s rows, "
+                   f"and the original {original}'s.")
+        names = ", ".join(column._name for column in all_columns(table))
+        hive = f"SELECT {names} FROM {original}"
+    verdict, stopped = None, ""
+    try:
+        chosen, described = None, "every row: it has no Partitions"
+        if columns and original is not None:
+            chosen, described = _partition_to_compare(query, dev, original, columns, partition)
+        if partition is not None and chosen is not partition and _NOT_HELD not in described:
+            described += (f"; partition= names {in_words(list(partition))}, which isn't one of "
+                          f"its partition columns ({in_words(columns) or 'none'}), so it was "
+                          "left out")
+        if chosen is not None or not columns:
+            verdict = compare_with_original(copy, hive, query=query, partition=chosen)
+    # Whatever stops the compare, such as a table not there yet, is its result.
+    except Exception as error:  # noqa: BLE001
+        stopped = str(error).strip()
+        first = stopped.splitlines()[0].strip().removeprefix("What happened:").strip()
+        described = f"couldn't compare: {first}"
     passed = verdict is not None and verdict.ok
-    said = "Failed: "
+    (folder / COMPARED).write_text(_compare_text(heading, passed, described, verdict, stopped),
+                                   encoding="utf-8")
+    return f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+
+
+# What a compare's result and its report say, by whether it passed.
+_PASSED_OR_FAILED = {True: "passed", False: "failed"}
+
+
+def _compare_text(heading: str, passed: bool, described: str, verdict: Verdict | None,
+                  stopped: str) -> str:
+    """A table's conversion/compare.md: its heading, whether it passed and how it was
+    compared, when, then the Verdict, or what stopped the compare, whole."""
+    status = "Failed: "
     if passed:
-        said = PASSED
-    text = [heading, "", f"{said}{how}.", ""]
+        status = PASSED
+    end = "."
+    if described.endswith("."):
+        end = ""
+    lines = [heading, "", f"{status}{described}{end}",
+             f"{COMPARED_AT}{unchecked.now().strftime(unchecked.TIME_SHOWN)}.", ""]
     if verdict is not None:
-        text.append(repr(verdict))
-    (folder / COMPARED).write_text("\n".join(text).rstrip("\n") + "\n", encoding="utf-8")
-    result = "failed"
-    if passed:
-        result = "passed"
-    return f"{result}, {how.removeprefix('compared ')}"
+        lines.append(repr(verdict))
+    if stopped:
+        lines.append(stopped)
+    return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, original: str | None,
-                        columns: list[str], given: dict[str, object] | None
-                        ) -> tuple[dict[str, object] | None, str]:
+def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, original: str,
+                          columns: list[str], given: dict[str, object] | None
+                          ) -> tuple[dict[str, object] | None, str]:
     """The Partition a dev table is compared on, and how it was chosen: the one `given` names
     when it names this table's partition columns, else the last SHOW PARTITIONS lists for both
     the dev table and its original; None, saying why, when they hold none in common."""
-    if given is not None and set(given) <= set(columns):
-        return given, f"compared on {_partition_said(given)}, the Partition you gave"
     ours = _partitions_listed(query, dev)
     theirs = _partitions_listed(query, original)
+    if given is not None and set(given) <= set(columns):
+        lacking = [table for table, listed in ((dev, ours), (original, theirs))
+                   if not _holds(listed, given)]
+        if lacking:
+            return None, (f"{_NOT_HELD} {_partition_in_words(given)} in "
+                          f"{in_words(lacking)}: give one both hold")
+        return given, f"compared on {_partition_in_words(given)}, the Partition you gave"
     common = sorted(set(ours) & set(theirs))
     if not common:
         return None, (f"no Partition in common: {dev}'s last is {_last_of(ours)}, and "
                       f"{original}'s {_last_of(theirs)}")
-    spec = dict(pair.split("=", 1) for pair in common[-1].split("/"))
-    return spec, f"compared on {_partition_said(spec)}, the latest Partition both hold"
+    latest = dict(pair.split("=", 1) for pair in common[-1].split("/"))
+    return latest, f"compared on {_partition_in_words(latest)}, the latest Partition both hold"
 
 
-def _partitions_listed(query: Callable[[str], pd.DataFrame], table: str | None) -> list[str]:
+# What a compare's result says when the Partition you gave isn't held by both sides: it
+# names them, and partition= is no longer to be said left out.
+_NOT_HELD = "there is no Partition where"
+
+
+def _holds(partitions: list[str], given: dict[str, object]) -> bool:
+    """Whether a table's Partitions, as SHOW PARTITIONS lists them, hold one with each value
+    `given` names, such as dt=2026-09-24."""
+    wanted = {f"{column}={value}" for column, value in given.items()}
+    return any(wanted <= set(partition.split("/")) for partition in partitions)
+
+
+def _partitions_listed(query: Callable[[str], pd.DataFrame], table: str) -> list[str]:
     """A table's Partitions as SHOW PARTITIONS lists them, through your query, such as
     dt=2026-09-24."""
     return [str(each) for each in query(f"SHOW PARTITIONS {table}").iloc[:, 0]]
 
 
-def _partition_said(spec: dict[str, object]) -> str:
+def _partition_in_words(partition: dict[str, object]) -> str:
     """A Partition as a result says it, such as dt = '2026-09-24'."""
-    return " and ".join(f"{column} = '{value}'" for column, value in spec.items())
+    return " and ".join(f"{column} = '{value}'" for column, value in partition.items())
 
 
 def _last_of(partitions: list[str]) -> str:
@@ -2696,6 +2816,10 @@ def _remove_conversion_one(name: str, frame: FrameType) -> ProjectReport:
     call = _action_call("remove_conversion", name)
     root = _project_root(call)
     _check_conversion_name(name, call)
+    finished = root / BATCHES / FINISHED / name
+    if finished.is_dir() and not CONVERSION_FOLDER.path(root, name).exists():
+        # A finished batch is archived from where its registry row says it is.
+        finished.rename(CONVERSION_FOLDER.path(root, name))
     return _remove(root, CONVERSION_FOLDER, name, call, frame)
 
 
