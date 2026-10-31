@@ -24,7 +24,8 @@ For each project, in a Python of its own, started in an empty folder, it:
 - fills in DEV, its Dev Database, in admin/databases.py, then runs project.convert(...) on
   each Conversion's Hive, in `conversions/`, renaming the table it writes to the Saved table's
   name, deletes the `# CONVERSION:` marks, keeping the opt-outs, ticks its checklist, fills
-  in its Table reference from `references/`, and archives the batch's folder;
+  in its Table reference from `references/`, and compares it with its original, which finishes
+  the batch, its folder moved to `admin/workflows/convert/finished/`;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
   write().
@@ -45,10 +46,12 @@ import shutil
 import subprocess
 import sys
 import textwrap
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from unittest import mock
 from types import FrameType, ModuleType
+
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLE_PROJECTS = ROOT / "example_projects"
@@ -338,9 +341,28 @@ def _add_conversions(name: str, folder: Path) -> None:
                              encoding="utf-8")
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
-        # Its tables made and its checklist ticked, the batch's folder is archived, so the
-        # Project's check names no step of it.
-        project.remove_conversion(conversion)
+        # Compared with its original, which at work is the table it copies, the batch is
+        # finished, so the Project's check names no step of it. The Example database holds no
+        # Dev Database: both are read as the rows the converted query gives.
+        report = project.compare_batch(conversion, query=_same_rows(table, original))
+        if "finished" not in repr(report):
+            raise SystemExit(f"{conversion} didn't pass its compare:\n{report!r}")
+
+
+def _same_rows(table: str, original: str) -> Callable[[str], pd.DataFrame]:
+    """A query reading the Example database, a converted table and its original each read as
+    the rows its converted query gives, and SHOW PARTITIONS answered with the day it writes."""
+    from sqlglot_composer import example_database, project, to_hive
+
+    rows = to_hive(project.load(table).preview())
+
+    def query(hive: str) -> pd.DataFrame:
+        if hive.startswith("SHOW PARTITIONS"):
+            return pd.DataFrame({"partition": ["dt=2026-09-24"]})
+        for name in (table, original):
+            hive = hive.replace(name, f"({rows})")
+        return example_database.query(hive)
+    return query
 
 
 def _export_lineage(name: str, folder: Path) -> None:

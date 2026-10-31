@@ -147,7 +147,7 @@ GROUPS = (
     Group("Getting started", "getting-started",
           "one story through one Project, a how-to for each of the README's steps: a "
           "Project, its Table references, Statements, Building blocks, Saved tables, their "
-          "Lineage and the Project's upkeep"),
+          "Lineage, the Project's upkeep and a Conversion of someone else's Hive"),
     Group("Intermediate", "intermediate",
           "a menu, each starting from the Intermediate Example project: one job each, such as "
           "rewriting some partitions, rollups, Keys, quality checks and testing"),

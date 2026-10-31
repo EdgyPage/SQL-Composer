@@ -66,7 +66,7 @@ says the type of each value it makes in a comment, such as <code># -&gt; Stateme
 <main>
 <nav class="groups">
 <div>
-<p><b><a href="#getting-started">Getting started</a></b>: one story through one Project, a how-to for each of the README&#x27;s steps: a Project, its Table references, Statements, Building blocks, Saved tables, their Lineage and the Project&#x27;s upkeep.</p>
+<p><b><a href="#getting-started">Getting started</a></b>: one story through one Project, a how-to for each of the README&#x27;s steps: a Project, its Table references, Statements, Building blocks, Saved tables, their Lineage, the Project&#x27;s upkeep and a Conversion of someone else&#x27;s Hive.</p>
 <ul>
 <li data-for="start_a_project"><a href="#start_a_project">1. Start a Project</a></li>
 <li data-for="add_your_tables_references"><a href="#add_your_tables_references">2. Add your tables&#x27; references</a></li>
@@ -6737,7 +6737,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -6748,9 +6748,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -6759,6 +6756,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -6801,6 +6801,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -6953,9 +6954,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -7173,7 +7174,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7184,9 +7185,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -7195,6 +7193,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -7237,6 +7238,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -7504,7 +7506,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7515,9 +7517,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -7526,6 +7525,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -7568,6 +7570,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -8094,7 +8097,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8105,9 +8108,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -8116,6 +8116,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -8158,6 +8161,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -8452,7 +8456,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8463,9 +8467,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -8474,6 +8475,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -8516,6 +8520,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -8765,7 +8770,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8776,9 +8781,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -8787,6 +8789,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -8829,6 +8834,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -9206,7 +9212,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9217,9 +9223,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -9228,6 +9231,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -9270,6 +9276,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -9503,7 +9510,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9514,9 +9521,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -9525,6 +9529,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -9567,6 +9574,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -9784,7 +9792,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9795,9 +9803,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -9806,6 +9811,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -9848,6 +9856,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -10123,9 +10132,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -10335,7 +10344,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10346,9 +10355,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -10357,6 +10363,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -10399,6 +10408,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -11362,7 +11372,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11373,9 +11383,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -11384,6 +11391,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -11426,6 +11436,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -11547,9 +11558,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -11874,9 +11885,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -12071,7 +12082,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12082,9 +12093,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -12093,6 +12101,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -12135,6 +12146,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -12264,9 +12276,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -12811,7 +12823,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12822,9 +12834,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -12833,6 +12842,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -12875,6 +12887,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -12996,9 +13009,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -13408,7 +13421,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13419,9 +13432,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -13430,6 +13440,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -13472,6 +13485,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -13691,7 +13705,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13702,9 +13716,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -13713,6 +13724,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -13755,6 +13769,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -13876,9 +13891,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14064,7 +14079,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14075,9 +14090,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -14086,6 +14098,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -14128,6 +14143,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -14278,7 +14294,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14289,9 +14305,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -14300,6 +14313,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -14342,6 +14358,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -14466,9 +14483,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14692,9 +14709,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -14968,9 +14985,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -15420,7 +15437,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15431,9 +15448,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -15442,6 +15456,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -15484,6 +15501,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
@@ -15605,9 +15623,9 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 ## 2026-09-25 06:00:00, Project action
 
-- Call: `project.remove_conversion(&quot;team_failures&quot;)`
-- Tables named: team_failures
-- Files: moved admin/workflows/convert/team_failures/ to admin/removed/20260925-060000-team_failures/
+- Call: `project.compare_batch(&quot;team_failures&quot;)`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
 - Script: a notebook, at commit nogit
 - Result: worked
 
@@ -16077,7 +16095,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 70 files</p>
+<p class="label">It writes 71 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16088,9 +16106,6 @@ admin/project_version.txt
 admin/refresh_reference_sheet.ipynb
 admin/registry.csv
 admin/remove.ipynb
-admin/removed/20260925-060000-team_failures/batch.md
-admin/removed/20260925-060000-team_failures/scripts/team_failures.hql
-admin/removed/20260925-060000-team_failures/written.json
 admin/run_tables.ipynb
 admin/sent.csv
 admin/templates/building_block.py
@@ -16099,6 +16114,9 @@ admin/templates/saved_table.py
 admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
@@ -16141,6 +16159,7 @@ tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
 tables/mart__team_failures/conversion/in_dev.hql
 tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
