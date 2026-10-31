@@ -37,7 +37,7 @@ has none, so it starts one; in your own Project, which is started already, leave
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 >>> from warehouse import query, execute
 
 Every step here passes that `query`; `execute` waits for a step that changes a table. Here it

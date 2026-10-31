@@ -62,10 +62,10 @@ block the user can paste into a notebook cell, then a few plain sentences.
    notebooks. In a notebook there: `from sqlglot_composer import project`, then
    `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
    warehouse.py.
-2. warehouse.py holds the user's two functions: `query(hive)`, which runs Hive that gives
-   rows and returns a pandas DataFrame, and `execute(hive)`, which runs Hive that changes
-   something and returns nothing. The user writes them for their warehouse; nothing else in
-   the Project reaches it.
+2. warehouse.py holds `conn`, the user's connection, which the user sets once, and two
+   functions over it: `query(hive)` calls `conn.query`, which runs Hive that gives rows and
+   returns a pandas DataFrame, and `execute(hive)` calls `conn.execute`, which runs Hive that
+   changes something and returns nothing. Nothing else in the Project reaches the warehouse.
 3. Each table read needs a Table reference, a file in references/:
    `project.add_references(["ops.job_runs"], query=query)` writes references/ops__job_runs.py
    from the table's own description. The user then fills in its `key=` by hand.

@@ -8,6 +8,12 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ### Also new
 
+- **warehouse.py holds your connection.** A new Project's warehouse.py holds `conn`, your
+  connection to the warehouse, which you set once, in place of the Example database; its
+  `query` and `execute` pass each Hive string to `conn.query`, which gives back a DataFrame, and
+  `conn.execute`, which gives back nothing. Every notebook still imports `query` and `execute`
+  from it, and every Toolbox call takes them as before. A Project's own warehouse.py is yours,
+  and an Upgrade leaves it as it is.
 - **Every Project action takes one name or a list of them.** `project.new_table`,
   `remove_table`, `remove_reference`, `new_block`, `remove_block`, `register`,
   `remove_conversion`, `add_references` and `refresh_reference_sheet` each take a name, as

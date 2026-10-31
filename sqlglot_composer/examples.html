@@ -4192,7 +4192,7 @@ ALTER TABLE mart.daily_runs SET TBLPROPERTIES (
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.jobs&quot;, &quot;ops.job_runs&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
@@ -4209,7 +4209,7 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.check()</pre>
@@ -4228,7 +4228,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">print(project.convert(&quot;failed_runs&quot;, &#x27;&#x27;&#x27;
     SELECT r.run_id, r.status
     FROM ops.job_runs r
@@ -4253,7 +4253,7 @@ admin/conversions/failed_runs/scan.md lists what it found, line by line.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">_ = project.convert(&quot;failed_runs&quot;, &#x27;&#x27;&#x27;
     SELECT r.run_id, r.status FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27; &#x27;&#x27;&#x27;,
     query=example_database.query, database=&quot;ops&quot;)</pre>
@@ -4276,7 +4276,7 @@ The Conversion folder is archived, kept as it was, in admin/removed/...-failed_r
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;admin/templates/plain.py&quot;).write_text(
     &quot;# %%\n# logic\ndef write() -&gt; str:\n    return &#x27;what writes it&#x27;\n&quot;)</pre>
@@ -4301,7 +4301,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -4318,7 +4318,7 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4336,7 +4336,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.add_references([&quot;ops.run_alerts&quot;], query=example_database.query)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/ops__run_alerts.py: fill in its TODO lines.
@@ -4356,7 +4356,7 @@ Restart the kernel of a notebook that imported references, to see a table added 
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">from pathlib import Path</pre>
 <pre class="python">_ = Path(&quot;references/ops__jobs.py&quot;).write_text(&quot;# written by hand&quot;)</pre>
 <pre class="python">project.register(&quot;ops.jobs&quot;)</pre>
@@ -4379,7 +4379,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.new_block(&quot;runs_per_job&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
@@ -4399,7 +4399,7 @@ fill in its &lt;...&gt; and TODO lines.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">_ = project.convert(&quot;spare&quot;,
                     &quot;SELECT r.run_id FROM ops.job_runs r WHERE r.dt = &#x27;2026-09-24&#x27;&quot;,
                     query=example_database.query, database=&quot;ops&quot;)</pre>
@@ -4418,7 +4418,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4442,7 +4442,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.new_table(&quot;mart.daily_job_runs&quot;)</pre>
 <p class="label">Python shows</p>
 <pre class="output">Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -4463,7 +4463,7 @@ Wrote references/mart__daily_job_runs.py: fill in its &lt;...&gt; and TODO lines
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">project.run_tables()</pre>
 <p class="label">Python shows</p>
 <pre class="output">No Table folder to run: make one with project.new_table(...).</pre>
@@ -4478,7 +4478,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">print(project.scan_hive(&#x27;&#x27;&#x27;
     SELECT r.job_id, COUNT(*) AS runs
     FROM ops.job_runs r
@@ -4501,8 +4501,8 @@ Found:
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
-<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty admin/conversions/ for the Conversions you make, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then write your two functions, query and execute, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
+Next: set conn, your connection, in warehouse.py.</pre>
+<p>The folder holds the Toolbox&#x27;s folder, sqlglot_composer, and the notebook you run this from. start() makes admin/, references/, building_blocks/, tables/ and warehouse.py beside them: admin/ gets a notebook for each Project action, the Templates in admin/templates/, an empty admin/conversions/ for the Conversions you make, an empty registry, the Admin log, whose first entry is this one, and project_version.txt, the Toolbox version that made the Project, which project.upgrade() reads. It refuses a folder that isn&#x27;t a Project but has any of them already, and a folder inside a Project. Then set conn, your connection, in warehouse.py, and make your first Table folder from admin/new_table.ipynb.</p>
 <p>Run again in a Project&#x27;s own folder, from a notebook there, it completes the Project: it adds only what start() makes and the Project is missing, and writes over nothing. That is a folder, an admin notebook or a Template this Toolbox ships that isn&#x27;t there, as after you copy in a newer sqlglot_composer, or one deleted by mistake, and warehouse.py if there is none; a Project from before 7.0, which holds send.py, gets no warehouse.py, but a line saying how to write it. It logs what it added:</p>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/new_block.ipynb&quot;)</pre>
@@ -4519,7 +4519,7 @@ Next: write your two functions, query and execute, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.</pre>
+Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">import os</pre>
 <pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>

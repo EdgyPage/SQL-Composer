@@ -57,7 +57,7 @@ Most often a file is missing, or files from different downloads were mixed in on
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 
 ### Know every file of a Project
 
@@ -69,7 +69,7 @@ file, the call that makes it, and what you fill in:
 - `sqlglot_composer/`: copied in by you. You fill in nothing: never edit a file inside it.
 - start.ipynb, or any name you like, the notebook you run `project.start()` from: made by
   you, in Jupyter. Keep it for trying things out, or delete it.
-- `warehouse.py`: `project.start()`. You write your two functions, query and execute, in it,
+- `warehouse.py`: `project.start()`. You set `conn`, your connection, in it,
   below.
 - `admin/`, a notebook per Project action, such as new_table.ipynb, add_references.ipynb
   and run_tables.ipynb: `project.start()`. You fill in the call each holds, such as the
@@ -138,32 +138,36 @@ and nogit when you don't; this page shows a made-up one, 1a2b3c4.
 ### Read the warehouse.py start wrote
 
 The Toolbox never connects to anything itself. It writes Hive as text, and hands that text to
-a function of yours, which runs it. Your team's API most likely runs Hive with two calls: one
-that gives back rows, as a SELECT does, and one that gives back nothing, as a statement that
-changes a table does, such as a write or a CREATE TABLE. So warehouse.py holds two functions,
-one over each call:
+a function in warehouse.py, which hands it to your connection to the warehouse. Your team's
+library most likely gives you a connection with two calls: one that gives back rows, as a
+SELECT does, and one that gives back nothing, as a statement that changes a table does, such
+as a write or a CREATE TABLE. So warehouse.py holds your connection, `conn`, set once, and two
+functions over it:
 
-- `query` runs Hive and gives back its rows as a pandas DataFrame;
-- `execute` runs Hive and gives back nothing.
+- `query` runs Hive through `conn.query`, and gives back its rows as a pandas DataFrame;
+- `execute` runs Hive through `conn.execute`, and gives back nothing.
 
 You pick which one sends each Statement, by the Toolbox function you call, as [Build and run
-a first statement](#build_and_run_a_first_statement) shows. `project.start()` wrote them to run
-Hive on the Example database, the made-up tables that ship inside the Toolbox, so every how-to
-runs before you touch a real table:
+a first statement](#build_and_run_a_first_statement) shows. `project.start()` set `conn` to
+the Example database, the made-up tables that ship inside the Toolbox, so every how-to runs
+before you touch a real table:
 
 >>> print(Path("warehouse.py").read_text(encoding="utf-8"))
-\"\"\"warehouse - your two calls to the warehouse, query and execute.
+\"\"\"warehouse - your connection to the warehouse, conn, and its two calls.
 ...
+conn = example_database
+<BLANKLINE>
+<BLANKLINE>
 def query(hive: str) -> pd.DataFrame:
     \"\"\"Run a Hive string that gives back rows, and give them back as a pandas
         DataFrame.\"\"\"
-    return example_database.query(hive)  # at work: your warehouse's query call
+    return conn.query(hive)
 <BLANKLINE>
 <BLANKLINE>
 def execute(hive: str) -> None:
     \"\"\"Run a Hive string that changes something, such as a write, and give back
         nothing.\"\"\"
-    example_database.execute(hive)  # at work: your warehouse's execute call
+    conn.execute(hive)
 <BLANKLINE>
 
 Among the lines the `...` above leaves out, warehouse.py imports the Example database from the
@@ -175,49 +179,44 @@ Toolbox:
 `example_database.execute` prints the first line of the Hive and changes nothing, since the
 Example database can't be written to. The Getting started how-tos keep warehouse.py just so.
 
-### Write your query and execute
+### Set your connection
 
-At work, open warehouse.py in your editor and replace the two calls with your team's. Each
-calls your team's API, whatever it uses to run a Hive string: `query` its call that gives back
-rows, turning them into a pandas DataFrame, each column named, and `execute` its call that
-gives back nothing. When your API gives each row as a dict, such as
-`{"run_id": 97, "job_id": 3}`, `pd.DataFrame(rows)` takes the column names from its keys:
+At work, open warehouse.py in your editor and set `conn` to your team's connection, once, in
+place of `example_database`:
 
-    import pandas as pd
+    import my_api  # your team's library
 
-    import my_api  # your team's query API
+    conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) nothing
 
+That is all, when your connection's `query` gives back a pandas DataFrame, each column named,
+and its `execute` gives back nothing. `query` and `execute` below it pass each Hive string on.
+
+When your connection gives rows some other way, as each row a dict or a tuple, change `query`
+to turn them into a DataFrame. A dict, such as `{"run_id": 97, "job_id": 3}`, gives its column
+names from its keys:
 
     def query(hive: str) -> pd.DataFrame:
-        rows = my_api.query(hive)  # your team's own call that gives back rows
-        return pd.DataFrame(rows)
+        return pd.DataFrame(conn.query(hive))
 
+A database cursor gives each row as a tuple, and the column names apart, in
+`cursor.description`. Pass those names on; don't type them yourself, since each Statement has
+its own columns:
 
-    def execute(hive: str) -> None:
-        my_api.execute(hive)  # your team's own call that gives back nothing
+    def query(hive: str) -> pd.DataFrame:
+        cursor = conn.cursor()  # your connection's cursor, from its database library
+        cursor.execute(hive)
+        names = [column[0] for column in cursor.description]
+        return pd.DataFrame(cursor.fetchall(), columns=names)
 
 `hive: str`, `-> pd.DataFrame` and `-> None` are type hints: they say a Hive string goes in,
 and that a DataFrame comes out of `query` and nothing out of `execute`. Python doesn't check
 them.
 
-When your API gives each row as a tuple, it gives the column names apart, as a database cursor
-does in `cursor.description`. Pass those names on; don't type them yourself, since each
-Statement has its own columns:
-
-    def query(hive: str) -> pd.DataFrame:
-        cursor.execute(hive)  # your team's own cursor, from its database library
-        names = [column[0] for column in cursor.description]
-        return pd.DataFrame(cursor.fetchall(), columns=names)
-
-
-    def execute(hive: str) -> None:
-        cursor.execute(hive)  # the same cursor: nothing comes back to read
-
-Both use one cursor, so they share one session: a Session setting sent through `execute` holds
-for what is sent after it, through either function. And let each raise when the warehouse
-reports a failure. If your API gives back an error rather than raising one, raise it yourself,
-such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed only when your
-function raises.
+Both functions use the one `conn`, so they share one session: a Session setting sent through
+`execute` holds for what is sent after it, through either function. And let each raise when the
+warehouse reports a failure. If your connection gives back an error rather than raising one,
+raise it yourself, such as `raise RuntimeError(answer.error)`: the Toolbox knows a step failed
+only when your connection raises.
 
 ### Try your query
 

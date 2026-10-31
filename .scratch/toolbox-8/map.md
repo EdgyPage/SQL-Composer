@@ -253,6 +253,7 @@ Phase 3, Workflows, 8.0:
 - [18 The other four Workflows with no fiddling](issues/18-the-other-four-workflows.md)
 - [19 The docs and the Copilot files](issues/19-the-docs.md)
 - [20 8.0: the Upgrade step and the raise](issues/20-eight-point-oh.md)
+- [21 warehouse.py takes a connection](issues/21-warehouse-conn.md), asked for on 2026-10-31
 
 One at a time, by number, the user's habit. The real dependencies are in each ticket's
 `Blocked by:`.
@@ -284,6 +285,8 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [11 One or many: every Project action takes a list](issues/11-one-or-many.md): nine actions take
   a name or a list, through `_run_for_each_name`; a refusal mid-batch notes what was done and the
   call for the rest; convert and finish_conversion wait for tickets 13 and 14.
+- [21 warehouse.py takes a connection](issues/21-warehouse-conn.md): `conn`, set once, and
+  `query`/`execute` that pass each Hive string to `conn.query` and `conn.execute`.
 
 ## Not yet specified
 

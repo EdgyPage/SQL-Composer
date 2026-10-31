@@ -18,6 +18,10 @@ projects as the version before left them.
   unfinished Conversion kept as an instance; replaces the one-action admin notebooks with the
   agnostic ones and the Workflow notebooks, archiving each first; marks each user script that
   calls `finish_conversion` with `# UPGRADE 8.0:`.
+- The 8.0 step replaces a Project's warehouse.py that still holds 7.2's text, untouched, with
+  8.0's, which holds `conn` (ticket 21); one the user changed is left as it is. The
+  `warehouse.py` and starter `README.md` entries ticket 21 added to `GAINED_BY_HAND` in
+  `tests/test_upgrades.py` come out.
 - `tests/upgrade_from/7.2/` freezes the Example projects as 7.2 left them, without Lineage pages;
   `tests/test_upgrades.py` passes.
 - CHANGES.md's `## 8.0` is complete, with "To update from 7.2".

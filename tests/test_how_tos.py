@@ -516,7 +516,7 @@ def test_a_step_that_writes_many_files_names_them_in_one_list(tmp_path: Path) ->
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.""")
+Next: set conn, your connection, in warehouse.py.""")
     shown = how_to_page.how_to_html(how_to_page.read_how_to(path))
     files = re.search(r'<p class="label">It writes (\d+) files</p>\n<pre class="file">(.*?)'
                       "</pre>", shown, re.DOTALL)
@@ -712,7 +712,7 @@ WRITTEN = """>>> from sqlglot_composer import project
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 >>> from pathlib import Path
 >>> notebook = Path("tables/mart__little/mart__little.ipynb")
 >>> notebook.parent.mkdir(parents=True)

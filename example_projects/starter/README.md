@@ -77,7 +77,7 @@ written, so a notebook's cell 3 prints each write's Hive and runs only the previ
 which only a warehouse holds, reports that DESCRIBE failed, as expected on the Example
 database.
 
-At work, write your two functions, query and execute, in `warehouse.py`, and `admin/run_tables.ipynb`'s last
+At work, set `conn`, your connection, in `warehouse.py`, and `admin/run_tables.ipynb`'s last
 cell writes every table: each notebook's `write()`, which writes the rows its `READS` picks,
 sending the Session setting "dynamic_partitions" first, since each write fills dt from its
 rows.
