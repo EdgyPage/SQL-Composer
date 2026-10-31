@@ -11,9 +11,13 @@ runs, in admin/workflows/, a folder for each.
 ## When you'd use it
 
 Each time you start one of the jobs below. `project.check()` names the next
-step of each Workflow you have started, and `project.do_next()` runs the steps
-it can for you, up to the first that is yours.
-
+step of each Workflow you have started. Run each step's cell in turn, or, in
+their place, each notebook's last cell, `project.run_workflow(...)`, which runs
+every step left, the calls to the warehouse too, up to the first only you can do:
+a Decision, or a check of what a step printed. With `dry_run=True` it sends
+nothing through your execute, says the Hive each step would send, and runs for
+real only the steps that change files or only read, such as convert: run one
+before you first send. `project.do_next()` runs only the steps that change files.
 It needs [Start a Project](#start_a_project).
 
 ## Steps
@@ -97,7 +101,8 @@ flowchart TD
 
 Its names cell, which you fill in and save first:
 
-    # the batch's name, plain lowercase, such as "weekly"
+    # the batch's name, plain lowercase, such as "weekly"; for project.run_workflow, a
+    # list of batches converted already
     NAME = ''
     # the scripts' files, from this folder, such as ["daily.hql"], or [] to read HIVE
     FILES = []
@@ -148,6 +153,11 @@ Its steps:
 
     project.compare_batch(NAME, query=query)
 
+
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("convert", query=query, execute=execute)
 
 ### The promote Workflow
 
@@ -238,6 +248,11 @@ Its steps:
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
 
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("promote", query=query, execute=execute)
+
 ### The new_table Workflow
 
 Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a
@@ -311,6 +326,11 @@ Its steps:
     project.run_tables(tables=TABLES, execute=execute)
 
 
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("new_table", query=query, execute=execute)
+
 ### The references Workflow
 
 Writes a Table reference for each table your Project reads, from its DESCRIBE.
@@ -376,6 +396,11 @@ Its steps:
     project.refresh_reference_sheet(TABLES)
 
 
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("references", query=query, execute=execute)
+
 ### The upgrade Workflow
 
 Carries the Project's files to the Toolbox you copied in, once you have restarted the kernel.
@@ -410,6 +435,11 @@ Its steps:
 
 - 2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
   make).
+
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("upgrade")
 
 ### The change_a_saved_table Workflow
 
@@ -466,6 +496,11 @@ Its steps:
 
     run_execute(change, execute)
 
+
+Its last cell runs every step left, in place of their cells:
+
+    # Every step left, in place of their cells, up to the first only you can do:
+    project.run_workflow("change_a_saved_table", query=query, execute=execute, change=change)
 
 ## Check it worked
 

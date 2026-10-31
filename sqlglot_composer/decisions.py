@@ -47,7 +47,7 @@ GUESSED = "  # TODO: guessed: nothing told its type"
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
 # What a Conversion writes after the Key it worked out of a table's query: a Decision made,
-# which an answer in the decisions cell may still change while the line is as it wrote it.
+# which an answer in the decisions cell may still change while the line keeps this mark.
 PROPOSED = ('  # proposed by project.convert from its query; if it is wrong, answer "key" in '
             "the decisions cell")
 
@@ -163,8 +163,9 @@ def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
 
 def answered_text(text: str, answer: dict[str, object], reference: str) -> Answered:
     """A Table reference's text, at `reference`, with each open Decision the answer answers
-    written into its line, and each answer left unwritten named: one for a Decision made
-    already, a type for a column that wasn't guessed, or one that names no Decision."""
+    written into its line, and a key= line marked # proposed too, and each answer left
+    unwritten named: one for any other Decision made already, a type for a column that wasn't
+    guessed, or one that names no Decision."""
     answered = Answered(text)
     answered.unwritten = [f"{name}: not a Decision a Table reference asks; the decisions cell "
                           "answers location, key and types" for name in answer

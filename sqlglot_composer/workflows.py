@@ -17,14 +17,18 @@ admin/workflows/<name>/<name>.ipynb, is written from its list here: a names cell
 inputs, the start materials the user fills in once, then a cell for each step, whose call reads
 them. Each step can say whether it is done, read from the Project's files and the inputs, and a
 file step can run itself: project.check() names each started Workflow's next step, and
-project.do_next() runs the file steps up to the first it can't run for the user.
+project.do_next() runs the file steps up to the first it can't run for the user. A step that
+calls the Warehouse can send itself too, through the user's query and execute:
+project.run_workflow(...) runs every step left, up to the first that needs the user.
 `tools/workflow_graph.py`, on dev, draws the lists and counts each kind of step.
 """
 
 from __future__ import annotations
 
 import ast
+import contextlib
 import csv
+import io
 import json
 import re
 from collections.abc import Callable
@@ -34,12 +38,16 @@ from typing import TYPE_CHECKING
 
 from . import decisions
 from .project_files import table_stem
-from .shared import escaped_literal
-from .unchecked import SENT
-from .upgrades import MARK_LINE, marks_in
+from .shared import escaped_literal, in_words
+from .unchecked import SENT, hive_settings
+from .upgrades import MARK_LINE, marks_in, project_version
 
 if TYPE_CHECKING:  # project.py imports this file, so its name is for the hints alone
+    import pandas as pd
+
+    from .clauses import Statement
     from .project import ProjectReport
+    from .unchecked import SessionSettings
 
 FILE_STEP = "file step"
 PERMISSION = "permission"
@@ -104,6 +112,9 @@ class Step:
     # A step that only reads, such as a preview: it waits on nothing, and check() names it
     # beside the step after it.
     reads_only: bool = False
+    # A step project.run_workflow runs that calls the warehouse, or only prints: what it did,
+    # or, in a dry run, the Hive it would send.
+    send: Callable[[dict[str, object], Calls], list[str]] | None = None
 
 
 @dataclass(frozen=True)
@@ -122,6 +133,8 @@ class Workflow:
     # Its instances in a Project, each its inputs, when it has more than its notebook's
     # names cell: each batch the convert Workflow made, from its record.
     instances: Callable[[Path], list[dict[str, object]]] | None = None
+    # What its notebook's last cell gives project.run_workflow, by name.
+    run_with: tuple[str, ...] = ("query", "execute")
 
 
 # --- What the Project's files say -------------------------------------------------------------
@@ -227,7 +240,10 @@ def open_decisions_of(root: Path, tables: list[str],
 
 def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ...],
                              inputs: dict[str, object]) -> bool:
-    """Whether the decisions cell answers each Decision of `kinds` the tables leave open."""
+    """Whether the decisions cell answers each Decision of `kinds` the tables leave open,
+    each table's Table reference written: none answers a Decision not yet asked."""
+    if not tables or not all(reference_path(root, table).is_file() for table in tables):
+        return False
     answers = inputs.get(DECISIONS)
     if not isinstance(answers, dict):
         answers = {}
@@ -235,7 +251,7 @@ def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ..
         answer = answers.get(decision.table)
         if not isinstance(answer, dict) or not decisions.is_answered(decision, answer):
             return False
-    return bool(tables)
+    return True
 
 
 def _every_decision_made(root: Path, tables: list[str], kinds: tuple[str, ...]) -> bool:
@@ -465,8 +481,7 @@ def project_is_current(root: Path, inputs: dict[str, object]) -> bool:
     """Whether the Project was last written by the Toolbox copied in."""
     from . import TOOLBOX_VERSION  # the package imports this file
 
-    recorded = file_text(root / "admin" / "project_version.txt").strip()
-    return recorded == TOOLBOX_VERSION
+    return project_version(root) == TOOLBOX_VERSION
 
 
 def no_upgrade_mark_left(root: Path, inputs: dict[str, object]) -> bool:
@@ -498,6 +513,197 @@ def every_change_sent(root: Path, inputs: dict[str, object]) -> bool:
     """Whether admin/sent.csv records an Admin statement on the Saved table TABLE names."""
     tables = names_in(inputs, "TABLE")
     return bool(tables) and all(was_sent(root, "admin", table) for table in tables)
+
+
+# --- What project.run_workflow sends --------------------------------------------------------
+
+@dataclass(frozen=True)
+class Calls:
+    """What project.run_workflow gives a step that calls the warehouse: your query and
+    execute, whether it is a dry run, which sends nothing through your execute and says the
+    Hive each call would send, and, for change_a_saved_table, the change."""
+
+    query: Callable[[str], pd.DataFrame] | None
+    execute: Callable[[str], None] | None
+    dry_run: bool = False
+    # change_a_saved_table's Admin statement, which its notebook's first step writes.
+    change: Statement | None = None
+
+    def send(self, statement: Statement | SessionSettings) -> list[str]:
+        """Send a Statement through your execute, as run_execute does; in a dry run, the Hive
+        it would send, a line each."""
+        from .running import run_execute  # running imports what imports this
+
+        if self.dry_run:
+            return hive_lines(statement, "would send")
+        run_execute(statement, self.execute)
+        return []
+
+
+def hive_lines(statement: Statement | SessionSettings, said: str) -> list[str]:
+    """A Statement's Hive, a line each, each after `said`, such as "would send: ..."."""
+    from .running import to_hive  # running imports what imports this
+
+    return [f"{said}: {line}" for line in to_hive(statement).split("\n")]
+
+
+def batch_tables_of(inputs: dict[str, object], seeded: bool = False) -> list[str]:
+    """The dev tables of the batch NAME names, or those that read themselves."""
+    from . import project  # project.py imports this file
+
+    return project.batch_tables(str(inputs.get("NAME")), seeded=seeded)
+
+
+def prod_tables_of(inputs: dict[str, object], seeded: bool = False) -> list[str]:
+    """The prod copies of the dev tables TABLES names, or those that read themselves."""
+    from . import project  # project.py imports this file
+
+    return project.promoted_tables(names_in(inputs, "TABLES"), seeded=seeded)
+
+
+def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.convert for the batch NAME names, from FILES or HIVE. It reads only, DESCRIBE
+    through your query, and writes files, so a dry run runs it too."""
+    from . import project  # project.py imports this file
+
+    files = inputs.get("FILES") or None
+    hive = inputs.get("HIVE")
+    report = project.convert(str(inputs.get("NAME")), hive if isinstance(hive, str) else None,
+                             files=files, query=calls.query,
+                             database=str(inputs.get("DATABASE", "default")))
+    return report.lines
+
+
+def add_the_references(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.add_references for the tables TABLES names: it reads DESCRIBE through your
+    query and writes files, so a dry run runs it too."""
+    from . import project  # project.py imports this file
+
+    return project.add_references(names_in(inputs, "TABLES"), query=calls.query).lines
+
+
+def _send_creates(tables: list[str], calls: Calls) -> list[str]:
+    """Send each table's create()."""
+    from . import project  # project.py imports this file
+
+    lines = []
+    for table in tables:
+        lines += calls.send(project.load(table).create())
+    return lines
+
+
+def _send_seeds(seeded: list[str], calls: Calls) -> list[str]:
+    """Send each seed() of the tables that read themselves, after the Session setting their
+    Partitions need; nothing when none does."""
+    from . import project  # project.py imports this file
+
+    if not seeded:
+        return []
+    lines = calls.send(hive_settings("dynamic_partitions"))
+    for table in seeded:
+        lines += calls.send(project.load(table).seed())
+    return lines
+
+
+def _send_writes(tables: list[str], calls: Calls) -> list[str]:
+    """Write each table with project.run_tables; in a dry run, the Hive run_tables' own dry run
+    prints, in its order, its SET lines with it, each line it would send marked so."""
+    from . import project  # project.py imports this file
+
+    if not calls.dry_run:
+        return project.run_tables(tables=tables, execute=calls.execute).lines
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        project.run_tables(tables=tables)
+    # Its heading lines start "--", as "-- 1 of 2: mart.daily_job_runs": the rest is Hive.
+    return [line if line.startswith("--") else f"would send: {line}"
+            for line in printed.getvalue().rstrip("\n").split("\n")]
+
+
+def create_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """convert's create step: each table of the batch created in dev."""
+    return _send_creates(batch_tables_of(inputs), calls)
+
+
+def seed_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """convert's seed step: each table of the batch that reads itself seeded."""
+    return _send_seeds(batch_tables_of(inputs, seeded=True), calls)
+
+
+def write_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """convert's write step: each table of the batch written in dev."""
+    return _send_writes(batch_tables_of(inputs), calls)
+
+
+def create_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """promote's create step: each prod copy created."""
+    return _send_creates(prod_tables_of(inputs), calls)
+
+
+def seed_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """promote's seed step: each prod copy that reads itself seeded."""
+    return _send_seeds(prod_tables_of(inputs, seeded=True), calls)
+
+
+def write_the_prod_copies(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """promote's write step: each prod copy written."""
+    return _send_writes(prod_tables_of(inputs), calls)
+
+
+def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """new_table's last step: each table TABLES names created, then written."""
+    tables = names_in(inputs, "TABLES")
+    return _send_creates(tables, calls) + _send_writes(tables, calls)
+
+
+def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """project.compare_batch for the batch NAME names; a dry run names what it would read."""
+    from . import project  # project.py imports this file
+
+    if calls.dry_run:
+        return ["would compare each with its original, through your query: "
+                f"{in_words(batch_tables_of(inputs))}"]
+    return project.compare_batch(str(inputs.get("NAME")), query=calls.query).lines
+
+
+def preview_each(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """Each table's preview(), its rows read through your query; a dry run says its Hive."""
+    from . import project  # project.py imports this file
+    from .running import run_query  # running imports what imports this
+
+    lines = []
+    for table in names_in(inputs, "TABLES"):
+        preview = project.load(table).preview()
+        if calls.dry_run:
+            lines += hive_lines(preview, "would read")
+        else:
+            lines += [f"{table}:", *str(run_query(preview, calls.query)).split("\n")]
+    return lines
+
+
+def the_change(calls: Calls) -> Statement:
+    """The Admin statement change_a_saved_table sends, as project.run_workflow was given it."""
+    from .refusals import refuse  # it imports what imports this
+
+    if calls.change is None:
+        refuse(what='project.run_workflow("change_a_saved_table", ...) was given no '
+               "change=.",
+               why="The change is the Admin statement your notebook's step 1 writes, which "
+               "only your notebook holds.",
+               fix="Run step 1's cell, then the last cell, which passes it: change=change.",
+               error=ValueError)
+    return calls.change
+
+
+def show_the_change(inputs: dict[str, object], calls: Calls) -> list[str]:
+    """change_a_saved_table's second step: the change's Hive as show_hive prints it, its
+    Check first lines with it, to read and check before you send it."""
+    from .running import show_hive  # running imports what imports this
+
+    printed = io.StringIO()
+    with contextlib.redirect_stdout(printed):
+        show_hive(the_change(calls))
+    return printed.getvalue().rstrip("\n").split("\n")
 
 
 # --- What a file step runs --------------------------------------------------------------------
@@ -541,7 +747,7 @@ CONVERT = Workflow(
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
              ("a dev Table folder per table the scripts write", "a Table reference per table"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE)",
-             every_batch_converted),
+             every_batch_converted, send=convert_the_batch),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table",), ("each answer in the decisions cell",),
              done=every_dev_decision_answered, decides=DEV_DECISIONS),
@@ -552,21 +758,24 @@ CONVERT = Workflow(
         Step("Create each table in dev", PERMISSION, ("each answer written in",),
              ("each made in dev",),
              "for table in project.batch_tables(NAME):\n"
-             "    run_execute(project.load(table).create(), execute)", every_table_created),
+             "    run_execute(project.load(table).create(), execute)", every_table_created,
+             send=create_the_batch),
         Step("Seed each table that reads itself, once, from its original", PERMISSION,
              ("each made in dev",), ("each seeded",),
              'run_execute(hive_settings("dynamic_partitions"), execute)\n'
              "for table in project.batch_tables(NAME, seeded=True):\n"
-             "    run_execute(project.load(table).seed(), execute)", every_table_seeded),
+             "    run_execute(project.load(table).seed(), execute)", every_table_seeded,
+             send=seed_the_batch),
         Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
-             every_table_written),
+             every_table_written, send=write_the_batch),
         Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
-             "project.compare_batch(NAME, query=query)", every_table_compared),
+             "project.compare_batch(NAME, query=query)", every_table_compared,
+             send=compare_the_batch),
     ),
-    inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\"",
-                  starts=True),
+    inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\"; for "
+                  "project.run_workflow, a list of batches converted already", starts=True),
             Input("FILES", [], 'the scripts\' files, from this folder, such as ["daily.hql"], '
                   "or [] to read HIVE"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
@@ -604,16 +813,17 @@ PROMOTE = Workflow(
              ("each made in prod",),
              "for table in project.promoted_tables(TABLES):\n"
              "    run_execute(project.load(table).create(), execute)",
-             every_prod_table_created),
+             every_prod_table_created, send=create_the_prod_copies),
         Step("Seed each prod table that reads itself, once, from its original", PERMISSION,
              ("each made in prod",), ("each seeded in prod",),
              'run_execute(hive_settings("dynamic_partitions"), execute)\n'
              "for table in project.promoted_tables(TABLES, seeded=True):\n"
-             "    run_execute(project.load(table).seed(), execute)", every_prod_table_seeded),
+             "    run_execute(project.load(table).seed(), execute)", every_prod_table_seeded,
+             send=seed_the_prod_copies),
         Step("Write each table in prod", PERMISSION, ("each seeded in prod",),
              ("each written in prod",),
              "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
-             every_prod_table_written),
+             every_prod_table_written, send=write_the_prod_copies),
     ),
     inputs=(Input("TABLES", [], 'the dev tables, by their names in your Dev Database, such '
                   'as ["mart_dev.daily_job_runs"]', starts=True),),
@@ -643,13 +853,15 @@ NEW_TABLE = Workflow(
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
              ("a dev Table folder whose logic loads",), ("its rows, checked",),
              "for table in TABLES:\n"
-             "    print(run_query(project.load(table).preview(), query))", reads_only=True),
+             "    print(run_query(project.load(table).preview(), query))", reads_only=True,
+             send=preview_each),
         Step("Create and write each in dev", PERMISSION,
              ("its rows, checked", "its Table reference"),
              ("written in dev",),
              "for table in TABLES:\n"
              "    run_execute(project.load(table).create(), execute)\n"
-             "project.run_tables(tables=TABLES, execute=execute)", every_table_written),
+             "project.run_tables(tables=TABLES, execute=execute)", every_table_written,
+             send=create_and_write_the_tables),
     ),
     inputs=(TABLES_INPUT,),
     about="Makes a Table folder for each new Saved table, for you to fill in and write. A "
@@ -664,7 +876,8 @@ REFERENCES = Workflow(
     steps=(
         Step("Write the Table references from DESCRIBE", PERMISSION,
              ("table names your query can DESCRIBE",), ("Table references with TODO lines",),
-             "project.add_references(TABLES, query=query)", every_reference_written),
+             "project.add_references(TABLES, query=query)", every_reference_written,
+             send=add_the_references),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("Table references with TODO lines",), ("each answer in the decisions cell",),
              done=every_source_decision_answered, decides=SOURCE_DECISIONS),
@@ -698,6 +911,7 @@ UPGRADE = Workflow(
     ),
     about="Carries the Project's files to the Toolbox you copied in, once you have restarted "
     "the kernel.",
+    run_with=(),
 )
 
 # Change a Saved table in the warehouse.
@@ -712,7 +926,8 @@ CHANGE_A_SAVED_TABLE = Workflow(
              "change = admin.drop_partitions(table, where=...)  # or another: help(admin)",
              change_written),
         Step("Print its Hive, and run the check its Check first line names", FILE_STEP,
-             ("an Admin statement",), ("its Hive, read and checked",), "show_hive(change)"),
+             ("an Admin statement",), ("its Hive, read and checked",), "show_hive(change)",
+             send=show_the_change),
         Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
              ("its Hive, read and checked",),
              ("the change sent", "the change logged"), "run_execute(change, execute)",
@@ -722,6 +937,7 @@ CHANGE_A_SAVED_TABLE = Workflow(
                   starts=True),),
     about="Changes a Saved table in the warehouse with one of the admin module's Admin "
     "statements, each logged in admin/admin_log.md.",
+    run_with=("query", "execute", "change"),
 )
 
 WORKFLOWS = (CONVERT, PROMOTE, NEW_TABLE, REFERENCES, UPGRADE, CHANGE_A_SAVED_TABLE)
@@ -775,12 +991,14 @@ def step_cell(number: int, workflow: Workflow, step: Step) -> str:
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next."""
-    about = f"# {workflow.name}\n\n{workflow.about} Run each step's cell in turn."
+    about = (f"# {workflow.name}\n\n{workflow.about} Run each step's cell in turn, or, in "
+             "their place, the last cell, project.run_workflow(...), which runs every step "
+             "left in turn, up to the first only you can do, and says where it stopped.")
     if workflow.inputs:
         about += (" First fill in the names cell below and save the notebook: each call reads "
-                  "it, and so do project.check(), which names the next step, and the last "
-                  "cell, project.do_next(), which runs the steps it can for you, up to the "
-                  "first it can't: yours, one done by hand, or one only its cell runs.")
+                  "it, and so do project.check(), which names the next step, and "
+                  "project.do_next(), the cell before the last, which runs only the steps that "
+                  "change files, up to the first it can't.")
     cells = [("markdown", about), ("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
@@ -792,7 +1010,15 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
             cells.append(("code", step.call))
     if workflow.inputs:
         cells.append(("code", "project.do_next()"))
+    cells.append(("code", run_cell_text(workflow)))
     return cells
+
+
+def run_cell_text(workflow: Workflow) -> str:
+    """A Workflow notebook's last cell: project.run_workflow, which runs every step left."""
+    given = "".join(f", {name}={name}" for name in workflow.run_with)
+    return (f"# Every step left, in place of their cells, up to the first only you can do:\n"
+            f'project.run_workflow("{workflow.name}"{given})')
 
 
 def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
@@ -857,13 +1083,41 @@ def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
     found = []
     if workflow.instances is not None:
         found = workflow.instances(root)
-    started = started_inputs(root, workflow)
     named = {each.get("NAME") for each in found}
-    if started is not None and started.get("NAME") not in named:
-        found.insert(0, started)
+    started = started_inputs(root, workflow)
+    if started is not None:
+        found = [*[each for each in one_per_name(started) if each.get("NAME") not in named],
+                 *found]
     # Each instance reads the one decisions cell, which answers by table.
     answers = given_inputs(root, workflow).get(DECISIONS, {})
-    return [{**each, DECISIONS: answers} for each in found]
+    return [{**each, DECISIONS: answers} for each in found if not is_finished(root, each)]
+
+
+def is_finished(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether the batch NAME names is finished: each table compared and passed, its folder
+    moved to finished/, so no step of it is left."""
+    name = inputs.get("NAME")
+    return isinstance(name, str) and bool(name) and (root / BATCHES / FINISHED / name).is_dir()
+
+
+def one_per_name(inputs: dict[str, object]) -> list[dict[str, object]]:
+    """A names cell's inputs, one instance per batch when NAME is a list of them. Each is one
+    convert made already: FILES and HIVE convert the batch NAME names alone."""
+    names = inputs.get("NAME")
+    if not isinstance(names, list):
+        return [inputs]
+    return [{**inputs, "NAME": name, "FILES": [], "HIVE": None} for name in names]
+
+
+def read_again(root: Path, workflow: Workflow, inputs: dict[str, object]) -> dict[str, object]:
+    """An instance's inputs read again once a step has run, which may have made more of them:
+    the tables of the batch convert has just recorded, beside the names cell's inputs."""
+    if workflow.instances is None:
+        return inputs
+    for each in workflow.instances(root):
+        if each.get("NAME") == inputs.get("NAME"):
+            return {**inputs, **each}
+    return inputs
 
 
 def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:
@@ -879,16 +1133,21 @@ def next_step(root: Path, workflow: Workflow, inputs: dict[str, object]) -> Step
     whose done function says no, or that has none, but one that only reads, which waits on
     nothing. A step whose done function says yes means each one before it is done too,
     though the files can't tell of some."""
-    after = 0
-    for number, step in enumerate(workflow.steps, 1):
-        if step.done is not None and step.done(root, inputs):
-            after = number
-    for step in workflow.steps[after:]:
+    for step in steps_left(root, workflow, inputs):
         if step.reads_only:
             continue
         if step.done is None or not step.done(root, inputs):
             return step
     return None
+
+
+def steps_left(root: Path, workflow: Workflow, inputs: dict[str, object]) -> tuple[Step, ...]:
+    """The steps after the last one the Project's files say is done."""
+    after = 0
+    for number, step in enumerate(workflow.steps, 1):
+        if step.done is not None and step.done(root, inputs):
+            after = number
+    return workflow.steps[after:]
 
 
 def read_before(workflow: Workflow, step: Step) -> Step | None:

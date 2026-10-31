@@ -103,7 +103,10 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  "batch_tables", "compare_batch", "promote", "promoted_tables",
                  "table_reference",
                  # Toolbox 8.1, ticket 03: each answer of a decisions cell, written in.
-                 "write_decisions"]
+                 "write_decisions",
+                 # Toolbox 8.1, ticket 07: every step left of a Workflow, up to the first
+                 # that needs you.
+                 "run_workflow"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER

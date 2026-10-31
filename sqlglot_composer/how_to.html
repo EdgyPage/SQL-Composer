@@ -16242,8 +16242,7 @@ PROD = &quot;mart&quot;  # such as &quot;mart&quot;</pre>
 <h4>Goal</h4>
 <p>Do a whole job from its Workflow notebook, step by step, with nothing typed twice: each Workflow below is drawn and listed from the steps its notebook runs, in admin/workflows/, a folder for each.</p>
 <h4>When you&#x27;d use it</h4>
-<p>Each time you start one of the jobs below. <code>project.check()</code> names the next step of each Workflow you have started, and <code>project.do_next()</code> runs the steps it can for you, up to the first that is yours.</p>
-<p>It needs <a href="#start_a_project">Start a Project</a>.</p>
+<p>Each time you start one of the jobs below. <code>project.check()</code> names the next step of each Workflow you have started. Run each step&#x27;s cell in turn, or, in their place, each notebook&#x27;s last cell, <code>project.run_workflow(...)</code>, which runs every step left, the calls to the warehouse too, up to the first only you can do: a Decision, or a check of what a step printed. With <code>dry_run=True</code> it sends nothing through your execute, says the Hive each step would send, and runs for real only the steps that change files or only read, such as convert: run one before you first send. <code>project.do_next()</code> runs only the steps that change files. It needs <a href="#start_a_project">Start a Project</a>.</p>
 <h4>Steps</h4>
 <h5>Start a Project</h5>
 <p>Every Project has the Workflow notebooks, each waiting for its names cell:</p>
@@ -16332,7 +16331,8 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
-<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot;
+<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot;; for project.run_workflow, a
+# list of batches converted already
 NAME = &#x27;&#x27;
 # the scripts&#x27; files, from this folder, such as [&quot;daily.hql&quot;], or [] to read HIVE
 FILES = []
@@ -16363,6 +16363,9 @@ for table in project.batch_tables(NAME, seeded=True):
 <pre class="python">project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
 <ul><li>7. Compare each table with its original (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.compare_batch(NAME, query=query)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <h5>The promote Workflow</h5>
 <p>Carries Saved tables from your Dev Database to your Prod Database.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/promote/promote.ipynb:</p>
@@ -16427,6 +16430,9 @@ for table in project.promoted_tables(TABLES, seeded=True):
     run_execute(project.load(table).seed(), execute)</pre>
 <ul><li>6. Write each table in prod (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <h5>The new_table Workflow</h5>
 <p>Makes a Table folder for each new Saved table, for you to fill in and write. A Building block, a piece several notebooks share, is made with project.new_block(...).</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/new_table/new_table.ipynb:</p>
@@ -16479,6 +16485,9 @@ TABLES = []</pre>
 <pre class="python">for table in TABLES:
     run_execute(project.load(table).create(), execute)
 project.run_tables(tables=TABLES, execute=execute)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 <h5>The references Workflow</h5>
 <p>Writes a Table reference for each table your Project reads, from its DESCRIBE.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/references/references.ipynb:</p>
@@ -16525,6 +16534,9 @@ TABLES = []</pre>
 <pre class="python">project.write_decisions(DECISIONS)</pre>
 <ul><li>4. Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.refresh_reference_sheet(TABLES)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 <h5>The upgrade Workflow</h5>
 <p>Carries the Project&#x27;s files to the Toolbox you copied in, once you have restarted the kernel.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/upgrade/upgrade.ipynb:</p>
@@ -16551,6 +16563,9 @@ flowchart TD
 <ul><li>1. Upgrade the Project&#x27;s files (it changes only files, or only prints: run its cell).</li></ul>
 <pre class="python">project.upgrade()</pre>
 <ul><li>2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to make).</li></ul>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;upgrade&quot;)</pre>
 <h5>The change_a_saved_table Workflow</h5>
 <p>Changes a Saved table in the warehouse with one of the admin module&#x27;s Admin statements, each logged in admin/admin_log.md.</p>
 <p>Its chart, drawn from the steps of its notebook, admin/workflows/change_a_saved_table/change_a_saved_table.ipynb:</p>
@@ -16589,6 +16604,9 @@ change = admin.drop_partitions(table, where=...)  # or another: help(admin)</pre
 <pre class="python">show_hive(change)</pre>
 <ul><li>3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">run_execute(change, execute)</pre>
+<p>Its last cell runs every step left, in place of their cells:</p>
+<pre class="python"># Every step left, in place of their cells, up to the first only you can do:
+project.run_workflow(&quot;change_a_saved_table&quot;, query=query, execute=execute, change=change)</pre>
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says each Workflow&#x27;s next step, or that every step is done.</p>
 <h4>Common mistakes</h4>

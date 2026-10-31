@@ -7,6 +7,10 @@ warehouse is a stand-in that keeps what each write gives it (workflow_warehouse.
 Project's conn, as the user sets theirs; each original a Conversion copies is first written by
 running its script there, as its own team's job would.
 
+Each journey runs a second way too, as the notebook's last cell runs it: one
+project.run_workflow(...) call, once with dry_run=True, which must send nothing, then to the end
+goal.
+
 Each edit a journey makes by hand, other than typing into the names cell, goes through
 `Journey.make_by_hand`, which refuses one KNOWN_FIDDLING doesn't list; at its end, a journey
 must have made every edit KNOWN_FIDDLING lists for each Workflow it ran: so the list only
@@ -115,6 +119,20 @@ class Journey:
             if kind == "code" and number > self.cells_run:
                 exec(text, self.scope)
                 self.cells_run = number
+
+    def run_workflow(self, **given: object) -> str:
+        """Run the cells before step 1, the paths, names and decisions, then the Workflow, as
+        the notebook's last cell runs it: what it reports."""
+        self.run_to(0)
+        assert notebooks.read_cells(self.notebook)[-1][1].endswith(
+            f'project.run_workflow("{self.workflow}"'
+            + "".join(f", {name}={name}" for name in self._run_with()) + ")")
+        calls = {name: self.scope[name] for name in self._run_with() if name in self.scope}
+        return repr(project.run_workflow(self.workflow, **{**calls, **given}))
+
+    def _run_with(self) -> tuple[str, ...]:
+        workflows = toolbox_module("workflows")
+        return next(each.run_with for each in workflows.WORKFLOWS if each.name == self.workflow)
 
     def make_by_hand(self, edit: str, make: Callable[..., object], *args: object) -> None:
         """Make an edit by hand that KNOWN_FIDDLING lists for this Workflow, and note it."""
@@ -269,13 +287,51 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
         assert f"    key={keys[table]!r},  # proposed".replace("'", '"') in written
     _answer_each_decision(journey, tables)
     journey.run_to()
+    _check_converted(started, tables, keys)
+    return tables
+
+
+def _check_converted(started: Started, tables: list[str], keys: dict[str, list[str]]) -> None:
+    """The convert Workflow's end goal: each table its Key proposed, written and compared, and
+    the Batch finished."""
+    assert tables == list(keys)
     finished = started.root / "admin" / "workflows" / "convert" / "finished" / "weekly"
     assert finished.is_dir(), "the Batch isn't finished: a compare didn't pass"
     for table in tables:
         compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
         assert "Passed: " in compared.read_text(encoding="utf-8")
         assert len(started.warehouse.rows_of(table)) > 0, f"{table} holds no row"
+
+
+def _convert_through_the_runner(started: Started, script: str,
+                                keys: dict[str, list[str]]) -> list[str]:
+    """The convert Workflow as one project.run_workflow call: its names and each table's
+    location typed first, then a dry run, which sends nothing, then the run, to the Batch
+    finished."""
+    started.warehouse.execute(script)
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(script, encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    _answer_each_decision(journey, list(keys))
+    sent = list(started.warehouse.executed)
+    dry_run = journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert "would send: CREATE" in dry_run and "would send: INSERT OVERWRITE" in dry_run
+    tables = project.batch_tables("weekly")
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    _check_converted(started, tables, keys)
     return tables
+
+
+def _promote_through_the_runner(started: Started, tables: list[str]) -> list[str]:
+    """The promote Workflow as one project.run_workflow call, after a dry run."""
+    journey = started.journey("promote")
+    journey.type_names(TABLES=tables)
+    sent = list(started.warehouse.executed)
+    assert "would send: CREATE" in journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert "promote: every step is done." in journey.run_workflow()
+    return _check_promoted(started, tables)
 
 
 def _promote(started: Started, tables: list[str]) -> list[str]:
@@ -283,6 +339,11 @@ def _promote(started: Started, tables: list[str]) -> list[str]:
     journey = started.journey("promote")
     journey.type_names(TABLES=tables)
     journey.run_to()
+    return _check_promoted(started, tables)
+
+
+def _check_promoted(started: Started, tables: list[str]) -> list[str]:
+    """The promote Workflow's end goal: each prod copy holds its dev table's rows."""
     prod = project.promoted_tables(tables)
     for dev, prod_table in zip(tables, prod, strict=True):
         assert _sorted_rows(started.warehouse, prod_table) == _sorted_rows(started.warehouse,
@@ -300,6 +361,12 @@ def test_convert_then_promote_one_script(started: Started) -> None:
     assert _sorted_rows(started.warehouse, tables[0]) == _sorted_rows(started.warehouse,
                                                                       "mart.team_fails")
     _promote(started, tables)
+
+
+def test_convert_then_promote_one_script_through_the_runner(started: Started) -> None:
+    tables = _convert_through_the_runner(started, ONE_SCRIPT,
+                                         {"mart_dev.team_fails_mart": ["team", "dt"]})
+    _promote_through_the_runner(started, tables)
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
@@ -343,6 +410,39 @@ def test_new_table_then_change_it(started: Started) -> None:
     assert [row[1:3] for row in csv.reader(sent.splitlines())][-1] == ["admin", table]
 
 
+def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
+    table = "mart_dev.daily_runs"
+    _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
+    journey = started.journey("new_table")
+    journey.type_names(TABLES=[table])
+    assert "2. Fill in each Table reference" in journey.run_workflow()
+    journey.make_by_hand("fill in the Table reference's <...>", _fill_daily_runs_reference,
+                         _reference(started.root, table))
+    journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
+                         _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
+    sent = list(started.warehouse.executed)
+    assert "would read: SELECT" in journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert "new_table: every step is done." in journey.run_workflow()
+    assert len(started.warehouse.rows_of(table)) > 0
+
+    change = started.journey("change_a_saved_table")
+    change.type_names(TABLE=table)
+    change.make_by_hand("write the Admin statement's where=", _edit_notebook, change.notebook,
+                        _drop_one_partition, "admin.drop_partitions")
+    change.run_to(1)  # the change, which only the notebook holds, passed as change=change
+    sent = list(started.warehouse.executed)
+    assert "DROP" in change.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    # It stops at the check of the change's Hive: step 3's cell, yours, sends it.
+    stopped = change.run_workflow()
+    assert "Stopped: read what it printed" in stopped and "Check first" in stopped
+    assert started.warehouse.executed == sent, "the runner sent the change"
+    change.run_to(3)
+    assert "change_a_saved_table: every step is done." in change.run_workflow()
+    assert "2026-09-24" not in set(started.warehouse.rows_of(table)["dt"])
+
+
 def _fill_daily_runs_reference(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     columns = ('"job_id": "bigint",\n        "runs": "bigint",\n'
@@ -382,6 +482,23 @@ def test_references(started: Started) -> None:
     assert 'key=["event_id"],' in written
     assert "job_events" in (references / "ops.py").read_text(encoding="utf-8")
     assert "ops.job_events" in (references / "reference_sheet.csv").read_text(encoding="utf-8")
+
+
+def test_references_through_the_runner(started: Started) -> None:
+    _run_references_through_the_runner(started, "ops.job_events", ["event_id"])
+    written = (started.root / "references" / "ops__job_events.py").read_text(encoding="utf-8")
+    assert 'key=["event_id"],' in written
+
+
+def _run_references_through_the_runner(started: Started, table: str, key: list[str]) -> None:
+    """The references Workflow as one project.run_workflow call, its Key typed first."""
+    journey = started.journey("references")
+    journey.type_names(TABLES=[table], DECISIONS={table: {"key": key}})
+    sent = list(started.warehouse.executed)
+    # It sends nothing through execute: a dry run takes it to its end goal.
+    assert "references: each step left is shown above." in journey.run_workflow(dry_run=True)
+    assert started.warehouse.executed == sent, "a dry run sent something"
+    assert "references: every step is done." in journey.run_workflow()
 
 
 def _run_references(started: Started, table: str, key: list[str]) -> None:
@@ -428,6 +545,19 @@ def test_upgrade_a_project_the_version_before_left(
                          _answer_each_upgrade_mark, started.root)
     started.monkeypatch.chdir(started.root)
     assert "Marked by project.upgrade()" not in repr(project.check())
+
+
+def test_upgrade_through_the_runner(left_by_the_version_before: Started) -> None:
+    started = left_by_the_version_before
+    started.monkeypatch.chdir(started.root / "admin")
+    # As admin/check_project.ipynb runs it: the version before had no Workflow notebooks.
+    project.upgrade()
+    journey = started.journey("upgrade")
+    stopped = journey.run_workflow()
+    assert "2. Make each change an UPGRADE mark asks for" in stopped
+    journey.make_by_hand("make each change an UPGRADE mark asks for",
+                         _answer_each_upgrade_mark, started.root)
+    assert "upgrade: every step is done." in journey.run_workflow()
 
 
 def _answer_each_upgrade_mark(root: Path) -> None:
