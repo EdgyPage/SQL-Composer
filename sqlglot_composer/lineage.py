@@ -29,9 +29,9 @@ from .clauses import Statement, derived_tables
 from .conditions import Condition
 from .keys import Keys, statement_keys, wanted_key, why_key_unproven
 from .python_steps import PythonStep, step_about, step_line, step_place, step_tables_read
-from .refusals import possessive, refuse
+from .refusals import refuse
 from .running import name_in, statement_tree, statements_within, to_hive
-from .shared import singular_or_plural
+from .shared import possessive, singular_or_plural
 from .stacking import STACK_HOW, nth
 from .tables import Table, is_unchecked, readable
 from .trees import Node, rows_text, unchecked_calls

@@ -37,7 +37,7 @@ from typing import TYPE_CHECKING, NamedTuple
 
 from .writing import hive_text
 from .joins import ONLY_TESTS
-from .refusals import possessive
+from .shared import possessive
 from .tables import Table
 from .trees import Node, and_parts, has_aggregate, has_window
 

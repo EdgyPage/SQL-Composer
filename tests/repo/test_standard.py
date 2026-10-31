@@ -11,8 +11,8 @@ test_toolbox_checks.py runs it.
 - a private function or class at a Toolbox file's top has a name no other Toolbox file's
   top uses.
 
-Each break known when the rules were turned on is in known_breaks.py, by file and rule, and the
-count there may only fall: a new break fails, and so does a count that fell and wasn't lowered.
+known_breaks.py held each break known when the rules were turned on, by file and rule; Toolbox
+8.0's refactor emptied it, so any break now fails.
 """
 
 from __future__ import annotations

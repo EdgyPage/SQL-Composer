@@ -53,3 +53,18 @@ def split_table_name(name: str) -> tuple[str, str]:
     and a name with no Database gives ("", its name)."""
     database, _, table = name.rpartition(".")
     return database, table
+
+
+def with_article(noun: str) -> str:
+    """The noun with "a" before it, or "an" when it starts with a vowel: "a list", "an
+    object"."""
+    if noun[0] in "aeiou":
+        return f"an {noun}"
+    return f"a {noun}"
+
+
+def possessive(name: str) -> str:
+    """A name with its 's, or only ' when it ends in s: "numbered's", "job_runs'"."""
+    if name.endswith("s"):
+        return f"{name}'"
+    return f"{name}'s"
