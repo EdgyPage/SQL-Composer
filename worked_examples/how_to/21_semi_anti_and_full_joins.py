@@ -47,8 +47,10 @@ tables' references](#add_your_tables_references) shows:
 >>> from sqlglot_composer import project
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.job_runs", "ops.scheduler_runs"], query=query)
-Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO lines.
-Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners, ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
+Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO
+    lines.
+Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners,
+    ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 Then fill in their TODO lines. Each has a row per run, named by its run_id:
@@ -348,7 +350,8 @@ event's type, `JOIN` the events, a row for each; to test it, put the test in `ON
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  SELECT reads job_events.event_type, a column of job_events, which SEMI_JOIN only tests.
+  What happened:  SELECT reads job_events.event_type, a column of job_events, which SEMI_JOIN
+                  only tests.
 ...
 
 ### Filtering an ANTI_JOIN's partitions in WHERE
@@ -382,7 +385,8 @@ it is refused. Pick each side's rows in its own Derived table instead.
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  WHERE has recorded.run_id > 100, a condition on recorded, and FULL_JOIN(started) keeps the rows of both sides that have no match.
+  What happened:  WHERE has recorded.run_id > 100, a condition on recorded, and
+                  FULL_JOIN(started) keeps the rows of both sides that have no match.
 ...
 
 ### Writing a RIGHT_JOIN

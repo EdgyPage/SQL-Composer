@@ -77,7 +77,8 @@ def test_a_list_made_in_the_call_is_numbered(capsys: pytest.CaptureFixture[str])
 
 
 def test_what_isnt_a_statement_is_refused() -> None:
-    with pytest.raises(TypeError, match="show_hive was given 'SELECT 1', which isn't a Statement"):
+    with pytest.raises(TypeError,
+                       match="show_hive was given 'SELECT 1', which isn't a Statement"):
         show_hive("SELECT 1")
     with pytest.raises(TypeError, match=r"show_hive\(\) was given no Statement"):
         show_hive()

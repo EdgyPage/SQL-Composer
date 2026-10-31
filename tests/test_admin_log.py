@@ -123,7 +123,8 @@ def test_a_run_that_fails_is_logged_with_its_error_then_raises(log: Path) -> Non
 def test_hive_holding_backticks_and_quotes_keeps_its_entry_whole(log: Path) -> None:
     run_query(by_hand("SELECT '```' AS fence, \"a\" AS `b`"), no_rows)
     text = log.read_text(encoding="utf-8")
-    assert "- Call: ````unchecked_hive(\"SELECT '```' AS fence, \\\"a\\\" AS `b`\")````\n" in text
+    assert ("- Call: ````unchecked_hive(\"SELECT '```' AS fence, \\\"a\\\" AS `b`\")````\n"
+            in text)
     assert text.endswith("````sql\nSELECT '```' AS fence, \"a\" AS `b`\n````\n")
 
 
@@ -153,7 +154,7 @@ def test_an_admin_statement_is_logged_with_its_call(log: Path) -> None:
     assert "```sql\nDROP TABLE IF EXISTS mart.daily_runs\n```" in entry
 
 
-# --- Where it is written -----------------------------------------------------------------------
+# --- Where it is written ----------------------------------------------------------------------
 
 
 SCRIPT = """

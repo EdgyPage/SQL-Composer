@@ -85,10 +85,10 @@ GROUP BY
 7  2026-09-21       2       4
 8  2026-09-21       3       1
 
-Pasted into your own notebook, this `run_query`, and each `run_query` of a week, a month or subtotals
-below, stops with a RuntimeError saying the Example database can't run this Hive: the Example
-database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC, and makes no subtotals. The
-results here were worked out in pandas from the same rows, to show what the Hive gives. Your
+Pasted into your own notebook, this `run_query`, and each `run_query` of a week, a month or
+subtotals below, stops with a RuntimeError saying the Example database can't run this Hive: the
+Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC, and makes no subtotals.
+The results here were worked out in pandas from the same rows, to show what the Hive gives. Your
 warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.
 
 The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so
@@ -401,7 +401,8 @@ would count it five times. The Toolbox refuses it as you build the Statement:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which is a distinct count.
+  What happened:  sum_of(jobs_per_day.jobs_that_ran) adds up jobs_per_day.jobs_that_ran, which
+                  is a distinct count.
 ...
 
 Count again from the rows, as `jobs_per_week` does. A plain count, such as runs, does add up:
@@ -422,7 +423,8 @@ Without `GROUP_BY`, the Statement has no groups for the count to count in:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  SELECT has the calculation "week" (from job_events.dt), but the Statement counts or adds up rows and has no GROUP_BY.
+  What happened:  SELECT has the calculation "week" (from job_events.dt), but the Statement
+                  counts or adds up rows and has no GROUP_BY.
 ...
 
 Its fix groups by the name you gave the week, `GROUP_BY("week")`: one row per week.
@@ -477,7 +479,8 @@ row to it is refused:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  INSERT_OVERWRITE(job_events_checks) writes rows made by GROUP_BY(rollup(job_events.dt)).
+  What happened:  INSERT_OVERWRITE(job_events_checks) writes rows made by
+                  GROUP_BY(rollup(job_events.dt)).
 ...
 
 Write the plain `GROUP_BY(job_events.dt)`, as the table's notebook does, and add the subtotals

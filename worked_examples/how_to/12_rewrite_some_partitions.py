@@ -147,9 +147,9 @@ so 0 minutes.
 
 ### Send it
 
-`run_execute` sends a write through your execute. It doesn't send the SET lines with it: send the
-Session setting first, `hive_settings("dynamic_partitions")`, which holds for as long as your
-execute keeps one session:
+`run_execute` sends a write through your execute. It doesn't send the SET lines with it: send
+the Session setting first, `hive_settings("dynamic_partitions")`, which holds for as long as
+your execute keeps one session:
 
 >>> run_execute(hive_settings("dynamic_partitions"), execute)
 execute: SET hive.exec.dynamic.partition=true
@@ -329,8 +329,8 @@ The day-at-a-time writes come oldest first, with none missing:
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-29')
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-30')
 
-At work, after a rewrite, read the Saved table's days back with `run_query`, and compare them with
-`facts.preview()`'s rows.
+At work, after a rewrite, read the Saved table's days back with `run_query`, and compare them
+with `facts.preview()`'s rows.
 
 ## Common mistakes
 
@@ -373,7 +373,10 @@ Toolbox refuses it as you build it:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(job_day_facts) can't show that each row it writes has a Key (job_id, dt) of its own: events_per_job's rows are told apart by job_id, dt, and SELECT leaves out events_per_job.dt, so nothing makes its rows one for each job_id.
+  What happened:  INSERT_OVERWRITE(job_day_facts) can't show that each row it writes has a Key
+                  (job_id, dt) of its own: events_per_job's rows are told apart by job_id, dt,
+                  and SELECT leaves out events_per_job.dt, so nothing makes its rows one for
+                  each job_id.
 ...
 
 `partition=` says where the rows go, and the reads which rows: keep them the same, with
@@ -428,8 +431,8 @@ as `as_written_here` does.
 
 ### Handing run_execute a whole list
 
-`run_execute` sends one Statement, and refuses a list, such as a `write()` that gives a write per
-region:
+`run_execute` sends one Statement, and refuses a list, such as a `write()` that gives a write
+per region:
 
 >>> run_execute(by_region, execute)
 Traceback (most recent call last):

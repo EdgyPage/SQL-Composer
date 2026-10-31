@@ -294,9 +294,10 @@ as `daily.write`. The write goes in a variable with a meaningful name first:
 
 The write fills a table with a Table folder, so the pair goes in that folder's lineage/, named
 by the time and the table alone, the second form above. Each export adds a pair, so lineage/
-keeps every one before: the table's history, oldest first, to compare when its logic changes. Its Graph
-draws the Building block as a group of its own, named `"runs_per_job"` as the block names it:
-`"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the table.
+keeps every one before: the table's history, oldest first, to compare when its logic changes.
+Its Graph draws the Building block as a group of its own, named `"runs_per_job"` as the block
+names it: `"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the
+table.
 
 ### Draw a table that reads another Saved table
 
@@ -427,12 +428,12 @@ move there first, as opening the notebook would, then do what cell 4 does:
 >>> markdown_file.name  # -> str
 '20260925-090000-mart__team_day.md'
 
-The files go in this Table folder's lineage/, named for its own table. The order you pass them in doesn't matter: `export_lineage` puts each write before the ones
-that read the Saved table it fills. The Markdown file has a section for each write. The
-second's first line says it reads mart.daily_job_runs, written by write_daily_job_runs above,
-so the tree of the team's `"failed_runs"` goes on through the Saved table, and the Building
-block, back to `ops.job_runs.status`: the file answers "what counts as a failed run here?" in
-one place.
+The files go in this Table folder's lineage/, named for its own table. The order you pass them
+in doesn't matter: `export_lineage` puts each write before the ones that read the Saved table it
+fills. The Markdown file has a section for each write. The second's first line says it reads
+mart.daily_job_runs, written by write_daily_job_runs above, so the tree of the team's
+`"failed_runs"` goes on through the Saved table, and the Building block, back to
+`ops.job_runs.status`: the file answers "what counts as a failed run here?" in one place.
 
 ### Write them in that order
 
@@ -471,7 +472,8 @@ changes and saves. Make the Table folder as usual, then write over the Template'
 Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__run_speed.py: fill in its <...> and TODO lines.
-Wrote references/mart.py: from references import mart gives mart.daily_job_runs and mart.team_day.
+Wrote references/mart.py: from references import mart gives mart.daily_job_runs and
+    mart.team_day.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 The file `references/mart__run_speed.py`, after you fill it in:
@@ -588,8 +590,8 @@ pulls the rows and changes them:
 
 The Toolbox has no call that saves a DataFrame: you save it the way your work does, such as
 your API's own write call, which cell 3 shows in a comment, since it reaches your warehouse.
-`speed.write()` gives the Python step: your function itself, not what it gave back, the columns it
-read, and the table it wrote. It sends nothing, and `show_hive` prints what it is:
+`speed.write()` gives the Python step: your function itself, not what it gave back, the columns
+it read, and the table it wrote. It sends nothing, and `show_hive` prints what it is:
 
 >>> speed_step = speed.write()  # -> PythonStep
 >>> text = show_hive(speed_step)  # -> str
@@ -616,7 +618,8 @@ execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt)
 2 of 3: mart.team_day        worked
 3 of 3: mart.run_speed       passed over: a Python step, whose rows your own call saves
 Wrote 2 tables, in order.
-Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own call saves its rows.
+Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own call saves its
+    rows.
 
 A table whose write() reads mart.run_speed is written after it, and reads what mart.run_speed
 holds then: the rows your own call saved the last time its notebook ran. So run that notebook,
@@ -674,7 +677,8 @@ such as `ops.job_runs`, has none, and is refused:
 Traceback (most recent call last):
 ...
 FileNotFoundError:
-  What happened:  project.load("ops.job_runs"): there is no tables/ops__job_runs/ops__job_runs.ipynb.
+  What happened:  project.load("ops.job_runs"): there is no
+                  tables/ops__job_runs/ops__job_runs.ipynb.
 ...
 
 A table the Project only reads has no write to draw: its columns are where each tree starts.
@@ -689,4 +693,4 @@ A table the Project only reads has no write to draw: its columns are where each 
   Python](#declare_a_change_made_in_python).
 - The gallery's [`export_lineage`](examples.html#export_lineage) and
   [`python_step`](examples.html#python_step) entries.
-"""
+"""  # noqa: E501 - the files it writes, shown byte for byte as the Project writes them

@@ -125,7 +125,8 @@ Pass both Statements to [`export_lineage`](examples.html#export_lineage), so one
 everything the Building block feeds. `to=` gives the files a name you can find again;
 otherwise each export gets a new name, from the time it ran:
 
->>> html_file, markdown_file = export_lineage(facts_write, team_day, to="before.html")  # -> tuple[Path, Path]
+>>> html_file, markdown_file = export_lineage(facts_write, team_day,
+...                                           to="before.html")  # -> tuple[Path, Path]
 
 The Markdown file holds, for each Statement, every calculated column with the table columns it
 comes from and the conditions that decide which rows count, then the copied columns, then the
@@ -185,7 +186,8 @@ built, and export the Lineage after:
 
 >>> team_day_before = team_day
 >>> facts_write, team_day = build_statements("2026-09-18")
->>> html_file, markdown_file = export_lineage(facts_write, team_day, to="after.html")  # -> tuple[Path, Path]
+>>> html_file, markdown_file = export_lineage(facts_write, team_day,
+...                                           to="after.html")  # -> tuple[Path, Path]
 
 ### Compare the two Markdown files
 
@@ -213,31 +215,43 @@ of each file, which says when the file was made, and so differs every time:
 ...             print(line[:100])
 >>> changed_lines("before.md", "after.md")
 In facts_write, `events_per_job in facts_write.minutes`:
-- Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=is_
-+ Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes, where=equ
-- events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
-+ events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
+- Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes,
+  where=is_
++ Calculated in **events_per_job in facts_write** as `fill_null(sum_of(job_events.minutes,
+  where=equ
+- events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes,
+  where=is_in(job_event
++ events_per_job in facts_write.minutes = fill_null(sum_of(job_events.minutes,
+  where=equals(job_even
 In facts_write, Hive as submitted:
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
-+     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0) AS mi
++     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0)
+  AS mi
 -       ),
 -       0
 -     ) AS minutes
 In team_day, `events_per_job in team_day.minutes`:
-- Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=is_in(
-+ Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes, where=equals
-- events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_events.e
-+ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_events.
+- Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes,
+  where=is_in(
++ Calculated in **events_per_job in team_day** as `fill_null(sum_of(job_events.minutes,
+  where=equals
+- events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes,
+  where=is_in(job_events.e
++ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes,
+  where=equals(job_events.
 In team_day, `minutes`:
-- └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=is_in(job_event
-+ └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes, where=equals(job_even
+- └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes,
+  where=is_in(job_event
++ └─ events_per_job in team_day.minutes = fill_null(sum_of(job_events.minutes,
+  where=equals(job_even
 In team_day, Hive as submitted:
 -     COALESCE(
 -       SUM(
 -         CASE WHEN job_events.event_type IN ('finish', 'fail') THEN job_events.minutes END
-+     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0) AS mi
++     COALESCE(SUM(CASE WHEN job_events.event_type = 'finish' THEN job_events.minutes END), 0)
+  AS mi
 -       ),
 -       0
 -     ) AS minutes
@@ -278,9 +292,11 @@ awkward ones among them. `test_team_day` prints nothing when every `assert` hold
 
 The two Markdown files differ, and the after file names the new condition:
 
->>> 'where=equals(job_events.event_type, "finish")' in Path("after.md").read_text(encoding="utf-8")
+>>> 'where=equals(job_events.event_type, "finish")' in Path("after.md").read_text(
+...     encoding="utf-8")
 True
->>> 'where=equals(job_events.event_type, "finish")' in Path("before.md").read_text(encoding="utf-8")
+>>> 'where=equals(job_events.event_type, "finish")' in Path("before.md").read_text(
+...     encoding="utf-8")
 False
 
 ## Common mistakes
@@ -349,4 +365,4 @@ way than the Statement does.
   one box, naming the function to review.
 - The gallery's [`export_lineage`](examples.html#export_lineage) and
   [`derived`](examples.html#derived) entries.
-"""
+"""  # noqa: E501 - the files it writes, shown byte for byte as the Project writes them

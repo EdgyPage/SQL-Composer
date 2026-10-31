@@ -28,8 +28,8 @@ tracker's notes in `.scratch/` among them:
 
 It only reads text, never imports or runs what it reads, and reaches nothing. It skips the
 folders the offline policy skips (`offline_policy.not_read`: the git folder, caches, Python
-environments and Claude Code's worktrees, but none inside the Toolbox or user-copied code), apart
-from `.scratch/`, which it reads, since a note can hide text too. `AUDITED` lists each
+environments and Claude Code's worktrees, but none inside the Toolbox or user-copied code),
+apart from `.scratch/`, which it reads, since a note can hide text too. `AUDITED` lists each
 reviewed site, by file, kind and what its finding says, with the reason it is no harm; an entry
 that matches nothing is stale.
 
@@ -58,21 +58,23 @@ from offline_policy import Finding
 
 ROOT = offline_policy.ROOT
 
-# --- What it looks for ----------------------------------------------------------------------------------
+# --- What it looks for ---------------------------------------------------------------------
 
 # Characters that show nothing, or turn the text around: bidi controls and marks, zero-width
 # characters, and a byte-order mark anywhere but a file's start.
 HIDDEN = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff"
                     "\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 # A Cyrillic or Greek letter beside a Latin one in one word, which looks like the Latin letter.
-LOOK_ALIKE = re.compile("[A-Za-z][\u0370-\u03ff\u0400-\u04ff]|[\u0370-\u03ff\u0400-\u04ff][A-Za-z]")
+LOOK_ALIKE = re.compile("[A-Za-z][\u0370-\u03ff\u0400-\u04ff]"
+                        "|[\u0370-\u03ff\u0400-\u04ff][A-Za-z]")
 # Long runs that could hold encoded code.
-ENCODED = re.compile(r"[A-Za-z0-9+/]{200,}={0,2}|(?:[0-9a-fA-F]{2}){120,}|(?:\\x[0-9a-fA-F]{2}){50,}")
+ENCODED = re.compile(r"[A-Za-z0-9+/]{200,}={0,2}|(?:[0-9a-fA-F]{2}){120,}"
+                     r"|(?:\\x[0-9a-fA-F]{2}){50,}")
 DECODER_MODULES = ("base64", "binascii", "zlib", "gzip", "bz2", "lzma")
 DECODER_CALLS = ("codecs.decode", "bytes.fromhex")
 # Strings that name a place credentials are kept, or the home folder.
-CREDENTIAL_PATH = re.compile(r"(?:^|[\\/~'\"])\.(?:ssh|aws|azure|gnupg|netrc|git-credentials|pypirc"
-                             r"|docker|kube)\b|\bid_(?:rsa|ed25519|ecdsa|dsa)\b|^~[\\/]")
+CREDENTIAL_PATH = re.compile(r"(?:^|[\\/~'\"])\.(?:ssh|aws|azure|gnupg|netrc|git-credentials"
+                             r"|pypirc|docker|kube)\b|\bid_(?:rsa|ed25519|ecdsa|dsa)\b|^~[\\/]")
 SECRET_NAME = re.compile(r"key|token|secret|passw|credential", re.IGNORECASE)
 # A system folder, or the folder whose programs Windows runs at sign-in.
 SYSTEM_PATH = re.compile(r"^(?:/etc|/usr|/bin|/sbin|/var|/root|/boot|/System|/Library)/"
@@ -125,29 +127,39 @@ AUDITED = (
 )
 
 
-# --- Reading the repo ---------------------------------------------------------------------------
+# --- Reading the repo ----------------------------------------------------------------------
 
 
 def audit(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
     """Each finding in the files under `root` that `audited` doesn't cover."""
-    return [finding for finding in everything_found(root)
-            if not any(entry.matches(finding) for entry in audited)]
+    uncovered = []
+    for finding in everything_found(root):
+        if not any(entry.matches(finding) for entry in audited):
+            uncovered.append(finding)
+    return uncovered
 
 
 def stale(root: Path = ROOT, audited: tuple[Audited, ...] = AUDITED) -> list[Finding]:
     """Each entry of `audited` that matches nothing under `root`."""
     found = everything_found(root)
-    return [Finding(entry.file, 0, "stale entry",
-                    f"AUDITED's {entry.kind} entry holding {entry.holds!r} matches nothing")
-            for entry in audited if not any(entry.matches(finding) for finding in found)]
+    stale_entries = []
+    for entry in audited:
+        if not any(entry.matches(finding) for finding in found):
+            stale_entries.append(Finding(
+                entry.file, 0, "stale entry",
+                f"AUDITED's {entry.kind} entry holding {entry.holds!r} matches nothing"))
+    return stale_entries
 
 
 def everything_found(root: Path) -> list[Finding]:
     """Each finding in the files under `root`, reviewed or not."""
-    return [finding for file in read_files(root) for finding in findings_in_file(root, file)]
+    found = []
+    for file in files_to_read(root):
+        found += findings_in_file(root, file)
+    return found
 
 
-def read_files(root: Path) -> list[Path]:
+def files_to_read(root: Path) -> list[Path]:
     """Every file under `root` the audit reads, in a steady order."""
     found = []
     for folder, subfolders, names in os.walk(root):
@@ -169,10 +181,12 @@ def findings_in_file(root: Path, file: Path) -> list[Finding]:
 def workbook_findings(root: Path, data: bytes, path: str) -> list[Finding]:
     """Each finding in a workbook's parts, each read as a file at `<path>/<part>`. The offline
     policy reads the same parts for what Excel would run or fetch."""
+    found = []
     with zipfile.ZipFile(io.BytesIO(data)) as workbook:
-        return [finding for name in workbook.namelist()
-                for finding in findings_in_text(root, workbook.read(name), f"{path}/{name}",
-                                                Path(name).suffix)]
+        for name in workbook.namelist():
+            found += findings_in_text(root, workbook.read(name), f"{path}/{name}",
+                                      Path(name).suffix)
+    return found
 
 
 def findings_in_text(root: Path, data: bytes, path: str, suffix: str) -> list[Finding]:
@@ -190,7 +204,7 @@ def findings_in_text(root: Path, data: bytes, path: str, suffix: str) -> list[Fi
     return found
 
 
-# --- Each kind ----------------------------------------------------------------------------------
+# --- Each kind -----------------------------------------------------------------------------
 
 
 def hidden_text(text: str, path: str) -> list[Finding]:
@@ -221,28 +235,40 @@ def python_findings(text: str, path: str) -> list[Finding]:
         tree = ast.parse(text)
     except SyntaxError:
         return []  # the offline policy reports a file that doesn't parse
-    return [Finding(path, getattr(node, "lineno", 0), kind, what)
-            for node in ast.walk(tree) for kind, what in _node_findings(node)]
+    found = []
+    for node in ast.walk(tree):
+        for kind, what in _node_findings(node):
+            found.append(Finding(path, getattr(node, "lineno", 0), kind, what))
+    return found
 
 
 def _node_findings(node: ast.AST) -> list[tuple[str, str]]:
     """Each (kind, what) one node of a Python file's tree is a finding of."""
     if isinstance(node, (ast.Import, ast.ImportFrom)):
-        names = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
-                 else [node.module or ""])
-        return ([("encoded payload", f"imports {name}") for name in names
-                 if name.split(".")[0] in DECODER_MODULES]
-                + [("outside the repo", f"imports {name}") for name in names
-                   if name.split(".")[0] in CREDENTIAL_MODULES])
+        return _import_findings(node)
     if isinstance(node, ast.Call):
         return _call_findings(node)
     if isinstance(node, ast.Subscript) and _dotted(node.value) == "os.environ":
-        return ([("outside the repo", f"reads the environment's {_literal(node.slice)}")]
-                if _secret([node.slice]) else [])
+        if not _names_a_secret([node.slice]):
+            return []
+        return [("outside the repo", f"reads the environment's {_literal(node.slice)}")]
     if (isinstance(node, ast.Constant) and isinstance(node.value, str)
             and (CREDENTIAL_PATH.search(node.value) or SYSTEM_PATH.search(node.value))):
         return [("outside the repo", f"names {node.value[:60]!r}")]
     return []
+
+
+def _import_findings(node: ast.Import | ast.ImportFrom) -> list[tuple[str, str]]:
+    """Each (kind, what) an import is a finding of: a decoder, then a reach for credentials."""
+    if isinstance(node, ast.Import):
+        names = [alias.name for alias in node.names]
+    else:
+        names = [node.module or ""]
+    decoders = [("encoded payload", f"imports {name}") for name in names
+                if name.split(".")[0] in DECODER_MODULES]
+    credentials = [("outside the repo", f"imports {name}") for name in names
+                   if name.split(".")[0] in CREDENTIAL_MODULES]
+    return decoders + credentials
 
 
 def _call_findings(node: ast.Call) -> list[tuple[str, str]]:
@@ -252,7 +278,7 @@ def _call_findings(node: ast.Call) -> list[tuple[str, str]]:
         found.append(("encoded payload", f"calls {called}"))
     if called in HOME_CALLS or called.endswith(".expanduser"):
         found.append(("outside the repo", f"calls {called}"))
-    if called in ENVIRONMENT_READS and _secret(node.args[:1]):
+    if called in ENVIRONMENT_READS and _names_a_secret(node.args[:1]):
         found.append(("outside the repo", f"reads the environment's {_literal(node.args[0])}"))
     if called in HOOK_CALLS:
         found.append(("hook", f"calls {called}"))
@@ -271,7 +297,7 @@ def _literal(node: ast.AST) -> str:
     return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else ""
 
 
-def _secret(nodes: list[ast.AST]) -> bool:
+def _names_a_secret(nodes: list[ast.AST]) -> bool:
     return any(SECRET_NAME.search(_literal(node)) for node in nodes)
 
 
@@ -283,12 +309,14 @@ def notebook_findings(text: str, path: str) -> list[Finding]:
     found = []
     for number, cell in enumerate(cells, 1):
         if cell.get("outputs") or cell.get("execution_count") is not None:
-            found.append(Finding(path, 0, "notebook", f"cell {number} was run: clear its output"))
+            found.append(Finding(path, 0, "notebook",
+                                 f"cell {number} was run: clear its output"))
         source = cell.get("source", "")
         source = "".join(source) if isinstance(source, list) else source
         if cell.get("cell_type") == "markdown" and re.search(r"<script\b|javascript:", source,
                                                              re.IGNORECASE):
-            found.append(Finding(path, 0, "notebook", f"cell {number}'s Markdown holds a script"))
+            found.append(Finding(path, 0, "notebook",
+                                 f"cell {number}'s Markdown holds a script"))
     return found
 
 
@@ -324,9 +352,10 @@ def _hook_findings(root: Path, text: str, path: str) -> list[Finding]:
 
 
 def _workflow_findings(text: str, path: str) -> list[Finding]:
-    found = ([] if re.search(r"^permissions:", text, re.MULTILINE) else
-             [Finding(path, 0, "config", "it has no permissions: of its own, so it gets the "
-                      "repository's default, which may write")])
+    found = []
+    if not re.search(r"^permissions:", text, re.MULTILINE):
+        found.append(Finding(path, 0, "config", "it has no permissions: of its own, so it gets "
+                             "the repository's default, which may write"))
     for number, line in enumerate(text.splitlines(), 1):
         used = re.match(r"\s*(?:-\s*)?uses:\s*([^\s#]+)", line)
         if used and not PINNED_ACTION.match(used.group(1)):

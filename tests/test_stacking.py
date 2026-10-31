@@ -194,7 +194,8 @@ def test_a_number_stacks_with_a_number_of_another_size() -> None:
     (lambda: statement(SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, DAY)),
                        LIMIT(2)), "2nd Statement has LIMIT"),
     (lambda: statement(INSERT_OVERWRITE(flagged_runs, partition={"dt": DAY}),
-                       SELECT(job_runs.run_id), FROM(job_runs), WHERE(equals(job_runs.dt, DAY))),
+                       SELECT(job_runs.run_id), FROM(job_runs),
+                       WHERE(equals(job_runs.dt, DAY))),
      "2nd Statement writes mart.flagged_runs"),
     (lambda: UNION_ALL(failed_runs(), alerted_runs()), "2nd Statement is itself a Stack"),
 ])
@@ -467,8 +468,10 @@ def test_a_saved_table_written_from_subtotals_is_refused() -> None:
     per_team = Table("mart.per_team", columns={"team": "string", "runs": "bigint",
                                                "dt": "string"},
                      partitioned_by=["dt"], key=["team", "dt"], location=f"{BASE}/per_team")
-    with pytest.raises(ValueError, match=r"writes rows made by GROUP_BY\(rollup\(jobs.team\)\)"):
-        statement(INSERT_OVERWRITE(per_team, partition={"dt": DAY}), SELECT(jobs.team, AS(count_rows(), "runs")),
+    with pytest.raises(ValueError,
+                       match=r"writes rows made by GROUP_BY\(rollup\(jobs.team\)\)"):
+        statement(INSERT_OVERWRITE(per_team, partition={"dt": DAY}),
+                  SELECT(jobs.team, AS(count_rows(), "runs")),
                   FROM(job_runs), JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
                   WHERE(equals(job_runs.dt, DAY)), GROUP_BY(rollup(jobs.team)))
     totals = derived("totals", runs_by(rollup(jobs.team), select=(jobs.team,)))

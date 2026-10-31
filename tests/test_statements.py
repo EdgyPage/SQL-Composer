@@ -90,7 +90,8 @@ def test_python_operators_that_would_mislead_are_refused(write: Callable[[], obj
 def test_arithmetic_comes_out_bracketed() -> None:
     minutes, retries = job_runs.duration_mins, job_runs.avg_retry_secs
     assert repr((minutes + 1) / 2) == "(job_runs.duration_mins + 1) / 2"
-    assert repr(minutes / (retries + 1)) == "job_runs.duration_mins / (job_runs.avg_retry_secs + 1)"
+    assert repr(minutes / (retries + 1)) == (
+        "job_runs.duration_mins / (job_runs.avg_retry_secs + 1)")
     assert repr(60 * minutes - 1) == "(60 * job_runs.duration_mins) - 1"
     assert repr(-minutes) == "0 - job_runs.duration_mins"
 
@@ -144,7 +145,8 @@ def test_a_partition_column_of_dates_is_compared_as_written() -> None:
                     partitioned_by=["day"])
     assert repr(equals(compact.day, "20260924")) == "compact.day = '20260924'"
     assert repr(equals(compact.day, datetime.date(2026, 9, 24))) == "compact.day = '2026-09-24'"
-    assert repr(last_n_days(compact.day, 2)) == "compact.day BETWEEN '2026-09-23' AND '2026-09-24'"
+    assert repr(last_n_days(compact.day, 2)) == (
+        "compact.day BETWEEN '2026-09-23' AND '2026-09-24'")
     assert repr(week_start(compact.day)) == (
         "CAST(NEXT_DAY(DATE_ADD(compact.day, 7 * -1), 'MO') AS STRING)")
 
@@ -193,7 +195,8 @@ def test_hive_function_writes_every_count_the_shared_list_lets_through(name: str
 
 
 def test_hive_function_counts_min_and_max_as_one_argument() -> None:
-    """With two, sqlglot Composer's sqlglot writes GREATEST, which doesn't turn rows into one."""
+    """With two, sqlglot Composer's sqlglot writes GREATEST, which doesn't turn rows into
+    one."""
     with pytest.raises(TypeError, match=re.escape("gives max 2 arguments, and max takes 1")):
         hive_function("max", job_runs.run_id, job_runs.duration_mins)
 
@@ -207,7 +210,8 @@ def test_hive_function_refuses_a_function_that_needs_a_window(name: str) -> None
 
 @pytest.mark.parametrize(("name", "instead"), [
     ("lag", "lag(column, over=window(...))"), ("rank", "rank(over=window(...))"),
-    ("ntile", "ntile(parts, over=window(...))"), ("row_number", "row_number(over=window(...))")])
+    ("ntile", "ntile(parts, over=window(...))"),
+    ("row_number", "row_number(over=window(...))")])
 def test_the_window_refusal_names_the_toolbox_function_that_writes_over(name: str,
                                                                         instead: str) -> None:
     with pytest.raises(ValueError, match=re.escape(f"Use {instead}, which writes OVER")):
@@ -249,7 +253,8 @@ def test_a_column_of_a_table_the_statement_doesnt_read_is_refused() -> None:
 def test_the_same_table_twice_needs_a_second_name() -> None:
     with pytest.raises(ValueError, match="AS"):
         statement(SELECT(job_runs.run_id), FROM(job_runs),
-                  JOIN(job_runs, ON=equals(job_runs.run_id, job_runs.run_id), many_matches=True),
+                  JOIN(job_runs, ON=equals(job_runs.run_id, job_runs.run_id),
+                       many_matches=True),
                   WHERE(DAYS))
     earlier = AS(job_runs, "earlier")
     with pytest.raises(LoadRefused, match=r"JOIN\(earlier, ON=\.\.\.\)"):
@@ -487,7 +492,8 @@ def test_insert_into_keeps_every_rule_of_a_write() -> None:
 
 
 def test_a_statement_has_one_write_at_most() -> None:
-    with pytest.raises(ValueError, match="has INSERT_OVERWRITE and INSERT_INTO, but a Statement has only one INSERT clause"):
+    with pytest.raises(ValueError, match="has INSERT_OVERWRITE and INSERT_INTO, "
+                       "but a Statement has only one INSERT clause"):
         statement(INSERT_OVERWRITE(daily_runs), INSERT_INTO(daily_runs),
                   SELECT(job_runs.job_id), FROM(job_runs), WHERE(DAYS))
 

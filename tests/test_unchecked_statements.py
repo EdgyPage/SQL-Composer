@@ -1,4 +1,5 @@
-"""The Unchecked statement: unchecked_hive(...) runs Hive written by hand, as a Statement is run.
+"""The Unchecked statement: unchecked_hive(...) runs Hive written by hand, as a Statement is
+run.
 
 Map family 3 and ADR 0006. No Guard, Warning or Load limit looks inside it. show_hive and the
 dry run mark it, and text starting DROP, ALTER or TRUNCATE gets a note at your own line, naming
@@ -146,7 +147,8 @@ def test_you_pick_the_call_whatever_the_text_says() -> None:
 
 
 def test_it_runs_on_the_example_database() -> None:
-    rows = run_query(no_note("SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '2026-09-24'"),
+    rows = run_query(no_note("SELECT COUNT(*) AS runs FROM ops.job_runs "
+                             "WHERE dt = '2026-09-24'"),
                      example_database.query)
     assert rows["runs"].tolist() == [4]  # run_id 101 to 104
 

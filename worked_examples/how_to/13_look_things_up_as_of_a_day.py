@@ -176,7 +176,8 @@ each job's rows from the newest day down; the Statement that reads them keeps nu
 `PARTITION_BY=` is SQL's word for the groups to number within, here each job, not the table's
 Partitions. Hive can't keep a row by its number in the same SELECT that numbers it, so the
 numbering goes in a Derived table, which the Hive writes at its top as
-`WITH numbered AS (...)`. [The latest row of each group](#latest_row_of_each_group) starts with it:
+`WITH numbered AS (...)`. [The latest row of each group](#latest_row_of_each_group) starts with
+it:
 
 >>> numbered = derived("numbered", statement(  # -> Table
 ...     SELECT(job_owners.job_id, job_owners.team, job_owners.owner, job_owners.dt,
@@ -197,7 +198,8 @@ WITH numbered AS (
     job_owners.team,
     job_owners.owner,
     job_owners.dt,
-    ROW_NUMBER() OVER (PARTITION BY job_owners.job_id ORDER BY job_owners.dt DESC) AS newest_first
+    ROW_NUMBER() OVER (PARTITION BY job_owners.job_id ORDER BY job_owners.dt DESC) AS
+        newest_first
   FROM ops.job_owners AS job_owners
   WHERE
     job_owners.dt BETWEEN '2026-09-11' AND '2026-09-24'
@@ -303,7 +305,8 @@ read, so the Toolbox refuses as you build the Statement:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.LoadRefused:
-  What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but filters none of its partition columns: dt.
+  What happened:  JOIN(job_owners, ON=...) reads ops.job_owners, but filters none of its
+                  partition columns: dt.
 ...
 
 Filter it with the same days as the table it is joined to, in `WHERE` as the steps do, or in

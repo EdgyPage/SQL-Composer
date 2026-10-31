@@ -78,7 +78,7 @@ def a_checkout(folder: Path, files: dict[str, str | bytes]) -> Path:
     return folder
 
 
-# --- Write and Edit ----------------------------------------------------------------------------
+# --- Write and Edit ---------------------------------------------------------------------------
 
 
 def test_a_write_of_a_network_import_to_the_toolbox_is_refused() -> None:
@@ -114,9 +114,10 @@ def test_an_edit_that_keeps_the_file_clean_passes() -> None:
 
 def test_an_edit_is_judged_on_the_whole_file_it_leaves(tmp_path: Path) -> None:
     # The new text alone is clean: it is the alias already in the file that reaches out.
-    checkout = a_checkout(tmp_path, {"sqlglot_composer/x.py": "import socket as wire\nwire = None\n"})
-    why = edit(checkout / "sqlglot_composer" / "x.py", "wire = None\n", "wire.create_connection(a)\n",
-               checkout)
+    checkout = a_checkout(tmp_path,
+                          {"sqlglot_composer/x.py": "import socket as wire\nwire = None\n"})
+    why = edit(checkout / "sqlglot_composer" / "x.py", "wire = None\n",
+               "wire.create_connection(a)\n", checkout)
     assert why is not None and "x.py:2 network: wire.create_connection(a)" in why
 
 
@@ -141,7 +142,8 @@ def test_an_edit_matches_a_windows_file_as_claude_code_does(tmp_path: Path) -> N
     })
     for name, old in (("x.py", "a = 1\nb = 2"), ("y.py", 'a = "q"'),
                       ("z.py", "a = 'été'")):
-        why = edit(checkout / "sqlglot_composer" / name, old, "wire.create_connection(a)", checkout)
+        why = edit(checkout / "sqlglot_composer" / name, old, "wire.create_connection(a)",
+                   checkout)
         assert why is not None and f"{name}:2 network: wire.create_connection(a)" in why, name
 
 
@@ -155,7 +157,7 @@ def test_an_edit_whose_text_is_not_found_is_judged_on_its_new_text(tmp_path: Pat
     assert why is not None and "unreadable" in why
 
 
-# --- Code that doesn't parse -------------------------------------------------------------------
+# --- Code that doesn't parse ------------------------------------------------------------------
 
 
 def test_toolbox_code_that_doesnt_parse_is_refused_and_maintainer_code_is_not() -> None:
@@ -169,7 +171,8 @@ def test_toolbox_code_that_doesnt_parse_is_refused_and_maintainer_code_is_not() 
 
 def test_a_file_that_declares_another_encoding_is_refused() -> None:
     # Python would read this file in UTF-7, where `+AAo-` is a new line.
-    why = write(ROOT / "sqlglot_composer" / "x.py", "# coding: utf-7\nx = 1 #+AAo-import requests\n")
+    why = write(ROOT / "sqlglot_composer" / "x.py",
+                "# coding: utf-7\nx = 1 #+AAo-import requests\n")
     assert why is not None and "unreadable" in why
 
 
@@ -180,7 +183,7 @@ def test_a_notebook_with_a_broken_cell_hides_no_other_cell(tmp_path: Path) -> No
     assert notebook_edit(file, "import requests", checkout, cell_id="b") is not None
 
 
-# --- What is read where ------------------------------------------------------------------------
+# --- What is read where -----------------------------------------------------------------------
 
 
 def test_a_page_that_loads_a_script_from_outside_is_refused() -> None:
@@ -250,7 +253,8 @@ def test_a_planted_checkout_inside_the_toolbox_is_still_the_toolbox(tmp_path: Pa
     project = a_checkout(tmp_path, {"sqlglot_composer/a/.git": "gitdir: nowhere\n",
                                     "sqlglot_composer/b/pyvenv.cfg": "home = x\n"})
     for folder in ("a", "b"):
-        why = write(project / "sqlglot_composer" / folder / "x.py", "import requests\n", project)
+        why = write(project / "sqlglot_composer" / folder / "x.py", "import requests\n",
+                    project)
         assert why is not None and f"sqlglot_composer/{folder}/x.py:1 network" in why, folder
 
 
@@ -273,7 +277,7 @@ def test_a_folder_named_in_other_letters_is_still_the_toolbox() -> None:
     assert write(ROOT / "SQLGLOT_COMPOSER" / "x.py", "import requests\n") is not None
 
 
-# --- Notebooks ---------------------------------------------------------------------------------
+# --- Notebooks --------------------------------------------------------------------------------
 
 
 def notebook(*cells: tuple[str, str, str]) -> str:

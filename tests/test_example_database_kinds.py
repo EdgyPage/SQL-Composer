@@ -1,4 +1,5 @@
-"""The Example database's tables that aren't partitioned by a day, described and queried like Hive.
+"""The Example database's tables that aren't partitioned by a day, described and queried
+like Hive.
 
 ops.region_budgets is partitioned by region alone, and ops.team_notes isn't partitioned and has
 no Key. With ops.jobs, which isn't partitioned either, and the six tables partitioned by a day,
@@ -124,9 +125,11 @@ def test_check_table_reference_finds_each_one_matches(t: Table) -> None:
 
 
 def test_check_key_holds_on_one_region() -> None:
-    verdict = check_key(budgets, query=example_database.query, where=equals(budgets.region, "eu"))
+    verdict = check_key(budgets, query=example_database.query,
+                        where=equals(budgets.region, "eu"))
     assert str(verdict) == (
-        "ops.region_budgets: the key (job_id, region) holds where region_budgets.region = 'eu'.")
+        "ops.region_budgets: the key (job_id, region) holds "
+        "where region_budgets.region = 'eu'.")
 
 
 def test_check_key_on_team_notes_says_it_has_no_key() -> None:

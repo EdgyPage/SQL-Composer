@@ -1,4 +1,5 @@
-"""The join Guards read the condition tree: what keeps a LEFT_JOIN's rows, and where the key is."""
+"""The join Guards read the condition tree: what keeps a LEFT_JOIN's rows, and where
+the key is."""
 
 from __future__ import annotations
 
@@ -57,7 +58,8 @@ def test_a_condition_that_keeps_the_unmatched_rows_is_let_through(condition: Con
                  id="a_null_test_on_the_other_table"),
 ])
 def test_a_condition_that_drops_the_unmatched_rows_is_refused(condition: Condition) -> None:
-    with pytest.raises(GuardRefused, match="a condition on job_runs, which LEFT_JOIN brought in"):
+    with pytest.raises(GuardRefused,
+                       match="a condition on job_runs, which LEFT_JOIN brought in"):
         with_runs(condition)
 
 

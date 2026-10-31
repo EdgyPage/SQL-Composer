@@ -6,8 +6,8 @@ wraps, brackets, Derived tables three deep, writes with and without them, every 
 create_table may meet, awkward names, tables partitioned by a day written like 20260924, by a
 region or by a load, the upkeep Statements, and
 about 200 Statements built at random from the public names; and, apart from those, Session
-settings and Unchecked statements beside Statements. Each case is a function returning the Statements it builds;
-a case that a Guard or Load limit refuses is written as its refusal.
+settings and Unchecked statements beside Statements. Each case is a function returning the
+Statements it builds; a case that a Guard or Load limit refuses is written as its refusal.
 
 Every case builds only through the Toolbox's public names, as a user would.
 """
@@ -130,7 +130,8 @@ odd = Table(
     partitioned_by=["dt"],
     location=folder_of("ops.order"),
 )
-"""A table whose name and columns all need backticks: a reserved word, a digit first, a space."""
+"""A table whose name and columns all need backticks: a reserved word, a digit first, a
+space."""
 
 standard_words = Table(
     "ops.semi",
@@ -189,8 +190,8 @@ TYPES = ("tinyint", "smallint", "int", "integer", "bigint", "float", "double", "
          "struct<a:int,b:string>", "bigint unsigned", "json", "uuid", "interval", "nonsense")
 
 
-EDGE_TABLES = {"odd": odd, "standard_words": standard_words, "compact": compact, "events": events,
-               "daily_runs": daily_runs, "region_runs": region_runs}
+EDGE_TABLES = {"odd": odd, "standard_words": standard_words, "compact": compact,
+               "events": events, "daily_runs": daily_runs, "region_runs": region_runs}
 """The edge cases' Saved tables, each created, repaired and dropped."""
 
 
@@ -404,7 +405,8 @@ def _read_cases() -> dict[str, Callable[..., list[Statement]]]:
         "reads:standard_reserved_names": lambda: [statement(
             SELECT(standard_words.any, standard_words.minus,
                    AS(standard_words.current_user, "within")),
-            FROM(standard_words), WHERE(one_day(standard_words), equals(standard_words.any, "x")))],
+            FROM(standard_words),
+            WHERE(one_day(standard_words), equals(standard_words.any, "x")))],
         "reads:compact_day": lambda: [statement(
             SELECT(compact.run_id, AS(week_start(compact.day), "week"),
                    AS(month_start(compact.day), "month")),
@@ -520,7 +522,8 @@ def _join_cases() -> dict[str, Callable[..., list[Statement]]]:
         "joins:broadcast_in_a_derived_table": lambda: [_broadcast_in_steps(other)],
         "joins:broadcast_a_name_in_backticks": lambda: [statement(
             SELECT(job_runs.run_id), FROM(job_runs),
-            ANTI_JOIN(odd, ON=all_of(equals(getattr(odd, "1st"), job_runs.run_id), one_day(odd)),
+            ANTI_JOIN(odd, ON=all_of(equals(getattr(odd, "1st"), job_runs.run_id),
+                                     one_day(odd)),
                       broadcast=True),
             WHERE(one_day()))],
     }
@@ -562,13 +565,15 @@ def _self_join() -> Statement:
 
 
 def _last_step(depth: int) -> Table:
-    """A Derived table `depth` deep: each step reads the one before, the first reads job_runs."""
+    """A Derived table `depth` deep: each step reads the one before, the first reads
+    job_runs."""
     step = derived("step_1", statement(
         SELECT(job_runs.job_id, AS(count_rows(), "runs")), FROM(job_runs),
         WHERE(one_day()), GROUP_BY(job_runs.job_id)))
     for number in range(2, depth + 1):
         step = derived(f"step_{number}", statement(
-            SELECT(step.job_id, step.runs), FROM(step), WHERE(more_than(step.runs, number - 2))))
+            SELECT(step.job_id, step.runs), FROM(step),
+            WHERE(more_than(step.runs, number - 2))))
     return step
 
 
@@ -692,7 +697,8 @@ def _unpartitioned_cases() -> dict[str, Callable[..., list[Statement]]]:
             WHERE(equals(per_day.dt, DAY))) for per_day in [derived("per_day", statement(
                 SELECT(jobs.team, job_runs.dt, AS(count_rows(), "runs")), FROM(job_runs),
                 JOIN(jobs, ON=equals(jobs.job_id, job_runs.job_id)),
-                WHERE(between(job_runs.dt, FIRST_DAY, DAY)), GROUP_BY(jobs.team, job_runs.dt)))]],
+                WHERE(between(job_runs.dt, FIRST_DAY, DAY)),
+                GROUP_BY(jobs.team, job_runs.dt)))]],
     }
 
 
@@ -1239,7 +1245,8 @@ STRINGS = ("FAILED", "O'Brien", "a_b%", "C:\\temp", "Berlin \u2013 M\u00fcnchen"
 
 
 def generated_cases() -> list[tuple[str, Callable[..., list[Statement]]]]:
-    """GENERATED Statements, each from a seed of its own, so adding one never changes another."""
+    """GENERATED Statements, each from a seed of its own, so adding one never changes
+    another."""
     return [(f"gen:{number:03d}", _generated(SEED + number)) for number in range(GENERATED)]
 
 
@@ -1372,5 +1379,6 @@ def _derived_statement(pick: random.Random) -> Statement:
     if pick.random() < 0.5:
         reads.append(JOIN(jobs, ON=equals(jobs.job_id, per_job.job_id)))
         outputs.append(pick.choice((jobs.team, jobs.job_name)))
-    where = [WHERE(more_than(per_job.total, pick.randint(0, 20)))] if pick.random() < 0.5 else []
+    where = ([WHERE(more_than(per_job.total, pick.randint(0, 20)))] if pick.random() < 0.5
+             else [])
     return statement(SELECT(*outputs), *reads, *where)

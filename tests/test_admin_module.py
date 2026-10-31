@@ -5,8 +5,8 @@ out) gives drop_table, drop_partitions, add_columns, set_properties and move_to_
 Each makes
 an ordinary Statement, or for the move a list of them, which run sends like any other and logs
 in the Admin log; show_hive prints what it changes, what can't be undone and what to check
-first, ahead of its Hive; and each refuses a table that isn't one of the user's Saved tables. The
-golden corpus pins every one's Hive and notes (the `edge:admin:*` cases).
+first, ahead of its Hive; and each refuses a table that isn't one of the user's Saved tables.
+The golden corpus pins every one's Hive and notes (the `edge:admin:*` cases).
 """
 
 from __future__ import annotations
@@ -120,11 +120,12 @@ def test_need_saved_table_is_the_one_check() -> None:
     need = toolbox_module("tables").need_saved_table
     t = saved()
     assert need(t, "repair_partitions(...)") is t
-    with pytest.raises(ValueError, match=r"repair_partitions\(\.\.\.\) was given ops\.job_runs"):
+    with pytest.raises(ValueError,
+                       match=r"repair_partitions\(\.\.\.\) was given ops\.job_runs"):
         need(job_runs, "repair_partitions(...)")
 
 
-# --- drop_table and drop_partitions ------------------------------------------------------------
+# --- drop_table and drop_partitions -----------------------------------------------------------
 
 
 def test_drop_table_drops_only_if_it_exists() -> None:
@@ -184,7 +185,8 @@ def test_drop_partitions_writes_a_value_as_it_is_given() -> None:
     (equals(job_runs.dt, "2025-01-01"), "job_runs.dt isn't a column of region_runs."),
 ], ids=["any_of", "not a partition column", "a column compared with a column",
         "another table's column"])
-def test_drop_partitions_refuses_what_drop_partition_cant_take(where: object, says: str) -> None:
+def test_drop_partitions_refuses_what_drop_partition_cant_take(where: object,
+                                                               says: str) -> None:
     with pytest.raises(ValueError) as refused:
         admin.drop_partitions(region_runs, where=where)
     assert says in " ".join(str(refused.value).split())
@@ -211,7 +213,7 @@ def test_drop_partitions_refuses_a_tuple_in_where_naming_the_list_it_takes() -> 
     assert "as a list: where=[..., ...]" in str(refused.value)
 
 
-# --- add_columns -------------------------------------------------------------------------------
+# --- add_columns ------------------------------------------------------------------------------
 
 WIDER = {"job_id": "bigint", "runs": "bigint", "fails": "bigint", "note": "string",
          "dt": "string"}
@@ -258,12 +260,13 @@ def test_add_columns_refuses_a_new_partition_and_a_column_with_no_type() -> None
     with pytest.raises(ValueError, match="fails has no type"):
         admin.add_columns(untyped, query=at_work(untyped, lacking=("fails",)))
     odd = saved(columns={"job_id": "bigint", "fails": "integer", "dt": "string"})
-    with pytest.raises(ValueError, match=r"admin\.add_columns\(mart\.daily_runs, query=\.\.\.\): "
-                                         "fails's type 'integer'"):
+    with pytest.raises(ValueError,
+                       match=r"admin\.add_columns\(mart\.daily_runs, query=\.\.\.\): "
+                             "fails's type 'integer'"):
         admin.add_columns(odd, query=at_work(odd, lacking=("fails",)))
 
 
-# --- set_properties ----------------------------------------------------------------------------
+# --- set_properties ---------------------------------------------------------------------------
 
 
 def test_set_properties_sets_what_the_table_reference_gives() -> None:
@@ -281,7 +284,7 @@ def test_set_properties_refuses_a_table_reference_that_gives_none() -> None:
         admin.set_properties(saved())
 
 
-# --- move_to_own_folder and check_the_copy -------------------------------------------------------
+# --- move_to_own_folder and check_the_copy ----------------------------------------------------
 
 
 # The comparison's answer when every Partition matches: its columns, and no row.
@@ -353,10 +356,12 @@ def test_the_check_compares_each_partition_rows_with_no_value_too() -> None:
         assert (f"{counts} AS (\n  SELECT\n"
                 f"    COALESCE(CAST({alias}.region AS STRING), '__HIVE_DEFAULT_PARTITION__') "
                 f"AS region,\n"
-                f"    COALESCE(CAST({alias}.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') AS dt,\n"
+                f"    COALESCE(CAST({alias}.dt AS STRING), '__HIVE_DEFAULT_PARTITION__') "
+                "AS dt,\n"
                 "    COUNT(*) AS row_count\n") in compare
     assert ("LEFT JOIN copied_counts\n"
-            "  ON copied_counts.region = old_counts.region AND copied_counts.dt = old_counts.dt\n"
+            "  ON copied_counts.region = old_counts.region "
+            "AND copied_counts.dt = old_counts.dt\n"
             "WHERE\n  copied_counts.row_count IS NULL\n"
             "  OR copied_counts.row_count <> old_counts.row_count") in compare
 
@@ -456,7 +461,7 @@ def test_send_is_refused_naming_query(make: Callable[..., object]) -> None:
     assert "Pass query= instead" in message
 
 
-# --- Each is an ordinary Statement, logged when run --------------------------------------------
+# --- Each is an ordinary Statement, logged when run -------------------------------------------
 
 
 def test_each_run_is_logged_in_the_admin_log_and_show_hive_logs_nothing(tmp_path: Path) -> None:

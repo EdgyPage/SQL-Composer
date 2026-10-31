@@ -99,8 +99,8 @@ MISUSES = [
                  id="count_rows_where_5"),
     pytest.param(lambda: if_else(5, 1, 0), TypeError, "where a condition goes", id="if_else_5"),
     # Toolbox 7.2, ticket 04: first_match and mapped.
-    pytest.param(lambda: first_match([]), ValueError, "first_match(...) was given an empty list",
-                 id="first_match_empty"),
+    pytest.param(lambda: first_match([]), ValueError,
+                 "first_match(...) was given an empty list", id="first_match_empty"),
     pytest.param(lambda: first_match((FAILED, "failed")), TypeError,
                  "where a list of (condition, value) pairs goes", id="first_match_one_pair"),
     pytest.param(lambda: first_match([FAILED]), TypeError,
@@ -120,7 +120,8 @@ MISUSES = [
                  TypeError, 'gives values whose types don\'t mix: "failed", a string, and 0, '
                  "a number", id="first_match_mixed"),
     pytest.param(lambda: first_match([(FAILED, job_runs.duration_mins)], otherwise="none"),
-                 TypeError, "job_runs.duration_mins, an int column", id="first_match_mixed_else"),
+                 TypeError, "job_runs.duration_mins, an int column",
+                 id="first_match_mixed_else"),
     pytest.param(lambda: mapped(job_runs.status, {}), ValueError,
                  "mapped(job_runs.status, ...) was given an empty dict", id="mapped_empty"),
     pytest.param(lambda: mapped(job_runs.status, ["FAILED"]), TypeError,
@@ -306,9 +307,11 @@ _OtherLibrarysDataFrame.__module__ = "polars.dataframe.frame"
     pytest.param([("data",), ("finance",)], "a list", id="a_list"),
     pytest.param(None, "None", id="none"),
     pytest.param({"team": ["data"]}, "a dict", id="a_dict"),
-    pytest.param(_OtherLibrarysDataFrame(), "a polars DataFrame", id="another_librarys_dataframe"),
+    pytest.param(_OtherLibrarysDataFrame(), "a polars DataFrame",
+                 id="another_librarys_dataframe"),
 ])
-def test_a_query_that_doesnt_give_back_a_dataframe_is_refused(answer: object, said: str) -> None:
+def test_a_query_that_doesnt_give_back_a_dataframe_is_refused(answer: object,
+                                                              said: str) -> None:
     with pytest.raises(TypeError) as refused:
         run_query(teams(), lambda hive: answer)
     message = str(refused.value)

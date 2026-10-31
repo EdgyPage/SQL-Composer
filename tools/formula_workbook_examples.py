@@ -10,9 +10,9 @@ last sheet, Hive, giving the conversion Copilot files 11 and 12 ask for: the map
 steps and finals, then each final's Hive, with `<database>` to fill in. A person can run that
 Hive on their own warehouse, or on the Example database with `<database>` as ops.
 
-openpyxl writes no Power Query, so an example's queries are on a sheet of their own, Power Query,
-as their M, with the steps for adding them in Excel. A test fails while a committed example
-differs from what this builds, and runs each example's Hive.
+openpyxl writes no Power Query, so an example's queries are on a sheet of their own, Power
+Query, as their M, with the steps for adding them in Excel. A test fails while a committed
+example differs from what this builds, and runs each example's Hive.
 """
 
 from __future__ import annotations
@@ -33,8 +33,8 @@ DATABASE = "<database>"
 OK_RUNS = ("ok AS (SELECT run_id, job_id, duration_mins FROM ops.job_runs WHERE status = "
            "'SUCCESS')")
 
-# Each example, by its file's name: the workbook, and its finals' Hive, each table in ops, as the
-# Example database holds it. `maps` is the map file 11 asks a reply to start with.
+# Each example, by its file's name: the workbook, and its finals' Hive, each table in ops, as
+# the Example database holds it. `maps` is the map file 11 asks a reply to start with.
 EXAMPLES: dict[str, tuple[ExcelTask, str]] = {
     "01_formulas.xlsx": (ExcelTask(
         "E01", "example", (),
@@ -50,9 +50,9 @@ EXAMPLES: dict[str, tuple[ExcelTask, str]] = {
                      "= 103 THEN 9 ELSE r.duration_mins / 60 END AS hours, j.job_name, "
                      "r.duration_mins * 0.5 AS cost\nFROM ops.job_runs r\nLEFT JOIN ops.jobs j "
                      "ON r.job_id = j.job_id"}),
-        "Sources: job_runs, jobs. Finals: job_runs (run_id, job_id, status, duration_mins, hours, "
-        "job_name, cost). Typed over: hours where run_id is 103, matched on Keys' run_id. "
-        "Parameters: rate, 0.5. Fill in: <database>."),
+        "Sources: job_runs, jobs. Finals: job_runs (run_id, job_id, status, duration_mins, "
+        "hours, job_name, cost). Typed over: hours where run_id is 103, matched on Keys' "
+        "run_id. Parameters: rate, 0.5. Fill in: <database>."),
     "02_summary_and_total_row.xlsx": (ExcelTask(
         "E02", "example", (),
         FormulaWorkbook((
@@ -102,8 +102,8 @@ in
     Grouped""")), as_typed=True),
         {"ok_runs": f"WITH {OK_RUNS}\nSELECT run_id, job_id, duration_mins, duration_mins / 60 "
                     "AS hours\nFROM ok",
-         "ok_by_job": f"WITH {OK_RUNS}\nSELECT job_id, SUM(duration_mins) AS total_mins\nFROM ok"
-                      "\nGROUP BY job_id"}),
+         "ok_by_job": f"WITH {OK_RUNS}\nSELECT job_id, SUM(duration_mins) AS total_mins\nFROM "
+                      "ok\nGROUP BY job_id"}),
         "Sources: job_runs. Steps: query ok_runs, as query ok_by_job reads it, so it is a CTE "
         "in each final's query. Finals: Table ok_runs (run_id, job_id, duration_mins, hours): "
         "query ok_by_job reads the query, not the Table, and no formula reads the Table, so it "
@@ -113,13 +113,13 @@ in
 
 POWER_QUERY_STEPS = (
     "This example's Power Queries, which the tool that made this file can't save in it, so the "
-    "Tables ok_runs and ok_by_job hold the rows the queries give, typed in. To see the workbook "
-    "as it should be, add each query in Excel, in order: Data > Get Data > From Other Sources > "
-    "Blank Query, Home > Advanced Editor, paste its M below, and name it as below. On the sheet "
-    "of its name, delete the typed-in Table (select it and press Delete, then delete the empty "
-    "Table), then Home > Close & Load To > Table, at A1 of that sheet. For ok_runs, type the "
-    "formula column again beside the loaded rows: hours, =[@duration_mins]/60. Excel keeps it "
-    "when the query refreshes.")
+    "Tables ok_runs and ok_by_job hold the rows the queries give, typed in. To see the "
+    "workbook as it should be, add each query in Excel, in order: Data > Get Data > From Other "
+    "Sources > Blank Query, Home > Advanced Editor, paste its M below, and name it as below. "
+    "On the sheet of its name, delete the typed-in Table (select it and press Delete, then "
+    "delete the empty Table), then Home > Close & Load To > Table, at A1 of that sheet. For "
+    "ok_runs, type the formula column again beside the loaded rows: hours, "
+    "=[@duration_mins]/60. Excel keeps it when the query refreshes.")
 
 
 def shown(sql: str) -> str:
@@ -132,9 +132,9 @@ def example_workbook(task: ExcelTask, map_text: str) -> openpyxl.Workbook:
     files 11 and 12 turn it into."""
     workbook = build(task.workbook)
     if task.workbook.queries:
-        _sheet_of_code(workbook, "Power Query", [POWER_QUERY_STEPS],
-                       [(f"Query {name}:", m) for name, m in task.workbook.queries])
-    hive = _sheet_of_code(workbook, "Hive", [
+        _add_code_sheet(workbook, "Power Query", [POWER_QUERY_STEPS],
+                        [(f"Query {name}:", m) for name, m in task.workbook.queries])
+    hive = _add_code_sheet(workbook, "Hive", [
         "What Copilot gives with files 11, 12, 03, 04 and 05 loaded: the map, then a query per "
         "final. Fill in <database> with your database's name. Delete this sheet, and the Power "
         "Query sheet if there is one, before you try the workbook on Copilot yourself.",
@@ -150,10 +150,11 @@ def example_workbook(task: ExcelTask, map_text: str) -> openpyxl.Workbook:
 WIDTH = 100
 
 
-def _sheet_of_code(workbook: openpyxl.Workbook, title: str, paragraphs: list[str],
-                   blocks: list[tuple[str, str]]) -> openpyxl.worksheet.worksheet.Worksheet:
-    """A sheet of one wide column: the paragraphs, a blank row after each, then each block's
-    label in bold over its code in a fixed-width font, a blank row after each."""
+def _add_code_sheet(workbook: openpyxl.Workbook, title: str, paragraphs: list[str],
+                    blocks: list[tuple[str, str]]) -> openpyxl.worksheet.worksheet.Worksheet:
+    """Add a sheet of one wide column, and give it back: the paragraphs, a blank row after
+    each, then each block's label in bold over its code in a fixed-width font, a blank row
+    after each."""
     sheet = workbook.create_sheet(title)
     sheet.column_dimensions["A"].width = WIDTH
     wrap = Alignment(wrap_text=True, vertical="top")

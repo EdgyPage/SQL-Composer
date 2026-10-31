@@ -87,8 +87,10 @@ SELECT
   job_events.job_id,
   job_events.dt,
   job_events.minutes,
-  LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS minutes_before,
-  job_events.minutes - LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS change
+  LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY job_events.dt ASC) AS
+      minutes_before,
+  job_events.minutes - LAG(job_events.minutes, 1) OVER (PARTITION BY job_events.job_id ORDER BY
+      job_events.dt ASC) AS change
 FROM ops.job_events AS job_events
 WHERE
   job_events.dt BETWEEN '2026-09-18' AND '2026-09-24'

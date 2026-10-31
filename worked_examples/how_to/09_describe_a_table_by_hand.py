@@ -117,7 +117,9 @@ Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register("mart.job_day")
 >>> project.register("mart.job_day")  # -> a report, printed
 Registered references/mart__job_day.py.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day,
+    mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes,
+    mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
 `project.register` also writes references/mart.py again, the `mart` Database, so the table
@@ -232,7 +234,8 @@ At work, once `run_execute(create_table(job_day), execute)` has made the table,
 Project knows the file:
 
 >>> project.check()  # -> a report, printed
-Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Every Table folder, Table reference and Building block is registered, and each one registered is
+    there.
 
 ## Common mistakes
 
@@ -249,7 +252,8 @@ A partition column is a column of the table too, so it goes in `columns=` as wel
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  Table('mart.job_day'): partitioned_by names 'dt', which isn't one of its columns.
+  What happened:  Table('mart.job_day'): partitioned_by names 'dt', which isn't one of its
+                  columns.
 ...
 
 Add `"dt": "string"` to `columns=`.
@@ -282,7 +286,8 @@ the same way.
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  sum_of(job_day.avg_minutes) adds up job_day.avg_minutes, which is listed in does_not_add_up in its Table reference.
+  What happened:  sum_of(job_day.avg_minutes) adds up job_day.avg_minutes, which is listed in
+                  does_not_add_up in its Table reference.
 ...
   Opt-out:        sum_of(job_day.avg_minutes, adds_up=True)
 
@@ -324,9 +329,12 @@ way, `date_format=`. Both stop, saying what to write instead:
 Traceback (most recent call last):
 ...
 TypeError:
-  What happened:  Table('ops.region_costs') was given date_partition=, which Toolbox 7.0 replaced.
+  What happened:  Table('ops.region_costs') was given date_partition=, which Toolbox 7.0
+                  replaced.
 ...
-  Usual fix:      Write partitioned_by=["dt"] where it said date_partition="dt", leave it out where it said date_partition=None, and remove date_format=. CHANGES.md, under 7.0, says more.
+  Usual fix:      Write partitioned_by=["dt"] where it said date_partition="dt", leave it out
+                  where it said date_partition=None, and remove date_format=. CHANGES.md, under
+                  7.0, says more.
 ...
 
 ## Next
@@ -340,4 +348,4 @@ TypeError:
 - The gallery's Worked examples of [`Table`](examples.html#Table) and
   [`create_table`](examples.html#create_table), and a Saved table built and written step by
   step: [Worked example of a Saved table](examples.html#saved_table).
-"""
+"""  # noqa: E501 - a file it writes, shown byte for byte as the Project writes it

@@ -96,7 +96,9 @@ gives the new table by its name:
 
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 54 rows, 13 tables.
-Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns,
+    mart.job_day_costs, mart.job_day_events, mart.job_day_facts, mart.job_events_checks,
+    mart.job_notes, mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> from references import mart
 >>> job_day_events = mart.job_day_events  # -> Table
@@ -150,7 +152,9 @@ that day would have four rows with the same Key. It is refused as it is built:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key (job_id, dt) of its own: job_events' rows are told apart by event_id, not by job_id, dt.
+  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key
+                  (job_id, dt) of its own: job_events' rows are told apart by event_id, not by
+                  job_id, dt.
 ...
 
 ops.job_events' own Key is event_id: without GROUP_BY, the rows written are its rows, one for
@@ -201,8 +205,10 @@ lists each step's Key, or where it lost one, and whether a write's Key holds:
 ...                                           to="lineage/keys.html")
 >>> for keys in markdown_file.read_text(encoding="utf-8").split("### Keys")[1:]:
 ...     print(keys.split("###")[0].strip().split("\\n\\n")[1])
-- derived('numbered', ...): Key (job_id, dt, last_first), since row_number(...) numbers the rows of each job_id, dt.
-- last_events: Key (job_id, dt), since numbered's rows are told apart by job_id, dt, last_first, with last_first held to one value.
+- derived('numbered', ...): Key (job_id, dt, last_first), since row_number(...) numbers the rows
+  of each job_id, dt.
+- last_events: Key (job_id, dt), since numbered's rows are told apart by job_id, dt, last_first,
+  with last_first held to one value.
 - write: Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
 - mart.job_day_events' Key (job_id, dt) holds: each row written has its own.
 
@@ -273,9 +279,9 @@ matches or several, so it warns, as it does for a join that doesn't match a Key 
 
 In a notebook, the Warning shows under the cell, at your own line, and doesn't stop anything:
 it says that team_notes declares no Key, so the Toolbox can't tell whether one row matches or
-several. Here several rows are what you want, a row for each note of each job's team, so say so with
-`many_matches=True`, as `notes_write` does. A count or a sum over such a join counts each job
-once per note: group the notes first if that isn't what you mean.
+several. Here several rows are what you want, a row for each note of each job's team, so say so
+with `many_matches=True`, as `notes_write` does. A count or a sum over such a join counts each
+job once per note: group the notes first if that isn't what you mean.
 
 ## Check it worked
 
@@ -318,7 +324,9 @@ A GROUP_BY with one more column makes one row for each event type, not for each 
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key (job_id, dt) of its own: GROUP_BY groups by job_events.event_type, which SELECT leaves out, so nothing makes its rows one for each job_id, dt.
+  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key
+                  (job_id, dt) of its own: GROUP_BY groups by job_events.event_type, which
+                  SELECT leaves out, so nothing makes its rows one for each job_id, dt.
 ...
 
 Either the Key is wrong, and should hold event_type too, or the write should group by the job
@@ -341,7 +349,10 @@ row for each job and day, and these rows can repeat one:
 Traceback (most recent call last):
 ...
 sqlglot_composer.refusals.GuardRefused:
-  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key (job_id, dt) of its own: JOIN(team_notes, ON=...) can match several team_notes rows to one row, and team_notes declares no Key, so nothing makes its rows one for each job_id, dt.
+  What happened:  INSERT_OVERWRITE(job_day_events) can't show that each row it writes has a Key
+                  (job_id, dt) of its own: JOIN(team_notes, ON=...) can match several team_notes
+                  rows to one row, and team_notes declares no Key, so nothing makes its rows one
+                  for each job_id, dt.
 ...
 
 Group the joined rows by the Key, one row for each job and day, as [Count, join and stay
@@ -356,7 +367,8 @@ does:
 Traceback (most recent call last):
 ...
 ValueError:
-  What happened:  check_key(job_events): ops.job_events is partitioned, and nothing says which Partitions to check.
+  What happened:  check_key(job_events): ops.job_events is partitioned, and nothing says which
+                  Partitions to check.
 ...
 
 Pass `where=equals(job_events.dt, "2026-09-24")`, or `reads_all_partitions=True` for a table

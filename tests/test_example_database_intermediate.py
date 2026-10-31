@@ -119,7 +119,8 @@ def test_an_unknown_table_is_refused_naming_all_nine() -> None:
     with pytest.raises(ValueError) as refused:
         example_database.query("DESCRIBE ops.nope")
     assert ("ops.jobs, ops.job_runs, ops.run_alerts, ops.scheduler_runs, ops.job_events, "
-            "ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes") in str(refused.value)
+            "ops.job_owners, ops.region_costs, ops.region_budgets or ops.team_notes"
+            in str(refused.value))
 
 
 # --- Table references -------------------------------------------------------------------------
@@ -139,7 +140,8 @@ def reference_text(name: str, columns: list[str], partitioned_by: str, first_key
         *[f"        {line}" for line in columns],
         "    },",
         f"    partitioned_by={partitioned_by},",
-        f'    key=None,  # TODO: the columns that pick out one row, such as key=["{first_key}"]',
+        '    key=None,  # TODO: the columns that pick out one row, such as '
+        f'key=["{first_key}"]',
         "    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts",
         "    descriptions={",
         *[f"        {line}" for line in descriptions],
@@ -150,8 +152,8 @@ def reference_text(name: str, columns: list[str], partitioned_by: str, first_key
         "# Your own names for this table's columns and conditions, written by hand below.",
         f"# Import one beside the table: from ops__{name} import {name}, <alias>",
         "#",
-        "# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame "
-        "you",
+        "# A column Alias is a shorter name for one column, for you: the Hive, and the "
+        "DataFrame you",
         "# get back, still call the column by its own name. To rename an output, use AS(...).",
         f"#     <alias> = {name}.{example}",
         "# A condition Alias names a condition on this table alone, for WHERE or",

@@ -1,4 +1,5 @@
-"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this one.
+"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this
+one.
 
 Toolbox 7.2's ticket 02. project.upgrade() runs each version's step in turn, from
 admin/project_version.txt's version to the Toolbox's. A step makes the changes that need no
@@ -66,7 +67,7 @@ def previous_version() -> str:
     return max(earlier, key=upgrades.version_numbers, default=upgrades.FIRST_UPGRADABLE)
 
 
-# --- The version a Project records ---------------------------------------------------------------
+# --- The version a Project records ------------------------------------------------------------
 
 
 def test_start_records_this_toolboxs_version(started: Path) -> None:
@@ -80,18 +81,19 @@ def test_a_project_at_this_version_has_nothing_to_upgrade(started: Path) -> None
         f"The Project is at {VERSION} already, as this Toolbox is: nothing to upgrade.")
 
 
-# --- Every version ships its step ------------------------------------------------------------------
+# --- Every version ships its step -------------------------------------------------------------
 
 
 def test_this_version_has_an_upgrade_step() -> None:
     assert VERSION in upgrades.STEPS
-    assert all(upgrades.version_numbers(version) > upgrades.version_numbers(upgrades.FIRST_UPGRADABLE)
+    assert all(upgrades.version_numbers(version)
+               > upgrades.version_numbers(upgrades.FIRST_UPGRADABLE)
                for version in upgrades.STEPS)
 
 
 def test_the_example_projects_of_the_version_before_are_kept_frozen() -> None:
-    assert sorted(path.name for path in (UPGRADE_FROM / previous_version()).iterdir()) == sorted(
-        path.name for path in (ROOT / "example_projects").iterdir())
+    assert (sorted(path.name for path in (UPGRADE_FROM / previous_version()).iterdir())
+            == sorted(path.name for path in (ROOT / "example_projects").iterdir()))
 
 
 def files_of(folder: Path, name: str) -> dict[str, bytes]:
@@ -109,7 +111,8 @@ def files_of(folder: Path, name: str) -> dict[str, bytes]:
             and kept(path.relative_to(folder).as_posix())}
 
 
-@pytest.mark.parametrize("name", sorted(path.name for path in (ROOT / "example_projects").iterdir()))
+@pytest.mark.parametrize(
+    "name", sorted(path.name for path in (ROOT / "example_projects").iterdir()))
 def test_the_example_projects_of_the_version_before_upgrade_into_this_ones(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, name: str) -> None:
     copy = tmp_path / name
@@ -122,7 +125,7 @@ def test_the_example_projects_of_the_version_before_upgrade_into_this_ones(
     assert (copy / "admin" / f"upgrade_{VERSION}.md").is_file()
 
 
-# --- An upgrade from 7.1 ---------------------------------------------------------------------------
+# --- An upgrade from 7.1 ----------------------------------------------------------------------
 
 
 def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> None:
@@ -155,7 +158,7 @@ def test_an_upgrade_run_again_does_nothing(started: Path) -> None:
     assert files_of(started, "") == before
 
 
-# --- What an Upgrade refuses ---------------------------------------------------------------------
+# --- What an Upgrade refuses ------------------------------------------------------------------
 
 
 def test_a_project_from_before_7_0_is_refused(started: Path) -> None:
@@ -190,7 +193,8 @@ def test_each_step_is_logged_and_recorded_as_it_runs(started: Path,
     assert log.count("- Call: `project.upgrade()`") == 2
     assert "wrote admin/project_version.txt: 7.3" in log
     assert upgrades.project_version(started) == "7.4"
-    assert "from 7.3 to 7.4" in (started / "admin" / "upgrade_7.4.md").read_text(encoding="utf-8")
+    assert "from 7.3 to 7.4" in (started / "admin" / "upgrade_7.4.md").read_text(
+        encoding="utf-8")
 
 
 def test_a_project_a_newer_toolbox_wrote_is_refused(started: Path) -> None:
@@ -202,12 +206,12 @@ def test_a_project_a_newer_toolbox_wrote_is_refused(started: Path) -> None:
 
 def test_a_project_version_that_isnt_one_is_refused(started: Path) -> None:
     (started / "admin" / "project_version.txt").write_text("seven\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="says 'seven', which isn't a version an Upgrade starts "
-                       "from"):
+    with pytest.raises(ValueError, match="says 'seven', which isn't a version an Upgrade "
+                       "starts from"):
         project.upgrade()
 
 
-# --- Marks: what a step leaves for you -------------------------------------------------------------
+# --- Marks: what a step leaves for you --------------------------------------------------------
 
 
 def marking_step(upgrade: upgrades.Upgrade) -> None:
@@ -273,22 +277,22 @@ def test_the_report_counts_the_marks(started: Path, monkeypatch: pytest.MonkeyPa
         f"in admin/upgrade_{VERSION}.md.")
 
 
-# --- A Project behind its Toolbox only warns ------------------------------------------------------
+# --- A Project behind its Toolbox only warns --------------------------------------------------
 
 
 def test_check_says_a_project_behind_its_toolbox_needs_an_upgrade(started: Path) -> None:
     made_by_7_1(started)
     assert repr(project.check()) == (
         f"The Project was last written by Toolbox 7.1, and this Toolbox is {VERSION}: run "
-        "project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/upgrade.ipynb "
-        "once the Project has one.")
+        "project.upgrade() in a new cell of admin/check_project.ipynb, or of "
+        "admin/upgrade.ipynb once the Project has one.")
 
 
 def test_check_says_a_newer_toolbox_last_wrote_the_project(started: Path) -> None:
     upgrades.write_project_version(started, "99.0")
     assert repr(project.check()) == (
-        f"The Project was last written by Toolbox 99.0, newer than this Toolbox, {VERSION}: copy "
-        "in the 99.0 download of sqlglot_composer, or a newer one.")
+        f"The Project was last written by Toolbox 99.0, newer than this Toolbox, {VERSION}: "
+        "copy in the 99.0 download of sqlglot_composer, or a newer one.")
 
 
 def test_a_later_mark_above_an_earlier_one_moves_it_down_in_the_checklist(

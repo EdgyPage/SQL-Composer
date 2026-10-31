@@ -39,7 +39,8 @@ def fixed() -> Statement:
     """
     alerts = alerts_per_run(DAY, DAY)
     return statement(
-        SELECT(AS(sum_of(job_runs.duration_mins), "minutes"), AS(sum_of(alerts.alerts), "alerts")),
+        SELECT(AS(sum_of(job_runs.duration_mins), "minutes"),
+               AS(sum_of(alerts.alerts), "alerts")),
         FROM(job_runs),
         LEFT_JOIN(alerts, ON=equals(alerts.run_id, job_runs.run_id)),
         WHERE(between(job_runs.dt, DAY, DAY)),

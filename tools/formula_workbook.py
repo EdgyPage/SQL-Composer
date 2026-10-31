@@ -20,11 +20,11 @@ writes them, is pinned in requirements-dev.txt only, and the export copies them 
 them.
 
 The Copilot evaluation's Excel tasks (`tools/excel_eval_tasks.py`) describe filled-in Formula
-workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's sample
-rows read from the Example database, and `as_text` writes what Copilot reads in it, read back
-from the saved file, for a proxy model, which can't be given a file. openpyxl writes no Power
-Query and no PivotTable, so a workbook's queries are given as their M, and anything else it
-can't write as a note, both in the text alone.
+workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's
+sample rows read from the Example database, and `as_text` writes what Copilot reads in it, read
+back from the saved file, for a proxy model, which can't be given a file. openpyxl writes no
+Power Query and no PivotTable, so a workbook's queries are given as their M, and anything else
+it can't write as a note, both in the text alone.
 """
 
 from __future__ import annotations
@@ -54,21 +54,21 @@ STEPS = (
     "anyone explaining what the workbook is for. Make a copy of this file for each piece of "
     "work.",
     "The Parameters and Keys sheets:",
-    "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, its "
-    "name under name and its value under value (step 6). Keys is only for a Table where a value "
-    "was typed over a formula: it names the columns that tell that Table's rows apart, so "
-    "Copilot can find the row the typed value belongs to (step 10). Both start empty, and stay "
-    "empty if you need neither.",
+    "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, "
+    "its name under name and its value under value (step 6). Keys is only for a Table where a "
+    "value was typed over a formula: it names the columns that tell that Table's rows apart, "
+    "so Copilot can find the row the typed value belongs to (step 10). Both start empty, and "
+    "stay empty if you need neither.",
     "Your data:",
     "1. For each table of raw data the work starts from, paste a sample on a sheet of its own, "
-    "as values only (Home > Paste > Paste Values): one header row, one row per record, no blank "
-    "rows, no merged cells. Paste only the columns that hold data, not the ones that hold "
-    "formulas: you rebuild those in step 4.",
-    "2. Click inside it, press Ctrl+T and tick \"My table has headers\". If the data was already "
-    "in a Table, keep that Table's name; if you know the database table it comes from, use "
-    "that name. Otherwise any name will do, with no spaces (Table Design > Table Name; on older "
-    "Excel, Design under Table Tools). Copilot keeps the names you give, and marks any it "
-    "can't match to a database table for you to fill in.",
+    "as values only (Home > Paste > Paste Values): one header row, one row per record, no "
+    "blank rows, no merged cells. Paste only the columns that hold data, not the ones that "
+    "hold formulas: you rebuild those in step 4.",
+    "2. Click inside it, press Ctrl+T and tick \"My table has headers\". If the data was "
+    "already in a Table, keep that Table's name; if you know the database table it comes from, "
+    "use that name. Otherwise any name will do, with no spaces (Table Design > Table Name; on "
+    "older Excel, Design under Table Tools). Copilot keeps the names you give, and marks any "
+    "it can't match to a database table for you to fill in.",
     "3. Do steps 1 and 2 for every table of raw data before going on.",
     "Your calculations:",
     "4. Add a column to a Table for each calculation, and write its formula once, in the first "
@@ -84,9 +84,9 @@ STEPS = (
     "the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "
     "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%.",
     "7. Power Query, if you use it, can do a calculation instead of a formula: Data > From "
-    "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new Table. "
-    "Copilot reads its steps, and the new Table converts like any other. Skip this step if you "
-    "don't use Power Query.",
+    "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new "
+    "Table. Copilot reads its steps, and the new Table converts like any other. Skip this step "
+    "if you don't use Power Query.",
     "8. A formula that reads the row above, or a cell outside a Table, can't be read as SQL: "
     "Copilot names it and leaves its column empty for you to finish. Write a running total "
     "as =SUMIFS(t[v], t[d], \"<=\"&[@d]), which Copilot can read.",
@@ -95,13 +95,13 @@ STEPS = (
     "formula. Whatever is left in a Table converts.",
     "10. A value someone typed over a formula in one row is converted as it is, for that row. "
     "Find each in the original workbook (Ctrl+` shows formulas, so a typed value stands out) "
-    "and type it over the formula in the same row here, making sure your sample holds that row. "
-    "Then add one row to the Keys Table for that Table, however many values were typed over in "
-    "it: the Table's name under table, and under key_columns the typed column or columns that "
-    "tell its rows apart, separated by commas. For example, job_runs with run_id; or sales with "
-    "region, month. If no column tells the rows apart, leave the Table out of Keys: Copilot then "
-    "matches the row on all its typed columns. A Table with no value typed over a formula "
-    "needs no row in Keys.",
+    "and type it over the formula in the same row here, making sure your sample holds that "
+    "row. Then add one row to the Keys Table for that Table, however many values were typed "
+    "over in it: the Table's name under table, and under key_columns the typed column or "
+    "columns that tell its rows apart, separated by commas. For example, job_runs with run_id; "
+    "or sales with region, month. If no column tells the rows apart, leave the Table out of "
+    "Keys: Copilot then matches the row on all its typed columns. A Table with no value typed "
+    "over a formula needs no row in Keys.",
     "11. Charts and anything outside a Table are left alone, and Copilot names them. Titles "
     "and notes can stay.",
     "12. Save the workbook, attach it in a Copilot chat with Copilot files 11 and 12 loaded "
@@ -113,17 +113,17 @@ TABLES = {"Parameters": ("name", "value"), "Keys": ("table", "key_columns")}
 # before reading the steps.
 NOTES = {
     "Parameters": "Parameters: the fixed values your formulas use, one row per value. Put its "
-                  "name under name and the value under value, such as tax_rate and 0.2 (a plain "
-                  "number, not 20%), then read it by name in a formula: XLOOKUP(\"tax_rate\", "
-                  "Parameters[name], Parameters[value]). Leave the Table empty if no formula "
-                  "uses a fixed value. See step 6 on the Steps sheet.",
+                  "name under name and the value under value, such as tax_rate and 0.2 (a "
+                  "plain number, not 20%), then read it by name in a formula: "
+                  "XLOOKUP(\"tax_rate\", Parameters[name], Parameters[value]). Leave the Table "
+                  "empty if no formula uses a fixed value. See step 6 on the Steps sheet.",
     "Keys": "Keys: only for a Table where a value was typed over a formula. Add one row for "
             "that Table, however many values were typed over in it: the Table's name under "
-            "table, and under key_columns the typed column or columns that tell its rows apart, "
-            "separated by commas, such as job_runs with run_id, or sales with region, month. "
-            "Copilot uses them to find the row a typed value belongs to. If no column tells "
-            "the rows apart, leave the Table out. A Table with no value typed over a formula "
-            "needs no row here. See step 10 on the Steps sheet.",
+            "table, and under key_columns the typed column or columns that tell its rows "
+            "apart, separated by commas, such as job_runs with run_id, or sales with region, "
+            "month. Copilot uses them to find the row a typed value belongs to. If no column "
+            "tells the rows apart, leave the Table out. A Table with no value typed over a "
+            "formula needs no row here. See step 10 on the Steps sheet.",
 }
 # What a person sees in a workbook, sheet by sheet: its cells' values by place, and each of
 # its Tables' places, as `declared` gives them.
@@ -179,12 +179,19 @@ def new_table(name: str, headers: tuple[str, ...], rows: int,
             if not value.startswith("="):
                 column.totalsRowLabel = value
                 continue
-            column.totalsRowFunction = next(
-                (function for function, code in SUBTOTAL_CODES.items()
-                 if value == f"=SUBTOTAL({code},{name}[{column.name}])"), "custom")
+            column.totalsRowFunction = _total_row_function(value, name, column.name)
             if column.totalsRowFunction == "custom":
                 column.totalsRowFormula = TableFormula(attr_text=value[1:])
     return table
+
+
+def _total_row_function(formula: str, table: str, column: str) -> str:
+    """The function a Total Row cell's formula is, by its name in `SUBTOTAL_CODES`, or "custom"
+    for a formula that is none of them."""
+    for function, code in SUBTOTAL_CODES.items():
+        if formula == f"=SUBTOTAL({code},{table}[{column}])":
+            return function
+    return "custom"
 
 
 def declared(table: Table) -> tuple[object, ...]:
@@ -199,10 +206,16 @@ def declared(table: Table) -> tuple[object, ...]:
 def contents(workbook: openpyxl.Workbook) -> Contents:
     """What a person sees in a workbook: each sheet's cells by place, and each Table as its file
     declares it."""
-    return {sheet.title: {"cells": {cell.coordinate: cell.value for row in sheet.iter_rows()
-                                    for cell in row if cell.value is not None},
-                          "tables": {name: declared(sheet.tables[name]) for name in sheet.tables}}
-            for sheet in workbook.worksheets}
+    by_sheet: Contents = {}
+    for sheet in workbook.worksheets:
+        cells = {}
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.value is not None:
+                    cells[cell.coordinate] = cell.value
+        tables = {name: declared(sheet.tables[name]) for name in sheet.tables}
+        by_sheet[sheet.title] = {"cells": cells, "tables": tables}
+    return by_sheet
 
 
 # --- A filled-in Formula workbook, for the Copilot evaluation --------------------------------
@@ -294,7 +307,9 @@ def build(described: FormulaWorkbook) -> openpyxl.Workbook:
     for name, refers_to in described.defined_names:
         workbook.defined_names[name] = DefinedName(name, attr_text=as_held(refers_to, ""))
     for title, coordinate, value in described.cells:
-        sheet = workbook[title] if title in workbook.sheetnames else workbook.create_sheet(title)
+        if title not in workbook.sheetnames:
+            workbook.create_sheet(title)
+        sheet = workbook[title]
         sheet[coordinate] = as_held(value, "") if isinstance(value, str) else value
     if described.chart:
         _add_chart(workbook, workbook[described.tables[0].name])
@@ -357,6 +372,16 @@ def _shown(value: object, typed: bool) -> str:
     return str(value)
 
 
+def _row_label(table: Table, number: int, count: int) -> str:
+    """How the text names row `number` of a Table of `count` rows: its headers, a row of
+    values, or its Total Row."""
+    if number == 1:
+        return "Headers"
+    if table.totalsRowCount and number == count:
+        return "Total Row"
+    return f"Row {number}"
+
+
 def as_text(described: FormulaWorkbook) -> str:
     """What Copilot reads in the filled-in Formula workbook `described`, read back from the file
     `build` saves: each sheet's Tables, row by row, and its other cells and charts, then the
@@ -380,10 +405,7 @@ def as_text(described: FormulaWorkbook) -> str:
             for number, row in enumerate(rows, 1):
                 in_a_table |= {cell.coordinate for cell in row}
                 shown = " | ".join(_shown(cell.value, described.as_typed) for cell in row)
-                label = ("Headers" if number == 1 else
-                         "Total Row" if table.totalsRowCount and number == len(rows) else
-                         f"Row {number}")
-                lines.append(f"    {label}: {shown}")
+                lines.append(f"    {_row_label(table, number, len(rows))}: {shown}")
         for row in sheet.iter_rows():
             for cell in row:
                 if cell.coordinate not in in_a_table and cell.value is not None:

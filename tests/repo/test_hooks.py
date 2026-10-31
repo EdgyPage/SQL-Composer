@@ -48,14 +48,15 @@ def test_a_commit_command_is_recognised() -> None:
 
 def test_a_command_that_only_mentions_a_commit_word_is_not_one() -> None:
     for command in ("git log --grep=revert", "git show HEAD --stat -- commit.txt",
-                    "git branch --merged", "git merge-base main dev", "git commit-tree HEAD^{tree}",
-                    "cat .git/commit"):
+                    "git branch --merged", "git merge-base main dev",
+                    "git commit-tree HEAD^{tree}", "cat .git/commit"):
         assert not MAKES_A_COMMIT.search(command), command
     assert not MAKES_A_COMMIT.search("git status && git log --oneline")
 
 
 def test_watched_paths_need_a_review_and_tracker_commits_do_not() -> None:
-    changed = ["sqlglot_composer/tables.py", ".scratch/drift.md", "CONTEXT.md", "tests/test_x.py"]
+    changed = ["sqlglot_composer/tables.py", ".scratch/drift.md", "CONTEXT.md",
+               "tests/test_x.py"]
     assert needs_review(changed, "feat: x") == ["sqlglot_composer/tables.py", "CONTEXT.md"]
     assert needs_review([".scratch/sql-composer-v2/map.md"], "docs(wayfinder): x") == []
 
@@ -68,7 +69,8 @@ def test_the_toolbox_and_the_worked_examples_are_watched() -> None:
 
 
 def test_a_no_drift_commit_needs_a_review_even_off_the_watched_paths() -> None:
-    assert needs_review(["tests/test_x.py"], "fix: x\n\nNo-drift: D2 - it was fine") == ["No-drift"]
+    assert needs_review(["tests/test_x.py"],
+                        "fix: x\n\nNo-drift: D2 - it was fine") == ["No-drift"]
 
 
 def test_the_drift_list_is_read_without_its_examples() -> None:

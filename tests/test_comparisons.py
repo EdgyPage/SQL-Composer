@@ -60,7 +60,8 @@ def runs_on(day: str = DAY) -> Statement:
                  f"WHERE job_runs.dt = '{DAY}'", id="the_same_text_on_one_line"),
     pytest.param(f"select RUN_ID, `status`\n  from OPS.JOB_RUNS\n where (dt = '{DAY}');",
                  id="case_backticks_brackets_and_a_semicolon"),
-    pytest.param(f"SELECT r.run_id, r.status -- the runs\nFROM ops.job_runs r WHERE r.dt = '{DAY}'",
+    pytest.param("SELECT r.run_id, r.status -- the runs\n"
+                 f"FROM ops.job_runs r WHERE r.dt = '{DAY}'",
                  id="a_short_name_for_the_table_and_a_comment"),
     pytest.param(f"SELECT r.run_id AS run_id, r.status FROM ops.job_runs AS r "
                  f"WHERE r.dt = '{DAY}'", id="as_with_the_columns_own_name"),
@@ -322,7 +323,8 @@ def test_a_partitioned_read_with_no_partition_is_refused() -> None:
 @pytest.mark.parametrize("partition, error, said, fix", [
     pytest.param({"day": FIRST_DAY}, ValueError, "names 'day', which is neither a column the "
                  "Statement gives nor a partition column",
-                 "Name a column the Statement gives: run_id, status and dt", id="unknown_column"),
+                 "Name a column the Statement gives: run_id, status and dt",
+                 id="unknown_column"),
     pytest.param(["dt"], TypeError, "partition= is a dict", 'Write it like partition={"dt": '
                  "...}", id="not_a_dict"),
     pytest.param({}, ValueError, 'partition={}) names no column', 'as in partition={"dt": ...}',
@@ -508,7 +510,8 @@ def test_unchecked_pieces_are_named_and_the_comparison_logged(tmp_path: Path) ->
             FROM(job_runs),
             WHERE(equals(job_runs.dt, DAY)),
         )
-        original = f"SELECT run_id, duration_mins DIV 15 AS q, dt FROM ops.job_runs WHERE dt = '{DAY}'"
+        original = ("SELECT run_id, duration_mins DIV 15 AS q, dt FROM ops.job_runs "
+                    f"WHERE dt = '{DAY}'")
         said = repr(compare_with_original(runs, original, query=example_database.query,
                                           partition={"dt": DAY}))
     finally:

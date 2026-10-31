@@ -1,4 +1,5 @@
-"""sqlglot Composer's Example database runs queries on sqlglot's executor and says what it can't."""
+"""sqlglot Composer's Example database runs queries on sqlglot's executor and says what
+it can't."""
 
 from __future__ import annotations
 
@@ -48,7 +49,8 @@ def test_it_says_plainly_what_its_executor_cant_run(calculation: Column, missing
     with pytest.raises(RuntimeError) as refused:
         run_query(s, example_database.query)
     message = str(refused.value)
-    assert f"The Example database can't run this Hive: its executor has no {missing}." in message
+    assert (f"The Example database can't run this Hive: its executor has no {missing}."
+            in message)
     assert "Usual fix:" in message
     assert "to_hive(...)" in message
 
@@ -135,8 +137,8 @@ def test_a_case_on_one_column_is_answered_beside_a_count() -> None:
     """mapped(...) writes CASE team WHEN ..., which sqlglot's executor wrote as Python's = where
     it adds rows up; the Example database spells it out as CASE WHEN team = ... first."""
     found = example_database.query(
-        "SELECT j.team, CASE j.team WHEN 'data' THEN 'D' WHEN 'web' THEN 'W' ELSE 'O' END AS t, "
-        "COUNT(*) AS n FROM ops.jobs AS j GROUP BY j.team")
+        "SELECT j.team, CASE j.team WHEN 'data' THEN 'D' WHEN 'web' THEN 'W' ELSE 'O' END "
+        "AS t, COUNT(*) AS n FROM ops.jobs AS j GROUP BY j.team")
     assert len(found) > 1
     wanted = {"data": "D", "web": "W"}
     assert [row.t for row in found.itertuples()] == [wanted.get(row.team, "O")
