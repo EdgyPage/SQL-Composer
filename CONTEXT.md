@@ -135,6 +135,12 @@ reference, and a checklist of what only the user can decide. What no Toolbox fun
 pieces, and each risk the original took is marked `# CONVERSION:` for the user to decide.
 _Avoid_: migration, port, translation, import, upgrade
 
+**Original**:
+The table a converted script writes, in the warehouse already, which its Saved table copies:
+a Saved table that reads itself is seeded once with the original's rows, and is compared with
+it. A prod copy's original is the same table, not its dev copy.
+_Avoid_: source table, old table
+
 **Batch**:
 One or more scripts of Hive converted together by one Conversion, with every statement in
 them ordered by what reads what. Its scripts, as given, and the list of what each statement

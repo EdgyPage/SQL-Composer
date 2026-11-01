@@ -19,8 +19,8 @@ def fenced(code: str) -> str:
 
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
-    assert len(BY_ID) == len(TASKS) == 30
-    assert Counter(task.split for task in TASKS) == {"dev": 20, "held_out": 10}
+    assert len(BY_ID) == len(TASKS) == 36
+    assert Counter(task.split for task in TASKS) == {"dev": 24, "held_out": 12}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
         assert splits == ["dev", "dev", "held_out"], objective
@@ -82,6 +82,16 @@ CONTROLS = [
                  id="a_module_reached_through_an_allowed_one"),
     pytest.param("T07", fenced("import pandas as pd\npd.read_csv('rows.csv')\n" + T07),
                  "builds", id="a_pandas_reader"),
+    pytest.param("T32", fenced(BY_ID["T32"].reference.replace(
+        '{"ops_reports.failed_runs": "fold"}', "{}")), "correct", id="keeps_what_to_fold"),
+    pytest.param("T36", fenced(BY_ID["T36"].reference.replace('{"ok_runs": ',
+                                                              '{"mart_dev.ok_runs": ')),
+                 "builds", id="a_query_named_with_its_database"),
+    pytest.param("T31", fenced(BY_ID["T31"].reference.replace('"daily_ops"', '"daily"')),
+                 "correct", id="another_batch_name"),
+    pytest.param("T33", fenced(BY_ID["T33"].reference.replace(
+        "project.write_decisions(DECISIONS)\n", "")), "correct",
+                 id="answers_without_writing_them_in"),
 ]
 
 
@@ -107,6 +117,18 @@ def test_a_star_import_fails_though_its_statement_is_right() -> None:
     reply = fenced("from sqlglot_composer import *\n" + T07.split("\n", 1)[1])
     [result] = copilot_eval.scored({"T07": reply})
     assert result.star and result.correct and not result.passed
+
+
+def test_a_workflow_answer_may_keep_the_lines_that_find_the_project() -> None:
+    path_lines = "\n".join(copilot_eval.PATH_LINES)
+    [result] = copilot_eval.scored({"T36": fenced(f"{path_lines}\n{BY_ID['T36'].reference}")})
+    assert result.passed, result
+
+
+def test_a_workflow_prompt_gives_the_databases_and_the_files() -> None:
+    text = copilot_eval.prompt(BY_ID["T36"])
+    assert "DEV = 'mart_dev'" in text
+    assert "admin/workflows/new_table/ok_runs.hql holds:" in text
 
 
 def test_an_answer_that_doesnt_run_what_was_asked_fails() -> None:

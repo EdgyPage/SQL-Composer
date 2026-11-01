@@ -1,0 +1,166 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+Before asking anything, the user pasted this as their first message:
+
+<<<
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.1)
+
+Objective: take the user through a job on their own Project, step by step, from each
+Workflow's notebook. Load this file when the user asks how to make a new Saved table, from a
+query or by hand, add Table references for tables they read, upgrade to a new Toolbox, or
+change a Saved table. You write the steps for sqlglot Composer 8.1, a Toolbox that writes Hive: the
+steps left, each its cell, in order. For converting Hive or promoting to prod, the user loads
+file 13; for the Python inside a step, that step's file.
+
+## Names for this objective, with their arguments
+
+- project.check()
+- project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
+- project.new_table(name, template='saved_table', queries=None)
+- project.reference_from_logic(name)
+- project.add_references(names, *, query=None)
+
+## How a Workflow runs
+
+Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
+cell (NAME, TABLES: the names in capitals) and its decisions cell, DECISIONS, and saves it.
+Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
+left, up to the first only the user can do, and `dry_run=True` sends nothing.
+`project.check()` names the next step. A Decision is the user's: never answer it for them.
+DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
+
+## new_table: a Saved table of your own
+
+1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
+   so project.do_next() runs it for you).
+
+       project.new_table(TABLES, queries=QUERIES)
+
+2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+   make).
+
+       for table in TABLES:
+           project.load(table).preview()  # says what stops it, if anything does
+
+3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
+   it for you).
+
+       project.reference_from_logic(TABLES)
+
+4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+5. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
+   yours to run).
+
+       for table in TABLES:
+           print(run_query(project.load(table).preview(), query))
+
+7. Create and write each in dev (it is a call to the warehouse, yours to run).
+
+       for table in TABLES:
+           run_execute(project.load(table).create(), execute)
+       project.run_tables(tables=TABLES, execute=execute)
+
+8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
+   run).
+
+       for name in QUERIES:
+           print(project.compare_batch(name, query=query))
+
+
+## references: Table references for tables you read
+
+1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+
+       project.add_references(TABLES, query=query)
+
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(TABLES)
+
+
+## upgrade: a new Toolbox copied in
+
+1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+
+       project.upgrade()
+
+2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
+   make).
+
+## change_a_saved_table: an Admin statement on a Saved table
+
+1. Write the Admin statement for the change (it is a decision, yours to make).
+
+       table = project.table_reference(TABLE)
+       change = admin.drop_partitions(table, where=...)  # or another: help(admin)
+
+2. Print its Hive, and run the check its Check first line names (it changes only files, or only
+   prints: run its cell).
+
+       show_hive(change)
+
+3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
+   warehouse, yours to run).
+
+       run_execute(change, execute)
+
+
+## Worked example
+
+The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
+notebook's names cell, its decisions cell once the table's location is known, then its last
+cell, which makes the table from the query, writes it in dev and compares it with the query:
+
+```python
+TABLES = ["mart_dev.failed_per_job"]
+QUERIES = {"failed_per_job": "failed_per_job.hql"}
+DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/failed_per_job"}}
+project.run_workflow("new_table", query=query, execute=execute)
+```
+
+## Do and don't
+
+- Do give each step's cell as listed, with the user's names in it.
+- Do make a table from its query with QUERIES when the user has one: no `<...>` to fill in.
+- Don't write a new table's Table reference by hand: its logic writes it.
+- Don't skip a Decision, such as a table's location: answer it in the decisions cell.
+
+## Before you answer
+
+- Name the Workflow and the step the user is at; give each later step's cell as it is.
+- Never invent a step or a call: only those listed here.
+
+>>>
+
+Each task below is a separate request the user sends next. Answer each as you would in that chat: reply with its `## T..` heading, then your answer, with the code in a ```python block.
+
+## T36
+
+I work in a sqlglot Composer 8.1 Project. Its references:
+- `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint, job_id bigint, status string, duration_mins int, avg_retry_secs double, dt string; partitioned by dt; Key run_id.
+- `from references import ops` gives each ops table above by its name, as ops.job_runs.
+- admin/databases.py has DEV = 'mart_dev' and PROD = 'mart'.
+- admin/workflows/new_table/ok_runs.hql holds:
+
+SELECT r.job_id, COUNT(*) AS oks
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'SUCCESS'
+GROUP BY r.job_id
+
+- `from warehouse import query, execute` gives my two calls to the warehouse.
+
+I have the query for a new table, mart_dev.ok_runs, in ok_runs.hql, saved in admin/workflows/new_table/. Make the table from it with the new_table Workflow: give its notebook's names cell and its first step's cell.
+
+Answer with one Python code block: the Workflow notebook's cells to run, in order, its names cell first, filled in.

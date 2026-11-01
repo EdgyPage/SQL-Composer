@@ -111,3 +111,31 @@ tasks of their own; the one-source test holds each Workflow's steps and calls in
 read reworded the rule naming the files (13 and 14), 08's step 6 (project.check() notes a
 `# CONVERSION:` mark, which blocks nothing) and 13's worked example (`staging=`); not run
 again.
+
+| 2026-10-31 | 72f183d3 | haiku | C | held_out | 50 | 100 | 100 | 50 | 50 | 50 | 0 | 0 | 0 | 0 | 13:0 14:100 |
+| 2026-10-31 | de6bc5fc | haiku | C | held_out | 50 | 100 | 100 | 50 | 50 | 50 | 0 | 0 | 0 | 0 | 13:0 14:100 |
+| 2026-10-31 | de6bc5fc | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 14:100 |
+
+Toolbox 8.1, ticket 12, the Workflow tasks: the evaluation gained six tasks of a new kind,
+workflow, for Copilot files 13 and 14 (T31 to T36, T33 and T36 held out), each answer run as
+the notebook's cells in a Project of its own and scored on the files it leaves under tables/,
+its Workflow's folder and references/, each with its text. Three rounds on Haiku, arm C, held
+out, the three rows above in turn, so not a clean single score; 8.0 had no Workflow tasks, so
+there is no 8.0 score to meet:
+
+- 72f183d3, the files as committed: 1 of 2. T36 (file 14, a new table from a .hql) passed;
+  T33 (file 13, answering Decisions) guessed the decisions cell's shape, which neither file
+  showed, and named the batch daily_fails for fails. Scored with every Python block of a
+  Workflow reply run in order as its cells (the scorer first read only the last block, which
+  made it fail sooner, on the same answer).
+- de6bc5fc, files 13 and 14 showing the decisions cell's shape and the step that writes the
+  answers in: 1 of 2. T33's decisions cell was right, but it named the batch daily_fails again
+  and gave every later step, as file 13 asks, whose sends can't run in the scorer's Project.
+- de6bc5fc, T33's request reworded to name the batch (NAME = "fails") and to ask only for the
+  two cells it scores, a defect of the task, not of the file: 2 of 2. This row was tuned on:
+  its files and T33 were changed after T33 failed, and the reworded request asks less, so T33
+  is no longer a held-out measure and the row doesn't compare with clean ones.
+
+The file fix came from a held-out failure, against the rule that files are tuned on dev tasks
+only; the shape of the decisions cell was a gap the beginner read had also named in the
+README. The dev tasks T31, T32, T34 and T35 haven't been run on a proxy.

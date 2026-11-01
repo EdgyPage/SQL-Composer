@@ -5,10 +5,11 @@ Copilot needs (the Table references the user's Project has), and a reference ans
 Python a careful user would write, which `tools/copilot_eval.py` runs the same way it runs a
 model's answer, on the Example database, to score the model's against it.
 
-There are three tasks for each of the ten objectives of the Copilot files (`01` to `10`, as
-`copilot/00_start_here.txt` lists them): two on the dev split, which the files may be tuned on,
-and one held out, scored once per version of the files. Six are traps, where the answer most
-people write first is refused by a Guard or a Load limit.
+There are three tasks for each of the twelve objectives of the Copilot files (`01` to `10`,
+`13` and `14`, as `copilot/00_start_here.txt` lists them; `11` and `12`, an Excel workbook, are
+`tools/excel_eval.py`'s): two on the dev split, which the files may be tuned on, and one held
+out, scored once per version of the files. Six are traps, where the answer most people write
+first is refused by a Guard or a Load limit.
 
 A task's kind says what its answer gives and how it is checked:
 
@@ -23,7 +24,11 @@ A task's kind says what its answer gives and how it is checked:
 - table: a Table reference `t`, with the reference's name, columns, partitions, Key and
   location;
 - verdict: a Verdict `v`, from a check, that holds, and says what the reference's says, of the
-  Hive the request quotes where it quotes one.
+  Hive the request quotes where it quotes one;
+- workflow: a Workflow notebook's cells, its names cell first, run from its folder in a
+  Project of their own, its Databases filled in, the Table references of the tables the task
+  names, its files and the cells run before, which must leave the Table folders and Table
+  references the reference's leave.
 """
 
 from __future__ import annotations
@@ -42,11 +47,13 @@ OBJECTIVES = {
     "08": "checking and comparing",
     "09": "fixing a refusal",
     "10": "hand-written Hive and other functions",
+    "13": "a Workflow: convert and promote",
+    "14": "a Workflow: new tables and upkeep",
 }
 
 # What the answer must assign, by kind.
 GIVES = {"read": "s", "convert": "s", "fix": "s", "hive": "s", "write": "s", "logic": "write()",
-         "table": "t", "verdict": "v"}
+         "table": "t", "verdict": "v", "workflow": "cells"}
 
 # The Saved table the writing tasks write, as the user's Project describes it.
 JOB_DAY_RUNS = '''from sqlglot_composer import Table
@@ -59,6 +66,38 @@ job_day_runs = Table(
     location="/data/your_team/mart.db/job_day_runs",
 )
 '''
+
+
+# The Hive scripts the Workflow tasks convert, as the user saved them.
+DAILY_FAILS = """INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS fails
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'FAILED'
+GROUP BY r.job_id;
+"""
+DAILY_ALERTS = """INSERT OVERWRITE TABLE mart.daily_alerts PARTITION (dt = '2026-09-24')
+SELECT a.severity, COUNT(*) AS alerts
+FROM ops.run_alerts a
+WHERE a.dt = '2026-09-24'
+GROUP BY a.severity;
+"""
+# A script whose first statement makes a staging table that its second reads.
+STAGED_FAILS = """CREATE TABLE ops_reports.failed_runs AS
+SELECT r.job_id
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'FAILED';
+
+INSERT OVERWRITE TABLE mart.fails_per_job PARTITION (dt = '2026-09-24')
+SELECT f.job_id, COUNT(*) AS fails
+FROM ops_reports.failed_runs f
+GROUP BY f.job_id;
+"""
+# A new table's query, as the user saved it.
+OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'SUCCESS'
+GROUP BY r.job_id
+"""
 
 
 @dataclass(frozen=True)
@@ -77,6 +116,9 @@ class Task:
     runs_it: bool = False  # the request asks to run it with query
     partition: dict[str, str] | None = None  # for comparing a write's rows
     quotes: str | None = None  # Hive the request quotes, which the answer must check
+    workflow: str | None = None  # the Workflow whose notebook a cells task's answer is in
+    files: dict[str, str] = field(default_factory=dict)  # its Project's files, by path
+    before: str = ""  # the notebook's cells the user ran before asking
 
 
 TASKS = (
@@ -586,6 +628,81 @@ s = statement(
     WHERE(equals(job_runs.dt, "2026-09-24")),
 )
 ''', tables=("job_runs",)),
+    # --- 13 a Workflow: convert and promote ------------------------------------------------
+    Task("T31", "13", "dev",
+         "I have two scripts from the ops team, daily_fails.hql and daily_alerts.hql, saved "
+         "in admin/workflows/convert/. Convert them into my Dev Database as one batch named "
+         "daily_ops: give the convert notebook's names cell and its first step's cell.",
+         "workflow", '''NAME = "daily_ops"
+FILES = ["daily_fails.hql", "daily_alerts.hql"]
+HIVE = None
+DATABASE = "default"
+STAGING = {}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+''', tables=("job_runs", "run_alerts"), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS,
+                "admin/workflows/convert/daily_alerts.hql": DAILY_ALERTS}),
+    Task("T32", "13", "dev",
+         "Convert this Hive into my Dev Database as a batch named fails, folding the staging "
+         "table ops_reports.failed_runs into the table that reads it rather than keeping it: "
+         "give the convert notebook's names cell and its first step's cell.\n\n"
+         + STAGED_FAILS,
+         "workflow", '''NAME = "fails"
+FILES = []
+HIVE = """''' + STAGED_FAILS + '''"""
+DATABASE = "default"
+STAGING = {"ops_reports.failed_runs": "fold"}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+''', tables=("job_runs",), workflow="convert"),
+    Task("T33", "13", "held_out",
+         "I converted daily_fails.hql as the batch named fails (NAME = \"fails\"). "
+         "project.check() says:\n"
+         "    mart_dev.daily_fails_mart: types: dt's type, written \"string\" as a guess\n"
+         "    mart_dev.daily_fails_mart: location: the folder its files go in\n"
+         "dt is a string, and its folder is /data/team/mart_dev.db/daily_fails. Give only the "
+         "convert notebook's decisions cell, answered, and the cell that writes the answers "
+         "in: I'll run the steps after them myself.",
+         "workflow", '''DECISIONS = {"mart_dev.daily_fails_mart": {
+    "types": {"dt": "string"},
+    "location": "/data/team/mart_dev.db/daily_fails",
+}}
+
+project.write_decisions(DECISIONS)
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS},
+         before='''project.convert("fails", None, files=["daily_fails.hql"], query=query)
+'''),
+    # --- 14 a Workflow: new tables and upkeep -----------------------------------------------
+    Task("T34", "14", "dev",
+         "Add Table references for ops.jobs and ops.run_alerts with the references Workflow: "
+         "give its notebook's names cell and its first step's cell.",
+         "workflow", '''TABLES = ["ops.jobs", "ops.run_alerts"]
+
+project.add_references(TABLES, query=query)
+''', workflow="references"),
+    Task("T35", "14", "dev",
+         "Start a new Saved table, mart_dev.job_day_counts, whose logic I'll write myself, "
+         "with the new_table Workflow: give its notebook's names cell and its first step's "
+         "cell.",
+         "workflow", '''TABLES = ["mart_dev.job_day_counts"]
+QUERIES = {}
+
+project.new_table(TABLES, queries=QUERIES)
+''', workflow="new_table"),
+    Task("T36", "14", "held_out",
+         "I have the query for a new table, mart_dev.ok_runs, in ok_runs.hql, saved in "
+         "admin/workflows/new_table/. Make the table from it with the new_table Workflow: "
+         "give its notebook's names cell and its first step's cell.",
+         "workflow", '''TABLES = ["mart_dev.ok_runs"]
+QUERIES = {"ok_runs": "ok_runs.hql"}
+
+project.new_table(TABLES, queries=QUERIES)
+''', tables=("job_runs",), workflow="new_table",
+         files={"admin/workflows/new_table/ok_runs.hql": OK_RUNS}),
 )
 
 BY_ID = {task.id: task for task in TASKS}

@@ -25,7 +25,8 @@ It needs [Start a Project](#start_a_project) and [Save a table](#save_a_table).
 ### Start from the Project the story leaves
 
 Work in your own Project. This page uses a copy of the Starter Example project, the one the
-how-tos before this one build, whose Dev Database, DEV in admin/databases.py, is mart:
+how-tos before this one build, whose Dev Database, DEV in admin/databases.py, is mart (yours
+is any database you own, such as mart_dev):
 
 >>> import shutil
 >>> from pathlib import Path

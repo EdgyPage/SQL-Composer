@@ -1,0 +1,4 @@
+T33  FAIL  found parses  (doesn't build: FileNotFoundError: project.batch_tables("daily_fails"): no batch is named daily_fails: there is no admin/workflows/convert/daily_fails/written.json, nor one in admin/workflows/convert/finished/.)
+T36  pass  found parses builds runs correct
+
+C on haiku: 50% passed of 2; found 100%, parses 100%, builds 50%, runs 50%, correct 50%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'13': 0, '14': 100}

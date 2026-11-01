@@ -53,17 +53,30 @@ Built 2026-10-31.
 - Names cells: NAME says a list is for the last cell alone, new_table's TABLES names a dev
   table, and the decisions cell says "a Key proposed from a query".
 - Held-out Copilot evaluation, Haiku, arm C, on the four objective files 8.1 changed (01, 02, 06
-  and 07): 4 of 4, as 8.0's; recorded in `.scratch/copilot-eval/results.md`. Files 13 and 14
-  have no tasks of their own, the one-source test holding their steps; 11 and 12 are unchanged,
-  so the Excel round wasn't run.
-- Not done: the spec's "file 13 with its Workflow tasks". The evaluation has no Workflow
-  tasks, as in 8.0, and its scorer runs a Statement, not a Workflow; writing them, with a
-  scorer that runs a notebook's cells, is left to the user. The one-source test holds every
-  step and call files 13 and 14 list to the Workflows.
+  and 07): 4 of 4, as 8.0's; recorded in `.scratch/copilot-eval/results.md`. 11 and 12 are
+  unchanged, so the Excel round wasn't run.
+- Workflow tasks, added after the first commit (the stop hook named the gap): a task kind,
+  workflow, in `tools/copilot_eval.py`, whose answer's Python blocks run in order as the
+  notebook's cells, from the Workflow's folder, in a Project of its own beside the stand-in,
+  and is correct when it leaves the reference's files, each with its text, under tables/, the
+  Workflow's folder and references/. Six tasks, T31 to T36, three for file 13 and three for
+  14, T33 and T36 held out; `docs/copilot-eval.md` says how they're scored. Held out on Haiku,
+  arm C, three rounds, all recorded: 1 of 2, then 1 of 2 with files 13 and 14 showing the
+  decisions cell's shape (a fix from a held-out failure), then 2 of 2 with T33's request
+  reworded, a row marked as tuned on. 8.0 had no Workflow tasks, so no 8.0 score to meet. The
+  dev tasks weren't run on a proxy.
+- Beginner stops answered with them: CONTEXT.md's Original (promote's step 5 seeds a prod
+  copy from the table the script wrote, which a probe confirmed), CHANGES' two places to run
+  `project.upgrade()`, and how-to 9's Dev Database named as one of yours.
 - Code review: Standards: no hard finding; two how-to 6 sentences reworded, and new_table
   keeps its own TABLES input, its example a dev table, as promote's does. Spec: Copilot 08's
   step 6 and how-to 6's placeholders still told of steps 8.1 removed (both fixed); 06's step 7
   keeps sending a table's settings by hand, its by-hand route; the Intermediate project's Table
   notebooks keep no `PARTITIONED_BY`, as their Table references were not written from their
-  logic; how-to 29's `change=change` is the name step 1's cell gives.
+  logic; how-to 29's `change=change` is the name step 1's cell gives. Of the Workflow tasks:
+  Standards: `_cells_run` and `_left_in` named for what they do (`_run_cells`,
+  `_files_left_in`, `files_left_by`), the placeholder-keyed DATABASES made two constants,
+  the path lines one `PATH_LINES`, `score`'s two tests of the kind one. Spec: a wrong batch
+  name passed, since only tables/ paths and references/ text were compared (now every file's
+  text, the Workflow's folder too, held by a control); the results' tuned row now marked.
 - Beginner reader: [12-beginner-reader.md](../reports/12-beginner-reader.md).
