@@ -282,8 +282,16 @@ A row a Statement's grouping adds to its groups' rows, totalling the rows of sev
 such as one per team over all its jobs, or the grand total, one over every row. The columns it
 totals over are empty in it, as a real row's may be too, so the Toolbox can say which rows are
 subtotal rows. In Python, `rollup(...)`, `cube(...)` and `grouping_sets(...)` give back
-`Subtotals`, which go in GROUP_BY to ask for these rows: the name a type hint uses.
-_Avoid_: total row, rollup row, summary row
+`Subtotals`, which go in GROUP_BY to ask for these rows: the name a type hint uses. It is not
+Excel's **Total Row**, which a Saved table never holds.
+_Avoid_: total row (for this row; Excel's own is the Total Row), rollup row, summary row
+
+**Total Row**:
+Excel's row of totals under a Table, turned on in Table Design and filled in from a list in
+each column's last cell. A Formula workbook totals a Table with it, never with a row of data
+typed in; Copilot writes it as a query of its own, one row, never as a Subtotal row in the
+Table's query, since a Saved table refuses one.
+_Avoid_: totals row, summary row
 
 **Saved table**:
 A real table in the warehouse that a Statement writes into, which other Statements then read through
