@@ -92,6 +92,15 @@ def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
     assert "Then save the notebook, and run its last cell again" in stopped
 
 
+def test_staging_given_as_a_list_is_refused_as_its_cell_refuses_it(started: Path) -> None:
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+    typed(started, "convert", "STAGING = {}", ["weekly.staging"])
+    stopped = run("convert")
+    assert "Stopped by what this says: mend it." in stopped
+    assert "was given staging=['weekly.staging']" in stopped
+
+
 def test_a_names_cell_naming_several_batches_runs_each_and_a_stop_names_which(
         started: Path) -> None:
     for name in ("first", "second"):
