@@ -19,13 +19,16 @@ def fenced(code: str) -> str:
 
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
-    assert len(BY_ID) == len(TASKS) == 38
-    assert Counter(task.split for task in TASKS) == {"dev": 26, "held_out": 12}
+    assert len(BY_ID) == len(TASKS) == 39
+    assert Counter(task.split for task in TASKS) == {"dev": 26, "held_out": 13}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
-        # 13's held-out T33 and T37 were tuned on, so they are dev tasks, and T38 held out.
-        dev = ["dev"] * (4 if objective == "13" else 2)
-        assert splits == [*dev, "held_out"], objective
+        # 13's held-out T33 and T37 were tuned on, so they are dev tasks; T38 is held out for
+        # the cells asked for, and T39 for every step's cell.
+        if objective == "13":
+            assert splits == ["dev"] * 4 + ["held_out"] * 2
+        else:
+            assert splits == ["dev", "dev", "held_out"], objective
     assert sum(task.trap for task in TASKS) == 6
 
 
@@ -91,6 +94,16 @@ CONTROLS = [
                  "builds", id="a_query_named_with_its_database"),
     pytest.param("T37", fenced(BY_ID["T37"].reference.replace('"ops"', '"default"')),
                  "correct", id="the_tables_database_left_out"),
+    pytest.param("T39", fenced(BY_ID["T39"].reference.replace(
+        "project.compare_batch(NAME, query=query)\n", "")), "correct",
+                 id="stops_before_the_compare"),
+    pytest.param("T39", fenced(BY_ID["T39"].reference.replace(
+        "    run_execute(project.load(table).create(), execute)\n", "    pass\n")), "builds",
+                 id="skips_the_create"),
+    pytest.param("T39", fenced(BY_ID["T39"].reference.replace(
+        "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
+        "project.run_tables(tables=project.batch_tables(NAME), execute=query)")), "builds",
+                 id="writes_through_query"),
     pytest.param("T38", fenced(BY_ID["T38"].reference.replace('"keep"', '"fold"')),
                  "correct", id="folds_what_to_keep"),
     pytest.param("T31", fenced(BY_ID["T31"].reference.replace('"daily_ops"', '"daily"')),
