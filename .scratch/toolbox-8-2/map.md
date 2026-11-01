@@ -138,6 +138,8 @@ process of its own.
   05's round two
 - [16 A subquery of rows typed in converts as a CTE of them does](issues/16-a-subquery-of-rows-typed-in.md),
   found by 06
+- [17 Each SQL mapping a Conversion makes, tested](issues/17-each-sql-mapping-tested.md), for
+  the goal's tests
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

@@ -60,6 +60,11 @@ those people found unsaid.
   Copilot, counts the rows where a condition holds, converts to `count_rows(where=c)`, where
   before its conversion stopped on its own refusal. Inside `COALESCE(..., 0)` it gives the same
   rows; bare, it gives 0 where the SUM gave NULL, and the scan says so.
+- **NOT of a condition converts.** `NOT (a OR b)` becomes `all_of(...)` of each part's opposite,
+  `NOT (a AND b)` `any_of(...)` of them, `NOT x > 3` `at_most(x, 3)`, and `NOT (NOT a)` `a`,
+  each keeping the rows NOT keeps, a NULL's too, where only `NOT IN`, `IS NOT NULL` and
+  `NOT a = b` converted and the rest stayed Hive in `unchecked_condition(...)`. A part with no
+  opposite, such as a `LIKE` neither function writes, stays Hive alone.
 - **`project.check()` names a Decision still open after a later step.** A Workflow's step of
   Decisions, such as a Table reference's Key, is named until it is made, though a step after
   it, such as refreshing the Reference sheet, has run; before, check() said every step was
