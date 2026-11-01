@@ -371,7 +371,7 @@ def test_a_batch_run_again_with_overwrite_keeps_each_file_it_writes_over(
 def test_a_type_neither_its_query_nor_describe_tells_is_named_to_check(started: Path) -> None:
     convert_script(
         started, "CREATE TABLE ops_reports.labels AS SELECT j.job_id, "
-                 "CASE WHEN j.team = 'a' THEN 'x' ELSE 'y' END AS label FROM ops.jobs j;\n")
+                 "REVERSE(j.team) AS label FROM ops.jobs j;\n")
     assert ('- types: label\'s type, written "string" as a guess, in '
             "references/mart_dev__labels_ops_reports.py") in (
         checklist(started, "mart_dev.labels_ops_reports"))

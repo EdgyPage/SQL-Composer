@@ -186,10 +186,11 @@ def test_its_table_reference_has_the_types_the_query_knows(converted: Path,
                                                            started: Path) -> None:
     reference = (started / "references" / "mart_dev__job_outcomes.py").read_text(
         encoding="utf-8")
-    assert '"outcome": "string",  # TODO: guessed: nothing told its type' in reference
+    # A CASE of text values is a string, as Hive gives it (8.2's ticket 08): nothing to guess.
+    assert '"outcome": "string",\n' in reference
     assert "<" not in reference.split("# --- Aliases")[0]
     checklist = conversion_file(started, "job_outcomes", "checklist.md")
-    assert '- types: outcome\'s type, written "string" as a guess' in checklist
+    assert "- types:" not in checklist
     assert "- location: the folder its files go in" in checklist
 
 

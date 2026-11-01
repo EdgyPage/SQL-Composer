@@ -9005,7 +9005,7 @@ GROUP BY
 <tr><td>2026-09-21</td><td>2</td><td>4</td></tr>
 <tr><td>2026-09-21</td><td>3</td><td>1</td></tr>
 </table></div>
-<p>Pasted into your own notebook, this <code>run_query</code>, and each <code>run_query</code> of a week, a month or subtotals below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC, and makes no subtotals. The results here were worked out in pandas from the same rows, to show what the Hive gives. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
+<p>Pasted into your own notebook, this <code>run_query</code>, and each <code>run_query</code> of a week or a month below, stops with a RuntimeError saying the Example database can&#x27;t run this Hive: the Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The week and month results were worked out in pandas from the same rows, to show what the Hive gives. The subtotals below run on the Example database as they are. Your warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.</p>
 <p>The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so it is the day a week earlier, and NEXT_DAY(..., &#x27;MO&#x27;) is the first Monday after that. For Thursday 2026-09-24, a week earlier is 2026-09-17, and the first Monday after it is 2026-09-21; for Monday 2026-09-14, a week earlier is 2026-09-07, and the first Monday after it is 2026-09-14 itself. In <code>GROUP_BY</code>, Hive needs the calculation written out again, so the Toolbox writes it for you; you give only the name.</p>
 <p>The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.</p>
 <h5>Count each job&#x27;s runs per month</h5>
@@ -9112,16 +9112,17 @@ GROUP BY
     ()
   );</pre>
 <pre class="python">run_query(runs_per_job, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>team</th><th>job_id</th><th>runs</th><th>minutes</th></tr>
 <tr><td><i>NULL</i></td><td><i>NULL</i></td><td>14</td><td>206</td></tr>
 <tr><td>data</td><td><i>NULL</i></td><td>7</td><td>82</td></tr>
-<tr><td>data</td><td>1</td><td>7</td><td>82</td></tr>
+<tr><td>data</td><td>1.0</td><td>7</td><td>82</td></tr>
 <tr><td>finance</td><td><i>NULL</i></td><td>7</td><td>124</td></tr>
-<tr><td>finance</td><td>2</td><td>5</td><td>79</td></tr>
-<tr><td>finance</td><td>3</td><td>2</td><td>45</td></tr>
+<tr><td>finance</td><td>2.0</td><td>5</td><td>79</td></tr>
+<tr><td>finance</td><td>3.0</td><td>2</td><td>45</td></tr>
 </table></div>
-<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as NaN in a column of text and as <code>&lt;NA&gt;</code> in a column of whole numbers, and the tables on this page as NULL: the job in a team&#x27;s subtotal, and the team too in the grand total. report_build, job 3, counts for finance: its team from 2026-09-18 on.</p>
+<p>The Hive spells out each set of rows in <code>GROUPING SETS</code>: each team and job, each team, and <code>()</code>, nothing, for one row over all of them. In a subtotal row the columns it totals over are empty, NULL, which pandas shows as NaN: the job in a team&#x27;s subtotal, and the team too in the grand total. report_build, job 3, counts for finance: its team from 2026-09-18 on.</p>
+<p>pandas keeps NaN only among fractions, so a column of whole numbers with a NaN in it shows its numbers as 1.0, 2.0 and so on: job_id here. A column that is NULL in every row has no numbers to go by, so pandas shows each NULL as None, as in the next steps&#x27; job_id.</p>
 <h5>Tell a subtotal row from a real NULL</h5>
 <p>A column can be empty in a real row too. Nobody owns cache_warm, job 4, so its owner is NULL, and a rollup of <code>job_owners.owner</code> over 2026-09-24&#x27;s snapshot has two rows with NaN:</p>
 <pre class="python">jobs_per_owner = statement(  # -&gt; Statement
@@ -9132,7 +9133,7 @@ GROUP BY
     GROUP_BY(rollup(job_owners.owner)),
 )
 run_query(jobs_per_owner, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>owner</th><th>subtotal</th><th>jobs</th></tr>
 <tr><td><i>NULL</i></td><td>0</td><td>1</td></tr>
 <tr><td><i>NULL</i></td><td>1</td><td>4</td></tr>
@@ -9155,7 +9156,7 @@ run_query(jobs_per_owner, query)  # -&gt; DataFrame</pre>
     GROUP_BY(rollup(job_owners.team, job_events.job_id)),
 )
 run_query(labelled, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>team</th><th>job</th><th>runs</th></tr>
 <tr><td>data</td><td>1</td><td>7</td></tr>
 <tr><td>data</td><td>every job</td><td>7</td></tr>
@@ -9178,7 +9179,7 @@ run_query(labelled, query)  # -&gt; DataFrame</pre>
     HAVING(is_total(job_events.job_id)),
 )
 run_query(team_totals, query)  # -&gt; DataFrame</pre>
-<p class="label">Result, computed in pandas, not by running this Hive</p><div class="scroll"><table class="result">
+<p class="label">Python shows</p><div class="scroll"><table class="result">
 <tr><th>team</th><th>job_id</th><th>runs</th></tr>
 <tr><td><i>NULL</i></td><td><i>NULL</i></td><td>14</td></tr>
 <tr><td>data</td><td><i>NULL</i></td><td>7</td></tr>

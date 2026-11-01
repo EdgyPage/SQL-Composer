@@ -1,0 +1,18 @@
+{
+ "id": "E2",
+ "split": "dev",
+ "title": "two data sources on two sheets, joined",
+ "phases": [
+  {
+   "role": "non_technical",
+   "job": "Your manager wants the Teams sheet of your workbook from_your_team/team_report.xlsx turned into a table in the company's warehouse, so the data team can keep it up to date. Get it ready for them: make a copy of the empty Formula workbook that came with the Toolbox, main/copilot/formula_workbook.xlsx, fill it in as its Steps sheet says, and save it as my_work/team_report_formula.xlsx."
+  },
+  {
+   "role": "converter",
+   "job": "Your colleague filled in a Formula workbook, my_work/team_report_formula.xlsx, from their own workbook. Turn it into tables of your own in your Dev Database, written there: mart_dev.team_report, from its Teams summary. Use Copilot to turn the workbook into Hive, as the workbook's Steps sheet says, then make the tables with the Toolbox, as its README says. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+  }
+ ],
+ "given": {
+  "from_your_team/team_report.xlsx": "team_report.xlsx"
+ }
+}

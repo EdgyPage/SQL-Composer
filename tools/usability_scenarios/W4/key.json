@@ -1,0 +1,16 @@
+{
+ "files": [
+  {
+   "path": "references/ops__jobs.py",
+   "holds": [
+    "key=[\"job_id\"]"
+   ]
+  },
+  {
+   "path": "references/ops__run_alerts.py",
+   "holds": [
+    "key=[\"alert_id\"]"
+   ]
+  }
+ ]
+}

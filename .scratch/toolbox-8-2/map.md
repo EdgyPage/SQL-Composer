@@ -121,6 +121,9 @@ process of its own.
 - [05 Tuning rounds: fix what dev runs find](issues/05-tuning-rounds.md)
 - [06 The held-out round](issues/06-held-out-round.md)
 - [07 8.2: the docs, the Upgrade step and the raise](issues/07-eight-point-two.md)
+- [08 A calculation's type, from what it reads](issues/08-calculation-types.md), found by 03
+- [09 The Example database runs subtotals, and a group's column beside an
+  aggregate](issues/09-example-database-subtotals.md), found by 03
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

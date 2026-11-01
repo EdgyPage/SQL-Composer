@@ -15,6 +15,21 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Hive, named for its variable, beside your notebook or script. The saved_table and
   quality_checks Templates, the Table notebooks `project.convert` writes, and the Example
   projects' Table notebooks have the cell.
+- **A calculation's type, as Hive gives it.** A count is a `bigint`; a sum a `bigint` of whole
+  numbers, a `double` of fractions; an average a `double`; a smallest or largest value its
+  column's type; `if_else`, `first_match` and `mapped` the type their values share; `fill_null`
+  its column's, else its value's; arithmetic the wider of its two sides, a division a
+  `double`; a Hive function whose type is fixed, such as `upper` or `count`, its own. So a
+  table converted from a query, or made from one by new_table, has its calculated columns'
+  types in its Table reference, where before each was written "string" as a guess for you to
+  answer. A calculation whose type nothing tells is still a Decision.
+- **The Example database runs subtotals, and a value beside a total.** `rollup`, `cube` and
+  `grouping_sets`, with `is_total` in `SELECT` or `HAVING`, and Hive's `WITH ROLLUP` and
+  `ROLLUP(...)`, run there now, each set its own rows, so how-to 15 shows each one's rows as
+  run. And a calculation that reads a group's own column beside an aggregate, such as `CASE
+  WHEN job_id = 3 THEN 1000 ELSE SUM(...) END`, which a Formula workbook's value typed over a
+  formula converts to, gives each row its own value, where sqlglot's executor gave every row
+  the aggregate's.
 
 ## 8.1
 

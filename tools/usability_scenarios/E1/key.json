@@ -1,0 +1,32 @@
+{
+ "tables": {
+  "mart_dev.job_run_report": {
+   "columns": [
+    "job_id",
+    "runs",
+    "failed_runs",
+    "avg_duration_mins"
+   ],
+   "rows": [
+    [
+     1,
+     4,
+     0,
+     16.75
+    ],
+    [
+     2,
+     3,
+     1,
+     17.666666666666668
+    ],
+    [
+     3,
+     2,
+     1,
+     30.0
+    ]
+   ]
+  }
+ }
+}

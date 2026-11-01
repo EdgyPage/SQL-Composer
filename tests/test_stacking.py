@@ -41,6 +41,7 @@ from sqlglot_composer import (
     example_database,
     export_lineage,
     grouping_sets,
+    hive_function,
     if_else,
     is_total,
     rollup,
@@ -446,7 +447,8 @@ def test_is_total_in_order_by_is_checked_as_anywhere_else() -> None:
 
 
 def test_types_are_compared_with_the_first_statement_that_knows_them() -> None:
-    unknown = statement(SELECT(AS(count_rows() * 1, "run_id")), FROM(jobs))
+    # abs gives a type no rule of the Toolbox's tells, so the 1st Statement doesn't know it.
+    unknown = statement(SELECT(AS(hive_function("abs", count_rows()), "run_id")), FROM(jobs))
     text = statement(SELECT(AS(run_alerts.severity, "run_id")), FROM(run_alerts),
                      WHERE(equals(run_alerts.dt, DAY)))
     with pytest.raises(ValueError, match="run_id is bigint in its 2nd Statement and string in "
@@ -489,6 +491,11 @@ def test_subtotals_lose_the_key() -> None:
 # --- Subtotals: on the Example database ------------------------------------------------------
 
 
-def test_the_example_database_says_it_cant_make_subtotals() -> None:
-    with pytest.raises(RuntimeError, match="its executor has no GROUPING SETS"):
-        run_query(runs_by(rollup(jobs.team, jobs.job_name)), example_database.query)
+@pytest.mark.parametrize("subtotals", [rollup, cube], ids=["rollup", "cube"])
+def test_the_example_database_makes_subtotals(subtotals: Callable[..., Subtotals]) -> None:
+    rows = run_query(runs_by(subtotals(jobs.team, jobs.job_name)), example_database.query)
+    total = rows[rows.team.isna() & rows.job_name.isna()]
+    each = rows[rows.team.notna() & rows.job_name.notna()]
+    assert len(total) == 1 and int(total.runs.iloc[0]) == int(each.runs.sum())
+    team_totals = rows[rows.team.notna() & rows.job_name.isna()]
+    assert sorted(team_totals.team) == sorted(set(each.team))

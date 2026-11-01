@@ -259,8 +259,12 @@ def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
                 fix="Use a number, such as job_runs.duration_mins / 60.",
                 given=side, call=symbol,
             )
-        sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
+        sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False),
+                            type=literal_type(side)))
     left, right = sides
+    kind_of_both = shared_type([left._type, right._type])
+    if kind == "Div" and type_family(kind_of_both) == "number":
+        kind_of_both = "double"  # Hive's / gives a double, of two whole numbers too
     adds_up = left._adds_up and right._adds_up and kind != "Div"
     because = None
     if kind == "Div":
@@ -270,12 +274,52 @@ def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
     return Column(
         Node(kind, this=_bracketed(left._tree.copy()),
              expression=_bracketed(right._tree.copy())),
+        type=kind_of_both,
         adds_up=adds_up,
         not_adding_up_because=because,
     )
 
 
 # --- Values ------------------------------------------------------------------------------
+
+
+# Hive's whole-number types, narrowest first, and its fractions: two whole numbers in one
+# calculation give the wider, a whole number and a fraction a double.
+WHOLE_NUMBERS = ("tinyint", "smallint", "int", "bigint")
+FRACTIONS = ("float", "double")
+
+
+def literal_type(value: object) -> str | None:
+    """The Hive type of a Python value written into the Hive as a literal: a whole number an
+    int, or a bigint past an int's range, a fraction a double, text a string, a date a date,
+    True or False a boolean; None for None, whose NULL has no type of its own."""
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, np.integer)):
+        return "int" if -(2**31) <= value < 2**31 else "bigint"
+    if isinstance(value, (float, np.floating)):
+        return "double"
+    if isinstance(value, datetime.date):
+        return "date"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def shared_type(types: list[str | None]) -> str | None:
+    """The one type values of `types` share, as Hive gives a CASE or a calculation of them:
+    whole numbers the widest of them, whole numbers and fractions a double, else their one type;
+    None when any is untold, or they share none."""
+    if not types or any(each is None for each in types):
+        return None
+    lowered = [each.strip().lower() for each in types]
+    if all(each in WHOLE_NUMBERS for each in lowered):
+        return max(lowered, key=WHOLE_NUMBERS.index)
+    if all(each in WHOLE_NUMBERS + FRACTIONS for each in lowered):
+        return "double"
+    if len(set(lowered)) == 1:
+        return lowered[0]
+    return None
 
 
 def type_family(hive_type: str | None) -> str | None:
@@ -300,8 +344,6 @@ def _python_family(value: bool | int | float | decimal.Decimal | str | datetime.
         return "number"
     if isinstance(value, str):
         return "string"
-    if isinstance(value, datetime.datetime):
-        return "timestamp"
     return "date"
 
 

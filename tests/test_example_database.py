@@ -237,3 +237,56 @@ def test_a_tables_name_is_read_whatever_its_case() -> None:
     assert (list(example_database.query("DESCRIBE OPS.Jobs").col_name)[:2]
             == ["job_id", "job_name"])
     assert len(example_database.query("SELECT job_id FROM OPS.jobs")) == 4
+
+
+# --- What sqlglot's executor ran wrong, or not at all (Toolbox 8.2, ticket 03) ---------------
+
+TYPED_OVER = ("SELECT j.job_id, CASE WHEN j.job_id = 3 THEN 1000 ELSE COALESCE(SUM("
+              "r.duration_mins), 0) * 50 END AS cost_cents FROM ops.jobs j LEFT JOIN "
+              "ops.job_runs r ON r.job_id = j.job_id GROUP BY j.job_id")
+
+
+def test_a_group_column_beside_an_aggregate_in_one_output_is_read_right() -> None:
+    # A value typed over a formula, converted, is written so: CASE WHEN its key THEN the value
+    # ELSE the formula. sqlglot's executor gave every row the aggregate's branch.
+    rows = example_database.query(TYPED_OVER)
+    assert list(rows.columns) == ["job_id", "cost_cents"]
+    assert dict(zip(rows.job_id, rows.cost_cents, strict=True)) == {1: 3350, 2: 2650, 3: 1000,
+                                                                    4: 0}
+
+
+def test_it_is_read_right_inside_a_query_that_reads_it_twice() -> None:
+    # As compare_batch reads a table and the query it came from, stacked with UNION ALL.
+    twice = (f"WITH a AS (SELECT jobs.job_id, 1 AS cost_cents FROM ops.jobs AS jobs), b AS "
+             f"({TYPED_OVER}), both_sides AS (SELECT a.job_id, a.cost_cents FROM a UNION ALL "
+             "SELECT b.job_id, b.cost_cents FROM b) SELECT job_id, SUM(cost_cents) AS s FROM "
+             "both_sides GROUP BY job_id")
+    rows = example_database.query(twice)
+    assert dict(zip(rows.job_id, rows.s, strict=True)) == {1: 3351, 2: 2651, 3: 1001, 4: 1}
+
+
+def test_a_rollup_makes_its_total_row() -> None:
+    rows = example_database.query(
+        "SELECT r.dt, COUNT(*) AS runs FROM ops.job_runs r GROUP BY r.dt WITH ROLLUP")
+    assert sorted(zip(rows.dt.fillna("total"), rows.runs)) == [
+        ("2026-09-23", 5), ("2026-09-24", 4), ("total", 9)]
+
+
+def test_a_column_beside_a_rollup_is_in_every_set() -> None:
+    rows = example_database.query(
+        "SELECT r.dt, r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
+        "GROUP BY r.dt, ROLLUP(r.job_id)")
+    totals = rows[rows.job_id.isna()]
+    assert sorted(zip(totals.dt, totals.runs)) == [("2026-09-23", 5), ("2026-09-24", 4)]
+    assert rows.dt.notna().all()
+
+
+def test_grouping_sets_make_each_set_and_grouping_says_which() -> None:
+    rows = example_database.query(
+        "SELECT r.dt, r.job_id, COUNT(*) AS runs, GROUPING(r.job_id) AS by_day FROM "
+        "ops.job_runs r GROUP BY r.dt, r.job_id GROUPING SETS ((r.dt, r.job_id), (r.dt), ())")
+    days = rows[rows.job_id.isna() & rows.dt.notna()]
+    assert sorted(zip(days.dt, days.runs, days.by_day)) == [("2026-09-23", 5, 1),
+                                                           ("2026-09-24", 4, 1)]
+    assert len(rows[rows.job_id.notna()]) == 6 and set(rows[rows.job_id.notna()].by_day) == {0}
+    assert int(rows[rows.dt.isna()].runs.iloc[0]) == 9
