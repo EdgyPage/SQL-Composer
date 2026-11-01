@@ -50,7 +50,7 @@ keeps each write (`tools/workflow_warehouse.py`, the Workflow journeys' too), ho
 originals the task says the user's warehouse holds, so a reply that gives every step's cell,
 create, write and compare included, runs to the end. It is correct when it leaves the same
 files as the reference's cells, each with the same text, under tables/, the Workflow's own
-folder and references/.
+folder and references/, and its warehouse holds the same tables with the same rows.
 
 ## The Excel tasks: Copilot files 11 and 12
 
