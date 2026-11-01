@@ -52,8 +52,8 @@ installs, plus openpyxl, which stands in for Excel's own hands:
 
        .venv/Scripts/python tools/usability_loop.py score W1 2026-11-01-W1-1 --record "<where it stopped, if it did>"
 
-   This copies the run's folder, but for `main/`, into `.scratch/usability-loop/runs/`, and
-   adds a row to `.scratch/usability-loop/results.md`.
+   This copies the run's folder, but for `main/` and any copy of the Toolbox's folder, into
+   `.scratch/usability-loop/runs/`, and adds a row to `.scratch/usability-loop/results.md`.
 
 ## A round
 
