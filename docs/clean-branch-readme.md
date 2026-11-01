@@ -478,7 +478,7 @@ flowchart TD
    warehouse, yours to run).
 
        project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                       staging=STAGING)
+                       rename=RENAME, staging=STAGING)
 
 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 3. Write each answer into its table's Table reference (it changes only files, so

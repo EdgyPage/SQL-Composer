@@ -5,7 +5,7 @@
  "phases": [
   {
    "role": "technical",
-   "job": "Your team's script, from_your_team/weekly.hql, writes three tables of mart, a database you can't write to; it has run, so they hold its rows. Make your own copy of each in your Dev Database, written and checked against its original, then carry them to your Prod Database, written there, with the Toolbox. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+   "job": "Your team's script, from_your_team/weekly.hql, writes three tables of mart, a database you can't write to; it has run, so they hold its rows. Make your own copy of each in your Dev Database, named as its original, such as mart_dev.team_fails for mart.team_fails, written and checked against its original, then carry them to your Prod Database, written there, with the Toolbox. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
   }
  ],
  "hive_ran": [

@@ -92,6 +92,19 @@ def test_a_step_that_ran_and_isnt_done_stops_it(started: Path) -> None:
     assert "Then save the notebook, and run its last cell again" in stopped
 
 
+def test_rename_in_the_names_cell_names_a_copy_in_dev(started: Path) -> None:
+    # Toolbox 8.2, 14: the copy of mart.team_runs named as you name it, not team_runs_mart.
+    (started / "weekly.hql").write_text(
+        "INSERT OVERWRITE TABLE mart.team_runs SELECT r.job_id FROM ops.job_runs r "
+        "WHERE r.dt = '2026-09-24';\n", encoding="utf-8")
+    typed(started, "convert", "NAME = ''", "weekly")
+    typed(started, "convert", "FILES = []", ["weekly.hql"])
+    typed(started, "convert", "RENAME = {}", {"mart.team_runs": "team_runs"})
+    run("convert")
+    assert (started / "tables" / f"{DEV}__team_runs").is_dir()
+    assert not (started / "tables" / f"{DEV}__team_runs_mart").exists()
+
+
 def test_staging_given_as_a_list_is_refused_as_its_cell_refuses_it(started: Path) -> None:
     typed(started, "convert", "NAME = ''", "spare")
     typed(started, "convert", "HIVE = None", QUERY)

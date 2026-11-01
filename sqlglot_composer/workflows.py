@@ -596,7 +596,8 @@ def prod_tables_of(inputs: dict[str, object], seeded: bool = False) -> list[str]
 
 
 def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """project.convert for the batch NAME names, from FILES or HIVE. It reads only, DESCRIBE
+    """project.convert for the batch NAME names, from FILES or HIVE, each copy RENAME names
+    named so. It reads only, DESCRIBE
     through your query, and writes files, so a dry run runs it too."""
     from . import project  # project.py imports this file
 
@@ -606,6 +607,7 @@ def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     report = project.convert(str(inputs.get("NAME")), hive if isinstance(hive, str) else None,
                              files=files, query=calls.query,
                              database=str(inputs.get("DATABASE", "default")),
+                             rename=inputs.get("RENAME") or None,
                              staging=inputs.get("STAGING"))
     return report.lines
 
@@ -835,7 +837,7 @@ CONVERT = Workflow(
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
              ("a dev Table folder per table the scripts write", "a Table reference per table"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,\n"
-             "                staging=STAGING)",
+             "                rename=RENAME, staging=STAGING)",
              every_batch_converted, send=convert_the_batch),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table",), ("each answer in the decisions cell",),
@@ -870,6 +872,10 @@ CONVERT = Workflow(
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
                   "to read FILES"),
             Input("DATABASE", "default", "the database of a table the Hive names without one"),
+            Input("RENAME", {}, "each table's copy in dev named as you name it, by the table's "
+                  'name in the scripts, such as {"mart.team_fails": "team_fails"} for '
+                  "mart_dev.team_fails: left out, it is <table>_<its database>, such as "
+                  "team_fails_mart"),
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept")),

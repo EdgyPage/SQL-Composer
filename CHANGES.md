@@ -51,6 +51,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   ...`, which a Statement can't build, has its columns' types worked out from the Table
   references of the tables it reads, where each was written "string" as a guess for you to
   answer. A column whose type nothing tells, such as one `explode` gives, is still a Decision.
+- **RENAME in the convert notebook.** Its names cell has RENAME, each table's copy in dev named
+  as you name it, such as `{"mart.team_fails": "team_fails"}` for `mart_dev.team_fails`, where
+  you added `rename=` to the call by hand; left out, a copy is `<table>_<its database>`, such as
+  `team_fails_mart`, as before.
 
 ## 8.1
 

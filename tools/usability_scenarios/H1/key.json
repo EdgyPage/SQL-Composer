@@ -1,6 +1,6 @@
 {
  "tables": {
-  "team_prod.team_fails_mart": {
+  "team_prod.team_fails": {
    "columns": [
     "team",
     "fails",
@@ -24,7 +24,7 @@
     ]
    ]
   },
-  "team_prod.job_runs_counted_mart": {
+  "team_prod.job_runs_counted": {
    "columns": [
     "job_id",
     "runs",
@@ -63,7 +63,7 @@
     ]
    ]
   },
-  "team_prod.job_fails_counted_mart": {
+  "team_prod.job_fails_counted": {
    "columns": [
     "job_id",
     "fails",

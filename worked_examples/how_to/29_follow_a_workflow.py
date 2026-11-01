@@ -114,6 +114,10 @@ Its names cell, which you fill in and save first:
     HIVE = None
     # the database of a table the Hive names without one
     DATABASE = 'default'
+    # each table's copy in dev named as you name it, by the table's name in the scripts,
+    # such as {"mart.team_fails": "team_fails"} for mart_dev.team_fails: left out, it is
+    # <table>_<its database>, such as team_fails_mart
+    RENAME = {}
     # each staging table convert names, kept or folded, such as {"ops_reports.failed":
     # "keep"}: left out, a temporary or DROPped one is folded, any other kept
     STAGING = {}
@@ -133,7 +137,7 @@ Its steps:
   warehouse, yours to run).
 
     project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                    staging=STAGING)
+                    rename=RENAME, staging=STAGING)
 
 - 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
 - 3. Write each answer into its table's Table reference (it changes only files, so

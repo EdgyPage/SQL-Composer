@@ -16633,6 +16633,10 @@ FILES = []
 HIVE = None
 # the database of a table the Hive names without one
 DATABASE = &#x27;default&#x27;
+# each table&#x27;s copy in dev named as you name it, by the table&#x27;s name in the scripts,
+# such as {&quot;mart.team_fails&quot;: &quot;team_fails&quot;} for mart_dev.team_fails: left out, it is
+# &lt;table&gt;_&lt;its database&gt;, such as team_fails_mart
+RENAME = {}
 # each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
 # &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
 STAGING = {}</pre>
@@ -16646,7 +16650,7 @@ STAGING = {}</pre>
 <p>Its steps:</p>
 <ul><li>1. Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                staging=STAGING)</pre>
+                rename=RENAME, staging=STAGING)</pre>
 <ul><li>2. Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>3. Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.write_decisions(DECISIONS)</pre>
 <ul><li>4. Create each table in dev (it is a call to the warehouse, yours to run).</li></ul>

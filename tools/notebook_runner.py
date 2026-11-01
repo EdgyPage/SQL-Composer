@@ -5,10 +5,11 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
 
     python run_notebook.py path/to/notebook.ipynb
 
-Each code cell runs in turn, in one namespace, from the notebook's own folder, as a kernel
-started there runs it. What a cell prints is printed under its number, and so is its last line's
-value when that line is an expression, as Jupyter shows it. The first cell that raises stops the
-run, its traceback printed, as Run All stops. The notebook file is left as it was.
+Each code cell runs in turn, in one namespace, from the notebook's own folder and with it
+on sys.path, as a kernel started there runs it. What a cell prints is printed under its
+number, and so is its last line's value when that line is an expression, as Jupyter shows it.
+The first cell that raises stops the run, its traceback printed, as Run All stops. The notebook
+file is left as it was.
 """
 
 from __future__ import annotations
@@ -55,8 +56,12 @@ def run_notebook(notebook: Path) -> int:
     """Run every code cell of `notebook` in turn, from its folder: 0 once every cell ran, 1 at
     the first that raised, its traceback printed."""
     namespace: dict[str, object] = {"__name__": "__main__"}
-    with contextlib.chdir(notebook.resolve().parent):
-        for number, source in enumerate(code_cells(notebook.resolve()), 1):
+    # Resolved before the chdir, so a path from the folder it was run in still names it.
+    notebook = notebook.resolve()
+    # A kernel started in the notebook's folder imports what sits beside it.
+    sys.path.insert(0, str(notebook.parent))
+    with contextlib.chdir(notebook.parent):
+        for number, source in enumerate(code_cells(notebook), 1):
             print(f"--- cell {number}")
             try:
                 run_cell(source, namespace)

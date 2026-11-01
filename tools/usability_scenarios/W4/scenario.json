@@ -5,7 +5,7 @@
  "phases": [
   {
    "role": "technical",
-   "job": "Your work will read two tables of the warehouse, ops.jobs and ops.run_alerts. Start a Project with the Toolbox, and add a Table reference for each: the Key of ops.jobs is job_id, and of ops.run_alerts, alert_id. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+   "job": "Your work will read two tables of the warehouse, ops.jobs and ops.run_alerts. Start a Project with the Toolbox, and add a Table reference for each: the Key of ops.jobs is job_id, and of ops.run_alerts, alert_id. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
   }
  ]
 }

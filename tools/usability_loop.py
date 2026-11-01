@@ -90,7 +90,8 @@ conn.execute(sql) runs Hive that changes something.
 
 import sys
 
-sys.path[:0] = [{main!r}, {loop!r}]
+# After your own folders: a Project's own copy of the Toolbox is the one it imports.
+sys.path += [{main!r}, {loop!r}]
 
 from workflow_warehouse import SavedWarehouse  # noqa: E402
 
@@ -178,7 +179,7 @@ def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
     shutil.copyfile(TOOLS / "notebook_runner.py", run / "run_notebook.py")
     for number, phase in enumerate(chosen.phases, 1):
         (run / "_loop" / f"phase_{number}.md").write_text(
-            phase_message(phase, run, python), encoding="utf-8")
+            phase_message(phase, run, python, bool(chosen.given)), encoding="utf-8")
     write_questions(run, [])
     return run
 
@@ -215,6 +216,14 @@ def bring_in_the_project(chosen: Scenario, run: Path) -> None:
         usability_scenario_files.reference_end(chosen.start_from, run)
     else:
         shutil.copytree(ROOT / chosen.project, root)
+    if not (root / "sqlglot_composer").is_dir():
+        # As a Project the user made holds it: the README has them copy it in. A test's run
+        # has no main/, so dev's own copy stands in.
+        toolbox = run / "main" / "sqlglot_composer"
+        if not toolbox.is_dir():
+            toolbox = ROOT / "sqlglot_composer"
+        shutil.copytree(toolbox, root / "sqlglot_composer",
+                        ignore=shutil.ignore_patterns("__pycache__"))
     warehouse_py = root / "warehouse.py"
     text = warehouse_py.read_text(encoding="utf-8")
     if EXAMPLE_CONN not in text:
@@ -222,13 +231,18 @@ def bring_in_the_project(chosen: Scenario, run: Path) -> None:
     warehouse_py.write_text(text.replace(EXAMPLE_CONN, TEAMS_CONN), encoding="utf-8")
 
 
-def what_you_have(phase: Phase, run: Path, python: Path) -> list[str]:
-    """The lines of a phase's message saying what the agent has, by its role."""
+def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> list[str]:
+    """The lines of a phase's message saying what the agent has, by its role: `given`, when
+    the team gave files, names `from_your_team/`."""
+    folders = ["Its `main/` folder is the Toolbox as you downloaded it, with its README "
+               "(`main/.github/README.md`) and its guides."]
+    if given:
+        folders.append("`from_your_team/` holds what your team gave you.")
+    if (run / "my_project").is_dir():
+        folders.append("`my_project/` is the Project you have already.")
     lines = [
-        f"- Your work folder, {run}. Work only inside it. Its `main/` folder is the Toolbox as "
-        "you downloaded it, with its README (`main/.github/README.md`) and its guides; "
-        "`from_your_team/` holds what your team gave you. Keep what you make in `my_work/`. "
-        "Leave `_loop/` alone: it isn't yours.",
+        f"- Your work folder, {run}. Work only inside it. " + " ".join(folders) + " Keep what "
+        "you make in `my_work/`. Leave `_loop/` alone: it isn't yours.",
     ]
     if phase.role == "non_technical":
         lines.append(f"- Excel can't open here, so open, change and save a workbook with "
@@ -238,14 +252,16 @@ def what_you_have(phase: Phase, run: Path, python: Path) -> list[str]:
     lines += [
         f"- Python: {python}. Run scripts with it.",
         "- `team_connection.py`, in your work folder: your team's warehouse connection, "
-        "`conn`. Import it as `from team_connection import conn` wherever you need it.",
+        "`conn`. Import it as `from team_connection import conn`; from a folder below your "
+        f"work folder, first put the work folder on the path: `import sys; "
+        f"sys.path.append(r\"{run}\")`.",
         "- Jupyter can't open here, so to run a notebook's cells top to bottom, run "
         f"`{python} {run / 'run_notebook.py'} path/to/notebook.ipynb`.",
     ]
     return lines
 
 
-def phase_message(phase: Phase, run: Path, python: Path) -> str:
+def phase_message(phase: Phase, run: Path, python: Path, given: bool = True) -> str:
     """What an agent is told for one phase: who it is, its job, and what it has."""
     return "\n".join([
         ROLE_TEXT[phase.role],
@@ -255,14 +271,16 @@ def phase_message(phase: Phase, run: Path, python: Path) -> str:
         phase.job,
         "",
         "What you have:",
-        *what_you_have(phase, run, python),
+        *what_you_have(phase, run, python, given),
         "",
         "How to work:",
         "1. Find what you need in the files you have, and do what they say, in order.",
         "2. If you are stuck, you may ask Copilot, the help your company gives you: end your "
-        "turn with one line `QUESTION: ` and your question. You get Copilot's answer as your "
+        "turn with one line `QUESTION: ` and your question, then, for each file you would "
+        "attach in the chat, a line `ATTACH: ` and its path. You get Copilot's answer as your "
         f"next message. You may ask at most {counted(MOST_QUESTIONS, 'question')}.",
-        "3. When the job is done, end your turn with one line `DONE: ` and what you did, or, "
+        "3. Run each command in the foreground and wait for it to finish before you go on.",
+        "4. When the job is done, end your turn with one line `DONE: ` and what you did, or, "
         "if you can't finish it, `STUCK: ` and where you stopped.",
     ]) + "\n"
 

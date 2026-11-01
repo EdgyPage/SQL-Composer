@@ -50,9 +50,10 @@ def location(table: str) -> str:
     return f"/data/team/{database}.db/{name}"
 
 
-DATABASES_SAID = (f"Your Dev Database is {DEV}, and your Prod Database is {PROD}. Each table's "
-                  "folder is /data/team/<its database>.db/<its name>, such as "
-                  "/data/team/mart_dev.db/weekly.")
+DATABASES_SAID = (f"Your Dev Database is {DEV}, and your Prod Database is {PROD}. Each new "
+                  "table you make goes in the folder /data/team/<its database>.db/<its name>, "
+                  "such as /data/team/mart_dev.db/weekly; a table someone else made stays "
+                  "where it is.")
 
 # --- The Hive the scenarios give -------------------------------------------------------------
 
@@ -269,8 +270,9 @@ def costs_workbook() -> openpyxl.Workbook:
         costs.append([job, TYPED_OVER.get(job, formula)])
     add_sheet(workbook, "Job costs", ["job_id", "cost_cents"], costs,
               "Each job's minutes times the rate; job 3's was typed in by hand, as agreed.")
-    teams = [[team, f'=COUNTIFS(Runs!$B:$B,"<>",Runs!$B:$B,'
-                    f'SUMPRODUCT((Jobs!$C$2:$C$5=A{line})*Jobs!$A$2:$A$5))']
+    # Each of the team's jobs' runs, counted: the runs whose job's team is this one.
+    teams = [[team, f"=SUMPRODUCT((Jobs!$C$2:$C$5=A{line})"
+                    "*COUNTIF(Runs!$B:$B,Jobs!$A$2:$A$5))"]
              for line, team in enumerate(("data", "finance", "web"), 2)]
     add_sheet(workbook, "Team runs", ["team", "runs"], teams, "How many runs each team had.")
     return workbook
@@ -370,7 +372,7 @@ def scenarios() -> dict[str, Built]:
 
 def workflow_scenarios() -> dict[str, Built]:
     """Each Workflow scenario, by its id."""
-    team_fails = f"{DEV}.team_fails_mart"
+    team_fails = f"{DEV}.team_fails"
     return {
         "W1": Built({
             "id": "W1", "split": "dev", "title": "convert one script with a CTE",
@@ -378,14 +380,15 @@ def workflow_scenarios() -> dict[str, Built]:
                 "Your team's script, from_your_team/weekly_fails.hql, writes mart.team_fails, "
                 "a table in a database you can't write to; it has run, so mart.team_fails "
                 "holds its rows. Make your own copy of that table in your Dev Database, "
-                "written there and checked against the original, with the Toolbox. "
+                f"{team_fails}, written there and checked against the original, with the "
+                "Toolbox. "
                 f"{DATABASES_SAID}")],
             "hive_ran": ["weekly_fails.hql"],
             "given": {"from_your_team/weekly_fails.hql": "weekly_fails.hql"}},
             {"weekly_fails.hql": ONE_SCRIPT},
             key=lambda: {"tables": {team_fails: table_key(
                 [ONE_SCRIPT], "SELECT team, fails, dt FROM mart.team_fails")},
-                "files": [{"path": COMPARED.format(stem="mart_dev__team_fails_mart"),
+                "files": [{"path": COMPARED.format(stem="mart_dev__team_fails"),
                            "holds": ["Passed"]}]}),
         "W4": Built({
             "id": "W4", "split": "dev", "title": "Table references",
@@ -445,17 +448,19 @@ def held_out_workflow_scenarios() -> dict[str, Built]:
             "phases": [technical(
                 "Your team's script, from_your_team/weekly.hql, writes three tables of mart, a "
                 "database you can't write to; it has run, so they hold its rows. Make your own "
-                "copy of each in your Dev Database, written and checked against its original, "
-                "then carry them to your Prod Database, written there, with the Toolbox. "
+                "copy of each in your Dev Database, named as its original, such as "
+                f"{DEV}.team_fails for mart.team_fails, written and checked against its "
+                "original, then carry them to your Prod Database, written there, with the "
+                "Toolbox. "
                 f"{DATABASES_SAID}")],
             "hive_ran": ["weekly.hql"], "given": {"from_your_team/weekly.hql": "weekly.hql"}},
             {"weekly.hql": LONG_SCRIPT},
             key=lambda: {"tables": {
-                f"{PROD}.team_fails_mart": table_key(
+                f"{PROD}.team_fails": table_key(
                     [LONG_SCRIPT], "SELECT team, fails, dt FROM mart.team_fails"),
-                f"{PROD}.job_runs_counted_mart": table_key(
+                f"{PROD}.job_runs_counted": table_key(
                     [LONG_SCRIPT], "SELECT job_id, runs, dt FROM mart.job_runs_counted"),
-                f"{PROD}.job_fails_counted_mart": table_key(
+                f"{PROD}.job_fails_counted": table_key(
                     [LONG_SCRIPT], "SELECT job_id, fails, dt FROM mart.job_fails_counted")}}),
         "H2": Built({
             "id": "H2", "split": "held_out", "title": "upgrade a Project left by 8.0",
@@ -576,9 +581,9 @@ def reference_w1(root: Path, warehouse: SavedWarehouse) -> None:
     folder = root / "admin" / "workflows" / "convert"
     shutil.copyfile(root.parent / "from_your_team" / "weekly_fails.hql",
                     folder / "weekly_fails.hql")
-    table = f"{DEV}.team_fails_mart"
+    table = f"{DEV}.team_fails"
     type_into(root, "convert", NAME="weekly", FILES=["weekly_fails.hql"],
-              DECISIONS=where_each_goes([table]))
+              RENAME={"mart.team_fails": "team_fails"}, DECISIONS=where_each_goes([table]))
     finish("convert", warehouse)
 
 
@@ -630,9 +635,10 @@ def reference_w5(root: Path, warehouse: SavedWarehouse) -> None:
 def reference_h1(root: Path, warehouse: SavedWarehouse) -> None:
     shutil.copyfile(root.parent / "from_your_team" / "weekly.hql",
                     root / "admin" / "workflows" / "convert" / "weekly.hql")
-    tables = [f"{DEV}.team_fails_mart", f"{DEV}.job_runs_counted_mart",
-              f"{DEV}.job_fails_counted_mart"]
+    names = ["team_fails", "job_runs_counted", "job_fails_counted"]
+    tables = [f"{DEV}.{name}" for name in names]
     type_into(root, "convert", NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+              RENAME={f"mart.{name}": name for name in names},
               DECISIONS=where_each_goes(tables))
     finish("convert", warehouse)
     prods = [table.replace(f"{DEV}.", f"{PROD}.") for table in tables]
