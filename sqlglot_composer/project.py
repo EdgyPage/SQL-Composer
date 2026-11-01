@@ -4076,8 +4076,9 @@ def _check_conversion_name(name: object, call: str) -> None:
 
 
 def _hive_given(call: str, hive: object, file: object) -> str:
-    """The Hive to convert: `hive` as given, or the text of `file`, a path from the folder
-    you're working in; refused when neither or both are given, or it isn't text."""
+    """The Hive to convert: `hive` from its first line of Hive, ending on one line break, or
+    the text of `file`, a path from the folder you're working in; refused when neither or both
+    are given, or it isn't text."""
     if (hive is None) == (file is None):
         given = "no Hive"
         if hive is not None:

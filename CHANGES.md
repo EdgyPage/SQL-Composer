@@ -42,9 +42,9 @@ those people found unsaid.
   formula and Power Query step becomes. Copilot no longer writes Toolbox code for a workbook:
   the convert Workflow writes it from the Hive, checked. Files 03, 04 and 05 are no longer
   loaded with them.
-- **Hive pasted any way converts the same.** `project.convert` keeps Hive passed as text from
-  its first line to its last, ending on one line break, so Hive pasted after `HIVE = """` and
-  a line break gives the same batch, its line numbers yours.
+- **Hive pasted any way converts the same.** `project.convert` and `project.scan_hive` keep
+  Hive passed as text from its first line to its last, ending on one line break, so Hive pasted
+  after `HIVE = """` and a line break gives the same batch and report, its line numbers yours.
 - **Each table's Hive in a file beside its notebook.** `export_hive()`, in a new cell of each
   Table notebook beside its lineage cell, writes `<db>__<table>.hql` beside the notebook: the
   Hive its logic sends, `create()`, any `seed()`, the table's Session settings, then `write()`,
