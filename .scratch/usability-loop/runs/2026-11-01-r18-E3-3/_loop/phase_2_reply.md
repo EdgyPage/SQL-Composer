@@ -1,0 +1,1 @@
+DONE: mart_dev.daily_runs created and written from Copilot's daily query (<database> as ops) by the convert Workflow at /data/team/mart_dev.db/daily_runs; compare passed; rows match the workbook; the Total Row final left out; not promoted.

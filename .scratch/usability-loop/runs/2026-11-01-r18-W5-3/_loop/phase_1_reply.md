@@ -1,0 +1,1 @@
+DONE: Removed partition dt = '2026-09-24' from mart_dev.runs_per_day by the change_a_saved_table notebook; SHOW PARTITIONS before and after; project.check() clean. Friction: step 2's Check first names no call; --cells numbers code cells, not steps.

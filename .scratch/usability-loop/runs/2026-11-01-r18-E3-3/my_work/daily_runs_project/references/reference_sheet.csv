@@ -1,0 +1,7 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+ops.job_runs,run_id,bigint,,yes,,,2026-11-01 14:05:08
+ops.job_runs,job_id,bigint,,,,,2026-11-01 14:05:08
+ops.job_runs,status,string,,,,"SUCCESS / FAILED / TEST, NULL while running",2026-11-01 14:05:08
+ops.job_runs,duration_mins,int,,,,,2026-11-01 14:05:08
+ops.job_runs,avg_retry_secs,double,,,,,2026-11-01 14:05:08
+ops.job_runs,dt,string,yes,,,,2026-11-01 14:05:08

@@ -1,0 +1,1 @@
+DONE: Made my_work/daily_runs_formula.xlsx: job_runs Table with a kept formula column replacing the CleanRuns Power Query; summary Table daily_runs by dt with COUNTIFS/SUMIFS on kept = 1 and a Total Row; Parameters and Keys empty. No Copilot question.

@@ -1,0 +1,19 @@
+{
+ "files": {
+  "admin/workflows/convert/daily_runs/batch.md": "27ea3e546e2d4ca800a1628914d6ed3af4cab87be0b40584c3fbc4c6caa0120a",
+  "admin/workflows/convert/daily_runs/scripts/daily_runs.hql": "bcf6272ef0370cac46c8759788ce98fc371d5dc40fd217f361a80dcb54c48ede",
+  "references/mart_dev__daily_runs.py": "28aa98ce350c68c2656439cffd371c90be095a6d4bac18d2c10eb92a8b5af2b4",
+  "tables/mart_dev__daily_runs/conversion/checklist.md": "b890986d09449d9546e57ace9a7c282f05f08975fa3b5f839ce82b3365c41460",
+  "tables/mart_dev__daily_runs/conversion/in_dev.hql": "293da8ab9d724583c34567eb7111a05215e1bed4101c6d4c348e77e3032ffc2b",
+  "tables/mart_dev__daily_runs/conversion/scan.md": "026b27a801b699bdd6db0856b67c38d2c3b2fa952d7c1610fde8ba6f3bcafd5b",
+  "tables/mart_dev__daily_runs/conversion/statement.hql": "fab3820dd8be94e9cb09f2edd6f87fdd2de213d2e8b5c3a70806632f89dbfadb",
+  "tables/mart_dev__daily_runs/mart_dev__daily_runs.ipynb": "cabb0f7199bf534a79e923f5fe6904b6fab53aeb0578dbce0ee138112bdc3176"
+ },
+ "originals": {
+  "mart_dev.daily_runs": null
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.daily_runs"
+ ]
+}

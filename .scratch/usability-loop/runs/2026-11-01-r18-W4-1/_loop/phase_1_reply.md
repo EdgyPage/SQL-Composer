@@ -1,0 +1,1 @@
+DONE: Started a 8.2 Project at my_work/ops_project; references for ops.jobs (job_id) and ops.run_alerts (alert_id) by the references Workflow; DEV/PROD set; check_key holds (where= on run_alerts); project.check() clean.

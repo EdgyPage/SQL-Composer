@@ -1,0 +1,1 @@
+DONE: Made mart_dev.runs_per_day (job_id, runs, dt; partitioned by dt) by the new_table Workflow with its own logic at /data/team/mart_dev.db/runs_per_day, written to the Dev Database; preview matches a plain GROUP BY; project.check() clean.

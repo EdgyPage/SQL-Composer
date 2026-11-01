@@ -1,0 +1,4 @@
+[
+ "Convert this workbook into Hive.",
+ "Your reply wrote daily_runs' Total as a row of NULLs, but my daily_runs Table has a real Total Row (sum on runs and total_duration_mins). Please redo it: daily_runs with its two dated rows only, and a separate daily_runs (Total Row) final, as file 12 says."
+]

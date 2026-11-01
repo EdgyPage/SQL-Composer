@@ -1,0 +1,1 @@
+DONE: Saved my_work/costs_formula.xlsx, steps 1 to 11: Parameters cents_a_minute = 50; Keys job_costs/job_id for job 3's typed 1000; Tables jobs, job_runs (team by XLOOKUP), job_costs (SUMIFS times the Parameter, job 3 typed), team_runs (COUNTIFS). Step 12 (Copilot) left for the team.

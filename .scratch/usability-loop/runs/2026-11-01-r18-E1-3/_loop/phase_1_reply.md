@@ -1,0 +1,1 @@
+Workbook saved at my_work/run_report_formula.xlsx, Steps 1 to 11 done: job_runs pasted as values (Table job_runs, note row above), Report as Table job_report with COUNTIFS/AVERAGEIFS, FAILED inline, Parameters and Keys empty, no Total Row. It took step 12 (Copilot) as its own and stopped there; its QUESTION lines never reached the loop, so phase 2 starts from the saved workbook.

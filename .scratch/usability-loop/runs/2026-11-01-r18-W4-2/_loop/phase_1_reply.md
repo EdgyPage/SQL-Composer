@@ -1,0 +1,1 @@
+DONE: Started a Project at my_work/my_project; references for ops.jobs (job_id) and ops.run_alerts (alert_id) by the references Workflow; DEV/PROD set; check_key holds on both (run_alerts per Partition); one read on each table.

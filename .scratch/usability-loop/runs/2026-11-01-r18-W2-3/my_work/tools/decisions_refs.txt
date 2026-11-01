@@ -1,0 +1,2 @@
+DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}  # the Key: run_id names one run
+# of the warehouse table; checked below by project.check() and check_key

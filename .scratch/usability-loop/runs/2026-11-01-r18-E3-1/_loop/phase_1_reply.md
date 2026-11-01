@@ -1,0 +1,1 @@
+DONE: Made my_work/daily_runs_formula.xlsx: Parameters excluded_status = TEST; Table job_runs with a kept formula column (status not blank and not TEST) in place of the CleanRuns Power Query; summary Table daily_runs by dt with COUNTIFS/SUMIFS on kept = 1 and a Total Row; Keys empty. Step 12 (Copilot) left.

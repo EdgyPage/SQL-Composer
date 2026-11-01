@@ -1,0 +1,1 @@
+DONE: Built mart_dev.team_fails with the convert Workflow (batch weekly_fails, RENAME to team_fails) at /data/team/mart_dev.db/team_fails; compared on both partitions plus a full-row check, all equal; nothing promoted.

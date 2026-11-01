@@ -1,0 +1,1 @@
+DONE: Made mart_dev.team_fails from weekly_fails.hql by the convert Workflow (RENAME to team_fails) at /data/team/mart_dev.db/team_fails; compared on both Partitions, equal; original only read; not promoted.

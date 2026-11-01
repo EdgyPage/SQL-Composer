@@ -1,0 +1,1 @@
+DONE: Saved my_work/run_report_formula.xlsx per the Steps sheet steps 1 to 11: job_runs pasted as values (Table job_runs, note row above), report rebuilt as Table report with COUNTIFS/AVERAGEIFS over job_runs, FAILED kept inline, Parameters and Keys empty, no Total Row. Step 12 (Copilot) left for the data team.

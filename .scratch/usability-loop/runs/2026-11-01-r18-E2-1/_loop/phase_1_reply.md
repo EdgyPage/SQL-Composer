@@ -1,0 +1,1 @@
+DONE: Made my_work/team_report_formula.xlsx, steps 1 to 11: Tables jobs, job_runs (team by XLOOKUP) and summary teams with COUNTIFS/SUMIFS; Parameters and Keys empty; no Total Row. Step 12 (Copilot) left for the converter.

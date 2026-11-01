@@ -1,0 +1,3 @@
+[
+ "Convert this workbook into Hive. Its jobs and job_runs Tables are copied from ops.jobs and ops.job_runs; the teams summary should become team_report."
+]

@@ -1,0 +1,1 @@
+DONE: mart_dev.daily_runs written at /data/team/mart_dev.db/daily_runs from Copilot's Hive by the convert Workflow; compare passed; rows match the workbook's Daily summary; Copilot's IF(AND(a, b), 1, 0) rewritten as IF(a AND b, 1, 0) after the Toolbox refused it; the Total Row block not saved; not promoted.

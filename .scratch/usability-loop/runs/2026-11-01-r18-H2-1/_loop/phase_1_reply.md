@@ -1,0 +1,1 @@
+DONE: Brought my_project up to 8.2 with project.upgrade() (8.0 to 8.2, nothing by hand), ran each Table notebook's export_hive cell, set DEV = mart_dev and PROD = team_prod; project.check() clean, no UPGRADE mark left.

@@ -1,0 +1,1 @@
+DONE: mart_dev.daily_runs made and written at /data/team/mart_dev.db/daily_runs from Copilot's second reply's daily_runs block (<database> as ops) by the new_table Workflow; compare passed; rows match the workbook's Daily sheet; the Total Row final left out; not promoted.

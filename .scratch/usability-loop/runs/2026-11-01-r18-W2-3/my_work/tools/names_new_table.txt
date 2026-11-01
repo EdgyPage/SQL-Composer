@@ -1,0 +1,2 @@
+TABLES = ["mart_dev.runs_per_day"]  # the new tables, by their names in the warehouse
+QUERIES = {}  # no query: the logic is written by hand in the Table notebook

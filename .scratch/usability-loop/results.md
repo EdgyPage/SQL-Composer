@@ -267,3 +267,91 @@ asked Copilot once, for the conversion, and each table's rows came out right by 
   job_id UNION ALL ...) c`, and convert keeps each such query whole as an Unchecked statement,
   "a SELECT with no FROM": ticket 15 lifts only a CTE of rows typed in. A Toolbox gap, not a
   docs one, so it is ticket 16, fixed for 8.2 without running the round again.
+| 2026-11-01 | W5 | dev | 2026-11-01-r18-W5-1 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; Edit refuses .ipynb, filled by a script; checked partitions before and after |
+| 2026-11-01 | W5 | dev | 2026-11-01-r18-W5-3 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: step 2's Check first gives no call; --cells counts code cells, not steps |
+| 2026-11-01 | W5 | dev | 2026-11-01-r18-W5-2 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: --cells 4 alone fails (fresh namespace), unsaid in the Workflow text |
+| 2026-11-01 | W4 | dev | 2026-11-01-r18-W4-1 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: how-to's check_key step doesn't say a partitioned table needs where=; the Workflow's Done when covers the Key, not the other TODO lines |
+| 2026-11-01 | W4 | dev | 2026-11-01-r18-W4-3 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; check_key on run_alerts with reads_all_partitions=True where where= would do; found: nothing says how warehouse.py imports a connection outside the Project |
+| 2026-11-01 | W1 | dev | 2026-11-01-r18-W1-2 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; RENAME used; second Partition compared by hand; found: the Workflow's compare step covers the latest Partition only and a rerun overwrites compare.md |
+| 2026-11-01 | W1 | dev | 2026-11-01-r18-W1-3 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; RENAME used; second Partition compared by hand; found: README's convert section names neither RENAME's default nor the one-Partition compare |
+| 2026-11-01 | W4 | dev | 2026-11-01-r18-W4-2 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: nothing says how to find a Partition value for check_key (last_n_days(30) found none, 365 did); warehouse.py's docstring says it imports none of your files |
+| 2026-11-01 | W3 | dev | 2026-11-01-r18-W3-2 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; new_table with QUERIES; kept the CONVERSION reads_all_partitions; found: check_references prints a check_key call with a literal <a value>; --cells needs 1-3 each time |
+| 2026-11-01 | W3 | dev | 2026-11-01-r18-W3-1 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: the CONVERSION note stays in project.check() after compare passes; the Key comment still reads as open once accepted; new_table's convert batch folder confuses |
+| 2026-11-01 | W3 | dev | 2026-11-01-r18-W3-3 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; wrote a backup to /tmp/x outside its folder and removed it; found: --cells must include the imports and names cells, unsaid; the convert batch moving to finished/ surprised it |
+| 2026-11-01 | W1 | dev | 2026-11-01-r18-W1-1 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; RENAME used; second Partition compared by hand; found: README's check_key step has no where= for a partitioned table; compare with partition= overwrites compare.md |
+| 2026-11-01 | W2 | dev | 2026-11-01-r18-W2-2 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: --cells needs the names cell; reference_from_logic leaves TODO lines step 3 doesn't name; the Table notebook's text cell keeps its TODO wording |
+| 2026-11-01 | W2 | dev | 2026-11-01-r18-W2-1 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; Project in my_work itself; found: README says --cells runs as in Jupyter, but the imports cell must be named; the Table notebook's text keeps its Template wording |
+| 2026-11-01 | W2 | dev | 2026-11-01-r18-W2-3 | pass | 0 | ticket 18 rerun, main bf383aa; 0 questions; found: Run All of the references notebook after a Decision refuses at add_references (the file is there already) where a step done should be skipped |
+| 2026-11-01 | H2 | held_out | 2026-11-01-r18-H2-1 | pass | 0 | held-out, ticket 18 rerun, main bf383aa; 0 questions; upgraded 8.0 to 8.2, export_hive run in each Table notebook; left the existing tables' placeholder locations to the user |
+| 2026-11-01 | H1 | held_out | 2026-11-01-r18-H1-1 | pass | 0 | held-out, ticket 18 rerun, main bf383aa; 0 questions; RENAME used, temp table folded, both Partitions compared, promoted; found: warehouse.py's docstring out of date once conn imports a team file |
+| 2026-11-01 | E1 | dev | 2026-11-01-r18-E1-1 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion; route named 15, 11, 12); NAME sets the table where the file is report.hql |
+| 2026-11-01 | E1 | dev | 2026-11-01-r18-E1-3 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); phase 1 took step 12 as its own and stopped there, its question lost, so the converter asked |
+| 2026-11-01 | E1 | dev | 2026-11-01-r18-E1-2 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); found: batch.md lists the same CONVERSION note three times |
+| 2026-11-01 | E2 | dev | 2026-11-01-r18-E2-3 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); Copilot made job_runs a step with its team a LEFT JOIN into jobs |
+| 2026-11-01 | E2 | dev | 2026-11-01-r18-E2-1 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); ran the convert cell twice by mistake, nothing lost |
+| 2026-11-01 | E2 | dev | 2026-11-01-r18-E2-2 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); reran the convert cell once, its edits kept |
+| 2026-11-01 | E3 | dev | 2026-11-01-r18-E3-1 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion); found: Copilot wrote Excel's AND() as IF(AND(a, b), 1, 0), which Hive has no function for; the converter rewrote it as a AND b |
+| 2026-11-01 | E4 | held_out | 2026-11-01-r18-E4-1 | pass | 1 | held-out, ticket 18 rerun, main bf383aa; 1 question (the conversion); Parameters, the typed-over value and Keys used; both tables right by hand |
+| 2026-11-01 | E3 | dev | 2026-11-01-r18-E3-3 | pass | 1 | ticket 18 rerun, main bf383aa; 1 question (the conversion; answered again once the loop showed the Total Row as one); left the Total Row final out; found: nothing says whether a Total Row final is saved as a table |
+| 2026-11-01 | E3 | dev | 2026-11-01-r18-E3-2 | pass | 2 | ticket 18 rerun, main bf383aa; 2 questions, the second only because the loop showed the Total Row as a typed row (fixed in tools/usability_loop.py); took new_table with QUERIES; listed _loop/ once by mistake |
+
+## The ticket 18 round, 2026-11-01: every doc rewritten to Microsoft's instruction rules
+
+Main's tree built from bf383aa, ticket 18's rewrite: Copilot files 00 to 15, the README
+template, the how-tos, the Steps sheet and the notebooks' text cells. Every dev scenario three
+times and every held-out one once, fresh Haiku agents for each phase, Copilot's two hops on
+Haiku, the Excel answer loading files 15, 11 and 12. Nothing in the docs was changed during the
+round; the loop's own view of an attached workbook was (below). The 27 rows are just above.
+
+| scenario | split | passed | questions | round three |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 3/3, 0 |
+| W2 | dev | 3/3 | 0 | 3/3, 0 |
+| W3 | dev | 3/3 | 0 | 3/3, 0 |
+| W4 | dev | 3/3 | 0 | 3/3, 0 |
+| W5 | dev | 3/3 | 0 | 3/3, 0 |
+| E1 | dev | 3/3 | 1 each | 3/3, 1 each |
+| E2 | dev | 3/3 | 1 each | 3/3, 1 each |
+| E3 | dev | 3/3 | 1, 2, 1 | 3/3, 1 each |
+| H1 | held out | 1/1 | 0 | held-out round: 1/1, 0 |
+| H2 | held out | 1/1 | 0 | held-out round: 1/1, 0 |
+| E4 | held out | 1/1 | 1 | held-out round: 1/1, 1 |
+
+The rewrite kept every scenario passing, its questions the one conversion each Excel run asks
+for. E3-2's second question came from the loop, not the docs: `workbook_text` showed an
+attached Table's Total Row as one more typed row, so Copilot wrote a `Total` row of NULLs and
+the converter asked again. The loop now names each Table row as the Excel evaluation does
+(Headers, Row n, Total Row), tested by
+`test_an_attached_tables_total_row_is_named_as_the_excel_eval_names_it`; E3-3's answer was made
+again with it before reaching its converter. Every Excel route answered files 15, 11 and 12,
+though the route message's reply asks for one file (the proxies said so).
+
+### Found in the ticket 18 round, none failing a run
+
+**Copilot files**
+- E3-1: Copilot wrote Excel's `AND(a, b)` inside an IF as `IF(AND(a, b), 1, 0)`, which Hive has
+  no function for; the converter rewrote it `IF(a AND b, 1, 0)`. File 11 should say AND() and
+  OR() become the operators. The convert's refusal ("its Hive writes no table, and holds no
+  query alone to save") named the wrong cause.
+- E3-2, E3-3: nothing says whether a Total Row's final is saved as a table too; both converters
+  left it out, as the job named one table.
+- The route message's reply format asks for one file where the Excel path loads three.
+
+**Docs**
+- `run_notebook.py --cells` runs each call fresh, so the imports and names cells go with every
+  step; the README says "as you would one at a time in Jupyter" (W2-1, W2-2, W3-2, W3-3, W5-2).
+- `check_key` on a partitioned table needs `where=`, unsaid in the references how-to's step and
+  the README's step 5; `check_references` prints a call with a literal `<a value>` (W1-1, W3-2,
+  W4-1, W4-2); one run took `reads_all_partitions=True` instead (W4-3).
+- The convert compare checks the latest Partition, and a compare with `partition=` overwrites
+  compare.md (W1-1, W1-2, W1-3).
+- How warehouse.py imports a connection kept outside the Project, and its docstring saying it
+  imports none of your files (W1-1, W4-2, W4-3, H1).
+- Running the references notebook top to bottom after answering a Key refuses at
+  add_references, "the file is there already", where a step done should be skipped (W2-3).
+- A Table notebook's text keeps its Template wording once filled in; a proposed Key's comment
+  still reads as open once accepted; the CONVERSION note stays after the compare passes (W2-1,
+  W3-1).
+- Phase 1 of E1-3 took the Steps sheet's step 12, Copilot, as its own job and stopped there;
+  E3-3 found no fallback when a Power Query can't be added; examples 01 and 02 show no source
+  line above a Table's header, which step 2 asks for (E1-1, E2-2).

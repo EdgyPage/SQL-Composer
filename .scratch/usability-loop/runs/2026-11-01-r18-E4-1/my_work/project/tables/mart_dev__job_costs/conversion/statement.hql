@@ -1,0 +1,10 @@
+WITH job_runs AS (
+  SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, r.dt, j.team
+  FROM ops.job_runs r
+  LEFT JOIN ops.jobs j ON r.job_id = j.job_id
+)
+SELECT j.job_id,
+  CASE WHEN j.job_id = 3 THEN 1000 ELSE COALESCE(c.total, 0) * 50 END AS cost_cents
+FROM (SELECT 1 AS job_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4) j
+LEFT JOIN (SELECT job_id, SUM(duration_mins) AS total FROM job_runs GROUP BY job_id) c
+  ON j.job_id = c.job_id;

@@ -1,0 +1,1 @@
+DONE: mart_dev.job_run_report built by the convert Workflow from Copilot's Hive (report.hql, NAME job_run_report), written in mart_dev at /data/team/mart_dev.db/job_run_report, compared: passed, every row; rows checked by hand; not promoted.

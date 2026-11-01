@@ -1,0 +1,5 @@
+time,kind,tables,script
+2026-11-01 14:05:09,create,mart_dev.job_costs,a notebook
+2026-11-01 14:05:09,create,mart_dev.team_runs,a notebook
+2026-11-01 14:05:09,write,mart_dev.job_costs,a notebook
+2026-11-01 14:05:09,write,mart_dev.team_runs,a notebook

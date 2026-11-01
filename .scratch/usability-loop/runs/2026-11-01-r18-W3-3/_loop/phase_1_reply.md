@@ -1,0 +1,1 @@
+DONE: Made mart_dev.failed_runs from from_your_team/failed_runs.hql by the new_table Workflow at /data/team/mart_dev.db/failed_runs; compare passed, 2 rows each, Key job_id holds; project.check() names only a note.

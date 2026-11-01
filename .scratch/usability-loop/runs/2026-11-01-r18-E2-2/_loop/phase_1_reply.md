@@ -1,0 +1,1 @@
+DONE: Filled in the Formula workbook for the Teams sheet, saved as my_work/team_report_formula.xlsx (steps 1 to 11 and the check list): Tables job_runs (team by XLOOKUP into jobs), jobs, and summary teams (data, finance, web) with COUNTIFS/SUMIFS; Parameters and Keys empty; no Total Row. Step 12 (Copilot) left for the data team.

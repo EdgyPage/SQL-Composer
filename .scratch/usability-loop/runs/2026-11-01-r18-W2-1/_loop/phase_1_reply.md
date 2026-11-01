@@ -1,0 +1,1 @@
+DONE: Built and wrote mart_dev.runs_per_day (job_id, runs, dt; Key job_id, dt) by the new_table Workflow with its own logic at /data/team/mart_dev.db/runs_per_day; 6 rows read back, checked by hand; project.check() clean.

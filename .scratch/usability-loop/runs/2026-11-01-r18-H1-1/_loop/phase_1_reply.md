@@ -1,0 +1,1 @@
+DONE: Converted weekly.hql's three mart tables into mart_dev (RENAME to bare names; the temp table folded), compared on both Partitions, and promoted to team_prod at /data/team/team_prod.db/<name>; originals only read; project.check() names no step.

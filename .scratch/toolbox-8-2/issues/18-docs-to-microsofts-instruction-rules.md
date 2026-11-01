@@ -1,7 +1,7 @@
 # Every doc to Microsoft's instruction rules, then every Workflow tested again
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 17
 Size: L
 
@@ -45,7 +45,7 @@ wishes.
 - The beginner reader reads the rewritten README template and Copilot files; its report is
   linked here.
 
-## Answer, so far (the usability loop rerun follows this commit)
+## Answer
 
 Six agents, each in a worktree, rewrote a set of documents to the rules; their sources were
 taken onto dev and every output regenerated: Copilot files 01 to 05, 06 to 10, 00, 13, 14 and
@@ -74,6 +74,14 @@ proxy --tasks`; the others one objective each), are in `.scratch/copilot-eval/re
   held-out 82% once, its failures then written into files 15 and 12, so the 97% after is a
   second look, marked so. The Excel scorer gained `reads`: an answer typing in a Table's
   sample rows, where it should read the table, fails.
+
+The usability loop, from main as bf383aa left it (`.scratch/usability-loop/results.md`, "The
+ticket 18 round"): every dev scenario 3/3 (W1 to W5 with no question, E1 to E3 with the one
+conversion each asks Copilot for), and each held-out one 1/1 (H1 and H2 with none, E4 with
+one). E3-2 asked a second time only because the loop showed an attached Table's Total Row as a
+typed row; the loop now names it as the Excel evaluation does, tested. What the round found,
+none failing a run, is listed there for after 8.2: chiefly file 11 on Excel's AND() and OR(),
+`--cells` needing the imports and names cells, and `check_key` on a partitioned table.
 
 ## Review
 

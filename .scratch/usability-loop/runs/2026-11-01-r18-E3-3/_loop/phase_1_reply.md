@@ -1,0 +1,1 @@
+DONE: Saved my_work/daily_runs_formula.xlsx: Parameters test_status = TEST; job_runs Table; summary Table daily with the CleanRuns filter written into its COUNTIFS/SUMIFS and a Total Row; Keys empty. Step 12 (Copilot) left.

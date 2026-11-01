@@ -218,6 +218,24 @@ def test_a_workbook_is_attached_as_copilot_reads_it(chosen: usability_loop.Scena
     assert "=[@fails]*2" in attached
 
 
+def test_an_attached_tables_total_row_is_named_as_the_excel_eval_names_it(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    for row in (["job_id", "fails"], [1, 2], ["Total", "=SUBTOTAL(109,runs[fails])"]):
+        sheet.append(row)
+    table = Table(displayName="runs", ref="A1:B3")
+    table.totalsRowCount = 1
+    sheet.add_table(table)
+    workbook.save(run / "my_work" / "book.xlsx")
+    usability_loop.route(run, "How do I turn my workbook into Hive?")
+    attached = usability_loop.answer(run, 1, ["07_convert_hive.txt"],
+                                     [Path("my_work/book.xlsx")])[0].read_text(encoding="utf-8")
+    assert "Headers: job_id | fails" in attached and "Row 2: 1 | 2" in attached
+    assert "Total Row: Total | =SUBTOTAL(109,runs[fails])" in attached
+
+
 def test_a_run_built_from_dev_holds_mains_tree(tmp_path: Path) -> None:
     main = tmp_path / "main"
     usability_loop.build_main(main)

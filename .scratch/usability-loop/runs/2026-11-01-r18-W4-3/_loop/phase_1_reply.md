@@ -1,0 +1,1 @@
+DONE: Started a Project at my_work/project; references for ops.jobs (job_id) and ops.run_alerts (alert_id); Keys answered in the decisions cell; DEV/PROD set; check_key holds (run_alerts with reads_all_partitions=True); project.check() clean.

@@ -1,0 +1,1 @@
+DONE: Made the Formula workbook my_work/run_report_formula.xlsx per the Steps sheet (steps 1 to 11): Runs pasted as values in Table job_runs, Report rebuilt as Table run_report reading job_runs and Parameters by name, failed_status = FAILED in Parameters, Keys empty, no Total Row. XLOOKUP written as _xlfn.XLOOKUP. Step 12 (Copilot) left for the data team.

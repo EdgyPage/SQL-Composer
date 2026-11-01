@@ -1,0 +1,1 @@
+DONE: Removed the day 2026-09-24 from mart_dev.runs_per_day by change_a_saved_table; SHOW PARTITIONS before and after; project.check() clean. Friction: --cells starts a fresh namespace, so --cells 4 alone fails; the notebook says save it without saying how outside Jupyter.
