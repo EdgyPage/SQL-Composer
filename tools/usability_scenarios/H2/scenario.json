@@ -5,7 +5,7 @@
  "phases": [
   {
    "role": "technical",
-   "job": "Your team's Project, my_project, was made with an older Toolbox. You have downloaded the new one, main/. Bring the Project up to date with it, every change it asks for made. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+   "job": "Your team's Project, my_project, was made with an older Toolbox. You have downloaded the new one, main/. Bring the Project up to date with it, every change it asks for made. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
   }
  ],
  "project": "tests/upgrade_from/8.0/starter"

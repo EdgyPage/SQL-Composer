@@ -7,7 +7,7 @@
   "tables/mart__team_failures/conversion/in_dev.hql": "11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766",
   "tables/mart__team_failures/conversion/scan.md": "aabcee7c9b773f3edc43004da6b44640413bf249e97cd23bdcf0a901aaaf6a7a",
   "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
-  "tables/mart__team_failures/mart__team_failures.ipynb": "4668bb54a550c2bf0602ac85595d5ca6ec020ac17965bbe6f712e7e3b8ddbc93"
+  "tables/mart__team_failures/mart__team_failures.ipynb": "8a0ce50bd466fb500f885bedf0009b4b997da07cbc2770100e7216dc74293cf5"
  },
  "originals": {
   "mart.team_failures": "ops_reports.team_failures"

@@ -24,3 +24,5 @@ Size: M
 
 - Ticket 11: a Table notebook and checklist.md a new_table table wrote before 8.2 send its
   Decisions to convert's notebook; the Upgrade step writes them to name new_table's.
+- Ticket 14: the convert notebook's names cell gains RENAME, which its step's call reads: the
+  Upgrade step writes each Workflow notebook again, keeping each name given, as `to_8_1` does.

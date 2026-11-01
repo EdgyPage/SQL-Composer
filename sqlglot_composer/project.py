@@ -2706,18 +2706,20 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
         ("code", f"# Its Hive against the original's, as {CONVERSION}/{IN_DEV} holds it\n"
          f'ORIGINAL = pathlib.Path("{CONVERSION}/{IN_DEV}").read_text(encoding="utf-8")\n'
          "show_hive(preview())\nprint(compare_hive(preview(), ORIGINAL))"),
-        ("code", _rows_compared(hive_read)),
+        ("code", _rows_compared(hive_read, made_for)),
         ("code", "# Its rows in the Reference sheet\n"
          f'project.refresh_reference_sheet("{dev}")'),
     ]
 
 
-def _rows_compared(hive_read: converting.ConvertedQuery) -> str:
+def _rows_compared(hive_read: converting.ConvertedQuery, made_for: str) -> str:
     """The cell comparing a converted table's rows with the original's, commented until you
-    choose the Partition to compare on."""
-    # The batch's own compare, its Workflow's step 6, comes once the table is written.
-    ahead = ("# The convert Workflow's step 6, project.compare_batch, compares this table once "
-             "written.\n# This compares its query with the original's first:\n")
+    choose the Partition to compare on. `made_for` names the Workflow that made it, when
+    convert's didn't."""
+    # The batch's own compare, its Workflow's compare step, comes once the table is written.
+    ahead = (f"# The {made_for or 'convert'} Workflow's compare step, project.compare_batch, "
+             "compares this table once\n# written. This compares its query with the "
+             "original's first:\n")
     given = [column for column in hive_read.partition_columns
              if column not in hive_read.static_partition]
     if given or not hive_read.static_partition:
@@ -2785,7 +2787,8 @@ def _write_first_reference(files: _BatchFiles, table: str, dev: str,
                            query: Callable[[str], pd.DataFrame] | None) -> None:
     """Write a dev table's Table reference before its query is converted, as one that reads
     itself needs: its CREATE's columns, else DESCRIBE of the original's, else the names its
-    SELECT gives, as "string" until convert writes it again with the types its query tells."""
+    SELECT gives, each typed from the Table references of the tables it reads, "string" where
+    none tells, until convert writes it again with the types its query tells."""
     columns, partitions = _batch_columns(files.root, table, ordered, first, None, query)
     if columns:
         _write_table_reference(files, dev, _untyped_as_string(columns), partitions,

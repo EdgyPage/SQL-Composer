@@ -23,7 +23,7 @@ Ends with: a dev Table folder per table the scripts write, each written in dev, 
 ```mermaid
 flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                staging=STAGING)"]]:::warehouse_call
+                rename=RENAME, staging=STAGING)"]]:::warehouse_call
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
     s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
     s3[["4. Create each table in dev: for table in project.batch_tables(NAME):

@@ -73,6 +73,14 @@ class Warehouse:
             return stand_in.answer(" ".join([*words[:-1], stored.table._name]))
         if command == ["SHOW", "PARTITIONS"]:
             return pd.DataFrame({"partition": self._partitions(self._full_name(words[-1]))})
+        if command == ["SHOW", "DATABASES"]:
+            names = sorted({name.split(".")[0] for name in self.tables})
+            return pd.DataFrame({"database_name": names})
+        if command == ["SHOW", "TABLES"]:
+            database = words[-1].lower() if len(words) > 2 else "default"
+            names = sorted(name.split(".")[1] for name in self.tables
+                           if name.split(".")[0] == database)
+            return pd.DataFrame({"tab_name": names})
         columns, rows = self._run(sqlglot.parse_one(hive, read="hive"))
         if not example_database._sorts_itself(hive.strip()):
             rows = sorted(rows, key=example_database._in_order)
@@ -154,7 +162,10 @@ class Warehouse:
             partitioned = _column_types(found.this)
             columns.update(partitioned)
             partitioned_by += list(partitioned)
-        self.tables[name] = Stored(Table(name, columns, partitioned_by=partitioned_by))
+        location = tree.find(exp.LocationProperty)
+        self.tables[name] = Stored(Table(
+            name, columns, partitioned_by=partitioned_by,
+            location=location.this.name if location is not None else None))
 
     def _insert(self, tree: exp.Insert) -> None:
         name = self._name_of(tree.this)
@@ -220,7 +231,12 @@ class Warehouse:
             engine_name = self._name_of(table).replace(".", "__")
             tables_read[engine_name] = (stored.table, stored.rows)
             table.replace(exp.to_table(f"ops.{engine_name}").as_(table.alias or table.name))
-        return engine.run_query(renamed.sql(dialect="hive"), tables_read)
+        try:
+            return engine.run_query(renamed.sql(dialect="hive"), tables_read)
+        # The engine is the Example database's, but the warehouse is the team's to its user.
+        except ValueError as refusal:
+            raise ValueError(str(refusal).replace("The Example database",
+                                                  "The team's warehouse")) from None
 
 
 def _column_types(schema: exp.Schema) -> dict[str, str]:

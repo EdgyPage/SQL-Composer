@@ -132,6 +132,8 @@ process of its own.
   by 04
 - [13 Hive with a literal list converts without guessed
   types](issues/13-copilots-hive-with-a-literal-list.md), found by 04
+- [14 RENAME in the convert notebook's names cell](issues/14-rename-in-the-convert-notebook.md), found
+  by 04
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

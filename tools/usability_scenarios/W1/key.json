@@ -1,6 +1,6 @@
 {
  "tables": {
-  "mart_dev.team_fails_mart": {
+  "mart_dev.team_fails": {
    "columns": [
     "team",
     "fails",
@@ -27,7 +27,7 @@
  },
  "files": [
   {
-   "path": "tables/mart_dev__team_fails_mart/conversion/compare.md",
+   "path": "tables/mart_dev__team_fails/conversion/compare.md",
    "holds": [
     "Passed"
    ]
