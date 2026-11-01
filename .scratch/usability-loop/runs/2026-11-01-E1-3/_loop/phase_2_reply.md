@@ -1,0 +1,1 @@
+DONE: mart_dev.job_run_report written in dev from the colleague's workbook through Copilot and the convert Workflow; compare passed. The convert's logic cell was refused (sum_of(1, where=...)): changed by hand to count_rows(where=...). The load limit refused the unbounded read: reads_all_partitions=True added. ops__job_runs.py TODOs left. SHOW DATABASES refused.

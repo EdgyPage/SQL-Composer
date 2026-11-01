@@ -1,0 +1,2 @@
+DONE: mart_dev.job_run_report written at /data/team/mart_dev.db/job_run_report, compare passed; rows match the workbook's Report. Copilot's Hive used COUNT(CASE ...) so the convert ran without the sum_of(1) refusal.
+Friction: run_notebook.py sys.path and relative path; its question attached nothing (one typed line); check_table_reference's "differs" on no Location reads as a failure; the docs don't say what a bare SELECT file becomes in convert; SHOW DATABASES refused.

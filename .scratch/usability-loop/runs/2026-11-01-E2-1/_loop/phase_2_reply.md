@@ -1,0 +1,1 @@
+DONE: mart_dev.team_report written in mart_dev from the workbook through Copilot's Hive and the convert Workflow: data 4/67, finance 5/113, web 0/0; compare passed. Copilot's Hive hard-codes the three team names as literals, so a new team gets no row. Ran the convert notebook cell by cell (Run All would write before the Decisions). run_notebook.py relative path and -I.

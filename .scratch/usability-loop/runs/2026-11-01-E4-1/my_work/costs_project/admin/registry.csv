@@ -1,0 +1,8 @@
+kind,table,created_at,removed_at
+reference,ops.jobs,2026-11-01 01:47:49,
+reference,ops.job_runs,2026-11-01 01:47:49,
+reference,mart_dev.job_costs,2026-11-01 01:47:49,
+table_folder,mart_dev.job_costs,2026-11-01 01:47:49,
+reference,mart_dev.team_runs,2026-11-01 01:47:49,
+table_folder,mart_dev.team_runs,2026-11-01 01:47:49,
+conversion_folder,costs,2026-11-01 01:47:49,

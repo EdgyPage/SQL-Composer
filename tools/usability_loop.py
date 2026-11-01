@@ -474,9 +474,11 @@ def report_text(result: RunScore, run: Path) -> str:
 
 
 def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str:
-    """Keep a scored run: its folder, but for main/, copied into
-    `.scratch/usability-loop/runs/`, and a row in `.scratch/usability-loop/results.md`."""
-    shutil.copytree(run, KEPT / "runs" / run.name, ignore=shutil.ignore_patterns("main"))
+    """Keep a scored run: its folder, but for main/ and any copy of the Toolbox's folder,
+    copied into `.scratch/usability-loop/runs/`, and a row in
+    `.scratch/usability-loop/results.md`."""
+    left_out = shutil.ignore_patterns("main", "sqlglot_composer", "__pycache__")
+    shutil.copytree(run, KEPT / "runs" / run.name, ignore=left_out)
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
     if not RESULTS.is_file():

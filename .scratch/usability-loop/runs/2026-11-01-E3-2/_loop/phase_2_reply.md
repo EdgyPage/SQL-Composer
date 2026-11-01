@@ -1,0 +1,2 @@
+DONE: mart_dev.daily_runs written at /data/team/mart_dev.db/daily_runs from the workbook's Daily summary, compare passed: 2026-09-23 3/60, 2026-09-24 4/100. Copilot's Hive ended GROUP BY dt WITH ROLLUP; it removed the ROLLUP and left the Total Row out, a daily table holding days. Power Query used from its M text.
+Friction: check() and do_next said every step done with the Key open (steps_left stops at the last done step); file 12 turns a Total Row into a NULL data row, unwarned; batch.md names default.daily_runs.

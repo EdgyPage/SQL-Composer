@@ -1,0 +1,2 @@
+DONE: Made mart_dev.failed_runs from from_your_team/failed_runs.hql with the Toolbox, wrote it in dev, and compare_batch passed. Project at my_work/project.
+Friction: run_notebook.py needs the Project folder on PYTHONPATH and an absolute path; from team_connection import conn needs the work folder on sys.path; team_connection puts main/ first on sys.path; notebooks edited as JSON; check_table_reference says "differs" since DESCRIBE FORMATTED through the team connection lists no Location; the CONVERSION mark on reads_all_partitions left as the one open note.

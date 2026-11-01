@@ -1,0 +1,1 @@
+DONE: Made my_work/team_report_formula.xlsx per the Steps sheet: job_runs (values, team an XLOOKUP column rewritten from a whole-column VLOOKUP), jobs (values), teams a summary Table with COUNTIFS/SUMIFS per typed team; Parameters and Keys empty. Step 12 not done.

@@ -1,0 +1,914 @@
+id="choose_how_a_saved_table_is_stored">
+
+20. Choose how a Saved table is stored Intermediate
+
+Goal
+
+Say in a Saved table's Table reference how the warehouse keeps it: the folder of its own its files go in, whether dropping it deletes them, their format, its Partitions, and Buckets. create_table writes all of it, and check_table_reference compares it with the table. Along the way, see why the Toolbox has no indexes, and what makes reads fast instead.
+
+When you'd use it
+
+When you fill in a Saved table's Table reference, and when you check one you already have: every Saved table needs at least its folder. The rest is for when a table grows: a big table read a region at a time, or joined on the same column every run, can be kept so that reads touch fewer files.
+
+It needs Save a table, which makes a Saved table with project.new_table.
+
+Steps
+
+Start from the Intermediate Example project
+
+Work in a copy of the Intermediate Example project, at its top: copy example_projects/intermediate/ from the download to a folder of your own, copy the sqlglot_composer folder into it, as a Project holds it, and open a notebook there. This page makes the same copy in its first step, from the download the Toolbox came in, into the folder it runs in, which Python's path holds already, as Jupyter's does for a notebook's own folder:
+
+```
+import shutil
+from pathlib import Path
+import sqlglot_composer
+download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
+_ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
+```
+
+It writes 78 files
+
+```
+README.md
+admin/admin_log.md
+admin/check_project.ipynb
+admin/check_references.ipynb
+admin/databases.py
+admin/new_block.ipynb
+admin/project_version.txt
+admin/refresh_reference_sheet.ipynb
+admin/registry.csv
+admin/remove.ipynb
+admin/run_tables.ipynb
+admin/sent.csv
+admin/templates/building_block.py
+admin/templates/quality_checks.py
+admin/templates/saved_table.py
+admin/templates/saved_table_reference.py
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/workflows/convert/convert.ipynb
+admin/workflows/convert/finished/team_failures/batch.md
+admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
+admin/workflows/convert/finished/team_failures/written.json
+admin/workflows/new_table/new_table.ipynb
+admin/workflows/promote/promote.ipynb
+admin/workflows/references/references.ipynb
+admin/workflows/upgrade/upgrade.ipynb
+building_blocks/costs_per_job.py
+building_blocks/days_rewritten.py
+building_blocks/events_per_job.py
+building_blocks/owner_on_day.py
+references/mart.py
+references/mart__budget_overruns.py
+references/mart__job_day_costs.py
+references/mart__job_day_facts.py
+references/mart__job_events_checks.py
+references/mart__job_notes.py
+references/mart__team_days.py
+references/mart__team_failures.py
+references/ops.py
+references/ops__job_events.py
+references/ops__job_owners.py
+references/ops__region_budgets.py
+references/ops__region_costs.py
+references/ops__team_notes.py
+references/reference_sheet.csv
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
+tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
+tables/mart__budget_overruns/mart__budget_overruns.ipynb
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
+tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
+tables/mart__job_day_costs/mart__job_day_costs.ipynb
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
+tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
+tables/mart__job_day_facts/mart__job_day_facts.ipynb
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
+tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
+tables/mart__job_events_checks/mart__job_events_checks.ipynb
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
+tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
+tables/mart__job_notes/mart__job_notes.ipynb
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
+tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
+tables/mart__team_days/mart__team_days.ipynb
+tables/mart__team_failures/conversion/checklist.md
+tables/mart__team_failures/conversion/compare.md
+tables/mart__team_failures/conversion/in_dev.hql
+tables/mart__team_failures/conversion/scan.md
+tables/mart__team_failures/conversion/statement.hql
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
+tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
+tables/mart__team_failures/mart__team_failures.ipynb
+warehouse.py
+```
+
+mart.job_region_costs will hold each job's cost in each region on each day, copied from ops.region_costs, which the Project reads already. Make its Table folder and Table reference, as Save a table shows:
+
+```
+from sqlglot_composer import *
+from sqlglot_composer import project
+from warehouse import query, execute
+project.new_table("mart.job_region_costs")
+```
+
+Python shows
+```
+Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, from
+admin/templates/saved_table.py.
+Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.
+```
+
+It writes admin/admin_log.md
+Show its 126 lines
+
+```
+# Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references(["ops.job_events", "ops.job_owners", "ops.region_costs", "ops.region_budgets", "ops.team_notes"], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("costs_per_job")`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("days_rewritten")`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("events_per_job")`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("owner_on_day")`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_day_costs")`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_day_facts")`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.team_days")`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_events_checks", template="quality_checks")`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.budget_overruns")`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_notes")`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert("team_failures", ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch("team_failures")`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table("mart.job_region_costs")`
+- Tables named: mart.job_region_costs
+- Files: created tables/mart__job_region_costs/ (mart__job_region_costs.ipynb, lineage/); created references/mart__job_region_costs.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+```
+
+It writes references/mart__job_region_costs.py
+
+```
+"""mart.job_region_costs - TODO: say in one line what one row is.
+
+project.reference_from_logic("mart.job_region_costs") writes this file again from the table's logic,
+filling in what is left. They are:
+    <COLUMNS>: the columns write() saves and their types, from its logic's preview().
+
+Why: TODO: who reads this table, and why it is saved rather than worked out each time.
+
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table's logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn't exist until its notebook's create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
+"""
+
+from sqlglot_composer import Table
+
+job_region_costs = Table(
+    "mart.job_region_costs",
+    columns={"<COLUMNS>": "string"},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as "/data/your_team/mart.db/job_region_costs"
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table's columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__job_region_costs import job_region_costs, <alias>
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     <alias> = job_region_costs.<column>
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     <alias> = equals(job_region_costs.<column>, <value>)
+```
+
+It writes admin/registry.csv too.
+
+It writes tables/mart__job_region_costs/mart__job_region_costs.ipynb too.
+
+Its Table reference, filled in, says how the table is stored. Each line is explained below:
+
+The file references/mart__job_region_costs.py, after you fill it in
+
+```
+"""mart.job_region_costs - one row per job, region and day: its cost there, in cents."""
+from sqlglot_composer import Table
+
+job_region_costs = Table(
+    "mart.job_region_costs",
+    columns={
+        "job_id": "bigint",
+        "cost_cents": "bigint",
+        "region": "string",
+        "dt": "string",
+    },
+    partitioned_by=["region", "dt"],
+    key=["job_id", "region", "dt"],
+    location="/data/your_team/mart.db/job_region_costs",  # its own folder
+    purge=True,  # dropping the table deletes its files
+    compression="ZLIB",
+    properties={"made_by": "mart__job_region_costs.ipynb"},
+)
+```
+
+```
+project.refresh_reference_sheet()
+```
+
+Python shows
+```
+Wrote references/reference_sheet.csv: 54 rows, 13 tables.
+Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.job_region_costs, mart.team_days and mart.team_failures.
+Restart the kernel of a notebook that imported references, to see a table added since.
+```
+
+It writes references/mart.py
+
+```
+"""mart - a Database: written by the Project actions, never by hand.
+
+Why: `from references import mart` gives each of its Table references by its name, so a column
+is reached as mart.budget_overruns.job_id.
+
+Its tables: budget_overruns (references/mart__budget_overruns.py), job_day_costs
+(references/mart__job_day_costs.py), job_day_facts (references/mart__job_day_facts.py),
+job_events_checks (references/mart__job_events_checks.py), job_notes
+(references/mart__job_notes.py), job_region_costs (references/mart__job_region_costs.py),
+team_days (references/mart__team_days.py), team_failures (references/mart__team_failures.py).
+
+The Project actions and refresh_reference_sheet write this file again from the Table
+references in references/, so a change made here is lost. A Table reference with a <...> still
+in it, as new_table writes one, is left out until it is filled in.
+"""
+
+import difflib
+from typing import NoReturn
+
+from references.mart__budget_overruns import budget_overruns
+from references.mart__job_day_costs import job_day_costs
+from references.mart__job_day_facts import job_day_facts
+from references.mart__job_events_checks import job_events_checks
+from references.mart__job_notes import job_notes
+from references.mart__job_region_costs import job_region_costs
+from references.mart__team_days import team_days
+from references.mart__team_failures import team_failures
+
+# Its tables, by the names tab completion lists and a wrong name's message gives: the names
+# `from references.mart import *` gives, too.
+__all__ = ["budget_overruns", "job_day_costs", "job_day_facts", "job_events_checks", "job_notes", "job_region_costs", "team_days", "team_failures"]
+_TABLES = __all__
+
+def __getattr__(name: str) -> NoReturn:
+    """A name that isn't one of its tables: say which tables it has, and the closest."""
+    if name.startswith("_"):
+        raise AttributeError(name)
+    close = difflib.get_close_matches(name, _TABLES, n=1)
+    hint = f" Did you mean {close[0]!r}?" if close else ""
+    raise AttributeError(f"mart has no table {name!r}.{hint} Its tables are: "
+                         f"{', '.join(_TABLES)}.", obj=None)
+
+def __dir__() -> list[str]:
+    """Its tables, so tab completion lists them."""
+    return list(_TABLES)
+```
+
+It writes references/reference_sheet.csv too.
+
+```
+from references import mart, ops
+job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -> Table, Table
+```
+
+Give it a folder of its own
+
+Every Saved table is an external table: its files are yours, in a folder you name. You give location= the table's own folder, and the Toolbox writes it exactly as you give it, adding nothing. A folder named after the database and the table, such as /data/your_team/mart.db/job_region_costs, keeps each table's folder apart.
+
+A folder of its own matters because the warehouse reads every file in a table's folder. Two tables in one folder read each other's rows, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition. The Toolbox refuses a Table reference whose folder is another Saved table's, or sits inside it.
+
+A path you would rather not write out in every Table reference can start with a Hive variable, such as location="${hivevar:root}/mart.db/job_region_costs": the Toolbox writes it as it is, and Hive fills it in from a SET hivevar:root=/data/your_team sent first, with hive_settings(..., sets=...) as Keep reads and joins fast sends its settings.
+
+Say what dropping it does
+
+purge=True makes dropping the table delete its files too. Left out, or purge=False, the warehouse only forgets the table: its files stay in its folder, and a table created there again gets the old rows back once repair_partitions lists their Partitions. Keep purge=True for a table you rebuild from its sources; leave it out for one whose files you would want back.
+
+Choose its file format
+
+stored_as= is the file format: "ORC", the usual one and what you get when you leave it out, which Hive reads fastest, or "PARQUET", which more tools outside Hive read. compression= is how its files are packed: ORC's "ZLIB" makes smaller files, "SNAPPY" faster ones. properties= takes any other table property. create_table writes them all:
+
+```
+text = show_hive(create_table(job_region_costs, may_exist=True))  # -> str
+```
+
+Hive, ready to paste
+```
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_region_costs (
+  job_id BIGINT,
+  cost_cents BIGINT,
+  PRIMARY KEY (job_id, region, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  region STRING,
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/job_region_costs'
+TBLPROPERTIES (
+  'external.table.purge'='true',
+  'orc.compress'='ZLIB',
+  'made_by'='mart__job_region_costs.ipynb'
+);
+```
+
+Choose its Partitions
+
+partitioned_by=["region", "dt"] keeps each region's rows in a folder of their own, and each of its days in a folder inside that, as ops.region_costs does. A Statement that filters region reads only that region's folders, and one that filters dt too reads fewer still. A table's Partitions are whichever columns its reads filter most: a region, a day, a load, or none at all, as the Example project's mart.job_notes has none.
+
+A write fills each Partition from its rows' own values, so its SELECT names every partition column, anywhere: the Toolbox puts them last, in the order partitioned_by= gives, where Hive reads them from. Here ops.region_costs writes its days like 20260924, and mart.job_region_costs keeps them that way, since the Toolbox writes each value exactly as it is given:
+
+```
+def write_days(first_day: str, last_day: str) -> Statement:
+    return statement(
+        INSERT_OVERWRITE(job_region_costs),
+        SELECT(region_costs.job_id, region_costs.region, region_costs.dt,
+               AS(sum_of(region_costs.cost_cents), "cost_cents")),
+        FROM(region_costs),
+        WHERE(between(region_costs.dt, first_day, last_day)),
+        GROUP_BY(region_costs.job_id, region_costs.region, region_costs.dt),
+    )
+text = show_hive(write_days("20260922", "20260924"))
+```
+
+Hive, ready to paste
+```
+-- The Session setting "dynamic_partitions": this write fills region, dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.job_region_costs PARTITION(region, dt)
+SELECT
+  region_costs.job_id,
+  SUM(region_costs.cost_cents) AS cost_cents,
+  region_costs.region,
+  region_costs.dt
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.dt BETWEEN '20260922' AND '20260924'
+GROUP BY
+  region_costs.job_id,
+  region_costs.region,
+  region_costs.dt;
+```
+
+The columns in PARTITION(...) have no value: the warehouse takes each row's region and dt from the SELECT's last columns. Doing so is Hive's dynamic partitioning, which a Session setting switches on, so show_hive prints its two SET lines first. run_execute sends the write alone: send the Session setting first, with hive_settings, before the first such write. The warehouse keeps it for as long as your execute's connection lasts, and sending it again does no harm. project.run_tables() sends it for you. Here it goes to the Example database's execute, which prints each SET line:
+
+```
+run_execute(hive_settings("dynamic_partitions"), execute)
+```
+
+Python prints
+```
+execute: SET hive.exec.dynamic.partition=true
+execute: SET hive.exec.dynamic.partition.mode=nonstrict
+```
+
+INSERT OVERWRITE replaces only the Partitions its rows hold: a region and day with no rows keeps whatever it held before. So if a region drops out of the table you read, its old rows stay in the Saved table until you drop them with the admin module's drop_partitions.
+
+A write can name some Partitions itself instead, with partition={...}: here the eu region, whose rows then leave region out of SELECT. The columns it names come first in partitioned_by=, and the rest are filled from the rows:
+
+```
+text = show_hive(statement(
+    INSERT_OVERWRITE(job_region_costs, partition={"region": "eu"}),
+    SELECT(region_costs.job_id, region_costs.dt,
+           AS(sum_of(region_costs.cost_cents), "cost_cents")),
+    FROM(region_costs),
+    WHERE(equals(region_costs.region, "eu"),
+          between(region_costs.dt, "20260922", "20260924")),
+    GROUP_BY(region_costs.job_id, region_costs.dt),
+))
+```
+
+Hive, ready to paste
+```
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.job_region_costs PARTITION(region = 'eu', dt)
+SELECT
+  region_costs.job_id,
+  SUM(region_costs.cost_cents) AS cost_cents,
+  region_costs.dt
+FROM ops.region_costs AS region_costs
+WHERE
+  region_costs.region = 'eu' AND region_costs.dt BETWEEN '20260922' AND '20260924'
+GROUP BY
+  region_costs.job_id,
+  region_costs.dt;
+```
+
+Add Buckets only to a big table
+
+bucketed_by= with buckets= spreads each Partition's rows into that many files by the values of some columns, and sorted_by= sorts the rows in each. A join on those columns can then pair file with file instead of reading everything. It pays off only on big tables, tens of millions of rows a Partition, joined on those columns; and changing it means writing the whole table again. Most Saved tables need none. Say mart.event_facts, every event with its minutes, is such a table, joined on job_id every run:
+
+```
+project.new_table("mart.event_facts")
+```
+
+Python shows
+```
+Made tables/mart__event_facts/: mart__event_facts.ipynb and lineage/, from
+admin/templates/saved_table.py.
+Wrote references/mart__event_facts.py: project.reference_from_logic writes it.
+```
+
+It writes admin/admin_log.md
+Show its 134 lines
+
+```
+# Admin log
+
+Each Admin statement, Unchecked statement, Statement holding an Unchecked expression or Unchecked derived table, and Project action the Toolbox has run, oldest first. The Toolbox only ever adds to this file. Its Unchecked statements, expressions and derived tables are the list of what the Toolbox should learn to write next.
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.start()`
+- Files: created admin/, references/, building_blocks/, tables/, warehouse.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.add_references(["ops.job_events", "ops.job_owners", "ops.region_costs", "ops.region_budgets", "ops.team_notes"], query=...)`
+- Tables named: ops.job_events, ops.job_owners, ops.region_costs, ops.region_budgets, ops.team_notes
+- Files: created references/ops__job_events.py; created references/ops__job_owners.py; created references/ops__region_costs.py; created references/ops__region_budgets.py; created references/ops__team_notes.py; wrote references/ops.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("costs_per_job")`
+- Files: created building_blocks/costs_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("days_rewritten")`
+- Files: created building_blocks/days_rewritten.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("events_per_job")`
+- Files: created building_blocks/events_per_job.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_block("owner_on_day")`
+- Files: created building_blocks/owner_on_day.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_day_costs")`
+- Tables named: mart.job_day_costs
+- Files: created tables/mart__job_day_costs/ (mart__job_day_costs.ipynb, lineage/); created references/mart__job_day_costs.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_day_facts")`
+- Tables named: mart.job_day_facts
+- Files: created tables/mart__job_day_facts/ (mart__job_day_facts.ipynb, lineage/); created references/mart__job_day_facts.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.team_days")`
+- Tables named: mart.team_days
+- Files: created tables/mart__team_days/ (mart__team_days.ipynb, lineage/); created references/mart__team_days.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_events_checks", template="quality_checks")`
+- Tables named: mart.job_events_checks
+- Files: created tables/mart__job_events_checks/ (mart__job_events_checks.ipynb, lineage/); created references/mart__job_events_checks.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.budget_overruns")`
+- Tables named: mart.budget_overruns
+- Files: created tables/mart__budget_overruns/ (mart__budget_overruns.ipynb, lineage/); created references/mart__budget_overruns.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.new_table("mart.job_notes")`
+- Tables named: mart.job_notes
+- Files: created tables/mart__job_notes/ (mart__job_notes.ipynb, lineage/); created references/mart__job_notes.py; wrote references/mart.py
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.convert("team_failures", ...)`
+- Tables named: mart.team_failures
+- Files: converted 1 script into 1 Saved table; wrote admin/workflows/convert/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.write_decisions(...)`
+- Tables named: mart.team_failures
+- Files: none changed
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 06:00:00, Project action
+
+- Call: `project.compare_batch("team_failures")`
+- Tables named: mart.team_failures
+- Files: wrote tables/mart__team_failures/conversion/compare.md; moved admin/workflows/convert/team_failures/ to admin/workflows/convert/finished/team_failures/
+- Script: a notebook, at commit nogit
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table("mart.job_region_costs")`
+- Tables named: mart.job_region_costs
+- Files: created tables/mart__job_region_costs/ (mart__job_region_costs.ipynb, lineage/); created references/mart__job_region_costs.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+
+## 2026-09-25 09:00:00, Project action
+
+- Call: `project.new_table("mart.event_facts")`
+- Tables named: mart.event_facts
+- Files: created tables/mart__event_facts/ (mart__event_facts.ipynb, lineage/); created references/mart__event_facts.py
+- Script: a notebook, at commit 1a2b3c4
+- Result: worked
+```
+
+It writes references/mart__event_facts.py
+
+```
+"""mart.event_facts - TODO: say in one line what one row is.
+
+project.reference_from_logic("mart.event_facts") writes this file again from the table's logic,
+filling in what is left. They are:
+    <COLUMNS>: the columns write() saves and their types, from its logic's preview().
+
+Why: TODO: who reads this table, and why it is saved rather than worked out each time.
+
+project.new_table wrote this file from admin/templates/saved_table_reference.py, to stand in
+until the table's logic is written: then project.reference_from_logic writes it again, its
+columns and types from preview(), its partition columns from PARTITIONED_BY, and the Key its
+query makes. A Saved table doesn't exist until its notebook's create() makes it from this
+file, so nothing can be asked of it: its logic says what it holds.
+"""
+
+from sqlglot_composer import Table
+
+event_facts = Table(
+    "mart.event_facts",
+    columns={"<COLUMNS>": "string"},  # project.reference_from_logic writes them, from the logic
+    location=None,  # TODO: its own folder, such as "/data/your_team/mart.db/event_facts"
+)
+
+# --- Aliases ------------------------------------------------------------------------------
+# Your own names for this table's columns and conditions, written by hand below.
+# Import one beside the table: from references.mart__event_facts import event_facts, <alias>
+#
+# A column Alias is a shorter name for one column, for you: the Hive, and the DataFrame you
+# get back, still call the column by its own name. To rename an output, use AS(...).
+#     <alias> = event_facts.<column>
+# A condition Alias names a condition on this table alone, for WHERE or
+# count_rows(where=...). Add what it calls, such as equals, to the import at the top.
+#     <alias> = equals(event_facts.<column>, <value>)
+```
+
+It writes admin/registry.csv too.
+
+It writes tables/mart__event_facts/mart__event_facts.ipynb too.
+
+The file references/mart__event_facts.py, after you fill it in
+
+```
+"""mart.event_facts - one row per event of a run, with its minutes."""
+from sqlglot_composer import Table
+
+event_facts = Table(
+    "mart.event_facts",
+    columns={"event_id": "bigint", "job_id": "bigint", "minutes": "int", "dt": "string"},
+    partitioned_by=["dt"],
+    key=["event_id"],
+    location="/data/your_team/mart.db/event_facts",
+    bucketed_by=["job_id"],
+    buckets=16,
+    sorted_by=["job_id"],
+)
+```
+
+from references import mart ran before this file was filled in, so mart doesn't have it until the kernel restarts; its own file gives it now:
+
+```
+from references.mart__event_facts import event_facts
+print(to_hive(create_table(event_facts)))
+```
+
+Hive
+```
+CREATE EXTERNAL TABLE mart.event_facts (
+  event_id BIGINT,
+  job_id BIGINT,
+  minutes INT,
+  PRIMARY KEY (event_id) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+CLUSTERED BY (job_id) SORTED BY (job_id) INTO 16 BUCKETS
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/event_facts'
+```
+
+Why there are no indexes
+
+Hive removed indexes in its version 3, so the Toolbox writes none. What makes a read fast instead:
+
+Partitions: a Statement that filters a partition column, as every Load limit insists, opens only those Partitions' folders, and one that filters a second partition column too opens fewer still.
+Fewer, larger files: ORC and Parquet files keep each column's smallest and largest values, so the warehouse skips the parts of a file a condition rules out, and a few large files open faster than many small ones.
+Buckets, for big tables joined on the same columns, as above.
+Statistics: once the warehouse has counted a table's rows and values, it picks how to join it, such as sending a small table to every machine instead of sorting both.
+
+Keep reads and joins fast shows the last three at work.
+
+Check it worked
+
+The write's rows come from its SELECT, which the Example database can run on its own: on 2026-09-24, one job billed in eu has its cost in, and one has its bill still to come.
+
+```
+costs_on_the_day = statement(  # -> Statement
+    SELECT(region_costs.job_id, region_costs.region, region_costs.dt,
+           AS(sum_of(region_costs.cost_cents), "cost_cents")),
+    FROM(region_costs),
+    WHERE(equals(region_costs.dt, "20260924")),
+    GROUP_BY(region_costs.job_id, region_costs.region, region_costs.dt),
+)
+run_query(costs_on_the_day, query)  # -> DataFrame
+```
+
+Python shows
+
+job_idregiondtcost_cents
+
+1eu20260924100.0
+
+2eu20260924NULL
+
+At work, once create_table has made the table, check_table_reference sends DESCRIBE FORMATTED, which lists how the table is kept, and compares that too. A stand-in query plays a table made by hand at a folder it shares with other tables, /data/your_team/tables, as the warehouse would describe it:
+
+```
+import pandas as pd
+def query_at_work(hive: str) -> pd.DataFrame:
+    return pd.DataFrame([
+        ("job_id", "bigint", ""), ("cost_cents", "bigint", ""),
+        ("# Partition Information", None, None), ("# col_name", "data_type", "comment"),
+        ("region", "string", ""), ("dt", "string", ""),
+        ("# Detailed Table Information", None, None),
+        ("Location:", "hdfs://namenode:8020/data/your_team/tables", None),
+        ("Table Type:", "EXTERNAL_TABLE", None),
+        ("Table Parameters:", None, None),
+        ("", "external.table.purge", "true"), ("", "orc.compress", "ZLIB"),
+        ("", "made_by", "mart__job_region_costs.ipynb"),
+        ("# Storage Information", None, None),
+        ("InputFormat:", "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat", None),
+    ], columns=["col_name", "data_type", "comment"])
+check_table_reference(job_region_costs, query=query_at_work)
+```
+
+Python shows
+```
+mart.job_region_costs differs from its Table reference.
+Problems:
+  - it is at hdfs://namenode:8020/data/your_team/tables, not at /data/your_team/mart.db/job_region_costs, the folder location= names: change the line to location="hdfs://namenode:8020/data/your_team/tables", if that is the own folder of the table. A folder that isn't a table's own may hold other tables' files: two tables in one folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition. Move it with admin.move_to_own_folder(t, query=...).
+```
+
+Everything else matches. The warehouse writes a folder in full, with hdfs://namenode:8020 before it, and the Toolbox compares the folder alone. Move a Saved table to its own folder moves a table that shares a folder.
+
+Common mistakes
+
+Giving two Saved tables one folder
+
+location= is the table's own folder, and no other Saved table may use it, nor a folder inside it. A second Table reference copied from the first, with its name changed and its folder not, is refused:
+
+```
+Table("mart.job_region_costs_eu", columns={"job_id": "bigint", "dt": "string"},
+      partitioned_by=["dt"], location="/data/your_team/mart.db/job_region_costs")
+```
+
+Python stops with this message
+```
+ValueError:
+  What happened:  Table('mart.job_region_costs_eu') would be at /data/your_team/mart.db/job_region_costs, the same folder as mart.job_region_costs (/data/your_team/mart.db/job_region_costs).
+  Why it matters: Every Saved table needs a folder of its own: two tables in one folder read each other's files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that Partition.
+  Usual fix:      Give each its own folder in location=, such as "/data/your_team/mart.db/daily_runs" for mart.daily_runs.
+  Opt-out:        none - this one can't be switched off.
+```
+
+Give it a folder of its own, location="/data/your_team/mart.db/job_region_costs_eu".
+
+Leaving a partition column out of the write
+
+A write fills each partition column partition= doesn't name from its rows, so its SELECT must list it. Left out, it is refused as you build it:
+
+```
+statement(
+    INSERT_OVERWRITE(job_region_costs),
+    SELECT(region_costs.job_id, region_costs.dt,
+           AS(sum_of(region_costs.cost_cents), "cost_cents")),
+    FROM(region_costs),
+    WHERE(between(region_costs.dt, "20260922", "20260924")),
+    GROUP_BY(region_costs.job_id, region_costs.dt),
+)
+```
+
+Python stops with this message
+```
+GuardRefused:
+  What happened:  INSERT_OVERWRITE(job_region_costs): it leaves out region.
+  Why it matters: The warehouse fills a table's columns by position, not by name, so a missing or extra column would put values in the wrong columns.
+  Usual fix:      SELECT every column of job_region_costs's Table reference, each under its own name, except a partition column the write names in partition={...}. The Toolbox puts them in the right order, its partition columns last.
+  Opt-out:        none - this one can't be switched off.
+```
+
+Naming a later Partition but not an earlier one
+
+Hive takes the partition columns in order: the ones a write names first, then the ones it fills from the rows. So partition={"dt": "20260924"} alone, with region left to the rows, is refused:
+
+```
+INSERT_OVERWRITE(job_region_costs, partition={"dt": "20260924"})
+```
+
+Python stops with this message
+```
+ValueError:
+  What happened:  INSERT_OVERWRITE(job_region_costs, partition=...) names dt, but not region, which comes before it in mart.job_region_costs's partitioned_by (region, dt).
+  Why it matters: Hive takes the partition columns in order: first the ones partition= gives a value, then the others by name alone, so a column after one with no value can't have one either.
+  Usual fix:      Give region a value too, or leave dt out as well: then the write fills each partition column given no value from the rows' own values.
+  Opt-out:        none - this one can't be switched off.
+```
+
+Name region too, or leave dt to the rows.
+
+Storage on a table you only read
+
+Only your own Saved tables are stored as you say. A Table reference with no location= is a table someone else owns, and giving it storage is refused:
+
+```
+Table("ops.other_costs", columns={"job_id": "bigint", "dt": "string"},
+      partitioned_by=["dt"], purge=True)
+```
+
+Python stops with this message
+```
+ValueError:
+  What happened:  Table('ops.other_costs') has purge= but no location=.
+  Why it matters: purge= is part of how one of your own Saved tables is stored, and each of those is in a folder of its own, its location=.
+  Usual fix:      Add location=..., such as location="/data/your_team/mart.db/daily_runs", or remove purge=: a table someone else owns needs none of it.
+  Opt-out:        none - this one can't be switched off.
+```
+
+Next
+
+Move a table that shares a folder: Move a Saved table to its own folder.
+Statistics, small files and map joins: Keep reads and joins fast.
+Write some of a table's Partitions again: Rewrite some partitions.
+Every option in one place: the gallery's create_table entry, and help(Table).
+
+Toolbox names used: Table, check_table_reference, create_table, SELECT, AS, FROM, WHERE, GROUP_BY, INSERT_OVERWRITE, statement, Statement, equals, between, sum_of, to_hive, show_hive, run_query, run_execute, hive_settings, project.new_table, project.refresh_reference_sheet
+
+<section class="entry" 

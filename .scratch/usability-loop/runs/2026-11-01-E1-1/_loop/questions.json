@@ -1,0 +1,3 @@
+[
+ "Please convert my_work/run_report_formula.xlsx into Hive, as its Steps sheet's step 12 asks, with Copilot files 03, 04, 05, 11 and 12 loaded: give the map, one Hive query for the final Table run_report, with its source written as <database>.job_runs, and the Toolbox code to make it a table."
+]

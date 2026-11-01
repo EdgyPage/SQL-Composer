@@ -124,6 +124,14 @@ process of its own.
 - [08 A calculation's type, from what it reads](issues/08-calculation-types.md), found by 03
 - [09 The Example database runs subtotals, and a group's column beside an
   aggregate](issues/09-example-database-subtotals.md), found by 03
+- [10 A count written as a SUM converts to count_rows](issues/10-a-count-written-as-a-sum.md),
+  found by 04
+- [11 A conversion's files name the right notebook and
+  database](issues/11-a-conversions-files-name-the-right-place.md), found by 04
+- [12 project.check() names a Key still to answer](issues/12-check-names-an-open-key.md), found
+  by 04
+- [13 Hive with a literal list converts without guessed
+  types](issues/13-copilots-hive-with-a-literal-list.md), found by 04
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

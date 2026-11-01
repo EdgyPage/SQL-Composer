@@ -1,0 +1,3 @@
+[
+ "Copilot, with Copilot files 03, 04, 05, 11 and 12 loaded, please convert the Formula workbook my_work/run_report_formula.xlsx to Hive: give the map, then one query in a sql block for the final Table run_report, which I will save as job_run_report, with job_runs read from ops.job_runs, then the Toolbox code for it."
+]

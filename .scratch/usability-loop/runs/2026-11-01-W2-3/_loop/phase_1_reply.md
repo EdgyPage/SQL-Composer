@@ -1,0 +1,3 @@
+DONE: Built and wrote mart_dev.runs_per_day with the Toolbox, Project at my_work/mart_project: job_id bigint, runs bigint, dt string, partitioned by dt, Key (job_id, dt), both days, matching a plain SQL probe.
+
+Friction it named: from_your_team/ absent; run_notebook.py fails on a relative path; team_connection.py puts main/ first on sys.path, so a script importing warehouse before sqlglot_composer gets the download's copy; Project actions refuse outside the Project folder (fixed by running there); couldn't Run cells, so ran each step with do_next() from a script; warehouse.py's docstring says conn is the Example database until set, still after setting it; check_key refuses until a Key is filled in.

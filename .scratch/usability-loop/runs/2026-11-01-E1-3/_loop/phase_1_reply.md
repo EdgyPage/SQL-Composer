@@ -1,0 +1,1 @@
+DONE: Made my_work/run_report_formula.xlsx per the Steps sheet: job_runs Table (values), run_report Table (COUNTIFS, COUNTIFS "FAILED", AVERAGEIFS by typed job_id); Parameters and Keys empty. Said a one-line QUESTION can't attach a file, so step 12 is for someone with Copilot.

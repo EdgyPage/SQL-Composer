@@ -1,0 +1,2 @@
+DONE: mart_dev.job_run_report written from the colleague's Formula workbook via Copilot's Hive and the convert Workflow (NAME job_run_report, DATABASE ops), compare passed, project.check() clean.
+Friction: the converter wrote sum_of(1, where=...) for SUM(CASE WHEN status = 'FAILED' THEN 1 END), which the Toolbox refused: fixed by hand to count_rows(where=...); the load limit refused the unbounded read, so it added reads_all_partitions=True; run_notebook.py sys.path; SELECT 1 AS one refused by the team warehouse.

@@ -1,0 +1,1 @@
+DONE: Made my_work/run_report_formula.xlsx from main/copilot/formula_workbook.xlsx per its Steps sheet: job_runs Table (values), run_report Table with COUNTIFS, COUNTIFS "FAILED" and AVERAGEIFS by typed job_id; Parameters and Keys empty. Step 5's "a SUMIFS column for each figure" read as COUNTIFS/AVERAGEIFS, as example 02 does. Step 12 not done.

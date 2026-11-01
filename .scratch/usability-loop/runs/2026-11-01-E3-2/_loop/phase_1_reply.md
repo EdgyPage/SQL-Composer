@@ -1,0 +1,1 @@
+DONE: Built my_work/daily_runs_formula.xlsx from a copy of the empty Formula workbook: job_runs Table (Raw, values), CleanRuns Table with its Power Query M kept as text on a Power Query sheet (Source renamed to job_runs), Daily a summary Table with COUNTIFS/SUMIFS on CleanRuns and a Total Row (SUBTOTAL 109), as example 02; Parameters and Keys empty. Step 12 not run.

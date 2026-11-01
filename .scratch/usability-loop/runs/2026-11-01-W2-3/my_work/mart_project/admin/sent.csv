@@ -1,0 +1,3 @@
+time,kind,tables,script
+2026-11-01 01:29:44,create,mart_dev.runs_per_day,_write.py
+2026-11-01 01:29:44,write,mart_dev.runs_per_day,_write.py

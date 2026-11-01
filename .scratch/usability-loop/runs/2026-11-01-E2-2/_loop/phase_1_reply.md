@@ -1,0 +1,1 @@
+DONE: Made my_work/team_report_formula.xlsx: jobs and job_runs Tables (values), job_runs' team an XLOOKUP column, teams a summary Table with COUNTIFS/SUMIFS per typed team; COUNTIF/SUMIF whole-column references rewritten as structured references; Parameters and Keys empty. Step 12 not done.

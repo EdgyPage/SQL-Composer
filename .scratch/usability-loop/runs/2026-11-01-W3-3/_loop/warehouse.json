@@ -1,0 +1,19 @@
+{
+ "mart_dev.failed_runs": {
+  "columns": {
+   "job_id": "bigint",
+   "fails": "bigint"
+  },
+  "partitioned_by": [],
+  "rows": [
+   [
+    2,
+    1
+   ],
+   [
+    3,
+    1
+   ]
+  ]
+ }
+}

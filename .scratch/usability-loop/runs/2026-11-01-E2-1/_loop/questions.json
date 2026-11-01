@@ -1,0 +1,3 @@
+[
+ "Please convert my_work/team_report_formula.xlsx into Hive, as its Steps sheet says, with Copilot files 03, 04, 05, 11 and 12 loaded: the final Table is teams, which should become mart_dev.team_report; its sources are ops.jobs and ops.job_runs."
+]

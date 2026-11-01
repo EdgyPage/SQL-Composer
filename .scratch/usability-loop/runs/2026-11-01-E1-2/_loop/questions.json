@@ -1,0 +1,3 @@
+[
+ "Please convert my_work/run_report_formula.xlsx into Hive with Copilot files 03, 04, 05, 11 and 12 loaded: its final Table run_report should become mart_dev.job_run_report, read from ops.job_runs; give the Hive and the Toolbox code."
+]

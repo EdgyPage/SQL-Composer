@@ -1,0 +1,19 @@
+{
+ "files": {
+  "admin/workflows/convert/team_fails/batch.md": "5624aa0d61dc6c071555a3f31e4a5b956171765c5a0bbf7e8967872c0f281b28",
+  "admin/workflows/convert/team_fails/scripts/weekly_fails.hql": "adbcf57bb55c7baf1146db09a265b2b4f8d509dc1b28ca3550aea570067e8e6f",
+  "references/mart_dev__team_fails.py": "b5391aaa471c1d70adf3725fb17e25e30a65c789157ee39bd0cf2d95e0069572",
+  "tables/mart_dev__team_fails/conversion/checklist.md": "1ad2339872b284eb37f10ef88c17aa3ff764f423bdb98daf79de34d95745677f",
+  "tables/mart_dev__team_fails/conversion/in_dev.hql": "2f4a8f9d875e2c1c692c1d1b27e3e1a3ef0ffb5514b14636818e9e7c378ce19d",
+  "tables/mart_dev__team_fails/conversion/scan.md": "85cbb1c44a42b59ae040a6ee38a90fe9313fc206dd8343f97f69763fd8e275d1",
+  "tables/mart_dev__team_fails/conversion/statement.hql": "7fba1dcc91dfe453409b8801cc944b579888f2e60db38169202d6567bb92f25c",
+  "tables/mart_dev__team_fails/mart_dev__team_fails.ipynb": "ead9061e2d2239ccd599a876c693e645d4547fe3312ebb10ab153b1f2ab7ad55"
+ },
+ "originals": {
+  "mart_dev.team_fails": "mart.team_fails"
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.team_fails"
+ ]
+}

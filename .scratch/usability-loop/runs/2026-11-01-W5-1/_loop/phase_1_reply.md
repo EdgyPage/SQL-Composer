@@ -1,0 +1,2 @@
+DONE: Removed 2026-09-24 from mart_dev.runs_per_day with the change_a_saved_table Workflow notebook and admin.drop_partitions, confirmed with SHOW PARTITIONS (only 2026-09-23 left, 3 rows).
+Friction: my_project had no sqlglot_composer folder, so its notebooks couldn't import the Toolbox (copied main's in); edited the notebook as JSON; added equals to its import line; didn't run run_workflow, which would send the drop again. Noted write()'s READS still covers 2026-09-24, so a rewrite brings it back.

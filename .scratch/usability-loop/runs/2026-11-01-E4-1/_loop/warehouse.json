@@ -1,0 +1,48 @@
+{
+ "mart_dev.job_costs": {
+  "columns": {
+   "job_id": "bigint",
+   "cost_cents": "bigint"
+  },
+  "partitioned_by": [],
+  "rows": [
+   [
+    1,
+    3350
+   ],
+   [
+    2,
+    2650
+   ],
+   [
+    3,
+    1000
+   ],
+   [
+    4,
+    0
+   ]
+  ]
+ },
+ "mart_dev.team_runs": {
+  "columns": {
+   "team": "string",
+   "runs": "bigint"
+  },
+  "partitioned_by": [],
+  "rows": [
+   [
+    "data",
+    4
+   ],
+   [
+    "finance",
+    5
+   ],
+   [
+    "web",
+    0
+   ]
+  ]
+ }
+}

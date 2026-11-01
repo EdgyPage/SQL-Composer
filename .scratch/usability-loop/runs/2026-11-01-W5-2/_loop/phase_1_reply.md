@@ -1,0 +1,2 @@
+DONE: Removed partition dt=2026-09-24 from mart_dev.runs_per_day with the change_a_saved_table Workflow (admin.drop_partitions), verified with SHOW PARTITIONS.
+Friction: my_project had no sqlglot_composer/ (copied main's in); the notebook's import cell lacks equals and its step says only where=...; the condition syntax was in help(admin.drop_partitions), not the guide; run_notebook.py runs every cell including the send; write()'s READS would bring the day back.

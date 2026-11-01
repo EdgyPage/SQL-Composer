@@ -1,0 +1,13 @@
+time,kind,tables,script
+2026-11-01 01:39:00,create,mart_dev.team_fails,last_cell.py
+2026-11-01 01:39:00,create,mart_dev.job_runs_counted,last_cell.py
+2026-11-01 01:39:00,create,mart_dev.job_fails_counted,last_cell.py
+2026-11-01 01:39:00,write,mart_dev.team_fails,last_cell.py
+2026-11-01 01:39:00,write,mart_dev.job_runs_counted,last_cell.py
+2026-11-01 01:39:00,write,mart_dev.job_fails_counted,last_cell.py
+2026-11-01 01:39:53,create,team_prod.team_fails,promote_last_cell.py
+2026-11-01 01:39:53,create,team_prod.job_runs_counted,promote_last_cell.py
+2026-11-01 01:39:53,create,team_prod.job_fails_counted,promote_last_cell.py
+2026-11-01 01:39:53,write,team_prod.team_fails,promote_last_cell.py
+2026-11-01 01:39:53,write,team_prod.job_runs_counted,promote_last_cell.py
+2026-11-01 01:39:53,write,team_prod.job_fails_counted,promote_last_cell.py

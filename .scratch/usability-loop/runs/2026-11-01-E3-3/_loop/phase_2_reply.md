@@ -1,0 +1,1 @@
+DONE: mart_dev.daily_runs written in dev, compare passed: 2026-09-23 3/60, 2026-09-24 4/100, Key dt. Kept Copilot's WITH ROLLUP first; the Toolbox refused to write rollup rows ("writes rows made by GROUP_BY(rollup(...))"), so it deleted WITH ROLLUP, as Copilot offered, restarting the Project. The total is not in the table.

@@ -1,0 +1,1 @@
+WITH CleanRuns AS (SELECT dt, duration_mins FROM ops.job_runs WHERE NOT status IS NULL AND status <> 'TEST') INSERT OVERWRITE TABLE mart_dev.daily_runs SELECT dt, COUNT(*) AS runs, SUM(duration_mins) AS total_duration_mins FROM CleanRuns GROUP BY dt

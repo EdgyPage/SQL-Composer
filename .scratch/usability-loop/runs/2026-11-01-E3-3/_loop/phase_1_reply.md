@@ -1,0 +1,1 @@
+DONE: Filled in my_work/daily_runs_formula.xlsx per the Steps sheet: job_runs (values), CleanRuns Table with the query's 7 rows typed in and the M on a Power Query sheet (source changed to job_runs), daily a summary Table (COUNTIFS/SUMIFS on CleanRuns) with a Total Row; Parameters and Keys empty. The final named daily, after the sheet. Step 12 not done.

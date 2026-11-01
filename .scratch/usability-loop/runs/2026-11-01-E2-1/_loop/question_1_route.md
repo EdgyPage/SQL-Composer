@@ -1,0 +1,71 @@
+You are standing in for Microsoft Copilot in a web chat. Use no tools: answer from what is written here and what you already know.
+
+The user pasted this as their first message:
+
+<<<
+# Copilot files for sqlglot Composer 8.1: start here
+
+sqlglot Composer 8.1 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
+wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
+you can ask it in plain words.
+
+## How to use them
+
+1. Open a new chat in Copilot.
+2. Paste the one file below that fits what you want to do, as your first message, and send
+   it. If a paste is cut short, attach the file instead.
+3. Then ask. Say which tables to read: paste each one's Table reference, its file in your
+   Project's references/ folder, or say its import line and columns, such as:
+   `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint,
+   job_id bigint, status string, dt string; partitioned by dt; Key run_id.
+4. Run what Copilot gives in your notebook. When the Toolbox refuses it, start a new chat
+   with file 09, paste the code and the whole message, and ask for the fix.
+5. For something else, start a new chat with that file. A chat holds one file at a time,
+   but for one task: to convert an Excel workbook, attach files 03, 04, 05, 11 and 12 (or
+   paste each as a message of its own), then attach the workbook and ask Copilot to
+   convert it.
+
+## Which file
+
+- `01_imports_and_project.txt`: start a Project, import the Toolbox, your Table
+  references and warehouse.py's query and execute, and run a Statement.
+- `02_table_references.txt`: describe a table: add its Table reference, or write one by
+  hand for a Saved table, with its columns, partitions and Key; check its Key.
+- `03_build_a_statement.txt`: read rows: pick columns, filter, count, add up, group, sort,
+  and build in steps with Derived tables.
+- `04_joins.txt`: combine tables with JOIN, LEFT_JOIN and the others.
+- `05_windows_and_subtotals.txt`: a rank or row number in each group, the latest row or top N
+  of each group, the row before, running totals; subtotals; stacking Statements.
+- `06_save_a_table.txt`: write a Saved table: its Table notebook's logic cell, with
+  create(), rows(), preview() and write().
+- `07_convert_hive.txt`: turn Hive someone else wrote into Toolbox code.
+- `08_check_and_compare.txt`: compare a Statement with the Hive it replaces, check a Key, see
+  what is left to do in the Project, follow lineage.
+- `09_fix_a_refusal.txt`: fix code the Toolbox refused.
+- `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
+  Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
+- `11_excel_formula_workbooks.txt`: turn a Formula workbook, an Excel workbook laid out as
+  `formula_workbook.xlsx` shows, into Hive and Toolbox code: its steps and formulas.
+- `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
+  Rows, loaded with file 11.
+- `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
+  from its Workflow notebook in admin/workflows/.
+- `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
+  Table references, an upgrade, a change to a Saved table, each a whole job step by step.
+
+## Fitting Copilot
+
+Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
+file fits. Edit a copy if you like, then count it from the download's top folder:
+`python copilot/count_characters.py my_copy.txt` says how many characters it holds and
+whether it fits.
+
+>>>
+
+Then asked:
+
+Please convert my_work/team_report_formula.xlsx into Hive, as its Steps sheet says, with Copilot files 03, 04, 05, 11 and 12 loaded: the final Table is teams, which should become mart_dev.team_report; its sources are ops.jobs and ops.job_runs.
+
+Reply with the one Copilot file the user should load next, such as 07_convert_hive.txt, and nothing else.
+Write your reply under one heading, `## Q1`.

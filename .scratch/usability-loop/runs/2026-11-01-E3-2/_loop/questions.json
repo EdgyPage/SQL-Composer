@@ -1,0 +1,3 @@
+[
+ "Please convert my_work/daily_runs_formula.xlsx into Hive with Copilot files 03, 04, 05, 11 and 12 loaded: give the map and one sql block per final, leaving <database> in angle brackets. Its CleanRuns Table is a Power Query, whose M is on the Power Query sheet; its final Daily has a Total Row."
+]
