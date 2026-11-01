@@ -9,11 +9,11 @@ placeholders, with an example of each.
 
 A Table notebook's Template is a .py file whose cells start with a "# %%" line, or
 "# %% [markdown]" for a text cell, whose lines each start with "# ". Every one has the same
-five code cells: 1 the Project and your query, 2 the logic, 3 try it, 4 its lineage, 5 its rows
-in the Reference sheet; they differ in the logic, which defines write(), the function that
-writes the table. The copies in admin/templates/ are yours: edit one, or add your own beside
-them, and the next project.new_table(...) uses it. Editing a Template changes only the
-notebooks made after.
+six code cells: 1 the Project and your query, 2 the logic, 3 try it, 4 its lineage, 5 its Hive,
+in <NAME>.hql beside the notebook, 6 its rows in the Reference sheet; they differ in the logic,
+which defines write(), the function that writes the table. The copies in admin/templates/ are
+yours: edit one, or add your own beside them, and the next project.new_table(...) uses it.
+Editing a Template changes only the notebooks made after.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from __future__ import annotations
 
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str
               ) -> str:
-    """A Table notebook's Template: its text cell, then its five code cells, the logic and the
+    """A Table notebook's Template: its text cell, then its six code cells, the logic and the
     try-it cell its own, the others the same in every Template. `fill_in` lists each
     placeholder of the notebook with an example, first; `saves` says what the table's Table
     reference lists."""
@@ -48,9 +48,9 @@ def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_i
 # <NAME>. Run the cells top to bottom once its Table reference is written from the logic.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-# `project.load("<DB>.<TABLE>")` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# 4 its lineage; 5 its Hive, in <NAME>.hql; 6 its rows in the Reference sheet. The logic only
+# imports and defines, so `project.load("<DB>.<TABLE>")` can run it from anywhere else, for
+# lineage across your tables and for `admin/run_tables.ipynb`, which sends its `write()`.
 
 # %%
 # 1. The Project and your query
@@ -58,7 +58,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -66,13 +66,22 @@ from warehouse import query
 # %%
 # 3. Try it: the Hive of each step, then the rows
 {try_it}
+{_LAST_CELLS}'''
 
+
+# The code cells every Table notebook Template ends with, after its try-it cell: its lineage,
+# its Hive in a file beside it, and its rows in the Reference sheet.
+_LAST_CELLS = '''
 # %%
 # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table's rows, from references/<NAME>.py
+# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/<NAME>.py
 project.refresh_reference_sheet("<DB>.<TABLE>")
 '''
 

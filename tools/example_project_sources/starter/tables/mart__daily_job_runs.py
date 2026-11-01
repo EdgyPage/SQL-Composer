@@ -13,8 +13,9 @@
 # partitioned by dt, as ops.job_runs is.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The Example database can be read but not
-# written, so cell 3 prints each write's Hive and runs only the preview.
+# 4 its lineage; 5 its Hive, in mart__daily_job_runs.hql; 6 its rows in the Reference sheet.
+# The Example database can be read but not written, so cell 3 prints each write's Hive and
+# runs only the preview.
 
 # %%
 # 1. The Project and your query
@@ -22,7 +23,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -81,5 +82,9 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
+# 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
 project.refresh_reference_sheet("mart.daily_job_runs")

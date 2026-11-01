@@ -84,6 +84,7 @@ or made by hand.
 | `building_blocks/<name>.py`, a Building block | `project.new_block("<name>")` | its `<...>` and TODO lines |
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
+| `tables/<db>__<table>/<db>__<table>.hql`, the Hive the table's logic sends, to read at a glance | its notebook's Hive cell, `export_hive()`, written again each time it runs | nothing: edit the logic instead |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
 | admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)`, and `project.upgrade()` and `project.convert(..., overwrite=True)`, which keep each file as it was before they change it | nothing |
 
@@ -278,7 +279,10 @@ table when it has none, so sending it twice leaves the same rows, not twice as m
 that fills its Partitions from its rows needs the Session setting "dynamic_partitions", which
 `show_hive` prints ahead of it. `project.run_tables(execute=execute)` then writes
 every Saved table, each after the tables it reads, sending that setting first; with no execute,
-it prints each write's Hive in order and sends nothing.
+it prints each write's Hive in order and sends nothing. To read a table's Hive at a glance, its
+notebook's Hive cell, `export_hive()`, writes it into `<db>__<table>.hql` beside the notebook:
+`create()`, then `write()`, in the order they are sent. The Python stays the table's
+definition: edit the logic, not the file, and run the cell again.
 
 How-to: [Save a table](../sqlglot_composer/how_to.html#save_a_table), with the Starter Example
 project's `mart.alerts_per_severity` notebook filled in beside its Table reference.
@@ -853,7 +857,7 @@ placeholder, a word in angle brackets such as `<SOURCE_TABLE>`, is yours to repl
 and all; Python stops at one left in, so a notebook can't run half filled in. Each Template's
 first lines list its placeholders, with an example of each.
 
-The Table notebook Templates, each a notebook of the same five code cells around its own logic:
+The Table notebook Templates, each a notebook of the same six code cells around its own logic:
 
 - `saved_table`: a Saved table worked out from a table it reads, with `create`, `rows`,
   `preview` and `write`, partitioned however its Table reference says, or not at all.
@@ -989,7 +993,7 @@ They come as they are, with no warranty.
 Everything the Toolbox offers, one line each, grouped by the file of `sqlglot_composer` it
 lives in. Import every name from `sqlglot_composer` itself, never from a file inside it.
 Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
-`job_runs.duration_mins / 60`. The star import brings the 109 names listed here before the admin
+`job_runs.duration_mins / 60`. The star import brings the 110 names listed here before the admin
 module. Two modules' functions come last: the admin module's, which change your own Saved
 tables, and the project module's, which make and archive a Project's folders and files. The star
 import leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

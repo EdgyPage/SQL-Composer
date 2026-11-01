@@ -29,20 +29,33 @@ VERSION = sqlglot_composer.TOOLBOX_VERSION
 STEP_8_0 = "8.0"
 ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
+
+
+def notebooks_and_hive(*stems: str) -> tuple[str, ...]:
+    """Each Table notebook a stem names, and the Hive file export_hive() writes beside it."""
+    paths: list[str] = []
+    for stem in stems:
+        paths += [f"tables/{stem}/{stem}.ipynb", f"tables/{stem}/{stem}.hql"]
+    return tuple(paths)
+
+
 # What each Example project gained by hand in this version, which no Upgrade makes, left out of
 # the comparison: 8.0's READMEs, the starter's saying to set conn, your connection (ticket 21),
 # and the intermediate's naming the convert Workflow's notebook (ticket 12); DEV, filled in in
 # admin/databases.py; and the intermediate's Conversion, made again the 8.0 way, as a batch
 # whose Saved table's folder keeps conversion/ (ticket 14). Empty it when the next version's
-# frozen copy holds them.
+# frozen copy holds them. 8.2's Table notebooks gain the Hive cell, and each its Hive file
+# (ticket 01).
 GAINED_BY_HAND = {
     "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
                      "references/mart__team_failures.py", "tables/mart__team_failures/",
-                     "admin/workflows/convert/finished/"),
+                     "admin/workflows/convert/finished/",
+                     *notebooks_and_hive("mart__budget_overruns", "mart__job_day_costs",
+                                         "mart__job_day_facts", "mart__job_events_checks",
+                                         "mart__job_notes", "mart__team_days")),
     "starter": ("README.md", "admin/databases.py", "references/mart__alerts_per_severity.py",
-                *[f"tables/{stem}/{stem}.ipynb" for stem in (
-                    "mart__alerts_per_job", "mart__alerts_per_severity",
-                    "mart__daily_job_runs", "mart__team_day")]),
+                *notebooks_and_hive("mart__alerts_per_job", "mart__alerts_per_severity",
+                                    "mart__daily_job_runs", "mart__team_day")),
 }
 # What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
 # check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and

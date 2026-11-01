@@ -125,9 +125,9 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     # mart__alerts_per_severity. Run the cells top to bottom once its Table reference is written from the logic.
     #
     # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-    # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-    # `project.load("mart.alerts_per_severity")` can run it from anywhere else, for lineage across your
-    # tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+    # 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet. The logic only
+    # imports and defines, so `project.load("mart.alerts_per_severity")` can run it from anywhere else, for
+    # lineage across your tables and for `admin/run_tables.ipynb`, which sends its `write()`.
 
     # %%
     # 1. The Project and your query
@@ -135,7 +135,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -206,7 +206,11 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, as 
     export_lineage(write())
 
     # %%
-    # 5. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
+    # 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+    export_hive()
+
+    # %%
+    # 6. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
     project.refresh_reference_sheet("mart.alerts_per_severity")
 
 Its text cell starts with a list of what each `<...>` is for. Type over each one in the code
@@ -229,9 +233,10 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
     #
     # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-    # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-    # `project.load("mart.alerts_per_severity")` can run it from anywhere else, for lineage across your
-    # tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+    # 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet.
+    # The logic only imports and defines, so `project.load("mart.alerts_per_severity")` can run it
+    # from anywhere else, for lineage across your tables and for `admin/run_tables.ipynb`, which
+    # sends its `write()`.
 
     # %%
     # 1. The Project and your query
@@ -239,7 +244,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -310,7 +315,11 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     export_lineage(write())
 
     # %%
-    # 5. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
+    # 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+    export_hive()
+
+    # %%
+    # 6. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
     project.refresh_reference_sheet("mart.alerts_per_severity")
 
 Each `<...>` became:
@@ -326,7 +335,7 @@ Each `<...>` became:
 - `<PARTITION_COLUMN>`: dt, the column of `ops.run_alerts` that fills this table's own
   partition column, so `<SOURCE_TABLE>.<PARTITION_COLUMN>` became `run_alerts.dt`.
 
-The notebook has five code cells, run top to bottom:
+The notebook has six code cells, run top to bottom:
 
 1. the path lines and imports, as in [Start a Project](#start_a_project), and your query;
 2. the logic, whose first line is `# logic`: imports, READS, and four functions, each giving a
@@ -334,7 +343,8 @@ The notebook has five code cells, run top to bottom:
    preview and write share, so the rows you check are the rows you save;
 3. try it: each step's Hive, then the rows;
 4. its Lineage, as [Follow lineage](#follow_lineage) shows;
-5. its rows in the Reference sheet, as [Keep the Project in order](#keep_the_project_in_order)
+5. its Hive, in mart__alerts_per_severity.hql beside the notebook, as below;
+6. its rows in the Reference sheet, as [Keep the Project in order](#keep_the_project_in_order)
    shows.
 
 ### Fill in its Table reference, beside it
@@ -450,7 +460,7 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
 
 A Saved table joins its Database module, references/mart.py, once its Table reference has no
 `<...>` left: the next Project action that writes the Database modules adds it, for example
-`project.refresh_reference_sheet`, which cell 5 runs, for its own table. Run here, it writes
+`project.refresh_reference_sheet`, which cell 6 runs, for its own table. Run here, it writes
 mart.py:
 
 >>> project.refresh_reference_sheet("mart.alerts_per_severity")
@@ -524,6 +534,62 @@ Project, with `logic` from `project.load` as here, that is
 `run_execute(logic.create(), execute)`; in the table's own notebook, add a cell after cell 3
 that runs its create() the same way, and import execute beside query in cell 1. The Example
 database can be read but not written, so this page creates nothing.
+
+### Keep its Hive beside it
+
+Cell 5, `export_hive()`, writes the Hive the notebook's logic sends into a file beside the
+notebook, mart__alerts_per_severity.hql, to read at a glance or paste into another program:
+create(), then write(), each as show_hive shows it, in the order they are sent, under lines
+saying the file is generated. The Python stays the table's definition, so edit the logic, not
+the file, and run the cell again: it reads the notebook as last saved, so save it first. The
+same logic writes the same text. Jupyter runs a notebook in its own folder, so the steps move
+there first, as opening the notebook would, then back:
+
+>>> import os
+>>> from pathlib import Path
+>>> os.chdir("tables/mart__alerts_per_severity")
+>>> export_hive()
+Wrote mart__alerts_per_severity.hql beside its notebook: the Hive of create() and write(), in
+the order they are sent.
+>>> print(Path("mart__alerts_per_severity.hql").read_text())
+-- The Hive of mart.alerts_per_severity, generated by export_hive() from the logic cell
+-- of mart__alerts_per_severity.ipynb, beside this file. Edit the logic there, not this
+-- file: each export_hive() writes it again, from the notebook as last saved. Its steps
+-- are in the order they are sent: create(), any seed(), the table's Session settings,
+-- then write().
+<BLANKLINE>
+-- 1 of 2: create()
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerts_per_severity (
+  severity STRING,
+  alerts BIGINT,
+  PRIMARY KEY (severity, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION '/data/your_team/mart.db/alerts_per_severity';
+<BLANKLINE>
+-- 2 of 2: write()
+-- The Session setting "dynamic_partitions": this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.alerts_per_severity PARTITION(dt)
+SELECT
+  run_alerts.severity,
+  COUNT(*) AS alerts,
+  run_alerts.dt
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = '2026-09-24'
+GROUP BY
+  run_alerts.severity,
+  run_alerts.dt;
+<BLANKLINE>
+>>> os.chdir("../..")
+
+Given a Statement instead, `export_hive` writes that Statement's Hive alone, as show_hive shows
+it, beside any notebook or script, in a file named for the Statement's variable.
 
 ### How a write fills its Partitions
 
@@ -606,12 +672,12 @@ Each write() writes the rows its notebook's READS picks: change READS to write o
 
 ## Check it worked
 
-The Table folder holds its notebook and lineage/, and the registry lists the folder and its
+The Table folder holds its notebook, its Hive and lineage/, and the registry lists the folder and its
 Table reference beside the ones before:
 
 >>> from pathlib import Path
 >>> sorted(path.name for path in Path("tables/mart__alerts_per_severity").iterdir())
-['lineage', 'mart__alerts_per_severity.ipynb']
+['lineage', 'mart__alerts_per_severity.hql', 'mart__alerts_per_severity.ipynb']
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.

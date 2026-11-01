@@ -15,7 +15,7 @@
 # JOIN's ON=.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet.
+# 4 its lineage; 5 its Hive, in mart__job_notes.hql; 6 its rows in the Reference sheet.
 
 # %%
 # 1. The Project and your query
@@ -23,7 +23,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -80,5 +80,9 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table's rows, from references/mart__job_notes.py
+# 5. Its Hive: mart__job_notes.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/mart__job_notes.py
 project.refresh_reference_sheet("mart.job_notes")
