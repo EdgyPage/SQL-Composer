@@ -602,11 +602,11 @@ def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
 
     files = inputs.get("FILES") or None
     hive = inputs.get("HIVE")
-    staging = inputs.get("STAGING")
+    # STAGING goes as given, so convert refuses one that isn't a dict, as its cell does.
     report = project.convert(str(inputs.get("NAME")), hive if isinstance(hive, str) else None,
                              files=files, query=calls.query,
                              database=str(inputs.get("DATABASE", "default")),
-                             staging=staging if isinstance(staging, dict) else None)
+                             staging=inputs.get("STAGING"))
     return report.lines
 
 
