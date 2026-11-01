@@ -2824,8 +2824,8 @@ alerts_per_severity = Table(
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
 <p class="note">It writes <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb</code> too.</p>
 <p>It made four things, and listed two of them, the Table folder and the Table reference, in the registry:</p>
-<ul><li>tables/mart__alerts_per_severity/, the table&#x27;s Table folder, named after the database and the table joined by two underscores;</li><li>mart__alerts_per_severity.ipynb in it, the Table notebook, from the saved_table Template: a Saved table worked out from a table it reads, a count per group of the rows it reads;</li><li>lineage/ beside it, empty until the notebook exports the table&#x27;s Lineage;</li><li>references/mart__alerts_per_severity.py, its Table reference. A Saved table doesn&#x27;t exist until its notebook creates it, so nothing can be asked of it: you fill its Table reference in by hand.</li></ul>
-<p>Both hold <code>&lt;...&gt;</code> placeholders, each to type over, brackets and all. Until you do, the notebook isn&#x27;t Python yet, and <code>project.load</code>, which runs a notebook&#x27;s logic from anywhere in the Project, says which line stops it:</p>
+<ul><li>tables/mart__alerts_per_severity/, the table&#x27;s Table folder, named after the database and the table joined by two underscores;</li><li>mart__alerts_per_severity.ipynb in it, the Table notebook, from the saved_table Template: a Saved table worked out from a table it reads, a count per group of the rows it reads;</li><li>lineage/ beside it, empty until the notebook exports the table&#x27;s Lineage;</li><li>references/mart__alerts_per_severity.py, its Table reference. A Saved table doesn&#x27;t exist until its notebook creates it, so nothing can be asked of it: this one stands in until <code>project.reference_from_logic</code> writes it from the logic you write.</li></ul>
+<p>Both hold <code>&lt;...&gt;</code> placeholders. Type over each in the notebook, brackets and all; the Table reference&#x27;s are written for you, once the logic is. Until you do, the notebook isn&#x27;t Python yet, and <code>project.load</code>, which runs a notebook&#x27;s logic from anywhere in the Project, says which line stops it:</p>
 <pre class="python">project.load(&quot;mart.alerts_per_severity&quot;)</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">ValueError:
   What happened:  project.load(&quot;mart.alerts_per_severity&quot;): the logic cell of tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb isn&#x27;t Python yet, at its line 9: from references.&lt;SOURCE_NAME&gt; import &lt;SOURCE_TABLE&gt;
@@ -2962,7 +2962,7 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 # One row per severity and day: how many alerts of that severity the runs raised that day.
 #
 # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-# It is partitioned however its Table reference says, or not at all.
+# It is partitioned as PARTITIONED_BY says, or not at all.
 #
 # Made by `project.new_table(&quot;mart.alerts_per_severity&quot;)` from
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file&#x27;s name,
@@ -2996,6 +2996,9 @@ from references.ops__run_alerts import run_alerts
 # The rows write() reads: change it to write others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.
 READS = equals(run_alerts.dt, &quot;2026-09-24&quot;)
+
+# This table&#x27;s partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = [&quot;dt&quot;]
 
 
 def create() -&gt; Statement:
@@ -3054,7 +3057,7 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p>The notebook has five code cells, run top to bottom:</p>
 <p>1. the path lines and imports, as in <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, READS, and four functions, each giving a Statement and running nothing: create, rows, preview and write. <code>rows()</code> holds the clauses preview and write share, so the rows you check are the rows you save; 3. try it: each step&#x27;s Hive, then the rows; 4. its Lineage, as <a href="#follow_lineage">Follow lineage</a> shows; 5. its rows in the Reference sheet, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h5>Fill in its Table reference, beside it</h5>
-<p>references/mart__alerts_per_severity.py describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template, to stand in until the logic is written: then <code>project.reference_from_logic(&quot;mart.alerts_per_severity&quot;)</code>, the new_table Workflow&#x27;s step, writes it from the logic, its columns, partition columns and Key, leaving its location= for you to answer. Here you write it yourself instead, as the Starter Example project did, a file it then keeps as yours:</p>
+<p>references/mart__alerts_per_severity.py describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template, to stand in until the logic is written: then <code>project.reference_from_logic(&quot;mart.alerts_per_severity&quot;)</code>, the new_table Workflow&#x27;s step, writes it from the logic, its columns, partition columns and Key, leaving its location= for you to answer. The Starter Example project&#x27;s file was written by hand instead, so it is the Starter&#x27;s own, and this how-to shows that way:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, as <code>project.new_table</code> wrote it</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - TODO: say in one line what one row is.
 
@@ -3089,17 +3092,16 @@ alerts_per_severity = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
-<p>It has no <code>does_not_add_up=</code>, which the Table references <code>project.add_references</code> writes have: the Template&#x27;s table saves counts, which add up, so it is left out and taken as empty. Add <code>does_not_add_up=[...]</code> yourself if your table saves an average, a ratio or a distinct count. Write each column, its partition columns, Key and location=, and the TODO lines, as here, the file as it is in the Starter Example project:</p>
+<p>It has no <code>does_not_add_up=</code>, which the Table references <code>project.add_references</code> writes have: the Template&#x27;s table saves counts, which add up, so it is left out and taken as empty. Add <code>does_not_add_up=[...]</code> yourself if your table saves an average, a ratio or a distinct count. reference_from_logic writes each column, its partition columns and Key; by hand, write those, location= and the TODO lines, as here, the file as it is in the Starter Example project:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, after you fill it in</p>
 <pre class="python">&quot;&quot;&quot;mart.alerts_per_severity - one row per severity and day: the alerts raised.
 
 Why: its notebook saves the day&#x27;s count of low and high alerts, so a dashboard of alerts
 reads two rows a day rather than every alert.
 
-project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-table&#x27;s Table reference is filled in by hand, since the table doesn&#x27;t exist until its
-notebook&#x27;s create() makes it from this file. Its notebook&#x27;s text cell says which columns it
-lists, and its Key.
+project.new_table wrote this file from admin/templates/saved_table_reference.py, and it was
+then written by hand, which keeps it yours: project.reference_from_logic would have written it
+from the table&#x27;s logic. Its notebook&#x27;s text cell says which columns it lists, and its Key.
 &quot;&quot;&quot;
 
 from sqlglot_composer import Table
@@ -3131,7 +3133,7 @@ alerts_per_severity = Table(
 # A condition Alias names a condition on this table alone, for WHERE or
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
-<ul><li><code>columns={...}</code> lists each column write() saves, in the order its SELECT gives them, each with its Hive type as DESCRIBE prints it: <code>&quot;severity&quot;</code> is a <code>&quot;string&quot;</code>, as in <code>ops.run_alerts</code>, the count <code>&quot;alerts&quot;</code> is a <code>&quot;bigint&quot;</code>, and the partition column <code>&quot;dt&quot;</code> comes last.</li><li><code>partitioned_by=[&quot;dt&quot;]</code> makes the table kept a Partition at a time, here a day: a write replaces the Partitions it fills, and every Statement that reads the table must filter dt.</li><li><code>key=[&quot;severity&quot;, &quot;dt&quot;]</code> is its Key, the columns whose values name one row of the table: each row is one severity on one day, so a severity alone repeats, once a day. The warehouse never checks a Key, so the Toolbox does: a write whose rows could share one is refused as it is built. Here GROUP_BY makes one row per severity and dt.</li><li><code>location=</code> is what <code>&lt;LOCATION&gt;</code> became: the table&#x27;s own folder in the warehouse, where its files go, in quotes and used exactly as written. Ask whoever looks after your warehouse where your team may write, such as <code>&quot;/data/your_team/mart.db/alerts_per_severity&quot;</code>. No two Saved tables may share a folder, or have one inside the other: the Toolbox refuses two that do.</li><li><code>descriptions={...}</code> says what each column holds, for the Reference sheet.</li></ul>
+<ul><li><code>columns={...}</code> lists each column write() saves, in the order its SELECT gives them, each with its Hive type as DESCRIBE prints it: <code>&quot;severity&quot;</code> is a <code>&quot;string&quot;</code>, as in <code>ops.run_alerts</code>, the count <code>&quot;alerts&quot;</code> is a <code>&quot;bigint&quot;</code>, and the partition column <code>&quot;dt&quot;</code> comes last.</li><li><code>partitioned_by=[&quot;dt&quot;]</code> makes the table kept a Partition at a time, here a day: a write replaces the Partitions it fills, and every Statement that reads the table must filter dt.</li><li><code>key=[&quot;severity&quot;, &quot;dt&quot;]</code> is its Key, the columns whose values name one row of the table: each row is one severity on one day, so a severity alone repeats, once a day. The warehouse never checks a Key, so the Toolbox does: a write whose rows could share one is refused as it is built. Here GROUP_BY makes one row per severity and dt.</li><li><code>location=</code> is the table&#x27;s own folder in the warehouse, where its files go: a Decision, written in quotes and used exactly as written. Ask whoever looks after your warehouse where your team may write, such as <code>&quot;/data/your_team/mart.db/alerts_per_severity&quot;</code>. No two Saved tables may share a folder, or have one inside the other: the Toolbox refuses two that do.</li><li><code>descriptions={...}</code> says what each column holds, for the Reference sheet.</li></ul>
 <h5>Reach it from references</h5>
 <p>A Saved table joins its Database module, references/mart.py, once its Table reference has no <code>&lt;...&gt;</code> left: the next Project action that writes the Database modules adds it, for example <code>project.refresh_reference_sheet</code>, which cell 5 runs, for its own table. Run here, it writes mart.py:</p>
 <pre class="python">project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
@@ -16418,8 +16420,8 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
-<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot;; for project.run_workflow, a
-# list of batches converted already
+<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot; (or, for the last cell alone,
+# a list of batches converted already)
 NAME = &#x27;&#x27;
 # the scripts&#x27; files, from this folder, such as [&quot;daily.hql&quot;], or [] to read HIVE
 FILES = []
@@ -16436,7 +16438,7 @@ STAGING = {}</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key project.convert proposed is made, but an answer here changes it</pre>
+# a Key proposed from a query is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
@@ -16512,7 +16514,7 @@ TABLES = []</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key project.convert proposed is made, but an answer here changes it</pre>
+# a Key proposed from a query is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.promote(TABLES)</pre>
@@ -16581,7 +16583,8 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
-<pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
+<pre class="python"># the new tables, by their names in the warehouse, such as
+# [&quot;mart_dev.daily_job_runs&quot;]
 TABLES = []
 # each table&#x27;s query, by its name without its database, as Hive text or a .hql file
 # in admin/workflows/new_table/, such as {&quot;daily_job_runs&quot;: &quot;daily_job_runs.hql&quot;}
@@ -16594,7 +16597,7 @@ QUERIES = {}</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key project.convert proposed is made, but an answer here changes it</pre>
+# a Key proposed from a query is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ul>
 <pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
@@ -16658,7 +16661,7 @@ TABLES = []</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key project.convert proposed is made, but an answer here changes it</pre>
+# a Key proposed from a query is made, but an answer here changes it</pre>
 <p>Its steps:</p>
 <ul><li>1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ul>
 <pre class="python">project.add_references(TABLES, query=query)</pre>

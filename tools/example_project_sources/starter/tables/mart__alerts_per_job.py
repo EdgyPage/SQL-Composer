@@ -42,6 +42,9 @@ from references.ops__run_alerts import high, run_alerts  # high: an Alias, sever
 READS = all_of(equals(run_alerts.dt, "2026-09-24"),
                between(job_runs.dt, "2026-09-23", "2026-09-24"))
 
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["dt"]
+
 
 def create() -> Statement:
     """Step 1: create mart.alerts_per_job from its Table reference, if it isn't there yet."""

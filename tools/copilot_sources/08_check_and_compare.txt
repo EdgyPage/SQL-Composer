@@ -28,8 +28,9 @@ block the user can paste into a notebook cell, then a few plain sentences.
 4. A Key: `check_key(t, query=query, where=equals(t.dt, day))` says whether the Key tells
    each row apart there.
 5. A Table reference against the table as it is now: `check_table_reference(t, query=query)`.
-6. The Project: `project.check()` lists what is left to do, such as a Table reference to
-   fill in, a `# CONVERSION:` mark to decide, or a Conversion not finished.
+6. The Project: `project.check()` lists what is left to do, such as a Decision to
+   answer in a Workflow's decisions cell or a Workflow's next step, and notes each
+   `# CONVERSION:` mark, which blocks nothing.
 7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
    notebook. Hive's plan, without running: `run_query(explain(s), query)`.
 8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.

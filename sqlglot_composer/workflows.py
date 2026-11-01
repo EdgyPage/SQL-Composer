@@ -863,8 +863,8 @@ CONVERT = Workflow(
              "project.compare_batch(NAME, query=query)", every_table_compared,
              send=compare_the_batch),
     ),
-    inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\"; for "
-                  "project.run_workflow, a list of batches converted already", starts=True),
+    inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
+                  "for the last cell alone, a list of batches converted already)", starts=True),
             Input("FILES", [], 'the scripts\' files, from this folder, such as ["daily.hql"], '
                   "or [] to read HIVE"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
@@ -972,7 +972,8 @@ NEW_TABLE = Workflow(
              "    print(project.compare_batch(name, query=query))",
              every_query_table_compared, send=compare_the_queries),
     ),
-    inputs=(TABLES_INPUT,
+    inputs=(Input("TABLES", [], 'the new tables, by their names in the warehouse, such as '
+                  '["mart_dev.daily_job_runs"]', starts=True),
             Input("QUERIES", {}, "each table's query, by its name without its database, as "
                   "Hive text or a .hql file in admin/workflows/new_table/, such as "
                   '{"daily_job_runs": "daily_job_runs.hql"} for mart_dev.daily_job_runs: it is '
@@ -1082,7 +1083,7 @@ DECISIONS_CELL = (
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
     '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open;\n'
-    "# a Key project.convert proposed is made, but an answer here changes it")
+    "# a Key proposed from a query is made, but an answer here changes it")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",

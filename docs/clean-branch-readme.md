@@ -258,7 +258,11 @@ A Saved table is a table of yours that a Statement writes, so a number worked ou
 by everyone after. The new_table Workflow, `admin/workflows/new_table/new_table.ipynb`, takes
 you from its name to the table written in dev: its first step, `project.new_table`, makes its
 Table folder, holding a Table notebook made from the `saved_table` Template, and a Table
-reference that stands in until a later step writes it from the logic you write:
+reference that stands in until a later step, `project.reference_from_logic`, writes it from
+the logic you write: its columns and types from `preview()`, its partition columns from the
+logic's `PARTITIONED_BY`, and its Key. Have its query already? Give it in the names cell's
+`QUERIES = {"alerts_per_severity": "alerts_per_severity.hql"}`, the table named in your Dev
+Database, and its logic is written for you from the query, then compared with it:
 
 ```python
 >>> project.new_table("mart.alerts_per_severity")
@@ -342,10 +346,15 @@ How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_so
 ## The Workflows
 
 Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
-take you from what you start with to the end goal. Fill in its names cell and save it; then
-`project.check()` names its next step, and `project.do_next()` runs each step that only
-writes files, such as making a Table folder, and stops at the first that calls the warehouse or
-needs your decision. Each chart below is drawn from the steps its notebook runs, beside the
+take you from what you start with to the end goal. Fill in its names cell and save it; what
+only you can decide of a table, a Decision such as its folder, you answer in its decisions
+cell, `DECISIONS = {"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly"}}`, and a
+step writes each answer in for you. Then run each step's cell in turn, or, in their place, the
+notebook's last cell, `project.run_workflow(...)`, which runs every step left, the calls to
+the warehouse too, up to the first only you can do, and says where it stopped; with
+`dry_run=True` it sends nothing through your execute and says the Hive each step would send.
+`project.check()` names each Workflow's next step, and `project.do_next()` runs only the steps
+that write files. Each chart below is drawn from the steps its notebook runs, beside the
 same steps as a list. In each chart, a plain box is a step that changes only files, or only
 prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision,
 yours to make; and a box with round corners something a step needs or makes.
