@@ -31,7 +31,10 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
 ## convert: someone else's Hive into Saved tables in dev
 
 For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files,
-saved beside the notebook, in admin/workflows/convert/, where it reads them.
+saved beside the notebook, in admin/workflows/convert/, where it reads them, or [] with HIVE
+the Hive as text. STAGING is a dict: of each staging table, one a statement makes that a later
+one reads, "fold" (into the tables that read it) or "keep", such as
+{"ops_reports.failed": "fold"}; one left out is folded if temporary or DROPped, else kept.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).

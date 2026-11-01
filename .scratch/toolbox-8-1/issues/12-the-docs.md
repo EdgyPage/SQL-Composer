@@ -64,7 +64,9 @@ Built 2026-10-31.
   arm C, three rounds, all recorded: 1 of 2, then 1 of 2 with files 13 and 14 showing the
   decisions cell's shape (a fix from a held-out failure), then 2 of 2 with T33's request
   reworded, a row marked as tuned on. 8.0 had no Workflow tasks, so no 8.0 score to meet. The
-  dev tasks weren't run on a proxy.
+  dev tasks, two rounds: 3 of 4, T32 giving STAGING as a list, which file 13 hadn't shown and
+  project.convert met with an AttributeError; then 4 of 4, file 13 showing HIVE's and
+  STAGING's shapes and convert refusing a staging= that isn't a dict (test_batches).
 - Beginner stops answered with them: CONTEXT.md's Original (promote's step 5 seeds a prod
   copy from the table the script wrote, which a probe confirmed), CHANGES' two places to run
   `project.upgrade()`, and how-to 9's Dev Database named as one of yours.

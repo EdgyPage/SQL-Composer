@@ -787,6 +787,13 @@ def test_staging_naming_no_staging_table_is_refused(started: Path) -> None:
                         database="ops", staging={"fails_per_job": "fold"})
 
 
+def test_staging_given_as_a_list_is_refused(started: Path) -> None:
+    (started / "script.hql").write_text(STAGED, encoding="utf-8")
+    with pytest.raises(TypeError, match=r'such as staging=\{"ops_reports.failed": "fold"\}'):
+        project.convert("script", files=["script.hql"], query=example_database.query,
+                        database="ops", staging=["ops_reports.failed"])
+
+
 def test_a_staging_tables_own_ctes_come_before_it_in_the_table_that_reads_it(
         started: Path) -> None:
     convert_script(started, STAGED.replace(

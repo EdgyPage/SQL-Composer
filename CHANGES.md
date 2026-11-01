@@ -77,7 +77,8 @@ cell, `project.run_workflow(...)`, runs every step left.
   a Saved table, as something else may read it; its report names each. To choose otherwise,
   give `staging={"ops_reports.failed": "keep"}`, or `"fold"`, in the convert notebook's
   `STAGING`, and convert again with overwrite=True; batch.md says where each folded table
-  went.
+  went. A `staging=` that isn't a dict, such as a list of names, is refused, with an example
+  that names one of the batch's staging tables.
 - **Promote ends with the prod tables referenced.** Its last step, a file step
   `project.do_next()` and the runner run, refreshes the Reference sheet and the Database
   modules for the prod copies: `project.refresh_reference_sheet(project.promoted_tables(TABLES))`.
