@@ -1,0 +1,28 @@
+{
+ "mart_dev.team_report": {
+  "columns": {
+   "team": "string",
+   "runs": "bigint",
+   "total_duration_mins": "bigint"
+  },
+  "partitioned_by": [],
+  "location": "/data/team/mart_dev.db/team_report",
+  "rows": [
+   [
+    "data",
+    4,
+    67
+   ],
+   [
+    "finance",
+    5,
+    113
+   ],
+   [
+    "web",
+    0,
+    0
+   ]
+  ]
+ }
+}

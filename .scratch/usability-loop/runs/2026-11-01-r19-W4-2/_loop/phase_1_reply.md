@@ -1,0 +1,1 @@
+DONE: Started a Project in my_work/ops_project, warehouse.py on team_connection, DEV/PROD set, references for ops.jobs (job_id) and ops.run_alerts (alert_id) by the references Workflow; check_references: both match, both Keys hold (run_alerts on its latest Partition); project.check() clean.

@@ -1,0 +1,1 @@
+DONE: Converted weekly.hql into mart_dev copies named as the originals (RENAME; temp table folded), compared on both Partitions, promoted to team_prod at /data/team/team_prod.db/<name>; originals untouched; project.check() names no step.

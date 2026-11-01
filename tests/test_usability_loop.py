@@ -8,6 +8,7 @@ key, failing on the check meant to catch each wrong end.
 
 from __future__ import annotations
 
+import ast
 import json
 import sys
 from pathlib import Path
@@ -114,6 +115,19 @@ def test_a_run_holds_what_the_user_has_and_nothing_of_the_key(
     connection = (run / "team_connection.py").read_text(encoding="utf-8")
     assert repr(str(run / "_loop" / "warehouse.json")) in connection
     assert len(SavedWarehouse(run / "_loop" / "warehouse.json").rows_of("mart.daily_fails"))
+
+
+def test_a_project_brought_in_reaches_the_team_connection_through_its_conn_line_alone(
+        tmp_path: Path) -> None:
+    # 8.2's warehouse.py names the line in a comment too: only the line itself is replaced.
+    warehouse = tmp_path / "warehouse.py"
+    warehouse.write_text(f"# in place of the line {usability_loop.EXAMPLE_CONN}, as it was\n"
+                         f"{usability_loop.EXAMPLE_CONN}\n", encoding="utf-8")
+    usability_loop.connect_the_team(warehouse)
+    written = warehouse.read_text(encoding="utf-8")
+    assert written.startswith(f"# in place of the line {usability_loop.EXAMPLE_CONN}, as it")
+    assert written.count("from team_connection import conn") == 1
+    ast.parse(written)
 
 
 def test_each_phases_message_gives_its_role_what_that_person_has(

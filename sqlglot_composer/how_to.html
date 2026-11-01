@@ -202,8 +202,8 @@ from sqlglot_composer import example_database
 # Your connection to the warehouse. At work, replace example_database with your own, such as
 # conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
 # execute(sql) runs Hive that changes something. A connection kept in a file outside the
-# Project, such as team_connection.py, is imported by these lines, in place of the line
-# conn = example_database below:
+# Project, such as team_connection.py, is imported by these lines, written in place of the
+# line below that sets conn to example_database:
 #     import sys
 #     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
 #     from team_connection import conn
@@ -7011,7 +7011,7 @@ except ValueError as refused:
 <p>Done when the promote Workflow names its next step for the three tables, at work. Then check it worked, below.</p>
 <h4>Check it worked</h4>
 <p>Before you go on, check that:</p>
-<ul><li>each table&#x27;s conversion/compare.md starts &quot;Passed:&quot;;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
+<ul><li>each result in each table&#x27;s conversion/compare.md says &quot;Passed:&quot;;</li><li><code>project.check()</code> names no step of the batch;</li><li>the batch is in admin/workflows/convert/finished/;</li><li>the promote Workflow has written each table in prod.</li></ul>
 <h4>Common mistakes</h4>
 <h5>Converting one script at a time</h5>
 <p>A table one script writes and another reads is made once, and read in dev, only when both are in one batch. Give the scripts together, with <code>files=</code>.</p>

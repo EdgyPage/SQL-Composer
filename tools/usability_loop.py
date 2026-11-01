@@ -225,11 +225,17 @@ def bring_in_the_project(chosen: Scenario, run: Path) -> None:
             toolbox = ROOT / "sqlglot_composer"
         shutil.copytree(toolbox, root / "sqlglot_composer",
                         ignore=shutil.ignore_patterns("__pycache__"))
-    warehouse_py = root / "warehouse.py"
-    text = warehouse_py.read_text(encoding="utf-8")
-    if EXAMPLE_CONN not in text:
+    connect_the_team(root / "warehouse.py")
+
+
+def connect_the_team(warehouse_py: Path) -> None:
+    """Set a Project's warehouse.py's conn to the team's connection: its line conn =
+    example_database alone, not a comment that names that line, as 8.2's does."""
+    lines = warehouse_py.read_text(encoding="utf-8").split("\n")
+    if EXAMPLE_CONN not in lines:
         raise ValueError(f"{warehouse_py} has no line {EXAMPLE_CONN!r} to set")
-    warehouse_py.write_text(text.replace(EXAMPLE_CONN, TEAMS_CONN), encoding="utf-8")
+    lines[lines.index(EXAMPLE_CONN)] = TEAMS_CONN
+    warehouse_py.write_text("\n".join(lines), encoding="utf-8")
 
 
 def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> list[str]:

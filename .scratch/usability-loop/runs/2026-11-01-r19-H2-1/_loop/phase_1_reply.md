@@ -1,0 +1,1 @@
+DONE but for the warehouse step: upgraded my_project from 8.0 to 8.2 (nothing by hand), DEV = mart_dev, PROD = team_prod; then, from Copilot's answer, moved the four mart.* Saved tables to mart_dev.* (new Table folders and references, old ones archived in admin/removed/), their create and write left undone.

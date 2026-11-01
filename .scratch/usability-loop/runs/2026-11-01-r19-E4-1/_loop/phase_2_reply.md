@@ -1,0 +1,1 @@
+DONE: mart_dev.job_costs and mart_dev.team_runs made from Copilot's Hive (<database> as ops, job 3's typed-over 1000 a CASE on job_id, the Parameter as 50) by the convert Workflow (batch costs) at /data/team/mart_dev.db/<name>; both compares passed; rows checked by hand; not promoted.

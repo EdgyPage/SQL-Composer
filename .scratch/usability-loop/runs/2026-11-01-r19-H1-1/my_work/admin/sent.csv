@@ -1,0 +1,13 @@
+time,kind,tables,script
+2026-11-01 15:52:20,create,mart_dev.team_fails,a notebook
+2026-11-01 15:52:20,create,mart_dev.job_runs_counted,a notebook
+2026-11-01 15:52:20,create,mart_dev.job_fails_counted,a notebook
+2026-11-01 15:52:37,write,mart_dev.team_fails,a notebook
+2026-11-01 15:52:37,write,mart_dev.job_runs_counted,a notebook
+2026-11-01 15:52:37,write,mart_dev.job_fails_counted,a notebook
+2026-11-01 15:53:31,create,team_prod.team_fails,a notebook
+2026-11-01 15:53:31,create,team_prod.job_runs_counted,a notebook
+2026-11-01 15:53:31,create,team_prod.job_fails_counted,a notebook
+2026-11-01 15:53:43,write,team_prod.team_fails,a notebook
+2026-11-01 15:53:43,write,team_prod.job_runs_counted,a notebook
+2026-11-01 15:53:43,write,team_prod.job_fails_counted,a notebook

@@ -1,0 +1,3 @@
+[
+ "Convert this workbook into Hive, one query per final, as the Steps sheet's step 12 says. Note: the Power Query CleanRuns is not loaded as a query in it (the Power Query sheet says to add it in Excel, and I have no Excel here), so the Table CleanRuns holds typed rows; tell me how to handle it, and which Table is the final."
+]

@@ -1,0 +1,21 @@
+kind,table,created_at,removed_at
+reference,ops.jobs,2026-09-25 06:00:00,
+reference,ops.job_runs,2026-09-25 06:00:00,
+reference,ops.run_alerts,2026-09-25 06:00:00,
+building_block,runs_per_job,2026-09-25 06:00:00,
+table_folder,mart.alerts_per_severity,2026-09-25 06:00:00,2026-11-01 15:57:55
+reference,mart.alerts_per_severity,2026-09-25 06:00:00,2026-11-01 15:57:55
+table_folder,mart.daily_job_runs,2026-09-25 06:00:00,2026-11-01 15:57:55
+reference,mart.daily_job_runs,2026-09-25 06:00:00,2026-11-01 15:57:55
+table_folder,mart.alerts_per_job,2026-09-25 06:00:00,2026-11-01 15:57:55
+reference,mart.alerts_per_job,2026-09-25 06:00:00,2026-11-01 15:57:55
+table_folder,mart.team_day,2026-09-25 06:00:00,2026-11-01 15:57:55
+reference,mart.team_day,2026-09-25 06:00:00,2026-11-01 15:57:55
+table_folder,mart_dev.alerts_per_severity,2026-11-01 15:56:28,
+reference,mart_dev.alerts_per_severity,2026-11-01 15:56:28,
+table_folder,mart_dev.daily_job_runs,2026-11-01 15:56:29,
+reference,mart_dev.daily_job_runs,2026-11-01 15:56:29,
+table_folder,mart_dev.alerts_per_job,2026-11-01 15:56:29,
+reference,mart_dev.alerts_per_job,2026-11-01 15:56:29,
+table_folder,mart_dev.team_day,2026-11-01 15:56:29,
+reference,mart_dev.team_day,2026-11-01 15:56:29,

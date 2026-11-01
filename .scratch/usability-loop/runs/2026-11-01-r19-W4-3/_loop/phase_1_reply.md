@@ -1,0 +1,1 @@
+DONE: Started a Project; references for ops.jobs (job_id) and ops.run_alerts (alert_id), Keys answered in the decisions cell; DEV/PROD set; check_references.ipynb run top to bottom: both match, run_alerts' Key holds on its latest Partition; project.check() clean.

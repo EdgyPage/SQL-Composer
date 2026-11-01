@@ -1,0 +1,1 @@
+DONE: mart_dev.daily_runs written at /data/team/mart_dev.db/daily_runs from Copilot's daily query (CleanRuns as a CTE, <database> as ops); compare passed, every row; rows match the team's Daily sheet; the Total Row query left out; not promoted.

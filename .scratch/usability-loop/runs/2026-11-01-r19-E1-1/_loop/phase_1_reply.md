@@ -1,0 +1,1 @@
+Workbook saved at my_work/run_report_formula.xlsx, Steps 1 to 11 done: job_runs pasted as values (note row above), Report as summary Table run_report (COUNTIFS/AVERAGEIFS), Parameters and Keys empty. It took step 12 (Copilot) as its own and stopped there, its question unanswered; phase 2 starts from the saved workbook.

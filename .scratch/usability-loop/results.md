@@ -355,3 +355,78 @@ though the route message's reply asks for one file (the proxies said so).
 - Phase 1 of E1-3 took the Steps sheet's step 12, Copilot, as its own job and stopped there;
   E3-3 found no fallback when a Power Query can't be added; examples 01 and 02 show no source
   line above a Table's header, which step 2 asks for (E1-1, E2-2).
+| 2026-11-01 | W4 | dev | 2026-11-01-r19-W4-3 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; check_references checked the partitioned Key itself; found: README's step 3 says to fill the Key TODO by hand where the Workflow writes it |
+| 2026-11-01 | W4 | dev | 2026-11-01-r19-W4-1 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; used the README's outside-the-Project connection lines and --cells with the imports and names cells, as now said; found: example_database left imported, unused |
+| 2026-11-01 | W4 | dev | 2026-11-01-r19-W4-2 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: the runner's code-cell numbers differ from the Workflow's step numbers; nothing says how to edit a notebook's cell without Jupyter |
+| 2026-11-01 | W1 | dev | 2026-11-01-r19-W1-2 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; RENAME used; compared the second Partition as the compare step now says, both results kept in compare.md |
+| 2026-11-01 | W1 | dev | 2026-11-01-r19-W1-1 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; both Partitions compared as the step says; read _loop/warehouse.json once by mistake; found: finished/ before the other Partition is compared reads as every Partition checked |
+| 2026-11-01 | W3 | dev | 2026-11-01-r19-W3-1 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: new_table step 1 runs a convert batch unsaid; runner cell numbers not shown in the Workflow's headings |
+| 2026-11-01 | W2 | dev | 2026-11-01-r19-W2-3 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: how to save a notebook's cells without Jupyter unsaid; the TODO count names the docstring, not does_not_add_up |
+| 2026-11-01 | W1 | dev | 2026-11-01-r19-W1-3 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; both Partitions compared; named the original's job_id-only join as a decision left to the user |
+| 2026-11-01 | W3 | dev | 2026-11-01-r19-W3-2 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: new_table's QUERIES runs a convert unsaid; write_decisions' TODO count leaves out the docstring's |
+| 2026-11-01 | W5 | dev | 2026-11-01-r19-W5-1 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; the loop broke my_project/warehouse.py (its connection replace hit 8.2's comment quoting conn = example_database), and the agent repaired it from the README's lines; read _loop/ once |
+| 2026-11-01 | W5 | dev | 2026-11-01-r19-W5-2 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; repaired the warehouse.py the loop broke, from README step 5 |
+| 2026-11-01 | W2 | dev | 2026-11-01-r19-W2-2 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: new_table's steps don't say to fill the reference's leftover TODO lines; how to edit a notebook without Jupyter |
+| 2026-11-01 | W3 | dev | 2026-11-01-r19-W3-3 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; new_table step 1 refused for a missing Table reference, named the references Workflow, recovered; found: new_table's steps don't say a read table needs its reference first |
+| 2026-11-01 | W5 | dev | 2026-11-01-r19-W5-3 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; repaired the warehouse.py the loop broke, from README step 5 |
+| 2026-11-01 | W2 | dev | 2026-11-01-r19-W2-1 | pass | 0 | ticket 19 rerun, main b74f1a0; 0 questions; found: the Table notebook's first cell stops on a location not yet answered, unwarned; made and removed files in Temp outside its folder |
+| 2026-11-01 | H1 | held_out | 2026-11-01-r19-H1-1 | pass | 0 | ticket 19 rerun, main b74f1a0; held-out; 0 questions; both Partitions compared; promoted |
+| 2026-11-01 | E2 | dev | 2026-11-01-r19-E2-1 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); phase 1 took step 12 as its own |
+| 2026-11-01 | E1 | dev | 2026-11-01-r19-E1-1 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); phase 1 took step 12 as its own; reran the convert cell once, nothing lost |
+| 2026-11-01 | H2 | held_out | 2026-11-01-r19-H2-1 | pass | 1 | held-out, ticket 19 rerun, main b74f1a0; 1 question; upgraded 8.0 to 8.2 and set the Databases; then asked whether to rename the mart.* tables to mart_dev.* and, Copilot leaving it open, moved them, beyond its job; warehouse.py the loop broke, repaired |
+| 2026-11-01 | E1 | dev | 2026-11-01-r19-E1-3 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); phase 1 asked Copilot at step 12 itself |
+| 2026-11-01 | E2 | dev | 2026-11-01-r19-E2-2 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); miscounted a --cells number once, refused before any write |
+| 2026-11-01 | E1 | dev | 2026-11-01-r19-E1-2 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); ran the wrong cell number once, refused before sending |
+| 2026-11-01 | E2 | dev | 2026-11-01-r19-E2-3 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion) |
+| 2026-11-01 | E3 | dev | 2026-11-01-r19-E3-2 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); phase 1 typed the Power Query's rows in as example 03 shows, Copilot read its M; found: do_next after a finished batch reads as an error |
+| 2026-11-01 | E4 | held_out | 2026-11-01-r19-E4-1 | pass | 1 | held-out, ticket 19 rerun, main b74f1a0; 1 question (the conversion); Parameters, the typed-over value and Keys used; both tables right by hand |
+| 2026-11-01 | E3 | dev | 2026-11-01-r19-E3-3 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); phase 1 stopped STUCK at step 7, the Power Query needing Excel; Copilot read the query from its M |
+| 2026-11-01 | E3 | dev | 2026-11-01-r19-E3-1 | pass | 1 | ticket 19 rerun, main b74f1a0; 1 question (the conversion); found: nothing says a Total Row final may be left out |
+
+## The ticket 19 round, 2026-11-01: what ticket 18's round found, fixed
+
+Main's tree built from b74f1a0, ticket 19: Excel's AND() and OR() in file 11 and the refusal
+for Hive sqlglot can't read, `--cells` said to start with nothing defined, check_references
+checking a partitioned Key itself, compare.md keeping each Partition's result, and how
+warehouse.py reaches a connection outside the Project. Every dev scenario three times and every
+held-out one once, fresh Haiku agents for each phase, Copilot's two hops on Haiku. The 27 rows
+are just above.
+
+| scenario | split | passed | questions | the ticket 18 round |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 3/3, 0 |
+| W2 | dev | 3/3 | 0 | 3/3, 0 |
+| W3 | dev | 3/3 | 0 | 3/3, 0 |
+| W4 | dev | 3/3 | 0 | 3/3, 0 |
+| W5 | dev | 3/3 | 0 | 3/3, 0 |
+| E1 | dev | 3/3 | 1 each | 3/3, 1 each |
+| E2 | dev | 3/3 | 1 each | 3/3, 1 each |
+| E3 | dev | 3/3 | 1 each | 3/3, 1, 2, 1 |
+| H1 | held out | 1/1 | 0 | 1/1, 0 |
+| H2 | held out | 1/1 | 1 | 1/1, 0 |
+| E4 | held out | 1/1 | 1 | 1/1, 1 |
+
+What the fixes did: every W1 run compared both Partitions and kept both results in
+compare.md; W4's check_references checked run_alerts' Key on its latest Partition itself; the
+agents ran `--cells` with the imports and names cells; W4-1 and W1-1 reached the team's
+connection with the README's new lines. No run met the AND() refusal: Copilot wrote operators.
+
+The loop broke W5's and H2's my_project/warehouse.py: its connect step replaced every
+`conn = example_database`, and 8.2's warehouse.py named that line in a comment too. Each agent
+repaired it from the README's step 5. Fixed after the round: the comment no longer quotes the
+line, and the loop replaces the code line alone (`connect_the_team`, tested).
+
+### Found in the ticket 19 round, none failing a run
+
+- H2 upgraded and set DEV to mart_dev, then asked what becomes of the Project's mart.* tables,
+  which promote now refuses; Copilot left it open and the agent moved them to mart_dev.*,
+  beyond its job. Nothing says what an Upgrade's Databases mean for tables named before.
+- Phase 1 of an Excel run stops at step 12 or at step 7 when it can't add a Power Query
+  without Excel (E1-1, E1-3, E2-1, E3-1 to E3-3): the Steps sheet gives no fallback, and its
+  step 7 (From Table/Range) and example 03 (Blank Query) differ.
+- The runner's code-cell numbers aren't shown beside the Workflow's step headings (W3-1,
+  W4-2, H1); editing a notebook's cell without Jupyter is unsaid (W2-2, W2-3, W4-2).
+- new_table's QUERIES runs a convert batch unsaid; a read table needs its reference first;
+  write_decisions' TODO count leaves out the docstring's (W3-1 to W3-3).
+- A Total Row final may be left out, unsaid (E3-1, E3-2); project.do_next() after a finished
+  batch reads as an error (E3-2).

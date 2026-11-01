@@ -1,0 +1,3 @@
+[
+ "The Project's four Saved tables are named mart.* (mart.alerts_per_severity, mart.daily_job_runs, mart.alerts_per_job, mart.team_day) with location=\"/data/your_team/mart.db/...\", but your Dev Database is mart_dev and promote refuses any table not in DEV, so should I rename them to mart_dev.* (new Table folders and Table references, location=\"/data/team/mart_dev.db/<name>\", old ones archived in admin/removed/), or keep the mart.* names and set location=\"/data/team/mart.db/<name>\"?"
+]

@@ -1,7 +1,7 @@
 # What ticket 18's usability round found, fixed, then everything tested again
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 18
 Size: M
 
@@ -37,7 +37,7 @@ guess (`.scratch/usability-loop/results.md`, "The ticket 18 round").
 - Everything tested again: the full pytest; the Copilot and Excel evaluations, arm C, dev then
   held-out once; the usability loop, each dev scenario three times and each held-out one once.
 
-## Answer, so far (the evaluations and the loop follow this commit)
+## Answer
 
 - **AND() and OR().** File 11 writes them as operators, OR bracketed, and its self-check holds
   no AND(, OR( or NOT(. Hive sqlglot can't read, when a batch writes nothing for it, is
@@ -64,6 +64,15 @@ guess (`.scratch/usability-loop/results.md`, "The ticket 18 round").
 - **The connection.** warehouse.py, the README and how-to 01 say where the lines go; the 8.2
   Upgrade step writes warehouse.py again where 8.0 or 8.1 left it, and check_references.ipynb,
   which the user's ask needs written again, as 8.0's step did for its admin notebooks.
+
+Everything tested again, from main as b74f1a0 left it (`.scratch/copilot-eval/results.md`,
+`.scratch/usability-loop/results.md`, "The ticket 19 round"): the Copilot evaluation 100% of
+26 on dev and 100% of 13 held out; the Excel evaluation 100% of 42 on dev and 100% of 42 held
+out, the new range and condition tasks among them; the usability loop every dev scenario 3/3
+and each held-out one 1/1, its questions the conversion each Excel run asks for and H2's on
+the tables an Upgrade's Databases leave named before. The loop broke a Project's warehouse.py
+it brought in, 8.2's comment naming the line it replaces: fixed after the round, the comment
+reworded and the loop replacing the code line alone, tested.
 
 ## Review
 

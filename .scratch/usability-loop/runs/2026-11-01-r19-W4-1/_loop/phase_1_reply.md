@@ -1,0 +1,1 @@
+DONE: Started the Project in my_work/team_project, connected warehouse.py to team_connection as the README's outside-the-Project lines show, DEV/PROD set, references for ops.jobs (job_id) and ops.run_alerts (alert_id) by the references Workflow, TODO lines filled, both checked; project.check() clean.

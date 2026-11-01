@@ -1,0 +1,1 @@
+Workbook saved at my_work/run_report_formula.xlsx, Steps 1 to 11 done: job_runs pasted as values (note row above), Report as summary Table with COUNTIFS/AVERAGEIFS, Parameters and Keys empty. Step 12 left for the converter.

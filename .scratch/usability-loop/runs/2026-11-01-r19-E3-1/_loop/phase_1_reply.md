@@ -1,0 +1,1 @@
+Workbook saved at my_work/daily_runs_formula.xlsx: job_runs (note row above), the CleanRuns Power Query's M on its sheet with its rows typed into Table CleanRuns as the example shows, summary Table daily with COUNTIFS/SUMIFS and a Total Row; Parameters and Keys empty. It asked Copilot at step 12 and stopped; phase 2 starts from the saved workbook.

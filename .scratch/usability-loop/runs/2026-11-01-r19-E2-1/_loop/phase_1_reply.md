@@ -1,0 +1,1 @@
+Workbook saved at my_work/team_report_formula.xlsx, steps 1 to 11: Tables jobs, job_runs (team by XLOOKUP into jobs), summary teams with COUNTIFS/SUMIFS; Parameters and Keys empty. It took step 12 (Copilot) as its own and stopped there; phase 2 starts from the saved workbook.

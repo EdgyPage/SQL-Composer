@@ -1,0 +1,6 @@
+DECISIONS = {"mart_dev.failed_runs": {"location": "/data/team/mart_dev.db/failed_runs"}}  # your answer to each open Decision, by the table's name as
+# project.check() writes it, such as
+# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+#                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+# "key": None says no columns name one row. project.check() names each one open;
+# a Key proposed from a query is made, but an answer here changes it

@@ -1,0 +1,10 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+team_prod.job_fails_counted,job_id,bigint,,yes,,,2026-11-01 15:53:52
+team_prod.job_fails_counted,fails,bigint,,,,,2026-11-01 15:53:52
+team_prod.job_fails_counted,dt,string,yes,yes,,,2026-11-01 15:53:52
+team_prod.job_runs_counted,job_id,bigint,,yes,,,2026-11-01 15:53:52
+team_prod.job_runs_counted,runs,bigint,,,,,2026-11-01 15:53:52
+team_prod.job_runs_counted,dt,string,yes,yes,,,2026-11-01 15:53:52
+team_prod.team_fails,team,string,,yes,,,2026-11-01 15:53:52
+team_prod.team_fails,fails,bigint,,,,,2026-11-01 15:53:52
+team_prod.team_fails,dt,string,yes,yes,,,2026-11-01 15:53:52
