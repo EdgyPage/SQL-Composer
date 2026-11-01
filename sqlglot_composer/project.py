@@ -1452,9 +1452,11 @@ def do_next(workflow: str | None = None) -> ProjectReport:
     admin/workflows/<name>/, names what it works on, such as TABLES = ["mart.daily_job_runs"]:
     save the notebook, then run this. A step whose done function, read from the Project's
     files, says it is done is passed over, and so is each step before it, though the files
-    can't tell of some; a Workflow none of whose steps the files can tell of is named at its
-    first step. So running it again does nothing more. It reports each step it ran, and the
-    next step left for you, with its call; it never sends anything to the warehouse.
+    can't tell of some. A step of Decisions still open, such as a Table reference's Key, is
+    named until it is made, whatever ran after it. A Workflow none of whose steps the files
+    can tell of is named at its first step. So running it again does nothing
+    more. It reports each step it ran, and the next step left for you, with its call; it
+    never sends anything to the warehouse.
     `workflow` names one Workflow, such as "new_table", to run only its steps.
     """
     root = _project_root("project.do_next()")
@@ -2456,7 +2458,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     if hive_read.missing:
         return f"it reads {in_words(hive_read.missing)}, which has no Table reference"
     logic, built, opt_outs, stopped = _logic_with_opt_outs(files.root, hive_read)
-    columns, partitions = _batch_columns(table, ordered, first, built, query)
+    columns, partitions = _batch_columns(files.root, table, ordered, first, built, query)
     if not columns:
         return ("neither its query nor DESCRIBE of the original names a column, so it can't "
                 "have a Table reference: it is kept as Hive in batch.md")
@@ -2473,8 +2475,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     if hive_read.kept_whole:
         whole_hive = write_hive
     _write_table_files(files, dev, batch, hive_read, logic, seed_hive, whole_hive)
-    scan = _scan_lines(text, hive_read) + [f"Opt-out added, marked # CONVERSION: at its line: "
-                                           f"{opt_out}" for opt_out in opt_outs]
+    scan = _batch_scan_lines(text, hive_read, pieces, ordered, opt_outs)
     scan += _hive_compared(built, text, stopped)
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
@@ -2484,6 +2485,18 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
+
+
+def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
+                      pieces: list[converting.BatchStatement],
+                      ordered: list[converting.BatchStatement],
+                      opt_outs: list[str]) -> list[str]:
+    """What a batch table's scan says: its Hive's lines as its script wrote them, its
+    findings, a query's write said as one, and each opt-out it added."""
+    first = pieces[0]
+    written = _settings_before(first, ordered) + "".join(f"{each.text};\n" for each in pieces)
+    return _scan_lines(text, hive_read, written, first.kind == converting.QUERY) + [
+        f"Opt-out added, marked # CONVERSION: at its line: {opt_out}" for opt_out in opt_outs]
 
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
@@ -2499,7 +2512,8 @@ def _write_table_files(files: _BatchFiles, dev: str, batch: str,
     if seed_hive is not None:
         table_logic = converting.with_seed(table_logic, seed_hive)
     files.write_notebook(table_notebook(stem),
-                         _converted_table_cells(dev, batch, table_logic, hive_read))
+                         _converted_table_cells(dev, batch, table_logic, hive_read,
+                                                files.made_for))
     (TABLE_FOLDER.path(files.root, stem) / "lineage").mkdir(parents=True, exist_ok=True)
 
 
@@ -2517,7 +2531,9 @@ def _write_conversion_folder(files: _BatchFiles, dev: str,
     files.write_text(f"{conversion}/{SCAN_REPORT}", _scan_report_text(dev, scan))
     if first.note:
         items = [*items, f"The original {first.note}."]
-    files.write_text(f"{conversion}/{CHECKLIST}", _checklist_text(files.root, dev, items))
+    files.write_text(f"{conversion}/{CHECKLIST}",
+                     _checklist_text(files.root, dev, items,
+                                     _decisions_notebook(files.made_for)))
     # Its old result compared the rows the last conversion wrote: the next compare writes it.
     (TABLE_FOLDER.path(files.root, TABLE_FOLDER.stem(dev)) / CONVERSION / COMPARED).unlink(
         missing_ok=True)
@@ -2617,15 +2633,29 @@ def _checklist_notes(opt_outs: list[str], hive_read: converting.ConvertedQuery,
     return notes
 
 
-def _checklist_text(root: Path, dev: str, notes: list[str]) -> str:
+def _decisions_notebook(made_for: str = "") -> str:
+    """The notebook whose decisions cell answers a batch's Decisions: the Workflow's that made
+    it, new_table's for a table made from its query, else convert's."""
+    workflow = made_for or "convert"
+    return f"admin/workflows/{workflow}/{workflow}.ipynb"
+
+
+def _decisions_notebook_of(checklist: str) -> str:
+    """The notebook a checklist.md sends its Decisions to, as _checklist_text wrote it."""
+    found = re.search(r"decisions cell of (admin/workflows/\w+/\w+\.ipynb)", checklist)
+    return found.group(1) if found else _decisions_notebook()
+
+
+def _checklist_text(root: Path, dev: str, notes: list[str], notebook: str) -> str:
     """A converted table's checklist.md, a view written again each time: its open Decisions,
-    read from its Table reference, then its notes."""
+    read from its Table reference, to answer in `notebook`'s decisions cell, then its
+    notes."""
     reference = REFERENCE.shown(REFERENCE.stem(dev))
     still_open = decisions.open_decisions(workflows.file_text(root / reference), dev)
     lines = [f"{CHECKLIST_HEADING}{dev}", "",
              "Written again each time its Decisions are written: don't tick or edit it. Answer "
-             "each open Decision in the decisions cell of "
-             "admin/workflows/convert/convert.ipynb.", "", "## Open Decisions", ""]
+             f"each open Decision in the decisions cell of {notebook}.", "",
+             "## Open Decisions", ""]
     lines += [f"- {decision.question()}, in {reference}" for decision in still_open]
     if not still_open:
         lines.append(f"None: each Decision in {reference} is made.")
@@ -2643,19 +2673,24 @@ def _notes_of(checklist: str) -> list[str]:
 
 
 def _converted_table_cells(dev: str, batch: str, logic: str,
-                           hive_read: converting.ConvertedQuery) -> list[tuple[str, str]]:
+                           hive_read: converting.ConvertedQuery,
+                           made_for: str) -> list[tuple[str, str]]:
     """The cells of a converted table's notebook: its text, the Project, its logic with
     create(), preview() and write(), trying it, its lineage, its Hive in a file beside it, its
-    checks against the original, and its rows in the Reference sheet."""
+    checks against the original, and its rows in the Reference sheet. `made_for` names the
+    Workflow that made it, when convert's didn't."""
+    if made_for == NEW_TABLE_WORKFLOW:
+        made_by = ("project.new_table(..., queries=...), from its query in "
+                   f"`{CONVERSION}/{STATEMENT}`")
+    else:
+        made_by = (f"the batch {batch}, with project.convert(...), from the statements in "
+                   f"`{CONVERSION}/{STATEMENT}`, as its script wrote them")
     return [
-        ("markdown", f"# {dev}\n\nA Saved table the batch {batch} made, with "
-         f"project.convert(...), from the statements in `{CONVERSION}/{STATEMENT}`, as "
-         "its script wrote them. Its logic cell builds the same query from the Toolbox's own "
-         "functions, with create(), preview() and write(). Answer its open Decisions, "
-         f"which `{CONVERSION}/{CHECKLIST}` lists, in the decisions cell of the convert "
-         "Workflow's notebook, `admin/workflows/convert/convert.ipynb`, then run the cells "
-         "top to bottom. The cells comparing "
-         "it with the original stay until you delete them."),
+        ("markdown", f"# {dev}\n\nA Saved table made by {made_by}. Its logic cell builds the "
+         "same query from the Toolbox's own functions, with create(), preview() and write(). "
+         f"Answer its open Decisions, which `{CONVERSION}/{CHECKLIST}` lists, in the "
+         f"decisions cell of `{_decisions_notebook(made_for)}`, then run the cells top to "
+         "bottom. The cells comparing it with the original stay until you delete them."),
         ("code", "import pathlib\nimport sys\n"
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up\n\n"
          "from sqlglot_composer import (compare_hive, compare_with_original, export_hive, "
@@ -2751,7 +2786,7 @@ def _write_first_reference(files: _BatchFiles, table: str, dev: str,
     """Write a dev table's Table reference before its query is converted, as one that reads
     itself needs: its CREATE's columns, else DESCRIBE of the original's, else the names its
     SELECT gives, as "string" until convert writes it again with the types its query tells."""
-    columns, partitions = _batch_columns(table, ordered, first, None, query)
+    columns, partitions = _batch_columns(files.root, table, ordered, first, None, query)
     if columns:
         _write_table_reference(files, dev, _untyped_as_string(columns), partitions,
                                _storage_from_create(table, ordered), _guessed(columns))
@@ -2823,14 +2858,15 @@ def _create_of(ordered: list[converting.BatchStatement],
     return None
 
 
-def _batch_columns(table: str, ordered: list[converting.BatchStatement],
+def _batch_columns(root: Path, table: str, ordered: list[converting.BatchStatement],
                    first: converting.BatchStatement,
                    statement: Statement | UncheckedStatement | None,
                    query: Callable[[str], pd.DataFrame] | None
                    ) -> tuple[dict[str, str], list[str]]:
     """A batch table's columns and types, and its partition columns: its CREATE's when the
     batch has one; else its query's, each type the query doesn't tell taken from DESCRIBE of
-    the original, through your query, and "" for each neither tells."""
+    the original, through your query, and "" for each neither tells. A query kept whole as
+    Hive tells its types from the Project's Table references."""
     create = _create_of(ordered, table)
     if create is not None:
         return converting.created_columns(create)
@@ -2839,8 +2875,9 @@ def _batch_columns(table: str, ordered: list[converting.BatchStatement],
         for column, column_name in statement._outputs:
             columns[column_name] = column._type or ""
     else:
-        # A Statement that didn't build, or one kept whole as Hive: the names its SELECT gives.
-        columns = dict.fromkeys(converting.selected_columns(first), "")
+        # A Statement that didn't build, or one kept whole as Hive: the names its SELECT
+        # gives, typed from the tables it reads.
+        columns = converting.typed_selected_columns(first, _reference_types(root))
     partitions = converting.insert_partitions(first)
     for column in partitions:
         columns.setdefault(column, "")
@@ -2894,9 +2931,13 @@ def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchS
         made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
     elif copy not in made:
         made_as = "not made: convert's report says why"
-    return [f"- {table}: {copy}, {made_as}",
-            *[f"  - # CONVERSION: {opt_out}, a note on its checklist"
-              for opt_out in files.marks.get(copy, [])]]
+    notes = [f"  - # CONVERSION: {opt_out}, a note on its checklist"
+             for opt_out in files.marks.get(copy, [])]
+    writes = _writes_to(ordered, table)
+    if writes and all(each.kind == converting.QUERY for each in writes):
+        # Its query names no table to write: the name it was given is only the batch's.
+        return [f"- {copy}, from its query: {made_as}", *notes]
+    return [f"- {table}: {copy}, {made_as}", *notes]
 
 
 def _batch_report(name: str, scripts: list[tuple[str, str]],
@@ -2928,9 +2969,8 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
                  "order they run, and what it became.")
     if files.made_for:
         # A batch another Workflow made, as new_table makes a table from its query: its own.
-        notebook = f"admin/workflows/{files.made_for}/{files.made_for}.ipynb"
-        lines.append(f"Next: answer its open Decisions in the decisions cell of {notebook}, "
-                     "then run its next steps.")
+        lines.append("Next: answer its open Decisions in the decisions cell of "
+                     f"{_decisions_notebook(files.made_for)}, then run its next steps.")
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
@@ -3195,7 +3235,7 @@ def checklists_written_again(root: Path) -> dict[str, str]:
         table = _checklist_table(text)
         if table is None:
             continue
-        rewritten = _checklist_text(root, table, _notes_of(text))
+        rewritten = _checklist_text(root, table, _notes_of(text), _decisions_notebook_of(text))
         if rewritten != text:
             texts[checklist.relative_to(root).as_posix()] = rewritten
     return texts
@@ -3214,8 +3254,9 @@ def _write_checklist_again(root: Path, table: str) -> None:
     written."""
     checklist = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / CHECKLIST
     if checklist.is_file():
-        notes = _notes_of(checklist.read_text(encoding="utf-8"))
-        checklist.write_text(_checklist_text(root, table, notes), encoding="utf-8")
+        text = checklist.read_text(encoding="utf-8")
+        checklist.write_text(_checklist_text(root, table, _notes_of(text),
+                                             _decisions_notebook_of(text)), encoding="utf-8")
 
 
 def table_reference(name: str) -> Table:
@@ -4026,12 +4067,7 @@ def _converted_query(call: str, text: str, root: Path,
                      database: str) -> converting.ConvertedQuery:
     """The Hive read as the Toolbox's Python, the columns of each table taken from the
     Project's Table references; refused, saying what to do, where a Conversion can't take it."""
-    columns = {}
-    for path in table_references(root):
-        read = _read_reference(path)
-        if read is not None:
-            _, _, _, values = read
-            columns[values["name"]] = list(values["columns"])
+    columns = {name: list(known) for name, known in _reference_types(root).items()}
     try:
         return converting.convert_query(text, columns.get, database)
     except converting.ConversionRefused as why:
@@ -4045,11 +4081,25 @@ def _converted_query(call: str, text: str, root: Path,
         )
 
 
-def _scan_lines(text: str, hive_read: converting.ConvertedQuery) -> list[str]:
-    """What a scan says: the size of the Hive, the tables it reads, those with no Table
-    reference, and each finding, with its line."""
-    lines = [f"{counted(len(text.splitlines()), 'line')} of Hive, one query reading "
-             f"{in_words(hive_read.tables) or 'no table'}."]
+def _reference_types(root: Path) -> dict[str, dict[str, str]]:
+    """Each Table reference's columns and types, by its table's name."""
+    types = {}
+    for path in table_references(root):
+        read = _read_reference(path)
+        if read is not None:
+            _, _, _, values = read
+            types[values["name"]] = dict(values["columns"])
+    return types
+
+
+def _scan_lines(text: str, hive_read: converting.ConvertedQuery, written: str | None = None,
+                query_alone: bool = False) -> list[str]:
+    """What a scan says: the size of the Hive, `written` as its script wrote it, else `text`;
+    the tables it reads, and those with no Table reference; then each finding. A finding
+    names its line of `text` when `text` has more than one. With `query_alone`, the Hive is
+    a query alone, whose write no script wrote."""
+    lines = [f"{counted(len((written or text).splitlines()), 'line')} of Hive, one "
+             f"query reading {in_words(hive_read.tables) or 'no table'}."]
     if hive_read.missing:
         lines.append(f"No Table reference yet for {in_words(hive_read.missing)}: "
                      "project.convert(...) adds "
@@ -4059,8 +4109,21 @@ def _scan_lines(text: str, hive_read: converting.ConvertedQuery) -> list[str]:
                    key=lambda finding: finding.line or 0)
     if found:
         lines.append("Found:")
-        lines += [f"  {finding}" for finding in found]
+        numbered = len(text.splitlines()) > 1
+        if query_alone:
+            found = [_as_a_querys_write(finding) for finding in found]
+        lines += [f"  {finding if numbered else finding.text}" for finding in found]
     return lines
+
+
+def _as_a_querys_write(finding: converting.Finding) -> converting.Finding:
+    """A finding of a table made from its query alone: the INSERT its write was given is the
+    query's write, not one its script wrote. Its wording is converting's, which
+    tests/test_run_workflow.py holds."""
+    if finding.kind == "dropped" and finding.text.startswith(converting.WRITE_FINDING):
+        return converting.Finding(finding.line, finding.kind, "the query becomes your own "
+                                  "Saved table's write, INSERT_OVERWRITE(...)")
+    return finding
 
 
 def _what_happened(refusal: str) -> str:

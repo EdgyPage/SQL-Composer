@@ -39,6 +39,18 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Decisions, such as a Table reference's Key, is named until it is made, though a step after
   it, such as refreshing the Reference sheet, has run; before, check() said every step was
   done.
+- **A conversion's files say what made the table.** A table new_table makes from its query
+  has a notebook and checklist.md that send its Decisions to new_table's notebook, where they
+  named convert's; batch.md names it by its copy in dev, "from its query", where it named
+  `default.<name>`; and its scan says its query becomes the Saved table's write, where it
+  named an INSERT OVERWRITE no script wrote. Every scan counts the lines of the Hive as its
+  script wrote it, where it counted the one line it is rewritten as, and gives its findings
+  without that one line's number.
+- **Hive kept whole has its columns typed.** A query a Conversion keeps whole as an Unchecked
+  statement, such as one that starts from a list typed in, `SELECT 'data' AS team UNION ALL
+  ...`, which a Statement can't build, has its columns' types worked out from the Table
+  references of the tables it reads, where each was written "string" as a guess for you to
+  answer. A column whose type nothing tells, such as one `explode` gives, is still a Decision.
 
 ## 8.1
 

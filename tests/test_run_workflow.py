@@ -170,6 +170,50 @@ def test_new_table_makes_a_table_from_its_query_a_batch_of_one_in_dev(started: P
     assert "convert.ipynb, failed_jobs" not in repr(project.check())
 
 
+def test_a_table_made_from_its_query_has_files_naming_new_table(started: Path) -> None:
+    # Toolbox 8.2, 11: its notebook, checklist, batch.md and scan name new_table, its Dev
+    # Database and a query, where they named convert, default.<name> and an INSERT OVERWRITE.
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    query = "SELECT r.run_id, r.job_id\nFROM ops.job_runs r\nWHERE r.dt = '2026-09-24'"
+    project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": query})
+    folder = started / "tables" / f"{DEV}__failed_jobs"
+    notebook = (folder / f"{DEV}__failed_jobs.ipynb").read_text(encoding="utf-8")
+    checklist = (folder / "conversion" / "checklist.md").read_text(encoding="utf-8")
+    scan = (folder / "conversion" / "scan.md").read_text(encoding="utf-8")
+    (batch,) = (started / "admin").rglob("batch.md")
+    for text in (notebook, checklist):
+        assert "admin/workflows/new_table/new_table.ipynb" in text
+        assert "convert.ipynb" not in text
+    assert "default." not in batch.read_text(encoding="utf-8")
+    assert f"- {DEV}.failed_jobs, from its query: " in batch.read_text(encoding="utf-8")
+    assert "3 lines of Hive" in scan
+    assert "INSERT OVERWRITE" not in scan
+
+
+def test_a_query_kept_whole_as_hive_has_its_columns_typed(started: Path) -> None:
+    # Toolbox 8.2, 13: Copilot's Hive for a typed-in team list, a SELECT with no FROM, stays
+    # an Unchecked statement; its Table reference has the types its Hive gives, none guessed.
+    project.add_references(["ops.job_runs", "ops.jobs"], query=example_database.query)
+    query = """\
+WITH per_team AS (
+  SELECT j.team, COUNT(*) AS runs, SUM(r.duration_mins) AS total_duration_mins
+  FROM ops.job_runs r LEFT JOIN ops.jobs j ON r.job_id = j.job_id
+  GROUP BY j.team
+)
+SELECT t.team, COALESCE(p.runs, 0) AS runs,
+  COALESCE(p.total_duration_mins, 0) AS total_duration_mins,
+  CAST(COALESCE(p.runs, 0) AS DECIMAL(10, 2)) AS runs_decimal
+FROM (SELECT 'data' AS team UNION ALL SELECT 'finance' UNION ALL SELECT 'web') t
+LEFT JOIN per_team p ON t.team = p.team"""
+    project.new_table(f"{DEV}.team_report", queries={"team_report": query})
+    reference = (started / "references" / f"{DEV}__team_report.py").read_text(encoding="utf-8")
+    assert '"team": "string",\n' in reference
+    assert '"runs": "bigint",\n' in reference
+    assert '"total_duration_mins": "bigint",\n' in reference
+    # A type with a precision, which the Toolbox doesn't write, is still yours to answer.
+    assert '"runs_decimal": "string",  # TODO: guessed' in reference
+
+
 def test_new_table_from_a_query_refuses_a_table_outside_the_dev_database(started: Path) -> None:
     with pytest.raises(ValueError, match="not your Dev Database, mart_dev"):
         project.new_table("mart.failed_jobs", queries={"failed_jobs": QUERY})

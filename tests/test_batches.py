@@ -461,8 +461,11 @@ def test_a_write_that_cant_convert_is_still_made_and_the_batch_goes_on(started: 
                  "WHERE r.dt = '2026-09-24';\n"
                  "CREATE TABLE ops_reports.tot AS SELECT j.job_id FROM ops.jobs j;\n")
     assert "mart_dev.tot_ops_reports" in report
-    assert '"run_id": "string"' in reference(started, "mart_dev.bad_ops_reports")
-    assert "- types: run_id's type" in checklist(started, "mart_dev.bad_ops_reports")
+    # Its Hive, kept whole, types run_id from its Table reference: y, which explode gives, is
+    # still a guess.
+    assert '"run_id": "bigint",\n' in reference(started, "mart_dev.bad_ops_reports")
+    assert '"y": "string",  # TODO: guessed' in reference(started, "mart_dev.bad_ops_reports")
+    assert "- types: y's type" in checklist(started, "mart_dev.bad_ops_reports")
 
 
 def test_a_fresh_reference_for_one_you_changed_leaves_your_references_alone(
