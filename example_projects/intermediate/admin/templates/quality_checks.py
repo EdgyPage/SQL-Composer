@@ -1,4 +1,4 @@
-# sqlglot Composer 7.2 - copy it, then edit your copy
+# sqlglot Composer 8.1 - copy it, then edit your copy
 # %% [markdown]
 # # <DB>.<TABLE>
 #
@@ -14,13 +14,13 @@
 #   - `<KEY_COLUMN>`: the column that picks out one row, such as `event_id`;
 #   - `<PARTITION_COLUMN>`: the column of the table checked that fills this table's partition
 #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
-#     naming `<PARTITION_COLUMN>` instead.
+#     of rows() naming `<PARTITION_COLUMN>`, and write `PARTITIONED_BY = []`, instead.
 #
-# Then fill in this table's Table reference, `references/<NAME>.py`: its `<...>` and TODO
-# lines.
+# Then save it: `project.reference_from_logic("<DB>.<TABLE>")`, a new_table Workflow step,
+# writes its Table reference, `references/<NAME>.py`, from the logic, for you to answer.
 # It lists one column, "row_count", a count, "bigint", then the partition column counted,
-# typed as the table checked types it, also named in partitioned_by=[...]. Give it that
-# partition column as its Key: one row per Partition counted.
+# typed as the table checked types it, as PARTITIONED_BY names it. Its Key, proposed from the
+# query, is that partition column: one row per Partition counted.
 #
 # TODO: say in one line what one row of <DB>.<TABLE> is.
 #
@@ -31,7 +31,7 @@
 #
 # Made by `project.new_table("<DB>.<TABLE>", template="quality_checks")` from
 # `admin/templates/quality_checks.py`, which filled in the database, the table and its file's name,
-# <NAME>. Run the cells top to bottom once both are filled in.
+# <NAME>. Run the cells top to bottom once its Table reference is written from the logic.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
 # 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
@@ -61,6 +61,9 @@ from references.<CHECKED_NAME> import <CHECKED>
 # The rows checked: change it to check others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.
 READS = <READS>
+
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["<PARTITION_COLUMN>"]
 
 
 def create() -> Statement:

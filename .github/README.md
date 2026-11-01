@@ -1,15 +1,20 @@
-<!-- sqlglot Composer 7.2, exported 2026-10-29 18:12 - generated from dev, do not edit -->
+<!-- sqlglot Composer 8.1, exported 2026-10-31 22:57 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 7.2, exported 2026-10-29 18:12.
+This is version 8.1, exported 2026-10-31 22:57.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. It refuses a Statement that would silently
 give a wrong number, or read or return too much, and says what to change.
 
-This page is a tutorial in eight steps, one story through one Project: you start it, add your
+This page is a tutorial in nine steps, one story through one Project: you start it, add your
 tables' Table references, build Statements on them, share Building blocks, save tables of your
-own, follow their Lineage and keep the Project in order. The Starter Example project shows a
+own, follow their Lineage, keep the Project in order, and convert someone else's Hive into
+your own code. Each job of a Project has a Workflow, a notebook in `admin/workflows/`: fill in
+its names cell and save it, and `project.check()` names its next step, while
+`project.do_next()` runs each step that only writes files, such as making a Table folder, and
+stops at the first that calls the warehouse or needs your decision. The Workflows section
+below draws each one. The Starter Example project shows a
 Project much like the one the story leaves, filled in. Each step
 is a short summary of the Getting started how-to of the same name, which walks through it in
 full on `sqlglot_composer/how_to.html`, a page in the download to open in your browser. Every
@@ -18,8 +23,9 @@ What changed in each version, and how to update from it, is in `CHANGES.md`.
 
 ## 1. Start a Project
 
-The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.12,
-which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
+The Toolbox needs Python 3.11 or newer, pandas, numpy and sqlglot, and is tested on Python 3.13,
+which `requirements.txt`'s pins are for, as they are for 3.12. It is one folder,
+`sqlglot_composer`.
 
 1. Download this branch as a zip and extract it.
 2. Install what the Toolbox needs, at the versions it is tested on: run
@@ -43,7 +49,7 @@ which `requirements.txt`'s pins are for. It is one folder, `sqlglot_composer`.
 >>> project.start()
 Started a Project in the folder you're working in: admin/, references/, building_blocks/,
 tables/ and warehouse.py.
-Next: write your two functions, query and execute, in warehouse.py.
+Next: set conn, your connection, in warehouse.py.
 ```
 
 Import from `sqlglot_composer`, at its top level, never from a file inside it.
@@ -62,11 +68,14 @@ or made by hand.
 | `sqlglot_composer/` | you: copied in from the download | nothing: never edit a file inside it |
 | `sqlglot_composer/version.txt`, the Toolbox's version and its list of files | the download | nothing: the import checks the folder against it |
 | `start.ipynb`, or any name you like | you, in Jupyter: the notebook you run `project.start()` from | nothing: keep it for trying things out, or delete it |
-| `warehouse.py` | `project.start()` | your query and execute |
-| `admin/`, a notebook per Project action, such as new_table.ipynb and run_tables.ipynb | `project.start()` | the call each holds, such as the table's name; the same call from any notebook of the Project does just the same |
+| `warehouse.py` | `project.start()` | `conn`, your connection |
+| `admin/`, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb | `project.start()` | the names some ask for in their names cell, such as the tables to remove |
+| `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding its notebook | `project.start()` | what the Workflow works on, in its notebook's names cell, such as the tables, then save it; run each step's cell in turn, or `project.do_next()`, which runs the steps it can for you, those that change only files, up to the first it can't; `project.check()` names the next step |
+| `admin/databases.py`, the names of your Dev Database and Prod Database | `project.start()` | `DEV` and `PROD` |
+| `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse | `project.start()`, then each `run_execute` and `project.run_tables` | nothing |
 | `admin/admin_log.md`, the Admin log | `project.start()`, then each Project action adds an entry | nothing |
 | `admin/project_version.txt`, the Toolbox version that last wrote the Project | `project.start()`, then `project.upgrade()` | nothing |
-| admin/conversions/, a Conversion folder per query of someone else's Hive you convert, until you finish it | `project.convert(...)`, from `admin/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows | the checks its notebook asks for, then `project.finish_conversion(...)` |
+| `admin/workflows/convert/<name>/`, a Conversion folder per batch of someone else's Hive you convert: its scripts as given, and what each statement became | `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive) shows; it makes each table the Hive writes a Saved table in your Dev Database | each table's Decisions, in the notebook's decisions cell |
 | an Upgrade's checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: what it did and a box for each change it left you | `project.upgrade()` | the changes it lists, each marked `# UPGRADE <version>:` at its line |
 | `admin/registry.csv`, the registry | `project.start()`, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row | nothing |
 | `admin/templates/`, the Templates | `project.start()` | nothing, unless you want your team's own shape |
@@ -77,29 +86,22 @@ or made by hand.
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
-| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)`, `project.finish_conversion(...)` and `project.remove_conversion(...)`, and `project.upgrade()`, which keeps each file as it was before it changed it | nothing |
+| admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)`, and `project.upgrade()` and `project.convert(..., overwrite=True)`, which keep each file as it was before they change it | nothing |
 
 ### Your query and execute
 
 The Toolbox never connects to anything itself: it writes Hive as text, and hands that text to
-one of two functions of yours, in `warehouse.py`. `query` runs Hive that gives back rows, such
-as a SELECT, and gives them back as a pandas DataFrame; `execute` runs Hive that changes
-something, such as a write, and gives back nothing. You pick which one sends a Statement, by
-calling `run_query(s, query)` or `run_execute(s, execute)`. `project.start()` wrote them to run
-on the Example database; at work, write them over your team's API, once:
+one of two functions in `warehouse.py`, which pass it to your connection, `conn`. `query` runs
+Hive that gives back rows, such as a SELECT, and gives them back as a pandas DataFrame;
+`execute` runs Hive that changes something, such as a write, and gives back nothing. You pick
+which one sends a Statement, by calling `run_query(s, query)` or `run_execute(s, execute)`.
+`project.start()` set `conn` to the Example database; at work, set it to yours, once:
 
 ```python
-import pandas as pd
+import my_api  # your team's library
 
-import my_api  # your team's query API
-
-
-def query(hive: str) -> pd.DataFrame:
-    return pd.DataFrame(my_api.query(hive))
-
-
-def execute(hive: str) -> None:
-    my_api.execute(hive)
+# Your connection: its query(sql) gives back a DataFrame, its execute(sql) runs a change.
+conn = my_api.connect()
 ```
 
 How-to: [Start a Project](../sqlglot_composer/how_to.html#start_a_project), with what to do when
@@ -111,8 +113,10 @@ starts with.
 A Statement reads a table through its Table reference: a small file in `references/` holding
 the table's columns and their types, its Partitions (the columns it is stored by, such as a day
 or a region) and its Key (the columns that name one row), where it has them.
-`project.add_references` asks each table for its columns, through your query, and writes its
-file, and the Database module of its Database:
+The references Workflow, `admin/workflows/references/references.ipynb`, takes you through it:
+name the tables in its names cell, and its first step, `project.add_references`, asks each
+table for its columns, through your query, and writes its file, and the Database module of its
+Database:
 
 ```python
 >>> from warehouse import query, execute
@@ -252,14 +256,20 @@ How-to: [Share Building blocks](../sqlglot_composer/how_to.html#share_building_b
 ## 6. Save a table
 
 A Saved table is a table of yours that a Statement writes, so a number worked out once is read
-by everyone after. `project.new_table` makes its Table folder, holding a Table notebook made
-from the `saved_table` Template, and its Table reference, for you to fill in:
+by everyone after. The new_table Workflow, `admin/workflows/new_table/new_table.ipynb`, takes
+you from its name to the table written in dev: its first step, `project.new_table`, makes its
+Table folder, holding a Table notebook made from the `saved_table` Template, and a Table
+reference that stands in until a later step, `project.reference_from_logic`, writes it from
+the logic you write: its columns and types from `preview()`, its partition columns from the
+logic's `PARTITIONED_BY`, and its Key. Have its query already? Give it in the names cell's
+`QUERIES = {"alerts_per_severity": "alerts_per_severity.hql"}`, the table named in your Dev
+Database, and its logic is written for you from the query, then compared with it:
 
 ```python
 >>> project.new_table("mart.alerts_per_severity")
 Made tables/mart__alerts_per_severity/: mart__alerts_per_severity.ipynb and lineage/, from
 admin/templates/saved_table.py.
-Wrote references/mart__alerts_per_severity.py: fill in its <...> and TODO lines.
+Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writes it.
 ```
 
 The notebook's logic sets `READS`, the rows its write reads, and defines `create()`, `rows()`,
@@ -304,7 +314,476 @@ archive what you no longer need in admin/removed/, deleting nothing. And your fi
 three Levels, each importing only from the Toolbox and the Levels below it: the Table
 references and `warehouse.py`, then the Building blocks, then each Table notebook's logic.
 
+It also names the next step of each Workflow you have started, and `project.do_next()` runs
+the steps it can for you, up to the first it can't.
+
 How-to: [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order).
+
+## 9. Convert someone else's Hive
+
+Hive someone else wrote, one query or a folder of scripts, becomes your own code through the
+convert Workflow, `admin/workflows/convert/convert.ipynb`: save the scripts beside it, in
+`admin/workflows/convert/`, where it reads them, name the batch and its scripts in
+its names cell, and its first step makes each table the scripts write a Saved table in your Dev
+Database, DEV in `admin/databases.py`, with its Table folder, its Table reference and a
+checklist. The scripts' order doesn't matter: a FROM with several INSERTs and an INSERT
+that reads its own table each come out as Saved tables, and a temporary table another
+statement reads, a staging table, is folded into the tables that read it:
+
+```python
+project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
+```
+
+Answer each table's Decisions, such as its folder, in the notebook's decisions cell, then
+the Workflow's next steps write them in, create each in dev,
+seed each whose write reads its own table (copy the original's rows in once, so its first
+write doesn't start from nothing), write each, and compare each with the table it copies,
+`project.compare_batch`. Once each has passed, the promote Workflow carries them to your Prod
+Database, PROD, `project.promote`, each keeping its name unless `rename=` gives it another:
+dev stays the source, and you change it there and promote it again.
+
+How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive).
+
+## The Workflows
+
+Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
+take you from what you start with to the end goal. Fill in its names cell and save it; what
+only you can decide of a table, a Decision such as its folder, you answer in its decisions
+cell, `DECISIONS = {"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly"}}`, and a
+step writes each answer in for you. Then run each step's cell in turn, or, in their place, the
+notebook's last cell, `project.run_workflow(...)`, which runs every step left, the calls to
+the warehouse too, up to the first only you can do, and says where it stopped; with
+`dry_run=True` it sends nothing through your execute and says the Hive each step would send.
+`project.check()` names each Workflow's next step, and `project.do_next()` runs only the steps
+that write files. Each chart below is drawn from the steps its notebook runs, beside the
+same steps as a list. In each chart, a plain box is a step that changes only files, or only
+prints; a box with double edges a call to the warehouse, yours to run; a diamond a decision,
+yours to make; and a box with round corners something a step needs or makes.
+
+### How the Toolbox runs
+
+The path every Statement takes, from a Table reference to the warehouse:
+
+<!-- chart: program_flow -->
+```mermaid
+flowchart TD
+    reference("Table reference: references/db__table.py")
+    clauses["Clause functions: SELECT, FROM, WHERE, JOIN_ON and the rest"]
+    statement["statement(...): a Statement"]
+    guards{"Guards and Load limits check it as it is built"}
+    refusal("a refusal: what happened, why, the usual fix, the opt-out")
+    hive["to_hive(s) or show_hive(s): its Hive"]
+    read[["run_query(s, query): its rows, through warehouse.py"]]
+    change[["run_execute(s, execute): a change, through warehouse.py"]]
+    conversion["project.convert: someone else's Hive"]
+    notebook["a Saved table's notebook: create() and write()"]
+    tables[["project.run_tables: each write(), in order"]]
+    reference --> clauses --> statement --> guards
+    guards -->|"refused"| refusal
+    guards --> hive
+    hive --> read
+    hive --> change
+    conversion --> notebook --> statement
+    notebook --> tables --> change
+```
+
+1. A Table reference describes a table you read or write.
+
+       references/db__table.py
+
+2. Clause functions build a Statement, in the order SQL writes them.
+
+       statement(SELECT(...), FROM(...), WHERE(...))
+
+3. Guards and Load limits check it as it is built; a refusal says what happened, why, the usual
+   fix and the opt-out.
+4. to_hive or show_hive gives its Hive.
+
+       show_hive(s)
+
+5. run_query sends a read through your query, run_execute a change through your execute, both in
+   warehouse.py.
+
+       run_query(s, query)
+       run_execute(s, execute)
+
+6. A Saved table's notebook builds its create() and write() the same way; project.convert writes
+   one from someone else's Hive, and project.run_tables runs each write() in order.
+
+       project.run_tables(execute=execute)
+
+<!-- /chart -->
+
+### convert
+
+<!-- chart: convert -->
+```mermaid
+flowchart TD
+    s0[["1. Convert the scripts: each table they write a Saved table in dev"]]:::warehouse_call
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference"]:::files_only
+    s3[["4. Create each table in dev"]]:::warehouse_call
+    s4[["5. Seed each table that reads itself, once, from its original"]]:::warehouse_call
+    s5[["6. Write each table in dev"]]:::warehouse_call
+    s6[["7. Compare each table with its original"]]:::warehouse_call
+    t0("Hive scripts"):::thing
+    t1("your Dev Database's name"):::thing
+    t2("read access to the sources"):::thing
+    t3("a dev Table folder per table the scripts write"):::thing
+    t4("a Table reference per table"):::thing
+    t5("each answer in the decisions cell"):::thing
+    t6("each answer written in"):::thing
+    t7("each made in dev"):::thing
+    t8("each seeded"):::thing
+    t9("each written in dev"):::thing
+    t10("each compared with its original"):::thing
+    t0 --> s0
+    t1 --> s0
+    t2 --> s0
+    s0 --> t3
+    s0 --> t4
+    t4 --> s1
+    s1 --> t5
+    t5 --> s2
+    s2 --> t6
+    t6 --> s3
+    s3 --> t7
+    t7 --> s4
+    s4 --> t8
+    t8 --> s5
+    s5 --> t9
+    t9 --> s6
+    s6 --> t10
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
+   warehouse, yours to run).
+
+       project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                       staging=STAGING)
+
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in dev (it is a call to the warehouse, yours to run).
+
+       for table in project.batch_tables(NAME):
+           run_execute(project.load(table).create(), execute)
+
+5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+   yours to run).
+
+       run_execute(hive_settings("dynamic_partitions"), execute)
+       for table in project.batch_tables(NAME, seeded=True):
+           run_execute(project.load(table).seed(), execute)
+
+6. Write each table in dev (it is a call to the warehouse, yours to run).
+
+       project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+
+7. Compare each table with its original (it is a call to the warehouse, yours to run).
+
+       project.compare_batch(NAME, query=query)
+
+<!-- /chart -->
+
+### promote
+
+<!-- chart: promote -->
+```mermaid
+flowchart TD
+    s0["1. Promote each table: a prod copy of its folder and Table reference"]:::files_only
+    s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its prod table's Table reference"]:::files_only
+    s3[["4. Create each table in prod"]]:::warehouse_call
+    s4[["5. Seed each prod table that reads itself, once, from its original"]]:::warehouse_call
+    s5[["6. Write each table in prod"]]:::warehouse_call
+    s6["7. Refresh the Reference sheet and the Database modules"]:::files_only
+    t0("dev Table folders, each Decision made and compared"):::thing
+    t1("your Prod Database's name"):::thing
+    t2("prod Table folders"):::thing
+    t3("prod Table references"):::thing
+    t4("each answer in the decisions cell"):::thing
+    t5("each with its location="):::thing
+    t6("each made in prod"):::thing
+    t7("each seeded in prod"):::thing
+    t8("each written in prod"):::thing
+    t9("each in the Reference sheet"):::thing
+    t0 --> s0
+    t1 --> s0
+    s0 --> t2
+    s0 --> t3
+    t3 --> s1
+    s1 --> t4
+    t4 --> s2
+    s2 --> t5
+    t5 --> s3
+    s3 --> t6
+    t6 --> s4
+    s4 --> t7
+    t7 --> s5
+    s5 --> t8
+    t8 --> s6
+    s6 --> t9
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.promote(TABLES)
+
+2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+   make).
+3. Write each answer into its prod table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in prod (it is a call to the warehouse, yours to run).
+
+       for table in project.promoted_tables(TABLES):
+           run_execute(project.load(table).create(), execute)
+
+5. Seed each prod table that reads itself, once, from its original (it is a call to the
+   warehouse, yours to run).
+
+       run_execute(hive_settings("dynamic_partitions"), execute)
+       for table in project.promoted_tables(TABLES, seeded=True):
+           run_execute(project.load(table).seed(), execute)
+
+6. Write each table in prod (it is a call to the warehouse, yours to run).
+
+       project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(project.promoted_tables(TABLES))
+
+<!-- /chart -->
+
+### new_table
+
+<!-- chart: new_table -->
+```mermaid
+flowchart TD
+    s0["1. Make each Table folder, converting each table's query QUERIES gives"]:::files_only
+    s1{"2. Write each table's logic in its Table notebook, and save it"}:::your_decision
+    s2["3. Write each Table reference from its logic"]:::files_only
+    s3{"4. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s4["5. Write each answer into its table's Table reference"]:::files_only
+    s5[["6. Check each table's rows with preview(), which writes nothing"]]:::warehouse_call
+    s6[["7. Create and write each in dev"]]:::warehouse_call
+    s7[["8. Compare each table made from a query with its query"]]:::warehouse_call
+    t0("the tables' names"):::thing
+    t1("a Table folder"):::thing
+    t2("what each table should hold"):::thing
+    t3("its logic"):::thing
+    t4("its Table reference"):::thing
+    t5("each answer in the decisions cell"):::thing
+    t6("a dev Table folder whose logic loads"):::thing
+    t7("its rows, checked"):::thing
+    t8("written in dev"):::thing
+    t9("each from a query compared with it"):::thing
+    t0 --> s0
+    s0 --> t1
+    t1 --> s1
+    t2 --> s1
+    s1 --> t3
+    t3 --> s2
+    s2 --> t4
+    t4 --> s3
+    s3 --> t5
+    t5 --> s4
+    s4 --> t6
+    t6 --> s5
+    s5 --> t7
+    t7 --> s6
+    t4 --> s6
+    s6 --> t8
+    t8 --> s7
+    s7 --> t9
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
+   so project.do_next() runs it for you).
+
+       project.new_table(TABLES, queries=QUERIES)
+
+2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+   make).
+
+       for table in TABLES:
+           project.load(table).preview()  # says what stops it, if anything does
+
+3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
+   it for you).
+
+       project.reference_from_logic(TABLES)
+
+4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+5. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
+   yours to run).
+
+       for table in TABLES:
+           print(run_query(project.load(table).preview(), query))
+
+7. Create and write each in dev (it is a call to the warehouse, yours to run).
+
+       for table in TABLES:
+           run_execute(project.load(table).create(), execute)
+       project.run_tables(tables=TABLES, execute=execute)
+
+8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
+   run).
+
+       for name in QUERIES:
+           print(project.compare_batch(name, query=query))
+
+<!-- /chart -->
+
+### references
+
+<!-- chart: references -->
+```mermaid
+flowchart TD
+    s0[["1. Write the Table references from DESCRIBE"]]:::warehouse_call
+    s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
+    s2["3. Write each answer into its table's Table reference"]:::files_only
+    s3["4. Refresh the Reference sheet and the Database modules"]:::files_only
+    t0("table names your query can DESCRIBE"):::thing
+    t1("Table references with TODO lines"):::thing
+    t2("each answer in the decisions cell"):::thing
+    t3("filled-in Table references"):::thing
+    t4("the Reference sheet"):::thing
+    t5("the Database modules"):::thing
+    t0 --> s0
+    s0 --> t1
+    t1 --> s1
+    s1 --> t2
+    t2 --> s2
+    s2 --> t3
+    t3 --> s3
+    s3 --> t4
+    s3 --> t5
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+
+       project.add_references(TABLES, query=query)
+
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(TABLES)
+
+<!-- /chart -->
+
+### upgrade
+
+<!-- chart: upgrade -->
+```mermaid
+flowchart TD
+    s0["1. Upgrade the Project's files"]:::files_only
+    s1{"2. Make each change an UPGRADE mark asks for, and delete the mark"}:::your_decision
+    t0("a Project at an older version"):::thing
+    t1("the new Toolbox copied in"):::thing
+    t2("the Project at the new version"):::thing
+    t3("UPGRADE marks"):::thing
+    t4("every UPGRADE mark dealt with"):::thing
+    t0 --> s0
+    t1 --> s0
+    s0 --> t2
+    s0 --> t3
+    t3 --> s1
+    s1 --> t4
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+
+       project.upgrade()
+
+2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
+   make).
+<!-- /chart -->
+
+### change_a_saved_table
+
+<!-- chart: change_a_saved_table -->
+```mermaid
+flowchart TD
+    s0{"1. Write the Admin statement for the change"}:::your_decision
+    s1["2. Print its Hive, and run the check its Check first line names"]:::files_only
+    s2[["3. Send it, then any check after it, such as admin.check_the_copy"]]:::warehouse_call
+    t0("a Saved table"):::thing
+    t1("the change wanted"):::thing
+    t2("an Admin statement"):::thing
+    t3("its Hive, read and checked"):::thing
+    t4("the change sent"):::thing
+    t5("the change logged"):::thing
+    t0 --> s0
+    t1 --> s0
+    s0 --> t2
+    t2 --> s1
+    s1 --> t3
+    t3 --> s2
+    s2 --> t4
+    s2 --> t5
+    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
+    classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
+    classDef your_decision fill:#fbf1d6,stroke:#a8842a
+    classDef thing fill:#ffffff,stroke:#888888
+```
+
+1. Write the Admin statement for the change (it is a decision, yours to make).
+
+       table = project.table_reference(TABLE)
+       change = admin.drop_partitions(table, where=...)  # or another: help(admin)
+
+2. Print its Hive, and run the check its Check first line names (it changes only files, or only
+   prints: run its cell).
+
+       show_hive(change)
+
+3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
+   warehouse, yours to run).
+
+       run_execute(change, execute)
+
+<!-- /chart -->
 
 ## The how-tos
 
@@ -313,13 +792,13 @@ in order: its goal, its steps, each run on the Example database with what it sho
 it worked, and the mistakes people make first.
 
 - Getting started: one story through one Project, a how-to for each of the README's steps: a
-  Project, its Table references, Statements, Building blocks, Saved tables, their Lineage and
-  the Project's upkeep.
+  Project, its Table references, Statements, Building blocks, Saved tables, their Lineage, the
+  Project's upkeep and a Conversion of someone else's Hive.
 - Intermediate: a menu, each starting from the Intermediate Example project: one job each,
   such as rewriting some partitions, rollups, Keys, quality checks and testing. Each says
   which Getting started how-tos it needs.
 
-Getting started, how-tos 1 to 8:
+Getting started, how-tos 1 to 9:
 
 1. [Start a Project](../sqlglot_composer/how_to.html#start_a_project)
 2. [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references)
@@ -329,29 +808,30 @@ Getting started, how-tos 1 to 8:
 6. [Save a table](../sqlglot_composer/how_to.html#save_a_table)
 7. [Follow lineage](../sqlglot_composer/how_to.html#follow_lineage)
 8. [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order)
+9. [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
 
-Intermediate, how-tos 9 to 28:
+Intermediate, how-tos 10 to 29:
 
-9. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
-10. [The latest row of each group, and the top N](../sqlglot_composer/how_to.html#latest_row_of_each_group)
-11. [Generate Statements and Table references in a loop](../sqlglot_composer/how_to.html#generate_statements_and_references)
-12. [Rewrite some partitions](../sqlglot_composer/how_to.html#rewrite_some_partitions)
-13. [Look things up as of a day](../sqlglot_composer/how_to.html#look_things_up_as_of_a_day)
-14. [Rollups and subtotals](../sqlglot_composer/how_to.html#rollups_and_subtotals)
-15. [Check data quality with Statements](../sqlglot_composer/how_to.html#check_data_quality)
-16. [Call other Hive functions](../sqlglot_composer/how_to.html#call_other_hive_functions)
-17. [Look across rows, then finish in pandas](../sqlglot_composer/how_to.html#look_across_rows)
-18. [Review and test a change](../sqlglot_composer/how_to.html#review_and_test_a_change)
-19. [Choose how a Saved table is stored](../sqlglot_composer/how_to.html#choose_how_a_saved_table_is_stored)
-20. [Keys, checked before each write](../sqlglot_composer/how_to.html#keys)
-21. [Semi-, anti- and full joins](../sqlglot_composer/how_to.html#semi_anti_and_full_joins)
-22. [Move a Saved table to its own folder](../sqlglot_composer/how_to.html#move_a_saved_table_to_its_own_folder)
-23. [Reconcile two tables](../sqlglot_composer/how_to.html#reconcile_two_tables)
-24. [Keep reads and joins fast](../sqlglot_composer/how_to.html#keep_reads_and_joins_fast)
-25. [Declare a change made in Python](../sqlglot_composer/how_to.html#declare_a_change_made_in_python)
-26. [Hand-written Hive with your Table references](../sqlglot_composer/how_to.html#hand_written_hive_with_your_table_references)
-27. [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
+10. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
+11. [The latest row of each group, and the top N](../sqlglot_composer/how_to.html#latest_row_of_each_group)
+12. [Generate Statements and Table references in a loop](../sqlglot_composer/how_to.html#generate_statements_and_references)
+13. [Rewrite some partitions](../sqlglot_composer/how_to.html#rewrite_some_partitions)
+14. [Look things up as of a day](../sqlglot_composer/how_to.html#look_things_up_as_of_a_day)
+15. [Rollups and subtotals](../sqlglot_composer/how_to.html#rollups_and_subtotals)
+16. [Check data quality with Statements](../sqlglot_composer/how_to.html#check_data_quality)
+17. [Call other Hive functions](../sqlglot_composer/how_to.html#call_other_hive_functions)
+18. [Look across rows, then finish in pandas](../sqlglot_composer/how_to.html#look_across_rows)
+19. [Review and test a change](../sqlglot_composer/how_to.html#review_and_test_a_change)
+20. [Choose how a Saved table is stored](../sqlglot_composer/how_to.html#choose_how_a_saved_table_is_stored)
+21. [Keys, checked before each write](../sqlglot_composer/how_to.html#keys)
+22. [Semi-, anti- and full joins](../sqlglot_composer/how_to.html#semi_anti_and_full_joins)
+23. [Move a Saved table to its own folder](../sqlglot_composer/how_to.html#move_a_saved_table_to_its_own_folder)
+24. [Reconcile two tables](../sqlglot_composer/how_to.html#reconcile_two_tables)
+25. [Keep reads and joins fast](../sqlglot_composer/how_to.html#keep_reads_and_joins_fast)
+26. [Declare a change made in Python](../sqlglot_composer/how_to.html#declare_a_change_made_in_python)
+27. [Hand-written Hive with your Table references](../sqlglot_composer/how_to.html#hand_written_hive_with_your_table_references)
 28. [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version)
+29. [Follow a Workflow](../sqlglot_composer/how_to.html#follow_a_workflow)
 
 ## The Example gallery
 
@@ -380,8 +860,8 @@ made, and how to run it:
   started how-tos leave, but not the same: it also holds `mart.alerts_per_job`, which no
   how-to makes, and it lacks what the how-tos add to show one thing each: the Table references
   of `ops.region_budgets` and `ops.team_notes`, from Count, join and stay safe,
-  `mart.run_speed`, from Follow lineage, and `ops.scheduler_runs`, from Keep the Project in
-  order.
+  `mart.run_speed`, from Follow lineage, `ops.scheduler_runs`, from Keep the Project in order,
+  and the four Saved tables of the ops_reports batch, from Convert someone else's Hive.
 - `intermediate/`, where the Intermediate how-tos start, on `ops.job_events`, `ops.job_owners`,
   `ops.region_costs`, `ops.region_budgets` and `ops.team_notes`: seven Saved tables, among them
   an incremental load, an as-of lookup, a weekly rollup, quality checks from the
@@ -426,7 +906,8 @@ And two more, for files beside the notebooks:
 `copilot/`, in the download's top folder beside `sqlglot_composer`, holds the Copilot files:
 plain text that teaches Microsoft Copilot the Toolbox, so
 you can ask it in plain words for a Statement, a Table reference, a Table notebook's logic
-cell or a Conversion. Open a new chat, paste the one file for what you want to do as your
+cell or a Conversion, or for a whole job's steps: `copilot/13_workflows.txt` lists each
+Workflow's, from the steps its notebook runs. Open a new chat, paste the one file for what you want to do as your
 first message, then ask, giving the import line and columns of each table to read.
 `copilot/00_start_here.txt` says which file fits. Each file fits the 8,000 characters Copilot
 takes at once, spaces and line breaks included; `copilot/count_characters.py` counts a
@@ -434,6 +915,43 @@ copy you edit. `copilot/all_in_one/all_copilot_files.txt` holds every file in on
 for reading or searching them together, not for Copilot: it is many times the 8,000
 characters, so in Copilot paste or attach the separate files. Run what Copilot
 gives you as you would your own code: the Toolbox still refuses what would give a wrong number.
+
+The path from a workbook to prod:
+
+<!-- chart: excel -->
+```mermaid
+flowchart TD
+    workbook("a Formula workbook")
+    copilot{{"Copilot, given files 03, 04, 05, 11 and 12: the workbook as Hive"}}
+    scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
+    convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
+    dev[["each table created, seeded and written in dev"]]
+    compare[["project.compare_batch: each against its query"]]
+    promote["project.promote: each copied to prod"]
+    prod[["each created and written in prod"]]
+    workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod
+```
+
+1. Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is.
+2. Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the workbook as Hive, a
+   query for each final Table.
+3. Fill in each name it writes in angle brackets, save each query as a .hql file named for its
+   final Table, and convert them as one batch in the convert Workflow, DEV filled in: each
+   becomes a Saved table named for its file, or, when the batch is one file, for the batch.
+
+       project.convert("budget", files=["sales.hql", "regions.hql"], query=query)
+
+4. Answer each table's Decisions, then create, seed and write each in dev, as the Workflow's
+   steps say.
+5. Compare each with its query, the Hive Copilot wrote.
+
+       project.compare_batch("budget", query=query)
+
+6. Promote them, and create and write each in prod, through the promote Workflow.
+
+       project.promote([...])
+
+<!-- /chart -->
 
 To hand over an Excel workbook's calculations, one chat holds five files:
 
@@ -451,10 +969,14 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Each query writes `<...>` for a name it can't know, such as `<database>.<sales_data>`.
    Fill each in with your database's own names: your Project's `references/` folder has
    them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns the data.
-5. In `admin/convert.ipynb`, give each filled-in query to a Conversion:
-   `project.convert("sales_summary", HIVE, query=query)`, with the query pasted as
-   `HIVE = """..."""`. Its code is checked; Copilot's Python after the Hive is only for
-   reading, and the Conversion's code wins where the two differ.
+5. Save each filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
+   `convert.ipynb`, which reads them, named for its final Table, but not for a table it reads,
+   then convert them there as one batch: each becomes a Saved table named for its file. With
+   one file, name the batch for its final Table, since a batch of one is named for the batch.
+   Name the batch and its files in the names cell, such as `NAME = "sales_summary"` and
+   `FILES = ["sales.hql", "regions.hql"]`, with DEV filled in, in `admin/databases.py`, and run
+   its steps. Its code is checked; Copilot's Python after the Hive is only for reading, and the
+   Conversion's code wins where the two differ.
 
 ## Update
 
@@ -467,8 +989,9 @@ To hand over an Excel workbook's calculations, one chat holds five files:
 4. Restart the kernel, which still holds the old code.
 5. If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
    new cell of `admin/check_project.ipynb`, which imports `project` already, or of
-   `admin/upgrade.ipynb` once your Project has one (its first Upgrade adds it). Updating is
-   copying in the new folder; an Upgrade carries your Project's files to the new version, one
+   `admin/workflows/upgrade/upgrade.ipynb` once your Project has one (`project.start()` writes
+   it, and an Upgrade adds it to a Project made before 8.0).
+   Updating is copying in the new folder; an Upgrade carries your Project's files to the new version, one
    version at a time: it makes each change that needs no judgement, keeping the file as it was in the
    folder admin/removed/, and marks each one it leaves for you with an `# UPGRADE <version>:` comment
    at the line. Work through the boxes in the checklist it writes in admin/, named for the
@@ -510,8 +1033,8 @@ and call `admin.drop_table(t)` or `project.new_table("mart.daily_job_runs")`.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'7.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 7.2, exported 2026-10-29 18:12'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'8.1'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 8.1, exported 2026-10-31 22:57'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -717,6 +1240,14 @@ The project module: a Project's folders and files, made and archived for you, an
 - `project.run_tables` - Write every table, each before the tables that read it.
 - `project.upgrade` - Carry the Project's files on to this Toolbox's version, step by step.
 - `project.scan_hive` - Say what a Conversion of some Hive would make, and change nothing.
-- `project.convert` - Turn Hive someone else wrote into your own code: a Conversion.
-- `project.finish_conversion` - Make a Conversion a Saved table: its Table folder and Table reference.
-- `project.remove_conversion` - Archive a Conversion folder you no longer want, into admin/removed/.
+- `project.convert` - Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
+- `project.remove_conversion` - Archive a batch's folder you no longer want, into admin/removed/.
+- `project.do_next` - Run the next steps it can of each Workflow you have started.
+- `project.batch_tables` - The Saved tables a batch made in your Dev Database, in the order they run.
+- `project.compare_batch` - Compare each Saved table a batch made in dev with the table it copies.
+- `project.promote` - Write a prod copy of dev Saved tables, each reading the others' prod copies.
+- `project.promoted_tables` - The prod copies project.promote made of dev tables, by their names in prod.
+- `project.table_reference` - A table's Table reference in your Project, by the table's name.
+- `project.write_decisions` - Write each answer of a decisions cell into its table's Table reference.
+- `project.run_workflow` - Run every step left of a Workflow, up to the first only you can do.
+- `project.reference_from_logic` - Write a Saved table's Table reference from its logic.

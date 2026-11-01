@@ -2,6 +2,232 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.1
+
+8.1 takes the hand edits out of the Workflows. What only you decide of a table, a Decision, is
+answered in the Workflow notebook's decisions cell and written in for you; a converted or new
+table's Key is proposed from its query; a long script's staging table is folded; a new table is
+made from its query, or its Table reference written from its logic; and each notebook's last
+cell, `project.run_workflow(...)`, runs every step left.
+
+### To update from 8.0
+
+- **Copy in 8.1's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.1.md`. Each Workflow
+  notebook in `admin/workflows/` is written again, kept as it was in `admin/removed/`: it gains a decisions cell where its steps wait on Decisions,
+  its new inputs and steps, and its last cell, `project.run_workflow(...)`. Each name you gave
+  in its names cell stays, and so does each step cell you write in, such as
+  change_a_saved_table's Admin statement.
+- **The Templates in `admin/templates/`** that new_table copies are written again where they
+  are still as 8.0 wrote them; one you changed is marked `# UPGRADE 8.1:`, to copy what
+  changed from a new Project's, such as the logic's `PARTITIONED_BY`.
+- **Each converted table's `conversion/checklist.md`** is written again as the view of its
+  Decisions, made or open: there are no boxes to tick. A Decision you made by editing its Table
+  reference stays made.
+
+### What's new
+
+- **Decisions, answered in the Workflow's notebook.** What only you can decide of a table,
+  its location, its Key, or a column type a Conversion could only guess, is a Decision: you
+  answer each in the notebook's new decisions cell, `DECISIONS = {"mart_dev.weekly_ops":
+  {"location": "/data/...", "key": ["job_id"]}}`, and the next step,
+  `project.write_decisions(DECISIONS)`, writes each answer into the table's Table reference.
+  You no longer open a Table reference to fill it in, nor tick a box: a Conversion's
+  `checklist.md` is now written again each time, listing the open Decisions, and the convert,
+  promote and references Workflows each wait on the Decisions themselves. `project.check()`
+  names each one open. A `# CONVERSION:` mark is a note that blocks nothing: the compare step
+  checks the rows.
+- **A converted table's Key is proposed.** `project.convert` writes the Key it works out of a
+  table's query into its Table reference, `key=[...],  # proposed ...`: the GROUP BY columns
+  it returns, or the Key of the table a plain SELECT reads, with the table's partition
+  columns, and its checklist.md says so. If it is wrong, answer `"key": [...]`, or `None`, in
+  the decisions cell. `project.compare_batch` checks it on the dev copy's rows, on the
+  Partition it compares, and a Key they break fails the compare, naming each key that
+  repeats. A query with no Key leaves it for you to decide.
+- **`project.run_workflow(workflow, query=query, execute=execute)` runs a Workflow.** Each
+  Workflow notebook's last cell runs every step left, in place of their cells, the calls to
+  the warehouse too, up to the first only you can do: an open Decision, which it names; a
+  check of what a step printed, such as change_a_saved_table's Hive, whose change you then
+  send with its own cell; a refusal or the warehouse's error; or a compare that failed. Mend
+  what it says, save the notebook, and run the last cell again: each step done is skipped.
+  `dry_run=True` sends nothing through your execute and says the Hive each step would send.
+  It runs for real convert and the references Workflow's first step, which read DESCRIBE, and
+  each step that changes only files up to the first that would send; after that, it names
+  each such step, "would run: ...", and runs none. The
+  convert Workflow runs the batch its names cell names, and NAME may be a list of batches
+  converted already. `project.do_next()`, the cell before, still runs only the steps that
+  change files.
+- **A new table from a query.** new_table's names cell takes each table's query,
+  `QUERIES = {"daily_runs": "daily_runs.hql"}`, as Hive text or a .hql file:
+  `project.new_table(TABLES, queries=QUERIES)` converts it into your Dev Database, a batch
+  of one, its logic written for you with no `<...>` to fill in, and the Workflow's last
+  step compares it with its query, so the promote Workflow takes it to prod as it takes a
+  Conversion's table.
+- **A new table's Table reference is written from its logic.** new_table's steps run
+  logic first: once its logic cell runs, `project.reference_from_logic(TABLES)` writes the
+  table's Table reference, its columns and types from `preview()`, its partition columns
+  from the logic's new `PARTITIONED_BY` line, and the Key its query makes, proposed; its
+  location is a Decision, answered in the decisions cell. You type no column or type. A
+  Table reference whose columns you wrote yourself is kept.
+- **A long script's staging table is folded.** A staging table is one a CREATE TABLE ...
+  AS SELECT of the batch writes and a statement after it reads. `project.convert` folds a
+  temporary one, or one a DROP later in its script removes, into each table that reads it,
+  a Derived table there, never created, written, compared or promoted, and keeps any other
+  a Saved table, as something else may read it; its report names each. To choose otherwise,
+  give `staging={"ops_reports.failed": "keep"}`, or `"fold"`, in the convert notebook's
+  `STAGING`, and convert again with overwrite=True; batch.md says where each folded table
+  went. A `staging=` that isn't a dict, such as a list of names, is refused: its example names
+  one of the batch's staging tables, or, where it has none, it says to give `STAGING = {}`.
+- **Promote ends with the prod tables referenced.** Its last step, a file step
+  `project.do_next()` and the runner run, refreshes the Reference sheet and the Database
+  modules for the prod copies: `project.refresh_reference_sheet(project.promoted_tables(TABLES))`.
+- **The write step sends each table's SET lines.** `project.run_tables` sends a table's own
+  Session settings, its logic's `session_settings()`, before its write: a Conversion's
+  checklist no longer asks you to send the original's SET lines by hand.
+
+## 8.0
+
+8.0 adds Workflows: a notebook per job you do, such as a new table, a Conversion of someone
+else's Hive into your Dev Database, or a Promotion to your Prod Database, each naming its next
+step; and every Project action takes one name or many. `finish_conversion` is gone: a
+Conversion now makes its Saved tables itself.
+
+### Workflows
+
+- **A notebook per Workflow, in `admin/workflows/`.** `project.start()` writes a folder for each
+  Workflow, such as `new_table/`, `references/`, `convert/`, `promote/`,
+  `change_a_saved_table/` and `upgrade/`, each holding its notebook: a names cell where you
+  name what it works on, such as `TABLES = ["mart.daily_job_runs"]`, then a cell per step,
+  each call reading those names, so there is no `"your_name"` left to edit.
+- **`project.check()` names each started Workflow's next step**, and **`project.do_next()`**
+  runs each next step it can for you, one that changes only files, in order, up to the first
+  it can't: a decision, a call to the warehouse, a step done by hand, or one only its cell
+  runs, which it names with its call. It never sends anything.
+- **`admin/` holds only what is not one Workflow's**: `check_project.ipynb` (with a
+  `project.do_next()` cell), `check_references.ipynb`, `refresh_reference_sheet.ipynb`,
+  `run_tables.ipynb`, `new_block.ipynb`, and `remove.ipynb`, which archives the tables,
+  Table references, Building blocks and Conversions named in its names cell.
+- **`admin/databases.py`** holds the names of your Dev Database and Prod Database, `DEV` and
+  `PROD`, for you to fill in.
+- **`admin/sent.csv`** gets a row for each change a notebook of the Project sends with
+  `run_execute`, `project.run_tables` among them: when, its kind (such as write), the tables
+  it writes, and the notebook or script that sent it. A Workflow reads it to
+  know a step that writes is done.
+
+- **A Conversion reads a batch of scripts.** `project.convert("weekly", files=["daily.hql",
+  "weekly.hql"], query=query)` splits each script into its statements, orders them by what
+  reads what, and makes each table they write a Saved table in your Dev Database, named
+  `<table>_<its database>`, with its Table folder and its Table reference, its types from the
+  CREATE; a table they only create gets its Table reference alone. What reads it after its
+  write reads that copy; the original tables are never touched. Of several scripts, each that
+  holds one query alone becomes a Saved table named for its file, such as `mart_dev.sales` for
+  `sales.hql`. Two files of one name, from different folders, are refused, and so is a query
+  alone named as a table the batch reads or writes, such as `job_runs.hql` in a batch that
+  reads `ops.job_runs`. `admin/workflows/convert/<name>/batch.md` lists what each
+  statement became.
+- **Many in, many out.** A FROM with several INSERTs gives a Saved table per target, each
+  reading the shared FROM. Several writes to one table give one Saved table, its write
+  stacking each one's query in script order with UNION ALL, each WHERE kept; a later
+  INSERT OVERWRITE of the same Partition replaces the writes before it, and writes to
+  different Partitions are all kept. A table whose write reads itself, as an
+  incremental INSERT does, gets `seed()` in its notebook, which copies the original's rows into
+  its dev copy once, and the convert Workflow seeds it before its first write.
+- **Charts of every Workflow.** The README's new "The Workflows" section draws how the Toolbox
+  runs and each Workflow, each a Mermaid chart beside its steps as a numbered list, which GitHub
+  and VS Code draw and an LLM reads as text; "Have Copilot write it" draws the path from a
+  workbook to prod. The new how-to "Follow a Workflow" gives each Workflow's chart, names cell
+  and steps, and "Convert someone else's Hive" is now how-to 9, the README's ninth step, a
+  batch of scripts from convert to promote. Each is written from the Workflows' steps.
+- **The Copilot files, 8.0's way.** A new `copilot/13_workflows.txt` takes Copilot through a
+  whole job, each Workflow's steps written from the steps its notebook runs. Files 01, 02 and
+  06 name the Workflow notebooks and `project.do_next()`; file 07 runs the convert Workflow
+  for any Hive, a query or scripts of any length, and converts by hand only to explain a
+  piece; files 11 and 12 send a workbook's Hive to the convert Workflow as one batch, as the
+  README's Excel steps do.
+- **A Table reference by its name.** `project.table_reference(name)` gives a table's Table
+  reference from its file in `references/`, for a notebook that has the table's name, such as
+  the change_a_saved_table Workflow's, which hands it to an Admin statement.
+- **Promotion.** `project.promote(tables)` writes a prod copy of dev Saved tables, named
+  for `PROD` in `admin/databases.py`, their names kept unless `rename=` names them: each Table
+  folder and Table reference, every notebook that reads another promoted table reading its
+  prod copy; a table only created, by its Table reference alone. `rename=` gives the name alone,
+  and is remembered when promoting again. It refuses, before writing anything, a table with a
+  `<...>` left in its Table reference, a notebook whose logic doesn't build its write(), a box
+  unticked, a Conversion's table whose compare hasn't passed, one that reads a dev table not
+  promoted with it, or one whose Building block reads the Dev Database. Dev stays the source:
+  promoting again archives the prod copy, and the one under an old name, and writes it afresh,
+  keeping the `location=` you filled in, and `check()` reports a prod copy edited by hand.
+  `project.promoted_tables(tables)` gives the prod names. The promote Workflow is now promote,
+  fill in each `location=`, then create, seed and write each in prod: no step needs you to
+  edit a file the Toolbox could write.
+- **The compare step.** `project.compare_batch(name, query=query)`, the convert Workflow's
+  last step, compares each Saved table a batch made in dev, once written, with the table it
+  copies, on the latest Partition both hold, or the one `partition=` gives; a table with no
+  Partitions is compared on every row, and a query alone with its query. Each result is in the table's
+  `conversion/compare.md`, with the rows that differ. When the two hold no Partition in
+  common, the table fails, naming the last each holds. Once every table passes, the batch
+  moves to `admin/workflows/convert/finished/<name>/`, which `check()` no longer lists;
+  `project.remove_conversion(name)` archives it, freeing its name.
+- **A Conversion makes its Saved tables itself.** `project.convert` writes each table's Table
+  folder and Table reference at once, one query alone too, as `<dev>.<name>`:
+  `finish_conversion` is gone. Each Table folder's `conversion/` keeps each statement of its
+  write as the script wrote it, the scan, and `checklist.md`, a box for each thing only you
+  can decide: each `# CONVERSION:` mark, each column type it couldn't tell, `location=`, the
+  Key, the SET lines to send first, with their call, each piece kept as Hive, and the seed of
+  a table that reads itself. A CREATE's STORED AS and
+  LOCATION reach the Table reference. The convert Workflow's notebook names the next step of
+  each batch, and waits on every box; `project.batch_tables(name)` gives the Saved tables a
+  batch made, which its write step passes to `run_tables`.
+- **Running a Conversion again is safe.** It writes afresh each file still as it wrote it,
+  keeping each box you ticked; it keeps one you changed, and writes a fresh copy of it into
+  the batch's folder, under `fresh/`, for you to compare; with `overwrite=True` it writes
+  over each, kept as it was in `admin/removed/`.
+
+### To update from 7.2
+
+- **Copy in 8.0's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, and read
+  `admin/upgrade_8.0.md`. It adds `admin/workflows/`, `admin/remove.ipynb`,
+  `admin/databases.py` and `admin/sent.csv`; archives `new_table.ipynb`, `remove_table.ipynb`,
+  `add_references.ipynb`, `change_a_saved_table.ipynb`, `convert.ipynb` and `upgrade.ipynb`
+  from `admin/` into `admin/removed/`, since a Workflow's notebook takes the place of each; and
+  writes `new_block.ipynb` again, keeping it as it was in `admin/removed/`.
+  `check_project.ipynb`, where you run the Upgrade, is left as it is: run `project.do_next()`
+  from any notebook. A `warehouse.py` still as 7.2 wrote it gets 8.0's, which holds `conn`; one
+  you changed is yours, and stays.
+- **Fill in `DEV` and `PROD`** in `admin/databases.py`, each marked `# UPGRADE 8.0:`:
+  `project.convert` refuses until `DEV` is filled in, and `project.promote` until `PROD` is.
+- **A Conversion left open in `admin/conversions/`** is yours to convert again, as a batch,
+  since `finish_conversion` is gone. The Upgrade puts its Hive beside
+  `admin/workflows/convert/convert.ipynb`, as `<name>.hql`, keeps its 7.2 folder in
+  `admin/removed/`, and marks the notebook's names cell with the names to fill in. Run its
+  steps: 8.0's convert writes the table's notebook afresh, so copy over any change you made to
+  the 7.2 notebook from `admin/removed/`. Once `project.compare_batch` passes each table, the
+  batch is finished.
+- **A line of yours that calls `finish_conversion`** is marked `# UPGRADE 8.0:`: delete it.
+  The table it named, such as `mart.team_runs`, is now your Prod copy: set `PROD` to its
+  database, `mart`, and promote the batch's table with the promote Workflow.
+
+### Also new
+
+- **Tested on Python 3.13.** The Toolbox is tested on Python 3.13, in place of 3.12;
+  `requirements.txt`'s pins are the same, and still install on 3.12.
+- **warehouse.py holds your connection.** A new Project's warehouse.py holds `conn`, your
+  connection to the warehouse, which you set once, in place of the Example database; its
+  `query` and `execute` pass each Hive string to `conn.query`, which gives back a DataFrame, and
+  `conn.execute`, which runs a change: whatever it gives back, `execute` drops. Every
+  notebook still imports `query` and `execute` from it, and every Toolbox call takes them as before. A Project's own warehouse.py is yours:
+  one written the 7.x way, with its own query and execute, keeps working as it is. A Project
+  from before 7.0, which still holds send.py, writes a new warehouse.py, setting `conn` as
+  above, and deletes send.py, as 7.0's notes said.
+- **Every Project action takes one name or a list of them.** `project.new_table`,
+  `remove_table`, `remove_reference`, `new_block`, `remove_block`, `register`,
+  `remove_conversion`, `add_references` and `refresh_reference_sheet` each take a name, as
+  before, or a list of names, done in turn and reported once. A name refused stops the rest:
+  its refusal says which names were done before it, which stay done, and the call that runs
+  the rest.
+
 ## 7.2
 
 7.2 turns Hive someone else wrote into your own code, a Conversion, carries your Project's

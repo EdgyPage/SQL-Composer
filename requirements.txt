@@ -1,8 +1,8 @@
 # What the Toolbox needs beyond Python's standard library, every package pinned to the version it
 # is tested on, the packages those need in turn included.
 # Install with: pip install -r requirements.txt
-# The pins are for Python 3.12. On Python 3.11, numpy 2.5.4 can't install: change its line to
-# numpy==2.4.6, which pandas 3.0.6 runs on there.
+# The pins are for Python 3.12 and 3.13, and tested on 3.13. On Python 3.11, numpy 2.5.4
+# can't install: change its line to numpy==2.4.6, which pandas 3.0.6 runs on there.
 
 pandas==3.0.6
 numpy==2.5.4

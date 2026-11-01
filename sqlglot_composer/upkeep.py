@@ -55,9 +55,9 @@ def repair_partitions(t: Table) -> Statement:
     reads, such as dt=2026-09-24 or region=EU/dt=2026-09-24, and never reads a folder missing
     from it. A folder goes missing from the list when files reach the table's folder without a
     write: when create_table makes a table again where an old one's files stayed, because it
-    was dropped without purge=True, or when someone copies files in. run_execute(repair_partitions(t),
-    execute) adds each Partition's folder it finds to the list. It only adds: it deletes no
-    file and no Partition, so it is safe to send again.
+    was dropped without purge=True, or when someone copies files in.
+    run_execute(repair_partitions(t), execute) adds each Partition's folder it finds to the
+    list. It only adds: it deletes no file and no Partition, so it is safe to send again.
 
     It takes only one of your Saved tables, a Table reference with location= and
     partitioned_by=. The Example database can't run it, as its tables are made up and fixed.
@@ -118,7 +118,7 @@ def compute_statistics(
     ANALYZE TABLE mart.daily_runs PARTITION(dt = '2026-09-24') COMPUTE STATISTICS FOR COLUMNS job_id, runs
     >>> print(to_hive(compute_statistics(daily_runs, columns=[daily_runs.job_id])))
     ANALYZE TABLE mart.daily_runs PARTITION(dt) COMPUTE STATISTICS FOR COLUMNS job_id
-    """
+    """  # noqa: E501 - an example's Hive is one line, as to_hive writes it
     if "day" in removed:
         refuse(
             what="compute_statistics(...) was given day=, which Toolbox 7.0 replaced.",
@@ -199,11 +199,11 @@ def explain(s: Statement) -> Statement:
     WHERE
       job_runs.dt = '2026-09-24'
 
-    run_query(explain(s), query) gives back Hive's plan as text, which prints line by line. It is
-    the plan of exactly the Hive run_query(s, query) would send, with the LIMIT run_query adds when
-    set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would refuse. It
-    only reads, so it takes any Statement statement(...) makes, a write too, whose plan shows
-    the write without making it; and it is safe to send again.
+    run_query(explain(s), query) gives back Hive's plan as text, which prints line by line. It
+    is the plan of exactly the Hive run_query(s, query) would send, with the LIMIT run_query
+    adds when set_load_limits(rows=...) is on, and explain refuses what to_hive(s) would
+    refuse. It only reads, so it takes any Statement statement(...) makes, a write too, whose
+    plan shows the write without making it; and it is safe to send again.
 
     Read the plan to see why a Statement is slow, before and after you change it. It is a
     tree of steps, each reading what the steps under it give:
@@ -235,8 +235,8 @@ def _need_explainable(s: object, frame: FrameType | None) -> None:
     if kinds.kind(s) == kinds.UNCHECKED:
         refuse(
             what="explain was given an Unchecked statement.",
-            why="explain shows Hive's plan for a Statement it wrote itself, and Hive written by "
-            "hand is sent as written.",
+            why="explain shows Hive's plan for a Statement it wrote itself, and Hive written "
+            "by hand is sent as written.",
             fix="Write EXPLAIN at the start of its text: "
             'unchecked_hive("EXPLAIN ...").',
         )
@@ -251,9 +251,14 @@ def _need_explainable(s: object, frame: FrameType | None) -> None:
     need_statement(s, "explain", frame,
                     why="explain shows Hive's plan for one Statement made by statement(...).")
     if not kinds.is_a_query(s):
-        made_by = (_UPKEEP_MADE_BY.get(s._ddl.kind) if kinds.kind(s) == kinds.UPKEEP
-                   else _MADE_BY.get(kinds.kind(s)))
-        given = f"the Statement {made_by}(...) makes" if made_by else "an Admin statement"
+        if kinds.kind(s) == kinds.UPKEEP:
+            made_by = _UPKEEP_MADE_BY.get(s._ddl.kind)
+        else:
+            made_by = _MADE_BY.get(kinds.kind(s))
+        if made_by:
+            given = f"the Statement {made_by}(...) makes"
+        else:
+            given = "an Admin statement"
         refuse(
             what=f"explain was given {given}, which isn't a query or a write.",
             why="Hive plans how a Statement reads and writes rows; a Statement that creates, "

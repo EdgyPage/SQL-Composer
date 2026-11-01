@@ -50,13 +50,17 @@ class Window:
         return self._call
 
 
-def _listed(items: object) -> list[object]:
+def _given_as_a_list(items: object) -> list[object]:
+    """PARTITION_BY's or ORDER_BY's value as a list: [] for None, a list or tuple's items, or
+    the one item given."""
     if items is None:
         return []
-    return list(items) if isinstance(items, (list, tuple)) else [items]
+    if isinstance(items, (list, tuple)):
+        return list(items)
+    return [items]
 
 
-def _no_name(call: str, keyword: str, given: object) -> NoReturn:
+def _refuse_text_for_a_column(call: str, keyword: str, given: object) -> NoReturn:
     """Refuse text where a Window needs a column, such as the name given in SELECT."""
     example = "job_runs.job_id" if keyword == "PARTITION_BY" else "descending(job_runs.run_id)"
     refuse(
@@ -68,7 +72,7 @@ def _no_name(call: str, keyword: str, given: object) -> NoReturn:
     )
 
 
-def no_window_inside(call: str, column: Column) -> None:
+def _check_no_window_inside(call: str, column: Column) -> None:
     """Refuse a column that already looks across rows through a window, inside another."""
     if has_window(column._tree):
         refuse(
@@ -201,26 +205,52 @@ def window(PARTITION_BY: Column | list[Column] | None = None,
     FROM two_days
     WHERE
       two_days.dt = '2026-09-24'
-    """
+    """  # noqa: E501 - its Hive examples are one line each, as to_hive(...) writes them
     return _made_window(PARTITION_BY, ORDER_BY, rows, "window(...)")
 
 
-def _columns_of(items: object, keyword: str, call: str) -> list[Column | Ordering]:
+def _window_columns(items: object, keyword: str, call: str) -> list[Column | Ordering]:
     """PARTITION_BY's or ORDER_BY's items, once each is a column, or descending(column)."""
-    found = _listed(items)
+    found = _given_as_a_list(items)
     for item in found:
-        sorted_down = isinstance(item, Ordering) and keyword == "ORDER_BY"
-        target = item._target if sorted_down else item
+        target = item
+        if isinstance(item, Ordering) and keyword == "ORDER_BY":
+            target = item._target  # the column descending(...) sorts by
         if isinstance(target, str):
-            _no_name(call, keyword, items)
-        no_window_inside(call, need_column(target, call))
+            _refuse_text_for_a_column(call, keyword, items)
+        _check_no_window_inside(call, need_column(target, call))
     return found
 
 
+def _window_order(ORDER_BY: object, call: str) -> Node | None:
+    """ORDER_BY's tree, once its columns are checked: None when it is left out."""
+    sorts = _window_columns(ORDER_BY, "ORDER_BY", call)
+    if not sorts:
+        return None
+    return Node("Order", expressions=[ordered(item, call) for item in sorts])
+
+
+def _window_text(PARTITION_BY: object, ORDER_BY: object,
+                 rows: tuple[int | None, int | None] | None) -> str:
+    """How a Window was written, for its repr: window(PARTITION_BY=..., ...), leaving out
+    each argument not given."""
+    written = []
+    if PARTITION_BY is not None:
+        written.append(f"PARTITION_BY={python_text(PARTITION_BY)}")
+    if ORDER_BY is not None:
+        written.append(f"ORDER_BY={python_text(ORDER_BY)}")
+    if rows is not None:
+        written.append(f"rows={rows!r}")
+    return f"window({', '.join(written)})"
+
+
 def _made_window(PARTITION_BY: object, ORDER_BY: object, rows: object, call: str) -> Window:
-    groups = [column._tree.copy() for column in _columns_of(PARTITION_BY, "PARTITION_BY", call)]
-    sorts = _columns_of(ORDER_BY, "ORDER_BY", call)
-    order = Node("Order", expressions=[ordered(item, call) for item in sorts]) if sorts else None
+    """The Window window(...) or row_number(...) makes, once each argument is checked in turn:
+    PARTITION_BY=, ORDER_BY=, then rows=, which needs ORDER_BY."""
+    groups = []
+    for column in _window_columns(PARTITION_BY, "PARTITION_BY", call):
+        groups.append(column._tree.copy())
+    order = _window_order(ORDER_BY, call)
     if rows is not None:
         rows = _checked_rows(rows)
         if order is None:
@@ -231,15 +261,12 @@ def _made_window(PARTITION_BY: object, ORDER_BY: object, rows: object, call: str
                 fix="Add ORDER_BY=..., such as ORDER_BY=job_runs.run_id.",
                 error=ValueError,
             )
-    written = [f"{name}={python_text(value)}" for name, value in
-               (("PARTITION_BY", PARTITION_BY), ("ORDER_BY", ORDER_BY)) if value is not None]
-    written += [f"rows={rows!r}"] if rows is not None else []
-    return Window(groups, order, rows, f"window({', '.join(written)})")
+    return Window(groups, order, rows, _window_text(PARTITION_BY, ORDER_BY, rows))
 
 
-def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
-    """`tree` worked out over the window `over`, once the window suits it: `needs` says what
-    the function needs of its window (TOTAL, PLACE or VALUE)."""
+def _check_window_suits(over: object, call: str, needs: str) -> None:
+    """Refuse an over= that isn't a Window, or a Window that doesn't suit the function:
+    `needs` says what the function needs of its window (TOTAL, PLACE or VALUE)."""
     if not isinstance(over, Window):
         refuse(
             what=f"{call} was given over={over!r}, which isn't a Window.",
@@ -276,13 +303,24 @@ def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
             fix="Leave rows= out of its Window.",
             error=ValueError,
         )
+
+
+def windowed(tree: Node, over: object, call: str, needs: str) -> Node:
+    """`tree` worked out over the window `over`, once the window suits it: `needs` says what
+    the function needs of its window (TOTAL, PLACE or VALUE)."""
+    _check_window_suits(over, call, needs)
+    rows = over._rows
     if needs == VALUE and rows is None:
         rows = (None, None)  # the whole group, which Hive would otherwise end at the row
+    order = None
+    if over._order is not None:
+        order = over._order.copy()
     return Node("Window", this=tree, partition_by=[p.copy() for p in over._partition_by],
-                order=None if over._order is None else over._order.copy(), rows=rows)
+                order=order, rows=rows)
 
 
-def _whole_number(value: object, given: str, call: str, what_it_is: str, example: str) -> None:
+def _check_whole_number(value: object, given: str, call: str, what_it_is: str,
+                        example: str) -> None:
     """Refuse `value` unless it is a whole number, 1 or more."""
     if not is_count(value):
         refuse(
@@ -293,7 +331,7 @@ def _whole_number(value: object, given: str, call: str, what_it_is: str, example
         )
 
 
-def _of_column(tree: Node, column: Column) -> Column:
+def _windowed_column(tree: Node, column: Column) -> Column:
     """A calculation over a Window of one column's values, typed and adding up as it does."""
     return Column(tree, type=column._type, adds_up=column._adds_up,
                   not_adding_up_because=column._not_adding_up_because)
@@ -349,20 +387,20 @@ def row_number(*, PARTITION_BY: Column | list[Column] | None = None,
     >>> row_number(over=window(PARTITION_BY=job_runs.job_id,
     ...                        ORDER_BY=descending(job_runs.run_id)))
     ROW_NUMBER() OVER (PARTITION BY job_runs.job_id ORDER BY job_runs.run_id DESC)
-    """
+    """  # noqa: E501 - its Hive examples are one line each, as to_hive(...) writes them
     call = "row_number(...)"
     if over is not None:
         if PARTITION_BY is not None or ORDER_BY is not None:
             refuse(
                 what="row_number(...) was given over= and PARTITION_BY= or ORDER_BY= too.",
-                why="It takes either over=window(...) or PARTITION_BY= and ORDER_BY=, not both: "
-                "the two would say different things.",
+                why="It takes either over=window(...) or PARTITION_BY= and ORDER_BY=, not "
+                "both: the two would say different things.",
                 fix="Put PARTITION_BY= and ORDER_BY= inside window(...), and pass only over=.",
                 error=ValueError,
             )
         tree = windowed(Node("RowNumber"), over, call, PLACE)
         return Column(made_by(tree, "row_number", over=over), type="int")
-    if not _listed(ORDER_BY):
+    if not _given_as_a_list(ORDER_BY):
         refuse(
             what=f"row_number(...) was given ORDER_BY={ORDER_BY!r}.",
             why="It numbers each group's rows in the order of one or more columns.",
@@ -418,8 +456,9 @@ def ntile(parts: int, *, over: Window) -> Column:
     rows in ORDER_BY's order. When the rows don't split evenly, the first parts get one more.
     """
     call = f"ntile({parts!r}, ...)"
-    _whole_number(parts, repr(parts), call, "how many parts each group's rows are split into",
-                  "ntile(4, over=window(...))")
+    _check_whole_number(parts, repr(parts), call,
+                        "how many parts each group's rows are split into",
+                        "ntile(4, over=window(...))")
     tree = windowed(Node("WindowCall", name="ntile", args=[number(str(parts))]), over, call,
                     PLACE)
     return Column(made_by(tree, "ntile", parts, over=over), type="int")
@@ -430,13 +469,16 @@ def _shifted(name: str, column: object, over: object, keyword: str, by: object) 
     `keyword` is back or ahead."""
     call = f"{name}({python_text(column)}, ...)"
     column = need_column(column, call)
-    no_window_inside(call, column)
-    _whole_number(by, f"{keyword}={by!r}", call, f"how many rows {keyword} to look",
-                  f"{keyword}=2")
+    _check_no_window_inside(call, column)
+    _check_whole_number(by, f"{keyword}={by!r}", call, f"how many rows {keyword} to look",
+                        f"{keyword}=2")
     tree = windowed(Node("WindowCall", name=name, args=[column._tree.copy(), number(str(by))]),
                     over, call, PLACE)
-    made_by(tree, name, column, over=over, **{keyword: by if by != 1 else None})
-    return _of_column(tree, column)
+    written_by = by
+    if by == 1:
+        written_by = None  # the default, left out of the call made_by writes
+    made_by(tree, name, column, over=over, **{keyword: written_by})
+    return _windowed_column(tree, column)
 
 
 def lag(column: Column, *, over: Window, back: int = 1) -> Column:
@@ -450,7 +492,7 @@ def lag(column: Column, *, over: Window, back: int = 1) -> Column:
     first row of each group has no row before it, so it gets NULL; fill_null(lag(...), 0)
     puts a value in its place. The example above gives each run the minutes of its job's run
     before it.
-    """
+    """  # noqa: E501 - its Hive examples are one line each, as to_hive(...) writes them
     return _shifted("lag", column, over, "back", back)
 
 
@@ -468,12 +510,14 @@ def lead(column: Column, *, over: Window, ahead: int = 1) -> Column:
 
 
 def _end_value(name: str, column: object, over: object) -> Column:
+    """first_value's or last_value's Column: the value on the first or last row of each row's
+    group."""
     call = f"{name}({python_text(column)}, ...)"
     column = need_column(column, call)
-    no_window_inside(call, column)
+    _check_no_window_inside(call, column)
     tree = windowed(Node("WindowCall", name=name, args=[column._tree.copy()]), over, call,
                     VALUE)
-    return _of_column(made_by(tree, name, column, over=over), column)
+    return _windowed_column(made_by(tree, name, column, over=over), column)
 
 
 def first_value(column: Column, *, over: Window) -> Column:
@@ -486,7 +530,7 @@ def first_value(column: Column, *, over: Window) -> Column:
     With no rows= in the Window, it is the whole group's first row, which the Hive spells out
     as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING. With rows=, it is the first
     of those rows.
-    """
+    """  # noqa: E501 - its Hive examples are one line each, as to_hive(...) writes them
     return _end_value("first_value", column, over)
 
 
@@ -501,7 +545,7 @@ def last_value(column: Column, *, over: Window) -> Column:
     as ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING: left to itself, Hive would
     stop at each row, and give each row its own value. With rows=, it is the last of those
     rows.
-    """
+    """  # noqa: E501 - its Hive examples are one line each, as to_hive(...) writes them
     return _end_value("last_value", column, over)
 
 

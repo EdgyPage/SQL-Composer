@@ -1,4 +1,4 @@
-# sqlglot Composer 7.2 - copy it, then edit your copy
+# sqlglot Composer 8.1 - copy it, then edit your copy
 """mart.budget_overruns - one row per job and region: its budget and days over it.
 
 Why: its notebook saves, for each region, how often each job's daily cost went over its

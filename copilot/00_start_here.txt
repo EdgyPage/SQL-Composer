@@ -1,6 +1,6 @@
-# Copilot files for sqlglot Composer 7.2: start here
+# Copilot files for sqlglot Composer 8.1: start here
 
-sqlglot Composer 7.2 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.1 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -44,6 +44,10 @@ you can ask it in plain words.
   `formula_workbook.xlsx` shows, into Hive and Toolbox code: its steps and formulas.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
   Rows, loaded with file 11.
+- `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
+  from its Workflow notebook in admin/workflows/.
+- `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
+  Table references, an upgrade, a change to a Saved table, each a whole job step by step.
 
 ## Fitting Copilot
 
