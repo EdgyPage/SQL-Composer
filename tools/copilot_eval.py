@@ -28,7 +28,8 @@ Each answer is scored on these checks, in order:
   the same way; for Hive the Example database can't run, the same Hive; for a Table
   reference, the same name, columns, partitions, Key and location; for a check, the
   reference's Verdict, of the Hive the request quotes where it quotes one; for a Workflow's
-  cells, the same Table folders and Table references left in their Project).
+  cells, the same files left in their Project, each with the same text, and the same tables,
+  with the same rows, in its warehouse).
 
 An answer passes when it is correct and also: invents no name (every name it imports from the
 Toolbox, and every project.x and admin.x, is public, and it passes no send=), imports no name
@@ -40,7 +41,10 @@ Project's own modules, pandas, datetime, math, re, typing, collections and __fut
 use open, eval, exec, compile, __import__, getattr and the like; and may not reach a name that
 starts with two underscores, a module such as sys or os, or pandas' readers and writers. What
 passes runs through project.load, as a Conversion's logic cell runs, each run_query made a read
-of the Example database and each run_execute None, as load refuses a cell that sends Hive.
+of the Example database and each run_execute None, as load refuses a cell that sends Hive. A
+Workflow's cells run the same way in a Project of their own, their run_query and run_execute
+called by other names: they send, to that Project's warehouse, which keeps each write
+(tools/workflow_warehouse.py).
 While answers run, an audit hook refuses a process, a socket, and a file written outside the
 stand-in Project's temporary folder. The stand-in Project's Table references are the Example
 database's tables, its warehouse.py sends to the Example database, and today is 2026-09-25, as
