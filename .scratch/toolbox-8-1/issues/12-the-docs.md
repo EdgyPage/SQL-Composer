@@ -81,4 +81,15 @@ Built 2026-10-31.
   the path lines one `PATH_LINES`, `score`'s two tests of the kind one. Spec: a wrong batch
   name passed, since only tables/ paths and references/ text were compared (now every file's
   text, the Workflow's folder too, held by a control); the results' tuned row now marked.
+- A clean held-out score for file 13: T33, tuned on, became a dev task, and T37, written
+  before any run of it, took its place. Run once, files 8a631c94: 0 of 1, nothing changed
+  after. Its names cell and first step's call were the reference's word for word; it failed
+  on the steps 2 to 7 it added, as file 13's "give each later step's cell as it is" asks, though
+  the request asked for two cells. File 13's rule and the tasks' scoring disagree: the user's
+  call, recorded in results.md.
+- A second beginner read, of file 13 as it ended and the staging refusal: files 13 and 14 say
+  "Each Workflow" and what a staging table, folding and DATABASE are, the worked example uses
+  the cell's names, CONTEXT's Original says whose original, and the refusal says to leave
+  staging= out of Hive with no staging tables. Made after T37's run, so T37 was scored on the
+  files before them.
 - Beginner reader: [12-beginner-reader.md](../reports/12-beginner-reader.md).

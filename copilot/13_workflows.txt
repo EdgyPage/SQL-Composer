@@ -17,12 +17,13 @@ the Python inside a step, that step's file.
 
 ## How a Workflow runs
 
-Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
-cell (NAME, TABLES: the names in capitals) and its decisions cell, DECISIONS, and saves it.
+Each Workflow has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its
+names cell, its inputs in capitals, such as NAME and TABLES, and its decisions cell,
+DECISIONS, and saves it.
 DECISIONS holds each answer by the table's name as project.check() writes it, each by its
 kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
 "types": {"fails": "bigint"}}}`; a later step, `project.write_decisions(DECISIONS)`,
-writes them in.
+writes each into its table's Table reference.
 Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
 left, up to the first only the user can do, and `dry_run=True` sends nothing.
 `project.check()` names the next step. A Decision is the user's: never answer it for them.
@@ -30,11 +31,15 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
 
 ## convert: someone else's Hive into Saved tables in dev
 
-For any Hive, one query or many scripts. NAME is the batch's name; FILES the .hql files,
-saved beside the notebook, in admin/workflows/convert/, where it reads them, or [] with HIVE
-the Hive as text. STAGING is a dict: of each staging table, one a statement makes that a later
-one reads, "fold" (into the tables that read it) or "keep", such as
-{"ops_reports.failed": "fold"}; one left out is folded if temporary or DROPped, else kept.
+For any Hive, one query or many scripts. NAME is the batch's name (for the last cell alone,
+a list of batches converted already). FILES are the .hql files, saved beside the notebook, in
+admin/workflows/convert/, where it reads them; or FILES = [] and HIVE the Hive as text.
+DATABASE is the database of a table the Hive names without one, such as "ops".
+A staging table is one a statement of the Hive makes and a later one reads; convert's report
+names each. Folded, its query goes inside each table that reads it, and it is never made;
+kept, it becomes a Saved table of its own. STAGING is a dict, leaving the rest as convert
+chooses (it folds one that is temporary or DROPped, and keeps any other):
+{"ops_reports.failed": "fold"}, or "keep"; {} for none.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -115,8 +120,12 @@ convert notebook's names cell, then its first step's cell:
 ```python
 NAME = "ops_reports"
 FILES = ["daily.hql", "weekly.hql"]
-project.convert(NAME, None, files=FILES, query=query, database="default",
-                staging=None)
+HIVE = None
+DATABASE = "default"
+STAGING = {}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
 ```
 
 ## Do and don't

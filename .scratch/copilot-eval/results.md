@@ -147,3 +147,14 @@ two rows above: de6bc5fc, 3 of 4, T32 giving STAGING as a list, since file 13 ne
 shape (project.convert then failed with an AttributeError, not a refusal); 8a631c94, file 13
 showing HIVE's and STAGING's shapes, 4 of 4 (file 14's answers kept from the round before, its
 file unchanged). project.convert now refuses a staging= that isn't a dict, saying what to give.
+| 2026-11-01 | 8a631c94 | haiku | C | held_out | 0 | 100 | 100 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 13:0 |
+
+Toolbox 8.1, ticket 12, a clean held-out score for file 13: T33 was tuned on, so it became a
+dev task, and T37, written before any run of it, took its place as held out (a query naming its
+tables without their database, to convert with DATABASE = "ops"). Run once on Haiku, arm C,
+files 8a631c94, the row above: 0 of 1, and nothing changed after. Its names cell and its first
+step's call were the reference's, word for word; it failed on the cells it added after them,
+steps 2 to 7, as file 13's "give each later step's cell as it is" asks, though the request
+asked for two cells: step 4's create ran before any Decision was answered and was refused. The
+file's rule and the tasks' scoring disagree, the same as T33's second round; which gives way
+is the user's call, and the next held-out round needs a task written fresh.

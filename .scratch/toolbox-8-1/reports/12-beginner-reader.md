@@ -53,3 +53,37 @@ keeps its `hive_settings` call: only `run_tables` sends a table's settings for i
 
 Long script to prod: mostly yes, now with the decisions cell's shape and the last cell. A new
 table from a query: now yes, step 6 giving `QUERIES`.
+
+## Second read: file 13 as it ended, and the staging refusal
+
+Run 2026-11-01 on dev after 7abbd58: Copilot file 13 whole, file 14's "How a Workflow runs",
+CONTEXT.md's Original, the Starter's convert names cell, and the new refusal for a staging=
+that isn't a dict, run in a fresh Project. Each stop, then what was done.
+
+1. **`file=None, files=None` and `change=None`** in file 13's names list, unexplained.
+   Not changed: the names list is generated from the signatures, and each step's cell shows
+   which it passes.
+2. **"Each job has a notebook"**: "job" is a word the glossary avoids. *Done:* "Each
+   Workflow", in files 13 and 14.
+3. **"(NAME, TABLES: the names in capitals)"** read as table names in capitals. *Done:* "its
+   inputs in capitals, such as NAME and TABLES".
+4. **"each by its kind" ... "writes them in"**: into what? *Done:* "writes each into its
+   table's Table reference".
+5. **"or [] with HIVE the Hive as text"** read twice. *Done:* "or FILES = [] and HIVE the Hive
+   as text".
+6. **STAGING's sentence, and "fold"**, stuck. *Done:* a staging table defined in a sentence of
+   its own, where its names come from (convert's report), and what folded and kept each do.
+7. **DATABASE never said in the convert section.** *Done:* one line.
+8. **The worked example's literals** (`None`, `"default"`, `staging=None`) against "give each
+   step's cell as listed". *Done:* the names cell, then the step's cell as it is.
+9. **"its original"; CONTEXT's "the same table"**: the same as what? *Done:* "A prod copy's
+   original is its dev copy's original, not the dev copy." File 13 left as it is: its steps
+   name the original as the Workflow does.
+10. **NAME may be a list**, which file 13 never said. *Done:* "(for the last cell alone, a
+    list of batches converted already)".
+11. **The refusal's fix named a staging table a Hive with none doesn't have.** *Done:* with
+    none, "This Hive has no staging tables: leave staging= out."; with some, the example is
+    one of them, "each table named with its database, as convert names it", which says why
+    `default.` was added. Its Why says why it is a dict.
+12. **Line 131's "only those listed here"** against the steps' other calls. Not changed: the
+    listed steps are what it means, each call in them listed.

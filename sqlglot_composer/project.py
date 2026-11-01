@@ -2208,12 +2208,15 @@ def _staging_choices(call: str, found: dict[str, str], staging: dict[str, str],
     """The choice `staging` makes for each staging table `found`, by its name as db.table,
     refusing a choice but "fold" or "keep", or a name that isn't one."""
     if not isinstance(staging, dict):
-        example = list(found)[0] if found else "weekly.staging"
+        fix = "This Hive has no staging tables: leave staging= out."
+        if found:
+            example = python_literal(list(found)[0])
+            fix = (f'Give a dict, such as staging={{{example}: "fold"}}, each table named with '
+                   "its database, as convert names it.")
         refuse(what=f"{call} was given staging={python_literal(staging)}.",
-               why="staging= says of each staging table whether it is folded or kept: a dict, "
-               "by the table's name.",
-               fix=f'Give a dict, such as staging={{{python_literal(example)}: "fold"}}.',
-               error=TypeError)
+               why="staging= says of each staging table, by its name, whether it is folded or "
+               "kept, so it is a dict.",
+               fix=fix, error=TypeError)
     choices = {}
     for name, choice in staging.items():
         given = f"staging={{{python_literal(name)}: {python_literal(choice)}}}"
