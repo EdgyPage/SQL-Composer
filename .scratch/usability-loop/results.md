@@ -30,7 +30,7 @@ One row per scored run (`tools/usability_loop.py score <scenario> <run> --record
 | 2026-11-01 | E3 | dev | 2026-11-01-E3-2 | pass | 1 | Round 1. DONE, 1 question. Copilot gave WITH ROLLUP for the Total Row (file 12's rule); the converter took it out by judgement. Friction: check()/do_next hide an open Key after a done step (bug?); file 12 says not that the Total Row lands as data; batch.md names default.daily_runs (bug). |
 | 2026-11-01 | E3 | dev | 2026-11-01-E3-3 | pass | 1 | Round 1. DONE, 1 question. Copilot gave WITH ROLLUP (file 12's rule); the Toolbox refused rollup rows in a Saved table, and the converter removed it, restarting its Project. Gap: file 12 maps a Total Row to WITH ROLLUP without saying a Saved table refuses it. |
 | 2026-11-01 | E4 | held_out | 2026-11-01-E4-1 | pass | 1 | Round 1. Held out. DONE, 1 question. Phase 1 rebuilt the team's wrong Team runs formula (the scenario's own bug) to its note's meaning. The key guard refused the write as ops.jobs had no Key, and its message doesn't name declaring one as the fix; run_notebook.py sys.path (loop's). |
-| 2026-11-01 | E3 | dev | 2026-11-01-E3-1 | fail | 0 | Round 1. Stopped after the Project and job_runs' Table reference, with no final message; no daily_runs table, no question asked. |
+| 2026-11-01 | E3 | dev | 2026-11-01-E3-1 | pass | 1 | Round 1. Its question went unrelayed at first (the loop's fault), so it waited; once relayed, it wrote daily_runs, its Total Row left out after the Toolbox's refusal of WITH ROLLUP. |
 
 ## Round one, 2026-11-01: main's docs as they ship
 
@@ -47,7 +47,7 @@ copilot-proxy agents. Nothing was fixed during the round.
 | W5 | dev | 3/3 | 0 | |
 | E1 | dev | 3/3 | 1 each | |
 | E2 | dev | 3/3 | 1 each | |
-| E3 | dev | 2/3 | 1 each in the two that passed; 0 in E3-1 | E3-1 stopped after its Table reference with no final message (the agent ended silently) |
+| E3 | dev | 3/3 | 1 each | E3-1's question was relayed late, the loop's fault; it passed once answered |
 | H1 | held out | 0/1 | 0 | the whole job done, tables renamed to the originals' names, as W1 |
 | H2 | held out | 1/1 | 0 (one asked, not relayed: the end was reached) | |
 | E4 | held out | 1/1 | 1 | |

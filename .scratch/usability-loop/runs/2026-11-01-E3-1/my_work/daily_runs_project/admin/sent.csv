@@ -1,1 +1,3 @@
 time,kind,tables,script
+2026-11-01 07:34:25,create,mart_dev.daily_runs,step_create.py
+2026-11-01 07:34:58,write,mart_dev.daily_runs,step_write.py

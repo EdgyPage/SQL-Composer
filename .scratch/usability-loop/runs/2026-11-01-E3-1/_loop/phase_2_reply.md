@@ -1,1 +1,1 @@
-(The converter ended with no final message: its output was empty.)
+DONE: mart_dev.daily_runs is created and written in dev with 2 per-day rows, matching the workbook. Its Total Row is not in the table (the Toolbox refuses to write it), and the compare against Copilot's Hive fails on that row alone. (Resumed after the relay passed on its question, which the relay first missed.)
