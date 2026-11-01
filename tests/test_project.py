@@ -212,7 +212,7 @@ def test_new_table_makes_a_table_folder_and_a_reference(started: Path) -> None:
         "lineage", "mart__daily_job_runs.ipynb"]
     assert list((folder / "lineage").iterdir()) == []
     found = cells(folder / "mart__daily_job_runs.ipynb")
-    assert [kind for kind, _ in found] == ["markdown"] + ["code"] * 5
+    assert [kind for kind, _ in found] == ["markdown"] + ["code"] * 6
     # The placeholders to fill in come first.
     assert found[0][1].startswith("# mart.daily_job_runs\n\nFill in every `<...>`")
     assert "TODO: say in one line what one row of mart.daily_job_runs is." in found[0][1]

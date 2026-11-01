@@ -68,8 +68,9 @@ _Avoid_: workspace, repo, codebase
 
 **Table folder**:
 The folder in a Project that holds everything about one Saved table the user builds: the
-notebook whose Statements create and write it, and its past Lineage. Only a Project action
-creates or removes one.
+notebook whose Statements create and write it, its past Lineage, and the Hive the notebook's
+logic sends, which the notebook's `export_hive()` writes beside it to read, never to edit. Only
+a Project action creates or removes one.
 _Avoid_: table directory, table project, model folder
 
 **Table notebook**:

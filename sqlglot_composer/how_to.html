@@ -153,7 +153,7 @@ admin/workflows/upgrade/upgrade.ipynb
 warehouse.py</pre>
 <h5>Know every file of a Project</h5>
 <p>Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action, and never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, below.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it; then run each step&#x27;s cell in turn, or <code>project.do_next()</code>, which runs the steps it can for you, those that change only files, up to the first it can&#x27;t. <code>project.check()</code> names the next step.</li><li>admin/databases.py, the names of your Dev Database and Prod Database: <code>project.start()</code>. You fill in the two names, DEV and PROD.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its scripts as given and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, below.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it; then run each step&#x27;s cell in turn, or <code>project.do_next()</code>, which runs the steps it can for you, those that change only files, up to the first it can&#x27;t. <code>project.check()</code> names the next step.</li><li>admin/databases.py, the names of your Dev Database and Prod Database: <code>project.start()</code>. You fill in the two names, DEV and PROD.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its scripts as given and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You fill in its TODO lines, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Never edit it.</li><li>references/reference_sheet.csv, the Reference sheet: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -2871,9 +2871,9 @@ alerts_per_severity = Table(
 # mart__alerts_per_severity. Run the cells top to bottom once its Table reference is written from the logic.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-# `project.load(&quot;mart.alerts_per_severity&quot;)` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet. The logic only
+# imports and defines, so `project.load(&quot;mart.alerts_per_severity&quot;)` can run it from anywhere else, for
+# lineage across your tables and for `admin/run_tables.ipynb`, which sends its `write()`.
 
 # %%
 # 1. The Project and your query
@@ -2881,7 +2881,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -2952,7 +2952,11 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table&#x27;s rows, from references/mart__alerts_per_severity.py
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table&#x27;s rows, from references/mart__alerts_per_severity.py
 project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p>Its text cell starts with a list of what each <code>&lt;...&gt;</code> is for. Type over each one in the code cells. Then, in the text cell, put one line saying what a row is in place of that list, the lines about the Table reference below it and the TODO line. Here is the whole notebook, filled in, as it is in the Starter Example project:</p>
 <p class="label">The file <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb</code>, after you fill it in</p>
@@ -2969,9 +2973,10 @@ project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-# `project.load(&quot;mart.alerts_per_severity&quot;)` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet.
+# The logic only imports and defines, so `project.load(&quot;mart.alerts_per_severity&quot;)` can run it
+# from anywhere else, for lineage across your tables and for `admin/run_tables.ipynb`, which
+# sends its `write()`.
 
 # %%
 # 1. The Project and your query
@@ -2979,7 +2984,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -3050,12 +3055,16 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table&#x27;s rows, from references/mart__alerts_per_severity.py
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table&#x27;s rows, from references/mart__alerts_per_severity.py
 project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p>Each <code>&lt;...&gt;</code> became:</p>
 <ul><li><code>&lt;SOURCE_NAME&gt;</code> and <code>&lt;SOURCE_TABLE&gt;</code>: ops__run_alerts and <code>run_alerts</code>, the table it reads, by its file in references/ and its name there;</li><li><code>&lt;READS&gt;</code>: <code>equals(run_alerts.dt, &quot;2026-09-24&quot;)</code>, the rows write() reads: one day of <code>ops.run_alerts</code>, which is partitioned by dt, so a read must filter dt;</li><li><code>&lt;GROUP_COLUMN&gt;</code>: severity, the column each row is for, so <code>&lt;SOURCE_TABLE&gt;.&lt;GROUP_COLUMN&gt;</code> became <code>run_alerts.severity</code>;</li><li><code>&lt;COUNT_NAME&gt;</code>: <code>&quot;alerts&quot;</code>, the name of the count, in quotes, since it is a value, where a name Python reads, such as <code>run_alerts</code>, goes in bare;</li><li><code>&lt;PARTITION_COLUMN&gt;</code>: dt, the column of <code>ops.run_alerts</code> that fills this table&#x27;s own partition column, so <code>&lt;SOURCE_TABLE&gt;.&lt;PARTITION_COLUMN&gt;</code> became <code>run_alerts.dt</code>.</li></ul>
-<p>The notebook has five code cells, run top to bottom:</p>
-<p>1. the path lines and imports, as in <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, READS, and four functions, each giving a Statement and running nothing: create, rows, preview and write. <code>rows()</code> holds the clauses preview and write share, so the rows you check are the rows you save; 3. try it: each step&#x27;s Hive, then the rows; 4. its Lineage, as <a href="#follow_lineage">Follow lineage</a> shows; 5. its rows in the Reference sheet, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
+<p>The notebook has six code cells, run top to bottom:</p>
+<p>1. the path lines and imports, as in <a href="#start_a_project">Start a Project</a>, and your query; 2. the logic, whose first line is <code># logic</code>: imports, READS, and four functions, each giving a Statement and running nothing: create, rows, preview and write. <code>rows()</code> holds the clauses preview and write share, so the rows you check are the rows you save; 3. try it: each step&#x27;s Hive, then the rows; 4. its Lineage, as <a href="#follow_lineage">Follow lineage</a> shows; 5. its Hive, in mart__alerts_per_severity.hql beside the notebook, as below; 6. its rows in the Reference sheet, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h5>Fill in its Table reference, beside it</h5>
 <p>references/mart__alerts_per_severity.py describes the table the notebook&#x27;s write() fills. This is it as <code>project.new_table</code> wrote it, from the saved_table_reference Template, to stand in until the logic is written: then <code>project.reference_from_logic(&quot;mart.alerts_per_severity&quot;)</code>, the new_table Workflow&#x27;s step, writes it from the logic, its columns, partition columns and Key, leaving its location= for you to answer. The Starter Example project&#x27;s file was written by hand instead, so it is the Starter&#x27;s own, and this how-to shows that way:</p>
 <p class="label">The file <code>references/mart__alerts_per_severity.py</code>, as <code>project.new_table</code> wrote it</p>
@@ -3135,7 +3144,7 @@ alerts_per_severity = Table(
 #     &lt;alias&gt; = equals(alerts_per_severity.&lt;column&gt;, &lt;value&gt;)</pre>
 <ul><li><code>columns={...}</code> lists each column write() saves, in the order its SELECT gives them, each with its Hive type as DESCRIBE prints it: <code>&quot;severity&quot;</code> is a <code>&quot;string&quot;</code>, as in <code>ops.run_alerts</code>, the count <code>&quot;alerts&quot;</code> is a <code>&quot;bigint&quot;</code>, and the partition column <code>&quot;dt&quot;</code> comes last.</li><li><code>partitioned_by=[&quot;dt&quot;]</code> makes the table kept a Partition at a time, here a day: a write replaces the Partitions it fills, and every Statement that reads the table must filter dt.</li><li><code>key=[&quot;severity&quot;, &quot;dt&quot;]</code> is its Key, the columns whose values name one row of the table: each row is one severity on one day, so a severity alone repeats, once a day. The warehouse never checks a Key, so the Toolbox does: a write whose rows could share one is refused as it is built. Here GROUP_BY makes one row per severity and dt.</li><li><code>location=</code> is the table&#x27;s own folder in the warehouse, where its files go: a Decision, written in quotes and used exactly as written. Ask whoever looks after your warehouse where your team may write, such as <code>&quot;/data/your_team/mart.db/alerts_per_severity&quot;</code>. No two Saved tables may share a folder, or have one inside the other: the Toolbox refuses two that do.</li><li><code>descriptions={...}</code> says what each column holds, for the Reference sheet.</li></ul>
 <h5>Reach it from references</h5>
-<p>A Saved table joins its Database module, references/mart.py, once its Table reference has no <code>&lt;...&gt;</code> left: the next Project action that writes the Database modules adds it, for example <code>project.refresh_reference_sheet</code>, which cell 5 runs, for its own table. Run here, it writes mart.py:</p>
+<p>A Saved table joins its Database module, references/mart.py, once its Table reference has no <code>&lt;...&gt;</code> left: the next Project action that writes the Database modules adds it, for example <code>project.refresh_reference_sheet</code>, which cell 6 runs, for its own table. Run here, it writes mart.py:</p>
 <pre class="python">project.refresh_reference_sheet(&quot;mart.alerts_per_severity&quot;)</pre>
 <p class="label">Python shows</p><pre class="output">Wrote references/reference_sheet.csv: 3 rows, 1 table.
 Wrote references/mart.py: from references import mart gives mart.alerts_per_severity.
@@ -3224,6 +3233,50 @@ GROUP BY
 </table></div>
 <ul><li><code>logic.create()</code> gives CREATE EXTERNAL TABLE IF NOT EXISTS, from the Table reference: EXTERNAL and LOCATION make it a table whose files are yours, in its own folder, and IF NOT EXISTS, <code>may_exist=True</code> in the notebook, skips a table that is there already and never changes it, so the cell can run every day. <code>PRIMARY KEY ... DISABLE NOVALIDATE</code> writes the Key for whoever reads the table&#x27;s description: Hive keeps it and never checks it.</li><li><code>logic.write()</code> gives INSERT OVERWRITE: it replaces whatever the Partitions it fills held, and no other, so sending it twice leaves the same rows, not twice as many.</li></ul>
 <p>At work, <code>project.run_tables</code>, below, sends each table&#x27;s write() and never its create(), so create each table once, before its first <code>project.run_tables</code>. From any notebook of the Project, with <code>logic</code> from <code>project.load</code> as here, that is <code>run_execute(logic.create(), execute)</code>; in the table&#x27;s own notebook, add a cell after cell 3 that runs its create() the same way, and import execute beside query in cell 1. The Example database can be read but not written, so this page creates nothing.</p>
+<h5>Keep its Hive beside it</h5>
+<p>Cell 5, <code>export_hive()</code>, writes the Hive the notebook&#x27;s logic sends into a file beside the notebook, mart__alerts_per_severity.hql, to read at a glance or paste into another program: create(), then write(), each as show_hive shows it, in the order they are sent, under lines saying the file is generated. The Python stays the table&#x27;s definition, so edit the logic, not the file, and run the cell again: it reads the notebook as last saved, so save it first. The same logic writes the same text. Jupyter runs a notebook in its own folder, so the steps move there first, as opening the notebook would, then back:</p>
+<pre class="python">import os
+from pathlib import Path
+os.chdir(&quot;tables/mart__alerts_per_severity&quot;)
+export_hive()</pre>
+<p class="label">Python shows</p><pre class="output">Wrote mart__alerts_per_severity.hql beside its notebook: the Hive of create() and write(), in the order they are sent.</pre>
+<p class="note">It writes <code>tables/mart__alerts_per_severity/mart__alerts_per_severity.hql</code> too.</p>
+<pre class="python">print(Path(&quot;mart__alerts_per_severity.hql&quot;).read_text())</pre>
+<p class="label">Python prints</p><pre class="output">-- The Hive of mart.alerts_per_severity, generated by export_hive() from the logic cell
+-- of mart__alerts_per_severity.ipynb, beside this file. Edit the logic there, not this
+-- file: each export_hive() writes it again, from the notebook as last saved. Its steps
+-- are in the order they are sent: create(), any seed(), the table&#x27;s Session settings,
+-- then write().
+
+-- 1 of 2: create()
+CREATE EXTERNAL TABLE IF NOT EXISTS mart.alerts_per_severity (
+  severity STRING,
+  alerts BIGINT,
+  PRIMARY KEY (severity, dt) DISABLE NOVALIDATE
+)
+PARTITIONED BY (
+  dt STRING
+)
+STORED AS ORC
+LOCATION &#x27;/data/your_team/mart.db/alerts_per_severity&#x27;;
+
+-- 2 of 2: write()
+-- The Session setting &quot;dynamic_partitions&quot;: this write fills dt from its rows.
+SET hive.exec.dynamic.partition=true;
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE mart.alerts_per_severity PARTITION(dt)
+SELECT
+  run_alerts.severity,
+  COUNT(*) AS alerts,
+  run_alerts.dt
+FROM ops.run_alerts AS run_alerts
+WHERE
+  run_alerts.dt = &#x27;2026-09-24&#x27;
+GROUP BY
+  run_alerts.severity,
+  run_alerts.dt;</pre>
+<pre class="python">os.chdir(&quot;../..&quot;)</pre>
+<p>Given a Statement instead, <code>export_hive</code> writes that Statement&#x27;s Hive alone, as show_hive shows it, beside any notebook or script, in a file named for the Statement&#x27;s variable.</p>
 <h5>How a write fills its Partitions</h5>
 <p>The Template&#x27;s write selects the partition column, <code>run_alerts.dt</code>, and its Hive says PARTITION(dt) with no value: each row goes to the Partition its own dt names, so a write whose READS picks several days fills each of them. The Toolbox puts the partition columns last in SELECT, where Hive looks for them, wherever you list them. Filling Partitions from the rows needs Hive&#x27;s dynamic partitioning switched on first: show_hive prints the two SET lines that do it, the Session setting <code>&quot;dynamic_partitions&quot;</code>, ahead of the write, and <code>project.run_tables</code> sends them first.</p>
 <p>A write can name its Partition instead, with <code>partition={...}</code>. Its SELECT then leaves the partition column out, and its Hive names the day, with no SET lines:</p>
@@ -3277,10 +3330,10 @@ execute: INSERT OVERWRITE TABLE mart.alerts_per_severity PARTITION(dt)
 <p class="note">It writes <code>admin/sent.csv</code> too.</p>
 <p>At work, you run the admin notebook admin/run_tables.ipynb, or your team&#x27;s scheduler does. Each write() writes the rows its notebook&#x27;s READS picks: change READS to write others.</p>
 <h4>Check it worked</h4>
-<p>The Table folder holds its notebook and lineage/, and the registry lists the folder and its Table reference beside the ones before:</p>
+<p>The Table folder holds its notebook, its Hive and lineage/, and the registry lists the folder and its Table reference beside the ones before:</p>
 <pre class="python">from pathlib import Path
 sorted(path.name for path in Path(&quot;tables/mart__alerts_per_severity&quot;).iterdir())</pre>
-<p class="label">Python shows</p><pre class="output">[&#x27;lineage&#x27;, &#x27;mart__alerts_per_severity.ipynb&#x27;]</pre>
+<p class="label">Python shows</p><pre class="output">[&#x27;lineage&#x27;, &#x27;mart__alerts_per_severity.hql&#x27;, &#x27;mart__alerts_per_severity.ipynb&#x27;]</pre>
 <pre class="python">project.check()</pre>
 <p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
 <p>The preview gave a row per severity, and its counts add up to the day&#x27;s alerts:</p>
@@ -3328,7 +3381,7 @@ int(rows[&quot;alerts&quot;].sum())</pre>
 <p>Open the notebook that is there instead. To start a table again, archive its folder first, as <a href="#keep_the_project_in_order">Keep the Project in order</a> shows.</p>
 <h4>Next</h4>
 <ul><li>Follow a Saved table&#x27;s columns back to the tables it reads, and write a table that reads another: <a href="#follow_lineage">Follow lineage</a>.</li><li>See it beside every other table&#x27;s columns, and keep the Project tidy: <a href="#keep_the_project_in_order">Keep the Project in order</a>.</li><li>Rewrite some of its Partitions, such as last week&#x27;s: <a href="#rewrite_some_partitions">Rewrite some partitions</a>.</li><li>How a Saved table is stored, and its Key: <a href="#choose_how_a_saved_table_is_stored">Choose how a Saved table is stored</a> and <a href="#keys">Keys</a>.</li><li>The gallery&#x27;s <a href="examples.html#create_table"><code>create_table</code></a> and <a href="examples.html#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a> entries.</li></ul>
-<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code>, <code>project.load</code>, <code>project.run_tables</code></p>
+<p class="names">Toolbox names used: <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>INSERT_OVERWRITE</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>show_hive</code>, <code>export_hive</code>, <code>run_query</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code>, <code>project.check</code>, <code>project.refresh_reference_sheet</code>, <code>project.load</code>, <code>project.run_tables</code></p>
 </section>
 <section class="entry" id="follow_lineage">
 <h3>7. Follow lineage <span class="badge getting-started">Getting started</span></h3>
@@ -3881,7 +3934,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -3932,9 +3985,13 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table&#x27;s rows, from references/mart__daily_job_runs.py
+# 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table&#x27;s rows, from references/mart__daily_job_runs.py
 project.refresh_reference_sheet(&quot;mart.daily_job_runs&quot;)</pre>
-<p>Cell 4 exports the table&#x27;s Lineage. Here, <code>project.load</code> gives the notebook&#x27;s logic, as its cell 2 does when it runs: an object with one attribute per function of the logic cell, such as <code>daily.write</code>. The write goes in a variable with a meaningful name first:</p>
+<p>Cell 4 exports the table&#x27;s Lineage, and cell 5, beside it, the Hive its logic sends, into mart__daily_job_runs.hql, as <a href="#save_a_table">Save a table</a> shows. Here, <code>project.load</code> gives the notebook&#x27;s logic, as its cell 2 does when it runs: an object with one attribute per function of the logic cell, such as <code>daily.write</code>. The write goes in a variable with a meaningful name first:</p>
 <pre class="python">daily = project.load(&quot;mart.daily_job_runs&quot;)  # -&gt; the notebook&#x27;s functions
 write_daily_job_runs = daily.write()  # -&gt; Statement
 html_file, markdown_file = export_lineage(write_daily_job_runs)  # -&gt; tuple[Path, Path]</pre>
@@ -4252,7 +4309,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -4315,7 +4372,11 @@ write_team_day = write()
 export_lineage(write_daily_job_runs, write_team_day)
 
 # %%
-# 5. The Reference sheet: this table&#x27;s rows, from references/mart__team_day.py
+# 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table&#x27;s rows, from references/mart__team_day.py
 project.refresh_reference_sheet(&quot;mart.team_day&quot;)</pre>
 <p>Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads the logic of the table it reads, and passes both writes. One write goes in its own Table folder&#x27;s lineage/ wherever you run it, but with several writes the folder you run from decides where they go: the lineage/ of the Table folder you run them from, when one of them fills its table, or else beside your notebook. Jupyter runs a notebook in its own folder, so the steps move there first, as opening the notebook would, then do what cell 4 does:</p>
 <pre class="python">os.chdir(&quot;tables/mart__team_day&quot;)
@@ -4797,7 +4858,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -4858,7 +4919,11 @@ changed
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table&#x27;s rows, from references/mart__run_speed.py
+# 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table&#x27;s rows, from references/mart__run_speed.py
 project.refresh_reference_sheet(&quot;mart.run_speed&quot;)</pre>
 <p>Its function lives in the logic cell, so any notebook that loads the logic can call it. Cell 3 pulls the rows and changes them:</p>
 <pre class="python">speed = project.load(&quot;mart.run_speed&quot;)  # -&gt; the notebook&#x27;s functions
@@ -6146,7 +6211,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;starter&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 46 files</p>
+<p class="label">It writes 50 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -6182,15 +6247,19 @@ references/ops__run_alerts.py
 references/reference_sheet.csv
 tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.html
 tables/mart__alerts_per_job/lineage/20260925-060000-mart__alerts_per_job.md
+tables/mart__alerts_per_job/mart__alerts_per_job.hql
 tables/mart__alerts_per_job/mart__alerts_per_job.ipynb
 tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.html
 tables/mart__alerts_per_severity/lineage/20260925-060000-mart__alerts_per_severity.md
+tables/mart__alerts_per_severity/mart__alerts_per_severity.hql
 tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb
 tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.html
 tables/mart__daily_job_runs/lineage/20260925-060000-mart__daily_job_runs.md
+tables/mart__daily_job_runs/mart__daily_job_runs.hql
 tables/mart__daily_job_runs/mart__daily_job_runs.ipynb
 tables/mart__team_day/lineage/20260925-060000-mart__team_day.html
 tables/mart__team_day/lineage/20260925-060000-mart__team_day.md
+tables/mart__team_day/mart__team_day.hql
 tables/mart__team_day/mart__team_day.ipynb
 warehouse.py</pre>
 <pre class="python">from sqlglot_composer import example_database, project, run_execute, hive_settings
@@ -6737,7 +6806,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -6784,21 +6853,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -6807,6 +6882,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query:</p>
@@ -7184,7 +7260,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7231,21 +7307,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -7254,6 +7336,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;retry&quot;</code>, <code>&quot;finish&quot;</code> or <code>&quot;fail&quot;</code>, with the minutes since the run started. Its Table reference ends with an Alias, <code>ends_a_run</code>, the events that end a run, imported beside the table it is about:</p>
@@ -7516,7 +7599,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7563,21 +7646,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -7586,6 +7675,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the Project&#x27;s <code>ops</code> Database and your query:</p>
@@ -8107,7 +8197,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8154,21 +8244,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -8177,6 +8273,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, and your query and execute:</p>
@@ -8466,7 +8563,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8513,21 +8610,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -8536,6 +8639,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24: a <code>&quot;start&quot;</code> row when a run starts, then <code>&quot;finish&quot;</code>, <code>&quot;retry&quot;</code> or <code>&quot;fail&quot;</code>. <code>ops.job_owners</code> is the snapshot: every job&#x27;s team and owner, once per day.</p>
@@ -8780,7 +8884,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8827,21 +8931,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -8850,6 +8960,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database, its Alias <code>ends_a_run</code>, and your query. <code>ops.job_events</code> holds what each job&#x27;s runs did over 14 days, 2026-09-11 to 2026-09-24. Each run has one <code>&quot;start&quot;</code> row, so counting the <code>&quot;start&quot;</code> rows counts the runs.</p>
@@ -9222,7 +9333,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9269,21 +9380,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -9292,6 +9409,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query. This how-to reads three of its tables, each holding 14 days, 2026-09-11 to 2026-09-24: <code>ops.job_owners</code>, which says each day who owns each job; <code>ops.job_events</code>, each run&#x27;s start, finish, retry or fail; and <code>ops.region_costs</code>, what each job cost per region and day, in cents, which writes its days like 20260911, not 2026-09-11, so its days are written that way below.</p>
@@ -9520,7 +9638,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9567,21 +9685,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -9590,6 +9714,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, the Project&#x27;s <code>ops</code> Database and your query:</p>
@@ -9802,7 +9927,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9849,21 +9974,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -9872,6 +10003,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, pandas, the <code>project</code> module, the Project&#x27;s <code>ops</code> Database and your query and execute:</p>
@@ -10364,7 +10496,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10411,21 +10543,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -10434,6 +10572,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <pre class="python">import difflib
@@ -11392,7 +11531,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11439,21 +11578,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -11462,6 +11607,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>mart.job_region_costs will hold each job&#x27;s cost in each region on each day, copied from ops.region_costs, which the Project reads already. Make its Table folder and Table reference, as <a href="#save_a_table">Save a table</a> shows:</p>
@@ -12106,7 +12252,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12153,21 +12299,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -12176,6 +12328,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>Then import the Toolbox, its project module, the Project&#x27;s <code>query</code> and <code>execute</code> from warehouse.py, which here call the Example database, and the Project&#x27;s <code>ops</code> Database:</p>
@@ -12850,7 +13003,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12897,21 +13050,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -12920,6 +13079,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>The Project reads ops.job_events and ops.job_owners already. The full join compares <code>ops.job_runs</code> with <code>ops.scheduler_runs</code>, the scheduler&#x27;s own record of the runs it started, which should match it run for run but doesn&#x27;t quite. Add their Table references, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows:</p>
@@ -13458,7 +13618,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13505,21 +13665,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -13528,6 +13694,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>The admin module holds the changes to your own Saved tables: dropping one or some of its Partitions, adding columns, setting its properties, and moving it. The star import leaves it out, so you import it by name, and it is plain where a notebook changes a table:</p>
@@ -13742,7 +13909,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13789,21 +13956,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -13812,6 +13985,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p><code>ops.job_owners</code>, which the Project reads already, keeps each job&#x27;s team on each day. <code>ops.jobs</code> holds each job&#x27;s team as it is today: add its Table reference, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows. Its TODO lines can wait, since <code>EXCEPT</code> compares whole rows and reads no Key:</p>
@@ -14126,7 +14300,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14173,21 +14347,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -14196,6 +14376,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>mart.job_day_facts, each job&#x27;s events, runs and minutes per day beside its team, is one of the Project&#x27;s Saved tables, partitioned by dt:</p>
@@ -14341,7 +14522,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14388,21 +14569,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -14411,6 +14598,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <pre class="python">from sqlglot_composer import *
@@ -15496,7 +15684,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15543,21 +15731,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -15566,6 +15760,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <p>The Project has the Table reference of ops.job_events already. Add the one of ops.jobs, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows. Its TODO lines can wait: no Key is read in Hive you write by hand.</p>
@@ -16164,7 +16359,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 71 files</p>
+<p class="label">It writes 78 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16211,21 +16406,27 @@ references/ops__team_notes.py
 references/reference_sheet.csv
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.html
 tables/mart__budget_overruns/lineage/20260925-060000-mart__budget_overruns.md
+tables/mart__budget_overruns/mart__budget_overruns.hql
 tables/mart__budget_overruns/mart__budget_overruns.ipynb
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.html
 tables/mart__job_day_costs/lineage/20260925-060000-mart__job_day_costs.md
+tables/mart__job_day_costs/mart__job_day_costs.hql
 tables/mart__job_day_costs/mart__job_day_costs.ipynb
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.html
 tables/mart__job_day_facts/lineage/20260925-060000-mart__job_day_facts.md
+tables/mart__job_day_facts/mart__job_day_facts.hql
 tables/mart__job_day_facts/mart__job_day_facts.ipynb
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.html
 tables/mart__job_events_checks/lineage/20260925-060000-mart__job_events_checks.md
+tables/mart__job_events_checks/mart__job_events_checks.hql
 tables/mart__job_events_checks/mart__job_events_checks.ipynb
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.html
 tables/mart__job_notes/lineage/20260925-060000-mart__job_notes.md
+tables/mart__job_notes/mart__job_notes.hql
 tables/mart__job_notes/mart__job_notes.ipynb
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.html
 tables/mart__team_days/lineage/20260925-060000-mart__team_days.md
+tables/mart__team_days/mart__team_days.hql
 tables/mart__team_days/mart__team_days.ipynb
 tables/mart__team_failures/conversion/checklist.md
 tables/mart__team_failures/conversion/compare.md
@@ -16234,6 +16435,7 @@ tables/mart__team_failures/conversion/scan.md
 tables/mart__team_failures/conversion/statement.hql
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.html
 tables/mart__team_failures/lineage/20260925-060000-mart__team_failures.md
+tables/mart__team_failures/mart__team_failures.hql
 tables/mart__team_failures/mart__team_failures.ipynb
 warehouse.py</pre>
 <pre class="python">for added in [&quot;admin/databases.py&quot;, &quot;admin/sent.csv&quot;, &quot;admin/remove.ipynb&quot;]:
