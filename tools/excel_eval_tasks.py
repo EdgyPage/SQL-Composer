@@ -6,7 +6,7 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 78: 39 on the dev split, which Copilot files 15, 11 and 12 may be tuned on, and 39
+There are 84: 42 on the dev split, which Copilot files 15, 11 and 12 may be tuned on, and 42
 held out, scored once per version of the files. Every kind of formula, query or workbook in
 `COVERAGE` has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
@@ -31,6 +31,9 @@ COVERAGE = (
     "arithmetic", "if", "switch", "iferror", "and_or", "round_math", "text", "dates", "xlookup",
     "vlookup", "index_match", "sumifs", "countifs", "averageifs", "maxifs", "minifs",
     "single_ifs", "rank", "criteria_ops", "criteria_wildcard", "running_total",
+    # conditions that filter a range: several on one column, OR as a sum of -IFS forms,
+    # SUMPRODUCT over conditions, and AND, OR and NOT nested in an IF
+    "range_filter", "or_criteria", "conditional_sumproduct", "nested_logic",
     "countifs_rank", "whole_column", "total_row", "total_row_rollup", "dates_more",
     "week_month_start", "text_more", "everyday", "stdev_var", "sumproduct",
     "long_form", "short_form", "summary_table", "parameters",
@@ -949,6 +952,52 @@ in
                          "label FROM finance",
          "finance_runs": f"WITH {FINANCE_JOBS} SELECT r.run_id, f.job_name, r.duration_mins "
                          "FROM ops.job_runs r JOIN finance f ON r.job_id = f.job_id"}),
+    ExcelTask(
+        "X79", "dev", ("if", "and_or"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "status", "duration_mins"), formulas={
+            "kept": '=IF(AND([@status]<>"",[@status]<>"TEST"),1,0)',
+            "long_or_failed": '=IF(OR([@duration_mins]>25,[@status]="FAILED"),"yes","no")'}),)),
+        {"job_runs": "SELECT run_id, job_id, status, duration_mins, IF(status <> '' AND status "
+                     "<> 'TEST', 1, 0) AS kept, IF(duration_mins > 25 OR status = 'FAILED', "
+                     "'yes', 'no') AS long_or_failed FROM ops.job_runs"}),
+    ExcelTask(
+        "X81", "dev", ("range_filter", "or_criteria", "summary_table", "countifs", "sumifs"),
+        FormulaWorkbook((
+            runs_table(),
+            ExcelTable("by_job", ("job_id", "long_failed", "mid_mins", "failed_or_test"),
+                       "SELECT DISTINCT job_id FROM ops.job_runs ORDER BY job_id", {
+                           "long_failed": '=COUNTIFS(job_runs[job_id],[@job_id],'
+                                          'job_runs[status],"FAILED",'
+                                          'job_runs[duration_mins],">=20")',
+                           "mid_mins": '=SUMIFS(job_runs[duration_mins],job_runs[job_id],'
+                                       '[@job_id],job_runs[duration_mins],">10",'
+                                       'job_runs[duration_mins],"<=30",'
+                                       'job_runs[status],"<>TEST")',
+                           "failed_or_test": '=COUNTIFS(job_runs[job_id],[@job_id],'
+                                             'job_runs[status],"FAILED")+COUNTIFS('
+                                             'job_runs[job_id],[@job_id],job_runs[status],'
+                                             '"TEST")'}))),
+        {"by_job": "SELECT job_id, COUNT(CASE WHEN status = 'FAILED' AND duration_mins >= 20 "
+                   "THEN 1 END) AS long_failed, COALESCE(SUM(CASE WHEN duration_mins > 10 AND "
+                   "duration_mins <= 30 AND (status <> 'TEST' OR status IS NULL) THEN "
+                   "duration_mins END), 0) AS mid_mins, COUNT(CASE WHEN status IN ('FAILED', "
+                   "'TEST') THEN 1 END) AS failed_or_test FROM ops.job_runs GROUP BY job_id"}),
+    ExcelTask(
+        "X82", "dev", ("conditional_sumproduct", "nested_logic", "if", "and_or"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "status", "duration_mins", "dt"),
+                                    formulas={
+            "needs_look": '=IF(AND(OR([@status]="FAILED",[@duration_mins]>25),'
+                          'NOT([@job_id]=1)),1,0)',
+            "failed_long_mins": '=SUMPRODUCT((job_runs[status]="FAILED")*'
+                                '(job_runs[duration_mins]>15)*job_runs[duration_mins])',
+            "failed_or_late": '=SUMPRODUCT(((job_runs[status]="FAILED")+'
+                              '(job_runs[dt]="2026-09-24")>0)*1)'}),), as_typed=True),
+        {"job_runs": "SELECT run_id, job_id, status, duration_mins, dt, IF((status = 'FAILED' "
+                     "OR duration_mins > 25) AND NOT job_id = 1, 1, 0) AS needs_look, "
+                     "SUM(CASE WHEN status = 'FAILED' AND duration_mins > 15 THEN "
+                     "duration_mins ELSE 0 END) OVER () AS failed_long_mins, COUNT(CASE WHEN "
+                     "status = 'FAILED' OR dt = '2026-09-24' THEN 1 END) OVER () AS "
+                     "failed_or_late FROM ops.job_runs"}),
 )
 
 HELD_OUT = (
@@ -1848,6 +1897,48 @@ in
                                     "FROM known",
          "cost_per_job": f"WITH {KNOWN_COSTS} SELECT job_id, SUM(cost_cents) AS total_cents "
                          "FROM known GROUP BY job_id"}),
+    ExcelTask(
+        "X80", "held_out", ("if", "and_or"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "duration_mins"), formulas={
+            "look": '=IF(OR(AND([@duration_mins]>20,[@job_id]<>3),NOT([@job_id]=2)),'
+                    '"look","fine")'}),)),
+        {"job_runs": "SELECT run_id, job_id, duration_mins, IF((duration_mins > 20 AND job_id "
+                     "<> 3) OR NOT job_id = 2, 'look', 'fine') AS look FROM ops.job_runs"}),
+    ExcelTask(
+        "X83", "held_out", ("range_filter", "or_criteria", "summary_table", "countifs",
+                            "sumifs"),
+        FormulaWorkbook((
+            runs_table(),
+            ExcelTable("by_day", ("dt", "kept_runs", "short_mins", "success_or_failed"),
+                       "SELECT DISTINCT dt FROM ops.job_runs ORDER BY dt", {
+                           "kept_runs": '=COUNTIFS(job_runs[dt],[@dt],job_runs[status],'
+                                        '"<>TEST",job_runs[status],"<>")',
+                           "short_mins": '=SUMIFS(job_runs[duration_mins],job_runs[dt],[@dt],'
+                                         'job_runs[duration_mins],"<"&20)',
+                           "success_or_failed": '=COUNTIFS(job_runs[dt],[@dt],'
+                                                'job_runs[status],"SUCCESS")+COUNTIFS('
+                                                'job_runs[dt],[@dt],job_runs[status],'
+                                                '"FAILED")'}))),
+        {"by_day": "SELECT dt, COUNT(CASE WHEN status IS NOT NULL AND status <> 'TEST' THEN 1 "
+                   "END) AS kept_runs, COALESCE(SUM(CASE WHEN duration_mins < 20 THEN "
+                   "duration_mins END), 0) AS short_mins, COUNT(CASE WHEN status IN "
+                   "('SUCCESS', 'FAILED') THEN 1 END) AS success_or_failed FROM ops.job_runs "
+                   "GROUP BY dt"}),
+    ExcelTask(
+        "X84", "held_out", ("conditional_sumproduct", "nested_logic", "if", "and_or"),
+        FormulaWorkbook((runs_table(("run_id", "job_id", "status", "duration_mins"),
+                                    formulas={
+            "flag": '=IF(OR(AND([@job_id]=2,[@duration_mins]<20),AND([@job_id]=3,'
+                    'NOT([@duration_mins]>=30))),"review","")',
+            "job2_short": '=SUMPRODUCT((job_runs[job_id]=2)*(job_runs[duration_mins]<20))',
+            "failed_or_test_mins": '=SUMPRODUCT((job_runs[status]="FAILED")+'
+                                   '(job_runs[status]="TEST"),job_runs[duration_mins])'}),)),
+        {"job_runs": "SELECT run_id, job_id, status, duration_mins, IF((job_id = 2 AND "
+                     "duration_mins < 20) OR (job_id = 3 AND NOT duration_mins >= 30), "
+                     "'review', '') AS flag, COUNT(CASE WHEN job_id = 2 AND duration_mins < 20 "
+                     "THEN 1 END) OVER () AS job2_short, SUM(CASE WHEN status = 'FAILED' OR "
+                     "status = 'TEST' THEN duration_mins ELSE 0 END) OVER () AS "
+                     "failed_or_test_mins FROM ops.job_runs"}),
 )
 
 TASKS = DEV + HELD_OUT

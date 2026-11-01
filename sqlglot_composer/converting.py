@@ -783,6 +783,9 @@ class _Converter:
                 raise Unconvertible("no Toolbox function counts the distinct values of more "
                                     "than one column")
             return f"{self.use('count_distinct')}({self.value(inner.expressions[0], scope)})"
+        counted = _counted_where(inner)
+        if counted is not None:
+            return self.count_rows_where(counted, scope)
         return f"{self.use('hive_function')}(\"count\", {self.value(inner, scope)})"
 
     def aggregate(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
@@ -912,8 +915,8 @@ class _Converter:
             if inner.args.get("default"):
                 raise Unconvertible(f"{name} doesn't take a default value yet")
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over}{far})"
-        if isinstance(inner, exp.Count) and isinstance(inner.this, exp.Star):
-            return f"{self.use('count_rows')}(over={over})"
+        if isinstance(inner, exp.Count):
+            return self.windowed_count(inner, over, scope)
         if type(inner) in _AGGREGATES:
             return (f"{self.use(_AGGREGATES[type(inner)])}({self.value(inner.this, scope)}, "
                     f"over={over})")
@@ -921,6 +924,26 @@ class _Converter:
             name = "first_value" if isinstance(inner, exp.FirstValue) else "last_value"
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over})"
         raise Unconvertible(f"no Toolbox function writes {_call_name(inner)} OVER (...) yet")
+
+    def windowed_count(self, node: exp.Count, over: str, scope: dict[str, _Source]) -> str:
+        """COUNT(*) OVER (...) as count_rows(over=...), and COUNT(CASE WHEN c THEN 1 END)
+        OVER (...), a count of the rows where c holds, as count_rows(where=c, over=...)."""
+        if isinstance(node.this, exp.Star):
+            return f"{self.use('count_rows')}(over={over})"
+        counted = _counted_where(node.this)
+        if counted is None:
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} OVER (...) yet")
+        return self.count_rows_where(counted, scope, over)
+
+    def count_rows_where(self, counted: exp.Expression, scope: dict[str, _Source],
+                         over: str = "") -> str:
+        """count_rows(where=...) of the condition `counted`, over `over`, a window(...), when
+        given."""
+        windowed = ""
+        if over:
+            windowed = f", over={over}"
+        return (f"{self.use('count_rows')}(where={self.condition_or_unchecked(counted, scope)}"
+                f"{windowed})")
 
     def window(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """The OVER (...) of a window function, as window(...)."""
@@ -1505,6 +1528,8 @@ INSERT = "insert"  # INSERT OVERWRITE or INTO: a Saved table, its logic the quer
 SETTING = "setting"  # SET: the Session settings of the writes after it in its script
 NOTHING = "nothing"  # DROP, TRUNCATE, ADD PARTITION, MSCK REPAIR: the Saved table does it
 OTHER = "other"  # anything else, or what sqlglot can't read: an Unchecked statement
+# The note of a statement sqlglot can't read, before what sqlglot found.
+UNREAD = "sqlglot can't read it: "
 QUERY = "query"  # a query alone: a Saved table named for the batch, or for its script
 WRITES = (CREATE_AS, INSERT, QUERY)
 # The kinds that make a table of the batch, and those that name one.
@@ -1652,12 +1677,17 @@ def _read_statements(script: str, line: int, text: str,
 
 def _read_statement(script: str, line: int, text: str, database: str) -> BatchStatement:
     """One statement, read by sqlglot where it can be, and sorted by what it does."""
+    unread = ""
     try:
         trees = read_hive(text)
-    except sqlglot.errors.ParseError:
+    except sqlglot.errors.ParseError as error:
         trees = []
+        # sqlglot's first line, its class path cut to the class: "Required keyword: 'this'
+        # missing for And. Line 2, Col: 51."
+        found = re.sub(r"<class '[\w.]*\.(\w+)'>", r"\1", str(error).splitlines()[0])
+        unread = UNREAD + found.rstrip(".")
     if len(trees) != 1:
-        return BatchStatement(script, line, text, None, OTHER)
+        return BatchStatement(script, line, text, None, OTHER, note=unread)
     tree = trees[0]
     statement = BatchStatement(script, line, text, tree, _kind(tree))
     if statement.kind in NAMES_A_TABLE:
@@ -1669,6 +1699,24 @@ def _read_statement(script: str, line: int, text: str, database: str) -> BatchSt
     if statement.kind == NOTHING:
         statement.note = _why_nothing(tree)
     return statement
+
+
+def _counted_where(counted: exp.Expression) -> exp.Expression | None:
+    """The condition c of COUNT(CASE WHEN c THEN 1 END), a count of the rows where c holds, as
+    count_rows(where=c) writes it: a CASE of one WHEN giving a value that isn't NULL, and no
+    ELSE but NULL; None for any other COUNT."""
+    if not isinstance(counted, exp.Case) or counted.this is not None:
+        return None
+    branches = counted.args.get("ifs")
+    default = counted.args.get("default")
+    if not branches or len(branches) != 1:
+        return None
+    if default is not None and not isinstance(default, exp.Null):
+        return None
+    given = branches[0].args["true"]
+    if not isinstance(given, exp.Literal):
+        return None
+    return branches[0].this
 
 
 def _kind(tree: exp.Expression) -> str:

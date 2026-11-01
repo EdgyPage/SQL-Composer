@@ -690,9 +690,10 @@ def test_the_new_block_notebook_makes_and_removes_a_building_block(started: Path
 
 def test_the_check_references_notebook_checks_each_table_and_its_key(
         started: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """ops.jobs' Key is checked; ops.team_notes has none; ops.job_runs is partitioned, so the
-    call that checks it on some Partitions is printed; a reference still to fill in is left
-    out, as the Reference sheet leaves it out."""
+    """ops.jobs' Key is checked; ops.team_notes has none; ops.job_runs is partitioned, so its
+    Key is checked on its latest Partition, as SHOW PARTITIONS lists them, the call that checks
+    it on another printed; a reference still to fill in is left out, as the Reference sheet
+    leaves it out."""
     project.add_references(["ops.jobs", "ops.job_runs", "ops.team_notes"],
                            query=example_database.query)
     for name, key in (("ops__jobs", '["job_id"]'), ("ops__job_runs", '["run_id"]')):
@@ -707,11 +708,15 @@ def test_the_check_references_notebook_checks_each_table_and_its_key(
                            "Left out, since it can't be read yet: "
                            "references/mart__daily_job_runs.py.")
     assert ("ops.job_runs matches its Table reference.\n"
-            "ops.job_runs is partitioned by dt, so its Key isn't checked here: that would read "
-            "every Partition. Check it on some, in the last cell:\n"
+            "ops.job_runs is partitioned by dt, so its Key is checked on its latest Partition, "
+            "the last of 2 that SHOW PARTITIONS lists: checking every one would read the whole "
+            "table.\n"
+            "ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.\n"
+            "To check it on another, in the last cell:\n"
             "    from references.ops__job_runs import job_runs\n"
             "    print(check_key(job_runs, query=query, where=equals(job_runs.dt, "
-            "<a value>)))\n\n") in said
+            "\"2026-09-23\")))\n\n") in said
+    assert "<a value>" not in said
     assert ("ops.jobs matches its Table reference.\n"
             "ops.jobs: the key (job_id) holds.\n\n") in said
     assert ("ops.team_notes matches its Table reference.\n"

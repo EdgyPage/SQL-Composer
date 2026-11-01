@@ -28,6 +28,10 @@ those people found unsaid.
 - **A table new_table made from its query** has its notebook and `conversion/checklist.md`
   name new_table's notebook, `admin/workflows/new_table/new_table.ipynb`, for its Decisions,
   as 8.2 writes them: 8.1 named convert's. There is nothing for you to do.
+- **`admin/check_references.ipynb`** is written again, kept as it was in `admin/removed/`: it
+  checks each partitioned table's Key on its latest Partition itself.
+- **`warehouse.py`**, if still as 8.0 or 8.1 wrote it, is written again, saying how to import a
+  connection kept in a file outside the Project; one you changed is yours, and stays.
 
 ### What's new
 
@@ -74,6 +78,23 @@ those people found unsaid.
   Copilot, counts the rows where a condition holds, converts to `count_rows(where=c)`, where
   before its conversion stopped on its own refusal. Inside `COALESCE(..., 0)` it gives the same
   rows; bare, it gives 0 where the SUM gave NULL, and the scan says so.
+- **A count of a condition converts, over a window too.** `COUNT(CASE WHEN c THEN 1 END)`,
+  how Copilot writes an Excel COUNTIFS, converts to `count_rows(where=c)`, and with `OVER
+  (...)` to `count_rows(where=c, over=window(...))`, where the windowed one stayed Hive in
+  `unchecked_column(...)`.
+- **Hive a Conversion can't read says where, and why.** Hive sqlglot can't read, such as
+  Excel's `IF(AND(a, b), 1, 0)` left in a query, is refused naming its file and line and what
+  sqlglot found, and for an `AND(` or `OR(`, Hive's `a AND b`, where before the refusal said its
+  Hive wrote no table. Copilot file 11 now says AND(), OR() and NOT() become operators, and
+  how SUMPRODUCT over conditions, several conditions on one range, and a sum of -IFS forms
+  convert.
+- **A conversion's compare keeps each Partition's result.** `conversion/compare.md` keeps a
+  result for each Partition compared, a compare of another adding its own, so the table passes
+  only when each passed; a result from before the table was last written is dropped. The
+  convert Workflow's compare step and the README say how to compare another Partition.
+- **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
+  as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
+  holding `<a value>`.
 - **NOT of a condition converts.** `NOT (a OR b)` becomes `all_of(...)` of each part's opposite,
   `NOT (a AND b)` `any_of(...)` of them, `NOT x > 3` `at_most(x, 3)`, and `NOT (NOT a)` `a`,
   each keeping the rows NOT keeps, a NULL's too, where only `NOT IN`, `IS NOT NULL` and

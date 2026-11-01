@@ -24,7 +24,10 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
 ## Formulas
 
-- `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE, AND, OR, NOT as they are.
+- `+ - * /` as they are; `^` POWER; `&` CONCAT(a, b); TRUE, FALSE as they are.
+- AND(a, b, c): `a AND b AND c`; OR(a, b): `(a OR b)`, bracketed, as AND joins before OR;
+  NOT(x): `NOT x`. Hive has no AND() or OR() function: IF(AND(a, b), 1, 0) is
+  IF(a AND b, 1, 0).
 - IF as it is. IFS(c1, v1, c2, v2): `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 END`.
   SWITCH(x, "a", 1, 0): `CASE x WHEN 'a' THEN 1 ELSE 0 END`.
 - IFERROR(a / b, 0): COALESCE(a / b, 0), as a divide by 0 is NULL; IFNA(x, v) and
@@ -58,7 +61,15 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 ## Conditions in an -IF(S) form
 
 - "x": `s = 'x'`; ">10", ">=", "<", "<=": that comparison; "<>x": `(s <> 'x' OR s IS NULL)`,
-  as Excel counts a blank there; ">="&[@d]: against this row's d.
+  as Excel counts a blank there; "<>" alone: `s IS NOT NULL`; ">="&[@d]: against this row's d.
+- Every condition of one -IFS form holds at once: join them with AND, two on one column too
+  (">10" and "<=30": `v > 10 AND v <= 30`). If two -IFS forms are added that differ in one
+  value only, then that value is an OR: write one, with `s IN ('x', 'y')`.
+- SUMPRODUCT over conditions: `*` between them is AND; `+` is OR where both can't hold at
+  once, such as two values of one column, or written `((..)+(..)>0)`.
+  SUMPRODUCT((t[s]="x")*(t[v]>5)*t[v]): `SUM(CASE WHEN s = 'x' AND v > 5 THEN v ELSE 0
+  END)`; with no column to add, as `(..)*1`: `COUNT(CASE WHEN .. THEN 1 END)`. If it reads
+  its own Table, then add OVER (), as each row shows the same total.
 - A wildcard, "*ail*" or "f*": `LOWER(s) LIKE '%ail%'`, `'f%'`, as Excel ignores case.
 - `t[d], "<="&[@d]` over its own Table is a running total, ties included as Excel's: `SUM(v)
   OVER (PARTITION BY a ORDER BY d RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
@@ -111,3 +122,4 @@ FROM <database>.job_runs
 - Each formula column is in its final's SELECT, by this file, or `NULL AS` its header.
 - Each value typed over a formula is a CASE matched on its Keys row's columns.
 - Each COALESCE this file asks for is there, and each mark is named.
+- No AND(, OR( or NOT( is left in the Hive: each is written `a AND b`, `(a OR b)`, `NOT x`.

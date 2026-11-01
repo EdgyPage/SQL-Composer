@@ -98,7 +98,7 @@ import pandas as pd
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
-                        CONVERSION, FINISHED, PASSED)
+                        CONVERSION, FAILED, FINISHED, PASSED)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
@@ -181,8 +181,9 @@ pick which one sends each Statement, by calling run_query(s, query) for what giv
 a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
 two share one session, so a Session setting sent through execute holds for what is sent after
 it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
-failed only when your connection raises. It imports none of your own files, so any notebook or
-script of yours can import it.
+failed only when your connection raises. Keep it importing nothing from references/,
+building_blocks/ or tables/, so any notebook or script of yours can import it; a connection
+kept in a file outside the Project is imported as the comment above conn shows.
 """
 
 import pandas as pd
@@ -191,7 +192,12 @@ from sqlglot_composer import example_database
 
 # Your connection to the warehouse. At work, replace example_database with your own, such as
 # conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
-# execute(sql) runs Hive that changes something.
+# execute(sql) runs Hive that changes something. A connection kept in a file outside the
+# Project, such as team_connection.py, is imported by these lines, in place of the line
+# conn = example_database below:
+#     import sys
+#     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+#     from team_connection import conn
 conn = example_database
 
 
@@ -241,7 +247,7 @@ SENT_HEADER = "time,kind,tables,script\n"
 CHECK_REFERENCES_CELLS = [
     '''import csv
 
-from sqlglot_composer import Table, check_key, check_table_reference
+from sqlglot_composer import Table, all_of, check_key, check_table_reference, equals
 from warehouse import query
 
 # The Reference sheet: a row per column of every Table reference in references/, with its
@@ -266,19 +272,35 @@ for name in sorted({row["table"] for row in rows}):
     elif not found.ok:
         print(f"{name}: its Key is checked once the problems above are fixed.")
     elif partitions:
-        print(f"{name} is partitioned by {' and '.join(partitions)}, so its Key isn't checked "
-              "here: that would read every Partition. Check it on some, in the last cell:\n"
-              f"    from references.{database}__{short} import {short}\n"
-              f"    print(check_key({short}, query=query, "
-              f"where=equals({short}.{partitions[0]}, <a value>)))")
+        # Its Key on its latest Partition, of those SHOW PARTITIONS lists, such as
+        # dt=2026-09-24: checking every one would read the whole table.
+        shown = query(f"SHOW PARTITIONS {name}")
+        partition_names = sorted(str(each) for each in shown.iloc[:, 0])
+        if not partition_names:
+            print(f"{name} holds no Partition yet, so there are no rows to check its Key on.")
+        else:
+            print(f"{name} is partitioned by {' and '.join(partitions)}, so its Key is checked "
+                  f"on its latest Partition, the last of {len(partition_names)} that SHOW "
+                  "PARTITIONS lists: checking every one would read the whole table.")
+            on_the_latest = []
+            for pair in partition_names[-1].split("/"):
+                column, value = pair.split("=", 1)
+                on_the_latest.append(equals(getattr(table, column), value))
+            print(check_key(table, query=query, where=all_of(*on_the_latest)))
+        if len(partition_names) > 1:
+            column, value = partition_names[0].split("/")[0].split("=", 1)
+            print("To check it on another, in the last cell:\n"
+                  f"    from references.{database}__{short} import {short}\n"
+                  f"    print(check_key({short}, query=query, "
+                  f'where=equals({short}.{column}, "{value}")))')
     else:
         print(check_key(table, query=query))
     print()''',
     '''\
 # A table checked on its own Table reference: a Saved table's storage, its folder and file
-# format, which the Reference sheet doesn't hold, and a partitioned table's Key, on the
-# Partitions where= picks. Uncomment, and write your table, and a value of its partition
-# column, as the cell above printed:
+# format, which the Reference sheet doesn't hold, and a partitioned table's Key on another
+# Partition than the latest, the one where= picks. Uncomment, and write your table, and a
+# value of its partition column, as the cell above printed:
 # from sqlglot_composer import equals
 # from references.ops__job_runs import job_runs
 # print(check_table_reference(job_runs, query=query))
@@ -352,10 +374,12 @@ ADMIN_NOTEBOOKS = {
         "modules again, and no other file. A Saved table you haven't created yet reports "
         "that DESCRIBE failed, as each of the Example projects' does: that is expected. It "
         "reads each table from the Reference sheet: its columns, "
-        "their types, its partition columns and its Key. A partitioned table's Key isn't "
-        "checked here, since that would read every Partition, and a Saved table's storage, "
-        "its folder and file format, isn't in the sheet: the last cell checks each on the "
-        "table's own Table reference, and the check prints the lines to write there.",
+        "their types, its partition columns and its Key. A partitioned table's Key is checked "
+        "on its latest Partition, the last SHOW PARTITIONS lists, since checking every one "
+        "would read the whole table; the last cell checks it on another you name. A Saved "
+        "table's storage, its folder and file format, isn't in the sheet: the last cell "
+        "checks it on the table's own Table reference, and the check prints the lines to "
+        "write there.",
         CHECK_REFERENCES_CELLS,
     ),
 }
@@ -649,11 +673,15 @@ def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file:
                "admin/workflows/references/references.ipynb.", error=ValueError)
 
 
+# What a batch calls Hive given as text, not in a file, as a script of its own.
+HIVE_GIVEN = "hive.hql"
+
+
 def _query_scripts(call: str, query_or_file: str) -> list[tuple[str, str]]:
     """A query given as Hive text or a .hql file's name, as convert's scripts."""
     if query_or_file.strip().lower().endswith(".hql"):
         return _scripts_given(call, [query_or_file.strip()])
-    return [("hive.hql", query_or_file)]
+    return [(HIVE_GIVEN, query_or_file)]
 
 
 def _new_table_from_query(name: str, query_or_file: str, frame: FrameType) -> ProjectReport:
@@ -2023,7 +2051,7 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     if files:
         scripts = _scripts_given(call, files)
     else:
-        script = "hive.hql"
+        script = HIVE_GIVEN
         if file is not None:
             script = Path(file).name
         scripts = [(script, _hive_given(call, hive, file))]
@@ -2133,6 +2161,49 @@ def _hash(content: bytes) -> str:
     return hashlib.sha256(content.replace(b"\r\n", b"\n")).hexdigest()
 
 
+# Excel's AND(...) and OR(...), written as functions, which Hive writes as operators: one
+# where a value starts, as in IF(AND(a, b), 1, 0), and not Hive's x AND (y OR z).
+_EXCEL_AND_OR = re.compile(r"(?:^|[(,=]\s*)(AND|OR)\(", re.IGNORECASE)
+
+
+def _unread_where(statement: converting.BatchStatement) -> str:
+    """Where a statement sqlglot can't read is, and what sqlglot found there: its script, for
+    one of several files, and sqlglot's own line and column, counted from the first line of
+    the Hive given, as "in daily.hql (Expecting ). line 3, Col: 12)"."""
+    found = statement.note.removeprefix(converting.UNREAD)
+    # sqlglot counts lines in the statement: from the Hive's first line, they are one on for
+    # each line before the statement's start.
+    counted = re.search(r"Line (\d+)", found)
+    if counted:
+        line = int(counted[1]) + statement.line - 1
+        found = f"{found[:counted.start()]}line {line}{found[counted.end():]}"
+    if statement.script == HIVE_GIVEN:
+        return f"({found})"
+    return f"in {statement.script} ({found})"
+
+
+def _check_hive_sqlglot_can_read(call: str, statements: list[converting.BatchStatement]
+                                   ) -> None:
+    """Refuse a batch that writes nothing because sqlglot can't read a statement of it, naming
+    each such statement's script and line and what sqlglot found."""
+    unread = [each for each in statements if each.note.startswith(converting.UNREAD)]
+    if not unread:
+        return
+    found = "; ".join(_unread_where(each) for each in unread)
+    fix = ("Correct the Hive there, so that it reads as Hive, and convert it again: sqlglot's "
+           "words above say what it expected, and at which line and column.")
+    if any(_EXCEL_AND_OR.search(each.text) for each in unread):
+        fix = ("Excel has AND() and OR() functions, but Hive has none: write AND(a, b) as "
+               "a AND b, and OR(a, b) as (a OR b), then convert it again.")
+    refuse(
+        what=f"{call}: sqlglot can't read its Hive {found}.",
+        why="A Conversion reads each statement as Hive to know what it writes; this one it "
+        "can't read, so it would write nothing.",
+        fix=fix,
+        error=ValueError,
+    )
+
+
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
                    overwrite: bool, frame: FrameType, staging: dict[str, str],
@@ -2151,6 +2222,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     _refuse_a_query_named_like_another(call, statements)
     names, ordered = _batch_plan(call, statements, dev, rename)
     if not names:
+        _check_hive_sqlglot_can_read(call, statements)
         refuse(
             what=f"{call}: its Hive writes no table, and holds no query alone to save.",
             why="A Conversion makes each table its Hive writes a Saved table in dev, or one "
@@ -3110,6 +3182,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
 
         Below, the Statement is mart_dev.spare's rows, and the original its query's.
 
+        ## Every row
+
         Passed: every row: it has no Partitions.
         Compared at 2026-10-31 09:30:00.
 
@@ -3130,7 +3204,11 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     the query's, kept in its conversion/statement.hql. A partition= that names no column any of
     them is partitioned by is refused.
 
-    Each result is written in the table's conversion/compare.md, with the rows that differ, at
+    Each result is written in the table's conversion/compare.md, under a heading naming the
+    Partition it compared, such as ## dt = '2026-09-24', or ## Every row: a compare of another
+    Partition adds its own beside the others, one of the same Partition replaces its result,
+    and one after the table was written again drops each from before. The table has passed
+    when every result it keeps passed. Each holds the rows that differ, at
     most 5 from each, as compare_with_original gives them, where the Statement is the dev
     table's rows. `tables` names which, by their names in dev, such as
     mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
@@ -3409,9 +3487,51 @@ def _compare_one(root: Path, table: Table, original: str | None,
             verdicts.append(key_verdict)
         if key_verdict is not None and not passed:
             described += f"; but its Key ({', '.join(table._key)}) repeats"
-    (folder / COMPARED).write_text(_compare_text(heading, passed, described, verdicts, stopped),
-                                   encoding="utf-8")
+    _write_compare_md(root, dev, folder / COMPARED, heading,
+                      _compared_on(chosen, not columns or original is None),
+                      _compare_text(passed, described, verdicts, stopped))
     return f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+
+
+# What a result in compare.md is headed by when it compared every row, and when it compared
+# no Partition, having found none to compare on.
+_EVERY_ROW = "Every row"
+_NO_PARTITION = "No Partition compared"
+
+
+def _compared_on(chosen: dict[str, object] | None, whole: bool) -> str:
+    """What a result in compare.md is headed by: the Partition `chosen` names, every row when
+    the table was compared `whole`, or that no Partition was compared."""
+    if chosen:
+        return _partition_in_words(chosen)
+    if whole:
+        return _EVERY_ROW
+    return _NO_PARTITION
+
+
+def _write_compare_md(root: Path, dev: str, path: Path, heading: str, compared_on: str,
+                      result: str) -> None:
+    """Write a dev table's compare.md, `path`: its heading, then each result it keeps, under
+    the Partition each compared on, `result` under `compared_on` among them."""
+    kept = _results_kept(root, dev, path)
+    kept[compared_on] = result
+    blocks = [f"{workflows.RESULT_HEADING}{each}\n\n{kept[each]}" for each in sorted(kept)]
+    path.write_text("\n\n".join([heading, *blocks]).rstrip("\n") + "\n", encoding="utf-8")
+
+
+def _results_kept(root: Path, dev: str, path: Path) -> dict[str, str]:
+    """The results a dev table's compare.md, `path`, keeps for a new compare to sit beside, by
+    the Partition each compared on: not one from before the table was last written, one that
+    compared no Partition, nor one from before 8.2, which names no Partition."""
+    written = workflows.write_times(root, dev)
+    kept = {}
+    for compared_on, said in workflows.compare_results(workflows.file_text(path)).items():
+        if compared_on in ("", _NO_PARTITION):
+            continue
+        compared_times = workflows.compared_times(said)
+        if compared_times and all(time <= compared_times[0] for time in written):
+            kept[compared_on] = said
+    return kept
 
 
 def _key_checked(table: Table, query: Callable[[str], pd.DataFrame],
@@ -3434,17 +3554,16 @@ def _key_checked(table: Table, query: Callable[[str], pd.DataFrame],
 _PASSED_OR_FAILED = {True: "passed", False: "failed"}
 
 
-def _compare_text(heading: str, passed: bool, described: str, verdicts: list[Verdict],
-                  stopped: str) -> str:
-    """A table's conversion/compare.md: its heading, whether it passed and how it was
+def _compare_text(passed: bool, described: str, verdicts: list[Verdict], stopped: str) -> str:
+    """One result of a table's conversion/compare.md: whether it passed and how it was
     compared, when, then each Verdict, its rows' and its Key's, and what stopped it, whole."""
-    status = "Failed: "
+    status = FAILED
     if passed:
         status = PASSED
     end = "."
     if described.endswith("."):
         end = ""
-    lines = [heading, "", f"{status}{described}{end}",
+    lines = [f"{status}{described}{end}",
              f"{COMPARED_AT}{unchecked.now().strftime(unchecked.TIME_SHOWN)}.", ""]
     lines += [repr(verdict) for verdict in verdicts]
     if stopped:

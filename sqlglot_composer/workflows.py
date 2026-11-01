@@ -72,7 +72,11 @@ FINISHED = "finished"
 PROMOTED = WORKFLOWS_FOLDER / "promote" / "promoted.json"
 COMPARED = "compare.md"
 PASSED = "Passed: "
+FAILED = "Failed: "
 COMPARED_AT = "Compared at "
+# Each result compare.md keeps, one for each Partition compared, starts on a line of its own:
+# "## dt = '2026-09-24'", or "## Every row" for a table compared whole.
+RESULT_HEADING = "## "
 # A converted table's own folder, in its Table folder, and its checklist there, a view of its
 # open Decisions.
 CONVERSION = "conversion"
@@ -419,16 +423,46 @@ def every_table_compared(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def compare_passed(root: Path, table: str) -> bool:
-    """Whether a converted table's conversion/compare.md says it passed, and admin/sent.csv
-    records no write of it since."""
+    """Whether each result a converted table's conversion/compare.md keeps says it passed,
+    and admin/sent.csv records no write of it since."""
     path = root / "tables" / table_stem(table) / CONVERSION / COMPARED
-    said = [line for line in file_text(path).split("\n")
-            if line.startswith((PASSED, COMPARED_AT))]
-    if len(said) != 2 or not said[0].startswith(PASSED):
+    text = file_text(path)
+    said = [line for line in text.split("\n") if line.startswith((PASSED, FAILED))]
+    times = compared_times(text)
+    if not said or len(said) != len(times) or not all(line.startswith(PASSED) for line in said):
         return False
-    compared_at = said[1].removeprefix(COMPARED_AT).rstrip(".")
-    return all(row["time"] <= compared_at for row in sent_rows(root)
-               if row["kind"] in ("write", "unchecked") and table in row["tables"].split(";"))
+    return all(written <= min(times) for written in write_times(root, table))
+
+
+def compared_times(text: str) -> list[str]:
+    """When each result of a compare.md's text was compared, as its Compared at line says,
+    such as 2026-10-31 09:30:00."""
+    return [line.removeprefix(COMPARED_AT).rstrip(".") for line in text.split("\n")
+            if line.startswith(COMPARED_AT)]
+
+
+def write_times(root: Path, table: str) -> list[str]:
+    """When admin/sent.csv records each write of `table`, as its time column holds it."""
+    return [row["time"] for row in sent_rows(root)
+            if row["kind"] in ("write", "unchecked") and table in row["tables"].split(";")]
+
+
+def compare_results(text: str) -> dict[str, str]:
+    """Each result a conversion/compare.md's text keeps, by the Partition it was compared on,
+    as its RESULT_HEADING line names it. A compare.md from before 8.2 holds one result and no
+    such line: it is kept under ""."""
+    _, _, rest = text.partition(f"\n{RESULT_HEADING}")
+    if rest:
+        results = {}
+        for block in rest.split(f"\n{RESULT_HEADING}"):
+            compared_on, _, said = block.partition("\n")
+            results[compared_on] = said.strip("\n")
+        return results
+    for status in (PASSED, FAILED):
+        _, _, rest = text.partition(f"\n{status}")
+        if rest:
+            return {"": f"{status}{rest}".rstrip("\n")}
+    return {}
 
 
 def promoted_record(root: Path) -> dict[str, dict[str, object]]:
@@ -901,9 +935,14 @@ CONVERT = Workflow(
              send=compare_the_batch,
              goal="each table's rows checked against its original's",
              action="run the cell below. `project.compare_batch` reads both through your query "
-             "and writes each table's result in its `conversion/compare.md`.",
-             done_when="each table's `conversion/compare.md` says it passed, and the batch's "
-             "folder has moved to admin/workflows/convert/finished/"),
+             "and writes each table's result in its `conversion/compare.md`. A partitioned "
+             "table is compared on the latest Partition both tables hold. If you want another "
+             "Partition compared too, then run `print(project.compare_batch(NAME, "
+             "query=query, partition={\"dt\": \"2026-09-23\"}))` in a new cell, NAME being "
+             "the names cell's: its result is kept beside the first.",
+             done_when="every result in each table's `conversion/compare.md` says Passed, "
+             "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
+             "with a result that failed is one promote refuses"),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
                   "for the last cell alone, a list of batches converted already)", starts=True),

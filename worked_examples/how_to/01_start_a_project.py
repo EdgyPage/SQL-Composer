@@ -230,7 +230,16 @@ yours:
 
     import my_api  # your team's library
 
-    conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) runs
+    conn = my_api.connect()  # its query gives back a DataFrame; its execute runs a change
+
+If your team keeps its connection in a file outside the Project, such as
+team_connection.py in a folder C:/work/connections, write these lines in warehouse.py in place
+of `conn = example_database`: they put that folder on Python's path, then import it.
+
+    import sys
+
+    sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+    from team_connection import conn
 
 That is all, when your connection's `query` gives back a pandas DataFrame whose columns are
 named as the SELECT names them, and its `execute` runs Hive that changes something. Whatever

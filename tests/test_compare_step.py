@@ -126,6 +126,69 @@ def test_the_partition_you_give_is_the_one_compared(started: Path) -> None:
     assert "compared on dt = '2026-09-23', the Partition you gave" in compared(started)
 
 
+def test_a_compare_of_another_partition_keeps_the_first_result_beside_it(started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    text = compared(started)
+    assert text.count(f"# {DEV} against {ORIGINAL}\n") == 1
+    assert "## dt = '2026-09-23'\n\nPassed: compared on dt = '2026-09-23'" in text
+    assert "## dt = '2026-09-24'\n\nPassed: compared on dt = '2026-09-24'" in text
+    assert toolbox_module("workflows").compare_passed(started, DEV)
+
+
+def test_a_compare_of_the_same_partition_replaces_its_result(started: Path) -> None:
+    left_out = example_database.query(f"{FAILED_ROWS} AND dt = '2026-09-23'")["run_id"][0]
+    fewer = warehouse({DEV: BOTH_DAYS, ORIGINAL: BOTH_DAYS},
+                      {DEV: f"{FAILED_ROWS} AND run_id <> {left_out}", ORIGINAL: FAILED_ROWS})
+    project.compare_batch("failed", query=SAME)
+    project.compare_batch("failed", query=fewer, partition={"dt": "2026-09-23"})
+    workflows = toolbox_module("workflows")
+    # One Partition failing fails the table, though the other passed.
+    assert not workflows.compare_passed(started, DEV)
+    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    text = compared(started)
+    assert text.count("## dt = '2026-09-23'") == 1 and "Failed: " not in text
+    assert workflows.compare_passed(started, DEV)
+
+
+def test_a_partition_that_failed_fails_the_table_beside_one_that_passed(started: Path) -> None:
+    left_out = example_database.query(f"{FAILED_ROWS} AND dt = '2026-09-23'")["run_id"][0]
+    fewer = warehouse({DEV: BOTH_DAYS, ORIGINAL: BOTH_DAYS},
+                      {DEV: f"{FAILED_ROWS} AND run_id <> {left_out}", ORIGINAL: FAILED_ROWS})
+    project.compare_batch("failed", query=fewer, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=SAME)
+    text = compared(started)
+    assert "## dt = '2026-09-23'\n\nFailed: " in text
+    assert "## dt = '2026-09-24'\n\nPassed: " in text
+    assert not toolbox_module("workflows").compare_passed(started, DEV)
+
+
+def test_a_compare_md_from_before_8_2_is_read_then_written_over(started: Path) -> None:
+    path = started / "tables" / "mart_dev__failed_ops_reports" / "conversion" / "compare.md"
+    path.write_text(f"# {DEV} against {ORIGINAL}\n\nPassed: compared on dt = '2026-09-24', the "
+                    "latest Partition both hold.\nCompared at 2026-10-31 09:30:00.\n",
+                    encoding="utf-8")
+    workflows = toolbox_module("workflows")
+    assert workflows.compare_passed(started, DEV)
+    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    text = compared(started)
+    # The result 8.1 wrote names no Partition, so the new one, which does, takes its place.
+    assert text.count("Compared at ") == 1 and "## dt = '2026-09-23'" in text
+
+
+def test_a_result_from_before_the_table_was_written_again_is_dropped(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    later = datetime.datetime(2026, 10, 31, 10, 0, 0)
+    monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: later)
+    run_execute(unchecked_hive(f"INSERT INTO TABLE {DEV} PARTITION (dt) {FAILED_ROWS}"),
+                example_database.execute)
+    project.compare_batch("failed", query=SAME)
+    text = compared(started)
+    assert "## dt = '2026-09-24'" in text and "## dt = '2026-09-23'" not in text
+    assert toolbox_module("workflows").compare_passed(started, DEV)
+
+
 def test_no_partition_in_common_fails_naming_the_latest_of_each(started: Path) -> None:
     apart = warehouse({DEV: ["dt=2026-09-24"], ORIGINAL: ["dt=2026-09-22", "dt=2026-09-23"]},
                       {DEV: FAILED_ROWS, ORIGINAL: FAILED_ROWS})

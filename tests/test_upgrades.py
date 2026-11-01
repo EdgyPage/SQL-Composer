@@ -628,3 +628,40 @@ def test_a_table_new_table_made_names_new_tables_notebook_again(
     finally:
         forget_the_projects_modules()
     assert {path: path.read_text(encoding="utf-8") for path in as_8_2} == as_8_2
+
+
+def test_8_2_writes_warehouse_py_again_where_8_1_left_it(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.1" / "starter", copy)
+    warehouse = copy / "warehouse.py"
+    assert warehouse.read_text(encoding="utf-8") == upgrades.WAREHOUSE_TEXT_8_0
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert warehouse.read_text(encoding="utf-8") == project.WAREHOUSE_TEXT
+    assert "from team_connection import conn" in project.WAREHOUSE_TEXT
+
+
+def test_8_2_keeps_a_warehouse_py_you_changed(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.1" / "starter", copy)
+    warehouse = copy / "warehouse.py"
+    mine = upgrades.WAREHOUSE_TEXT_8_0.replace("conn = example_database",
+                                               "conn = my_api.connect()")
+    warehouse.write_text(mine, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert warehouse.read_text(encoding="utf-8") == mine
+
+
+def test_8_2_writes_check_references_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.1" / "starter", copy)
+    notebook = copy / "admin" / "check_references.ipynb"
+    assert "<a value>" in "".join(text for _, text in notebooks.read_cells(notebook))
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert notebooks.read_cells(notebook) == project.admin_notebook_cells("check_references")
+    assert (copy / "admin" / "removed").is_dir()
