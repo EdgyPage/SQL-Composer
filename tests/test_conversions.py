@@ -384,6 +384,45 @@ def test_a_cte_of_rows_typed_in_has_the_key_its_rows_show(started: Path, rows: s
         assert key in logic
 
 
+LISTED_JOBS = "(SELECT 1 AS job_id UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 99)"
+MINUTES = ("(SELECT job_id, SUM(duration_mins) AS minutes FROM ops.job_runs "
+           "WHERE dt = '2026-09-24' GROUP BY job_id)")
+
+
+@pytest.mark.parametrize("hive", [
+    f"SELECT c.job_id, COALESCE(m.minutes, 0) AS minutes\nFROM {LISTED_JOBS} c\n"
+    f"LEFT JOIN {MINUTES} m ON c.job_id = m.job_id",
+    f"SELECT c.job_id, COALESCE(m.minutes, 0) AS minutes\nFROM {MINUTES} m\n"
+    f"JOIN {LISTED_JOBS} c ON c.job_id = m.job_id",
+], ids=["in_from", "joined"])
+def test_a_subquery_of_rows_typed_in_converts_as_a_cte_of_them_does(started: Path,
+                                                                     hive: str) -> None:
+    # Toolbox 8.2, 16: Copilot's job list as a subquery, in FROM or joined, stays Hive alone,
+    # its column typed and its Key kept, and the query around it is Toolbox code giving the
+    # original's rows.
+    project.convert("listed", hive, query=example_database.query, database="ops")
+    logic = logic_of(started, "listed")
+    assert 'unchecked_derived("c", ' in logic
+    assert '"job_id": "int",' in logic
+    assert '}, key=["job_id"])' in logic
+    assert "unchecked_hive(" not in logic
+    converted = example_database.query(to_hive(project.load("mart_dev.listed").preview()))
+    original = example_database.query(hive)
+    assert sorted(map(tuple, converted.to_numpy().tolist())) == sorted(
+        map(tuple, original.to_numpy().tolist()))
+
+
+def test_a_column_of_rows_typed_in_whose_values_differ_in_type_is_left_untyped(
+        started: Path) -> None:
+    # Toolbox 8.2, 16: 1 and 2.5 are an int and a double, so the list says no type of its own.
+    hive = ("SELECT l.n, l.team FROM (SELECT 1 AS n, 'data' AS team UNION ALL SELECT 2.5, "
+            "'web') l")
+    project.convert("mixed", hive, query=example_database.query, database="ops")
+    logic = logic_of(started, "mixed")
+    assert '"n": None,' in logic
+    assert '"team": "string",' in logic
+
+
 def test_a_count_written_as_a_sum_gives_the_originals_rows(started: Path) -> None:
     # Toolbox 8.2, 10: inside COALESCE(..., 0), count_rows(where=...) gives what the SUM gave.
     hive = WRITTEN_ANOTHER_WAY["a_count_written_as_a_sum"][0]
