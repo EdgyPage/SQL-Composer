@@ -1,45 +1,53 @@
 # Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Label**: a column whose value a lookup or a Condition, a test on rows, picks.
+- **Clause function**: a Toolbox function named for a SQL clause, such as SELECT or WHERE.
+- **Hand-written Hive**: Hive text kept as written, `unchecked_...`: no Guard, which refuses
+  a wrong result, looks inside it. **Lineage**: which columns feed each output column.
+- **Saved table**: a table of the user's; its Table reference lists its columns and
+  Partitions, each the rows sharing one value of a partition column.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -63,32 +71,53 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. Labels, each named with AS:
-   - two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`;
-   - a lookup of one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-     otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
-     among the dict's keys isn't allowed: fill_null the column first;
-   - a chain, the first condition that holds wins:
-     `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
-     otherwise="someone")`.
-   A long list or lookup goes in a constant at the top: `CITY_BY_REGION = {...}`.
-2. A Hive function the Toolbox doesn't wrap: `hive_function("upper", t.job_name)`,
-   `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
-3. Hive by hand, when nothing above writes it. Each column the text reads is a `{name}`
-   placeholder, with the column passed by that name, so Lineage still sees it:
-   - one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
-   - one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
-   - a Derived table: `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
-   - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
-   Say in the answer which piece is hand-written: the Toolbox can't look inside it.
-4. Upkeep of a Saved table, each a Statement sent with `run_execute(..., execute)`:
-   `repair_partitions(t)` finds Partitions written outside Hive;
-   `compute_statistics(t, partition={"dt": day})` counts its rows again;
-   `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop;
-   `admin.add_columns(t, query=query)` adds the columns its Table reference gained. Import
-   the module first: `from sqlglot_composer import admin`.
+1. **Pick the call** for each piece the user asks for, by the Decision rules. Then step 2.
+2. **Write the code**, each label with AS. Done when each piece has its call. Then step 3.
+3. **Name each hand-written piece**: the Toolbox can't look inside it. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
+
+- If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
+- If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
+  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  among the dict's keys isn't allowed: fill_null the column first.
+- If a label is a chain, the first condition that holds winning, never a nested if_else:
+  `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
+  otherwise="someone")`.
+- If a list or lookup is long: a constant at the top, `CITY_BY_REGION = {...}`.
+- If a Hive function has no Toolbox name: `hive_function("upper", t.job_name)`,
+  `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
+- If neither writes it: the smallest Hive by hand, below.
+- If asked for upkeep: the Statements below; a drop only when asked for.
+
+## Hive by hand
+
+Each column the text reads is a `{name}` placeholder, the column passed by that name, so
+Lineage sees it:
+
+- one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
+- one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
+- a Derived table, read as a table:
+  `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
+- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
+
+## Upkeep of a Saved table
+
+Each is a Statement sent with `run_execute(..., execute)`, after
+`from sqlglot_composer import admin`.
+
+- `repair_partitions(t)` finds Partitions written outside Hive.
+- `compute_statistics(t, partition={"dt": day})` counts its rows again.
+- `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
+- `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences,
+naming each hand-written piece.
+
+## Examples
 
 Each job with the city of its region, and its name in capitals:
 
@@ -122,15 +151,9 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do use mapped for one column's lookup and first_match for a chain; don't nest if_else.
-- Do try hive_function before hand-written Hive.
-- Don't paste a column's name into hand-written text; pass it as a `{name}` placeholder.
-- Don't send a drop without the user asking for it.
-
-## Before you answer
-
-- Each label has AS; a long list or lookup is a constant.
-- Hand-written Hive is the smallest piece that needs it, and the answer names it.
-- Upkeep Statements go to run_execute.
+- Each label has AS; a long list or lookup is a constant; no if_else is nested.
+- Hand-written Hive is the smallest piece that needs it, each column it reads a `{name}`
+  placeholder; the answer names it.
+- Upkeep goes to run_execute; a drop is there only if the user asked for it.

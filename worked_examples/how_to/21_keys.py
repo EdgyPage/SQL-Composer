@@ -4,25 +4,33 @@ For: Intermediate
 
 ## Goal
 
-Give a table a Key, the columns that name one row of it, and let the Toolbox check it: a
-write into a Saved table whose rows the Toolbox can't see are one per Key is refused before
-anything is sent, `check_key` counts the rows themselves, and Lineage shows each step's Key. A
-table with no Key, such as ops.team_notes, is written unchecked, and a join onto it warns.
+Give a table a Key, the columns whose values name exactly one row of it, and let the Toolbox
+check it: a write into a Saved table, a real table your own Statements write, whose rows the
+Toolbox can't see are one per Key is refused before anything is sent, `check_key` counts the
+rows themselves, and Lineage, the record of which table columns feed each output column,
+shows each step's Key. A table with no Key, such as ops.team_notes, is written unchecked, and
+a join onto it warns.
 
 ## When you'd use it
 
-Each time you fill in a Table reference, and each time you make a Saved table. Hive never
-checks a Key: a table declared with one takes two rows with the same Key without a word. Then
-every join on that Key repeats rows, and every sum over the join comes out too big, far from
-the write that caused it. The Toolbox checks the Key while the write is built, where the
-mistake is.
-
-It needs [Add your tables' references](#add_your_tables_references), [Count, join and stay
-safe](#count_join_and_stay_safe) and [Save a table](#save_a_table).
+- If you fill in a Table reference, the file that describes one table, write its Key in it.
+- If you make a Saved table, give it a Key and let each write be checked against it. Hive
+  never checks a Key: a table declared with one takes two rows with the same Key without a
+  word. Then every join on that Key repeats rows, and every sum over the join comes out too
+  big, far from the write that caused it. The Toolbox checks the Key while the write is
+  built, where the mistake is.
+- If a table already holds rows, count them against its Key with `check_key`, as Check it
+  worked does.
+- If you haven't yet, read [Add your tables' references](#add_your_tables_references),
+  [Count, join and stay safe](#count_join_and_stay_safe) and [Save a table](#save_a_table)
+  first: this how-to needs all three.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
+
+Goal: a Project to work in. An Example project is a Project made for the Example database's
+tables, filled in, to read and copy from.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -36,8 +44,14 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, its project module, the Project's `query` and `execute` from
-warehouse.py, which here call the Example database, and the Project's `ops` Database:
+Done when the folder you work in holds the Project's admin/, references/ and tables/. Then
+step 2.
+
+### 2. Import what the steps call
+
+Goal: the names every step below reads. Import the Toolbox, its project module, the
+Project's `query` and `execute` from warehouse.py, which here call the Example database, and
+the Project's `ops` Database, a named group of tables:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -45,11 +59,14 @@ warehouse.py, which here call the Example database, and the Project's `ops` Data
 >>> from references import ops
 >>> job_events, job_owners, team_notes = ops.job_events, ops.job_owners, ops.team_notes
 
-### A Key names a row of the table
+Done when the imports run without an error. Then step 3.
 
-`key=` lists the columns that, together, pick out one row: no two rows have the same values
-in all of them. Which columns those are depends on what a row is, never on how the table is
-partitioned:
+### 3. Read the Keys of the tables you read
+
+Goal: know what names one row of each table. `key=` lists the columns that, together, pick
+out one row: no two rows have the same values in all of them. Which columns those are depends
+on what a row is, never on how the table is partitioned into Partitions, the slices of rows
+that share a value of each partition column.
 
 Each Table reference in the Project's references/ says its Key, such as
 references/ops__job_events.py:
@@ -63,19 +80,26 @@ references/ops__job_events.py:
 - ops.team_notes has no columns that name a row, since a team can write the same note twice:
   `key=None`. A table with no Key is fine; what the Toolbox can check of it is less.
 
-### Give the Saved table a Key
+Done when you can say each table's Key from what one of its rows is. Then step 4.
 
-mart.job_day_events will hold one row for each job on each day: its events and their minutes.
-Make its Table folder and Table reference with `project.new_table`, as [Save a
-table](#save_a_table) shows:
+### 4. Make the Saved table's Table folder
+
+Goal: the files of a new Saved table. mart.job_day_events will hold one row for each job on
+each day: its events and their minutes. Make its Table folder, the folder that holds
+everything about one Saved table, and its Table reference with `project.new_table`, as [Save
+a table](#save_a_table) shows:
 
 >>> project.new_table("mart.job_day_events")
 Made tables/mart__job_day_events/: mart__job_day_events.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__job_day_events.py: project.reference_from_logic writes it.
 
-Then fill in its Table reference. A job has a row on every day, so its Key is the job and the
-day, as ops.job_owners' is:
+Done when `project.new_table` says it made tables/mart__job_day_events/. Then step 5.
+
+### 5. Give the Saved table a Key
+
+Goal: a Table reference that says what names one row. Fill in its Table reference. A job has
+a row on every day, so its Key is the job and the day, as ops.job_owners' is:
 
 The file `references/mart__job_day_events.py`, after you fill it in:
 
@@ -90,9 +114,13 @@ The file `references/mart__job_day_events.py`, after you fill it in:
         location="/data/your_team/mart.db/job_day_events",
     )
 
-`project.refresh_reference_sheet()` writes the Database module references/mart.py again from
-the Table references, as it does once you fill one in, so `from references import mart`
-gives the new table by its name:
+Done when references/mart__job_day_events.py says `key=["job_id", "dt"]`. Then step 6.
+
+### 6. Refresh the Database module
+
+Goal: the new table, by its name. `project.refresh_reference_sheet()` writes the Database
+module references/mart.py again from the Table references, as it does once you fill one in,
+so `from references import mart` gives the new table by its name:
 
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 54 rows, 13 tables.
@@ -103,12 +131,16 @@ Restart the kernel of a notebook that imported references, to see a table added 
 >>> from references import mart
 >>> job_day_events = mart.job_day_events  # -> Table
 
-### A write that shows its Key
+Done when references/mart.py lists mart.job_day_events. Then step 7.
 
+### 7. Write a Statement that shows its Key
+
+Goal: a write the Toolbox can see is one row per Key.
 `GROUP_BY(job_events.job_id, job_events.dt)` makes one row for each job and day, so the
 Toolbox can see the Key holds, and builds the write. It fills each day's Partition from the
 rows' own dt, which SELECT may name anywhere: the Toolbox puts it last, where Hive reads it
-from, and `show_hive` adds the Session setting such a write needs:
+from, and `show_hive` adds the Session setting, a Hive SET sent before it, that such a write
+needs:
 
 >>> def write_job_day_events(first_day: str, last_day: str) -> Statement:
 ...     return statement(
@@ -137,10 +169,13 @@ GROUP BY
   job_events.job_id,
   job_events.dt;
 
-### A write that can't show it is refused
+Done when `show_hive(write)` prints the INSERT OVERWRITE with its GROUP BY. Then step 8.
 
-Leave GROUP_BY out, and the write would save one row for each event: a job with four events
-that day would have four rows with the same Key. It is refused as it is built:
+### 8. See a write that can't show its Key refused
+
+Goal: know what the check stops. Leave GROUP_BY out, and the write would save one row for each
+event: a job with four events that day would have four rows with the same Key. A Guard, a
+check that refuses a Statement that would give a wrong result, refuses it as it is built:
 
 >>> statement(
 ...     INSERT_OVERWRITE(job_day_events),
@@ -160,16 +195,20 @@ sqlglot_composer.refusals.GuardRefused:
 ops.job_events' own Key is event_id: without GROUP_BY, the rows written are its rows, one for
 each event, and nothing makes them one for each job and day.
 
-### The ways the Toolbox sees a Key
+Done when the GuardRefused names the Key (job_id, dt). Then step 9.
 
-The Toolbox looks at how a write makes its rows. Each of these shows a Key:
+### 9. Show a Key in another way
+
+Goal: a Key the Toolbox sees without GROUP_BY. The Toolbox looks at how a write makes its rows.
+Each of these shows a Key:
 
 - **GROUP_BY over the Key's columns**, as above: one row for each group.
 - **SELECT_DISTINCT**: one row for each different row. A column whose value another column
   already fixes doesn't count: one `job_events.event_id` always comes with the same
   `job_events.job_id`, so SELECT_DISTINCT of both makes one row for each event.
-- **row_number(...) kept at 1 for each Key**, in a Derived table, as [The latest row of each
-  group](#latest_row_of_each_group) does: one row for each `PARTITION_BY=` value.
+- **row_number(...) kept at 1 for each Key**, in a Derived table, a Statement named so another
+  can read from it, as [The latest row of each group](#latest_row_of_each_group) does: one
+  row for each `PARTITION_BY=` value.
 - **The rows of the table in FROM, by its own Key**, when SELECT returns that Key's columns,
   and each join matches its joined table's whole Key, so each row from FROM meets at most one
   row of the joined table. A SEMI_JOIN or ANTI_JOIN keeps the Key whatever its ON= matches,
@@ -196,10 +235,13 @@ each job and day:
 ...     WHERE(equals(numbered.last_first, 1)),
 ... )
 
-### Lineage shows each step's Key
+Done when `last_events` builds without a Warning. Then step 10.
 
-`export_lineage` marks each column that is part of a Key "in the Key", and its Markdown file
-lists each step's Key, or where it lost one, and whether a write's Key holds:
+### 10. Read each step's Key in its Lineage
+
+Goal: see where each Statement keeps or loses its Key. `export_lineage` marks each column
+that is part of a Key "in the Key", and its Markdown file lists each step's Key, or where it
+lost one, and whether a write's Key holds:
 
 >>> html_file, markdown_file = export_lineage(last_events, write,  # -> tuple[Path, Path]
 ...                                           to="lineage/keys.html")
@@ -212,11 +254,14 @@ lists each step's Key, or where it lost one, and whether a write's Key holds:
 - write: Key (job_id, dt), since GROUP_BY makes one row for each job_id, dt.
 - mart.job_day_events' Key (job_id, dt) holds: each row written has its own.
 
-### When the rows are one per Key for a reason the Toolbox can't see
+Done when the list ends with mart.job_day_events' Key holding. Then step 11.
 
-Sometimes you know more than the Toolbox can see: here, that a job has at most one finish
-event a day, a habit of how its runs are scheduled that no Table reference says. Then
-`unproven_key=True` on the write lets it through:
+### 11. Let through rows you know are one per Key
+
+Goal: a write whose rows are one per Key for a reason the Toolbox can't see. Sometimes you
+know more than the Toolbox can see: here, that a job has at most one finish event a day, a
+habit of how its runs are scheduled that no Table reference says. Then `unproven_key=True`
+on the write lets it through:
 
 >>> finishes = statement(  # -> Statement
 ...     INSERT_OVERWRITE(job_day_events, unproven_key=True),
@@ -227,13 +272,15 @@ event a day, a habit of how its runs are scheduled that no Table reference says.
 ...           equals(job_events.event_type, "finish")),
 ... )
 
-Use it only when you are sure, and check the days with `check_key` once they are written.
+Write it only when you are sure, and check the days with `check_key` once they are written.
 `INSERT_INTO` is checked the same way, on the rows it adds; the rows already there may share a
 Key with them, which only `check_key` can find.
 
-### The Key in CREATE TABLE
+Done when `finishes` builds without a refusal. Then step 12.
 
-`create_table` makes the table with its Key:
+### 12. Create the table with its Key
+
+Goal: the Key in the table's CREATE TABLE. `create_table` makes the table with its Key:
 
 >>> text = show_hive(create_table(job_day_events))
 CREATE EXTERNAL TABLE mart.job_day_events (
@@ -251,9 +298,12 @@ LOCATION '/data/your_team/mart.db/job_day_events';
 `DISABLE NOVALIDATE` tells Hive to keep the Key as information only: Hive never checks it,
 which is why the Toolbox does.
 
-### A table with no Key
+Done when the Hive shows `PRIMARY KEY (job_id, dt) DISABLE NOVALIDATE`. Then step 13.
 
-Nothing is checked against a Key a table doesn't have. The Example project's mart.job_notes
+### 13. Write a table with no Key
+
+Goal: a write into a table that declares no Key. Nothing is checked against a Key a table
+doesn't have. The Example project's mart.job_notes
 says `key=None`, so its notebook's write is built without a Key check, and needs no
 `unproven_key=True`. The table has no partition column, so the write replaces the whole table:
 
@@ -267,8 +317,14 @@ says `key=None`, so its notebook's write is built without a Key check, and needs
 ...          many_matches=True),
 ... )
 
-A join onto a table with no Key is another matter: the Toolbox can't tell whether one row
-matches or several, so it warns, as it does for a join that doesn't match a Key whole:
+Done when `notes_write` builds without a refusal. Then step 14.
+
+### 14. Join onto a table with no Key
+
+Goal: a join you have said may match several rows. A join onto a table with no Key is another
+matter: the Toolbox can't tell whether one row matches or several, so it gives a Warning, a
+check that lets the Statement through but says why a number may come out wrong, as it does
+for a join that doesn't match a Key whole:
 
 >>> notes_per_job = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, team_notes.note),
@@ -281,7 +337,10 @@ In a notebook, the Warning shows under the cell, at your own line, and doesn't s
 it says that team_notes declares no Key, so the Toolbox can't tell whether one row matches or
 several. Here several rows are what you want, a row for each note of each job's team, so say so
 with `many_matches=True`, as `notes_write` does. A count or a sum over such a join counts each
-job once per note: group the notes first if that isn't what you mean.
+job once per note: to count each job once, group the notes first.
+
+Done when the join says `many_matches=True`, or groups the notes first. Then check it worked,
+below.
 
 ## Check it worked
 
@@ -307,6 +366,12 @@ partitioned table is read only where you say, as any read is.
 ...           where=equals(job_owners.dt, "2026-09-24"))  # -> Verdict
 ops.job_owners: the key (job_id, dt) holds where job_owners.dt = '2026-09-24'.
 
+Before you go on, check that:
+
+- the write's rows show no repeated job_id and dt: the check above gives `False`;
+- the Lineage's Markdown file says mart.job_day_events' Key (job_id, dt) holds;
+- `check_key` says the key holds on each table you join to by its Key.
+
 ## Common mistakes
 
 ### Grouping by more than the Key
@@ -329,8 +394,8 @@ sqlglot_composer.refusals.GuardRefused:
                   SELECT leaves out, so nothing makes its rows one for each job_id, dt.
 ...
 
-Either the Key is wrong, and should hold event_type too, or the write should group by the job
-and the day alone.
+Decide which is meant: if a row is one per event type, add event_type to the Key; if a row is
+one per job and day, group by the job and the day alone.
 
 ### A join that can repeat rows
 
@@ -378,7 +443,8 @@ and `check_key` says so.
 ### Silencing the check with unproven_key=True
 
 `unproven_key=True` doesn't make the rows one per Key: it only stops the Toolbox saying they
-might not be. Reach for GROUP_BY, SELECT_DISTINCT or row_number first.
+might not be. Make the rows one per Key with GROUP_BY, SELECT_DISTINCT or row_number first,
+and keep `unproven_key=True` for rows you know are one per Key.
 
 ## Next
 

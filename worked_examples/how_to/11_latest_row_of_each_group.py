@@ -6,28 +6,31 @@ For: Intermediate
 
 Keep one whole row of each group, such as each job's last run, or the top N rows of each
 group, such as each job's three longest runs. `row_number` numbers the rows of each group in
-the order you choose, inside a Derived table, and the Statement that reads it keeps number 1,
-or numbers 1 to N.
+the order you choose, inside a Derived table: a Statement given a name so another Statement
+can read from it, never stored. A Statement is one query, made of the Toolbox's Clause
+functions. The Statement that reads the Derived table keeps number 1, or numbers 1 to N.
 
 ## When you'd use it
 
-- The latest row of each group: each job's last run, each customer's last order, each
-  product's newest price.
-- The top N of each group: each job's three longest runs, each team's busiest days.
-- Whenever you are tempted to take `max_of` of several columns to get "the newest row": each
-  `max_of` picks its own row, so the columns can come from different rows. The first step
-  shows it happen.
-
-It needs the Getting started how-tos [Build and run a first
-statement](#build_and_run_a_first_statement), [Count, join and stay
-safe](#count_join_and_stay_safe) and [Share Building blocks](#share_building_blocks), which
-starts with Derived tables.
+- If you want the latest row of each group, such as each job's last run, each customer's last
+  order or each product's newest price, keep number 1, as steps 5 to 7 do.
+- If you want the top N of each group, such as each job's three longest runs or each team's
+  busiest days, keep numbers 1 to N, as steps 8 and 9 do.
+- If you are about to take `max_of` of several columns to get "the newest row", number the
+  rows instead: each `max_of` picks its own row, so the columns can come from different rows.
+  Step 4 shows it happen.
+- If you have not yet done the Getting started how-tos, do
+  [Build and run a first statement](#build_and_run_a_first_statement),
+  [Count, join and stay safe](#count_join_and_stay_safe) and
+  [Share Building blocks](#share_building_blocks), which starts with Derived tables, first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
+Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox's fixed
+layout, and an Example project is one made for the Example database's tables, to read and copy
+from. Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
 `sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
 makes the same copy in its first step, from the download the Toolbox came in, and runs its
@@ -39,10 +42,16 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the Project's `ops` Database and your query. `ops.job_events` holds
-what each job's runs did: a `"start"` row when a run starts, then `"retry"`, `"finish"` or
-`"fail"`, with the minutes since the run started. Its Table reference ends with an Alias,
-`ends_a_run`, the events that end a run, imported beside the table it is about:
+Done when the folder holds the Intermediate Example project's files. Then step 2.
+
+### 2. Import the Toolbox, the table and its Alias
+
+Goal: the table and the Condition the steps read. Import the Toolbox, the Project's `ops`
+Database and your query. `ops.job_events` holds what each job's runs did: a `"start"` row when
+a run starts, then `"retry"`, `"finish"` or `"fail"`, with the minutes since the run started.
+Its Table reference, the file that describes the table, ends with an Alias, a name you give by
+hand to a condition on that table alone: `ends_a_run`, the events that end a run, imported
+beside the table it is about:
 
 >>> from sqlglot_composer import *
 >>> from references import ops
@@ -52,16 +61,23 @@ what each job's runs did: a `"start"` row when a run starts, then `"retry"`, `"f
 >>> ends_a_run  # -> Condition
 job_events.event_type IN ('finish', 'fail')
 
-A run's minutes are on the row that ends it, and event ids grow as events come in, so the
-last run of each job is its run-ending row with the largest `job_events.event_id`. This
-how-to reads the last week of the Example database, 2026-09-18 to 2026-09-24:
+Done when `ends_a_run` shows `job_events.event_type IN ('finish', 'fail')`. Then step 3.
+
+### 3. Keep the week's run-ending rows
+
+Goal: the filter every Statement below reads. A run's minutes are on the row that ends it, and
+event ids grow as events come in, so the last run of each job is its run-ending row with the
+largest `job_events.event_id`. This how-to reads the last week of the Example database,
+2026-09-18 to 2026-09-24:
 
 >>> week_ends = [between(job_events.dt, "2026-09-18", "2026-09-24"), ends_a_run]
 
-### See why max_of isn't the latest row
+Done when `week_ends` holds the two Conditions. Then step 4.
 
-The question: how long did each job's last run take? The first thing most people write takes
-the largest of each column:
+### 4. See why max_of isn't the latest row
+
+Goal: see the wrong answer before the right one. The question: how long did each job's last run
+take? The first thing most people write takes the largest of each column:
 
 >>> careless = statement(  # -> Statement
 ...     SELECT(job_events.job_id, AS(max_of(job_events.event_id), "event_id"),
@@ -91,9 +107,12 @@ It runs, and it is wrong. Job 1's last run, event 56, took 10 minutes, but
 `max_of(job_events.minutes)` takes the largest minutes from any of job 1's runs, 14. Each
 `max_of` picks its own row.
 
-### Number each job's runs, last first
+Done when you see job 1's minutes, 14, come from a run other than event 56. Then step 5.
 
-`row_number` numbers the rows of each group from 1:
+### 5. Number each job's runs, last first
+
+Goal: a number on each row, 1 for each job's last run. `row_number` numbers the rows of each
+group from 1:
 
 - `PARTITION_BY=` names the column whose values make the groups, here each job. The word is
   SQL's; it has nothing to do with a table's Partitions.
@@ -104,8 +123,8 @@ The two may also go inside a `window`, passed as `over=`, the way every other ca
 the rows around each row takes them, such as `lag` and `rank`: `row_number(over=window(
 PARTITION_BY=..., ORDER_BY=...))` writes the same Hive.
 
-The number is a calculation, so it needs a name with `AS`, and it goes in a Derived table, for
-the next Statement to read:
+The number is a calculation, so name it with `AS`, and put it in a Derived table, for the next
+Statement to read:
 
 >>> numbered = derived("numbered", statement(  # -> Table
 ...     SELECT(job_events.job_id, job_events.event_id, job_events.minutes,
@@ -115,7 +134,12 @@ the next Statement to read:
 ...     WHERE(*week_ends),
 ... ))
 
-Check the numbering alone first, with a Statement that reads every column of it:
+Done when `numbered` is made without an error. Then step 6.
+
+### 6. Check the numbering alone
+
+Goal: see each row's number before you keep any. Read every column of the Derived table with a
+Statement of its own:
 
 >>> numbering = statement(SELECT(all_columns(numbered)), FROM(numbered))  # -> Statement
 >>> text = show_hive(numbering)  # -> str
@@ -157,9 +181,11 @@ Each job's runs are numbered 1, 2, 3, ... from its last. The table lists them by
 event id, as the Example database gives rows when nothing orders them, so each job's numbers
 count down.
 
-### Keep number 1
+Done when each job's largest event id has last_first 1. Then step 7.
 
-The Statement that reads `numbered` keeps the rows numbered 1: one whole row per job.
+### 7. Keep number 1
+
+Goal: one whole row per job. The Statement that reads `numbered` keeps the rows numbered 1:
 
 >>> latest = statement(  # -> Statement
 ...     SELECT(numbered.job_id, numbered.event_id, numbered.minutes),
@@ -186,12 +212,14 @@ WHERE
 Job 1's last run took 10 minutes, as it should: the minutes come from the same row as the
 event.
 
-### Keep the top N of each group
+Done when job 1's row is event 56, 10 minutes. Then step 8.
 
-Keep numbers 1 to N instead, with `at_most`. Here, each job's three longest runs: number them
-from the longest. Two of job 1's runs took 12 minutes, so `ORDER_BY=` takes a list, and a
-second column breaks the tie, the later of the two first. Without one, which of two tied rows
-gets the lower number can change from one run to the next.
+### 8. Number each job's runs, longest first
+
+Goal: a number on each row, 1 for each job's longest run. Number the runs from the longest.
+Two of job 1's runs took 12 minutes, so `ORDER_BY=` takes a list, and a second column breaks the
+tie, the later of the two first. Give every numbering a column that breaks ties: without one,
+which of two tied rows gets the lower number can change from one run to the next.
 
 >>> ranked = derived("ranked", statement(  # -> Table
 ...     SELECT(job_events.job_id, job_events.event_id, job_events.minutes,
@@ -201,6 +229,13 @@ gets the lower number can change from one run to the next.
 ...     FROM(job_events),
 ...     WHERE(*week_ends),
 ... ))
+
+Done when `ranked` is made without an error. Then step 9.
+
+### 9. Keep the top N of each group
+
+Goal: each job's three longest runs. Keep numbers 1 to N, with `at_most`:
+
 >>> top_three = statement(  # -> Statement
 ...     SELECT(ranked.job_id, ranked.event_id, ranked.minutes),
 ...     FROM(ranked),
@@ -243,6 +278,8 @@ Three rows per job, or fewer for a job with fewer runs, as job 3 has two. Of job
 of 12 minutes, the later, event 52, is kept. `ORDER_BY` with `LIMIT` keeps the top N rows of
 the whole result; `row_number` keeps the top N of each group.
 
+Done when jobs 1 and 2 have three rows each and job 3 two. Then check it worked, below.
+
 ## Check it worked
 
 Check that each job comes back once: one row per job, as many rows as jobs that ran.
@@ -265,6 +302,12 @@ its event, so the order the rows came back in doesn't matter:
 >>> dict(zip(largest["job_id"], largest["event_id"])) == dict(
 ...     zip(last_runs["job_id"], last_runs["event_id"]))
 True
+
+Before you go on, check that:
+
+- `last_runs["job_id"].is_unique` shows `True`;
+- the comparison with `max_of` above shows `True`;
+- each row of `latest` takes its minutes from its own event, as job 1's 10 minutes do.
 
 ## Common mistakes
 
@@ -314,7 +357,8 @@ run of the week, not its last. Nothing stops it:
 2       3        36       12
 
 Each job's first run of the week. Its Hive numbers with `ORDER BY job_events.event_id ASC`,
-where numbering last first says DESC.
+where numbering last first says DESC. To number from the last, wrap the column in
+`descending`.
 
 ### A row number without a name
 
@@ -332,7 +376,8 @@ sqlglot_composer.refusals.GuardRefused:
                   job_events.job_id ORDER BY job_events.event_id DESC).
 ...
 
-Name it with `AS`, so the Statement that reads it can test it by that name.
+The Toolbox stops it with a Guard, a check that refuses a Statement that would give a wrong
+result. Name it with `AS`, so the Statement that reads it can test it by that name.
 
 ## Next
 

@@ -6,26 +6,58 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 # Copilot files for sqlglot Composer 8.2: start here
 
+**Read this file to choose the one Copilot file your task needs, then follow the steps below
+in order.**
+
 sqlglot Composer 8.2 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
 
-## How to use them
+## Terms
 
-1. Open a new chat in Copilot.
-2. Paste the one file below that fits what you want to do, as your first message, and send
-   it. If a paste is cut short, attach the file instead.
-3. Then ask. Say which tables to read: paste each one's Table reference, its file in your
-   Project's references/ folder, or say its import line and columns, such as:
-   `from references.ops__job_runs import job_runs` gives ops.job_runs: run_id bigint,
-   job_id bigint, status string, dt string; partitioned by dt; Key run_id.
-4. Run what Copilot gives in your notebook. When the Toolbox refuses it, start a new chat
-   with file 09, paste the code and the whole message, and ask for the fix.
-5. For something else, start a new chat with that file. A chat holds one file at a time,
-   but for one task: to convert an Excel workbook, attach files 03, 04, 05, 11 and 12 (or
-   paste each as a message of its own), then attach the workbook and ask Copilot to
-   convert it.
+- **Copilot file**: one of the files in this folder; each teaches Copilot one objective.
+- **Statement**: one query, built in Python with `statement(...)`, that becomes one string of
+  Hive.
+- **Project**: your folder at work holding the Toolbox and your own code.
+- **Table reference**: the file in your Project's references/ folder that describes one
+  table: its columns and their types, its partitions and its Key.
+- **Saved table**: a table in the warehouse that your own Statements write.
+- **Refusal**: the Toolbox's message when it won't write a Statement's Hive.
+- **Workflow**: the steps to one end goal, such as converting Hive, each a cell of the
+  Workflow's notebook in admin/workflows/.
+
+## Steps
+
+1. **Choose the file.** Goal: the file that teaches Copilot your task. Action: find your
+   task under Which file. Done when you have one file, or for an Excel workbook three, as
+   the Decision rules say. Then step 2.
+2. **Open a chat.** Goal: a chat holding nothing from another task. Action: open a new chat
+   in Copilot. Done when the chat is empty. Then step 3.
+3. **Load the file.** Goal: Copilot reads the file first. Action: paste the file as your
+   first message, and send it. If a paste is cut short, attach the file instead. Done when
+   Copilot has the file. Then step 4.
+4. **Ask.** Goal: Copilot knows your tables. Action: say which tables to read: paste each
+   one's Table reference, its file in your Project's references/ folder, or say its import
+   line and columns, such as: `from references.ops__job_runs import job_runs` gives
+   ops.job_runs: run_id bigint, job_id bigint, status string, dt string; partitioned by dt;
+   Key run_id. Done when Copilot answers with code. Then step 5.
+5. **Run it.** Goal: the code works in your notebook. Action: run what Copilot gives. Done
+   when it runs. If the Toolbox refuses it, step 6.
+6. **Fix a refusal.** Goal: code the Toolbox takes. Action: start a new chat with file 09,
+   paste the code and the whole message, and ask for the fix. Done when Copilot answers
+   with the fixed code. Then step 5.
+
+## Decision rules
+
+- If the Toolbox refused your code, load file 09.
+- If your task is to convert an Excel workbook, attach files 15, 11 and 12 (or paste
+  each as a message of its own), then attach the workbook and ask Copilot to convert
+  it: a chat holds one file at a time, but for this one task.
+- If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
+  their Hive made into Saved tables in your Project, end to end, load file 13.
+- Otherwise, load the one file whose line under Which file names your task.
+- If you want something else after a task, start a new chat with that task's file.
 
 ## Which file
 
@@ -46,65 +78,87 @@ you can ask it in plain words.
 - `09_fix_a_refusal.txt`: fix code the Toolbox refused.
 - `10_hand_written_hive_and_functions.txt`: labels from a lookup or a chain of if/else,
   Hive functions the Toolbox doesn't wrap, Hive written by hand, and upkeep of a table.
-- `11_excel_formula_workbooks.txt`: turn a Formula workbook, an Excel workbook laid out as
-  `formula_workbook.xlsx` shows, into Hive and Toolbox code: its steps and formulas.
+- `11_excel_formula_workbooks.txt`: each formula of a Formula workbook, an Excel workbook
+  laid out as `formula_workbook.xlsx` shows, as Hive; loaded with files 15 and 12.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
-  Rows, loaded with file 11.
+  Rows as Hive; loaded with files 15 and 11.
 - `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
   from its Workflow notebook in admin/workflows/.
 - `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
   Table references, an upgrade, a change to a Saved table, each a whole job step by step.
+- `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: which
+  Tables and queries become which queries, and the reply; loaded with files 11 and 12.
 
 ## Fitting Copilot
 
-Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
-file fits. Edit a copy if you like, then count it from the download's top folder:
-`python copilot/count_characters.py my_copy.txt` says how many characters it holds and
-whether it fits.
+- Copilot takes at most 8,000 characters at once, spaces and line breaks included, and each
+  file fits.
+- Edit a copy if you like, then count it from the download's top folder:
+  `python copilot/count_characters.py my_copy.txt` says how many characters it holds and
+  whether it fits.
+
+## Self-check
+
+- The chat is new, and its first message is the file your task's line names (for an Excel
+  workbook, files 15, 11 and 12).
+- Your question names each table to read, by its Table reference or its import line and
+  columns.
+- For a refusal, the new chat holds file 09, your code and the whole message.
 
 ===== 01_imports_and_project.txt =====
 
 # Copilot file 01: imports and the Project (sqlglot Composer 8.2)
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: set up a Project, import what Toolbox code needs, and run a Statement.
 Load this file when the user starts a Project, asks what to import, or asks how to run
 something and see its rows.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
+  notebooks.
+- **Statement**: one Hive query, built with `statement(...)`.
+- **Table reference**: a file in references/ describing one table: its columns, types,
+  partitions and Key, the columns that tell one row from another.
+- **Saved table**: a table the user's own notebook writes.
+- **Workflow**: a job's steps, run from its notebook in admin/workflows/.
+- **Building block**: a piece of a Statement used in several notebooks.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -123,38 +177,60 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - to_hive(s)
 - show_hive(*statements)
 
+## A Project
+
+- In a notebook in the Project's folder: `from sqlglot_composer import project`, then
+  `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
+  warehouse.py.
+- warehouse.py holds `conn`, the connection the user sets once, and two functions over it:
+  `query(hive)` calls `conn.query`, running Hive that gives rows, and returns a pandas
+  DataFrame; `execute(hive)` calls `conn.execute`, running Hive that changes something, and
+  returns nothing. Nothing else in the Project reaches the warehouse.
+- Each table read needs a Table reference: the references Workflow,
+  admin/workflows/references/references.ipynb, runs
+  `project.add_references(["ops.job_runs"], query=query)`, which writes
+  references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
+- A Saved table: the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
+  `project.new_table("mart.job_day_runs")`, which writes its notebook and Table reference:
+  file 06 says what goes in them.
+- `project.check()` names each Workflow notebook's next step, `project.do_next()` runs those
+  it can, and files 13 and 14 list their steps.
+
+## Imports, at the top of a cell, after the Toolbox's (rule 1)
+
+- One table: `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
+- Every table of a database: `from references import ops`, then `ops.job_runs.dt`.
+- The two calls: `from warehouse import query, execute`.
+- A Building block: `from building_blocks.recent_runs import recent_runs`.
+- A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
+  folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
+  `import pathlib` and `import sys`.
+
 ## Steps
 
-1. A Project is a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
-   notebooks. In a notebook there: `from sqlglot_composer import project`, then
-   `project.start()`. It writes admin/, references/, building_blocks/, tables/ and
-   warehouse.py.
-2. warehouse.py holds `conn`, the user's connection, which the user sets once, and two
-   functions over it: `query(hive)` calls `conn.query`, which runs Hive that gives rows and
-   returns a pandas DataFrame, and `execute(hive)` calls `conn.execute`, which runs Hive that
-   changes something and returns nothing. Nothing else in the Project reaches the warehouse.
-3. Each table read needs a Table reference, a file in references/. The references Workflow,
-   admin/workflows/references/references.ipynb, runs
-   `project.add_references(["ops.job_runs"], query=query)`, which writes
-   references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
-4. Imports, at the top of a cell:
-   - Toolbox names, each by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   - One table: `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-   - Every table of a database: `from references import ops`, then `ops.job_runs.dt`.
-   - The two calls: `from warehouse import query, execute`.
-   - A Building block: `from building_blocks.recent_runs import recent_runs`.
-5. A notebook in a subfolder, such as tables/mart__job_day_runs/, first puts the Project's
-   folder on the path: `sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))`, after
-   `import pathlib` and `import sys`.
-6. To run: `rows = run_query(s, query)` gives a DataFrame. `run_execute(s, execute)` sends a
-   write, a CREATE TABLE or a SET line. `print(to_hive(s))` shows the Hive and sends
-   nothing; `show_hive(s)` prints it laid out.
-7. For a Saved table, the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
-   `project.new_table("mart.job_day_runs")`, its Table notebook and Table reference: file 06
-   says what goes in them. Each job has a Workflow notebook: `project.check()` names each one's
-   next step, `project.do_next()` runs those it can, and files 13 and 14 list their steps.
+1. **Read.** Goal: know the code's job. Action: list each table it reads, and whether it
+   reads rows, writes or sets up the Project. Done when each table has its import; then step 2.
+2. **Write.** Action: write one cell by this file. Done when every name in it is imported;
+   then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If it reads rows: `rows = run_query(s, query)`, a DataFrame; never `query(s)` or
+  `query(to_hive(s))`.
+- If it sends a write, a CREATE TABLE or a SET line: `run_execute(s, execute)`.
+- If the user wants only the Hive: `print(to_hive(s))`, which sends nothing, or
+  `show_hive(s)`, laid out.
+- If the user's code passes `send=`: write `query` or `execute`, which replaced it in 7.0.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block the user can paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
+## Examples
 
 Read the failed runs of one day, run it, and show the Hive:
 
@@ -172,7 +248,7 @@ print(to_hive(s))
 rows = run_query(s, query)
 ```
 
-The same with the Database module, where several tables are read:
+The same with `from references import ops`, where several tables are read:
 
 ```python
 from sqlglot_composer import FROM, SELECT, WHERE, equals, statement
@@ -185,65 +261,66 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do import each name; don't write `from sqlglot_composer import *`.
-- Do call `run_query(s, query)`; don't call `query(s)` or `query(to_hive(s))`.
-- Do send a write with `run_execute`; don't send one with `run_query`.
-- Do read columns from the user's Table reference; don't write table names as text, such
-  as `"ops.job_runs"`, inside a Statement.
-- Don't pass `send=`: 7.0 replaced it with `query` and `execute`.
-
-## Before you answer
-
-- Every name used is imported, and each is in a Copilot file's Names.
+- Every name used is imported by name and listed in a Copilot file's Names.
+- Each table in a Statement is a Table reference's name, such as `job_runs`, never text.
 - Each partitioned table read is bounded on its partition column.
 - A read runs with `run_query(s, query)`, a write with `run_execute(s, execute)`.
-- The code is one block the user can paste.
 
 ===== 02_table_references.txt =====
 
 # Copilot file 02: Table references (sqlglot Composer 8.2)
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: describe a table to the Toolbox with a Table reference, and check what it says.
 Load this file when the user adds a table to read, writes the Table reference of a new Saved
 table, or asks about a table's columns, partitions or Key.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell or a file, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Table reference**: the file references/<database>__<table>.py, such as
+  references/ops__job_runs.py, defining one table's Table.
+- **Key**: the columns that tell one row from another.
+- **Saved table**: a table the user's own notebook writes.
+- **Workflow**: a job's steps, run from its notebook in admin/workflows/; a **Decision**,
+  what only the user answers, in its decisions cell.
+- **Condition**: a test on rows, such as `equals(...)`; a **Statement**, one Hive query.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -259,43 +336,63 @@ block the user can paste into a notebook cell or a file, then a few plain senten
 - between(column, low, high)
 - is_in(column, values)
 
+## Where one comes from
+
+- A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
+  runs `project.add_references(["ops.job_runs"], query=query)`, writing its Table reference
+  from the warehouse's own description, so its columns and types are right. Its Key is a
+  Decision, `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, which the next step writes.
+- A new Saved table: the new_table Workflow (file 14) writes its Table reference from its
+  logic, `project.reference_from_logic(TABLES)`, or from its query; the user answers its
+  location in the decisions cell.
+
+## Table's arguments
+
+- `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
+  order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
+  decimal(10,2), array<string>, map<string,int>, struct<name:string>.
+- `partitioned_by=["dt"]`: the partition columns, listed in `columns` too, last.
+- `key=["job_id", "dt"]`: the Key, which makes the Toolbox trust a join or a write.
+- `does_not_add_up=["share"]`: columns the Toolbox refuses to add up, such as a share or an
+  average.
+- `location="/data/your_team/mart.db/job_day_runs"`: where a Saved table's files go.
+- `descriptions={"status": "FAILED, SUCCESS or NULL while running"}`: what a column
+  means, for Lineage and the Reference sheet, the Project's pages of its columns.
+- A Condition used often may sit beside its Table, such as
+  `finished = is_in(job_runs.status, ["SUCCESS", "FAILED"])`.
+
+## Checks
+
+- `check_key(t, query=query, where=...)` counts whether the Key really tells each row apart,
+  on the partitions `where=` names.
+- `check_table_reference(t, query=query)` lists what differs from the table as the
+  warehouse has it now.
+- `first_look(t)` is a Statement of all its columns and 20 rows, for `run_query`.
+- A check gives back a Verdict `v`: `print(v)` says whether the Key holds; `if v:` is true
+  when it does.
+
 ## Steps
 
-1. A Table reference is a file in references/, one per table, named <database>__<table>.py,
-   such as references/ops__job_runs.py. It defines one Table, named by the table's own name:
-   `job_runs = Table("ops.job_runs", columns={...}, ...)`. Other code imports it:
-   `from references.ops__job_runs import job_runs`.
-2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
-   runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
-   reference from the warehouse's own description, so its columns and types are right.
-   Its Key is a Decision: the user answers it in the notebook's decisions cell,
-   `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, and the next step writes it in.
-3. A new Saved table, one the user's notebook will write: the new_table Workflow (file 14)
-   writes its Table reference from its logic, `project.reference_from_logic(TABLES)`, or from
-   its query; the user answers its location in the decisions cell.
-4. Table's arguments:
-   - `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
-     order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
-     decimal(10,2), array<string>, map<string,int>, struct<name:string>.
-   - `partitioned_by=["dt"]`: the partition columns, listed in `columns` too, last.
-   - `key=["job_id", "dt"]`: the columns that tell one row from another. A Key is what
-     makes the Toolbox trust a join or a write; leave it out where none holds.
-   - `does_not_add_up=["share"]`: columns that must never be summed, such as a share or an
-     average; the Toolbox refuses to add one up.
-   - `location="/data/your_team/mart.db/job_day_runs"`: where a Saved table's files go.
-     A Saved table needs one; a table only read doesn't.
-   - `descriptions={"status": "FAILED, SUCCESS or NULL while running"}`: what a column
-     means, for Lineage and the Reference sheet.
-5. A Condition used again and again may sit in the Table reference beside its Table, such as
-   `finished = is_in(job_runs.status, ["SUCCESS", "FAILED"])`.
-6. Check it:
-   - `check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))` counts
-     whether the Key really tells each row apart, on the partitions `where=` names.
-   - `check_table_reference(job_runs, query=query)` lists what differs from the table as the
-     warehouse has it now.
-   - `first_look(job_runs)` is a Statement of all its columns and 20 rows, for `run_query`.
+1. **Read.** Goal: know the table. Action: list its name, columns, partitions and any Key
+   the user gives. Done when each column has a Hive type; then step 2.
+2. **Write.** Action: write the code by this file. Done when every name is imported; then
+   step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the user names a Key, write it as `key=`. If not, leave `key=` out, or ask.
+- If it is a Saved table, give it a `location=`. If it is only read, give none.
+- If asked to write a database's file, such as references/ops.py: the Project actions do.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block the user can paste into a notebook cell or a file.
+2. **Notes**: a few plain sentences on what it gives.
+
+## Examples
 
 A new Saved table's Table reference, references/mart__job_day_runs.py:
 
@@ -323,66 +420,62 @@ v = check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))
 print(v)
 ```
 
-`v` is a Verdict: `print(v)` says whether the Key holds, and `if v:` reads true when it does.
+## Self-check
 
-## Do and don't
-
-- Do give every column a Hive type; don't write Python types such as `int` or `str`.
-- Do list the partition column in `columns` and in `partitioned_by`; don't leave it out of
-  either.
-- Do name the variable after the table (`job_runs = Table("ops.job_runs", ...)`).
-- Don't invent a Key: leave `key=` out, or ask, where the user hasn't said one.
-- Don't write a Database module, such as references/ops.py: the Project actions write it.
-
-## Before you answer
-
-- The Table's name is "database.table", and the file's name matches it.
-- Each column has a Hive type; partition columns are in both lists.
-- A Saved table has a location; key= is only what the user said.
+- The Table's name is "database.table", and the file and the variable are named after it.
+- Each column has a Hive type, never a Python one such as `int` or `str`.
+- Partition columns are in `columns` and in `partitioned_by`.
 - Checks pass `query=query` and bound a partitioned table with `where=`.
 
 ===== 03_build_a_statement.txt =====
 
 # Copilot file 03: building a Statement (sqlglot Composer 8.2)
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
 Load this file when the user asks for rows, counts, totals or a list from their tables.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
+  a **Condition**, a test on rows: `equals(...)`.
+- `t`: a table, as its Table reference describes it: `job_runs`.
+- **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -425,31 +518,51 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - fill_null(column, value)
 - descending(column)
 
+## Clauses
+
+- `s = statement(SELECT(...), FROM(t), WHERE(...), GROUP_BY(...), HAVING(...),
+  ORDER_BY(...), LIMIT(n))`, each clause only where needed.
+- Columns: `t.status`, or a calculation, named: `AS(t.minutes / 60, "hours")`. Every column
+  of a table: `SELECT(*all_columns(t))`.
+- Dates are compared as the table holds them: `equals(t.dt, "2026-09-24")`,
+  `between(t.dt, "2026-09-18", "2026-09-24")`, or `last_n_days(t.dt, 7)` for the 7 days
+  before today.
+- Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
+  "running")`. More than two labels: file 10.
+- `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole result,
+  sort its DataFrame: `run_query(s, query).sort_values("minutes")`.
+
+## Totals and steps
+
+- `count_rows()` counts rows; `count_rows(where=equals(t.status, "FAILED"))` counts only
+  those; `count_distinct(t.job_id)` counts different values.
+- `sum_of(t.minutes)`, `average_of(...)`, `min_of(...)`, `max_of(...)`.
+- Every column in SELECT that isn't added up goes in GROUP_BY. A calculation is grouped by
+  its AS name, written as text: `GROUP_BY(t.job_id, "hours")`.
+- HAVING tests a total: `HAVING(more_than(count_rows(), 3))`.
+- `d = derived("d", statement(...))`: `FROM(d)`, `d.runs`. One used in several notebooks goes
+  in building_blocks/<name>.py as a function that returns it.
+
 ## Steps
 
-1. `s = statement(SELECT(...), FROM(t), WHERE(...), GROUP_BY(...), HAVING(...),
-   ORDER_BY(...), LIMIT(n))`, each clause only where needed, always in this order.
-2. Columns: `t.status`. Every column of a table: `SELECT(*all_columns(t))`. A calculation
-   needs a name: `AS(t.minutes / 60, "hours")`, `AS(count_rows(), "runs")`.
-3. Dates are compared as the table holds them, such as "2026-09-24":
-   `equals(t.dt, "2026-09-24")`, `between(t.dt, "2026-09-18", "2026-09-24")`, or
-   `last_n_days(t.dt, 7)` for the 7 days before today.
-4. Counting and adding up:
-   - `count_rows()` counts rows; `count_rows(where=equals(t.status, "FAILED"))` counts
-     only those; `count_distinct(t.job_id)` counts different values.
-   - `sum_of(t.minutes)`, `average_of(...)`, `min_of(...)`, `max_of(...)`.
-   - Every column in SELECT that isn't added up goes in GROUP_BY. A calculation is grouped by
-     its AS name, written as text: `GROUP_BY(t.job_id, "hours")`.
-   - HAVING tests a total: `HAVING(more_than(count_rows(), 3))`.
-5. Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
-   "running")`. More than two labels: file 10.
-6. Sorting: `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole
-   result, sort the DataFrame in pandas: `run_query(s, query).sort_values("minutes")`.
-7. In steps: `d = derived("d", statement(...))` makes a Derived table, read like a table:
-   `FROM(d)`, `d.runs`. A Derived table holds no ORDER_BY. A step used in several notebooks
-   goes in building_blocks/<name>.py as a function that returns the Derived table.
+1. **Read.** Goal: know the result. Action: list its columns, totals, filters and order.
+   Done when listed; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the user asks for every day of `t`: `FROM(t, reads_all_partitions=True)`.
+- If a column must be NULL: `is_null(t.owner)`, never `equals(t.owner, None)`.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
+## Examples
 
 Each job's runs and total minutes on two days, the jobs with more than one run:
 
@@ -487,64 +600,64 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do bound a partitioned table on its partition column; don't read it whole unless the user
-  asks for every day, then `FROM(t, reads_all_partitions=True)`.
-- Do `count_rows()`; don't write COUNT(*). Do `sum_of(...)`; don't write SUM.
-- Do `any_of(a, b)` for "a or b"; don't write `a or b`.
-- Do `is_null(t.owner)`; don't write `equals(t.owner, None)`.
-- Do `LIMIT` after `ORDER_BY`; don't sort without one.
-
-## Before you answer
-
-- The clauses are in SQL order inside one `statement(...)`.
-- Each calculation has `AS`; each other SELECT column is in GROUP_BY when there is one.
+- The clauses are in SQL order, in one `statement(...)`.
+- Each calculation has `AS`; each other SELECT column is in GROUP_BY, if any.
 - Each partitioned table is bounded; every name is imported.
+- Each ORDER_BY has a LIMIT, and no Derived table holds one.
 
 ===== 04_joins.txt =====
 
 # Copilot file 04: joins (sqlglot Composer 8.2)
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: combine rows of two or more tables.
 Load this file when the user asks for columns from several tables, rows with or without a
 match in another table, or a count of matches.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
+  `equals(...)`.
+- `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.
+- **Key**: the columns that tell one row from another, from the Table reference.
+- **Derived table**: a named Statement, `derived(...)`, read like a table (file 03).
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -566,39 +679,59 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - WHERE(*conditions)
 - GROUP_BY(*columns)
 
+## Joins
+
+- After FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a Condition;
+  several, with `all_of(...)`.
+- Join on the joined table's whole Key. Joined on less, one row can match many, and the
+  Toolbox warns that counts and sums may come out too big. Then join a Derived table with
+  one row per value instead.
+- The same table twice, or two tables of one name: give one a second name,
+  `o = AS(other, "o")`, then use `o.job_id`.
+
+## Partitions
+
+- Each partitioned table needs its own bound, with a value; `equals(other.dt, t.dt)` matches
+  rows but bounds nothing:
+  - FROM and JOIN: in WHERE, `WHERE(equals(t.dt, day), equals(other.dt, day))`.
+  - LEFT_JOIN, SEMI_JOIN and ANTI_JOIN: inside ON=,
+    `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
+- A WHERE on a LEFT_JOIN's table is refused: it would throw away the rows with no match.
+  Put that Condition in ON= instead.
+
 ## Steps
 
-1. Each join comes after FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a
-   Condition; several, with `all_of(...)`.
-2. Which join:
-   - JOIN keeps the rows with a match in both.
-   - LEFT_JOIN keeps every row of FROM's table, with NULL where `other` has no match.
-   - FULL_JOIN keeps every row of both.
-   - SEMI_JOIN keeps FROM's rows that have a match, each once, and gives no column of
-     `other`; ANTI_JOIN keeps those that have none.
-   - There is no RIGHT_JOIN: swap the two tables and use LEFT_JOIN.
-   - Every row with every row is `CROSS_JOIN(other)`; a JOIN with no ON= is refused.
-3. Partitions: each partitioned table needs its own bound on its partition column, with a
-   value, not another table's column:
-   - FROM and JOIN: in WHERE, `WHERE(equals(t.dt, day), equals(other.dt, day))`.
-   - LEFT_JOIN, SEMI_JOIN and ANTI_JOIN: inside ON=,
-     `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
-   - `equals(other.dt, t.dt)` matches rows but bounds nothing.
-4. A WHERE on a LEFT_JOIN's table is refused: it would throw away the rows with no match.
-   Put that Condition in ON= instead.
-5. Join on the joined table's whole Key, as its Table reference gives it. Joined on less,
-   one row can match many, and the Toolbox warns that counts and sums may come out too
-   big. Then join a Derived table that has one row per value instead (file 03), or pass
-   `many_matches=True` when the user says the repeats are wanted.
-6. Counting matches after a LEFT_JOIN: `count_distinct(other.run_id)` gives 0 for a row
-   with no match; `count_rows()` would give 1.
-7. The same table twice, or two tables of one name: give one a second name,
-   `o = AS(other, "o")`, then use `o.job_id`.
-8. Only if the user asks: the opt-out `keeps_only_matches=True` lets WHERE test a
-   LEFT_JOIN's table, so the join keeps only matched rows. `broadcast=True`, no opt-out,
-   asks Hive to copy a small table to every worker, to join it faster.
+1. **Pick.** Goal: know which rows stay. Action: name each join by the Decision rules. Done
+   when each has one; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If only rows with a match in both stay: JOIN.
+- If every row of FROM's table stays, with NULL where `other` has no match: LEFT_JOIN.
+- If every row of both stays: FULL_JOIN.
+- If FROM's rows that have a match stay, each once, with no column of `other`: SEMI_JOIN.
+- If FROM's rows that have no match stay: ANTI_JOIN.
+- If the user asks for a right join: swap the tables and use LEFT_JOIN; there is no
+  RIGHT_JOIN.
+- If every row goes with every row: `CROSS_JOIN(other)`. A JOIN with no ON= is refused.
+- If it counts matches after a LEFT_JOIN: `count_distinct(other.run_id)`, which gives 0 for
+  a row with no match; `count_rows()` would give 1.
+- If the user says the repeats are wanted: `many_matches=True`.
+- If the user asks that a LEFT_JOIN keep only matched rows: `keeps_only_matches=True`, the
+  opt-out that lets WHERE test its table.
+- If the user asks Hive to copy a small table to every worker, to join it faster:
+  `broadcast=True`, which is no opt-out.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
+## Examples
 
 Each run of a day with its job's name:
 
@@ -632,24 +765,18 @@ s = statement(
 )
 ```
 
-## Do and don't
-
-- Do put a LEFT_JOIN table's Conditions in ON=; don't put them in WHERE.
-- Do bound each partitioned table with a value; don't count `other.dt = t.dt` as a bound.
-- Do `count_distinct(other.key)` to count matches; don't count rows after a LEFT_JOIN.
-- Don't write RIGHT_JOIN, and don't leave ON= out.
-- Don't add `many_matches=True` or `keeps_only_matches=True` unless the user asks for what it
-  allows.
-
-## Before you answer
+## Self-check
 
 - Every join has ON=, on the joined table's Key where it can.
 - Every partitioned table, joined or not, has a bound with a value.
 - No WHERE tests a LEFT_JOIN's table.
+- Each opt-out is one the user asked for.
 
 ===== 05_windows_and_subtotals.txt =====
 
 # Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.2)
+
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
 Objective: work out a value from the rows around each row, keep the latest or top rows of
 each group, add subtotals, or stack Statements.
@@ -657,41 +784,45 @@ Load this file when the user asks for a rank, a row number, the latest row of ea
 top N per group, the row before or after, a running total, subtotals or a grand total, or
 the rows of several Statements together.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Statement**: one Hive query; a **Condition**, a test on rows.
+- `t`: a table, as its Table reference describes it: `job_runs`.
+- **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -719,32 +850,53 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - INTERSECT(*statements, returns_all_rows=False)
 - EXCEPT(*statements, returns_all_rows=False)
 
+## Windows
+
+- A Window says which rows each row looks across:
+  `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`, the rows of each job, in order;
+  several columns as lists; `descending(t.minutes)` for largest first.
+  `rows=(-6, 0)` looks across the 6 rows before and the row itself; `rows=(None, 0)` every
+  row up to it.
+- Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
+  `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
+  `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
+  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
+  rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
+- A window's value can't be tested in its own WHERE or HAVING.
+- Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
+- The Toolbox refuses adding up a window's value again.
+
+## Subtotals and stacks
+
+- Subtotal rows, totals over several groups or all rows, go inside GROUP_BY:
+  `GROUP_BY(rollup(t.dt))` adds a total of every day; `cube(a, b)` every combination;
+  `grouping_sets(...)` the sets named. `is_total(t.dt)` is a Condition true on a total's row.
+- A stack puts whole Statements' rows one after another: `UNION_ALL(s1, s2)` gives the rows
+  of both, each Statement giving the same columns in the same order; `UNION` drops repeated
+  rows; `INTERSECT` and `EXCEPT` as in SQL.
+
 ## Steps
 
-1. A Window says which rows each row looks across:
-   `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`, the rows of each job, in order;
-   several columns as lists; `descending(t.minutes)` for largest first.
-   `rows=(-6, 0)` looks across the 6 rows before and the row itself; `rows=(None, 0)` every
-   row up to it.
-2. Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
-   `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
-   `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
-   `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
-   rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
-3. Name each with AS, as any calculation.
-4. A window's value can't be tested in the same Statement. Work it out in a Derived table,
-   then keep rows in the Statement that reads it: the latest row of each group is the row
-   numbered 1 from the newest; a top 3 keeps `at_most(d.n, 3)`, where `n` is the number's
-   AS name.
-5. Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
-6. Subtotals go inside GROUP_BY: `GROUP_BY(rollup(t.dt))` adds a total of every day;
-   `cube(a, b)` every combination; `grouping_sets(...)` the sets named. `is_total(t.dt)`
-   is a Condition true on a total's row.
-7. Stacking: `UNION_ALL(s1, s2)` gives the rows of both, each Statement giving the same
-   columns in the same order; `UNION` drops repeated rows; `INTERSECT` and `EXCEPT` as in
-   SQL. Each Statement is bounded on its own.
+1. **Read.** Goal: know what each row needs. Action: list each window value, subtotal or
+   stack. Done when listed; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the latest row of each group: row_number from the newest in a Derived table, keeping
+  row 1 in the Statement that reads it; never max_of on each column, which can mix values
+  from different rows.
+- If a top 3 of each group: the same, keeping `at_most(d.n, 3)`, `n` the number's AS name.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences on what it gives.
+
+## Examples
 
 The latest run of each job over two days:
 
@@ -782,15 +934,7 @@ s = statement(
 )
 ```
 
-## Do and don't
-
-- Do keep the latest row with row_number in a Derived table; don't use max_of on each
-  column, which can mix values from different rows.
-- Do give rank, lag and lead an ORDER_BY.
-- Don't test a window's value in its own WHERE or HAVING.
-- Don't add up a window's value again; the Toolbox refuses it.
-
-## Before you answer
+## Self-check
 
 - Every window function has `over=` (or row_number its PARTITION_BY and ORDER_BY) and AS.
 - Rows are kept by a window's value only in the Statement that reads its Derived table.
@@ -800,45 +944,54 @@ s = statement(
 
 # Copilot file 06: saving a table (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
 it, add to it, or write the logic cell of a Table notebook.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Saved table**: a table of the user's that a Statement (`statement(...)`) writes; its
+  Table reference (file 02) lists its columns, Partitions, Key and location.
+- **Partition**: the rows sharing one value of each partition column. **Key**: the columns
+  whose values name one row.
+- **Table notebook**: tables/<db>__<table>/<db>__<table>.ipynb; its **logic cell**, first
+  line `# logic`, holds only imports, constants and functions, and runs no Hive.
+- **Session setting**: a Hive SET a write may need first, from `hive_settings(...)`.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -858,46 +1011,54 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - run_execute(s, execute=None)
 - show_hive(*statements)
 
+## The Table notebook
+
+- `project.new_table("mart.job_day_events")`, in admin/workflows/new_table/new_table.ipynb
+  (file 14), makes it and a stand-in Table reference, which `project.reference_from_logic`
+  writes once the logic runs; the user answers its location in the decisions cell.
+- Its logic cell has the Example's shape: `PARTITIONED_BY` is `[]` for none; `preview()`
+  gives the rows to read before writing. Hints name `Clause` and `Statement`.
+- `project.run_tables(execute=execute)`, in admin/run_tables.ipynb, sends the writes, each
+  Saved table after the tables it reads, its Session settings first.
+- Its `export_hive()` cell, after the lineage cell, run once the notebook is saved, writes
+  <db>__<table>.hql beside it. Edit the logic, never the file, save, and run it again.
+- `project.load("mart.job_day_events")`, elsewhere, gives the logic cell's functions, such
+  as `write()`; it refuses a logic cell calling run_query or run_execute.
+
 ## Steps
 
-1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 14),
-   `project.new_table("mart.job_day_events")` makes the Table notebook,
-   tables/mart__job_day_events/mart__job_day_events.ipynb, and a stand-in Table reference;
-   once the logic runs, `project.reference_from_logic` writes the reference from it, and the
-   user answers its location in the Workflow's decisions cell.
-2. The notebook's logic cell starts with the line `# logic` and holds only imports,
-   constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
-   - `READS`, the Condition that picks the rows it reads, such as a day;
-   - `PARTITIONED_BY`, the table's partition columns, last in SELECT: `[]` for none;
-   - `create()` returns `create_table(job_day_events, may_exist=True)`;
-   - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
-     GROUP_BY;
-   - `preview()` returns `statement(*rows())`, to read before writing;
-   - `write()` returns `statement(INSERT_OVERWRITE(job_day_events), *rows())`.
-   `Clause` and `Statement` are the names the hints use.
-3. The write's SELECT gives exactly the Saved table's columns, by name, in its order, the
-   partition column last. Name a calculation after its column: `AS(count_rows(), "events")`.
-4. INSERT_OVERWRITE replaces each Partition the rows hold; INSERT_INTO adds the rows to
-   what is there. `INSERT_OVERWRITE(t, partition={"dt": day})` writes one named Partition,
-   its column left out of SELECT.
-5. A Saved table with a Key takes rows one per Key: GROUP_BY over the Key, SELECT_DISTINCT,
-   or a row_number kept at 1 (file 05). Otherwise the write is refused.
-6. The next cell looks: `show_hive([create(), write()])` shows the Hive, with any Session
-   setting a write needs, and `run_query(preview(), query)` reads the rows. The writes are
-   sent by `project.run_tables(execute=execute)`, in admin/run_tables.ipynb: each Saved table
-   after the tables it reads, its Session settings first.
-7. To keep the Hive in a file: save the notebook, then run its `export_hive()` cell, after
-   the lineage cell. It writes <db>__<table>.hql beside the notebook, here
-   mart__job_day_events.hql. Never edit it: edit the logic, save, run the cell again.
-8. To send one table by hand: `run_execute(create(), execute)` once, then
-   `run_execute(hive_settings("dynamic_partitions"), execute)`, as a write whose rows fill
-   their Partitions needs, then `run_execute(write(), execute)`.
-9. From another notebook, `project.load("mart.job_day_events")` gives that cell's functions,
-   such as its `write()`.
+1. **Write the logic cell**, in the Example's shape, naming each calculation after its
+   column: `AS(count_rows(), "events")`. Done when write()'s SELECT gives exactly the
+   table's columns, by name, in order, the partition column last. Then step 2.
+2. **Pick the write** and the Key's proof by the Decision rules. Done when write() starts
+   with its write clause. Then step 3.
+3. **Write the next cell**, by the Decision rules. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
 
-The logic cell of mart.job_day_events, each job's events of a day:
+- If each Partition the rows hold, such as a day, is replaced: INSERT_OVERWRITE.
+- If the rows are added to what is there: INSERT_INTO; a rerun adds them twice.
+- If one named Partition is written: `INSERT_OVERWRITE(t, partition={"dt": day})`, its
+  column left out of SELECT.
+- If the table has a Key: one row per Key, by GROUP_BY over it, SELECT_DISTINCT or a
+  row_number kept at 1 (file 05), or the write is refused. `unproven_key=True` only if the
+  user says why the rows are one per Key.
+- If the user sends one table by hand: `run_execute(create(), execute)` once, then
+  `run_execute(hive_settings("dynamic_partitions"), execute)`, which a write filling its
+  rows' Partitions needs, then `run_execute(write(), execute)`.
+- Otherwise: the next cell runs `show_hive([create(), write()])`, the Hive and any Session
+  setting, and `run_query(preview(), query)`, the rows; run_tables sends.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences.
+
+## Example
+
+The logic cell of mart.job_day_events, each job's events of a day. Its Table reference lists
+job_id bigint, events bigint and dt string, partitioned by dt, Key job_id and dt, and a
+location (file 02).
 
 ```python
 # logic
@@ -931,66 +1092,60 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(job_day_events), *rows())
 ```
 
-Its Table reference, references/mart__job_day_events.py, lists job_id bigint, events bigint and
-dt string, partitioned by dt, with Key job_id and dt, and a location (file 02).
+## Self-check
 
-## Do and don't
-
-- Do put the write clause first: `statement(INSERT_OVERWRITE(t), SELECT(...), ...)`.
-- Don't call run_query or run_execute in the logic cell: `project.load` refuses it.
-- Don't use INSERT_INTO where the user wants a day replaced; it adds rows twice on a rerun.
-- Don't pass `unproven_key=True` unless the user says the rows are one per Key for a reason
-  the Toolbox can't see.
-
-## Before you answer
-
-- The write's columns match the Saved table's, with the Key proved by GROUP_BY or the like.
-- Every partitioned table read is bounded; the write sends with run_execute.
+- write() starts with its write clause; its SELECT gives the table's columns, in order.
+- A Key is proved; a day replaced is INSERT_OVERWRITE; each partitioned read is bounded.
+- The logic cell calls no run_query or run_execute.
 
 ===== 07_convert_hive.txt =====
 
 # Copilot file 07: converting Hive (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: turn Hive someone else wrote into Toolbox code that gives the same rows.
 Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
 as Toolbox code.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. For a whole script, give the
-convert Workflow's cells (file 13). Asked for the code by hand, answer with one Python code
-block that builds the converted Statement, then a line for each part kept as Hive.
+## Terms
+
+- **Saved table**: a table of the user's own; `project.convert` makes one of each table the
+  Hive writes, in the Dev Database, with its Table folder, Table reference and Decisions,
+  what only the user decides, such as a Key, in the decisions cell.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -1013,39 +1168,35 @@ block that builds the converted Statement, then a line for each part kept as Hiv
 - unchecked_column(text, **columns)
 - hive_settings(*names, sets=None)
 
-## In the Project: a Conversion
+## In the Project
 
-For any Hive, one query or scripts of any length, the convert Workflow writes the code
-(file 13): in admin/workflows/convert/convert.ipynb, DEV filled in in admin/databases.py,
-`project.convert("weekly_events", HIVE, query=query)`, or `files=[...]` for scripts, makes each
-table the Hive writes a Saved table in the Dev Database, with its Table folder, Table
-reference and its Decisions, answered in the decisions cell, and one query alone
-`<dev>.weekly_events`;
-`project.load("mart_dev.weekly_events").preview()` gives the Statement; each Key is proposed,
-a temporary table folded into its readers. `project.check()` notes each `# CONVERSION:` mark.
-Later steps write, compare and promote each: its notebook's last cell runs them all. Convert
-by hand, as below, only to explain a piece.
+- The convert Workflow (file 13), admin/workflows/convert/convert.ipynb, DEV filled in in
+  admin/databases.py, converts any Hive, one query or scripts of any length:
+  `project.convert("weekly_events", HIVE, query=query)`, or `files=[...]`; one query alone
+  is `<dev>.weekly_events`.
+- `project.load("mart_dev.weekly_events").preview()` gives the Statement; each Key is
+  proposed, a temporary table folded into its readers; `project.check()` notes each
+  `# CONVERSION:` mark.
 
-## By hand: each Hive part and what it becomes
+## By hand: what each Hive part becomes
 
 - `FROM ops.job_runs r`: `r = AS(job_runs, "r")`, then `r.status`.
-- A CTE, `WITH ev AS (SELECT ...)`, or `FROM (SELECT ...) ev`: `ev = derived("ev", statement(...))`,
-  then `FROM(ev)`, `ev.job_id`. Keep the name after the bracket.
+- A CTE, `WITH ev AS (SELECT ...)`, or `FROM (SELECT ...) ev`: `ev = derived("ev",
+  statement(...))`, then `FROM(ev)`, `ev.job_id`. Keep the name after the bracket.
 - `a = 'x' AND b > 3`: `WHERE(equals(t.a, "x"), more_than(t.b, 3))`; `OR`: `any_of(...)`;
   `IS NULL`: `is_null(...)`; `<>`: `not_equals(...)`; `BETWEEN`: `between(...)`.
 - `IN ('a', 'b', 'c', 'd')`: a constant list, `STATUS_VALUES = [...]`, then
   `is_in(t.status, STATUS_VALUES)`.
 - `COUNT(*)`: `count_rows()`; `COUNT(DISTINCT x)`: `count_distinct(x)`; `SUM`, `AVG`,
   `MIN`, `MAX`: `sum_of`, `average_of`, `min_of`, `max_of`; each named with AS.
-- `SUM(CASE WHEN c THEN 1 ELSE 0 END)`: `sum_of(if_else(c, 1, 0))`.
+- `SUM(CASE WHEN c THEN 1 ELSE 0 END)`: `sum_of(if_else(c, 1, 0))`; `COALESCE(x, 0)`:
+  `fill_null(t.x, 0)`.
 - `CASE x WHEN 'a' THEN 'A' ... ELSE 'O' END`: a constant dict,
   `mapped(t.x, {"a": "A"}, otherwise="O")`.
 - `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 ELSE v END`:
   `first_match([(c1, v1), (c2, v2)], otherwise=v)`.
-- `COALESCE(x, 0)`: `fill_null(t.x, 0)`.
 - A function the Toolbox doesn't wrap, such as `UPPER(x)`: `hive_function("upper", t.x)`.
-- Anything else, such as `x DIV 60`: `unchecked_column("{m} DIV 60", m=t.minutes)`, and
-  say it was kept as Hive.
+- Anything else, such as `x DIV 60`: `unchecked_column("{m} DIV 60", m=t.minutes)`.
 - `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` inside ON=, with `all_of`.
 - `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)`:
   `row_number(PARTITION_BY=t.a, ORDER_BY=descending(t.b))` (file 05).
@@ -1055,12 +1206,28 @@ by hand, as below, only to explain a piece.
 - `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
   Saved table's logic cell (file 06).
 
-Then check the two give the same rows on one day:
-`compare_with_original(s, HIVE, query=query, partition={"dt": "2026-09-24"})`.
+## Steps
 
-## Worked example
+1. **Pick the way** by the Decision rules: by hand, step 2; the Workflow, step 4.
+2. **Convert each part** by the list above. Done when each has its code. Then step 3.
+3. **Compare** on one day: `compare_with_original(s, HIVE, query=query,
+   partition={"dt": "2026-09-24"})`. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-The Hive:
+## Decision rules
+
+- If the user asks for code by hand, or to explain a piece: by hand.
+- Otherwise, one query or a script: the convert Workflow's cells (file 13).
+- If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
+  the user wants every day.
+
+## Output
+
+The Workflow's cells (file 13), or one Python code block building the Statement, then a line
+naming each part kept as Hive.
+
+## Example
+
 `SELECT e.job_id, COUNT(*) AS events FROM ops.job_events e WHERE e.dt = '2026-09-24'
 AND e.event_type IN ('start', 'finish', 'retry', 'fail') GROUP BY e.job_id`
 
@@ -1080,63 +1247,66 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do keep every column name the Hive gives, with AS where it names one.
-- Do keep each table's short name with AS, and each CTE's name with derived.
-- Don't drop a condition, even one that looks needless; don't add one the Hive hasn't.
-- Don't write SQL words as Toolbox names: there is no COUNT, CASE, WHEN or COALESCE.
-
-## Before you answer
-
-- Same columns, same names, same order as the Hive's SELECT.
-- Every partitioned table read is bounded as the Hive bounded it. Where the Hive read one
-  whole, say so, and pass `reads_all_partitions=True` only if the user wants every day.
-- Each part kept as Hive is named in a line after the code.
+- The columns are the Hive's: same names, same order; each short name kept with AS.
+- Each Hive condition is there, even a needless one, none added; reads bounded as before.
+- No COUNT, CASE, WHEN or COALESCE is called as a Toolbox name.
+- Each part kept as Hive is named after the code.
 
 ===== 08_check_and_compare.txt =====
 
 # Copilot file 08: checking and comparing (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: check that a Statement gives what it should, and that the Project is in order.
 Load this file when the user asks whether their Statement matches the Hive it replaces,
 whether a table's Key holds, what is left to do in the Project, or where a column comes from.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Statement**: one Hive query, built with `statement(...)`.
+- **Verdict**: what each check gives back: `print(v)` says what it found, and `if v:` reads
+  true when it holds.
+- **Partition**: the rows sharing one value of each partition column. **Key**: the columns
+  whose values tell each row apart.
+- **Table reference**: the user's file describing one table: its columns, Partitions and Key.
+- **Decision**: what only the user decides, answered in a Workflow's decisions cell.
+- **Lineage**: which table columns feed each output column.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -1157,33 +1327,47 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. Each check gives back a Verdict: `print(v)` says what it found, and `if v:` reads true
-   when it holds. Assign it to a name, such as `v`.
-2. The Hive it replaces, by its text: `compare_hive(s, original)`, where `original` is the
-   Hive as a string. It sends nothing. Spacing, case, comments, short table names and the
-   like don't count; a different condition does, even one giving the same rows.
-3. The same rows: `compare_with_original(s, original, query=query, partition={"dt": day})`
-   reads both through the user's query, on one Partition, and counts the rows in one and
-   not the other. The original's columns must be the Statement's, same names, same order.
-   `reads_all_partitions=True` in place of `partition=` compares every Partition, when the
-   user asks for that.
-4. A Key: `check_key(t, query=query, where=equals(t.dt, day))` says whether the Key tells
-   each row apart there.
-5. A Table reference against the table as it is now: `check_table_reference(t, query=query)`.
-6. The Project: `project.check()` lists what is left to do, such as a Decision to
-   answer in a Workflow's decisions cell or a Workflow's next step, and notes each
-   `# CONVERSION:` mark, which blocks nothing.
-7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
-   notebook. Hive's plan, without running: `run_query(explain(s), query)`.
-8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.
-9. To keep a Table notebook's Hive in a file: save the notebook, then run its
-   `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
-   notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
-   seed(), its Session settings, then write(), from the notebook as last saved. Never edit
-   it. `export_hive(weekly)` writes one Statement's Hive into weekly.hql, named for its
-   variable: one call per variable, never a loop.
+1. **Pick the check** for what the user asks, by the Decision rules. Then step 2.
+2. **Write the code**: the check, its Verdict assigned to a name, such as `v`, and printed.
+   Done when each check the user asked for is called. Then step 3.
+3. **Say what the Verdict means** when it holds and when it doesn't. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
+
+- If asked whether the Statement matches the Hive it replaces by its text:
+  `compare_hive(s, original)`, `original` the Hive as a string. It sends nothing. Spacing,
+  case, comments, short table names and the like don't count; a different condition does,
+  even one giving the same rows.
+- If asked whether it gives the same rows: `compare_with_original(s, original, query=query,
+  partition={"dt": day})` reads both through the user's query, on one Partition, and counts
+  the rows in one and not the other. The original's columns must be the Statement's, same
+  names, same order. If no day is given, ask which day.
+- If asked for every Partition compared: `reads_all_partitions=True` for `partition=`.
+- If asked whether a Key holds: `check_key(t, query=query, where=equals(t.dt, day))` says
+  whether the Key tells each row apart there.
+- If asked whether a Table reference matches the table as it is now:
+  `check_table_reference(t, query=query)`.
+- If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
+  a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
+- If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
+  the notebook.
+- If asked for Hive's plan, without running: `run_query(explain(s), query)`.
+- If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
+- If asked for a Table notebook's Hive in a file: save the notebook, then run its
+  `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
+  notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
+  seed(), its Session settings, then write(), from the notebook as last saved, to read,
+  never to edit.
+- If asked for one Statement's Hive in a file: `export_hive(weekly)` writes weekly.hql,
+  named for its variable: one call per variable, never a loop.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences
+on what the Verdict means when it holds and when it doesn't.
+
+## Examples
 
 The team's Hive, compared with the Statement by its rows on one day, then by its text:
 
@@ -1216,71 +1400,103 @@ v = check_key(region_costs, query=query, where=equals(region_costs.dt, "20260921
 print(v)
 ```
 
-## Do and don't
+## Self-check
 
-- Do pass the original Hive as the user gave it, in a string; don't rewrite it first.
-- Do give `compare_with_original` a `partition=` on a partition column, or ask which day.
-- Do assign the Verdict to a name and print it.
-- Don't compare a Statement with its own `to_hive(s)`: that proves nothing.
-
-## Before you answer
-
-- The check reads through the user's `query`, never `execute`.
-- A partitioned table is bounded with `partition=` or `where=`.
-- The answer says what the Verdict means when it holds and when it doesn't.
+- Each check reads through the user's `query`, never `execute`.
+- Each partitioned table is bounded with `partition=` or `where=`, or the user asked for
+  every Partition.
+- The original Hive is in a string as the user gave it; no Statement is compared with its
+  own `to_hive(s)`, which proves nothing.
+- Each Verdict is assigned to a name and printed, and the answer says what it means.
 
 ===== 09_fix_a_refusal.txt =====
 
 # Copilot file 09: fixing a refusal (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: fix code the Toolbox refused, keeping what the user asked for.
 Load this file when the user pastes code and a message from the Toolbox, such as a
 GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with the fixed code in one
-Python code block, then a sentence on what changed and why.
+## Terms
+
+- **Refusal**: the Toolbox's message stopping code that would give a wrong answer or read
+  too much; a **Warning**, such as RepeatedRowsWarning, lets it run but says why a number
+  may be wrong. Each has four parts: What happened, Why it matters, Usual fix, Opt-out.
+- **Opt-out**: a keyword, such as `many_matches=True`, saying the user checked what it
+  refuses. Use one only when the user says so, never to make an error go away.
+- **Condition**: a test on rows, such as `equals(...)`. **Partition**: the rows sharing one
+  value of each partition column. **Key**: the columns whose values name one row.
+- **Saved table**: a table of the user's that a write fills. **Derived table**: a Statement
+  named with `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
-## Reading a refusal
+## Names for this objective, with their arguments
 
-Every refusal has four parts: What happened, Why it matters, Usual fix, Opt-out. Follow the
-Usual fix. The Opt-out is a keyword that tells the Toolbox the user has checked what it
-refuses; use it only when the user says so, and never to make an error go away.
+- equals(column, value)
+- not_equals(column, value)
+- more_than(column, value)
+- less_than(column, value)
+- between(column, low, high)
+- last_n_days(column, n)
+- is_in(column, values)
+- is_null(column)
+- is_not_null(column)
+- all_of(*conditions)
+- any_of(*conditions)
+- AS(expression, name)
+- count_rows(where=None, over=None)
+- LIMIT(n)
+- LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
+- CROSS_JOIN(table, reads_all_partitions=False)
+- derived(name, statement)
 
-## Common refusals, by what happened, and the fix
+## Steps
+
+1. **Read the refusal**: find its What happened in the Decision rules. Then step 2.
+2. **Write the fix** the rule gives, its Usual fix, keeping the user's columns, tables and
+   days. Then step 3.
+3. **Read the code again** against the Always list; fix each other refusal it would meet.
+   Done when it passes each item. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
+
+## Decision rules
+
+If the refusal says what a line below quotes, write the fix after the colon.
 
 - "A column was used with Python's ==." (or <, >, and, or): write the Condition with a
   function: `equals(t.status, "FAILED")`, `more_than(...)`, `all_of(...)`, `any_of(...)`.
@@ -1315,27 +1531,11 @@ refuses; use it only when the user says so, and never to make an error go away.
 - "run_query was given send=, which Toolbox 7.0 replaced.": `run_query(s, query)` for a read,
   `run_execute(s, execute)` for a write.
 
-## Names for this objective, with their arguments
+## Output
 
-- equals(column, value)
-- not_equals(column, value)
-- more_than(column, value)
-- less_than(column, value)
-- between(column, low, high)
-- last_n_days(column, n)
-- is_in(column, values)
-- is_null(column)
-- is_not_null(column)
-- all_of(*conditions)
-- any_of(*conditions)
-- AS(expression, name)
-- count_rows(where=None, over=None)
-- LIMIT(n)
-- LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
-- CROSS_JOIN(table, reads_all_partitions=False)
-- derived(name, statement)
+The fixed code in one Python code block, then a sentence on what changed and why.
 
-## Worked example
+## Example
 
 Refused with "A column was used with Python's ==." and, once fixed, the partition bound:
 
@@ -1350,62 +1550,65 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do fix every refusal the code would meet, not just the one shown: read the code again
-  against the Always list.
-- Do keep the user's columns, tables and days.
-- Don't reach for an opt-out to silence a refusal; ask the user first.
-
-## Before you answer
-
-- The fixed code passes each item of the Always list.
-- What changed, and why, is said in a sentence.
+- The fixed code passes each item of the Always list, and keeps the user's columns, tables
+  and days.
+- An opt-out appears only where the user asked for it; else the answer asks the user.
+- A sentence says what changed, and why.
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
 # Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.2)
+
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Label**: a column whose value a lookup or a Condition, a test on rows, picks.
+- **Clause function**: a Toolbox function named for a SQL clause, such as SELECT or WHERE.
+- **Hand-written Hive**: Hive text kept as written, `unchecked_...`: no Guard, which refuses
+  a wrong result, looks inside it. **Lineage**: which columns feed each output column.
+- **Saved table**: a table of the user's; its Table reference lists its columns and
+  Partitions, each the rows sharing one value of a partition column.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -1429,32 +1632,53 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. Labels, each named with AS:
-   - two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`;
-   - a lookup of one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-     otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
-     among the dict's keys isn't allowed: fill_null the column first;
-   - a chain, the first condition that holds wins:
-     `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
-     otherwise="someone")`.
-   A long list or lookup goes in a constant at the top: `CITY_BY_REGION = {...}`.
-2. A Hive function the Toolbox doesn't wrap: `hive_function("upper", t.job_name)`,
-   `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
-3. Hive by hand, when nothing above writes it. Each column the text reads is a `{name}`
-   placeholder, with the column passed by that name, so Lineage still sees it:
-   - one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
-   - one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
-   - a Derived table: `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
-   - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
-   Say in the answer which piece is hand-written: the Toolbox can't look inside it.
-4. Upkeep of a Saved table, each a Statement sent with `run_execute(..., execute)`:
-   `repair_partitions(t)` finds Partitions written outside Hive;
-   `compute_statistics(t, partition={"dt": day})` counts its rows again;
-   `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop;
-   `admin.add_columns(t, query=query)` adds the columns its Table reference gained. Import
-   the module first: `from sqlglot_composer import admin`.
+1. **Pick the call** for each piece the user asks for, by the Decision rules. Then step 2.
+2. **Write the code**, each label with AS. Done when each piece has its call. Then step 3.
+3. **Name each hand-written piece**: the Toolbox can't look inside it. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
+
+- If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
+- If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
+  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  among the dict's keys isn't allowed: fill_null the column first.
+- If a label is a chain, the first condition that holds winning, never a nested if_else:
+  `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
+  otherwise="someone")`.
+- If a list or lookup is long: a constant at the top, `CITY_BY_REGION = {...}`.
+- If a Hive function has no Toolbox name: `hive_function("upper", t.job_name)`,
+  `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
+- If neither writes it: the smallest Hive by hand, below.
+- If asked for upkeep: the Statements below; a drop only when asked for.
+
+## Hive by hand
+
+Each column the text reads is a `{name}` placeholder, the column passed by that name, so
+Lineage sees it:
+
+- one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
+- one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
+- a Derived table, read as a table:
+  `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
+- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
+
+## Upkeep of a Saved table
+
+Each is a Statement sent with `run_execute(..., execute)`, after
+`from sqlglot_composer import admin`.
+
+- `repair_partitions(t)` finds Partitions written outside Hive.
+- `compute_statistics(t, partition={"dt": day})` counts its rows again.
+- `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
+- `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences,
+naming each hand-written piece.
+
+## Examples
 
 Each job with the city of its region, and its name in capitals:
 
@@ -1488,66 +1712,38 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do use mapped for one column's lookup and first_match for a chain; don't nest if_else.
-- Do try hive_function before hand-written Hive.
-- Don't paste a column's name into hand-written text; pass it as a `{name}` placeholder.
-- Don't send a drop without the user asking for it.
-
-## Before you answer
-
-- Each label has AS; a long list or lookup is a constant.
-- Hand-written Hive is the smallest piece that needs it, and the answer names it.
-- Upkeep Statements go to run_execute.
+- Each label has AS; a long list or lookup is a constant; no if_else is nested.
+- Hand-written Hive is the smallest piece that needs it, each column it reads a `{name}`
+  placeholder; the answer names it.
+- Upkeep goes to run_execute; a drop is there only if the user asked for it.
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: a Formula workbook's formulas into Hive (sqlglot Composer 8.2)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.2)
 
-Objective: turn an attached Excel workbook's calculations into Hive, a query per final
-Table, then into Toolbox code.
-Load this file when the user attaches a workbook and asks for its calculations as Hive or
-Toolbox code, with file 12, for Power Query, whole columns and Total Rows, and files 03, 04
-and 05, for the Toolbox code.
+**Use this file as reference while you follow file 15's steps: it says what each formula of
+an attached workbook becomes in Hive.**
 
-## Names for this objective, with their arguments
+Objective: write each formula of an Excel workbook as the Hive that gives the same values.
+Load this file when the user attaches a workbook and asks for its calculations as Hive, with
+file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
 
-- first_match(cases, otherwise=None)
-- week_start(column)
-- month_start(column)
+## Terms
 
-## Steps
+- **Formula column**: a Table column whose cells hold a formula, such as `=[@duration_mins]/60`.
+- `[@units]`, `[@[Unit Price]]` and `sales[[#This Row],[units]]` name a column of the same
+  row; `sales[units]` the whole column. `_xlfn.` is only Excel's prefix: read past it.
+- **Mark**: a formula converted where Excel and Hive can differ, named in the map.
+- **Refused**: a formula with no Hive here: `NULL AS` its header, named in the map with why.
 
-1. Read every sheet: each Table (name, headers, rows, Total Row), formula, Power Query M,
-   defined name, and the Parameters and Keys Tables. `[@units]`, `[@[Unit Price]]` and
-   `sales[[#This Row],[units]]` name a column of the row, `sales[units]` the whole column;
-   `_xlfn.` is only Excel's prefix.
-2. Map it. A Table's typed columns, not loaded by a query, stand for a database table of the
-   Table's name: a source. A Table whose only typed columns are what its SUMIFS or COUNTIFS
-   match on (`[@job_id]` against `runs[job_id]`) is a summary: a GROUP BY of the Table it
-   reads. A Table with formulas, or a query, that another Table or query reads is a step.
-   A Table nothing reads is a final: one query each. Parameters and Keys are none.
-3. Start the reply with the map: Sources, Steps, Finals and the columns each final gives;
-   then each value typed over a formula, each mark, each refusal, what was left alone, and
-   each `<...>` to fill in.
-4. Names: write a database as `<database>`; keep a Table name or header that is a plain name
-   (letters, digits, _); put any other in snake case in brackets: header `Unit Price` is
-   `<unit_price>`, Table `Sales Data` `<database>.<sales_data>`.
-5. Write each final's Hive in its own ```sql block: each source a table, read for the
-   columns the finals use; each step a CTE inside each final's query that reads it, never a
-   block alone; the final's columns in its Table's order, each
-   calculated one named with AS. The rows are a sample: filter only as a formula or query
-   does.
-6. A value typed over a formula in one row converts too: `CASE WHEN run_id = 103 THEN 9
-   ELSE duration_mins / 60 END`, matching the row on its Keys columns. With no Keys row for
-   that Table, match every typed column of the row, and say there is no Keys row.
-7. A refused formula: `NULL AS its_header`; name it in the map, with why, and a cell outside
-   a Table it reads by its address, such as C2. Anything files 11 and 12 don't list is refused too.
-8. Then Toolbox code in a ```python block, by files 03, 04 and 05, and tell the user: take
-   out what you don't want; fill in each `<...>`; save each final's query as a .hql file
-   named for its Table, and run the convert Workflow on them as one batch (file 13), DEV
-   filled in; its checked code wins where the two differ.
+## Names in the Hive
+
+- Write the database as `<database>`.
+- Keep a Table name or header that is a plain name (letters, digits, `_`) as it is.
+- Write any other in snake case in brackets: header `Unit Price` is `<unit_price>`, Table
+  `Sales Data` is `<database>.<sales_data>`, each a `<...>` for the user to fill in.
 
 ## Formulas
 
@@ -1568,12 +1764,12 @@ and 05, for the Toolbox code.
   DATEDIFF(b, a), "m": FLOOR(MONTHS_BETWEEN(b, a)), "y": FLOOR(MONTHS_BETWEEN(b, a) / 12);
   EOMONTH(d, 0): LAST_DAY(d); EDATE(d, n): ADD_MONTHS(d, n), marked: a month's end stays
   one; WEEKDAY(d): DAYOFWEEK(d); TEXT(d, "yyyy-mm"): DATE_FORMAT(d, 'yyyy-MM').
-- As month_start and week_start write them: DATE(YEAR(d), MONTH(d), 1) or EOMONTH(d, -1)+1:
-  `CAST(TRUNC(d, 'MM') AS STRING)`; d-WEEKDAY(d,2)+1: `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1),
-  'MO') AS STRING)`.
+- The first of d's month, DATE(YEAR(d), MONTH(d), 1) or EOMONTH(d, -1)+1:
+  `CAST(TRUNC(d, 'MM') AS STRING)`. The Monday of d's week, d-WEEKDAY(d,2)+1:
+  `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1), 'MO') AS STRING)`.
 - XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b. XLOOKUP("rate", Parameters[name], Parameters[value]):
-  its value.
+  its value, typed in.
 - SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
   END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
   FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
@@ -1592,83 +1788,79 @@ and 05, for the Toolbox code.
   COUNTIFS the same with COUNT(*). COUNTIFS(t[a], [@a], t[v], ">"&[@v])+1: `RANK() OVER
   (PARTITION BY a ORDER BY v DESC)`; with "<", ASC.
 
-## Marks: convert, and say so
+## A value typed over a formula
+
+- Write it as a CASE on its row: `CASE WHEN run_id = 103 THEN 9 ELSE duration_mins / 60 END`,
+  matching the row on the columns its Keys row names.
+- If no Keys row names that Table, match every typed column of the row, and say there is no
+  Keys row.
+
+## Marks: convert, and name
 
 - A blank cell: Excel reads it as 0 or "", Hive as NULL. Where the sample has a blank in a
-  column a formula reads, wrap it: COALESCE(x, 0), or COALESCE(x, ''); say "blank". Not
-  inside an -IF(S) form, or ISBLANK: they skip a blank, as SUM, AVG, MIN and MAX skip NULL.
-- VLOOKUP or MATCH with TRUE or 1 is approximate: convert it exactly, and say so.
+  column a formula reads, write COALESCE(x, 0) or COALESCE(x, ''), and name the mark
+  "blank". Inside an -IF(S) form or ISBLANK, write the column as it is: they skip a blank,
+  as SUM, AVG, MIN and MAX skip NULL.
+- VLOOKUP or MATCH with TRUE or 1 is approximate: write it as the exact match, and name it.
 - A date held as text, such as 20260911: `CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2),
-  '-', SUBSTR(dt, 7, 2))`, and say the date is held as text.
-- A defined name for a cell outside a Table: use its value, and say to move it into
+  '-', SUBSTR(dt, 7, 2))`, and name it.
+- A defined name for a cell outside a Table: write its value, and say to move it into
   Parameters.
 
 ## Refused: NULL in its place, and named
 
 INDIRECT, OFFSET, RAND, RANDBETWEEN; a reference to a cell outside a Table that isn't a
-defined name; a LAMBDA, or a defined name holding a formula; a formula reading its own
-column (circular); ROW(), the row before, and anything else that hangs on the order of a
-sheet's rows; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays; NETWORKDAYS.
+defined name, named by its address, such as C2; a LAMBDA, or a defined name holding a formula;
+a formula reading its own column (circular); ROW(), the row before, and anything else that
+hangs on the order of a sheet's rows; MEDIAN; FILTER, UNIQUE, SORT and other spilled arrays;
+NETWORKDAYS; any formula files 11 and 12 don't list.
 
 Left alone, and named: charts, PivotTables, and cells outside a Table.
 
-## Worked example
+## Example
 
-Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed
-over as 9 where run_id is 103, and job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`;
-Table jobs (job_id, job_name); Keys holds job_runs, run_id.
-
-Sources: job_runs, jobs. Finals: job_runs (run_id, job_id, duration_mins, hours, job_name).
-Typed over: hours where run_id is 103. Fill in: `<database>`.
+Table job_runs (run_id, job_id, duration_mins) adds hours `=[@duration_mins]/60`, typed over
+as 9 where run_id is 103; Keys holds job_runs, run_id. Map: Sources job_runs. Finals job_runs
+(run_id, job_id, duration_mins, hours). Typed over: hours where run_id is 103.
 
 ```sql
-SELECT r.run_id, r.job_id, r.duration_mins,
-  CASE WHEN r.run_id = 103 THEN 9 ELSE r.duration_mins / 60 END AS hours, j.job_name
-FROM <database>.job_runs r
-LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
+SELECT run_id, job_id, duration_mins,
+  CASE WHEN run_id = 103 THEN 9 ELSE duration_mins / 60 END AS hours
+FROM <database>.job_runs
 ```
 
-## Do and don't
+## Self-check
 
-- Do keep every final column in order, a refused one as NULL, and every row a final holds.
-- Don't drop a value typed over a formula, filter to the sample's dates, or guess a name.
-
-## Before you answer
-
-- The map first, naming each source and final; a ```sql block per final, and per Total Row.
-- Each `<...>`, mark and refusal named.
+- Each formula column is in its final's SELECT, by this file, or `NULL AS` its header.
+- Each value typed over a formula is a CASE matched on its Keys row's columns.
+- Each COALESCE this file asks for is there, and each mark is named.
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 8.2)
+# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.2)
 
-Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
-workbook into Hive, with file 11.
-Load this file when the user attaches a workbook and asks for its calculations as Hive or
-Toolbox code, with files 11, 03, 04 and 05.
+**Use this file as reference while you follow file 15's steps: it says what each Power Query
+step, whole-column total and Total Row of an attached workbook becomes in Hive.**
 
-## Names for this objective, with their arguments
+Objective: write each Power Query, each whole-column total and each Total Row of an Excel
+workbook as the Hive that gives the same rows.
+Load this file when the user attaches a workbook and asks for its calculations as Hive, with
+file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 
-- SEMI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False)
-- CROSS_JOIN(table, reads_all_partitions=False)
-- rollup(*columns)
-- row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None)
-- count_distinct(column, where=None)
+## Terms
 
-## Steps
-
-1. Follow file 11's steps, its map to its batch for the convert Workflow, reading each
-   query's steps in order, as below.
-2. A query another query reads is a step, a CTE as file 11's step 5 says. A query and the
-   Table it loads are two things in the map, as a formula reads the Table, never the query:
-   the Table, its query's rows and any formula columns it adds, is a step when a formula reads
-   it, else a final. A connection-only query nothing reads is left out, and named.
-3. A step this file and file 11 don't list is refused: NULL for each column it makes, or the
-   query left out, and named, with why.
+- **M**: Power Query's language. A query is a `let` of named steps, each reading the one
+  before; `in` names the step it gives. Read the steps in order.
+- **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
+  SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
+  Total Row, never a row of data.
+- A query step no section here lists is refused: NULL for each column it makes, or the query
+  left out, named with why.
 
 ## Reading a table and its rows
 
-- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t. `#date(2026, 9, 1)`:
+- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t, as `<database>.t`. Another
+  query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS (...)`. `#date(2026, 9, 1)`:
   '2026-09-01'.
 - Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's `<>`
   keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
@@ -1696,7 +1888,7 @@ Toolbox code, with files 11, 03, 04 and 05.
 - Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum, List.Max, List.Min and
   List.Average as SUM, MAX, MIN and AVG, List.StandardDeviation as STDDEV_SAMP.
   List.Count(List.Distinct([c])): COUNT(DISTINCT c), which leaves out NULL where M counts it
-  as a value: say so where c has a blank in the sample.
+  as a value: name it where c has a blank in the sample.
 - NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
   RightOuter: LEFT JOIN, the two tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT
   JOIN u ON t.k = u.k WHERE u.k IS NULL`, t's columns only; RightAnti: the same, swapped.
@@ -1712,40 +1904,40 @@ Toolbox code, with files 11, 03, 04 and 05.
 
 ## A whole column, and the Total Row
 
-- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX: `SUM(v) OVER ()` and so on, COUNTA as
-  COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]): `SUM(a * b) OVER
-  ()`.
-- A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a
-  query of its own, one row, a column per total, in order, with no label; name it in the map
-  as `<Table> (Total Row)`.
-- A Total Row is never in the summary's own query: never end it `WITH ROLLUP`, as a Saved
-  table refuses a Subtotal row. Write only its own query, as above; rollup(...) is for a
-  later Statement that reads the saved summary (file 05), not this conversion.
+- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()` and so on,
+  COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]):
+  `SUM(a * b) OVER ()`.
+- A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each cell
+  that holds a total, in the Table's order, and no column for a cell that is empty or a label
+  such as "Total", reading the Table's final query as a CTE. SUBTOTAL(109,
+  ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+- Write the Table's own final query without its Total Row, so it holds only its rows: a Saved
+  table holds no Subtotal row.
 
 ## Order
 
 - Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone: LIMIT.
 - Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY ...)
   AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
-- A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
-  order; say the order was dropped.
+- A Table.Sort with no FirstN or index after it: write no ORDER BY, as a Hive table holds no
+  order, and name the order as dropped.
 
-## Marks: convert, and say so
+## Marks: convert, and name
 
-- M reading Sql.Database or a non-workbook source: use the table it names; say which to check.
+- M reading Sql.Database or a source outside the workbook: read the table it names, and name
+  it, for the user to check.
 - Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
-  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; say
-  the pivot's columns are now fixed.
+  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; name
+  the pivot's columns as now fixed.
 
 ## Refused, and named
 
 Web.Contents or any web source (leave that query out); Table.AddIndexColumn with no Sort
 before it; Table.FillDown and FillUp; Table.Distinct with a column list; List.Median.
 
-## Worked example
+## Example
 
-Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs, loaded into Table
-busy_jobs:
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
 
     let
         Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
@@ -1756,7 +1948,7 @@ busy_jobs:
     in
         Busy
 
-Sources: job_runs. Finals: busy_jobs (job_id, runs). Fill in: `<database>`.
+Map: Sources job_runs. Finals busy_jobs (job_id, runs).
 
 ```sql
 SELECT job_id, COUNT(*) AS runs
@@ -1766,50 +1958,34 @@ GROUP BY job_id
 HAVING COUNT(*) > 1
 ```
 
-Toolbox code, with `<database>` as ops:
+## Self-check
 
-```python
-from sqlglot_composer import (AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, count_rows,
-                              is_not_null, more_than, starts_with, statement)
-from references.ops__job_runs import job_runs
-
-s = statement(
-    SELECT(job_runs.job_id, AS(count_rows(), "runs")),
-    FROM(job_runs, reads_all_partitions=True),  # a workbook's query reads every row
-    WHERE(is_not_null(job_runs.status), starts_with(job_runs.status, "SUCC")),
-    GROUP_BY(job_runs.job_id),
-    HAVING(more_than(count_rows(), 1)),
-)
-```
-
-When query ok loads Table ok, which adds hours `=[@duration_mins]/60`, and query by_job reads
-query ok: Steps: query ok. Finals: Table ok, with hours, and Table by_job, each holding `WITH
-ok AS (...)`, Table ok's ending `SELECT ..., duration_mins / 60 AS hours FROM ok`.
-
-A value typed over a formula, file 11's step 6, in Toolbox code: `AS(first_match([(equals(
-r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(job_runs, "r")`.
-
-## Do and don't
-
-- Do read each query's steps in order, and a query another reads as a CTE.
-- Don't keep an ORDER BY with no LIMIT, guess a source outside the workbook, or convert a
-  web query.
-
-## Before you answer
-
-- Each query mapped: a step as a CTE, a loaded one as its final's query.
-- Each mark and refusal named.
+- Each query's steps are read in order, each in its final's query or named as refused.
+- Each ORDER BY has a LIMIT after it.
+- Each Total Row is its own final, and its Table's final holds only the Table's rows.
 
 ===== 13_workflows.txt =====
 
 # Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.2)
 
-Objective: take the user through converting Hive and promoting it to prod, step by step,
-from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
-own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.2, a
-Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
-own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
-the Python inside a step, that step's file.
+**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
+
+Objective: take the user through converting Hive and promoting it to prod, with sqlglot Composer 8.2, a
+Toolbox that writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
+Load this file when the user asks how to turn Hive into their own tables end to end, or carry
+dev tables to prod. File 14 is for new tables, Table references, upgrades and changes to a
+Saved table; a step's own file, for the Python inside it.
+
+## Terms
+
+- **Workflow**: ordered steps to one end goal; each step is a cell of its notebook,
+  admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
+- **Decision**: one thing about one table only the user decides, such as its location, Key
+  or a column type, answered in the **decisions cell**, DECISIONS.
+- **Saved table**: a table the user's own code writes; its **Table reference** is the file
+  of its columns, partitions, Key and location.
+- **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
+  Database, where others read them; set once in admin/databases.py.
 
 ## Names for this objective, with their arguments
 
@@ -1819,35 +1995,58 @@ the Python inside a step, that step's file.
 - project.compare_batch(name, *, query=None, tables=None, partition=None)
 - project.promote(tables, *, rename=None)
 
+## Steps
+
+1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
+   names the next step. Then step 2.
+2. **Write the names cell**, each input below given the user's value. Then step 3.
+3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
+   Then step 4.
+4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
+   step 5.
+5. **Check** the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
+  the user to answer: a Decision is the user's, never yours.
+- If the user names no rename, staging table or database, write `RENAME = {}`,
+  `STAGING = {}` or `DATABASE = "default"`.
+- **Promote a table only once its compare has passed.**
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
 ## How a Workflow runs
 
-Each Workflow has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its
-names cell, its inputs in capitals, such as NAME and TABLES, and its decisions cell,
-DECISIONS, and saves it.
-DECISIONS holds each answer by the table's name as project.check() writes it, each by its
-kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-"types": {"fails": "bigint"}}}`; a later step, `project.write_decisions(DECISIONS)`,
-writes each into its table's Table reference.
-Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
-left, up to the first only the user can do, and `dry_run=True` sends nothing.
-`project.check()` names the next step. A Decision is the user's: never answer it for them.
-DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
+- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
+  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
+  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
+  each into its table's Table reference.
+- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
+  user can do; `dry_run=True` sends nothing.
 
 ## convert: someone else's Hive into Saved tables in dev
 
-For any Hive, one query or many scripts. NAME is the batch's name (for the last cell alone,
-a list of batches converted already). FILES are the .hql files, saved beside the notebook, in
-admin/workflows/convert/, where it reads them; or FILES = [] and HIVE the Hive as text.
-DATABASE is the database of a table the Hive names without one, such as "ops".
-RENAME gives a table's copy in dev a name of your own. Its key is the table's full name,
-database and all (DATABASE when the scripts give none), and its value the new name, no
-database: {"mart.team_fails": "team_fails"} makes mart_dev.team_fails. Left out ({}), the
-copy keeps where it came from in its name, <table>_<its database>: mart_dev.team_fails_mart.
-A staging table is one a statement of the Hive makes and a later one reads; convert's report
-names each. Folded, its query goes inside each table that reads it, and it is never made;
-kept, it becomes a Saved table of its own. STAGING is a dict, leaving the rest as convert
-chooses (it folds one that is temporary or DROPped, and keeps any other):
-{"ops_reports.failed": "fold"}, or "keep"; {} for none.
+Its inputs:
+
+- NAME: the batch's name (for the last cell alone, a list of batches converted already).
+- FILES: the .hql files, saved in admin/workflows/convert/; or `FILES = []` and HIVE the
+  Hive as text. A query that only SELECTs makes a Saved table too, named for its file or NAME.
+- DATABASE: the database of a table the Hive names without one, such as "ops".
+- RENAME: a dev copy's own name, by the table's full name (DATABASE when the scripts give
+  none), the new name without a database: `{"mart.team_fails": "team_fails"}` makes
+  mart_dev.team_fails. Left `{}`, it is <table>_<its database>: mart_dev.team_fails_mart.
+- STAGING: a staging table is one a statement makes and a later one reads; convert's report
+  names each. Folded, its query goes inside each table that reads it, and it is never made;
+  kept, it is a Saved table: `{"ops_reports.failed": "fold"}` or "keep". Each one not named,
+  convert folds if temporary or DROPped, and keeps if not.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -1920,7 +2119,7 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
        project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
 
-## Worked example
+## Example
 
 The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
 convert notebook's names cell, then its first step's cell:
@@ -1937,30 +2136,42 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)
 ```
 
-## Do and don't
+## Self-check
 
-- Do give each step's cell as listed, with the user's names in it.
-- Don't skip a Decision, such as a table's location: say what it asks of the user, to answer in the decisions cell.
-- Don't promote a table before its compare has passed.
-
-## Before you answer
-
-- Name the Workflow and the step the user is at; give the cells the user asks for, each as
-  listed, and name the steps after them in words, not as cells: a step's cell may run only
-  once the steps before it are done. Only when the user asks for every step's cell, give
-  each later one as listed, in order.
-- Never invent a step or a call: only those listed here.
+- The reply names the Workflow and the user's step.
+- Each cell is one listed here, with the user's names in it.
+- Each later step is named in words, unless every cell was asked for.
+- Each Decision answered is in DECISIONS by the table's name; each other is named.
+- Each table promoted has a compare that passed.
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
 # Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.2)
 
-Objective: take the user through a job on their own Project, step by step, from each
-Workflow's notebook. Load this file when the user asks how to make a new Saved table, from a
-query or by hand, add Table references for tables they read, upgrade to a new Toolbox, or
-change a Saved table. You write the steps for sqlglot Composer 8.2, a Toolbox that writes Hive: the
-steps left, each its cell, in order. For converting Hive or promoting to prod, the user loads
-file 13; for the Python inside a step, that step's file.
+**Follow the steps below in order, as written. Add no step or call, and reply in the shape
+the Output section gives.**
+
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.2, a Toolbox that
+writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
+Load this file when the user asks how to make a new Saved table, from a query or by hand, add
+Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
+File 13 is for converting Hive or promoting to prod; a step's own file, for the Python inside
+it.
+
+## Terms
+
+- **Workflow**: ordered steps to one end goal; each step is a cell of its notebook,
+  admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
+- **Decision**: one thing about one table only the user decides, such as its location, Key
+  or a column type, answered in the **decisions cell**, DECISIONS.
+- **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic.
+  A **Table reference** is the file of a table's columns, partitions, Key and location.
+- **DEV**: the Dev Database, where tables are built and compared; set once in
+  admin/databases.py.
+- **Reference sheet**: one table of every column of every table with a Table reference.
+- **Admin statement**: a Statement from the admin module that changes a Saved table's
+  definition or deletes its data. An **UPGRADE mark** is a comment an upgrade leaves for the
+  user.
 
 ## Names for this objective, with their arguments
 
@@ -1970,19 +2181,43 @@ file 13; for the Python inside a step, that step's file.
 - project.reference_from_logic(name)
 - project.add_references(names, *, query=None)
 
+## Steps
+
+1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
+   names the next step. Then step 2.
+2. **Write the names cell**, each input below given the user's value. Then step 3.
+3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
+   Then step 4.
+4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
+   step 5.
+5. **Check** the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
+  the user to answer: a Decision is the user's, never yours.
+- If the user has a new table's query, QUERIES gives its .hql file by the table's name
+  without its database, and the table is made from it: no `<...>` to fill in. If not,
+  `QUERIES = {}`.
+- **A new table's Table reference is written from its logic, never by hand.**
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
 ## How a Workflow runs
 
-Each Workflow has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its
-names cell, its inputs in capitals, such as NAME and TABLES, and its decisions cell,
-DECISIONS, and saves it.
-DECISIONS holds each answer by the table's name as project.check() writes it, each by its
-kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-"types": {"fails": "bigint"}}}`; a later step, `project.write_decisions(DECISIONS)`,
-writes each into its table's Table reference.
-Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
-left, up to the first only the user can do, and `dry_run=True` sends nothing.
-`project.check()` names the next step. A Decision is the user's: never answer it for them.
-DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
+- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
+  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
+  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
+  each into its table's Table reference.
+- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
+  user can do; `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 
@@ -2075,7 +2310,7 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
        run_execute(change, execute)
 
 
-## Worked example
+## Example
 
 The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
 notebook's names cell, its decisions cell once the table's location is known, then its last
@@ -2088,17 +2323,153 @@ DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/fai
 project.run_workflow("new_table", query=query, execute=execute)
 ```
 
-## Do and don't
+## Self-check
 
-- Do give each step's cell as listed, with the user's names in it.
-- Do make a table from its query with QUERIES when the user has one: no `<...>` to fill in.
-- Don't write a new table's Table reference by hand: its logic writes it.
-- Don't skip a Decision, such as a table's location: answer it in the decisions cell.
+- The reply names the Workflow and the user's step.
+- Each cell is one listed here, with the user's names in it.
+- Each later step is named in words, unless every cell was asked for.
+- Each Decision answered is in DECISIONS by the table's name; each other is named.
+- A new table with a query is in QUERIES; no Table reference is written by hand.
 
-## Before you answer
+===== 15_excel_workbook_steps.txt =====
 
-- Name the Workflow and the step the user is at; give the cells the user asks for, each as
-  listed, and name the steps after them in words, not as cells: a step's cell may run only
-  once the steps before it are done. Only when the user asks for every step's cell, give
-  each later one as listed, in order.
-- Never invent a step or a call: only those listed here.
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.2)
+
+**Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
+the Output section gives.**
+
+Objective: turn the calculations of an Excel workbook the user attaches into one Hive query
+per final, for the user's convert Workflow to check and make Toolbox code of.
+Load this file when the user attaches a workbook and asks for its calculations as Hive, with
+file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and Total Rows).
+
+## Terms
+
+- **Table**: an Excel Table; the workbook shows each as `Excel Table "name"`, its headers and
+  rows, and any Total Row.
+- **Typed column**: a column whose cells hold values; a **formula column** holds formulas.
+- **Query**: a Power Query; the workbook lists each after its sheets as `Power Query "name"`,
+  its M below it. A query and the Table it loads are two things, even with one name. A
+  query's name inside another query's M, as in `Table.Sort(owner_load, ...)`, is that query.
+- **Sample**: a Table's typed rows are a sample of a database table of the Table's name,
+  which holds more rows: read the table, never the sample.
+- **Source**: a database table a final reads, `<database>.<table>`; a Table's typed columns
+  are one, of the Table's name. **Step**: a Table or query a final reads, as a CTE. **Final**:
+  a Table that gets a query of its own. The Decision rules give each piece its role.
+- **Mark**: a formula converted where Excel and Hive can differ, named in the map (file 11).
+- **Parameters**, **Keys**: the workbook's two settings Tables, read by step 4.
+
+## Steps
+
+1. **Read.** Goal: see all of the workbook. Action: list each `Excel Table` with its typed
+   and formula columns and Total Row, each defined name, and each `Power Query` listed after
+   the sheets. Done when every `Excel Table` and `Power Query` in the workbook is on your list.
+   Then step 2.
+2. **Decide each role.** Goal: know what each piece becomes. Action: give each Table and each
+   query its role by the Decision rules, one rule per piece, a query apart from its Table.
+   Done when each listed piece has a role. Then step 3.
+3. **Write the map.** Goal: the user sees each piece's role. Action: write the Output's map
+   from steps 1 and 2. Done when the map names each piece on your list. Then step 4.
+4. **Write each final's reads.** Goal: each final's query reads what its Table reads. Action:
+   for each final, start its query: each source read as `<database>.<table>`, each step it
+   reads as a CTE in it (`WITH name AS (...)`). **A Table's typed columns are always read
+   from `<database>.<table>`, never typed in**; only a summary's typed groups are typed in.
+   Done when each final has its FROM and CTEs. Then step 5.
+5. **Write each final's columns.** Goal: each column gives the workbook's values. Action:
+   write the columns in the Table's order, each formula by file 11, each query step and
+   total by file 12, each calculated one named with AS; read a Parameters value in as its
+   value; match a value typed over a formula on its Keys row's columns. Done when each
+   final's block is whole. Then step 6.
+6. **Name what changed.** Goal: the user sees each change. Action: list each mark, each
+   refusal (NULL in its place, with why), each thing left alone, and each `<...>` to fill
+   in, by files 11 and 12. Done when each is in the map. Then step 7.
+7. **Check.** Goal: a reply with nothing to fix. Action: go through the Self-check; fix any
+   answer it finds wrong. Done when each check holds; then reply.
+
+## Decision rules
+
+- If a Table has only typed columns and no query loads it, it is a source, never a final.
+- If a Table has a formula column and no query loads it: if another Table's formula or a
+  query reads it, it is a step; if nothing else reads it, it is a final. Its own formula
+  columns reading its own row don't count.
+- If a Table's only typed columns are the ones its SUMIFS or COUNTIFS match on, it is a
+  summary: its final query is a GROUP BY of the Table it reads, its typed rows kept.
+- If a query's M names another query, the named query is a step: a CTE in each final that
+  reads it, `WITH owner_load AS (...)`, never a read of `<database>.owner_load`.
+- If a query loads a Table: if another Table's formula reads that Table, the Table is a step;
+  if not, the Table is a final, its rows the query's.
+- If a query loads nothing and nothing reads it, leave it out, and name it.
+- If a Table has a Total Row, its Total Row is a final of its own, `<Table> (Total Row)`,
+  with a column for each Total Row cell that holds a total, and no other column.
+- Parameters and Keys are never a source, step or final.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Map**: Sources, Steps and Finals, each with its columns; then each value typed over a
+   formula, each mark, each refusal, what was left alone, and each `<...>` to fill in.
+2. **Hive**: a heading and one ```sql block per final, Total Rows included, nothing between.
+3. **Next**: "Take out what you don't want, fill in each `<...>`, save each query as a .hql
+   file named for its final, and run the convert Workflow on them as one batch (file 13). It
+   writes and checks the Toolbox code."
+
+## Examples
+
+Table jobs (job_id, job_name), typed. Table job_runs (run_id, job_id, duration_mins) adds
+job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs (its typed
+columns). Finals job_runs (run_id, job_id, duration_mins, job_name). jobs is a source only.
+
+```sql
+SELECT r.run_id, r.job_id, r.duration_mins, j.job_name
+FROM <database>.job_runs r
+LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
+```
+
+Query ok_runs keeps job_runs' SUCCESS rows and loads Table ok_runs; query ok_by_job reads query
+ok_runs and loads Table ok_by_job. Map: Sources job_runs. Steps query ok_runs. Finals Table ok_runs and Table
+ok_by_job: no formula reads either Table. Each final has its own block:
+
+```sql
+SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+```
+
+```sql
+WITH ok_runs AS (
+  SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+)
+SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
+```
+
+Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
+summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row). As a
+summary, by_job's typed job_ids, its groups, are typed in; job_runs is read:
+
+```sql
+SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+  ON j.job_id = c.job_id
+```
+
+```sql
+WITH by_job AS (
+  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+    ON j.job_id = c.job_id
+)
+SELECT SUM(runs) AS runs FROM by_job
+```
+
+## Self-check
+
+- Each `Excel Table` and `Power Query` the workbook lists has a role in the map.
+- Each final, Total Rows included, has its own ```sql block; no block is a step alone.
+- Each final's columns are its Table's, in order; a refused one is `NULL AS` its header.
+- Each source and each Table's typed columns are read from `<database>.<table>`; the only
+  rows typed in are a summary's groups.
+- Each Total Row's block has a column only for each cell that holds a total.
+- Each step a final reads is a CTE inside that final's block.
+- Each value typed over a formula is in a CASE, matched on its Keys row's columns.
+- Each mark, refusal, thing left alone and `<...>` is named in the map.

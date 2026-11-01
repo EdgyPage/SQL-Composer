@@ -4,24 +4,31 @@ For: Intermediate
 
 ## Goal
 
-Find what was true on each day from a table that keeps a full copy of itself every day, a daily
-snapshot: here, the team each job belonged to on the day it ran. You join on the day as well
-as the job, count each team's runs as they were owned at the time, keep that join in a
-Building block, and pick each job's newest row with `row_number`.
+Find what was true on each day from a daily snapshot, a table that keeps a full copy of itself
+every day: here, the team each job belonged to on the day it ran. You join on the day as well
+as the job, count each team's runs as they were owned at the time, keep that join in a Building
+block, a piece of your own code reused across notebooks, and pick each job's newest row with
+`row_number`.
 
 ## When you'd use it
 
-When a table holds one row per thing per day, such as each job's owner, each product's price
-or each customer's plan, and another table's rows need the value from their own day, not
-today's. A job that changed teams last week should count for its old team before the change
-and its new team after it.
-
-It needs the Getting started how-tos [Count, join and stay safe](#count_join_and_stay_safe)
-and [Share Building blocks](#share_building_blocks).
+- If a table holds one row per thing per day, such as each job's owner, each product's price or
+  each customer's plan, and another table's rows need the value from their own day, join on
+  the day as the steps below do.
+- If a job changed teams last week, count it for its old team before the change and its new
+  team after it, with the same join.
+- If you want each thing's value as it is now, pick its newest row (step 7).
+- If you haven't done the Getting started how-tos
+  [Count, join and stay safe](#count_join_and_stay_safe) and
+  [Share Building blocks](#share_building_blocks), do them first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
+
+Goal: a Project to work in, with the snapshot table's Table reference, the file that describes
+the table, already written. A Project is your folder of scripts at work, in the Toolbox's fixed
+layout.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -35,10 +42,16 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the Project's `ops` Database and your query. `ops.job_events` holds
-what each job's runs did over 14 days, 2026-09-11 to 2026-09-24: a `"start"` row when a run
-starts, then `"finish"`, `"retry"` or `"fail"`. `ops.job_owners` is the snapshot: every job's
-team and owner, once per day.
+Done when the folder you work in holds `references/`, `building_blocks/` and `warehouse.py`.
+Then step 2.
+
+### 2. Import the Toolbox and the tables
+
+Goal: the two tables the steps read. Import the Toolbox, the Project's `ops` Database, the
+named group of tables whose names start `ops.`, and your query. `ops.job_events` holds what
+each job's runs did over 14 days, 2026-09-11 to 2026-09-24: a `"start"` row when a run starts,
+then `"finish"`, `"retry"` or `"fail"`. `ops.job_owners` is the snapshot: every job's team and
+owner, once per day.
 
 >>> from sqlglot_composer import *
 >>> from references import ops
@@ -46,11 +59,14 @@ team and owner, once per day.
 >>> job_events = ops.job_events  # -> Table
 >>> job_owners = ops.job_owners  # -> Table
 
-### Look at the snapshot
+Done when the imports run without an error. Then step 3.
 
-Each day holds one row per job, so its Key is the job and the day together: job_id and dt,
-which its Table reference, references/ops__job_owners.py, says. Job 3, report_build, moved
-from the data team to finance on 2026-09-18:
+### 3. Look at the snapshot
+
+Goal: see how the snapshot's rows are told apart. Each day holds one row per job, so its Key,
+the columns whose values name exactly one row, is the job and the day together: job_id and dt,
+which its Table reference, references/ops__job_owners.py, says. Job 3, report_build, moved from
+the data team to finance on 2026-09-18:
 
 >>> report_build_owners = statement(  # -> Statement
 ...     SELECT(job_owners.dt, job_owners.team, job_owners.owner),
@@ -65,12 +81,15 @@ from the data team to finance on 2026-09-18:
 2  2026-09-18  finance  chloe
 3  2026-09-19  finance  chloe
 
-### Join each run to its own day's row
+Done when the result shows data on 2026-09-17 and finance on 2026-09-18. Then step 4.
 
-A run is a `"start"` row of job_events. Join the snapshot on both parts of its Key: the same
-job, and the same day. Each run then meets exactly one row, its job's row on the day it ran.
+### 4. Join each run to its own day's row
 
-The snapshot is partitioned by dt too, so it needs its own filter on dt, in `WHERE` or in
+Goal: each run beside its team on the day it ran. A run is a `"start"` row of job_events. Join
+the snapshot on both parts of its Key: the same job, and the same day. Each run then meets
+exactly one row, its job's row on the day it ran.
+
+The snapshot is partitioned by dt too, so give it its own filter on dt, in `WHERE` or in
 `ON=`: the Toolbox checks each table's partition columns separately, and
 `equals(job_owners.dt, job_events.dt)` in `ON=` matches the two tables' days without saying
 which days to read.
@@ -104,11 +123,12 @@ WHERE
 2  2026-09-18  finance
 3  2026-09-21  finance
 
-report_build ran four times: twice for data, then twice for finance.
+Done when report_build's four runs show twice for data, then twice for finance. Then step 5.
 
-### Count each team's runs as of their day
+### 5. Count each team's runs as of their day
 
-The same join, for every job, grouped by team:
+Goal: each team's runs, counted for the team that owned the job that day. The same join, for
+every job, grouped by team:
 
 >>> runs_per_team = statement(  # -> Statement
 ...     SELECT(job_owners.team, AS(count_rows(), "runs")),
@@ -128,10 +148,12 @@ The same join, for every job, grouped by team:
 data has nightly_load's (job 1) 14 runs and report_build's (job 3) 2 before the move; finance
 has invoice_sync's (job 2) 10 and report_build's 2 after it.
 
-### Keep the lookup in a Building block
+Done when data shows 16 runs and finance 12. Then step 6.
 
-Every Statement of the Project that needs a job's team on a day makes the same join, so the
-Project keeps it once, in the Building block building_blocks/owner_on_day.py:
+### 6. Keep the lookup in a Building block
+
+Goal: the join written once, for every Statement that needs a job's team on a day. The Project
+keeps it in the Building block building_blocks/owner_on_day.py:
 
     from sqlglot_composer import LEFT_JOIN, Clause, Column, all_of, between, equals
     from references.ops__job_owners import job_owners
@@ -147,8 +169,7 @@ Project keeps it once, in the Building block building_blocks/owner_on_day.py:
         )
 
 It filters the snapshot's days in `ON=`, and it is a `LEFT_JOIN`, so a run whose day has no
-snapshot yet keeps its row, with a NULL team, rather than being dropped. A Statement calls it
-where a JOIN goes:
+snapshot yet keeps its row, with a NULL team. A Statement calls it where a JOIN goes:
 
 >>> from building_blocks.owner_on_day import owner_on_day
 >>> runs_per_team_then = statement(  # -> Statement
@@ -166,18 +187,20 @@ where a JOIN goes:
 1  finance    12
 
 The same counts: every run of the 14 days has a snapshot. mart.job_day_facts, a Saved table of
-the Project, saves each job's day beside its team through this Building block, as [Rewrite some
-partitions](#rewrite_some_partitions) shows.
+the Project, a real table your own Statements write, saves each job's day beside its team
+through this Building block, as [Rewrite some partitions](#rewrite_some_partitions) shows.
 
-### Pick each job's newest row
+Done when the counts match step 5's: data 16, finance 12. Then step 7.
 
-To know who owns each job now, take each job's newest row of the snapshot. `row_number` numbers
+### 7. Pick each job's newest row
+
+Goal: who owns each job now. Take each job's newest row of the snapshot. `row_number` numbers
 each job's rows from the newest day down; the Statement that reads them keeps number 1. Its
 `PARTITION_BY=` is SQL's word for the groups to number within, here each job, not the table's
 Partitions. Hive can't keep a row by its number in the same SELECT that numbers it, so the
-numbering goes in a Derived table, which the Hive writes at its top as
-`WITH numbered AS (...)`. [The latest row of each group](#latest_row_of_each_group) starts with
-it:
+numbering goes in a Derived table, a Statement given a name so another can read from it, which
+the Hive writes at its top as `WITH numbered AS (...)`.
+[The latest row of each group](#latest_row_of_each_group) starts with it:
 
 >>> numbered = derived("numbered", statement(  # -> Table
 ...     SELECT(job_owners.job_id, job_owners.team, job_owners.owner, job_owners.dt,
@@ -224,6 +247,9 @@ one day would give the same. At work a row can drop out of a snapshot, such as a
 deleted, and then `row_number` still finds its last row, from whichever day that was. Nobody
 owns cache_warm (job 4), so its owner is NULL (pandas shows it as NaN).
 
+Done when the result holds one row per job, report_build's team finance. Then check it worked,
+below.
+
 ## Check it worked
 
 Each run should meet exactly one row of the snapshot, so the teams' runs add up to every run
@@ -240,6 +266,13 @@ over the 14 days:
 0    28
 >>> int(run_query(runs_per_team, query)["runs"].sum())
 28
+
+Before you go on, check that:
+
+- `every_run` counts 28 runs, and the teams' runs in `runs_per_team` add up to 28 too;
+- `report_build_runs` gives report_build's runs before 2026-09-18 to data and after it to
+  finance;
+- `newest_owner` gives one row per job.
 
 ## Common mistakes
 
@@ -286,7 +319,8 @@ every run the team its job has now:
 1  finance    14
 
 The total is still 28, but report_build's two runs before 2026-09-18 count for finance, a team
-that didn't own it then. Use one day's snapshot only for what you want as it is on that day.
+that didn't own it then. Join on each row's own day, as `runs_per_team` does, and keep one
+day's snapshot for what you want as it is on that day.
 
 ### Leaving the snapshot's days unfiltered
 
@@ -309,8 +343,8 @@ sqlglot_composer.refusals.LoadRefused:
                   partition columns: dt.
 ...
 
-Filter it with the same days as the table it is joined to, in `WHERE` as the steps do, or in
-`ON=`, as `owner_on_day` does.
+This is a Load limit, a check that protects the cluster. Filter the snapshot with the same days
+as the table it is joined to, in `WHERE` as the steps do, or in `ON=`, as `owner_on_day` does.
 
 ## Next
 

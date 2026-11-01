@@ -7,21 +7,28 @@ For: Intermediate
 Turn days of rows into one row per week, or per month, with `week_start` and `month_start`;
 count the different jobs that ran each week without adding up each day's count; and count runs
 for each team and job with, in the same result, each team's subtotal and the grand total, with
-`GROUP_BY(rollup(...))`, labelling the subtotal rows with `is_total`.
+`GROUP_BY(rollup(...))`, labelling the subtotal rows with `is_total`. A Subtotal row is a row
+the grouping adds, totalling the rows of several groups, such as one per team over all its
+jobs, or the grand total, one over every row.
 
 ## When you'd use it
 
-- When a daily table is too fine to read, and the question is about weeks or months: runs per
-  week, the different jobs seen each month, a week's total against the week before.
-- For a report that shows the parts and their totals together: runs per job with each team's
-  total, any table a spreadsheet would end with a "Total" row.
-
-It needs the Getting started how-tos [Count, join and stay safe](#count_join_and_stay_safe)
-and [Share Building blocks](#share_building_blocks).
+- If a daily table is too fine to read and the question is about weeks or months, such as runs
+  per week, the different jobs seen each month, or a week's total against the week before,
+  group by `week_start` or `month_start` (steps 3 to 6).
+- If a report shows the parts and their totals together, such as runs per job with each team's
+  total, or any table a spreadsheet would end with a "Total" row, group with `rollup` (steps 7
+  to 11).
+- If you haven't done the Getting started how-tos
+  [Count, join and stay safe](#count_join_and_stay_safe) and
+  [Share Building blocks](#share_building_blocks), do them first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
+
+Goal: a Project to work in, its Table references and Building blocks written. A Project is your
+folder of scripts at work, in the Toolbox's fixed layout.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -35,10 +42,16 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the `project` module, the Project's `ops` Database, its Alias
-`ends_a_run`, and your query. `ops.job_events` holds what each job's runs did over 14 days,
-2026-09-11 to 2026-09-24. Each run has one `"start"` row, so counting the `"start"` rows
-counts the runs.
+Done when the folder you work in holds `references/`, `building_blocks/` and `warehouse.py`.
+Then step 2.
+
+### 2. Import the Toolbox and the table
+
+Goal: the table the steps count. Import the Toolbox, the `project` module, the Project's `ops`
+Database, the named group of tables whose names start `ops.`, its Alias `ends_a_run`, a
+condition its Table reference names, and your query. `ops.job_events` holds what each job's
+runs did over 14 days, 2026-09-11 to 2026-09-24. Each run has one `"start"` row, so counting
+the `"start"` rows counts the runs.
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -47,9 +60,12 @@ counts the runs.
 >>> from warehouse import query, execute
 >>> job_events = ops.job_events  # -> Table
 
-### Count each job's runs per week
+Done when the imports run without an error. Then step 3.
 
-`week_start(job_events.dt)` gives the Monday that starts each day's week, as text like
+### 3. Count each job's runs per week
+
+Goal: one row per week and job. `week_start(job_events.dt)` gives the Monday that starts each
+day's week, as text like
 `2026-09-14`. Name it in `SELECT` with `AS`, then group by that name in `GROUP_BY`, with any
 other column you group by:
 
@@ -102,10 +118,12 @@ Toolbox writes it for you; you give only the name.
 The 14 days start on a Friday, so they fall in three weeks: Friday to Sunday of the week of
 2026-09-07, all of the week of 2026-09-14, and Monday to Thursday of the week of 2026-09-21.
 
-### Count each job's runs per month
+Done when the result holds the weeks of 2026-09-07, 2026-09-14 and 2026-09-21. Then step 4.
 
-`month_start` gives the first day of each day's month, and works the same way. All 14 days are
-in September, so there is one month:
+### 4. Count each job's runs per month
+
+Goal: one row per month and job. `month_start` gives the first day of each day's month, and
+works the same way. All 14 days are in September, so there is one month:
 
 >>> starts_per_month = statement(  # -> Statement
 ...     SELECT(AS(month_start(job_events.dt), "month"), job_events.job_id,
@@ -133,11 +151,13 @@ GROUP BY
 1  2026-09-01       2      10
 2  2026-09-01       3       4
 
-### Count the different jobs that ran each week
+Done when every row's month is 2026-09-01. Then step 5.
 
-A count of different values, `count_distinct`, counts each value once in its group. Count from
-the rows themselves, grouped by week, so a job that ran on five days of a week counts once in
-that week:
+### 5. Count the different jobs that ran each week
+
+Goal: each job counted once per week. A count of different values, `count_distinct`, counts
+each value once in its group. Count from the rows themselves, grouped by week, so a job that
+ran on five days of a week counts once in that week:
 
 >>> jobs_per_week = statement(  # -> Statement
 ...     SELECT(AS(week_start(job_events.dt), "week"),
@@ -156,12 +176,15 @@ that week:
 Three different jobs ran in each week. The first mistake below shows the count that adds up
 each day's count instead, and what the Toolbox says.
 
-### Roll a Saved table's days up into weeks
+Done when each week shows 3 jobs that ran. Then step 6.
 
-A Saved table that holds a row per day can be rolled up the same way, reading its saved days
-rather than counting them again. mart.team_days, a Saved table of the Project, holds each
-team's day, and its notebook's logic cell defines `week_totals`, which adds its days up into
-weeks; `project.load` gives it:
+### 6. Roll a Saved table's days up into weeks
+
+Goal: weeks read from days already saved. A Saved table is a real table in the warehouse that
+your own Statements write. One that holds a row per day can be rolled up the same way, reading
+its saved days rather than counting them again. mart.team_days, a Saved table of the Project,
+holds each team's day, and its notebook's logic cell defines `week_totals`, which adds its days
+up into weeks; `project.load` gives it:
 
 >>> team_days = project.load("mart.team_days")  # -> the notebook's functions
 >>> week_totals = team_days.week_totals("2026-09-14", "2026-09-20")  # -> Statement
@@ -183,10 +206,14 @@ GROUP BY
 Events, runs, minutes and costs add up, so a week's are its days' added together. A count of
 different values doesn't, as the first mistake shows.
 
-### Count per team and job, with subtotals
+Done when the Hive reads `mart.team_days` and groups by its week and team. Then step 7.
 
-Which team owned a job changes from day to day, so the team comes from the Project's Building
-block `owner_on_day`, which joins each event to its job's team that day, as [Look things up as
+### 7. Count per team and job, with subtotals
+
+Goal: each team's jobs, each team's subtotal and the grand total, in one result. Which team
+owned a job changes from day to day, so the team comes from the Project's Building block
+`owner_on_day`, a piece of the Project's code reused across notebooks, which joins each event
+to its job's team that day, as [Look things up as
 of a day](#look_things_up_as_of_a_day) shows. `rollup(job_owners.team, job_events.job_id)` in
 `GROUP_BY` groups by both, as `GROUP_BY(job_owners.team, job_events.job_id)` does, then adds a
 subtotal row for each team, over all its jobs, and one for every row, the grand total:
@@ -242,12 +269,16 @@ the grand total. report_build, job 3, counts for finance: its team from 2026-09-
 
 pandas keeps NaN only among fractions, so a column of whole numbers with a NaN in it shows its
 numbers as 1.0, 2.0 and so on: job_id here. A column that is NULL in every row has no numbers
-to go by, so pandas shows each NULL as None, as in the next steps' job_id.
+to go by, so pandas shows each NULL as None, as in step 10's job_id.
 
-### Tell a subtotal row from a real NULL
+Done when the result holds one row per team and job, one per team, and the grand total, 14
+runs. Then step 8.
 
-A column can be empty in a real row too. Nobody owns cache_warm, job 4, so its owner is NULL,
-and a rollup of `job_owners.owner` over 2026-09-24's snapshot has two rows with NaN:
+### 8. Tell a subtotal row from a real NULL
+
+Goal: know which empty value is a subtotal. A column can be empty in a real row too. Nobody
+owns cache_warm, job 4, so its owner is NULL, and a rollup of `job_owners.owner` over
+2026-09-24's snapshot has two rows with NaN:
 
 >>> jobs_per_owner = statement(  # -> Statement
 ...     SELECT(job_owners.owner, AS(if_else(is_total(job_owners.owner), 1, 0), "subtotal"),
@@ -268,9 +299,12 @@ and a rollup of `job_owners.owner` over 2026-09-24's snapshot has two rows with 
 else, so the first row is cache_warm, which nobody owns, and the second the grand total of all
 four jobs.
 
-### Label the subtotal rows
+Done when the subtotal column is 1 on the grand total's row alone. Then step 9.
 
-`if_else(is_total(...), ...)` puts a word of your own in place of the empty column. Its two
+### 9. Label the subtotal rows
+
+Goal: a word of your own on each subtotal row. `if_else(is_total(...), ...)` puts a word in
+place of the empty column. Its two
 answers should be of one type, so the job's number is written as text first, with Hive's
 string function: `hive_function("string", job_events.job_id)`, which the Hive writes as
 `CAST(job_events.job_id AS STRING)`:
@@ -299,12 +333,14 @@ The rows come sorted by their first column, as the Example database sorts them, 
 "every team" between "data" and "finance". At work rows come in no fixed order: sort them with
 `ORDER_BY`, or in pandas.
 
-### Keep only the subtotals
+Done when the subtotal rows say "every job" and "every team". Then step 10.
 
-`is_total` in `HAVING` keeps or leaves out subtotal rows, since `HAVING` tests the rows
-`GROUP_BY` made, subtotals included. Here only each team's total and the grand total. The
-column it tests, `job_events.job_id`, must be in `SELECT` too: without it, a subtotal row
-looks like the rows it totals, so the Toolbox refuses it.
+### 10. Keep only the subtotals
+
+Goal: each team's total and the grand total, and no other row. `is_total` in `HAVING` keeps or
+leaves out subtotal rows, since `HAVING` tests the rows `GROUP_BY` made, subtotals included.
+Put the column it tests, `job_events.job_id`, in `SELECT` too: without it, a subtotal row looks
+like the rows it totals, so the Toolbox refuses it.
 
 >>> team_totals = statement(  # -> Statement
 ...     SELECT(job_owners.team, job_events.job_id,
@@ -322,15 +358,23 @@ looks like the rows it totals, so the Toolbox refuses it.
 1     data   None     7
 2  finance   None     7
 
-### Other sets of subtotals
+Done when the result holds three rows: data's, finance's and the grand total. Then step 11.
 
-`rollup` drops its columns from the right, first the job, then the team: each team over its
-jobs, never each job over its teams. For every mix, use `cube(job_owners.team,
-job_owners.owner)`: each team over every owner, each owner over every team, and the grand
-total. To pick the sets yourself, list them with `grouping_sets([job_owners.team],
-[job_owners.owner], [])`. A plain column beside a rollup is in every set, so
-`GROUP_BY(job_events.dt, rollup(job_owners.team))` totals each day's teams, and never adds days
-together.
+### 11. Choose other sets of subtotals
+
+Goal: the subtotals your report needs, when a rollup's aren't them. `rollup` drops its columns
+from the right, first the job, then the team: each team over its jobs, never each job over its
+teams.
+
+- If you want every mix, write `cube(job_owners.team, job_owners.owner)`: each team over every
+  owner, each owner over every team, and the grand total.
+- If you want to pick the sets yourself, list them with `grouping_sets([job_owners.team],
+  [job_owners.owner], [])`.
+- If you want a total within each value of a column, put that plain column beside the rollup:
+  it is in every set, so `GROUP_BY(job_events.dt, rollup(job_owners.team))` totals each day's
+  teams, and never adds days together.
+
+Done when your `GROUP_BY` names the sets of subtotal rows you want. Then check it worked, below.
 
 ## Check it worked
 
@@ -381,13 +425,21 @@ database runs, counts the same:
 
 7 and 7 are the team subtotals above, and they add up to the grand total, 14.
 
+Before you go on, check that:
+
+- the weeks' starts worked out from the days, 5, 14 and 9, are `starts_per_week`'s rows added
+  up per week, and add up to 28;
+- `runs_per_team` gives data 7 and finance 7, the team subtotals of `runs_per_job`;
+- those subtotals add up to the grand total, 14.
+
 ## Common mistakes
 
 ### Adding up each day's count of different jobs
 
 Say a count of the different jobs on each day is already there. Adding up its days looks like
 the quick way to a week, but a job that ran on five days is in five days' counts, so the week
-would count it five times. The Toolbox refuses it as you build the Statement:
+would count it five times. The Toolbox refuses it as you build the Statement, with a Guard, a
+check that refuses a Statement that would give a wrong result:
 
 >>> jobs_per_day = derived("jobs_per_day", statement(  # -> Table
 ...     SELECT(job_events.dt, AS(count_distinct(job_events.job_id), "jobs_that_ran")),
@@ -463,7 +515,7 @@ whole `"runs"` column in pandas counts every run three times:
 >>> int(run_query(runs_per_job, query)["runs"].sum())
 42
 
-Add up only the rows that aren't subtotals, or read the grand total's own row.
+Add up only the rows `is_total` says are real rows, or read the grand total's own row.
 
 ### Writing subtotals into a Saved table
 
@@ -506,7 +558,7 @@ ValueError:
   What happened:  WHERE has is_total(job_owners.team).
 ...
 
-Test it in `HAVING`, as Keep only the subtotals does.
+Test it in `HAVING`, as `team_totals` does.
 
 ## Next
 

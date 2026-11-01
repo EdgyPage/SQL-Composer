@@ -5,22 +5,29 @@ For: Intermediate
 ## Goal
 
 Say in a Saved table's Table reference how the warehouse keeps it: the folder of its own its
-files go in, whether dropping it deletes them, their format, its Partitions, and Buckets.
-`create_table` writes all of it, and `check_table_reference` compares it with the table. Along
-the way, see why the Toolbox has no indexes, and what makes reads fast instead.
+files go in, whether dropping it deletes them, their format, its Partitions, and Buckets. A
+Saved table is a real table in the warehouse that your own Statements write; its Table
+reference is the file that describes it, its columns and their types, its Partitions and its
+Key. `create_table` writes all of it, and `check_table_reference` compares it with the table.
+Along the way, see why the Toolbox has no indexes, and what makes reads fast instead.
 
 ## When you'd use it
 
-When you fill in a Saved table's Table reference, and when you check one you already have:
-every Saved table needs at least its folder. The rest is for when a table grows: a big table
-read a region at a time, or joined on the same column every run, can be kept so that reads
-touch fewer files.
-
-It needs [Save a table](#save_a_table), which makes a Saved table with `project.new_table`.
+- If you fill in a Saved table's Table reference, give it at least its folder: every Saved
+  table needs one.
+- If you check a Table reference you already have, compare it with the table, as Check it
+  worked does.
+- If a table grows big, read a region at a time or joined on the same column every run, keep
+  it so that reads touch fewer files, with Partitions and Buckets.
+- If you haven't made a Saved table yet, read [Save a table](#save_a_table) first, which makes
+  one with `project.new_table`.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
+
+Goal: a Project to work in. An Example project is a Project made for the Example database's
+tables, filled in, to read and copy from.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -34,9 +41,15 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-mart.job_region_costs will hold each job's cost in each region on each day, copied from
-ops.region_costs, which the Project reads already. Make its Table folder and Table reference,
-as [Save a table](#save_a_table) shows:
+Done when the folder you work in holds the Project's admin/, references/ and tables/. Then
+step 2.
+
+### 2. Make the Saved table's Table folder
+
+Goal: the files of a new Saved table. mart.job_region_costs will hold each job's cost in each
+region on each day, copied from ops.region_costs, which the Project reads already. Make its
+Table folder, the folder that holds everything about one Saved table, and its Table
+reference, as [Save a table](#save_a_table) shows:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -46,7 +59,12 @@ Made tables/mart__job_region_costs/: mart__job_region_costs.ipynb and lineage/, 
 admin/templates/saved_table.py.
 Wrote references/mart__job_region_costs.py: project.reference_from_logic writes it.
 
-Its Table reference, filled in, says how the table is stored. Each line is explained below:
+Done when `project.new_table` says it made tables/mart__job_region_costs/. Then step 3.
+
+### 3. Fill in how it is stored
+
+Goal: a Table reference that says how the table is stored. Fill it in as below; steps 5 to 8
+explain its lines on storage:
 
 The file `references/mart__job_region_costs.py`, after you fill it in:
 
@@ -69,6 +87,14 @@ The file `references/mart__job_region_costs.py`, after you fill it in:
         properties={"made_by": "mart__job_region_costs.ipynb"},
     )
 
+Done when references/mart__job_region_costs.py holds the file above. Then step 4.
+
+### 4. Refresh the Database module and import the tables
+
+Goal: the new table, by its name. `project.refresh_reference_sheet()` writes the Database
+module references/mart.py again from the Table references, so `from references import mart`
+gives the new table:
+
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 54 rows, 13 tables.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns,
@@ -78,12 +104,14 @@ Restart the kernel of a notebook that imported references, to see a table added 
 >>> from references import mart, ops
 >>> job_region_costs, region_costs = mart.job_region_costs, ops.region_costs  # -> Table, Table
 
-### Give it a folder of its own
+Done when references/mart.py lists mart.job_region_costs. Then step 5.
 
-Every Saved table is an external table: its files are yours, in a folder you name. You give
-`location=` the table's own folder, and the Toolbox writes it exactly as you give it, adding
-nothing. A folder named after the database and the table, such as
-/data/your_team/mart.db/job_region_costs, keeps each table's folder apart.
+### 5. Give it a folder of its own
+
+Goal: files no other table reads. Every Saved table is an external table: its files are yours,
+in a folder you name. You give `location=` the table's own folder, and the Toolbox writes it
+exactly as you give it, adding nothing. A folder named after the database and the table, such
+as /data/your_team/mart.db/job_region_costs, keeps each table's folder apart.
 
 A folder of its own matters because the warehouse reads every file in a table's folder. Two
 tables in one folder read each other's rows, and an INSERT OVERWRITE of a Partition in one can
@@ -96,20 +124,25 @@ it as it is, and Hive fills it in from a `SET hivevar:root=/data/your_team` sent
 `hive_settings(..., sets=...)` as [Keep reads and joins fast](#keep_reads_and_joins_fast)
 sends its settings.
 
-### Say what dropping it does
+Done when `location=` names a folder no other Saved table uses. Then step 6.
 
-`purge=True` makes dropping the table delete its files too. Left out, or `purge=False`, the
-warehouse only forgets the table: its files stay in its folder, and a table created there
-again gets the old rows back once `repair_partitions` lists their Partitions. Keep `purge=True`
-for a table you rebuild from its sources; leave it out for one whose files you would want
-back.
+### 6. Say what dropping it does
 
-### Choose its file format
+Goal: a drop that does what you want with the files. `purge=True` makes dropping the table
+delete its files too. Left out, or `purge=False`, the warehouse only forgets the table: its
+files stay in its folder, and a table created there again gets the old rows back once
+`repair_partitions` lists their Partitions. Write `purge=True` for a table you rebuild from its
+sources; leave it out for one whose files you would want back.
 
-`stored_as=` is the file format: `"ORC"`, the usual one and what you get when you leave it
-out, which Hive reads fastest, or `"PARQUET"`, which more tools outside Hive read.
-`compression=` is how its files are packed: ORC's `"ZLIB"` makes smaller files, `"SNAPPY"`
-faster ones. `properties=` takes any other table property. `create_table` writes them all:
+Done when the Table reference says `purge=True`, or leaves it out on purpose. Then step 7.
+
+### 7. Choose its file format
+
+Goal: files Hive reads fast. `stored_as=` is the file format: `"ORC"`, the usual one and what
+you get when you leave it out, which Hive reads fastest, or `"PARQUET"`, which more tools
+outside Hive read. `compression=` is how its files are packed: ORC's `"ZLIB"` makes smaller
+files, `"SNAPPY"` faster ones. `properties=` takes any other table property. `create_table`
+writes them all:
 
 >>> text = show_hive(create_table(job_region_costs, may_exist=True))  # -> str
 CREATE EXTERNAL TABLE IF NOT EXISTS mart.job_region_costs (
@@ -129,18 +162,27 @@ TBLPROPERTIES (
   'made_by'='mart__job_region_costs.ipynb'
 );
 
-### Choose its Partitions
+Done when the Hive shows STORED AS ORC and the TBLPROPERTIES you gave. Then step 8.
 
-`partitioned_by=["region", "dt"]` keeps each region's rows in a folder of their own, and each
-of its days in a folder inside that, as ops.region_costs does. A Statement that filters region
-reads only that region's folders, and one that filters dt too reads fewer still. A table's
-Partitions are whichever columns its reads filter most: a region, a day, a load, or none at
-all, as the Example project's mart.job_notes has none.
+### 8. Choose its Partitions
 
-A write fills each Partition from its rows' own values, so its SELECT names every partition
-column, anywhere: the Toolbox puts them last, in the order `partitioned_by=` gives, where Hive
-reads them from. Here ops.region_costs writes its days like 20260924, and mart.job_region_costs
-keeps them that way, since the Toolbox writes each value exactly as it is given:
+Goal: reads that open only the folders they need. A Partition is the rows that share one value
+of each column a table is partitioned by. `partitioned_by=["region", "dt"]` keeps each
+region's rows in a folder of their own, and each of its days in a folder inside that, as
+ops.region_costs does. A Statement that filters region reads only that region's folders, and
+one that filters dt too reads fewer still. A table's Partitions are whichever columns its reads
+filter most: a region, a day, a load, or none at all, as the Example project's mart.job_notes
+has none.
+
+Done when `partitioned_by=` lists the columns your reads filter most. Then step 9.
+
+### 9. Write each Partition from its rows
+
+Goal: a write that fills each Partition from its rows' own values. Its SELECT names every
+partition column, anywhere: the Toolbox puts them last, in the order `partitioned_by=` gives,
+where Hive reads them from. Here ops.region_costs writes its days like 20260924, and
+mart.job_region_costs keeps them that way, since the Toolbox writes each value exactly as it
+is given:
 
 >>> def write_days(first_day: str, last_day: str) -> Statement:
 ...     return statement(
@@ -171,9 +213,16 @@ GROUP BY
 
 The columns in PARTITION(...) have no value: the warehouse takes each row's region and dt
 from the SELECT's last columns. Doing so is Hive's dynamic partitioning, which a Session
-setting switches on, so `show_hive` prints its two SET lines first. `run_execute` sends the
-write alone: send the Session setting first, with `hive_settings`, before the first such write.
-The warehouse keeps it for as long as your execute's connection lasts, and sending it again does
+setting switches on, so `show_hive` prints its two SET lines first. A Session setting is a
+Hive SET sent before a Statement, which holds for the rest of the session.
+
+Done when the Hive ends with region and dt as the SELECT's last columns. Then step 10.
+
+### 10. Send the Session setting first
+
+Goal: dynamic partitioning switched on before the write. `run_execute` sends the write alone:
+send the Session setting first, with `hive_settings`, before the first such write. The
+warehouse keeps it for as long as your execute's connection lasts, and sending it again does
 no harm. `project.run_tables()` sends it for you. Here it goes to the Example database's
 execute, which prints each SET line:
 
@@ -185,9 +234,13 @@ INSERT OVERWRITE replaces only the Partitions its rows hold: a region and day wi
 keeps whatever it held before. So if a region drops out of the table you read, its old rows
 stay in the Saved table until you drop them with the admin module's drop_partitions.
 
-A write can name some Partitions itself instead, with `partition={...}`: here the eu region,
-whose rows then leave region out of SELECT. The columns it names come first in
-`partitioned_by=`, and the rest are filled from the rows:
+Done when execute shows both SET lines. Then step 11.
+
+### 11. Name some Partitions in the write itself
+
+Goal: a write into chosen Partitions only. A write can name some Partitions itself instead,
+with `partition={...}`: here the eu region, whose rows then leave region out of SELECT. The
+columns it names come first in `partitioned_by=`, and the rest are filled from the rows:
 
 >>> text = show_hive(statement(
 ...     INSERT_OVERWRITE(job_region_costs, partition={"region": "eu"}),
@@ -213,19 +266,30 @@ GROUP BY
   region_costs.job_id,
   region_costs.dt;
 
-### Add Buckets only to a big table
+Done when the Hive's PARTITION(...) reads region = 'eu', dt. Then step 12.
 
-`bucketed_by=` with `buckets=` spreads each Partition's rows into that many files by the values
-of some columns, and `sorted_by=` sorts the rows in each. A join on those columns can then pair
-file with file instead of reading everything. It pays off only on big tables, tens of millions
-of rows a Partition, joined on those columns; and changing it means writing the whole table
-again. Most Saved tables need none. Say mart.event_facts, every event with its minutes, is
-such a table, joined on job_id every run:
+### 12. Make a big table's Table folder
+
+Goal: a table big enough for Buckets. A Bucket is one of a fixed number of files a table's
+rows are spread into by hashing some of its columns. `bucketed_by=` with `buckets=` spreads
+each Partition's rows into that many files by the values of those columns, and `sorted_by=`
+sorts the rows in each. A join on those columns can then pair file with file instead of
+reading everything. It pays off only on big tables, tens of millions of rows a Partition,
+joined on those columns; and changing it means writing the whole table again. Most Saved
+tables need none: add Buckets only to a big table. Say mart.event_facts, every event with its
+minutes, is such a table, joined on job_id every run:
 
 >>> project.new_table("mart.event_facts")
 Made tables/mart__event_facts/: mart__event_facts.ipynb and lineage/, from
 admin/templates/saved_table.py.
 Wrote references/mart__event_facts.py: project.reference_from_logic writes it.
+
+Done when `project.new_table` says it made tables/mart__event_facts/. Then step 13.
+
+### 13. Add its Buckets
+
+Goal: a big table kept in Buckets on the column it is joined on. Fill in its Table reference
+with `bucketed_by=`, `buckets=` and `sorted_by=`:
 
 The file `references/mart__event_facts.py`, after you fill it in:
 
@@ -261,6 +325,9 @@ CLUSTERED BY (job_id) SORTED BY (job_id) INTO 16 BUCKETS
 STORED AS ORC
 LOCATION '/data/your_team/mart.db/event_facts'
 
+Done when the Hive shows `CLUSTERED BY (job_id) SORTED BY (job_id) INTO 16 BUCKETS`. Then
+check it worked, below.
+
 ### Why there are no indexes
 
 Hive removed indexes in its version 3, so the Toolbox writes none. What makes a read fast
@@ -273,8 +340,9 @@ instead:
   so the warehouse skips the parts of a file a condition rules out, and a few large files
   open faster than many small ones.
 - Buckets, for big tables joined on the same columns, as above.
-- Statistics: once the warehouse has counted a table's rows and values, it picks how to join
-  it, such as sending a small table to every machine instead of sorting both.
+- Statistics, what the warehouse has counted about a table: once it has counted a table's rows
+  and values, it picks how to join it, such as sending a small table to every machine instead
+  of sorting both.
 
 [Keep reads and joins fast](#keep_reads_and_joins_fast) shows the last three at work.
 
@@ -329,6 +397,13 @@ Everything else matches. The warehouse writes a folder in full, with `hdfs://nam
 before it, and the Toolbox compares the folder alone. [Move a Saved table to its own
 folder](#move_a_saved_table_to_its_own_folder) moves a table that shares a folder.
 
+Before you go on, check that:
+
+- `costs_on_the_day` gives job 1's cost in eu and job 2's still to come, as above;
+- `show_hive(create_table(...))` shows the LOCATION, PARTITIONED BY and TBLPROPERTIES your
+  Table reference gives;
+- at work, `check_table_reference` names no problem once the table is made.
+
 ## Common mistakes
 
 ### Giving two Saved tables one folder
@@ -368,6 +443,8 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  INSERT_OVERWRITE(job_region_costs): it leaves out region.
 ...
 
+List region in SELECT, as `write_days` does.
+
 ### Naming a later Partition but not an earlier one
 
 Hive takes the partition columns in order: the ones a write names first, then the ones it
@@ -396,6 +473,9 @@ Traceback (most recent call last):
 ValueError:
   What happened:  Table('ops.other_costs') has purge= but no location=.
 ...
+
+Give storage only in the Table reference of one of your own Saved tables, beside its
+`location=`.
 
 ## Next
 

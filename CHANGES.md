@@ -31,6 +31,20 @@ those people found unsaid.
 
 ### What's new
 
+- **Every doc written as steps you can check.** The README, the how-tos, the Copilot files,
+  the Formula workbook's Steps sheet and the text cells of each Workflow and Table notebook
+  now follow one shape (`docs/agents/instruction-rules.md`, from Microsoft's rules for
+  Copilot instructions): the words they use defined first, each step's goal, what to do and
+  how you know it is done, explicit if/then rules where you choose, and a closing check.
+- **The Excel path loads files 15, 11 and 12, and Copilot answers with Hive alone.** A new
+  Copilot file, 15, holds the steps of turning a Formula workbook into Hive: which Tables and
+  queries become which queries, and the reply's shape; files 11 and 12 are now what each
+  formula and Power Query step becomes. Copilot no longer writes Toolbox code for a workbook:
+  the convert Workflow writes it from the Hive, checked. Files 03, 04 and 05 are no longer
+  loaded with them.
+- **Hive pasted any way converts the same.** `project.convert` keeps Hive passed as text from
+  its first line to its last, ending on one line break, so Hive pasted after `HIVE = """` and
+  a line break gives the same batch, its line numbers yours.
 - **Each table's Hive in a file beside its notebook.** `export_hive()`, in a new cell of each
   Table notebook beside its lineage cell, writes `<db>__<table>.hql` beside the notebook: the
   Hive its logic sends, `create()`, any `seed()`, the table's Session settings, then `write()`,

@@ -1,53 +1,89 @@
 # Copilot file 09: fixing a refusal (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: fix code the Toolbox refused, keeping what the user asked for.
 Load this file when the user pastes code and a message from the Toolbox, such as a
 GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with the fixed code in one
-Python code block, then a sentence on what changed and why.
+## Terms
+
+- **Refusal**: the Toolbox's message stopping code that would give a wrong answer or read
+  too much; a **Warning**, such as RepeatedRowsWarning, lets it run but says why a number
+  may be wrong. Each has four parts: What happened, Why it matters, Usual fix, Opt-out.
+- **Opt-out**: a keyword, such as `many_matches=True`, saying the user checked what it
+  refuses. Use one only when the user says so, never to make an error go away.
+- **Condition**: a test on rows, such as `equals(...)`. **Partition**: the rows sharing one
+  value of each partition column. **Key**: the columns whose values name one row.
+- **Saved table**: a table of the user's that a write fills. **Derived table**: a Statement
+  named with `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
-## Reading a refusal
+## Names for this objective, with their arguments
 
-Every refusal has four parts: What happened, Why it matters, Usual fix, Opt-out. Follow the
-Usual fix. The Opt-out is a keyword that tells the Toolbox the user has checked what it
-refuses; use it only when the user says so, and never to make an error go away.
+- equals(column, value)
+- not_equals(column, value)
+- more_than(column, value)
+- less_than(column, value)
+- between(column, low, high)
+- last_n_days(column, n)
+- is_in(column, values)
+- is_null(column)
+- is_not_null(column)
+- all_of(*conditions)
+- any_of(*conditions)
+- AS(expression, name)
+- count_rows(where=None, over=None)
+- LIMIT(n)
+- LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
+- CROSS_JOIN(table, reads_all_partitions=False)
+- derived(name, statement)
 
-## Common refusals, by what happened, and the fix
+## Steps
+
+1. **Read the refusal**: find its What happened in the Decision rules. Then step 2.
+2. **Write the fix** the rule gives, its Usual fix, keeping the user's columns, tables and
+   days. Then step 3.
+3. **Read the code again** against the Always list; fix each other refusal it would meet.
+   Done when it passes each item. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
+
+## Decision rules
+
+If the refusal says what a line below quotes, write the fix after the colon.
 
 - "A column was used with Python's ==." (or <, >, and, or): write the Condition with a
   function: `equals(t.status, "FAILED")`, `more_than(...)`, `all_of(...)`, `any_of(...)`.
@@ -82,27 +118,11 @@ refuses; use it only when the user says so, and never to make an error go away.
 - "run_query was given send=, which Toolbox 7.0 replaced.": `run_query(s, query)` for a read,
   `run_execute(s, execute)` for a write.
 
-## Names for this objective, with their arguments
+## Output
 
-- equals(column, value)
-- not_equals(column, value)
-- more_than(column, value)
-- less_than(column, value)
-- between(column, low, high)
-- last_n_days(column, n)
-- is_in(column, values)
-- is_null(column)
-- is_not_null(column)
-- all_of(*conditions)
-- any_of(*conditions)
-- AS(expression, name)
-- count_rows(where=None, over=None)
-- LIMIT(n)
-- LEFT_JOIN(table, ON=None, keeps_only_matches=False, many_matches=False, reads_all_partitions=False, broadcast=False)
-- CROSS_JOIN(table, reads_all_partitions=False)
-- derived(name, statement)
+The fixed code in one Python code block, then a sentence on what changed and why.
 
-## Worked example
+## Example
 
 Refused with "A column was used with Python's ==." and, once fixed, the partition bound:
 
@@ -117,14 +137,9 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do fix every refusal the code would meet, not just the one shown: read the code again
-  against the Always list.
-- Do keep the user's columns, tables and days.
-- Don't reach for an opt-out to silence a refusal; ask the user first.
-
-## Before you answer
-
-- The fixed code passes each item of the Always list.
-- What changed, and why, is said in a sentence.
+- The fixed code passes each item of the Always list, and keeps the user's columns, tables
+  and days.
+- An opt-out appears only where the user asked for it; else the answer asks the user.
+- A sentence says what changed, and why.

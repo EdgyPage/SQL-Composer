@@ -6,23 +6,30 @@ For: Intermediate
 
 Check a table's data before you trust a number built on it, with Statements you keep and run
 again: Keys that repeat, NULLs in each column, the rows in each Partition, and two tables that
-should agree. Then run them all at once and gather what they find in one pandas DataFrame, and
-see where the Project keeps such checks: a Table notebook made from the quality_checks
-Template.
+should agree. A Statement is one query, built with the Toolbox; a Partition is a slice of a
+table, the rows that share one value of each column it is partitioned by. Then run every check
+at once and gather what they find in one pandas DataFrame, and see where the Project keeps such
+checks: a Table notebook, the notebook that creates and writes one Saved table, made from the
+quality_checks Template, the empty shape of such a notebook.
 
 ## When you'd use it
 
-Before you build on a table that is new to you, after a load that looked odd, or every morning
-before the Project's Saved tables are written. A check that is a Statement runs on the
-warehouse, so it reads every row of the Partitions you give it, and your notebook gets back
-only the few rows that matter.
-
-It needs the Getting started how-tos [Count, join and stay safe](#count_join_and_stay_safe)
-and [Save a table](#save_a_table).
+- If a table is new to you, check it before you build on it.
+- If a load looked odd, check the Partitions it wrote.
+- If the Project's Saved tables are written every morning, check their sources first, from a
+  Table notebook of checks (step 11).
+- If you want the warehouse to do the reading, write each check as a Statement: it reads every
+  row of the Partitions you give it, and your notebook gets back only the few rows that matter.
+- If you haven't done the Getting started how-tos
+  [Count, join and stay safe](#count_join_and_stay_safe) and [Save a table](#save_a_table), do
+  them first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
+
+Goal: a Project to work in, its Table references and Table notebooks written. A Project is your
+folder of scripts at work, in the Toolbox's fixed layout.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -36,8 +43,14 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, pandas, the `project` module, the Project's `ops` Database and your
-query. This how-to reads three of its tables, each holding 14 days, 2026-09-11 to 2026-09-24:
+Done when the folder you work in holds `references/`, `tables/` and `warehouse.py`. Then
+step 2.
+
+### 2. Import the Toolbox and the tables
+
+Goal: the three tables the checks read. Import the Toolbox, pandas, the `project` module, the
+Project's `ops` Database, the named group of tables whose names start `ops.`, and your query.
+This how-to reads three of its tables, each holding 14 days, 2026-09-11 to 2026-09-24:
 `ops.job_owners`, which says each day who owns each job; `ops.job_events`, each run's start,
 finish, retry or fail; and `ops.region_costs`, what each job cost per region and day, in
 cents, which writes its days like 20260911, not 2026-09-11, so its days are written that way
@@ -52,11 +65,14 @@ below.
 >>> job_events = ops.job_events  # -> Table
 >>> region_costs = ops.region_costs  # -> Table
 
-### Find Keys that repeat
+Done when the imports run without an error. Then step 3.
 
-A Table reference's Key lists the columns that pick out one row of the table. For
-`ops.job_owners` it is `job_owners.job_id` and `job_owners.dt`: one row per job per day. The
-warehouse never enforces a Key, and JOIN relies on it to warn you about repeated rows, so
+### 3. Find Keys that repeat
+
+Goal: a check that gives back each Key that names more than one row. A Table reference, the
+file that describes one table, lists its Key: the columns that pick out one row of the table.
+For `ops.job_owners` it is `job_owners.job_id` and `job_owners.dt`: one row per job per day.
+The warehouse never enforces a Key, and JOIN relies on it to warn you about repeated rows, so
 check it holds.
 
 Write a check so that each row it gives back is a problem. Here, group the rows by the Key and
@@ -74,17 +90,25 @@ Empty DataFrame
 Columns: [job_id, dt, copies]
 Index: []
 
-No rows: no Key repeats on any of the 14 days. The Toolbox's own
-[`check_key`](examples.html#check_key) does the same for the rows its `where=` picks, and
-says so in a sentence:
+No rows: no Key repeats on any of the 14 days.
+
+Done when the result is empty. Then step 4.
+
+### 4. Check the Key in a sentence
+
+Goal: the same check, said in words. The Toolbox's own [`check_key`](examples.html#check_key)
+does the same for the rows its `where=` picks, and says so in a sentence:
 
 >>> check_key(job_owners, query=query,  # -> Verdict
 ...           where=between(job_owners.dt, "2026-09-11", "2026-09-24"))
 ops.job_owners: the key (job_id, dt) holds where job_owners.dt BETWEEN '2026-09-11' AND
     '2026-09-24'.
 
-### Count the NULLs in every column
+Done when it says the key (job_id, dt) holds. Then step 5.
 
+### 5. Count the NULLs in every column
+
+Goal: a NULL count for each column of any table.
 [`all_columns`](examples.html#all_columns) gives every column of a Table reference, in a list,
 so one short function writes a NULL count for each column of any table. A column's text is the
 Hive that names it, such as `job_owners.owner`, and the part after the dot is its own name,
@@ -125,10 +149,13 @@ function counts the NULLs in `ops.region_costs`, here its eu Partitions:
    total_rows  null_job_id  null_cost_cents  null_region  null_dt
 0          24            0                1            0        0
 
-### Count the rows in each Partition
+Done when each table's result holds `"total_rows"` and one `"null_"` count per column. Then
+step 6.
 
-A Partition holding far fewer rows than the others often means a load that broke halfway.
-Count the rows per day with `GROUP_BY`:
+### 6. Count the rows in each Partition
+
+Goal: a row count per day, to spot a short load. A Partition holding far fewer rows than the
+others often means a load that broke halfway. Count the rows per day with `GROUP_BY`:
 
 >>> events_per_day = statement(  # -> Statement
 ...     SELECT(job_events.dt, AS(count_rows(), "events")),
@@ -156,10 +183,13 @@ Count the rows per day with `GROUP_BY`:
 The weekends, 2026-09-12 and 13 and 2026-09-19 and 20, hold 2 events each: only
 nightly_load runs then.
 
-### Check that two tables agree
+Done when the result holds one row for each of the 14 days. Then step 7.
 
-Every run that starts should get a bill. `ops.job_events` says how many runs started each day,
-and `ops.region_costs` how many bills came in. Count each, per day, with one Statement each:
+### 7. Count what two tables should agree on
+
+Goal: the two counts that should match, per day. Every run that starts should get a bill.
+`ops.job_events` says how many runs started each day, and `ops.region_costs` how many bills
+came in. Count each, per day, with one Statement each:
 
 >>> starts_per_day = statement(  # -> Statement
 ...     SELECT(job_events.dt,
@@ -176,8 +206,13 @@ and `ops.region_costs` how many bills came in. Count each, per day, with one Sta
 ...     GROUP_BY(region_costs.dt),
 ... )
 
-The two tables write their days differently, so compare the two small results in pandas:
-write `region_costs`'s days like `job_events`'s, then put the two side by side with
+Done when both Statements build without an error. Then step 8.
+
+### 8. Compare the two counts
+
+Goal: each day the two tables disagree. The two tables write their days differently, so
+compare the two small results in pandas: write `region_costs`'s days like `job_events`'s, then
+put the two side by side with
 `starts.merge`. `how="outer"` keeps a day that only one of them has, with NaN, pandas' empty
 value, for the other count, so that day shows up as a difference too:
 
@@ -192,10 +227,12 @@ value, for the other count, so that day shows up as a difference too:
 On 2026-09-24 two runs started but only one was billed: invoice_sync is still running, and
 its bill comes in when it finishes.
 
-### Run every check and gather what they find
+Done when the comparison shows 2026-09-24 alone. Then step 9.
 
-Two more checks, each giving the rows that are problems: jobs with no owner on the newest day,
-and costs not billed yet:
+### 9. Write two more checks
+
+Goal: two more checks, each giving the rows that are problems: jobs with no owner on the
+newest day, and costs not billed yet:
 
 >>> no_owner = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, job_owners.dt),
@@ -209,8 +246,13 @@ and costs not billed yet:
 ...           is_null(region_costs.cost_cents)),
 ... )
 
-Keep the checks in a dict, by name, and run each in a loop. Add the days on which the two
-tables disagree, already in pandas, then count each check's problem rows:
+Done when both Statements build without an error. Then step 10.
+
+### 10. Run every check and gather what they find
+
+Goal: one DataFrame of every check's problem rows. Keep the checks in a dict, by name, and run
+each in a loop. Add the days on which the two tables disagree, already in pandas, then count
+each check's problem rows:
 
 >>> checks = {"repeated_keys": repeated_keys, "no_owner": no_owner,
 ...           "not_billed": not_billed}
@@ -232,9 +274,12 @@ A check with 0 problem rows passed. For the others, `found` holds the rows to lo
    job_id region        dt
 0       2     eu  20260924
 
-### Keep a table's checks in its own Table notebook
+Done when `summary` lists the four checks with their problem rows. Then step 11.
 
-The Project keeps the checks it runs every day in a Table notebook made from the
+### 11. Keep a table's checks in its own Table notebook
+
+Goal: checks the Project runs every day, kept in one place. The Project keeps them in a Table
+notebook made from the
 quality_checks Template: `project.new_table("mart.job_events_checks",
 template="quality_checks")` made tables/mart__job_events_checks/mart__job_events_checks.ipynb.
 Its logic cell names the rows it checks once, as READS, the newest day of `ops.job_events`,
@@ -257,6 +302,9 @@ Index: []
 A check is of the rows in on the day it runs, so the notebook checks only the day its READS
 names: a check written again later would hide what was missing then.
 
+Done when `checks_logic.repeated_keys()` gives no rows and every `null_counts()` count is 0.
+Then check it worked, below.
+
 ## Check it worked
 
 Each check you expect to pass gives no rows, and each one that finds something names the rows
@@ -269,12 +317,19 @@ you can explain: `no_owner` names cache_warm, job 4, which has never had an owne
 >>> len(found["repeated_keys"])
 0
 
+Before you go on, check that:
+
+- `repeated_keys` gives no rows;
+- `found["no_owner"]` names job 4 alone, and `found["not_billed"]` job 2 on 20260924 alone;
+- each other row a check finds is one you can explain.
+
 ## Common mistakes
 
 ### Looking for NULLs with equals
 
 In SQL nothing equals NULL, not even NULL, so a condition owner = NULL matches no row, and
-the count comes out 0 however many owners are missing. The Toolbox refuses it as you build it:
+the count comes out 0 however many owners are missing. The Toolbox refuses it as you build it,
+with a Guard, a check that refuses a Statement that would give a wrong result:
 
 >>> count_rows(where=equals(job_owners.owner, None))
 Traceback (most recent call last):
@@ -283,12 +338,12 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_owners.owner, None) compares with None.
 ...
 
-Use `is_null(column)`, as `null_counts` does, or `is_not_null(column)`.
+Write `is_null(column)`, as `null_counts` does, or `is_not_null(column)`.
 
 ### Expecting a day with no rows to show 0
 
-`GROUP_BY` makes one row per value it finds, so a day with no rows at all isn't in the result:
-it doesn't show with 0. invoice_sync, job 2, runs on weekdays only, and its count per day
+`GROUP_BY` makes one row per value it finds, so a day with no rows at all is left out of the
+result, not shown with 0. invoice_sync, job 2, runs on weekdays only, and its count per day
 skips the weekends without a word:
 
 >>> invoice_sync_per_day = statement(  # -> Statement
@@ -314,7 +369,8 @@ Here the four are weekends, as expected. A missing weekday would be a load to lo
 ### A check that reads every Partition
 
 A check of a partitioned table must filter one of its partition columns, as any read must. A
-NULL count over all of `ops.region_costs` is refused, naming its partition columns:
+NULL count over all of `ops.region_costs` is refused by a Load limit, a check that protects
+the cluster, naming its partition columns:
 
 >>> statement(SELECT(AS(count_rows(where=is_null(region_costs.cost_cents)), "nulls")),
 ...           FROM(region_costs))

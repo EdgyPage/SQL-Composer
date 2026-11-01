@@ -140,6 +140,8 @@ process of its own.
   found by 06
 - [17 Each SQL mapping a Conversion makes, tested](issues/17-each-sql-mapping-tested.md), for
   the goal's tests
+- [18 Every doc to Microsoft's instruction rules, then every Workflow tested
+  again](issues/18-docs-to-microsofts-instruction-rules.md), the user's ask
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

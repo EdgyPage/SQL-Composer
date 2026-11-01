@@ -1,44 +1,53 @@
 # Copilot file 06: saving a table (sqlglot Composer 8.2)
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
 it, add to it, or write the logic cell of a Table notebook.
 
-You write Python for sqlglot Composer 8.2, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Saved table**: a table of the user's that a Statement (`statement(...)`) writes; its
+  Table reference (file 02) lists its columns, Partitions, Key and location.
+- **Partition**: the rows sharing one value of each partition column. **Key**: the columns
+  whose values name one row.
+- **Table notebook**: tables/<db>__<table>/<db>__<table>.ipynb; its **logic cell**, first
+  line `# logic`, holds only imports, constants and functions, and runs no Hive.
+- **Session setting**: a Hive SET a write may need first, from `hive_settings(...)`.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -58,46 +67,54 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - run_execute(s, execute=None)
 - show_hive(*statements)
 
+## The Table notebook
+
+- `project.new_table("mart.job_day_events")`, in admin/workflows/new_table/new_table.ipynb
+  (file 14), makes it and a stand-in Table reference, which `project.reference_from_logic`
+  writes once the logic runs; the user answers its location in the decisions cell.
+- Its logic cell has the Example's shape: `PARTITIONED_BY` is `[]` for none; `preview()`
+  gives the rows to read before writing. Hints name `Clause` and `Statement`.
+- `project.run_tables(execute=execute)`, in admin/run_tables.ipynb, sends the writes, each
+  Saved table after the tables it reads, its Session settings first.
+- Its `export_hive()` cell, after the lineage cell, run once the notebook is saved, writes
+  <db>__<table>.hql beside it. Edit the logic, never the file, save, and run it again.
+- `project.load("mart.job_day_events")`, elsewhere, gives the logic cell's functions, such
+  as `write()`; it refuses a logic cell calling run_query or run_execute.
+
 ## Steps
 
-1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 14),
-   `project.new_table("mart.job_day_events")` makes the Table notebook,
-   tables/mart__job_day_events/mart__job_day_events.ipynb, and a stand-in Table reference;
-   once the logic runs, `project.reference_from_logic` writes the reference from it, and the
-   user answers its location in the Workflow's decisions cell.
-2. The notebook's logic cell starts with the line `# logic` and holds only imports,
-   constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
-   - `READS`, the Condition that picks the rows it reads, such as a day;
-   - `PARTITIONED_BY`, the table's partition columns, last in SELECT: `[]` for none;
-   - `create()` returns `create_table(job_day_events, may_exist=True)`;
-   - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
-     GROUP_BY;
-   - `preview()` returns `statement(*rows())`, to read before writing;
-   - `write()` returns `statement(INSERT_OVERWRITE(job_day_events), *rows())`.
-   `Clause` and `Statement` are the names the hints use.
-3. The write's SELECT gives exactly the Saved table's columns, by name, in its order, the
-   partition column last. Name a calculation after its column: `AS(count_rows(), "events")`.
-4. INSERT_OVERWRITE replaces each Partition the rows hold; INSERT_INTO adds the rows to
-   what is there. `INSERT_OVERWRITE(t, partition={"dt": day})` writes one named Partition,
-   its column left out of SELECT.
-5. A Saved table with a Key takes rows one per Key: GROUP_BY over the Key, SELECT_DISTINCT,
-   or a row_number kept at 1 (file 05). Otherwise the write is refused.
-6. The next cell looks: `show_hive([create(), write()])` shows the Hive, with any Session
-   setting a write needs, and `run_query(preview(), query)` reads the rows. The writes are
-   sent by `project.run_tables(execute=execute)`, in admin/run_tables.ipynb: each Saved table
-   after the tables it reads, its Session settings first.
-7. To keep the Hive in a file: save the notebook, then run its `export_hive()` cell, after
-   the lineage cell. It writes <db>__<table>.hql beside the notebook, here
-   mart__job_day_events.hql. Never edit it: edit the logic, save, run the cell again.
-8. To send one table by hand: `run_execute(create(), execute)` once, then
-   `run_execute(hive_settings("dynamic_partitions"), execute)`, as a write whose rows fill
-   their Partitions needs, then `run_execute(write(), execute)`.
-9. From another notebook, `project.load("mart.job_day_events")` gives that cell's functions,
-   such as its `write()`.
+1. **Write the logic cell**, in the Example's shape, naming each calculation after its
+   column: `AS(count_rows(), "events")`. Done when write()'s SELECT gives exactly the
+   table's columns, by name, in order, the partition column last. Then step 2.
+2. **Pick the write** and the Key's proof by the Decision rules. Done when write() starts
+   with its write clause. Then step 3.
+3. **Write the next cell**, by the Decision rules. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
 
-The logic cell of mart.job_day_events, each job's events of a day:
+- If each Partition the rows hold, such as a day, is replaced: INSERT_OVERWRITE.
+- If the rows are added to what is there: INSERT_INTO; a rerun adds them twice.
+- If one named Partition is written: `INSERT_OVERWRITE(t, partition={"dt": day})`, its
+  column left out of SELECT.
+- If the table has a Key: one row per Key, by GROUP_BY over it, SELECT_DISTINCT or a
+  row_number kept at 1 (file 05), or the write is refused. `unproven_key=True` only if the
+  user says why the rows are one per Key.
+- If the user sends one table by hand: `run_execute(create(), execute)` once, then
+  `run_execute(hive_settings("dynamic_partitions"), execute)`, which a write filling its
+  rows' Partitions needs, then `run_execute(write(), execute)`.
+- Otherwise: the next cell runs `show_hive([create(), write()])`, the Hive and any Session
+  setting, and `run_query(preview(), query)`, the rows; run_tables sends.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences.
+
+## Example
+
+The logic cell of mart.job_day_events, each job's events of a day. Its Table reference lists
+job_id bigint, events bigint and dt string, partitioned by dt, Key job_id and dt, and a
+location (file 02).
 
 ```python
 # logic
@@ -131,18 +148,8 @@ def write() -> Statement:
     return statement(INSERT_OVERWRITE(job_day_events), *rows())
 ```
 
-Its Table reference, references/mart__job_day_events.py, lists job_id bigint, events bigint and
-dt string, partitioned by dt, with Key job_id and dt, and a location (file 02).
+## Self-check
 
-## Do and don't
-
-- Do put the write clause first: `statement(INSERT_OVERWRITE(t), SELECT(...), ...)`.
-- Don't call run_query or run_execute in the logic cell: `project.load` refuses it.
-- Don't use INSERT_INTO where the user wants a day replaced; it adds rows twice on a rerun.
-- Don't pass `unproven_key=True` unless the user says the rows are one per Key for a reason
-  the Toolbox can't see.
-
-## Before you answer
-
-- The write's columns match the Saved table's, with the Key proved by GROUP_BY or the like.
-- Every partitioned table read is bounded; the write sends with run_execute.
+- write() starts with its write clause; its SELECT gives the table's columns, in order.
+- A Key is proved; a day replaced is INSERT_OVERWRITE; each partitioned read is bounded.
+- The logic cell calls no run_query or run_execute.

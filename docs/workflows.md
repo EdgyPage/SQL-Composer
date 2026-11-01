@@ -1,14 +1,22 @@
 # Workflows
 
 What a Project goes through to reach each end goal, drawn from `sqlglot_composer/workflows.py`
-by `tools/workflow_graph.py`: don't edit this page, run the tool. Each box with round corners is
-something a step needs or makes; each step is drawn by its kind:
+by `tools/workflow_graph.py`. **To change this page, change `workflows.py` and run the tool,
+which writes the page again.**
 
-- a **file step** (green), which touches only files, or only prints, never the
-  Warehouse: a Project action, or show_hive;
-- a **permission** (blue, double-edged), a call to the Warehouse the user makes on purpose;
-- a **decision** (yellow, a diamond), which needs the user's judgement;
-- **fiddling** (red, a flag), a step done by hand though the code knows the answer.
+## Terms
+
+- **Workflow**: an ordered list of steps that takes a Project from its start materials, what
+  the user brings, to one end goal.
+- **Start materials** ("Starts from"): what the first steps need. **End artifacts** ("Ends
+  with"): what the last steps make.
+- A box with round corners is something a step needs or makes.
+- Each step is drawn by its kind:
+  - a **file step** (green), which touches only files, or only prints, never the
+    Warehouse: a Project action, or show_hive;
+  - a **permission** (blue, double-edged), a call to the Warehouse the user makes on purpose;
+  - a **decision** (yellow, a diamond), which needs the user's judgement;
+  - **fiddling** (red, a flag), a step done by hand though the code knows the answer.
 
 Toolbox 8.0 takes each Workflow's fiddling to nothing.
 

@@ -8,8 +8,9 @@ A test fails while a committed file differs from what this writes.
 
 A user loads one Copilot file into Microsoft Copilot's web chat before asking it for Toolbox
 code: one file for each objective, such as building a Statement or converting Hive, and
-`00_start_here.txt`, which says which to load. For an Excel workbook they load five:
-`11_excel_formula_workbooks.txt` and `12_excel_power_query.txt` with 03, 04 and 05. Copilot
+`00_start_here.txt`, which says which to load. For an Excel workbook they load three:
+`15_excel_workbook_steps.txt` with `11_excel_formula_workbooks.txt` and
+`12_excel_power_query.txt`, which write Hive, no Toolbox code. Copilot
 takes at most 8,000 characters at once, so each file must fit, as `copilot/count_characters.py`
 counts them, spaces and line breaks included; this refuses to write one that doesn't.
 
@@ -17,7 +18,7 @@ A source is the file's text, with four kinds of placeholder, each on a line of i
 
 - `{version}`: the Toolbox's name and version, from its version.txt;
 - `{always}`: the block each objective file holds, `tools/copilot_sources/_always.txt`, all
-  but files 11 and 12, which are loaded with 03, 04 and 05 and so have it already, and 13,
+  but files 11, 12 and 15, which write Hive, not Toolbox code, and 13,
   which gives steps and leaves each step's code to its own file;
 - `{names: SELECT, FROM, project.convert, ...}`: a list of those names, each with its
   signature as the Toolbox defines it, so a file never names a function that isn't there or

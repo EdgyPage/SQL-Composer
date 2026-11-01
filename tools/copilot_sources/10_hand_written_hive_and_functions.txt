@@ -1,12 +1,20 @@
 # Copilot file 10: labels, Hive functions, hand-written Hive and upkeep ({version})
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: label rows from a lookup or a chain of conditions, call a Hive function the
 Toolbox doesn't wrap, write a piece of Hive by hand, and keep a Saved table in order.
 Load this file when the user asks for a label column, a Hive function such as upper or
 datediff, Hive no Clause function writes, or dropping, repairing or counting a table.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Label**: a column whose value a lookup or a Condition, a test on rows, picks.
+- **Clause function**: a Toolbox function named for a SQL clause, such as SELECT or WHERE.
+- **Hand-written Hive**: Hive text kept as written, `unchecked_...`: no Guard, which refuses
+  a wrong result, looks inside it. **Lineage**: which columns feed each output column.
+- **Saved table**: a table of the user's; its Table reference lists its columns and
+  Partitions, each the rows sharing one value of a partition column.
 
 {always}
 
@@ -16,32 +24,53 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. Labels, each named with AS:
-   - two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`;
-   - a lookup of one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
-     otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
-     among the dict's keys isn't allowed: fill_null the column first;
-   - a chain, the first condition that holds wins:
-     `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
-     otherwise="someone")`.
-   A long list or lookup goes in a constant at the top: `CITY_BY_REGION = {...}`.
-2. A Hive function the Toolbox doesn't wrap: `hive_function("upper", t.job_name)`,
-   `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
-3. Hive by hand, when nothing above writes it. Each column the text reads is a `{name}`
-   placeholder, with the column passed by that name, so Lineage still sees it:
-   - one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
-   - one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
-   - a Derived table: `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
-   - a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
-   Say in the answer which piece is hand-written: the Toolbox can't look inside it.
-4. Upkeep of a Saved table, each a Statement sent with `run_execute(..., execute)`:
-   `repair_partitions(t)` finds Partitions written outside Hive;
-   `compute_statistics(t, partition={"dt": day})` counts its rows again;
-   `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop;
-   `admin.add_columns(t, query=query)` adds the columns its Table reference gained. Import
-   the module first: `from sqlglot_composer import admin`.
+1. **Pick the call** for each piece the user asks for, by the Decision rules. Then step 2.
+2. **Write the code**, each label with AS. Done when each piece has its call. Then step 3.
+3. **Name each hand-written piece**: the Toolbox can't look inside it. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
+
+- If a label has two values: `if_else(equals(t.status, "FAILED"), "bad", "ok")`.
+- If a label looks up one column: `mapped(t.region, {"LON": "London", "PAR": "Paris"},
+  otherwise="elsewhere")`. Without `otherwise=`, a value not in the dict gives NULL. None
+  among the dict's keys isn't allowed: fill_null the column first.
+- If a label is a chain, the first condition that holds winning, never a nested if_else:
+  `first_match([(is_null(t.owner), "nobody"), (equals(t.team, "web"), "web team")],
+  otherwise="someone")`.
+- If a list or lookup is long: a constant at the top, `CITY_BY_REGION = {...}`.
+- If a Hive function has no Toolbox name: `hive_function("upper", t.job_name)`,
+  `hive_function("datediff", t.dt, "2026-09-01")`, each argument a column or a value.
+- If neither writes it: the smallest Hive by hand, below.
+- If asked for upkeep: the Statements below; a drop only when asked for.
+
+## Hive by hand
+
+Each column the text reads is a `{name}` placeholder, the column passed by that name, so
+Lineage sees it:
+
+- one column: `unchecked_column("{m} DIV 60", m=t.minutes)`;
+- one Condition: `unchecked_condition("{s} RLIKE '^FAIL'", s=t.status)`;
+- a Derived table, read as a table:
+  `unchecked_derived("parts", "SELECT ...", columns={"job_id": "bigint"})`;
+- a whole statement: `unchecked_hive("...")`, sent with run_query or run_execute.
+
+## Upkeep of a Saved table
+
+Each is a Statement sent with `run_execute(..., execute)`, after
+`from sqlglot_composer import admin`.
+
+- `repair_partitions(t)` finds Partitions written outside Hive.
+- `compute_statistics(t, partition={"dt": day})` counts its rows again.
+- `admin.drop_partitions(t, where=equals(t.dt, day))` and `admin.drop_table(t)` drop.
+- `admin.add_columns(t, query=query)` adds the columns its Table reference gained.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences,
+naming each hand-written piece.
+
+## Examples
 
 Each job with the city of its region, and its name in capitals:
 
@@ -75,15 +104,9 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do use mapped for one column's lookup and first_match for a chain; don't nest if_else.
-- Do try hive_function before hand-written Hive.
-- Don't paste a column's name into hand-written text; pass it as a `{name}` placeholder.
-- Don't send a drop without the user asking for it.
-
-## Before you answer
-
-- Each label has AS; a long list or lookup is a constant.
-- Hand-written Hive is the smallest piece that needs it, and the answer names it.
-- Upkeep Statements go to run_execute.
+- Each label has AS; a long list or lookup is a constant; no if_else is nested.
+- Hand-written Hive is the smallest piece that needs it, each column it reads a `{name}`
+  placeholder; the answer names it.
+- Upkeep goes to run_execute; a drop is there only if the user asked for it.

@@ -1,11 +1,21 @@
 # Copilot file 08: checking and comparing ({version})
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: check that a Statement gives what it should, and that the Project is in order.
 Load this file when the user asks whether their Statement matches the Hive it replaces,
 whether a table's Key holds, what is left to do in the Project, or where a column comes from.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Statement**: one Hive query, built with `statement(...)`.
+- **Verdict**: what each check gives back: `print(v)` says what it found, and `if v:` reads
+  true when it holds.
+- **Partition**: the rows sharing one value of each partition column. **Key**: the columns
+  whose values tell each row apart.
+- **Table reference**: the user's file describing one table: its columns, Partitions and Key.
+- **Decision**: what only the user decides, answered in a Workflow's decisions cell.
+- **Lineage**: which table columns feed each output column.
 
 {always}
 
@@ -15,33 +25,47 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. Each check gives back a Verdict: `print(v)` says what it found, and `if v:` reads true
-   when it holds. Assign it to a name, such as `v`.
-2. The Hive it replaces, by its text: `compare_hive(s, original)`, where `original` is the
-   Hive as a string. It sends nothing. Spacing, case, comments, short table names and the
-   like don't count; a different condition does, even one giving the same rows.
-3. The same rows: `compare_with_original(s, original, query=query, partition={"dt": day})`
-   reads both through the user's query, on one Partition, and counts the rows in one and
-   not the other. The original's columns must be the Statement's, same names, same order.
-   `reads_all_partitions=True` in place of `partition=` compares every Partition, when the
-   user asks for that.
-4. A Key: `check_key(t, query=query, where=equals(t.dt, day))` says whether the Key tells
-   each row apart there.
-5. A Table reference against the table as it is now: `check_table_reference(t, query=query)`.
-6. The Project: `project.check()` lists what is left to do, such as a Decision to
-   answer in a Workflow's decisions cell or a Workflow's next step, and notes each
-   `# CONVERSION:` mark, which blocks nothing.
-7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
-   notebook. Hive's plan, without running: `run_query(explain(s), query)`.
-8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.
-9. To keep a Table notebook's Hive in a file: save the notebook, then run its
-   `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
-   notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
-   seed(), its Session settings, then write(), from the notebook as last saved. Never edit
-   it. `export_hive(weekly)` writes one Statement's Hive into weekly.hql, named for its
-   variable: one call per variable, never a loop.
+1. **Pick the check** for what the user asks, by the Decision rules. Then step 2.
+2. **Write the code**: the check, its Verdict assigned to a name, such as `v`, and printed.
+   Done when each check the user asked for is called. Then step 3.
+3. **Say what the Verdict means** when it holds and when it doesn't. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
 
-## Worked example
+## Decision rules
+
+- If asked whether the Statement matches the Hive it replaces by its text:
+  `compare_hive(s, original)`, `original` the Hive as a string. It sends nothing. Spacing,
+  case, comments, short table names and the like don't count; a different condition does,
+  even one giving the same rows.
+- If asked whether it gives the same rows: `compare_with_original(s, original, query=query,
+  partition={"dt": day})` reads both through the user's query, on one Partition, and counts
+  the rows in one and not the other. The original's columns must be the Statement's, same
+  names, same order. If no day is given, ask which day.
+- If asked for every Partition compared: `reads_all_partitions=True` for `partition=`.
+- If asked whether a Key holds: `check_key(t, query=query, where=equals(t.dt, day))` says
+  whether the Key tells each row apart there.
+- If asked whether a Table reference matches the table as it is now:
+  `check_table_reference(t, query=query)`.
+- If asked what is left to do: `project.check()` lists it, such as a Decision to answer or
+  a Workflow's next step, and notes each `# CONVERSION:` mark, which blocks nothing.
+- If asked where columns come from: `export_lineage(write())` writes the Lineage page beside
+  the notebook.
+- If asked for Hive's plan, without running: `run_query(explain(s), query)`.
+- If asked to see the Hive: `print(to_hive(s))`, or `show_hive(s)`.
+- If asked for a Table notebook's Hive in a file: save the notebook, then run its
+  `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
+  notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
+  seed(), its Session settings, then write(), from the notebook as last saved, to read,
+  never to edit.
+- If asked for one Statement's Hive in a file: `export_hive(weekly)` writes weekly.hql,
+  named for its variable: one call per variable, never a loop.
+
+## Output
+
+One Python code block the user can paste into a notebook cell, then a few plain sentences
+on what the Verdict means when it holds and when it doesn't.
+
+## Examples
 
 The team's Hive, compared with the Statement by its rows on one day, then by its text:
 
@@ -74,15 +98,11 @@ v = check_key(region_costs, query=query, where=equals(region_costs.dt, "20260921
 print(v)
 ```
 
-## Do and don't
+## Self-check
 
-- Do pass the original Hive as the user gave it, in a string; don't rewrite it first.
-- Do give `compare_with_original` a `partition=` on a partition column, or ask which day.
-- Do assign the Verdict to a name and print it.
-- Don't compare a Statement with its own `to_hive(s)`: that proves nothing.
-
-## Before you answer
-
-- The check reads through the user's `query`, never `execute`.
-- A partitioned table is bounded with `partition=` or `where=`.
-- The answer says what the Verdict means when it holds and when it doesn't.
+- Each check reads through the user's `query`, never `execute`.
+- Each partitioned table is bounded with `partition=` or `where=`, or the user asked for
+  every Partition.
+- The original Hive is in a string as the user gave it; no Statement is compared with its
+  own `to_hive(s)`, which proves nothing.
+- Each Verdict is assigned to a name and printed, and the answer says what it means.

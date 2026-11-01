@@ -1889,10 +1889,10 @@ def scan_hive(hive: str | None = None, *, file: str | None = None,
     ...     FROM ops.job_runs r
     ...     WHERE r.dt = '2026-09-24' AND r.status IN ('FAILED', 'RETRY', 'SKIPPED', 'TEST')
     ...     GROUP BY r.job_id'''))
-    5 lines of Hive, one query reading ops.job_runs.
+    4 lines of Hive, one query reading ops.job_runs.
     No Table reference yet for ops.job_runs: project.convert(...) adds it through your query.
     Found:
-      line 4: the IN list of 4 values is the constant STATUS_VALUES
+      line 3: the IN list of 4 values is the constant STATUS_VALUES
 
     Give it the Hive as text, pasted between triple quotes in
     admin/workflows/convert/convert.ipynb, or as file=, a .hql or .sql file's path from the
@@ -2712,11 +2712,36 @@ def converted_notebook_text(dev: str, batch: str, made_for: str) -> str:
     else:
         made_by = (f"the batch {batch}, with project.convert(...), from the statements in "
                    f"`{CONVERSION}/{STATEMENT}`, as its script wrote them")
-    return (f"# {dev}\n\nA Saved table made by {made_by}. Its logic cell builds the same query "
-            "from the Toolbox's own functions, with create(), preview() and write(). Answer "
-            f"its open Decisions, which `{CONVERSION}/{CHECKLIST}` lists, in the decisions "
-            f"cell of `{_decisions_notebook(made_for)}`, then run the cells top to bottom. The "
-            "cells comparing it with the original stay until you delete them.")
+    checklist = f"`{CONVERSION}/{CHECKLIST}`"
+    return "\n".join([
+        f"# {dev}", "",
+        f"A Saved table made by {made_by}. Its logic cell builds the same query from the "
+        "Toolbox's own functions, with `create()`, `preview()` and `write()`.", "",
+        "## Terms", "",
+        "- **Saved table**: a table in the warehouse that only your own code writes, its files "
+        "in a folder of its own.",
+        "- **Logic cell**: the code cell whose first line is `# logic`: the table's imports "
+        "and functions alone.",
+        "- **Decision**: one thing about this table that only you decide, such as its location "
+        f"or its Key; {checklist} lists each one still open.",
+        "- **Key**: the columns whose values name exactly one row of the table.",
+        "- **Original**: the table the converted script writes, in the warehouse already, "
+        "which this table copies, or, for a table made from a query, that query. "
+        f"`{CONVERSION}/{IN_DEV}` holds the original's Hive, which the cells comparing it "
+        "read.", "",
+        "## Steps", "",
+        "1. **Answer its Decisions.** Goal: each Decision made. Action: answer each open "
+        f"Decision {checklist} lists in the decisions cell of "
+        f"`{_decisions_notebook(made_for)}`. Done when {checklist} says None under Open "
+        "Decisions, once that Workflow's next step writes your answers in; then step 2.",
+        "2. **Run the cells.** Goal: its rows, its Hive and its lineage, tried. Action: run "
+        "the code cells top to bottom. Done when each runs with no error.", "",
+        "## Decision rules", "",
+        "- If you still want to compare it with the original, keep the cells comparing them.",
+        "- If you don't, delete those cells: they stay until you delete them.", "",
+        "## Self-check", "",
+        f"- {checklist} says None under Open Decisions.",
+        "- Each code cell runs top to bottom with no error."])
 
 
 def compare_ahead(made_for: str) -> str:
@@ -4082,7 +4107,10 @@ def _hive_given(call: str, hive: object, file: object) -> str:
             fix="Paste the Hive between triple quotes: HIVE = \"\"\"SELECT ...\"\"\".",
             given=hive, call=call,
         )
-    return hive
+    # From its first line of Hive: pasted after HIVE = """ and a line break, its first line is
+    # empty, and each line number the batch gives would be one off from the person's. It ends
+    # on one line break, as a file does, however its closing quotes were placed.
+    return re.sub(r"\A(?:[ \t]*\r?\n)+", "", hive).rstrip() + "\n"
 
 
 def _converted_query(call: str, text: str, root: Path,

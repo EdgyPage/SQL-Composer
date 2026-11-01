@@ -6,7 +6,7 @@ Run it on `dev` after changing an example; `python tools/copilot_files.py` runs 
 
 The empty Formula workbook, `copilot/formula_workbook.xlsx`, stays empty, as one to copy. These
 show it filled in, each a copy of it with sample rows from the Example database's tables, and a
-last sheet, Hive, giving the conversion Copilot files 11 and 12 ask for: the map of sources,
+last sheet, Hive, giving the conversion Copilot files 15, 11 and 12 ask for: the map of sources,
 steps and finals, then each final's Hive, with `<database>` to fill in. A person can run that
 Hive on their own warehouse, or on the Example database with `<database>` as ops.
 
@@ -34,7 +34,7 @@ OK_RUNS = ("ok AS (SELECT run_id, job_id, duration_mins FROM ops.job_runs WHERE 
            "'SUCCESS')")
 
 # Each example, by its file's name: the workbook, and its finals' Hive, each table in ops, as
-# the Example database holds it. `maps` is the map file 11 asks a reply to start with.
+# the Example database holds it. `maps` is the map file 15 asks a reply to start with.
 EXAMPLES: dict[str, tuple[ExcelTask, str]] = {
     "01_formulas.xlsx": (ExcelTask(
         "E01", "example", (),
@@ -131,13 +131,13 @@ def shown(sql: str) -> str:
 
 def example_workbook(task: ExcelTask, map_text: str) -> openpyxl.Workbook:
     """An example: the filled-in Formula workbook, its Power Queries if it has any, and the Hive
-    files 11 and 12 turn it into."""
+    files 15, 11 and 12 turn it into."""
     workbook = build(task.workbook)
     if task.workbook.queries:
         _add_code_sheet(workbook, "Power Query", [POWER_QUERY_STEPS],
                         [(f"Query {name}:", m) for name, m in task.workbook.queries])
     hive = _add_code_sheet(workbook, "Hive", [
-        "What Copilot gives with files 11, 12, 03, 04 and 05 loaded: the map, then a query per "
+        "What Copilot gives with files 15, 11 and 12 loaded: the map, then a query per "
         "final. Fill in <database> with your database's name. Delete this sheet, and the Power "
         "Query sheet if there is one, before you try the workbook on Copilot yourself.",
         map_text],

@@ -134,6 +134,22 @@ def test_wrong_rows_fail(task_id: str, wrong: tuple[str, str], fails_on: str,
     assert not result.passed and not getattr(result, fails_on), result
 
 
+def test_a_final_that_types_in_its_sources_rows_fails(hive: sqlite3.Connection) -> None:
+    # The workbook's rows are a sample: Hive that types them in gives the sample's rows here,
+    # and only those on the user's real table, so it reads nothing it should.
+    task = BY_ID["X01"]
+    rows = " UNION ALL ".join(
+        f"SELECT {run_id} AS run_id, {job_id} AS job_id, {mins} AS duration_mins, '{dt}' AS dt"
+        for run_id, job_id, _, mins, _, dt in hive.execute(
+            "SELECT * FROM ops.job_runs ORDER BY run_id"))
+    name = next(iter(task.finals))
+    typed_in = (f"SELECT run_id, job_id, duration_mins, dt, duration_mins / 60 AS "
+                f"duration_hours FROM ({rows}) r")
+    result = scored(task, reference_reply(task, {name: typed_in}), hive)
+    assert not result.passed and not result.reads, result
+    assert "types in the rows of job_runs" in result.note
+
+
 def test_a_guessed_database_or_a_made_up_column_is_invented(hive: sqlite3.Connection) -> None:
     task = BY_ID["X01"]
     guessed = scored(task, reference_reply(task).replace("<database>.<job_runs>",
@@ -203,6 +219,16 @@ def test_a_template_reads_back_as_empty_replies() -> None:
     header, replies = excel_eval.read_answers(excel_eval.template("held_out"))
     assert header["arm"] == "<A0 or C>"
     assert sorted(replies) == sorted(task.id for task in TASKS if task.split == "held_out")
+
+
+def test_a_proxy_message_can_hold_a_few_tasks_as_a_chat_holds_one(
+        capsys: pytest.CaptureFixture[str]) -> None:
+    # A proxy given every workbook at once reads them in pieces and cuts its replies short; a
+    # person sends one workbook to a fresh chat, so a round gives each proxy a few.
+    assert excel_eval.main(["proxy", "C", "--split", "dev", "--tasks", "X01,X02"]) == 0
+    message = capsys.readouterr().out
+    assert "## X01\n" in message and "## X02\n" in message
+    assert "## X03\n" not in message
 
 
 def test_the_manual_rounds_workbooks_are_written(tmp_path: Path) -> None:

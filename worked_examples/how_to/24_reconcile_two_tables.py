@@ -4,28 +4,31 @@ For: Intermediate
 
 ## Goal
 
-Find every row where two tables that should agree don't: `EXCEPT` gives the rows of one
-Statement that another doesn't return, so running it both ways round lists what only the first
-table has, then what only the second has. When both come back empty, the tables agree.
+Find every row where two tables that should agree don't. `EXCEPT` gives the rows of one
+Statement, one query, that another Statement doesn't return, so running it both ways round lists
+what only the first table has, then what only the second has. When both come back empty, the
+tables agree.
 
 ## When you'd use it
 
-When two tables should hold the same rows: a Saved table and the table it was copied from, the
-same table before and after a change to its Statement, or your team's table and another team's
-record of the same thing.
-
-It needs [Build and run a first statement](#build_and_run_a_first_statement) and [Share
-Building blocks](#share_building_blocks), which starts with Derived tables.
+- If a Saved table, a real table your own Statements write, should hold the rows of the table
+  it was copied from, reconcile the two.
+- If you changed a table's Statement, reconcile the table before and after the change.
+- If your team's table and another team's record the same thing, reconcile the two.
+- If you have not built a Statement yet, do
+  [Build and run a first statement](#build_and_run_a_first_statement) first; if you have not
+  read a Derived table yet, do [Share Building blocks](#share_building_blocks) first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
-`example_projects/intermediate/` from the download to a folder of your own, copy the
-`sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
-makes the same copy in its first step, from the download the Toolbox came in, into the folder
-it runs in, which Python's path holds already, as Jupyter's does for a notebook's own folder:
+Goal: a Project, your folder of scripts at work, holding the tables to compare. Work in a copy
+of the Intermediate Example project, at its top: copy `example_projects/intermediate/` from the
+download to a folder of your own, copy the `sqlglot_composer` folder into it, as a Project
+holds it, and open a notebook there. This page makes the same copy here, from the download the
+Toolbox came in, into the folder it runs in, which Python's path holds already, as Jupyter's
+does for a notebook's own folder:
 
 >>> import shutil
 >>> from pathlib import Path
@@ -33,10 +36,16 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-`ops.job_owners`, which the Project reads already, keeps each job's team on each day.
-`ops.jobs` holds each job's team as it is today: add its Table reference, as [Add your
-tables' references](#add_your_tables_references) shows. Its TODO lines can wait, since
-`EXCEPT` compares whole rows and reads no Key:
+Done when the folder you work in holds the Project's admin/, references/ and tables/ folders.
+Then step 2.
+
+### 2. Add the second table's Table reference
+
+Goal: both tables readable from Python. A Table reference is the file that describes one
+table: its columns, its Partitions and its Key. `ops.job_owners`, which the Project reads
+already, keeps each job's team on each day. `ops.jobs` holds each job's team as it is today:
+add its Table reference, as [Add your tables' references](#add_your_tables_references) shows.
+Its TODO lines can wait, since `EXCEPT` compares whole rows and reads no Key:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -51,11 +60,13 @@ Restart the kernel of a notebook that imported references, to see a table added 
 
 On a day when no job has changed teams since, the two should agree.
 
-### Say what should agree
+Done when `jobs` and `job_owners` are set. Then step 3.
 
-Write one Statement for each table, returning the columns that should agree, under the same
-names. The Toolbox matches the two Statements' columns by name, not by their place in
-`SELECT`, so `"job_id"` is compared with `"job_id"` and `"team"` with `"team"`:
+### 3. Say what should agree
+
+Goal: one Statement for each table, returning the columns that should agree, under the same
+names. The Toolbox matches the two Statements' columns by name, not by their place in `SELECT`,
+so `"job_id"` is compared with `"job_id"` and `"team"` with `"team"`:
 
 >>> teams_today = statement(  # -> Statement
 ...     SELECT(jobs.job_id, jobs.team),
@@ -68,10 +79,13 @@ names. The Toolbox matches the two Statements' columns by name, not by their pla
 ...         WHERE(equals(job_owners.dt, day)),
 ...     )
 
-### The rows only the first table has
+Done when `teams_today` and `teams_on` each return job_id and team. Then step 4.
 
-`EXCEPT` keeps the rows of the first Statement it is given that the second doesn't return. Two
-rows count as the same when every column is alike:
+### 4. List the rows only the first table has
+
+Goal: what `ops.jobs` holds that `ops.job_owners` doesn't. `EXCEPT` keeps the rows of the first
+Statement it is given that the second doesn't return. Two rows count as the same when every
+column is alike:
 
 >>> only_in_jobs = EXCEPT(teams_today, teams_on("2026-09-17"))  # -> Statement
 >>> text = show_hive(only_in_jobs)
@@ -90,10 +104,12 @@ WHERE
    job_id     team
 0       3  finance
 
-### The rows only the second table has
+Done when the result holds job 3, finance. Then step 5.
 
-The same two Statements the other way round give what `ops.job_owners` held that `ops.jobs`
-doesn't:
+### 5. List the rows only the second table has
+
+Goal: the other half. The same two Statements the other way round give what `ops.job_owners`
+held that `ops.jobs` doesn't:
 
 >>> only_in_owners = EXCEPT(teams_on("2026-09-17"), teams_today)  # -> Statement
 >>> run_query(only_in_owners, query)
@@ -102,13 +118,17 @@ doesn't:
 
 Together they say the two disagree on one job, job 3, report_build: `ops.jobs` says finance and
 `ops.job_owners` said data on 2026-09-17. report_build moved from data to finance on
-2026-09-18, and `ops.jobs` knows only today's team. Run only one direction, and you would see
-only half of that.
+2026-09-18, and `ops.jobs` knows only today's team. Run both directions: one alone shows only
+half of that.
 
-### Count the rows of each
+Done when the result holds job 3, data. Then step 6.
 
-`EXCEPT` ignores how many times a row appears: a row held twice in one table and once in the
-other counts as matching. So count each Statement's rows too, reading it as a Derived table:
+### 6. Count the rows of each
+
+Goal: the same number of rows on both sides. `EXCEPT` ignores how many times a row appears: a
+row held twice in one table and once in the other counts as matching. So count each Statement's
+rows too, reading it as a Derived table, a Statement given a name so another Statement can read
+from it:
 
 >>> import pandas as pd
 >>> def rows_of(s: Statement) -> pd.DataFrame:
@@ -120,6 +140,8 @@ other counts as matching. So count each Statement's rows too, reading it as a De
 >>> rows_of(teams_on("2026-09-17"))
    rows
 0     4
+
+Done when both counts are 4. Then check it worked, below.
 
 ## Check it worked
 
@@ -134,6 +156,12 @@ Index: []
 Empty DataFrame
 Columns: [job_id, team]
 Index: []
+
+Before you go on, check that:
+
+- each direction of `EXCEPT` on 2026-09-17 gives one row, job 3;
+- each direction on 2026-09-24 gives an empty DataFrame;
+- `rows_of` gives the same count for both Statements.
 
 ## Common mistakes
 
@@ -161,14 +189,15 @@ each, such as a number in one and text in the other, is refused the same way.
 ### Comparing a column with no value
 
 `EXCEPT` counts two NULLs as alike, so a job with no owner in both tables agrees. `equals`
-doesn't: in SQL nothing equals NULL. This is one place `EXCEPT` is the easier tool for
-comparing tables, row by row.
+doesn't: in SQL nothing equals NULL. Compare tables row by row with `EXCEPT`, which counts
+missing values as alike.
 
 ### Reading every partition of a big table
 
 Each Statement passed to `EXCEPT` is checked like any other: a read of a partitioned table must
 filter at least one of its partition columns, as `teams_on` filters `ops.job_owners` to one day.
-Reconcile a few partitions at a time, and loop over them in Python.
+Reconcile a few Partitions, slices of the table that share one value of its partition columns,
+at a time, and loop over them in Python.
 
 ## Next
 

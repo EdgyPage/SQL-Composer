@@ -1,11 +1,21 @@
 # Copilot file 02: Table references ({version})
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: describe a table to the Toolbox with a Table reference, and check what it says.
 Load this file when the user adds a table to read, writes the Table reference of a new Saved
 table, or asks about a table's columns, partitions or Key.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell or a file, then a few plain sentences.
+## Terms
+
+- **Toolbox**: {version}, which writes Hive from Python.
+- **Table reference**: the file references/<database>__<table>.py, such as
+  references/ops__job_runs.py, defining one table's Table.
+- **Key**: the columns that tell one row from another.
+- **Saved table**: a table the user's own notebook writes.
+- **Workflow**: a job's steps, run from its notebook in admin/workflows/; a **Decision**,
+  what only the user answers, in its decisions cell.
+- **Condition**: a test on rows, such as `equals(...)`; a **Statement**, one Hive query.
 
 {always}
 
@@ -13,43 +23,63 @@ block the user can paste into a notebook cell or a file, then a few plain senten
 
 {names: project.add_references, write_table_reference, Table, check_key, check_table_reference, first_look, all_columns, equals, between, is_in}
 
+## Where one comes from
+
+- A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
+  runs `project.add_references(["ops.job_runs"], query=query)`, writing its Table reference
+  from the warehouse's own description, so its columns and types are right. Its Key is a
+  Decision, `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, which the next step writes.
+- A new Saved table: the new_table Workflow (file 14) writes its Table reference from its
+  logic, `project.reference_from_logic(TABLES)`, or from its query; the user answers its
+  location in the decisions cell.
+
+## Table's arguments
+
+- `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
+  order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
+  decimal(10,2), array<string>, map<string,int>, struct<name:string>.
+- `partitioned_by=["dt"]`: the partition columns, listed in `columns` too, last.
+- `key=["job_id", "dt"]`: the Key, which makes the Toolbox trust a join or a write.
+- `does_not_add_up=["share"]`: columns the Toolbox refuses to add up, such as a share or an
+  average.
+- `location="/data/your_team/mart.db/job_day_runs"`: where a Saved table's files go.
+- `descriptions={"status": "FAILED, SUCCESS or NULL while running"}`: what a column
+  means, for Lineage and the Reference sheet, the Project's pages of its columns.
+- A Condition used often may sit beside its Table, such as
+  `finished = is_in(job_runs.status, ["SUCCESS", "FAILED"])`.
+
+## Checks
+
+- `check_key(t, query=query, where=...)` counts whether the Key really tells each row apart,
+  on the partitions `where=` names.
+- `check_table_reference(t, query=query)` lists what differs from the table as the
+  warehouse has it now.
+- `first_look(t)` is a Statement of all its columns and 20 rows, for `run_query`.
+- A check gives back a Verdict `v`: `print(v)` says whether the Key holds; `if v:` is true
+  when it does.
+
 ## Steps
 
-1. A Table reference is a file in references/, one per table, named <database>__<table>.py,
-   such as references/ops__job_runs.py. It defines one Table, named by the table's own name:
-   `job_runs = Table("ops.job_runs", columns={...}, ...)`. Other code imports it:
-   `from references.ops__job_runs import job_runs`.
-2. A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
-   runs `project.add_references(["ops.job_runs"], query=query)`, which writes its Table
-   reference from the warehouse's own description, so its columns and types are right.
-   Its Key is a Decision: the user answers it in the notebook's decisions cell,
-   `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, and the next step writes it in.
-3. A new Saved table, one the user's notebook will write: the new_table Workflow (file 14)
-   writes its Table reference from its logic, `project.reference_from_logic(TABLES)`, or from
-   its query; the user answers its location in the decisions cell.
-4. Table's arguments:
-   - `columns={"run_id": "bigint", "status": "string", "dt": "string"}`: every column, in
-     order, each with its Hive type: string, int, bigint, double, boolean, date, timestamp,
-     decimal(10,2), array<string>, map<string,int>, struct<name:string>.
-   - `partitioned_by=["dt"]`: the partition columns, listed in `columns` too, last.
-   - `key=["job_id", "dt"]`: the columns that tell one row from another. A Key is what
-     makes the Toolbox trust a join or a write; leave it out where none holds.
-   - `does_not_add_up=["share"]`: columns that must never be summed, such as a share or an
-     average; the Toolbox refuses to add one up.
-   - `location="/data/your_team/mart.db/job_day_runs"`: where a Saved table's files go.
-     A Saved table needs one; a table only read doesn't.
-   - `descriptions={"status": "FAILED, SUCCESS or NULL while running"}`: what a column
-     means, for Lineage and the Reference sheet.
-5. A Condition used again and again may sit in the Table reference beside its Table, such as
-   `finished = is_in(job_runs.status, ["SUCCESS", "FAILED"])`.
-6. Check it:
-   - `check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))` counts
-     whether the Key really tells each row apart, on the partitions `where=` names.
-   - `check_table_reference(job_runs, query=query)` lists what differs from the table as the
-     warehouse has it now.
-   - `first_look(job_runs)` is a Statement of all its columns and 20 rows, for `run_query`.
+1. **Read.** Goal: know the table. Action: list its name, columns, partitions and any Key
+   the user gives. Done when each column has a Hive type; then step 2.
+2. **Write.** Action: write the code by this file. Done when every name is imported; then
+   step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the user names a Key, write it as `key=`. If not, leave `key=` out, or ask.
+- If it is a Saved table, give it a `location=`. If it is only read, give none.
+- If asked to write a database's file, such as references/ops.py: the Project actions do.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block the user can paste into a notebook cell or a file.
+2. **Notes**: a few plain sentences on what it gives.
+
+## Examples
 
 A new Saved table's Table reference, references/mart__job_day_runs.py:
 
@@ -77,20 +107,9 @@ v = check_key(job_runs, query=query, where=equals(job_runs.dt, "2026-09-24"))
 print(v)
 ```
 
-`v` is a Verdict: `print(v)` says whether the Key holds, and `if v:` reads true when it does.
+## Self-check
 
-## Do and don't
-
-- Do give every column a Hive type; don't write Python types such as `int` or `str`.
-- Do list the partition column in `columns` and in `partitioned_by`; don't leave it out of
-  either.
-- Do name the variable after the table (`job_runs = Table("ops.job_runs", ...)`).
-- Don't invent a Key: leave `key=` out, or ask, where the user hasn't said one.
-- Don't write a Database module, such as references/ops.py: the Project actions write it.
-
-## Before you answer
-
-- The Table's name is "database.table", and the file's name matches it.
-- Each column has a Hive type; partition columns are in both lists.
-- A Saved table has a location; key= is only what the user said.
+- The Table's name is "database.table", and the file and the variable are named after it.
+- Each column has a Hive type, never a Python one such as `int` or `str`.
+- Partition columns are in `columns` and in `partitioned_by`.
 - Checks pass `query=query` and bound a partitioned table with `where=`.

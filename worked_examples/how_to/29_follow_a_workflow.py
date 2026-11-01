@@ -4,31 +4,36 @@ For: Intermediate
 
 ## Goal
 
-Do a whole job from its Workflow notebook, step by step, with nothing typed
-twice: each Workflow below is drawn and listed from the steps its notebook
-runs, in admin/workflows/, a folder for each.
+Do a whole job from its Workflow notebook, step by step, with nothing typed twice. A Workflow is
+an ordered list of steps that takes a Project, your folder of scripts at work, from what you
+bring to one end goal, such as converting scripts or promoting tables. Each Workflow has a
+notebook in admin/workflows/, a folder for each, and each Workflow below is drawn and listed
+from the steps its notebook runs. A Decision is one thing about one table that only you decide,
+such as its location or its Key, the columns whose values name exactly one row.
 
 ## When you'd use it
 
-Each time you start one of the jobs below. `project.check()` names the next
-step of each Workflow you have started. Run each step's cell in turn, or, in
-their place, each notebook's last cell, `project.run_workflow(...)`, which runs
-every step left, the calls to the warehouse too, up to the first only you can do:
-a Decision, or a check of what a step printed. With `dry_run=True` it sends
-nothing through your execute and says the Hive each step would send. It runs for
-real convert and the references Workflow's first step, which read DESCRIBE, and
-each step that changes only files up to the first that would send; after that it
-names each such step, "would run: ...", and runs none. Run one before you first
-send.
-`project.do_next()` runs only the steps that change files.
-
-It needs [Start a Project](#start_a_project).
+- If you start one of the jobs below, follow its Workflow's notebook, as the steps below do.
+- If you don't know which step of a Workflow comes next, run `project.check()`: it names the
+  next step of each Workflow you have started.
+- If you want every step left run for you, run the notebook's last cell,
+  `project.run_workflow(...)`, in place of the steps' cells: it runs every step left, the calls
+  to the warehouse too, up to the first only you can do: a Decision, or a check of what a step
+  printed.
+- If you haven't sent anything yet, run `project.run_workflow(...)` with `dry_run=True` first:
+  it sends nothing through your execute and says the Hive each step would send. It runs for real
+  convert and the references Workflow's first step, which read DESCRIBE, and each step that
+  changes only files up to the first that would send; after that it names each such step, "would
+  run: ...", and runs none.
+- If you want only the steps that change files run, run `project.do_next()`.
+- If you have no Project yet, do [Start a Project](#start_a_project) first.
 
 ## Steps
 
-### Start a Project
+### 1. Start a Project
 
-Every Project has the Workflow notebooks, each waiting for its names cell:
+Goal: a Project whose admin/workflows/ folder holds a notebook for each Workflow, each waiting
+for its names cell:
 
 >>> from sqlglot_composer import project
 >>> project.start()
@@ -36,7 +41,37 @@ Started a Project in the folder you're working in: admin/, references/, building
 tables/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.
 
-Each Workflow notebook starts by finding the Project, then imports what its steps call:
+Done when `project.start()` says it started a Project. Then step 2.
+
+### 2. Choose the Workflow for your job
+
+Goal: the one Workflow whose end goal is yours. Each Workflow is described after these steps,
+with its chart, its names cell and its steps.
+
+- If you want a Workflow that turns Hive someone else wrote, one query or a batch of scripts,
+  into your own code, choose convert: admin/workflows/convert/convert.ipynb.
+- If you want a Workflow that carries Saved tables from your Dev Database to your Prod Database,
+  choose promote: admin/workflows/promote/promote.ipynb.
+- If you want a Workflow that makes a Table folder for each new Saved table, choose new_table:
+  admin/workflows/new_table/new_table.ipynb.
+- If you want a Workflow that writes a Table reference for each table your Project reads, from
+  its DESCRIBE, choose references: admin/workflows/references/references.ipynb.
+- If you want a Workflow that carries the Project's files to the Toolbox you copied in, once you
+  have restarted the kernel, choose upgrade: admin/workflows/upgrade/upgrade.ipynb.
+- If you want a Workflow that changes a Saved table in the warehouse with one of the admin
+  module's Admin statements, each logged in admin/admin_log.md, choose change_a_saved_table:
+  admin/workflows/change_a_saved_table/change_a_saved_table.ipynb.
+
+In each chart, a plain box is a step that changes only files, or only prints; a box with double
+edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with
+round corners something a step needs or makes.
+
+Done when you know the notebook to open. Then step 3.
+
+### 3. Open its notebook
+
+Goal: the notebook whose cells run your job's steps. Each Workflow notebook starts by finding
+the Project, then imports what its steps call:
 
     from sqlglot_composer import (
         admin,
@@ -48,9 +83,26 @@ Each Workflow notebook starts by finding the Project, then imports what its step
     )
     from warehouse import query, execute
 
-In each chart, a plain box is a step that changes only files, or only prints; a box with double
-edges a call to the warehouse, yours to run; a diamond a decision, yours to make; and a box with
-round corners something a step needs or makes.
+Done when its first cells run without an error. Then step 4.
+
+### 4. Fill in its names cell, and save it
+
+Goal: the start materials the Workflow works on, named once. Write each name its names cell asks
+for, as its Workflow's section below shows, and save the notebook.
+
+Done when each name the cell asks for is filled in and saved. Then step 5.
+
+### 5. Run its steps in order
+
+Goal: the Workflow's end goal reached. Run each step's cell in turn, as its Workflow's section
+below lists them, or its last cell in their place. At a step that is a decision, yours to make,
+make it: write your answer to each open Decision in the decisions cell, beside the names cell,
+and save it, or read what the step before printed. Then run the next step.
+
+Done when `project.check()` says every step of the Workflow is done. Then check it worked,
+below.
+
+The Workflows, for steps 2 to 5:
 
 ### The convert Workflow
 
@@ -131,37 +183,37 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key proposed from a query is made, but an answer here changes it
 
-Its steps:
+Its steps, in order:
 
-- 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
-  warehouse, yours to run).
+1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
+   warehouse, yours to run).
 
     project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                     rename=RENAME, staging=STAGING)
 
-- 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
-- 3. Write each answer into its table's Table reference (it changes only files, so
-  project.do_next() runs it for you).
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
 
     project.write_decisions(DECISIONS)
 
-- 4. Create each table in dev (it is a call to the warehouse, yours to run).
+4. Create each table in dev (it is a call to the warehouse, yours to run).
 
     for table in project.batch_tables(NAME):
         run_execute(project.load(table).create(), execute)
 
-- 5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
-  yours to run).
+5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
+   yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.batch_tables(NAME, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 6. Write each table in dev (it is a call to the warehouse, yours to run).
+6. Write each table in dev (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.batch_tables(NAME), execute=execute)
 
-- 7. Compare each table with its original (it is a call to the warehouse, yours to run).
+7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
     project.compare_batch(NAME, query=query)
 
@@ -235,38 +287,38 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key proposed from a query is made, but an answer here changes it
 
-Its steps:
+Its steps, in order:
 
-- 1. Promote each table: a prod copy of its folder and Table reference (it changes only files,
-  so project.do_next() runs it for you).
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
 
     project.promote(TABLES)
 
-- 2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
-  make).
-- 3. Write each answer into its prod table's Table reference (it changes only files, so
-  project.do_next() runs it for you).
+2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+   make).
+3. Write each answer into its prod table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
 
     project.write_decisions(DECISIONS)
 
-- 4. Create each table in prod (it is a call to the warehouse, yours to run).
+4. Create each table in prod (it is a call to the warehouse, yours to run).
 
     for table in project.promoted_tables(TABLES):
         run_execute(project.load(table).create(), execute)
 
-- 5. Seed each prod table that reads itself, once, from its original (it is a call to the
-  warehouse, yours to run).
+5. Seed each prod table that reads itself, once, from its original (it is a call to the
+   warehouse, yours to run).
 
     run_execute(hive_settings("dynamic_partitions"), execute)
     for table in project.promoted_tables(TABLES, seeded=True):
         run_execute(project.load(table).seed(), execute)
 
-- 6. Write each table in prod (it is a call to the warehouse, yours to run).
+6. Write each table in prod (it is a call to the warehouse, yours to run).
 
     project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
 
-- 7. Refresh the Reference sheet and the Database modules (it changes only files, so
-  project.do_next() runs it for you).
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
 
     project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
@@ -350,44 +402,44 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key proposed from a query is made, but an answer here changes it
 
-Its steps:
+Its steps, in order:
 
-- 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
-  so project.do_next() runs it for you).
+1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
+   so project.do_next() runs it for you).
 
     project.new_table(TABLES, queries=QUERIES)
 
-- 2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
-  make).
+2. Write each table's logic in its Table notebook, and save it (it is a decision, yours to
+   make).
 
     for table in TABLES:
         project.load(table).preview()  # says what stops it, if anything does
 
-- 3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
-  it for you).
+3. Write each Table reference from its logic (it changes only files, so project.do_next() runs
+   it for you).
 
     project.reference_from_logic(TABLES)
 
-- 4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
-- 5. Write each answer into its table's Table reference (it changes only files, so
-  project.do_next() runs it for you).
+4. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+5. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
 
     project.write_decisions(DECISIONS)
 
-- 6. Check each table's rows with preview(), which writes nothing (it is a call to the
-  warehouse, yours to run).
+6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
+   yours to run).
 
     for table in TABLES:
         print(run_query(project.load(table).preview(), query))
 
-- 7. Create and write each in dev (it is a call to the warehouse, yours to run).
+7. Create and write each in dev (it is a call to the warehouse, yours to run).
 
     for table in TABLES:
         run_execute(project.load(table).create(), execute)
     project.run_tables(tables=TABLES, execute=execute)
 
-- 8. Compare each table made from a query with its query (it is a call to the warehouse, yours
-  to run).
+8. Compare each table made from a query with its query (it is a call to the warehouse, yours to
+   run).
 
     for name in QUERIES:
         print(project.compare_batch(name, query=query))
@@ -447,20 +499,20 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key proposed from a query is made, but an answer here changes it
 
-Its steps:
+Its steps, in order:
 
-- 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
+1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
 
     project.add_references(TABLES, query=query)
 
-- 2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
-- 3. Write each answer into its table's Table reference (it changes only files, so
-  project.do_next() runs it for you).
+2. Answer each table's open Decisions in the decisions cell (it is a decision, yours to make).
+3. Write each answer into its table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
 
     project.write_decisions(DECISIONS)
 
-- 4. Refresh the Reference sheet and the Database modules (it changes only files, so
-  project.do_next() runs it for you).
+4. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
 
     project.refresh_reference_sheet(TABLES)
 
@@ -498,14 +550,14 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
-Its steps:
+Its steps, in order:
 
-- 1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
+1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
 
     project.upgrade()
 
-- 2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
-  make).
+2. Make each change an UPGRADE mark asks for, and delete the mark (it is a decision, yours to
+   make).
 
 Its last cell runs every step left, in place of their cells:
 
@@ -552,9 +604,9 @@ Its names cell, which you fill in and save first:
     # the Saved table to change, such as "mart.daily_job_runs"
     TABLE = ''
 
-Its steps:
+Its steps, in order:
 
-- 1. Write the Admin statement for the change (it is a decision, yours to make).
+1. Write the Admin statement for the change (it is a decision, yours to make).
 
     from sqlglot_composer import between, equals  # where= takes a Condition
     table = project.table_reference(TABLE)
@@ -562,13 +614,13 @@ Its steps:
     # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
     change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
-- 2. Print its Hive, and run the check its Check first line names (it changes only files, or
-  only prints: run its cell).
+2. Print its Hive, and run the check its Check first line names (it changes only files, or only
+   prints: run its cell).
 
     show_hive(change)
 
-- 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
-  warehouse, yours to run).
+3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
+   warehouse, yours to run).
 
     run_execute(change, execute)
 
@@ -582,19 +634,23 @@ Its last cell runs every step left, in place of their cells:
 
 ## Check it worked
 
-`project.check()` says each Workflow's next step, or that every step is done.
+Before you go on, check that:
+
+- `project.check()` names the next step of each Workflow you have started, or says that every
+  step is done;
+- `project.check()` names no open Decision for the tables of the Workflow you ran.
 
 ## Common mistakes
 
 ### A step named again after you ran it
 
-A step no file tells of, such as change_a_saved_table's "Print its Hive", is
-named until a later step is done, and says so: once you have run it, go on. A
-step that only reads, such as new_table's preview, is never named on its own:
-check() names it beside the step after it.
+`project.check()` names a step no file tells of, such as change_a_saved_table's "Print its
+Hive", until a later step is done, and says so: once you have run it, go on to the next step. A
+step that only reads, such as new_table's preview, is never named on its own: check() names it
+beside the step after it.
 
 ## Next
 
-[Convert someone else's Hive](#convert_someone_elses_hive) walks the convert
-Workflow through a batch of scripts.
+- Walk the convert Workflow through a batch of scripts: [Convert someone else's
+  Hive](#convert_someone_elses_hive).
 """

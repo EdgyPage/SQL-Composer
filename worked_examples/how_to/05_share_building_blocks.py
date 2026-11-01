@@ -4,25 +4,30 @@ For: Getting started
 
 ## Goal
 
-Write a piece several Statements need once, and use it in each of them. The piece is a Derived
-table: a Statement given a name with `derived`, which another Statement reads like a table, and
-which the Hive writes at its top as `WITH name AS (...)`. Wrapped in a function, kept in a file
-of its own in building_blocks/, it is a Building block, which any notebook of the Project
-imports. `project.new_block` makes the file, from the Project's building_block Template.
+Write a piece several Statements need once, and use it in each of them. A Statement is one
+query, built from the Toolbox's Clause functions. The piece is a Derived table: a Statement
+given a name with `derived`, which another Statement reads like a table, and which the Hive
+writes at its top as `WITH name AS (...)`. Wrapped in a function, kept in a file of its own in
+building_blocks/, it is a Building block, which any notebook of the Project imports.
+`project.new_block` makes the file, from the Project's building_block Template, the shape a new
+block's file is made from.
 
 ## When you'd use it
 
-- When two Statements need the same numbers, such as each job's runs, failed runs and minutes:
-  written once, they can't be worked out two different ways, and a fix reaches them all.
-- When a Statement grows long: in named steps, it can be read and checked a step at a time.
-- When you add up before a join, as [Count, join and stay safe](#count_join_and_stay_safe)
-  does: the added-up table is a Derived table.
+- If two Statements need the same numbers, such as each job's runs, failed runs and minutes,
+  write them once in a Building block: they can't be worked out two different ways, and a fix
+  reaches them all.
+- If a Statement grows long, write it in named steps, each a Derived table: it can be read and
+  checked a step at a time.
+- If you add up before a join, as [Count, join and stay safe](#count_join_and_stay_safe) does,
+  write the added-up table as a Derived table.
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
 
-[Count, join and stay safe](#count_join_and_stay_safe) left the Project with its Table
+Goal: a Project with the Table references, the files that describe each table, that the block
+reads. [Count, join and stay safe](#count_join_and_stay_safe) left the Project with its Table
 references filled in, as [Add your tables' references](#add_your_tables_references) fills
 them, and two more beside them. This how-to reads two of them, `ops.job_runs`, with its Aliases
 minutes and failed, and `ops.jobs`. In your own Project they are there already; here, the steps
@@ -90,9 +95,12 @@ path, so `from references import ops` finds the Project's references/:
 
 >>> from references import ops
 
-### Name one step with derived
+Done when `from references import ops` runs without an error. Then step 2.
 
-`derived` gives a Statement a name, and gives back a Table: its columns are what its `SELECT`
+### 2. Name one step with derived
+
+Goal: a Statement other Statements read like a table. `derived` gives a Statement a name, and
+gives back a Table: its columns are what its `SELECT`
 makes, checked like a Table reference's. Here, each job's runs and minutes on 2026-09-24:
 
 >>> job_runs = ops.job_runs  # -> Table
@@ -106,7 +114,12 @@ makes, checked like a Table reference's. Here, each job's runs and minutes on 20
 >>> job_totals
 derived('job_totals', columns: job_id, runs, minutes)
 
-Another Statement reads it with `FROM` or `JOIN`, like any table. Here, the minutes per team.
+Done when `job_totals` shows its columns job_id, runs and minutes. Then step 3.
+
+### 3. Read the Derived table from another Statement
+
+Goal: a Statement built on the named step. Another Statement reads it with `FROM` or `JOIN`,
+like any table. Here, the minutes per team.
 It needs no filter on the day of its own: the day is inside `job_totals`, and `ops.jobs` isn't
 partitioned.
 
@@ -145,19 +158,29 @@ The Hive starts with `WITH job_totals AS (...)`, the step's own Hive; then the S
 `job_totals` by name. A Derived table lives only inside the Statement that reads it: nothing
 is saved in the warehouse.
 
-### Make a Building block with project.new_block
+Done when the Hive starts with `WITH job_totals AS (` and the result gives each team's
+minutes. Then step 4.
 
-A Building block is a function that gives back the Derived table, so every Statement that
+### 4. Make a Building block with project.new_block
+
+Goal: a file for the piece, which any notebook imports. A Building block is a function that
+gives back the Derived table, so every Statement that
 needs it calls the function. What changes from one Statement to the next, such as the rows it
 reads, becomes its argument. `project.new_block` makes its file, building_blocks/<name>.py,
-from admin/templates/building_block.py, and registers it. Run it from the admin notebook
+from admin/templates/building_block.py, and registers it in the registry, the Project's list of
+what each Project action made. Run it from the admin notebook
 admin/new_block.ipynb, or any notebook of the Project:
 
 >>> project.new_block("runs_per_job")
 Wrote building_blocks/runs_per_job.py, from admin/templates/building_block.py:
 fill in its <...> and TODO lines.
 
-The file's docstring says what each `<...>` is for. Fill them in, or write over its code with
+Done when it says `Wrote building_blocks/runs_per_job.py`. Then step 5.
+
+### 5. Fill in the block's file
+
+Goal: the block's own piece of Statement. The file's docstring says what each `<...>` is for.
+Fill them in, or write over its code with
 your own piece, as here: each job's runs, failed runs and minutes, for each day of the rows it
 reads.
 
@@ -208,18 +231,22 @@ The file `building_blocks/runs_per_job.py`, after you fill it in:
 Three things to notice:
 
 - It imports what it reads: the Toolbox's names, and the Table reference of `ops.job_runs`
-  with its two Aliases, from references/. A Building block's file imports only these, never
-  another Building block's file or a notebook: [Keep the Project in
-  order](#keep_the_project_in_order) says why.
+  with its two Aliases, your own names for its columns and conditions, from references/. A
+  Building block's file imports only these, never another Building block's file or a notebook:
+  [Keep the Project in order](#keep_the_project_in_order) says why.
 - Its function is named as its file is, and so is its Derived table, `"runs_per_job"`: the
-  Hive and the Lineage of every Statement that reads it call it the same.
-- Its argument is a Condition, the rows it reads, so each Statement that calls it picks its
-  own. A Saved table built on it hands it the rows it saves, as
-  [Follow lineage](#follow_lineage) shows.
+  Hive and the Lineage, the record of which table columns feed each output column, of every
+  Statement that reads it call it the same.
+- Its argument is a Condition, a test of rows, here the rows it reads, so each Statement that
+  calls it picks its own. A Saved table, a table your own Statements write, built on it hands
+  it the rows it saves, as [Follow lineage](#follow_lineage) shows.
 
-### Import it, and check it alone
+Done when the file holds no `<...>` or TODO line. Then step 6.
 
-A notebook imports it by its file's name:
+### 6. Import it, and check it alone
+
+Goal: proof that the block gives the rows you expect. A notebook imports it by its file's
+name:
 
 >>> from building_blocks.runs_per_job import runs_per_job
 >>> last_day = runs_per_job(equals(ops.job_runs.dt, "2026-09-24"))  # -> Table
@@ -235,9 +262,12 @@ this before you build on it:
 1       2  2026-09-24     1            1       20
 2       3  2026-09-24     1            0       30
 
-### Use the same block in another Statement
+Done when the check gives one row per job for 2026-09-24. Then step 7.
 
-Any Statement that needs each job's runs calls the same function. Here, each team's failed
+### 7. Use the same block in another Statement
+
+Goal: a second Statement built on the same numbers. Any Statement that needs each job's runs
+calls the same function. Here, each team's failed
 runs over two days: the block keeps each day apart, and the Statement adds the days up:
 
 >>> two_days = runs_per_job(between(ops.job_runs.dt, "2026-09-23", "2026-09-24"))  # -> Table
@@ -279,14 +309,20 @@ Its Hive starts with the same `WITH runs_per_job AS (...)` as the check's, readi
 this Statement gave it. The Alias failed became `job_runs.status = 'FAILED'`: an Alias is a
 name for you, and the Hive says what it stands for.
 
-### Keep one Building block to a file
+Done when the result gives finance 2 failed runs and data 0. Then step 8.
 
-Each Building block is a file of its own in building_blocks/, named as it is, made by
+### 8. Keep one Building block to a file
+
+Goal: blocks the registry lists, each in its own file. Each Building block is a file of its own
+in building_blocks/, named as it is, made by
 `project.new_block`, so the registry lists it and `project.check()` can find it. A second
 block that reads this one, such as the busy jobs among its rows, is made the same way, with
 `project.new_block("busy_jobs")`, and takes the Derived table `runs_per_job` gives back as its
 argument, rather than importing building_blocks/runs_per_job.py: the notebook that reads both
 imports both, builds `runs_per_job` once and hands it in.
+
+Done when each block you need has its own file, made by `project.new_block`. Then check it
+worked, below.
 
 ## Check it worked
 
@@ -303,6 +339,12 @@ The block, checked alone over the two days, gives the failed runs the team State
 >>> print(by_job["failed_runs"].sum(), by_team["failed_runs"].sum())
 2 2
 
+Before you go on, check that:
+
+- `project.check()` says every Building block is registered;
+- the block checked alone and the team Statement both count 2 failed runs;
+- the Hive of each Statement that reads the block starts with `WITH runs_per_job AS (`.
+
 ## Common mistakes
 
 ### Running a Derived table itself
@@ -317,7 +359,8 @@ TypeError:
                   failed_runs, minutes), which isn't a Statement.
 ...
 
-Wrap it in the smallest Statement that reads it, as Import it, and check it alone does.
+Wrap it in the smallest Statement that reads it, as step 6, Import it, and check it alone,
+does.
 
 ### A column the block doesn't make
 
@@ -335,7 +378,7 @@ is the count, `"failed_runs"`.
 
 ### Making a Building block whose name is taken
 
-`project.new_block` never writes over a file of yours. Run again with the same name, it stops:
+`project.new_block` writes over no file of yours. Run again with the same name, it stops:
 
 >>> project.new_block("runs_per_job")
 Traceback (most recent call last):

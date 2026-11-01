@@ -58,8 +58,9 @@ OWN_CALLS = frozenset({"query", "execute", "rows", "preview", "write", "create",
 # block tests, which run the code, are what catch it.
 HIVE_WORDS = frozenset({"COALESCE", "IN", "UPPER", "COUNT", "SUM", "AVG", "MIN", "MAX",
                         "ROW_NUMBER"})
-# Files 11 and 12 turn a Formula workbook into Hive, and load with files 03, 04 and 05.
-EXCEL_FILES = ("11_excel_formula_workbooks.txt", "12_excel_power_query.txt")
+# Files 15, 11 and 12 turn a Formula workbook into Hive, loaded together.
+EXCEL_FILES = ("11_excel_formula_workbooks.txt", "12_excel_power_query.txt",
+               "15_excel_workbook_steps.txt")
 # Words the glossary says to avoid that can only mean the wrong thing in these files.
 AVOIDED = ("raw SQL", "guardrail", "predicate", "schema file", "table config", "snippet",
            "boilerplate", "materialized view", "temp table", "set operation", "OVER clause",
@@ -86,7 +87,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(15)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(16)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -110,12 +111,16 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
     version = f"{toolbox_registry.PRODUCT} {sqlglot_composer.TOOLBOX_VERSION}"
     assert version in text.splitlines()[0]
-    for part in ("Objective: ", "Load this file when",
-                 "## Names for this objective, with their arguments", "## Worked example",
-                 "## Do and don't", "## Before you answer"):
+    # Each is written to docs/agents/instruction-rules.md: it defines its Terms and ends on a
+    # Self-check; each but the Excel files, which write Hive, names its Toolbox functions.
+    parts: tuple[str, ...] = ("Objective: ", "Load this file when", "## Terms", "## Self-check")
+    if path.name not in EXCEL_FILES:
+        parts += ("## Names for this objective, with their arguments",)
+    assert re.findall(r"^## (.+)$", text, re.MULTILINE)[-1] == "Self-check"
+    for part in parts:
         assert part in text, part
-    # The Excel files are loaded with files 03, 04 and 05, which hold it; files 13 and 14 give
-    # steps, each a cell, and the file of the step's objective the code.
+    # The Excel files write Hive, no Toolbox code; files 13 and 14 give steps, each a cell,
+    # and the file of the step's objective the code.
     if path.name not in (*EXCEL_FILES, "13_workflows.txt",
                          "14_workflows_new_tables_and_upkeep.txt"):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text

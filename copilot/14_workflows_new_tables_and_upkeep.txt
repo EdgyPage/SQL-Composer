@@ -1,11 +1,29 @@
 # Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.2)
 
-Objective: take the user through a job on their own Project, step by step, from each
-Workflow's notebook. Load this file when the user asks how to make a new Saved table, from a
-query or by hand, add Table references for tables they read, upgrade to a new Toolbox, or
-change a Saved table. You write the steps for sqlglot Composer 8.2, a Toolbox that writes Hive: the
-steps left, each its cell, in order. For converting Hive or promoting to prod, the user loads
-file 13; for the Python inside a step, that step's file.
+**Follow the steps below in order, as written. Add no step or call, and reply in the shape
+the Output section gives.**
+
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.2, a Toolbox that
+writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
+Load this file when the user asks how to make a new Saved table, from a query or by hand, add
+Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
+File 13 is for converting Hive or promoting to prod; a step's own file, for the Python inside
+it.
+
+## Terms
+
+- **Workflow**: ordered steps to one end goal; each step is a cell of its notebook,
+  admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
+- **Decision**: one thing about one table only the user decides, such as its location, Key
+  or a column type, answered in the **decisions cell**, DECISIONS.
+- **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic.
+  A **Table reference** is the file of a table's columns, partitions, Key and location.
+- **DEV**: the Dev Database, where tables are built and compared; set once in
+  admin/databases.py.
+- **Reference sheet**: one table of every column of every table with a Table reference.
+- **Admin statement**: a Statement from the admin module that changes a Saved table's
+  definition or deletes its data. An **UPGRADE mark** is a comment an upgrade leaves for the
+  user.
 
 ## Names for this objective, with their arguments
 
@@ -15,19 +33,43 @@ file 13; for the Python inside a step, that step's file.
 - project.reference_from_logic(name)
 - project.add_references(names, *, query=None)
 
+## Steps
+
+1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
+   names the next step. Then step 2.
+2. **Write the names cell**, each input below given the user's value. Then step 3.
+3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
+   Then step 4.
+4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
+   step 5.
+5. **Check** the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
+  the user to answer: a Decision is the user's, never yours.
+- If the user has a new table's query, QUERIES gives its .hql file by the table's name
+  without its database, and the table is made from it: no `<...>` to fill in. If not,
+  `QUERIES = {}`.
+- **A new table's Table reference is written from its logic, never by hand.**
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
 ## How a Workflow runs
 
-Each Workflow has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its
-names cell, its inputs in capitals, such as NAME and TABLES, and its decisions cell,
-DECISIONS, and saves it.
-DECISIONS holds each answer by the table's name as project.check() writes it, each by its
-kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-"types": {"fails": "bigint"}}}`; a later step, `project.write_decisions(DECISIONS)`,
-writes each into its table's Table reference.
-Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
-left, up to the first only the user can do, and `dry_run=True` sends nothing.
-`project.check()` names the next step. A Decision is the user's: never answer it for them.
-DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
+- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
+  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
+  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
+  each into its table's Table reference.
+- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
+  user can do; `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 
@@ -120,7 +162,7 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
        run_execute(change, execute)
 
 
-## Worked example
+## Example
 
 The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
 notebook's names cell, its decisions cell once the table's location is known, then its last
@@ -133,17 +175,10 @@ DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/fai
 project.run_workflow("new_table", query=query, execute=execute)
 ```
 
-## Do and don't
+## Self-check
 
-- Do give each step's cell as listed, with the user's names in it.
-- Do make a table from its query with QUERIES when the user has one: no `<...>` to fill in.
-- Don't write a new table's Table reference by hand: its logic writes it.
-- Don't skip a Decision, such as a table's location: answer it in the decisions cell.
-
-## Before you answer
-
-- Name the Workflow and the step the user is at; give the cells the user asks for, each as
-  listed, and name the steps after them in words, not as cells: a step's cell may run only
-  once the steps before it are done. Only when the user asks for every step's cell, give
-  each later one as listed, in order.
-- Never invent a step or a call: only those listed here.
+- The reply names the Workflow and the user's step.
+- Each cell is one listed here, with the user's names in it.
+- Each later step is named in words, unless every cell was asked for.
+- Each Decision answered is in DECISIONS by the table's name; each other is named.
+- A new table with a query is in QUERIES; no Table reference is written by hand.

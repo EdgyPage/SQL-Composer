@@ -8,25 +8,26 @@ Get every column of the tables you read, each name and its Hive type, into your 
 typing them. `project.add_references` asks each table itself and writes its Table reference, a
 small .py file describing the table, into the Project's `references/` folder. You fill in what
 it can't know, add Aliases, your own names for its columns and conditions, and check the file
-against the table. Then `from references import ops` gives each table of the Database `ops` by
-its name, and each column at a dot after it.
+against the table. Then `from references import ops` gives each table of the Database `ops`, the
+group of tables whose names start with `ops.`, by its name, and each column at a dot after it.
 
 ## When you'd use it
 
-The first time you read a table at work, and whenever your notebooks start reading another. A
-Statement reads a table through its Table reference, so every table you read needs one, and a
-table with forty columns is forty chances to mistype a name or a type. Write them instead, many
-at once, and every notebook of the Project imports them from `references/`.
-
-A table that doesn't exist yet, such as a Saved table (a table of your own, which your
-Statements write into) you are about to create, has nothing to ask:
-[Save a table](#save_a_table) writes its file for you to fill in, and
-[Describe a table by hand](#describe_a_table_by_hand) shows the file written in full.
+- If you read a table at work for the first time, or your notebooks start reading another,
+  write its Table reference as the steps below do. A Statement, a query the Toolbox builds,
+  reads a table through its Table reference, so every table you read needs one, and a table
+  with forty columns is forty chances to mistype a name or a type. Write them many at once, and
+  every notebook of the Project imports them from `references/`.
+- If the table doesn't exist yet, such as a Saved table (a table of your own, which your
+  Statements write into) you are about to create, there is nothing to ask:
+  [Save a table](#save_a_table) writes its file for you to fill in, and
+  [Describe a table by hand](#describe_a_table_by_hand) shows the file written in full.
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
 
+Goal: a Project whose `references/` folder the steps below fill.
 [Start a Project](#start_a_project) left a Project with nothing in `references/` yet. This page
 has none, so it starts one; in your own Project, which is started already, leave
 `project.start()` out. The star import brings every Toolbox name, such as `check_key` and
@@ -41,12 +42,15 @@ Next: set conn, your connection, in warehouse.py.
 >>> from warehouse import query, execute
 
 Every step here passes that `query`; `execute` waits for a step that changes a table. Here it
-runs on the Example database, as warehouse.py holds it; at work it is your own, and you name
-your own tables.
+runs on the Example database, the made-up tables that ship inside the Toolbox, as warehouse.py
+holds it; at work it is your own, and you name your own tables.
 
-### See what a table says about itself
+Done when `from warehouse import query, execute` runs without an error. Then step 2.
 
-A table in the warehouse can describe itself. The Hive command DESCRIBE lists its columns and
+### 2. See what a table says about itself
+
+Goal: know where a Table reference's facts come from. A table in the warehouse can describe
+itself. The Hive command DESCRIBE lists its columns and
 their types, and SHOW PARTITIONS lists the Partitions it holds. Neither reads a single row, so
 both are quick on the biggest table. Here is what DESCRIBE says of `ops.run_alerts`, sent
 straight through your query:
@@ -69,11 +73,15 @@ prints as NaN. The rows under `# Partition Information` say which columns split 
 Partitions, the pieces the warehouse stores it in: here dt alone, one Partition for each value
 of dt.
 
-### Write your tables' Table references
+Done when `described` lists alert_id, run_id, severity and dt. Then step 3.
 
-`project.add_references` takes a list of tables. For each, it sends those two commands through
-your query, turns what comes back into a Table reference file in `references/`, and adds it to
-the registry, admin/registry.csv; then it logs what it did in the Admin log. Run it from the
+### 3. Write your tables' Table references
+
+Goal: a Table reference for each table you read. `project.add_references` takes a list of
+tables. For each, it sends those two commands through your query, turns what comes back into a
+Table reference file in `references/`, and adds it to the registry, admin/registry.csv, the
+list of what each Project action made; then it logs what it did in the Admin log, the record of
+each Project action. Run it from the
 references Workflow's notebook, admin/workflows/references/references.ipynb, which runs this
 call on the names in its names cell, or from any notebook in the Project's folder, as here:
 
@@ -90,10 +98,14 @@ named after the table alone, jobs.
 
 The last file is the Database module of the Database ops, the first part of each table's name:
 references/ops.py, which the Project actions write again each time a Table reference is added
-or archived, and which you never edit.
+or archived. Leave it as they write it.
 
-Open references/ops__job_runs.py in your editor. It imports `Table`, then makes one variable,
-`job_runs`:
+Done when it says `Wrote references/ops__jobs.py` and `Wrote references/ops.py`. Then step 4.
+
+### 4. Read a Table reference it wrote
+
+Goal: know what the file holds and what it leaves to you. Open references/ops__job_runs.py in
+your editor. It imports `Table`, then makes one variable, `job_runs`:
 
 - `columns=` holds every column and its type;
 - `partitioned_by=["dt"]` comes from DESCRIBE's `# Partition Information` rows;
@@ -104,9 +116,12 @@ Open references/ops__job_runs.py in your editor. It imports `Table`, then makes 
 - under the Aliases heading at the end, commented-out examples show how to add your own names
   for the table's columns and conditions.
 
-### Fill in the TODOs
+Done when you have found the file's three TODO lines. Then step 5.
 
-Open each file in your editor and replace its three TODO lines. This is
+### 5. Fill in the TODOs
+
+Goal: a Table reference that says what only you know. Open each file in your editor and
+replace its three TODO lines. This is
 references/ops__job_runs.py with them filled in, and two Aliases of your own at the end:
 
 The file `references/ops__job_runs.py`, after you fill it in:
@@ -149,7 +164,7 @@ The file `references/ops__job_runs.py`, after you fill it in:
 - The first line says, in your own words, what one row is.
 - `key=` lists the columns that pick out one row, the table's Key. Every run has its own
   `job_runs.run_id`, so it is `key=["run_id"]`. Ask whoever owns the table if you aren't sure:
-  `check_key`, below, checks it. A join uses the Key to warn you when it would repeat rows.
+  `check_key`, in step 9, checks it. A join uses the Key to warn you when it would repeat rows.
 - `does_not_add_up=` lists the columns that are averages, ratios or counts of different values.
   `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs'
   averages gives a number that means nothing, so the Toolbox refuses to add it up once it is
@@ -229,10 +244,12 @@ The file `references/ops__run_alerts.py`, after you fill it in:
 
     high = equals(run_alerts.severity, "high")
 
-### Reach a table and its columns
+Done when no file holds a TODO line. Then step 6.
 
-In any notebook of the Project, one line imports the Database module, and with it every table
-of the Database ops:
+### 6. Reach a table and its columns
+
+Goal: each table and column by name, in any notebook. In any notebook of the Project, one line
+imports the Database module, and with it every table of the Database ops:
 
 >>> from references import ops
 
@@ -256,10 +273,13 @@ shows when):
 >>> f"FROM {ops.job_runs}"  # -> str
 'FROM ops.job_runs AS job_runs'
 
-### Import an Alias from its table's file
+Done when `ops.job_runs.status` shows `job_runs.status`. Then step 7.
 
-`ops` gives each table, but not your Aliases: they are names in the table's own file. Import
-them from it, by its name in `references/`, beside the table:
+### 7. Import an Alias from its table's file
+
+Goal: your own names in a notebook. `ops` gives each table, but not your Aliases: they are
+names in the table's own file. Import them from it, by its name in `references/`, beside the
+table:
 
 >>> from references.ops__job_runs import job_runs, failed, minutes
 >>> minutes  # -> Column
@@ -271,21 +291,27 @@ job_runs.status = 'FAILED'
 its Aliases, as the Building blocks and Table notebooks after this how-to do; otherwise
 `from references import ops` is all a notebook needs.
 
-### Check each file against its table
+Done when `minutes` shows `job_runs.duration_mins`. Then step 8.
 
-`check_table_reference` asks the table for its columns again and compares them with the file.
-Run it after you edit a Table reference, and whenever the table may have changed:
+### 8. Check each file against its table
+
+Goal: a file that still says what the table holds. `check_table_reference` asks the table for
+its columns again and compares them with the file. Run it after you edit a Table reference, and
+whenever the table may have changed:
 
 >>> check_table_reference(ops.job_runs, query=query)  # -> Verdict
 ops.job_runs matches its Table reference.
 
 It gives back a Verdict: what the check found, which prints as the sentence above, and whose
 `.ok` is True when it found nothing wrong. When something differs, it lists each problem with
-the line to change in the file. It never edits the file itself.
+the line to change in the file. It leaves the file for you to edit.
 
-### Check the Key you wrote
+Done when it says `ops.job_runs matches its Table reference.` Then step 9.
 
-The warehouse never checks a Key: nothing stops two rows sharing one run_id. `check_key`
+### 9. Check the Key you wrote
+
+Goal: proof that the Key names one row. The warehouse never checks a Key: nothing stops two
+rows sharing one run_id. `check_key`
 counts the rows for each Key, and lists any Key that repeats. ops.job_runs is partitioned, so
 `where=` says which Partitions to check, here those whose dt is 2026-09-24; a table that isn't
 partitioned, such as ops.jobs, is checked whole:
@@ -297,6 +323,8 @@ ops.job_runs: the key (run_id) holds where job_runs.dt = '2026-09-24'.
 ops.jobs: the key (job_id) holds.
 
 `reads_all_partitions=True` in place of `where=` checks the whole of a partitioned table.
+
+Done when each check says its key holds. Then check it worked, below.
 
 ## Check it worked
 
@@ -318,11 +346,19 @@ ops.jobs matches its Table reference.
 ops.job_runs matches its Table reference.
 ops.run_alerts matches its Table reference.
 
+Before you go on, check that:
+
+- references/ holds ops.py, ops__job_runs.py, ops__jobs.py and ops__run_alerts.py;
+- `project.check()` says every Table reference is registered;
+- `check_table_reference` says each table matches its Table reference;
+- `check_key` says each Key holds.
+
 ## Common mistakes
 
 ### A column name the table doesn't have
 
-A Table reference is there so you never type a column's name as text. A misspelt column stops
+A Table reference is there so you reach each column by name, never typing it as text. Use tab
+completion at the dot to pick the name. A misspelt column stops
 the line it is on, and lists the columns the table has:
 
 >>> ops.job_runs.stauts
@@ -353,8 +389,8 @@ Import it from the table's file: `from references.ops__job_runs import failed`.
 
 ### Adding a table whose Table reference is already there
 
-`project.add_references` never writes over a file: once written, the file is yours, and
-writing it again would lose the Key and the notes you added. A list that names a table already
+`project.add_references` writes over no file: once written, the file is yours, and writing it
+again would lose the Key and the notes you added. A list that names a table already
 in `references/` writes the others, skips that one, and then stops, naming it:
 
 >>> project.add_references(["ops.jobs"], query=query)
@@ -365,7 +401,7 @@ sqlglot_composer.project.SkippedTables:
                   there already).
 ...
 
-A table whose file is there needs nothing: edit the file instead, and run
+For a table whose file is there, edit the file instead, and run
 `check_table_reference` to see what has changed in the table since.
 
 ### A table added after the notebook imported references

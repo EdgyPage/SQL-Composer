@@ -6,8 +6,8 @@ converted, and the Hive a careful reader would write for each of its final Table
 are described here (`FormulaWorkbook`, in `tools/formula_workbook.py`), their sample rows read
 from the Example database, so every reference runs.
 
-There are 78: 39 on the dev split, which Copilot files 11 and 12 may be tuned on, and 39 held
-out, scored once per version of the files. Every kind of formula, query or workbook in
+There are 78: 39 on the dev split, which Copilot files 15, 11 and 12 may be tuned on, and 39
+held out, scored once per version of the files. Every kind of formula, query or workbook in
 `COVERAGE` has a task of its own in each split, and each split has tasks that combine several
 (`combination`).
 

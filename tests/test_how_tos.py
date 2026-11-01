@@ -93,6 +93,43 @@ def test_a_how_to_has_its_title_its_group_and_its_headings_in_order(path: Path) 
     assert re.findall(r"^## (.+)$", doc, re.MULTILINE) == list(how_to_page.HEADINGS)
 
 
+def section_of(path: Path, heading: str) -> str:
+    return dict(how_to_page.sections(how_to_page.read_how_to(path)))[heading]
+
+
+@pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
+def test_a_how_to_s_steps_are_numbered_each_with_its_goal_and_when_it_is_done(
+        path: Path) -> None:
+    """docs/agents/instruction-rules.md: a step says its goal, its action, and the check that
+    says it is done and which step comes next. What the steps refer to may follow them, under
+    headings not numbered."""
+    parts = re.split(r"^### (.+)\n", section_of(path, "Steps"), flags=re.MULTILINE)
+    headings = parts[1::2]
+    numbered = [heading for heading in headings if re.match(r"\d+\. ", heading)]
+    assert numbered and headings[:len(numbered)] == numbered, headings
+    assert [int(heading.split(".")[0]) for heading in numbered] == list(
+        range(1, len(numbered) + 1)), numbered
+    for number, text in enumerate(parts[2::2][:len(numbered)], 1):
+        then = (f"Then step {number + 1}." if number < len(numbered)
+                else "Then check it worked, below.")
+        assert re.search(r"^Goal: ", text, re.MULTILINE), f"step {number} says no Goal"
+        assert "Done when " in text and then in " ".join(text.split()), (
+            f"step {number} doesn't say when it is done, then {then!r}")
+
+
+@pytest.mark.parametrize("path", HOW_TOS, ids=lambda path: path.stem)
+def test_a_how_to_says_when_to_use_it_as_ifs_and_closes_with_what_to_see(path: Path) -> None:
+    assert re.search(r"^- If ", section_of(path, "When you'd use it"), re.MULTILINE)
+    assert re.search(r"^- ", section_of(path, "Check it worked"), re.MULTILINE)
+    # What a step shows, such as a Lineage's Markdown, may hold more than ASCII.
+    prose = [paragraph for piece in how_to_page.with_file_blocks(how_to_page.docstring_of(path))
+             if isinstance(piece, str)
+             for part in doctest.DocTestParser().parse(piece) if isinstance(part, str)
+             for paragraph in example_gallery.paragraphs(part)
+             if not example_gallery.is_code(paragraph)]
+    assert all(paragraph.isascii() for paragraph in prose)
+
+
 def file_blocks(path: Path) -> list[how_to_page.FileBlock]:
     """The files a how-to shows as they are after an edit, or as a Project action wrote them."""
     return [part for part in how_to_page.with_file_blocks(how_to_page.docstring_of(path))
@@ -769,6 +806,14 @@ def test_a_file_shown_after_an_edit_but_not_laid_out_so_is_refused(
     monkeypatch.chdir(tmp_path)
     with pytest.raises(how_to_page.HowToRefused, match=re.escape(says)):
         how_to_page.run_as_doctest(path)
+
+
+def test_a_numbered_list_is_shown_numbered_from_its_first_item() -> None:
+    shown = how_to_page.numbered_prose_html("Its steps:\n\n3. Write `x`.\n4. Run it,\n"
+                                            "  then look.\n\n    x = 1\n\n5. **Check** it.")
+    assert shown == ('<p>Its steps:</p>\n<ol start="3"><li>Write <code>x</code>.</li>'
+                     '<li>Run it, then look.</li></ol>\n<pre class="python">x = 1</pre>\n'
+                     '<ol start="5"><li><strong>Check</strong> it.</li></ol>')
 
 
 def test_a_step_that_shows_the_folder_it_ran_in_is_refused(tmp_path: Path) -> None:
