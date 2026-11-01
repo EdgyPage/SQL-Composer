@@ -1,0 +1,3 @@
+[
+ "Please convert this Formula workbook (daily_runs_formula.xlsx) to Hive, following Copilot files 15, 11 and 12. Its raw Table job_runs is ops.job_runs in our warehouse, and only the daily_runs Table is wanted as a table, so no query for its Total Row is needed."
+]

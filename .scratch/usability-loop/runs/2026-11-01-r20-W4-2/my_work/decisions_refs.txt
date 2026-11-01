@@ -1,0 +1,1 @@
+DECISIONS = {"ops.jobs": {"key": ["job_id"]}, "ops.run_alerts": {"key": ["alert_id"]}}  # your answer to each open Decision

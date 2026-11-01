@@ -1,0 +1,1 @@
+INSERT OVERWRITE TABLE mart_dev.failed_runs SELECT r.job_id, COUNT(*) AS fails FROM ops.job_runs AS r WHERE r.status = 'FAILED' GROUP BY r.job_id

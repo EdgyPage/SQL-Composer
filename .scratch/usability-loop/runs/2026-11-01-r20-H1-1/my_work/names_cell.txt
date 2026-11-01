@@ -1,0 +1,6 @@
+NAME = "weekly"  # the batch's name, plain lowercase, such as "weekly" (or, for the last cell alone, a list of batches converted already)
+FILES = ["weekly.hql"]  # the scripts' files, from this folder, such as ["daily.hql"], or [] to read HIVE
+HIVE = None  # the Hive as text, such as """SELECT ...""", or None to read FILES
+DATABASE = 'default'  # the database of a table the Hive names without one
+RENAME = {"mart.team_fails": "team_fails", "mart.job_runs_counted": "job_runs_counted", "mart.job_fails_counted": "job_fails_counted"}  # a name of your own for a table's copy in dev, by the table's full name: mart_dev.team_fails for mart.team_fails
+STAGING = {}  # each staging table convert names, kept or folded, such as {"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is folded, any other kept

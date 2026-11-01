@@ -1,0 +1,9 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+ops.jobs,job_id,bigint,,yes,,,2026-11-01 17:08:32
+ops.jobs,job_name,string,,,,,2026-11-01 17:08:32
+ops.jobs,team,string,,,,,2026-11-01 17:08:32
+ops.jobs,region,string,,,,,2026-11-01 17:08:32
+ops.run_alerts,alert_id,bigint,,yes,,,2026-11-01 17:08:32
+ops.run_alerts,run_id,bigint,,,,,2026-11-01 17:08:32
+ops.run_alerts,severity,string,,,,low / high,2026-11-01 17:08:32
+ops.run_alerts,dt,string,yes,,,,2026-11-01 17:08:32

@@ -1,0 +1,3 @@
+[
+ "Convert team_report_formula.xlsx into Hive, as Copilot file 15 says: one query for each final Table. Its sources are ops.jobs and ops.job_runs, whose Table references are attached. I want the Teams summary, the Table named teams, as a query that reads its sources."
+]

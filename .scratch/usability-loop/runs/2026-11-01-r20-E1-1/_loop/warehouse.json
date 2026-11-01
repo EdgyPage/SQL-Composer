@@ -1,0 +1,32 @@
+{
+ "mart_dev.job_run_report": {
+  "columns": {
+   "job_id": "int",
+   "runs": "bigint",
+   "failed_runs": "bigint",
+   "avg_duration_mins": "double"
+  },
+  "partitioned_by": [],
+  "location": "/data/team/mart_dev.db/job_run_report",
+  "rows": [
+   [
+    1,
+    4,
+    0,
+    16.75
+   ],
+   [
+    2,
+    3,
+    1,
+    17.666666666666668
+   ],
+   [
+    3,
+    2,
+    1,
+    30.0
+   ]
+  ]
+ }
+}

@@ -1,0 +1,5 @@
+kind,table,created_at,removed_at
+reference,ops.job_runs,2026-11-01 17:23:54,
+reference,mart_dev.job_run_report,2026-11-01 17:23:54,
+table_folder,mart_dev.job_run_report,2026-11-01 17:23:54,
+conversion_folder,job_run_report,2026-11-01 17:23:54,

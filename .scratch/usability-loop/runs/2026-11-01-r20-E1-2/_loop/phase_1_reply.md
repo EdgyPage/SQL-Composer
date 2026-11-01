@@ -1,0 +1,1 @@
+DONE: Saved the filled-in Formula workbook at my_work/run_report_formula.xlsx. Runs sheet: Table job_runs A2:F11, 'Copied from ops.job_runs' in row 1. Report rebuilt as Table run_report A1:D4 with COUNTIFS, COUNTIFS with "FAILED", AVERAGEIFS. Parameters and Keys empty. Step 12 not run: the convert step is for the data team, as the Steps sheet says. No questions.

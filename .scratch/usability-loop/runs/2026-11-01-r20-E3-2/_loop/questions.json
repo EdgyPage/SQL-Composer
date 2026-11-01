@@ -1,0 +1,3 @@
+[
+ "Convert this workbook. I need the final for the Daily summary (the Table daily) as one query, for mart_dev.daily_runs; the job_runs sample is a copy of ops.job_runs, and the map should say how you read CleanRuns."
+]

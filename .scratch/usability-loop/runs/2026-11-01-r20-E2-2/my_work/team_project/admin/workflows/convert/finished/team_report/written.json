@@ -1,0 +1,19 @@
+{
+ "files": {
+  "admin/workflows/convert/team_report/batch.md": "055af8fd444c092809a7403b1a90b5a7e16a9ccbe682ae1c316fdce7c22511e8",
+  "admin/workflows/convert/team_report/scripts/team_report.hql": "85914688c9980f35826d5cf8d7bd9fe26a5948fc6901fec27bf7025c4f9c3f51",
+  "references/mart_dev__team_report.py": "3802e2e32ac7589fe9dfff9abeac343b526b0cb22aca9e47b30bfa7bedf5e56f",
+  "tables/mart_dev__team_report/conversion/checklist.md": "359ab542059fadfcaf1ee0b3482d6a17ed4bcaca5a08758b80b5f8f2755c84d7",
+  "tables/mart_dev__team_report/conversion/in_dev.hql": "e32ddb27970c10a4cfcb75c0284e6b6c67835a443bfdbe2b645c5b5612e68e2b",
+  "tables/mart_dev__team_report/conversion/scan.md": "34d37d59b9e87b83459860c9ff8dbf68e69181d9c1fd9b859da2d9bc22b3c043",
+  "tables/mart_dev__team_report/conversion/statement.hql": "225e2aa81b886dc79b2c856062e1d4aff5767a62eac0e682bfd714ded8391b3c",
+  "tables/mart_dev__team_report/mart_dev__team_report.ipynb": "85cf27101a68916d5ea3c00bb1aef84efe847e3461b7a358e62910346b8442e7"
+ },
+ "originals": {
+  "mart_dev.team_report": null
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.team_report"
+ ]
+}

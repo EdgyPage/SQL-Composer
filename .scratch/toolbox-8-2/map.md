@@ -144,6 +144,10 @@ process of its own.
   again](issues/18-docs-to-microsofts-instruction-rules.md), the user's ask
 - [19 What ticket 18's round found, fixed, then everything tested
   again](issues/19-the-ticket-18-rounds-findings.md), the user's ask
+- [20 What ticket 19's round found, fixed, then everything tested
+  again](issues/20-the-ticket-19-rounds-findings.md), the user's ask
+- [21 What ticket 20's round found](issues/21-the-ticket-20-rounds-findings.md), waiting on
+  the user
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

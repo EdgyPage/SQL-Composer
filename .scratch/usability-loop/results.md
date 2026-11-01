@@ -430,3 +430,93 @@ line, and the loop replaces the code line alone (`connect_the_team`, tested).
   write_decisions' TODO count leaves out the docstring's (W3-1 to W3-3).
 - A Total Row final may be left out, unsaid (E3-1, E3-2); project.do_next() after a finished
   batch reads as an error (E3-2).
+| 2026-11-01 | W5 | dev | 2026-11-01-r20-W5-3 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; no cell runs step 2's SHOW PARTITIONS check |
+| 2026-11-01 | W5 | dev | 2026-11-01-r20-W5-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; no cell runs step 2's SHOW PARTITIONS check |
+| 2026-11-01 | W5 | dev | 2026-11-01-r20-W5-2 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; wrote a scratch file outside its folder once, deleted it |
+| 2026-11-01 | H2 | held_out | 2026-11-01-r20-H2-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; named DEV/PROD, old tables kept their names as the README says |
+| 2026-11-01 | W4 | dev | 2026-11-01-r20-W4-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; README step 2 stray 'then go on to 3', how-to warehouse.py 'in step 8' |
+| 2026-11-01 | W4 | dev | 2026-11-01-r20-W4-2 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; --list before the path printed only the usage |
+| 2026-11-01 | W1 | dev | 2026-11-01-r20-W1-3 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; RENAME found in the names cell's comment, not the README; compared the second Partition too |
+| 2026-11-01 | W1 | dev | 2026-11-01-r20-W1-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; compared the second Partition with partition= |
+| 2026-11-01 | W1 | dev | 2026-11-01-r20-W1-2 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; README's single-file batch naming unclear |
+| 2026-11-01 | W3 | dev | 2026-11-01-r20-W3-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; new_table step 2 'a decision' when logic is written for you |
+| 2026-11-01 | W2 | dev | 2026-11-01-r20-W2-3 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; the TODO-lines message names no line |
+| 2026-11-01 | W2 | dev | 2026-11-01-r20-W2-2 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; TODO lines and choosing a Key not said in the steps |
+| 2026-11-01 | W4 | dev | 2026-11-01-r20-W4-3 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; quotes in a notebook's JSON source lines easy to get wrong |
+| 2026-11-01 | W3 | dev | 2026-11-01-r20-W3-2 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; step 3 'kept, it is yours' with TODO lines left |
+| 2026-11-01 | W2 | dev | 2026-11-01-r20-W2-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; cell numbers only in the runner's help |
+| 2026-11-01 | W3 | dev | 2026-11-01-r20-W3-3 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; project.check() doesn't flag a key=None TODO |
+| 2026-11-01 | H1 | held_out | 2026-11-01-r20-H1-1 | pass | 0 | ticket 20 rerun, main 7847124; 0 questions; promote's decisions step had nothing to answer |
+| 2026-11-01 | E1 | dev | 2026-11-01-r20-E1-3 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert); step 12 the data team's |
+| 2026-11-01 | E1 | dev | 2026-11-01-r20-E1-2 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert) |
+| 2026-11-01 | E2 | dev | 2026-11-01-r20-E2-1 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert) |
+| 2026-11-01 | E2 | dev | 2026-11-01-r20-E2-2 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert) |
+| 2026-11-01 | E3 | dev | 2026-11-01-r20-E3-1 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions (step 7 fallback used), phase 2 1; Total Row left out as asked |
+| 2026-11-01 | E2 | dev | 2026-11-01-r20-E2-3 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert); one turn ended early, resumed |
+| 2026-11-01 | E3 | dev | 2026-11-01-r20-E3-2 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions (step 7 fallback used), phase 2 1; left out the Total Row's query, as the README says |
+| 2026-11-01 | E4 | held_out | 2026-11-01-r20-E4-1 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert) |
+| 2026-11-01 | E3 | dev | 2026-11-01-r20-E3-3 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions (step 7 fallback), phase 2 1; Total Row's query left out; my relay was slow |
+| 2026-11-01 | E1 | dev | 2026-11-01-r20-E1-1 | pass | 1 | ticket 20 rerun, main 7847124; phase 1 0 questions, phase 2 1 (convert); a probe of its own hung, resumed in the foreground |
+
+## The ticket 20 round, 2026-11-01: what ticket 19's round found, fixed
+
+Main's tree was built from 7847124, which holds ticket 20's changes:
+- the Steps sheet's step 7 adds a query from its M, with a fallback for an Excel that can't
+  add one, and step 12 may be the data team's;
+- the README leaves out a final no one needs, such as a Total Row, and says naming DEV and
+  PROD renames nothing;
+- new_table's step 1 names the Table references a query needs first;
+- write_decisions counts a docstring's TODO line, and do_next() says each Workflow started is
+  done;
+- file 12 leaves out a Total Row no one needs;
+- the runner gained `--list`.
+
+Each dev scenario ran three times and each held-out one once, with fresh Haiku agents for each
+phase and both Copilot steps on Haiku. The 27 rows are just above.
+
+| scenario | split | passed | questions | the ticket 19 round |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 3/3, 0 |
+| W2 | dev | 3/3 | 0 | 3/3, 0 |
+| W3 | dev | 3/3 | 0 | 3/3, 0 |
+| W4 | dev | 3/3 | 0 | 3/3, 0 |
+| W5 | dev | 3/3 | 0 | 3/3, 0 |
+| E1 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E2 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E3 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| H1 | held out | 1/1 | 0 | 1/1, 0 |
+| H2 | held out | 1/1 | 0 | 1/1, 1 |
+| E4 | held out | 1/1 | 1, the convert | 1/1, 1 |
+
+What the fixes did:
+- Excel phase 1 asked nothing: each run stopped at step 12, now the data team's. Each phase 2
+  asked one question, the convert itself, as step 12 says.
+- E3's three runs used step 7's fallback: the M sat under `Query CleanRuns:` on the Power
+  Query sheet, with its rows typed into a Table of its name. Copilot read the M.
+- Total Rows were left out. E3-1 asked for that and Copilot did so; E3-2 and E3-3 dropped the
+  Total Row's query, as README step 5 says.
+- H2 named DEV and PROD and kept the old mart.* names, as the README says; it asked nothing.
+
+Two runs needed a nudge, and neither was a docs failure:
+- E2-3 ended a turn early.
+- E1-1 waited on a hung probe of its own.
+
+E3-3 asked three times before my relay answered it.
+
+### Found in the ticket 20 round, none failing a run
+
+- **TODO lines (W2-1 to W2-3, W3-2, W3-3).** "N TODO lines left ... wait on nothing" names no
+  line. new_table's step 3 says "Kept ...: it is yours" and leaves them. The steps don't say to
+  fill them. W3-3 also saw project.check() not flag a source reference's `key=None` TODO.
+- **change_a_saved_table step 2 (W5-1, W5-3).** It says to run the check its Check first line
+  names (SHOW PARTITIONS), but no cell runs it, and the README's chart calls the step "only
+  prints".
+- **The runner (W4-2, W3-1).** `--list` before the path prints only the usage line.
+- **The convert Workflow (W1-2, W1-3).** The README's naming of a one-file batch reads as
+  unclear, and RENAME is said only in the names cell's comment.
+- **new_table (W3-1, W2-2).** Step 2 calls it a decision when QUERIES wrote the logic. The
+  logic text of a table with no query says its Key is "proposed from its query".
+- **promote (H1).** Its decisions step had nothing to answer, since promote fills `location=`,
+  but it reads as if something must be answered.
+- **The README (W4-1).** Its seven "then go on to N. <Section>" endings read as a stray
+  sentence.

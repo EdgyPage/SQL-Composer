@@ -1,0 +1,4 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+mart_dev.runs_per_day,job_id,bigint,,yes,,,2026-11-01 17:11:11
+mart_dev.runs_per_day,runs,bigint,,,,,2026-11-01 17:11:11
+mart_dev.runs_per_day,dt,string,yes,yes,,,2026-11-01 17:11:11
