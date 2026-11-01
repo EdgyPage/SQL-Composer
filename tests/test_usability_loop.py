@@ -1,0 +1,227 @@
+"""The usability loop's harness (Toolbox 8.2, ticket 02).
+
+A run's folder holds what a user has, built from what main ships; its warehouse keeps each
+table between processes; its notebook runner runs cells as Run All does; a question goes to
+Copilot as one chat, file 00 first; and a run's end is scored against its scenario's answer
+key, failing on the check meant to catch each wrong end.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+import notebook_runner
+import openpyxl
+import pytest
+import usability_loop
+from openpyxl.worksheet.table import Table
+from workflow_warehouse import SavedWarehouse
+
+HIVE_RAN = """CREATE TABLE IF NOT EXISTS mart.daily_fails (job_id BIGINT, fails BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS fails FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'FAILED' GROUP BY r.job_id;
+"""
+END = ("CREATE TABLE IF NOT EXISTS mart_dev.fails (job_id BIGINT, fails BIGINT); "
+       "INSERT OVERWRITE TABLE mart_dev.fails SELECT job_id, fails FROM mart.daily_fails")
+
+
+@pytest.fixture
+def chosen(tmp_path: Path) -> usability_loop.Scenario:
+    """A scenario, T1, whose key asks for mart_dev.fails, and one file holding DEV's name."""
+    folder = tmp_path / "scenarios"
+    (folder / "T1").mkdir(parents=True)
+    (folder / "T1" / "ran.hql").write_text(HIVE_RAN, encoding="utf-8")
+    (folder / "T1" / "daily.hql").write_text("SELECT 1 AS x", encoding="utf-8")
+    (folder / "T1" / "scenario.json").write_text(json.dumps({
+        "id": "T1", "split": "dev", "title": "a test scenario",
+        "phases": [{"role": "technical", "job": "Copy mart.daily_fails into mart_dev.fails."},
+                   {"role": "non_technical", "job": "Fill in the workbook."}],
+        "hive_ran": ["ran.hql"], "given": {"from_your_team/daily.hql": "daily.hql"}}),
+        encoding="utf-8")
+    warehouse = SavedWarehouse(tmp_path / "key_warehouse.json")
+    warehouse.execute(HIVE_RAN)
+    warehouse.execute(END)
+    rows = warehouse.rows_of("mart_dev.fails").values.tolist()
+    (folder / "T1" / "key.json").write_text(json.dumps({
+        "tables": {"mart_dev.fails": {"columns": ["job_id", "fails"], "rows": rows}},
+        "files": [{"path": "admin/databases.py", "holds": ['DEV = "mart_dev"']}]}),
+        encoding="utf-8")
+    return usability_loop.read_scenario("T1", folder)
+
+
+@pytest.fixture
+def main_tree(tmp_path: Path) -> Path:
+    """Enough of main for a run that isn't built: the Copilot files' start and one file."""
+    main = tmp_path / "main_tree"
+    (main / "copilot").mkdir(parents=True)
+    for name in ("00_start_here.txt", "07_convert_hive.txt"):
+        (main / "copilot" / name).write_text(
+            (usability_loop.ROOT / "copilot" / name).read_text(encoding="utf-8"),
+            encoding="utf-8")
+    return main
+
+
+def _prepared(chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> Path:
+    return usability_loop.prepare(chosen, tmp_path / "run", main=main_tree,
+                                  python=Path(sys.executable))
+
+
+def _finish(run: Path, end: str = END, dev: str = "mart_dev") -> None:
+    """The end a run's agents reach: `end` sent, and a Project whose DEV is `dev`."""
+    SavedWarehouse(run / "_loop" / "warehouse.json").execute(end)
+    (run / "my_project" / "admin").mkdir(parents=True)
+    (run / "my_project" / "admin" / "registry.csv").write_text("", encoding="utf-8")
+    (run / "my_project" / "admin" / "databases.py").write_text(f'DEV = "{dev}"\n',
+                                                                encoding="utf-8")
+
+
+def test_the_saved_warehouse_keeps_each_table_between_processes(tmp_path: Path) -> None:
+    path = tmp_path / "warehouse.json"
+    SavedWarehouse(path).execute(HIVE_RAN)
+    reopened = SavedWarehouse(path)
+    assert len(reopened.rows_of("mart.daily_fails")) > 0
+    assert "ops.job_runs" not in json.loads(path.read_text(encoding="utf-8"))
+    assert len(reopened.rows_of("ops.job_runs")) > 0
+
+
+def test_the_runner_runs_each_cell_in_turn_from_the_notebooks_folder(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    cells = ["import pathlib\nhere = pathlib.Path.cwd().name", "print('printed')", "here",
+             "raise ValueError('stops here')", "print('never')"]
+    notebook = tmp_path / "work" / "book.ipynb"
+    notebook.parent.mkdir()
+    code = [{"cell_type": "code", "source": [text]} for text in cells]
+    notebook.write_text(json.dumps({"cells": [
+        {"cell_type": "markdown", "source": ["# a heading"]}, *code]}), encoding="utf-8")
+    assert notebook_runner.run_notebook(notebook) == 1
+    shown = capsys.readouterr().out
+    assert "printed" in shown and "'work'" in shown and "ValueError: stops here" in shown
+    assert "--- stopped at cell 4" in shown and "never" not in shown
+
+
+def test_a_run_holds_what_the_user_has_and_nothing_of_the_key(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    made = sorted(path.name for path in tmp_path.iterdir())
+    assert made == ["key_warehouse.json", "main_tree", "run", "scenarios"]
+    assert not list(run.rglob("key.json"))
+    assert (run / "from_your_team" / "daily.hql").is_file()
+    assert (run / "my_work").is_dir() and (run / "run_notebook.py").is_file()
+    connection = (run / "team_connection.py").read_text(encoding="utf-8")
+    assert repr(str(run / "_loop" / "warehouse.json")) in connection
+    assert len(SavedWarehouse(run / "_loop" / "warehouse.json").rows_of("mart.daily_fails"))
+
+
+def test_each_phases_message_gives_its_role_what_that_person_has(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    technical = (run / "_loop" / "phase_1.md").read_text(encoding="utf-8")
+    assert "Copy mart.daily_fails into mart_dev.fails." in technical
+    assert "QUESTION: " in technical and "DONE: " in technical and "_loop/" in technical
+    assert "run_notebook.py" in technical and "team_connection" in technical
+    excel = (run / "_loop" / "phase_2.md").read_text(encoding="utf-8")
+    assert "openpyxl" in excel and "my_work/" in excel
+    assert "run_notebook.py" not in excel and "team_connection" not in excel
+
+
+def test_preparing_without_the_agents_python_is_refused(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    with pytest.raises(FileNotFoundError, match="docs/usability-loop.md"):
+        usability_loop.prepare(chosen, tmp_path / "run", main=main_tree,
+                               python=tmp_path / "no_python.exe")
+
+
+def test_a_run_whose_end_is_the_keys_passes(chosen: usability_loop.Scenario, main_tree: Path,
+                                            tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    _finish(run)
+    result = usability_loop.score(chosen, run)
+    assert result.passed, usability_loop.report_text(result, run)
+    assert result.project == run / "my_project"
+
+
+def test_a_run_missing_a_table_or_a_file_fails(chosen: usability_loop.Scenario,
+                                               main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    result = usability_loop.score(chosen, run)
+    assert result.missing_tables == ["mart_dev.fails"] and not result.passed
+    assert result.missing_files == ["admin/databases.py"]
+
+
+@pytest.mark.parametrize(("end", "dev", "check"), [
+    pytest.param(END.replace("SELECT job_id, fails", "SELECT job_id, fails + 1 AS fails"),
+                 "mart_dev", "other_rows", id="other_rows"),
+    pytest.param(END.replace("SELECT job_id, fails", "SELECT CAST(job_id AS STRING) AS job_id,"
+                                                      " fails"), "mart_dev", "other_rows",
+                 id="numbers_as_text"),
+    pytest.param(END.replace("(job_id BIGINT, fails BIGINT)",
+                             "(job_id BIGINT, fails BIGINT, note STRING)").replace(
+        "SELECT job_id, fails", "SELECT job_id, fails, 'x' AS note"), "mart_dev",
+                 "other_columns", id="an_extra_column"),
+    pytest.param(END, "mart", "missing_files", id="a_file_without_its_text"),
+])
+def test_a_wrong_end_fails_on_the_check_meant_to_catch_it(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path, end: str, dev: str,
+        check: str) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    _finish(run, end, dev)
+    result = usability_loop.score(chosen, run)
+    assert getattr(result, check) and not result.passed, usability_loop.report_text(result, run)
+
+
+def test_more_questions_than_a_run_may_ask_fail_it(chosen: usability_loop.Scenario,
+                                                   main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    _finish(run)
+    for number in range(usability_loop.MOST_QUESTIONS + 1):
+        usability_loop.route(run, f"question {number}")
+    result = usability_loop.score(chosen, run)
+    assert result.questions == usability_loop.MOST_QUESTIONS + 1 and not result.passed
+
+
+def test_a_question_is_one_chat_file_00_first_then_the_file_it_names(
+        chosen: usability_loop.Scenario, main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    message, reply = usability_loop.route(run, "How do I convert a script?")
+    routed = message.read_text(encoding="utf-8")
+    assert "Copilot files for sqlglot Composer" in routed and "## Q1" in routed
+    assert "How do I convert a script?" in routed and "one Copilot file" in routed
+    assert reply.name == "question_1_route_reply.md"
+    answered = usability_loop.answer(run, 1, ["07_convert_hive.txt"])[0].read_text(
+        encoding="utf-8")
+    assert "Copilot files for sqlglot Composer" in answered
+    assert "Copilot file 07" in answered and "How do I convert a script?" in answered
+    assert "You replied: load 07_convert_hive.txt" in answered
+    several = usability_loop.answer(run, 1, ["00_start_here.txt", "07_convert_hive.txt"])
+    assert "load 00_start_here.txt and 07_convert_hive.txt" in several[0].read_text(
+        encoding="utf-8")
+
+
+def test_a_workbook_is_attached_as_copilot_reads_it(chosen: usability_loop.Scenario,
+                                                    main_tree: Path, tmp_path: Path) -> None:
+    run = _prepared(chosen, main_tree, tmp_path)
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Runs"
+    for row in (["job_id", "fails", "double"], [1, 2, "=[@fails]*2"]):
+        sheet.append(row)
+    sheet.add_table(Table(displayName="runs", ref="A1:C2"))
+    workbook.save(run / "my_work" / "book.xlsx")
+    usability_loop.route(run, "How do I turn my workbook into Hive?")
+    attached = usability_loop.answer(run, 1, ["07_convert_hive.txt"],
+                                     [Path("my_work/book.xlsx")])[0].read_text(encoding="utf-8")
+    assert 'Sheet "Runs"' in attached and 'Excel Table "runs", A1:C2' in attached
+    assert "=[@fails]*2" in attached
+
+
+def test_a_run_built_from_dev_holds_mains_tree(tmp_path: Path) -> None:
+    main = tmp_path / "main"
+    usability_loop.build_main(main)
+    assert (main / "sqlglot_composer" / "version.txt").is_file()
+    assert (main / ".github" / "README.md").is_file()
+    assert (main / "copilot" / "formula_workbook.xlsx").is_file()
+    assert not (main / "tools").exists() and not (main / ".scratch").exists()
