@@ -70,7 +70,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 - **A list of rows typed in keeps its Key.** A CTE that only lists values typed in, such as
   `SELECT 'data' AS team UNION ALL SELECT 'web'`, the way Copilot keeps a group with no data,
   stays Hive but has its first column as its Key when no value of it repeats, so a write keyed
-  on it is let through with no opt-out.
+  on it is let through with no opt-out, and each column has the type its values give. The
+  same list as a sub-query, `FROM (SELECT 1 AS job_id UNION ALL ...) c`, or one joined, stays
+  Hive alone in the same way, the query around it Toolbox code, where the whole query stayed
+  Hive before.
 - **An Upgrade keeps only a step cell you wrote in.** A Workflow step cell you fill in, such
   as change_a_saved_table's Admin statement, is kept when an Upgrade writes its notebook
   again only once you wrote in it: one still as an earlier version wrote it is written afresh.

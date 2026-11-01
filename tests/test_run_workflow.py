@@ -203,9 +203,10 @@ def test_a_table_made_from_its_query_has_files_naming_new_table(started: Path) -
     assert "INSERT OVERWRITE" not in scan
 
 
-def test_a_query_kept_whole_as_hive_has_its_columns_typed(started: Path) -> None:
-    # Toolbox 8.2, 13: Copilot's Hive for a typed-in team list, a SELECT with no FROM, stays
-    # an Unchecked statement; its Table reference has the types its Hive gives, none guessed.
+def test_a_query_reading_a_list_typed_in_has_its_columns_typed(started: Path) -> None:
+    # Toolbox 8.2, 13 and 16: Copilot's Hive for a typed-in team list, a sub-query with no
+    # FROM, stays Hive alone, its columns typed as their values are; its Table reference has
+    # the types its query gives, none guessed, and the list's Key.
     project.add_references(["ops.job_runs", "ops.jobs"], query=example_database.query)
     query = """\
 WITH per_team AS (
@@ -225,6 +226,21 @@ LEFT JOIN per_team p ON t.team = p.team"""
     assert '"total_duration_mins": "bigint",\n' in reference
     # A type with a precision, which the Toolbox doesn't write, is still yours to answer.
     assert '"runs_decimal": "string",  # TODO: guessed' in reference
+    assert 'key=["team"],' in reference
+
+
+def test_a_query_kept_whole_as_hive_has_its_columns_typed(started: Path) -> None:
+    # Toolbox 8.2, 13: a query of values alone, which no Statement writes, stays an Unchecked
+    # statement; its Table reference has the types its values give, none guessed.
+    query = "SELECT 'data' AS team, 4 AS runs UNION ALL SELECT 'web', 0"
+    project.new_table(f"{DEV}.team_list", queries={"team_list": query})
+    reference = (started / "references" / f"{DEV}__team_list.py").read_text(encoding="utf-8")
+    logic = next(text for kind, text in notebooks.read_cells(
+        started / "tables" / f"{DEV}__team_list" / f"{DEV}__team_list.ipynb")
+        if text.startswith("# logic"))
+    assert "unchecked_hive(" in logic
+    assert '"team": "string",\n' in reference
+    assert '"runs": "int",\n' in reference
 
 
 def test_new_table_from_a_query_refuses_a_table_outside_the_dev_database(started: Path) -> None:

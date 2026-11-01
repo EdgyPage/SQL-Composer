@@ -536,13 +536,21 @@ class _Converter:
             if not alias:
                 raise Unconvertible("a sub-query in FROM with no name")
             variable = self.fresh(alias)
-            query = self.query(node.this)
-            self.result.assignments.append(
-                (variable, f"{self.use('derived')}({python_literal(alias)}, {query})"))
-            scope[alias] = _Source(variable, self.columns_named(node.this))
-            self.note_finding(node, "changed", f"the sub-query {alias} becomes a Derived "
-                              f"table, which the Toolbox writes at the top, as WITH {alias} AS "
-                              "(...)")
+            columns = self.columns_named(node.this)
+            if _rows_typed_in(node.this) is not None and columns:
+                # Rows typed in, which no Statement lists: Hive alone, as a CTE of them is.
+                value = self.unchecked_derived_call(alias, node.this, columns)
+                self.note_finding(node, "unchecked", f"the sub-query {alias}, rows typed in, "
+                                  "stays Hive, in unchecked_derived(...), which the Toolbox "
+                                  f"writes at the top, as WITH {alias} AS (...)")
+            else:
+                query = self.query(node.this)
+                value = f"{self.use('derived')}({python_literal(alias)}, {query})"
+                self.note_finding(node, "changed", f"the sub-query {alias} becomes a Derived "
+                                  "table, which the Toolbox writes at the top, as WITH "
+                                  f"{alias} AS (...)")
+            self.result.assignments.append((variable, value))
+            scope[alias] = _Source(variable, columns)
             return variable
         if not isinstance(node, exp.Table):
             raise Unconvertible(f"{type(node).__name__.upper()} in FROM")
@@ -1135,18 +1143,25 @@ class _Converter:
                 raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * "
                                     "of a table with no Table reference yet hides its "
                                     "columns") from why
-            text = sql_text(node.this, pretty=True)
-            listed = "{\n" + "".join(f"    {python_literal(column)}: None,\n"
-                                      for column in columns) + "}"
-            key = [python_literal(each) for each in _key_of_rows_typed_in(node.this, columns)]
-            keyed = f", key={_python_list(key)}" if key else ""
-            value = (f"{self.use('unchecked_derived')}({python_literal(name)}, "
-                     f"{python_literal(text)}, "
-                     f"columns={listed}{keyed})")
+            value = self.unchecked_derived_call(name, node.this, columns)
             self.note_finding(node, "unchecked", f"the CTE {name} stays Hive, in "
                               f"unchecked_derived(...): {why}")
         self.result.assignments.append((variable, value))
         self.ctes[name] = _Source(variable, columns)
+
+    def unchecked_derived_call(self, name: str, query: exp.Expression,
+                               columns: list[str]) -> str:
+        """The Python of an Unchecked derived table holding a query's Hive: when it only lists
+        rows typed in, with the types and the Key its rows show."""
+        text = sql_text(query, pretty=True)
+        types = _types_of_rows_typed_in(query)
+        listed = "{\n" + "".join(
+            f"    {python_literal(column)}: {python_literal(types.get(column))},\n"
+            for column in columns) + "}"
+        key = [python_literal(each) for each in _key_of_rows_typed_in(query, columns)]
+        keyed = f", key={_python_list(key)}" if key else ""
+        return (f"{self.use('unchecked_derived')}({python_literal(name)}, "
+                f"{python_literal(text)}, columns={listed}{keyed})")
 
 
 def _rows_typed_in(query: exp.Expression) -> list[tuple[str, ...]] | None:
@@ -1161,6 +1176,29 @@ def _rows_typed_in(query: exp.Expression) -> list[tuple[str, ...]] | None:
     values = tuple(_compared_as_hive(_python_of_literal(item.unalias()))
                    for item in query.expressions)
     return None if None in values else [values]
+
+
+def _types_of_rows_typed_in(query: exp.Expression) -> dict[str, str | None]:
+    """Each column's type of a query that only lists rows typed in, such as {"team":
+    "string"}, as Hive types its values: None for a column whose rows' values differ in type,
+    such as 1 and 2.5; none for any other query."""
+    if _rows_typed_in(query) is None:
+        return {}
+    names = [item.alias_or_name for item in _rows_of(query)[0].expressions]
+    types: dict[str, str | None] = {}
+    for row in _rows_of(query):
+        typed = typed_hive(row.copy(), {})
+        for name, select in zip(names, typed.selects, strict=False):
+            found = _HIVE_TYPES.get(select.type.this) if select.type is not None else None
+            types[name] = found if types.get(name, found) == found else None
+    return types
+
+
+def _rows_of(query: exp.Expression) -> list[exp.Select]:
+    """Each SELECT of a UNION, as its rows are listed, or the one query."""
+    if isinstance(query, exp.Union):
+        return _rows_of(query.this) + _rows_of(query.expression)
+    return [query]
 
 
 def _compared_as_hive(value: str | None) -> str | None:
