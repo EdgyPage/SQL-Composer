@@ -92,6 +92,12 @@ SELECT f.job_id, COUNT(*) AS fails
 FROM ops_reports.failed_runs f
 GROUP BY f.job_id;
 """
+# A query that names its tables without their database.
+RUNS_PER_JOB = """SELECT r.job_id, COUNT(*) AS runs
+FROM job_runs r
+WHERE r.dt = '2026-09-24'
+GROUP BY r.job_id
+"""
 # A new table's query, as the user saved it.
 OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
@@ -658,7 +664,8 @@ STAGING = {"ops_reports.failed_runs": "fold"}
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 staging=STAGING)
 ''', tables=("job_runs",), workflow="convert"),
-    Task("T33", "13", "held_out",
+    # Held out at first, then tuned on (.scratch/copilot-eval/results.md), so now a dev task.
+    Task("T33", "13", "dev",
          "I converted daily_fails.hql as the batch named fails (NAME = \"fails\"). "
          "project.check() says:\n"
          "    mart_dev.daily_fails_mart: types: dt's type, written \"string\" as a guess\n"
@@ -676,6 +683,20 @@ project.write_decisions(DECISIONS)
          files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS},
          before='''project.convert("fails", None, files=["daily_fails.hql"], query=query)
 '''),
+    # Written in T33's place as held out, after the files were tuned on it.
+    Task("T37", "13", "held_out",
+         "Convert this query into my Dev Database as a batch named runs_per_job. Its tables "
+         "are in the ops database, though the query doesn't say so: give the convert "
+         "notebook's names cell and its first step's cell.\n\n" + RUNS_PER_JOB,
+         "workflow", '''NAME = "runs_per_job"
+FILES = []
+HIVE = """''' + RUNS_PER_JOB + '''"""
+DATABASE = "ops"
+STAGING = {}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+''', tables=("job_runs",), workflow="convert"),
     # --- 14 a Workflow: new tables and upkeep -----------------------------------------------
     Task("T34", "14", "dev",
          "Add Table references for ops.jobs and ops.run_alerts with the references Workflow: "
