@@ -15,6 +15,10 @@ the Python inside a step, that step's file.
 
 Each job has a notebook, admin/workflows/<name>/<name>.ipynb. The user fills in its names
 cell (NAME, TABLES: the names in capitals) and its decisions cell, DECISIONS, and saves it.
+DECISIONS holds each answer by the table's name as project.check() writes it, each by its
+kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
+"types": {"fails": "bigint"}}}`; a later step, `project.write_decisions(DECISIONS)`,
+writes them in.
 Each step's cell runs that step; the last cell, `project.run_workflow(...)`, runs every step
 left, up to the first only the user can do, and `dry_run=True` sends nothing.
 `project.check()` names the next step. A Decision is the user's: never answer it for them.

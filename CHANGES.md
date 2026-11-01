@@ -13,9 +13,9 @@ cell, `project.run_workflow(...)`, runs every step left.
 ### To update from 8.0
 
 - **Copy in 8.1's `sqlglot_composer` folder**, as the README's Update says, then **run
-  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, and read
-  `admin/upgrade_8.1.md`. Each Workflow notebook in `admin/workflows/` is written again, kept
-  as it was in `admin/removed/`: it gains a decisions cell where its steps wait on Decisions,
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.1.md`. Each Workflow
+  notebook in `admin/workflows/` is written again, kept as it was in `admin/removed/`: it gains a decisions cell where its steps wait on Decisions,
   its new inputs and steps, and its last cell, `project.run_workflow(...)`. Each name you gave
   in its names cell stays, and so does each step cell you write in, such as
   change_a_saved_table's Admin statement.

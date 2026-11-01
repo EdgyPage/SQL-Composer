@@ -22,8 +22,8 @@ In each answers file, fill in its header: `date:`, `arm: A1` or `arm: C`,
   `<<<` and `>>>`, as the first message, and send it. Then send the task's prompt.
 - **C, with the file.** Open a new chat. Paste the task's objective file (or attach it: the
   task's prompt heading names its id, and `tools/copilot_eval_tasks.py` gives its objective,
-  `01` to `10`; the file is `copilot/<objective>_*.txt`) as the first message, and send it.
-  Then send the task's prompt.
+  `01` to `10`, `13` or `14`; the file is `copilot/<objective>_*.txt`) as the first message,
+  and send it. Then send the task's prompt.
 - **R, routing.** Open a new chat. Send `copilot/00_start_here.txt`, then ask which file to
   load for the task's prompt. Note the file it names under the task's heading.
 
@@ -41,6 +41,13 @@ Each answer is scored found, parses, builds, runs and correct. A pass is correct
 invents no name, imports no name with `*`, adds no opt-out the task didn't need, and calls
 run_query where the request asks to run it. The files help when C passes at least 20 points
 more of the held-out tasks than A1.
+
+A Workflow task, for files 13 and 14, asks for a Workflow notebook's cells. Every Python block
+of its reply is one cell, run in order from the Workflow's folder, in a Project of its own:
+its Dev and Prod Databases filled in, the Table references of the tables the task names, its
+files and the cells the user ran before. It is correct when it leaves the same files as the
+reference's cells, each with the same text, under tables/, the Workflow's own folder and
+references/.
 
 ## The Excel tasks: Copilot files 11 and 12
 

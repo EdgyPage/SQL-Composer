@@ -12,7 +12,8 @@ in an answers file, and this scores the replies against the tasks' reference ans
 
 An answers file starts with its header lines, `date:`, `arm:`, `model:` and `files:` (the
 Copilot files' hash), then holds a `## T07` heading for each task, followed by the reply as it
-came. The last Python code block under a heading is the answer.
+came. The last Python code block under a heading is the answer; for a Workflow task, every
+Python code block under it, in order, as a notebook's cells.
 
 Each answer is scored on these checks, in order:
 
@@ -20,12 +21,14 @@ Each answer is scored on these checks, in order:
 - parses: it is Python;
 - builds: run as a Conversion's logic cell in a stand-in Project, it gives what the task asks
   for (a Statement s, a Table reference t, a Verdict v, or a logic cell's write()) with no
-  Guard or Load limit refusing it, so every calculation has its AS, as a Guard sees to;
+  Guard or Load limit refusing it, so every calculation has its AS, as a Guard sees to; a
+  Workflow's cells, run from its folder in a Project of their own, run with no refusal;
 - runs: it runs on the Example database;
 - correct: it gives the reference's rows (or, for a write, writes them into the same table
   the same way; for Hive the Example database can't run, the same Hive; for a Table
   reference, the same name, columns, partitions, Key and location; for a check, the
-  reference's Verdict, of the Hive the request quotes where it quotes one).
+  reference's Verdict, of the Hive the request quotes where it quotes one; for a Workflow's
+  cells, the same Table folders and Table references left in their Project).
 
 An answer passes when it is correct and also: invents no name (every name it imports from the
 Toolbox, and every project.x and admin.x, is public, and it passes no send=), imports no name
@@ -49,6 +52,7 @@ from __future__ import annotations
 import argparse
 import ast
 import contextlib
+import io
 import json
 import math
 import os
@@ -132,7 +136,18 @@ CONTRACT = {
     "write()": "Answer with one Python code block: the logic cell, its imports and functions.",
     "t": "Answer with one Python code block that assigns the Table reference to `t`.",
     "v": "Answer with one Python code block that assigns the check's result to `v`.",
+    "cells": "Answer with one Python code block: the Workflow notebook's cells to run, in "
+             "order, its names cell first, filled in.",
 }
+# What a Workflow notebook's cells above its names cell give each cell after them: the
+# Toolbox's names, and the user's query and execute.
+NOTEBOOK_IMPORTS = ("from sqlglot_composer import admin, hive_settings, project, run_execute, "
+                    "run_query, show_hive\nfrom warehouse import execute, query\n")
+# A Workflow task's Project's Dev and Prod Databases, filled in in its admin/databases.py.
+DEV_DATABASE = "mart_dev"
+PROD_DATABASE = "mart"
+# The lines of a Workflow notebook that find the Project, which the scorer runs in their place.
+PATH_LINES = project.WORKFLOW_PATH_LINES[:3]
 
 
 # --- The prompts ---------------------------------------------------------------------------
@@ -159,6 +174,11 @@ def prompt(task: Task) -> str:
                      "as ops.job_runs.")
     for name, code in task.saved.items():
         lines.append(f"- references/mart__{name}.py holds:\n\n{code}")
+    if task.workflow:
+        lines.append(f"- admin/databases.py has DEV = {DEV_DATABASE!r} and "
+                     f"PROD = {PROD_DATABASE!r}.")
+    for path, text in task.files.items():
+        lines.append(f"- {path} holds:\n\n{text}")
     lines.append("- `from warehouse import query, execute` gives my two calls to the "
                  "warehouse.")
     return "\n".join(lines) + f"\n\n{task.request}\n\n{CONTRACT[GIVES[task.kind]]}"
@@ -247,11 +267,24 @@ def read_answers(text: str) -> tuple[dict[str, str], dict[str, str]]:
     return header, replies
 
 
+def _python_blocks(reply: str) -> list[str]:
+    """Each Python code block of a reply, in order, or each code block that names no
+    language."""
+    blocks = re.findall(r"```[ \t]*(\w*)[ \t]*\n(.*?)```", reply, re.DOTALL)
+    return [code for language, code in blocks if language.lower() in ("python", "py", "")]
+
+
 def answer_code(reply: str) -> str | None:
     """The last Python code block of a reply, or of any code block where none says Python."""
-    blocks = re.findall(r"```[ \t]*(\w*)[ \t]*\n(.*?)```", reply, re.DOTALL)
-    python = [code for language, code in blocks if language.lower() in ("python", "py", "")]
+    python = _python_blocks(reply)
     return python[-1] if python and python[-1].strip() else None
+
+
+def cells_code(reply: str) -> str | None:
+    """A Workflow answer's code: every Python code block of the reply, in order, as a
+    notebook runs its cells, a reply giving each cell a block of its own."""
+    code = "\n".join(_python_blocks(reply))
+    return code if code.strip() else None
 
 
 # --- Reading an answer before it runs ------------------------------------------------------
@@ -485,10 +518,10 @@ def _quiet() -> Iterator[None]:
         yield
 
 
-def loaded(code: str, name: str, gives: str) -> tuple[TableLogic, object]:
+def loaded(code: str, name: str, gives: str, root: Path = Path()) -> tuple[TableLogic, object]:
     """An answer's logic, and what it gives, run as a Table notebook's logic cell in the
-    stand-in Project, its write() giving it, in a Table folder of the stand-in database eval.
-    What it gives is a model's, so it may be anything."""
+    Project in `root`, the stand-in, its write() giving it, in a Table folder of the stand-in
+    database eval. What it gives is a model's, so it may be anything."""
     tree = _SendersOut().visit(ast.parse(code))
     future = [node for node in tree.body
               if isinstance(node, ast.ImportFrom) and node.module == "__future__"]
@@ -500,7 +533,7 @@ def loaded(code: str, name: str, gives: str) -> tuple[TableLogic, object]:
         scored += "\n\nwrite = scored_answer\n"
     cell = "\n".join(["# logic", *(ast.unparse(node) for node in future), _SCORED_READ,
                       ast.unparse(rest), "", "", scored])
-    folder = Path("tables") / f"eval__{name}"
+    folder = root / "tables" / f"eval__{name}"
     folder.mkdir(parents=True, exist_ok=True)
     notebook = {"cells": [{"cell_type": "code", "execution_count": None, "metadata": {},
                            "outputs": [], "source": cell.splitlines(keepends=True)}],
@@ -577,6 +610,104 @@ def correct(answer: object, logic: TableLogic, reference: Statement | Table | Ve
     return isinstance(answer, Verdict) and bool(answer) and repr(answer) == repr(reference)
 
 
+def _project_for(task: Task) -> Path:
+    """A Project of its own for a Workflow task's cells, in a new folder beside the stand-in
+    Project, the folder the scorer works in, started: its Databases filled in, a Table
+    reference for each Example database table the task names, as add_references writes it,
+    the task's files, and the cells run before."""
+    beside = Path.cwd().parent
+    root = beside / f"workflow_{len(list(beside.glob('workflow_*')))}"
+    root.mkdir()
+    with contextlib.chdir(root):
+        project.start()
+        (root / "warehouse.py").write_text(WAREHOUSE, encoding="utf-8")
+        databases = root / "admin" / "databases.py"
+        text = databases.read_text(encoding="utf-8")
+        text = text.replace('"<DEV_DATABASE>"', f'"{DEV_DATABASE}"')
+        text = text.replace('"<PROD_DATABASE>"', f'"{PROD_DATABASE}"')
+        databases.write_text(text, encoding="utf-8")
+        if task.tables:
+            project.add_references([f"ops.{name}" for name in task.tables],
+                                   query=example_database.query)
+        for path, file_text in task.files.items():
+            (root / path).parent.mkdir(parents=True, exist_ok=True)
+            (root / path).write_text(file_text, encoding="utf-8")
+    if task.before:
+        _run_cells(task, task.before, root, "before")
+    return root
+
+
+def _run_cells(task: Task, code: str, root: Path, name: str) -> None:
+    """Run a Workflow notebook's cells from its folder, as the notebook runs them, after the
+    cells above its names cell: as a logic cell, which gives nothing."""
+    folder = root / "admin" / "workflows" / str(task.workflow)
+    folder.mkdir(parents=True, exist_ok=True)
+    with contextlib.chdir(folder):
+        loaded(NOTEBOOK_IMPORTS + code, name, "None", root)
+
+
+def _files_left_in(root: Path, workflow: str) -> dict[str, str]:
+    """The text of each file a Workflow's cells may make, by its path from the Project's
+    folder: under tables/, under the Workflow's own folder in admin/workflows/, such as a
+    batch's index, and in references/; the scorer's own logic cells left out."""
+    paths = [*(root / "tables").rglob("*"),
+             *(root / "admin" / "workflows" / workflow).rglob("*"),
+             *(root / "references").glob("*.py")]
+    left = {}
+    for path in sorted(paths):
+        relative = path.relative_to(root).as_posix()
+        if path.is_file() and not relative.startswith("tables/eval__"):
+            left[relative] = path.read_text(encoding="utf-8")
+    return left
+
+
+def files_left_by(task: Task, code: str) -> dict[str, str]:
+    """The files a Workflow task's cells leave in a Project of their own, with their text
+    (`_files_left_in`); what the Toolbox prints meanwhile isn't kept."""
+    with _quiet(), contextlib.redirect_stdout(io.StringIO()):
+        root = _project_for(task)
+        with project_on_the_path(root):
+            _run_cells(task, code, root, "cells")
+        return _files_left_in(root, str(task.workflow))
+
+
+def _without_path_lines(code: str) -> str:
+    """A Workflow notebook's cells without the lines that find the Project, which an answer
+    may copy and the scorer runs in their place."""
+    lines = {line.strip() for line in PATH_LINES}
+    return "\n".join(line for line in code.splitlines() if line.strip() not in lines) + "\n"
+
+
+def _differences(left: dict[str, str], reference: dict[str, str]) -> str:
+    """A score's note for a Workflow answer that leaves other files than the reference's: the
+    first file that differs, at most 200 characters."""
+    extra = sorted(set(left) - set(reference))
+    missing = sorted(set(reference) - set(left))
+    changed = sorted(path for path in set(left) & set(reference)
+                     if left[path] != reference[path])
+    if missing:
+        note = f"leaves no {missing[0]}"
+    elif extra:
+        note = f"leaves {extra[0]}, which the reference doesn't"
+    else:
+        note = f"leaves {changed[0]} other than the reference does"
+    return note[:200]
+
+
+def _score_workflow(task: Task, code: str, result: Score, reference: dict[str, str]) -> Score:
+    """A Workflow task's answer, scored on what it leaves in a Project of its own."""
+    try:
+        left = files_left_by(task, code)
+    except Exception as error:  # a refusal, or the answer's own mistake
+        result.note = f"doesn't build: {_error_note(error)}"
+        return result
+    result.builds = result.runs = True
+    result.correct = left == reference
+    if not result.correct:
+        result.note = f"runs, but {_differences(left, reference)}"
+    return result
+
+
 def gives_the_kind(answer: object, task: Task) -> bool:
     """Whether an answer gives the kind of thing its task asks for."""
     kind = {"table": Table, "verdict": Verdict}.get(task.kind, Statement)
@@ -604,10 +735,15 @@ def _parse_answer(task: Task, code: str, result: Score) -> ast.Module | None:
     return tree
 
 
-def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Score:
+def score(task: Task, reply: str,
+          reference: Statement | Table | Verdict | dict[str, str]) -> Score:
     """One answer, scored check by check against the reference's result."""
     result = Score(task.id)
-    code = answer_code(reply)
+    if task.workflow:
+        code = cells_code(reply)
+        code = _without_path_lines(code) if code is not None else None
+    else:
+        code = answer_code(reply)
     tree = _parse_answer(task, code, result) if code is not None else None
     if code is None:
         result.note = "no code block"
@@ -617,6 +753,15 @@ def score(task: Task, reply: str, reference: Statement | Table | Verdict) -> Sco
     if danger:
         result.note = f"not run: {danger}"
         return result
+    if isinstance(reference, dict):
+        return _score_workflow(task, code, result, reference)
+    return _score_logic(task, code, tree, result, reference)
+
+
+def _score_logic(task: Task, code: str, tree: ast.Module, result: Score,
+                 reference: Statement | Table | Verdict) -> Score:
+    """An answer that gives a Statement, a Table reference or a Verdict, scored on what it
+    gives, run as a logic cell in the stand-in Project."""
     try:
         with _quiet():
             logic, answer = loaded(code, task.id.lower(), GIVES[task.kind])
@@ -676,15 +821,20 @@ def scored(replies: dict[str, str]) -> list[Score]:
 
 def scored_pairs(pairs: list[tuple[str, str]]) -> list[Score]:
     """Each (task id, reply) scored, in one fresh stand-in Project, against its task's
-    reference; a task may come more than once."""
+    reference; a task may come more than once. A Workflow task's cells run in a Project of
+    their own, beside the stand-in, in the same temporary folder."""
     results, references = [], {}
     with example_setting(), times_pinned():
-        folder = Path.cwd()
-        with project_on_the_path(folder), answers_kept_in(folder):
+        kept = Path.cwd()
+        folder = kept / "stand_in"
+        folder.mkdir()
+        with contextlib.chdir(folder), project_on_the_path(folder), answers_kept_in(kept):
             stand_in(folder)
             for task_id, reply in pairs:
                 task = BY_ID[task_id]
-                if task_id not in references:
+                if task_id not in references and task.workflow:
+                    references[task_id] = files_left_by(task, task.reference)
+                elif task_id not in references:
                     with _quiet():
                         logic, reference = loaded(task.reference,
                                                   f"reference_{task_id.lower()}",
