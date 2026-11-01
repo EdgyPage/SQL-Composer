@@ -3,8 +3,8 @@
 The tests directly in `tests/` test the Toolbox through its public names, so they don't import
 sqlglot themselves. `tests/sqlglot_checks/` holds what tests sqlglot itself, `tests/repo/`
 the checks on the repo, and `tests/journeys/` the end-to-end tests of each Workflow, whose
-stand-in warehouse reads the Hive it is sent with sqlglot. pytest imports every file under
-`tests/` by its name alone, so no two may share one.
+stand-in warehouse, `tools/workflow_warehouse.py`, reads the Hive it is sent with sqlglot.
+pytest imports every file under `tests/` by its name alone, so no two may share one.
 """
 
 from __future__ import annotations

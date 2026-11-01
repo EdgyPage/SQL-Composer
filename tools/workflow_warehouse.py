@@ -1,5 +1,6 @@
-"""A warehouse the Workflow journeys write to: the Example database's tables in ops, and every
-table a journey creates, with the rows each write gives it.
+"""A warehouse the Workflow journeys and the Copilot evaluation's Workflow tasks write to: the
+Example database's tables in ops, and every table a Workflow creates, with the rows each write
+gives it.
 
 The Example database never keeps a write, so a journey couldn't read its end goal there. This
 stand-in keeps each table's rows, runs each query on the Example database's own engine, and
@@ -11,7 +12,7 @@ nothing here. A table named without its database is in `database`.
 
 As Hive does, it refuses an INSERT that fills every Partition column from its rows unless
 hive.exec.dynamic.partition.mode=nonstrict was SET first, a CREATE TABLE of a table it holds
-without IF NOT EXISTS, and a read sent through execute. It is a test's stand-in, not a
+without IF NOT EXISTS, and a read sent through execute. It is a stand-in, not a
 warehouse: it checks no type, and a CREATE AS a query gives its columns no types.
 """
 
@@ -22,10 +23,9 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 import sqlglot
-from conftest import toolbox_module
 from sqlglot import exp
 
-from sqlglot_composer import Table
+from sqlglot_composer import Table, describe, engine, example_database
 
 # Hive's default, which refuses a write whose every Partition column comes from its rows.
 DYNAMIC_MODE = "hive.exec.dynamic.partition.mode"
@@ -51,7 +51,6 @@ class Warehouse:
     """The stand-in: `query` and `execute`, as a Project's warehouse.py gives them."""
 
     def __init__(self, database: str = "default") -> None:
-        example_database = toolbox_module("example_database")
         self.database = database
         self.tables: dict[str, Stored] = {}
         for name, (table, rows) in example_database._TABLES.items():
@@ -68,12 +67,11 @@ class Warehouse:
         command = [word.upper() for word in words[:2]]
         if command[:1] == ["DESCRIBE"]:
             stored = self.tables[self._full_name(words[-1])]
-            stand_in = toolbox_module("describe").StandIn(stored.table)
+            stand_in = describe.StandIn(stored.table)
             return stand_in.answer(" ".join([*words[:-1], stored.table._name]))
         if command == ["SHOW", "PARTITIONS"]:
             return pd.DataFrame({"partition": self._partitions(self._full_name(words[-1]))})
         columns, rows = self._run(sqlglot.parse_one(hive, read="hive"))
-        example_database = toolbox_module("example_database")
         if not example_database._sorts_itself(hive.strip()):
             rows = sorted(rows, key=example_database._in_order)
         return pd.DataFrame(rows, columns=columns)
@@ -220,7 +218,7 @@ class Warehouse:
             engine_name = self._name_of(table).replace(".", "__")
             tables_read[engine_name] = (stored.table, stored.rows)
             table.replace(exp.to_table(f"ops.{engine_name}").as_(table.alias or table.name))
-        return toolbox_module("engine").run_query(renamed.sql(dialect="hive"), tables_read)
+        return engine.run_query(renamed.sql(dialect="hive"), tables_read)
 
 
 def _column_types(schema: exp.Schema) -> dict[str, str]:

@@ -58,6 +58,7 @@ import math
 import os
 import re
 import sys
+import types
 import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass, field
@@ -70,6 +71,7 @@ import sqlglot_composer  # noqa: E402
 from copilot_eval_tasks import BY_ID, GIVES, OBJECTIVES, TASKS, Task  # noqa: E402
 from example_gallery import example_setting, what_happened  # noqa: E402
 from how_to_page import project_on_the_path, times_pinned  # noqa: E402
+from workflow_warehouse import Warehouse  # noqa: E402
 from sqlglot_composer import (  # noqa: E402
     Statement,
     Table,
@@ -131,6 +133,30 @@ def execute(hive: str) -> None:
     example_database.execute(hive)
 '''
 
+# A Workflow task's Project's warehouse.py: its two calls go to a warehouse that keeps each
+# write (tools/workflow_warehouse.py). An answer's run_query and run_execute are called by
+# the names scored_run_query and scored_run_execute, the same functions, which pass on what
+# they are given: load refuses a logic cell that calls either by its own name.
+WORKFLOW_WAREHOUSE = '''"""warehouse - a Workflow task's Project's two calls, to a warehouse
+that keeps each write."""
+
+import pandas as pd
+
+from sqlglot_composer import run_execute as scored_run_execute
+from sqlglot_composer import run_query as scored_run_query
+from {conn_module} import conn
+
+__all__ = ["execute", "query", "scored_run_execute", "scored_run_query"]
+
+
+def query(hive: str) -> pd.DataFrame:
+    return conn.query(hive)
+
+
+def execute(hive: str) -> None:
+    conn.execute(hive)
+'''
+
 CONTRACT = {
     "s": "Answer with one Python code block that builds it and assigns the Statement to `s`.",
     "write()": "Answer with one Python code block: the logic cell, its imports and functions.",
@@ -142,7 +168,8 @@ CONTRACT = {
 # What a Workflow notebook's cells above its names cell give each cell after them: the
 # Toolbox's names, and the user's query and execute.
 NOTEBOOK_IMPORTS = ("from sqlglot_composer import admin, hive_settings, project, run_execute, "
-                    "run_query, show_hive\nfrom warehouse import execute, query\n")
+                    "run_query, show_hive\nfrom warehouse import execute, query, "
+                    "scored_run_execute, scored_run_query\n")
 # A Workflow task's Project's Dev and Prod Databases, filled in in its admin/databases.py.
 DEV_DATABASE = "mart_dev"
 PROD_DATABASE = "mart"
@@ -610,17 +637,22 @@ def correct(answer: object, logic: TableLogic, reference: Statement | Table | Ve
     return isinstance(answer, Verdict) and bool(answer) and repr(answer) == repr(reference)
 
 
-def _project_for(task: Task) -> Path:
+def _project_for(task: Task, warehouse: Warehouse) -> Path:
     """A Project of its own for a Workflow task's cells, in a new folder beside the stand-in
     Project, the folder the scorer works in, started: its Databases filled in, a Table
     reference for each Example database table the task names, as add_references writes it,
-    the task's files, and the cells run before."""
+    and the task's files. Its warehouse.py sends to `warehouse`, through a module named for the
+    Project's folder, which files_left_by takes out once the cells have run."""
     beside = Path.cwd().parent
     root = beside / f"workflow_{len(list(beside.glob('workflow_*')))}"
     root.mkdir()
+    conn_module = types.ModuleType(f"eval_conn_{root.name}")
+    conn_module.conn = warehouse
+    sys.modules[conn_module.__name__] = conn_module
     with contextlib.chdir(root):
         project.start()
-        (root / "warehouse.py").write_text(WAREHOUSE, encoding="utf-8")
+        (root / "warehouse.py").write_text(
+            WORKFLOW_WAREHOUSE.replace("{conn_module}", conn_module.__name__), encoding="utf-8")
         databases = root / "admin" / "databases.py"
         text = databases.read_text(encoding="utf-8")
         text = text.replace('"<DEV_DATABASE>"', f'"{DEV_DATABASE}"')
@@ -632,8 +664,6 @@ def _project_for(task: Task) -> Path:
         for path, file_text in task.files.items():
             (root / path).parent.mkdir(parents=True, exist_ok=True)
             (root / path).write_text(file_text, encoding="utf-8")
-    if task.before:
-        _run_cells(task, task.before, root, "before")
     return root
 
 
@@ -642,8 +672,22 @@ def _run_cells(task: Task, code: str, root: Path, name: str) -> None:
     cells above its names cell: as a logic cell, which gives nothing."""
     folder = root / "admin" / "workflows" / str(task.workflow)
     folder.mkdir(parents=True, exist_ok=True)
+    renamed = ast.unparse(_SendersRenamed().visit(ast.parse(code)))
     with contextlib.chdir(folder):
-        loaded(NOTEBOOK_IMPORTS + code, name, "None", root)
+        loaded(NOTEBOOK_IMPORTS + renamed, name, "None", root)
+
+
+class _SendersRenamed(ast.NodeTransformer):
+    """Each call to run_query or run_execute renamed scored_run_query or scored_run_execute,
+    the same functions under the names the Project's warehouse.py gives them, its arguments
+    as they were: load refuses a logic cell that calls either by its own name."""
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        self.generic_visit(node)
+        called = _called_name(node)
+        if called in SENDERS:
+            node.func = ast.copy_location(ast.Name(f"scored_{called}", ast.Load()), node.func)
+        return node
 
 
 def _files_left_in(root: Path, workflow: str) -> dict[str, str]:
@@ -662,13 +706,27 @@ def _files_left_in(root: Path, workflow: str) -> dict[str, str]:
 
 
 def files_left_by(task: Task, code: str) -> dict[str, str]:
-    """The files a Workflow task's cells leave in a Project of their own, with their text
-    (`_files_left_in`); what the Toolbox prints meanwhile isn't kept."""
+    """What a Workflow task's cells leave: the files of their Project, with their text
+    (`_files_left_in`), and each table its warehouse holds, with its rows, under
+    "warehouse/<table>". The warehouse holds the originals the task names first; the cells the
+    user ran before run first too. What the Toolbox prints meanwhile isn't kept."""
+    warehouse = Warehouse(database="default")
+    if task.originals:
+        warehouse.execute(task.originals)
     with _quiet(), contextlib.redirect_stdout(io.StringIO()):
-        root = _project_for(task)
-        with project_on_the_path(root):
-            _run_cells(task, code, root, "cells")
-        return _files_left_in(root, str(task.workflow))
+        root = _project_for(task, warehouse)
+        try:
+            with project_on_the_path(root):
+                if task.before:
+                    _run_cells(task, task.before, root, "before")
+                _run_cells(task, code, root, "cells")
+        finally:
+            sys.modules.pop(f"eval_conn_{root.name}", None)
+    left = _files_left_in(root, str(task.workflow))
+    for name in sorted(warehouse.tables):
+        rows = warehouse.rows_of(name).values.tolist()
+        left[f"warehouse/{name}"] = repr(sorted(rows, key=repr))
+    return left
 
 
 def _without_path_lines(code: str) -> str:

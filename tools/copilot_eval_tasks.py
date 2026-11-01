@@ -109,6 +109,16 @@ SELECT h.run_id, COUNT(*) AS alerts
 FROM high_alerts h
 GROUP BY h.run_id;
 """
+# A script that makes its table, then writes it: its own team's job has run it.
+DAILY_FAILS_MADE = """CREATE TABLE IF NOT EXISTS mart.daily_fails (job_id BIGINT, fails BIGINT)
+PARTITIONED BY (dt STRING);
+
+INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS fails
+FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status = 'FAILED'
+GROUP BY r.job_id;
+"""
 # A new table's query, as the user saved it.
 OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
@@ -136,6 +146,7 @@ class Task:
     workflow: str | None = None  # the Workflow whose notebook a cells task's answer is in
     files: dict[str, str] = field(default_factory=dict)  # its Project's files, by path
     before: str = ""  # the notebook's cells the user ran before asking
+    originals: str = ""  # Hive the user's warehouse ran already, writing the originals
 
 
 TASKS = (
@@ -725,6 +736,33 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 staging=STAGING)
 ''', tables=("run_alerts",), workflow="convert",
          files={"admin/workflows/convert/alerts.hql": HIGH_ALERTS}),
+    # Held out for the rule's other half: every step's cell, when the user asks for them.
+    Task("T39", "13", "held_out",
+         "I have daily_fails.hql from the ops team, saved in admin/workflows/convert/, and "
+         "their job has run it, so mart.daily_fails holds its rows. Convert it into my Dev "
+         "Database as a batch named fails and take it all the way through the compare: "
+         "give every step's cell, in order. convert will name the table "
+         "mart_dev.daily_fails_mart, and its folder is /data/team/mart_dev.db/daily_fails.",
+         "workflow", '''NAME = "fails"
+FILES = ["daily_fails.hql"]
+HIVE = None
+DATABASE = "default"
+STAGING = {}
+DECISIONS = {"mart_dev.daily_fails_mart": {"location": "/data/team/mart_dev.db/daily_fails"}}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+project.write_decisions(DECISIONS)
+for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)
+run_execute(hive_settings("dynamic_partitions"), execute)
+for table in project.batch_tables(NAME, seeded=True):
+    run_execute(project.load(table).seed(), execute)
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+project.compare_batch(NAME, query=query)
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
+         originals=DAILY_FAILS_MADE),
     # --- 14 a Workflow: new tables and upkeep -----------------------------------------------
     Task("T34", "14", "dev",
          "Add Table references for ops.jobs and ops.run_alerts with the references Workflow: "

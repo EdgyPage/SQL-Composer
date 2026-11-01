@@ -45,9 +45,12 @@ more of the held-out tasks than A1.
 A Workflow task, for files 13 and 14, asks for a Workflow notebook's cells. Every Python block
 of its reply is one cell, run in order from the Workflow's folder, in a Project of its own:
 its Dev and Prod Databases filled in, the Table references of the tables the task names, its
-files and the cells the user ran before. It is correct when it leaves the same files as the
-reference's cells, each with the same text, under tables/, the Workflow's own folder and
-references/.
+files and the cells the user ran before. Its warehouse.py sends to a warehouse of its own that
+keeps each write (`tools/workflow_warehouse.py`, the Workflow journeys' too), holding the
+originals the task says the user's warehouse holds, so a reply that gives every step's cell,
+create, write and compare included, runs to the end. It is correct when it leaves the same
+files as the reference's cells, each with the same text, under tables/, the Workflow's own
+folder and references/.
 
 ## The Excel tasks: Copilot files 11 and 12
 

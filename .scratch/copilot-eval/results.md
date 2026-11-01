@@ -172,3 +172,17 @@ clean held-out score on one task: small, but untuned.
 The user confirmed the rule, 2026-11-01: the cells asked for by default, and every later
 step's cell only when the user asks for them, a line added to files 13 and 14 after T38's run.
 T38 measured the default, which the line leaves as it was.
+
+| 2026-11-01 | 8c032381 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+
+Toolbox 8.1, ticket 12, the every-cell option scored, at the user's word ("Build it now"):
+each Workflow task's Project now sends to a warehouse of its own that keeps each write, the
+Workflow journeys' (moved to tools/workflow_warehouse.py), holding the originals the task says
+the user's warehouse holds, and a reply's run_query and run_execute go through it. T39, written
+before any run, asks for every step's cell of a convert through to the compare. Files
+8c032381, the final rule, the row above: T39 held out once, and T38 scored a second time, on
+these files; both pass, 2 of 2. An answer is correct when it leaves the reference's files,
+the finished batch's among them, and the warehouse holds the reference's rows; the code
+review's controls hold it to that (a create skipped, a write sent through query). One run of
+each, and T39's request names the table and its folder, so it shows the option works, not
+how often.

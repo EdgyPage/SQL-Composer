@@ -99,4 +99,14 @@ Built 2026-10-31.
   2026-11-01: "1 by default, but give the option for every cell. Every cell was getting to be
   a hassle in the actual process that bogged down the process." So files 13 and 14 give the
   cells asked for by default, and every later step's cell only when the user asks for them.
+- The every-cell option scored, at the user's word: a Workflow task's Project sends to a
+  warehouse of its own that keeps each write (the journeys', moved to
+  `tools/workflow_warehouse.py`), holding the originals a task's `originals=` names, and a
+  reply's run_query and run_execute go through it (`_SendsKept`). T39, written before any run,
+  asks for every step's cell through the compare, with controls that stop before it, skip the
+  create, and write through query; an answer's files and its warehouse's rows are compared.
+  On the final files, 8c032381: T39 held out once and T38 a second time, both pass, 2 of 2.
+  Code review: Standards: the senders made plain aliases, `_SendersRenamed`, the conn module
+  taken out once scored. Spec: the senders dropped their arguments, so a swapped or missing
+  call passed (now passed through), and rows weren't compared (now they are).
 - Beginner reader: [12-beginner-reader.md](../reports/12-beginner-reader.md).

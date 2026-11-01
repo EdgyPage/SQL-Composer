@@ -3,9 +3,9 @@
 Toolbox 8.1's ticket 01. 8.0's tests check one step at a time; these start a Project, type each
 Workflow's names into its notebook's names cell, run that notebook's code cells top to bottom,
 the notebook the Project ships, and read the end goal back from the warehouse and the files. The
-warehouse is a stand-in that keeps what each write gives it (workflow_warehouse.py), set as the
-Project's conn, as the user sets theirs; each original a Conversion copies is first written by
-running its script there, as its own team's job would.
+warehouse is a stand-in that keeps what each write gives it (tools/workflow_warehouse.py), set
+as the Project's conn, as the user sets theirs; each original a Conversion copies is first
+written by running its script there, as its own team's job would.
 
 Each journey runs a second way too, as the notebook's last cell runs it: one
 project.run_workflow(...) call, once with dry_run=True, which must send nothing, then to the end
