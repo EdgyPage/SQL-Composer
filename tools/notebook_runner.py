@@ -4,6 +4,10 @@ The usability loop's agents can't press Run, so `tools/usability_loop.py` copies
 each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
 
     python run_notebook.py path/to/notebook.ipynb
+    python run_notebook.py path/to/notebook.ipynb --cells 1-3,5
+
+The second runs only the code cells it names, counted from 1, in order, as a user runs a
+Workflow's cells one at a time to stop at a decision.
 
 Each code cell runs in turn, in one namespace, from the notebook's own folder and with it
 on sys.path, as a kernel started there runs it. What a cell prints is printed under its
@@ -52,9 +56,18 @@ def run_cell(source: str, namespace: dict[str, object]) -> None:
         print(repr(shown))
 
 
-def run_notebook(notebook: Path) -> int:
-    """Run every code cell of `notebook` in turn, from its folder: 0 once every cell ran, 1 at
-    the first that raised, its traceback printed."""
+def chosen_cells(spec: str) -> set[int]:
+    """The code cells a --cells spec names, such as "1-3,5" for 1, 2, 3 and 5."""
+    chosen: set[int] = set()
+    for part in spec.split(","):
+        first, _, last = part.strip().partition("-")
+        chosen.update(range(int(first), int(last or first) + 1))
+    return chosen
+
+
+def run_notebook(notebook: Path, chosen: set[int] | None = None) -> int:
+    """Run every code cell of `notebook` in turn, or those `chosen` names, from its folder: 0
+    once each cell ran, 1 at the first that raised, its traceback printed."""
     namespace: dict[str, object] = {"__name__": "__main__"}
     # Resolved before the chdir, so a path from the folder it was run in still names it.
     notebook = notebook.resolve()
@@ -62,6 +75,8 @@ def run_notebook(notebook: Path) -> int:
     sys.path.insert(0, str(notebook.parent))
     with contextlib.chdir(notebook.parent):
         for number, source in enumerate(code_cells(notebook), 1):
+            if chosen is not None and number not in chosen:
+                continue
             print(f"--- cell {number}")
             try:
                 run_cell(source, namespace)
@@ -69,13 +84,15 @@ def run_notebook(notebook: Path) -> int:
                 traceback.print_exc(file=sys.stdout)
                 print(f"--- stopped at cell {number}")
                 return 1
-    print("--- every cell ran")
+    print("--- every cell ran" if chosen is None else "--- each chosen cell ran")
     return 0
 
 
 def main(arguments: list[str]) -> int:
+    if len(arguments) == 3 and arguments[1] == "--cells":
+        return run_notebook(Path(arguments[0]), chosen_cells(arguments[2]))
     if len(arguments) != 1:
-        print("Run it as: python run_notebook.py path/to/notebook.ipynb")
+        print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5]")
         return 2
     return run_notebook(Path(arguments[0]))
 

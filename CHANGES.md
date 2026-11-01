@@ -67,6 +67,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   `[@col]` as `Table[[#This Row],[col]]`, and step 5 which function each figure takes, and to
   total a Table with its own Total Row. Copilot file 12 writes a Total Row as a query of its
   own, never `WITH ROLLUP`, which a Saved table refuses; file 13 says what RENAME does.
+- **A list of rows typed in keeps its Key.** A CTE that only lists values typed in, such as
+  `SELECT 'data' AS team UNION ALL SELECT 'web'`, the way Copilot keeps a group with no data,
+  stays Hive but has its first column as its Key when no value of it repeats, so a write keyed
+  on it is let through with no opt-out.
 - **An Upgrade keeps only a step cell you wrote in.** A Workflow step cell you fill in, such
   as change_a_saved_table's Admin statement, is kept when an Upgrade writes its notebook
   again only once you wrote in it: one still as an earlier version wrote it is written afresh.

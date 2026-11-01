@@ -81,7 +81,12 @@ class Warehouse:
             names = sorted(name.split(".")[1] for name in self.tables
                            if name.split(".")[0] == database)
             return pd.DataFrame({"tab_name": names})
-        columns, rows = self._run(sqlglot.parse_one(hive, read="hive"))
+        tree = sqlglot.parse_one(hive, read="hive")
+        if isinstance(tree, exp.Select) and not tree.args.get("from_"):
+            # A SELECT of values alone, such as SELECT 1 AS one to try a connection.
+            return pd.DataFrame([[_value_of(item.unalias()) for item in tree.expressions]],
+                                columns=[item.alias_or_name for item in tree.expressions])
+        columns, rows = self._run(tree)
         if not example_database._sorts_itself(hive.strip()):
             rows = sorted(rows, key=example_database._in_order)
         return pd.DataFrame(rows, columns=columns)
@@ -271,7 +276,8 @@ class SavedWarehouse(Warehouse):
         self.path = Path(path)
         if self.path.is_file():
             for name, kept in json.loads(self.path.read_text(encoding="utf-8")).items():
-                table = Table(name, kept["columns"], partitioned_by=kept["partitioned_by"])
+                table = Table(name, kept["columns"], partitioned_by=kept["partitioned_by"],
+                              location=kept.get("location"))
                 self.tables[name] = Stored(table, [tuple(row) for row in kept["rows"]])
 
     def execute(self, hive: str) -> None:
@@ -290,8 +296,26 @@ class SavedWarehouse(Warehouse):
             for row in stored.rows:
                 rows.append([_json_value(value) for value in row])
             kept[name] = {"columns": dict(stored.table._columns),
-                          "partitioned_by": stored.partitioned_by, "rows": rows}
+                          "partitioned_by": stored.partitioned_by,
+                          "location": stored.table._location, "rows": rows}
         self.path.write_text(json.dumps(kept, indent=1), encoding="utf-8")
+
+
+def _value_of(node: exp.Expression) -> object:
+    """A value typed in a SELECT, as Python holds it: a number, text or a boolean; refused for
+    anything else, which this stand-in doesn't work out."""
+    if isinstance(node, exp.Neg):
+        return -_value_of(node.this)
+    if isinstance(node, exp.Boolean):
+        return node.this
+    if not isinstance(node, exp.Literal):
+        raise ValueError(f"The team's warehouse here answers a SELECT with no FROM only of "
+                         f"values typed in, not {node.sql(dialect='hive')}")
+    if node.is_string:
+        return node.this
+    if "." in node.this:
+        return float(node.this)
+    return int(node.this)
 
 
 def _json_value(value: object) -> object:

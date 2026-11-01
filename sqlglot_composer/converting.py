@@ -1138,13 +1138,47 @@ class _Converter:
             text = sql_text(node.this, pretty=True)
             listed = "{\n" + "".join(f"    {python_literal(column)}: None,\n"
                                       for column in columns) + "}"
+            key = [python_literal(each) for each in _key_of_rows_typed_in(node.this, columns)]
+            keyed = f", key={_python_list(key)}" if key else ""
             value = (f"{self.use('unchecked_derived')}({python_literal(name)}, "
                      f"{python_literal(text)}, "
-                     f"columns={listed})")
+                     f"columns={listed}{keyed})")
             self.note_finding(node, "unchecked", f"the CTE {name} stays Hive, in "
                               f"unchecked_derived(...): {why}")
         self.result.assignments.append((variable, value))
         self.ctes[name] = _Source(variable, columns)
+
+
+def _rows_typed_in(query: exp.Expression) -> list[tuple[str, ...]] | None:
+    """Each row of a query that only lists values typed in, as SELECT 'a' AS team UNION ALL
+    SELECT 'b' does, each value as Python source, a number written one way, so 1 and 1.0 are
+    one value, as Hive compares them; None for any other query."""
+    if isinstance(query, exp.Union):
+        first, rest = _rows_typed_in(query.this), _rows_typed_in(query.expression)
+        return None if first is None or rest is None else first + rest
+    if not isinstance(query, exp.Select) or query.args.get("from_"):
+        return None
+    values = tuple(_compared_as_hive(_python_of_literal(item.unalias()))
+                   for item in query.expressions)
+    return None if None in values else [values]
+
+
+def _compared_as_hive(value: str | None) -> str | None:
+    """A typed-in value's Python source as Hive compares it: a number's written one way."""
+    if value is None or value[0] in "'\"" or value in ("True", "False"):
+        return value
+    return repr(float(value))
+
+
+def _key_of_rows_typed_in(query: exp.Expression, columns: list[str]) -> list[str]:
+    """The Key of a CTE of rows typed in: its first column when no value of it repeats, else
+    every column when no row repeats; none for any other query, or rows that repeat."""
+    rows = _rows_typed_in(query)
+    if not rows or any(len(row) != len(columns) for row in rows):
+        return []
+    if len({row[0] for row in rows}) == len(rows):
+        return columns[:1]
+    return list(columns) if len(set(rows)) == len(rows) else []
 
 
 def _grouping_set_columns(each: exp.Expression) -> list[exp.Expression]:

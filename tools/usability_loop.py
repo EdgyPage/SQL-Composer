@@ -256,7 +256,9 @@ def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> 
         f"work folder, first put the work folder on the path: `import sys; "
         f"sys.path.append(r\"{run}\")`.",
         "- Jupyter can't open here, so to run a notebook's cells top to bottom, run "
-        f"`{python} {run / 'run_notebook.py'} path/to/notebook.ipynb`.",
+        f"`{python} {run / 'run_notebook.py'} path/to/notebook.ipynb`; to run only some of "
+        "its code cells, in order, as you would one at a time in Jupyter, add `--cells 1-3,5` "
+        "(code cells counted from 1).",
     ]
     return lines
 
