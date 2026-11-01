@@ -11,7 +11,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Names for this objective, with their arguments
 
-{names: compare_hive, compare_with_original, check_key, check_table_reference, project.check, export_lineage, explain, to_hive, show_hive, run_query, equals, between}
+{names: compare_hive, compare_with_original, check_key, check_table_reference, project.check, export_lineage, export_hive, explain, to_hive, show_hive, run_query, equals, between}
 
 ## Steps
 
@@ -33,7 +33,10 @@ block the user can paste into a notebook cell, then a few plain sentences.
    `# CONVERSION:` mark, which blocks nothing.
 7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
    notebook. Hive's plan, without running: `run_query(explain(s), query)`.
-8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.
+8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`. In a Table notebook,
+   the cell after the lineage cell, `export_hive()`, writes the table's Hive into
+   <db>__<table>.hql beside the notebook: create(), any seed(), its Session settings, then
+   write(). `export_hive(s)` writes one Statement's.
 
 ## Worked example
 

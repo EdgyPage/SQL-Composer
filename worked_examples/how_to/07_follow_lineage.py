@@ -228,7 +228,7 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -279,12 +279,18 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     export_lineage(write())
 
     # %%
-    # 5. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
+    # 5. Its Hive: mart__daily_job_runs.hql beside this notebook, from the logic as last saved
+    export_hive()
+
+    # %%
+    # 6. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
     project.refresh_reference_sheet("mart.daily_job_runs")
 
-Cell 4 exports the table's Lineage. Here, `project.load` gives the notebook's logic, as its
-cell 2 does when it runs: an object with one attribute per function of the logic cell, such
-as `daily.write`. The write goes in a variable with a meaningful name first:
+Cell 4 exports the table's Lineage, and cell 5, beside it, the Hive its logic sends, into
+mart__daily_job_runs.hql, as [Save a table](#save_a_table) shows. Here, `project.load` gives
+the notebook's logic, as its cell 2 does when it runs: an object with one attribute per
+function of the logic cell, such as `daily.write`. The write goes in a variable with a
+meaningful name first:
 
 >>> daily = project.load("mart.daily_job_runs")  # -> the notebook's functions
 >>> write_daily_job_runs = daily.write()  # -> Statement
@@ -347,7 +353,7 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -410,7 +416,11 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     export_lineage(write_daily_job_runs, write_team_day)
 
     # %%
-    # 5. The Reference sheet: this table's rows, from references/mart__team_day.py
+    # 5. Its Hive: mart__team_day.hql beside this notebook, from the logic as last saved
+    export_hive()
+
+    # %%
+    # 6. The Reference sheet: this table's rows, from references/mart__team_day.py
     project.refresh_reference_sheet("mart.team_day")
 
 Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads
@@ -511,7 +521,7 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     import sys
     sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-    from sqlglot_composer import export_lineage, project, run_query, show_hive
+    from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
     from warehouse import query
 
     # %%
@@ -572,7 +582,11 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     export_lineage(write())
 
     # %%
-    # 5. The Reference sheet: this table's rows, from references/mart__run_speed.py
+    # 5. Its Hive: mart__run_speed.hql beside this notebook, from the logic as last saved
+    export_hive()
+
+    # %%
+    # 6. The Reference sheet: this table's rows, from references/mart__run_speed.py
     project.refresh_reference_sheet("mart.run_speed")
 
 Its function lives in the logic cell, so any notebook that loads the logic can call it. Cell 3

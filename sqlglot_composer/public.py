@@ -71,7 +71,7 @@ from .conditions import (
 from .lineage import export_lineage
 from .python_steps import PythonStep, python_step
 from .refusals import GuardRefused, LoadRefused
-from .running import run_execute, run_query, set_load_limits, show_hive, to_hive
+from .running import export_hive, run_execute, run_query, set_load_limits, show_hive, to_hive
 from .stacking import (
     EXCEPT,
     INTERSECT,
@@ -212,6 +212,7 @@ __all__ = [
     # running.py
     "to_hive",
     "show_hive",
+    "export_hive",
     "run_query",
     "run_execute",
     "set_load_limits",

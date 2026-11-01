@@ -118,6 +118,9 @@ file, the call that makes it, and what you fill in:
   [Save a table](#save_a_table) shows.
 - `tables/<db>__<table>/lineage/`, the Lineage of that table: its notebook's lineage cell.
   You fill in nothing.
+- `tables/<db>__<table>/<db>__<table>.hql`, the Hive that table's logic sends: its notebook's
+  Hive cell, written again each time it runs, as [Save a table](#save_a_table) shows. You fill
+  in nothing: edit the logic instead.
 - `lineage/`, beside the notebook you run it from, such as start.ipynb: the Lineage of a
   Statement exported outside a Table notebook, by `export_lineage(...)`, as
   [Follow lineage](#follow_lineage) shows. You fill in nothing.

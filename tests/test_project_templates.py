@@ -150,10 +150,13 @@ def test_no_template_speaks_of_a_day(template: str) -> None:
 
 
 @pytest.mark.parametrize("template", NOTEBOOK_TEMPLATES)
-def test_a_filled_notebook_has_five_code_cells_that_parse(started: Path, template: str) -> None:
+def test_a_filled_notebook_has_six_code_cells_that_parse(started: Path, template: str) -> None:
     code = filled_notebook(started, template, f"mart.made_from_{template}", FILLS[template])
-    assert len(code) == 5
+    assert len(code) == 6
     assert code[1].startswith("# logic\n")
+    # Toolbox 8.2, ticket 01: its Hive, in a file beside it, in the cell after its lineage.
+    assert code[3].endswith("\nexport_lineage(write())")
+    assert code[4].endswith("\nexport_hive()")
     for text in code:
         assert not PLACEHOLDER.search(text), text
         ast.parse(text)

@@ -11,9 +11,10 @@
 # mart__alerts_per_severity. Run the cells top to bottom once both are filled in.
 #
 # The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-# `project.load("mart.alerts_per_severity")` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# 4 its lineage; 5 its Hive, in mart__alerts_per_severity.hql; 6 its rows in the Reference sheet.
+# The logic only imports and defines, so `project.load("mart.alerts_per_severity")` can run it
+# from anywhere else, for lineage across your tables and for `admin/run_tables.ipynb`, which
+# sends its `write()`.
 
 # %%
 # 1. The Project and your query
@@ -21,7 +22,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -92,5 +93,9 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
+# 5. Its Hive: mart__alerts_per_severity.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/mart__alerts_per_severity.py
 project.refresh_reference_sheet("mart.alerts_per_severity")
