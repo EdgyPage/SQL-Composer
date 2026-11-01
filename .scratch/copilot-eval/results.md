@@ -203,3 +203,9 @@ SELECT makes (dt_date); X65 left an ORDER BY unnamed. Held-out is scored once pe
 version, so it stands; 87% (5df4678) and 97% (ea80a87) on files with the same rules put it in
 the proxy's spread, all 39 answered in one reply. The raw answers are in
 runs/2026-11-01-haiku-C-excel-held_out-8.2/.
+| 2026-11-01 | 0db74777 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 06:100 |
+| 2026-11-01 | 0db74777 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 08:100 |
+
+Toolbox 8.2, ticket 07: files 0db74777, 8.2's as committed (93b81356 with the version line 8.2),
+held out on haiku, arm C: file 06's T18 and file 08's T24, each changed by ticket 01's
+export_hive steps, pass, 1 of 1 each. The two rows above.
