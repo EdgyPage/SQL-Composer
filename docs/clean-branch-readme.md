@@ -100,6 +100,17 @@ import my_api  # your team's library
 conn = my_api.connect()
 ```
 
+If your team keeps its connection in a file outside the Project, such as a file
+team_connection.py, then write these lines in `warehouse.py`, in place of
+`conn = example_database`: they put that file's folder on Python's path, then import it.
+
+```python
+import sys
+
+sys.path.append("C:/work/connections")  # the folder team_connection.py is in
+from team_connection import conn
+```
+
 Two rules hold for every call on this page:
 
 - Import every name from `sqlglot_composer`, at its top level, never from a file inside it.
@@ -256,8 +267,12 @@ job_runs.status
 
 5. **Check each file.** Goal: each file true to its table. Action: run
    `check_table_reference(ops.job_runs, query=query)`, which checks the file against its table,
-   and `check_key`, which checks the Key you wrote. Done when each check's `ok` is true; then
-   go on to 3. Build and run a first statement.
+   and `check_key`, which checks the Key you wrote. If the table is partitioned, then give
+   `check_key` one Partition to check with `where=`, such as `check_key(ops.job_runs,
+   query=query, where=equals(ops.job_runs.dt, "2026-09-24"))`; `query("SHOW PARTITIONS
+   ops.job_runs")` lists the Partitions it holds. `admin/check_references.ipynb` runs both
+   checks on every table, each partitioned one on its latest Partition. Done when each check's
+   `ok` is true; then go on to 3. Build and run a first statement.
 
 How-to: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references).
 
@@ -619,8 +634,11 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    Workflow's next steps: they write your answers in, create each table in dev, seed each whose
    write reads its own table (copy its **original**'s rows in once, the original being the
    table the script writes, so its first write doesn't start from nothing), write each, and
-   compare each with the table it copies, `project.compare_batch`. Done when each table has
-   passed; then step 6.
+   compare each with the table it copies, `project.compare_batch`. A partitioned table is
+   compared on the latest Partition both tables hold. If you want another Partition compared
+   too, then run `project.compare_batch("ops_reports", query=query, partition={"dt":
+   "2026-09-23"})`, with your batch's name, and its `conversion/compare.md` keeps each
+   Partition's result. Done when every result of each table has passed; then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: run the promote Workflow,
    which carries them to your Prod Database, PROD, `project.promote`, each keeping its name
    unless `rename=` gives it another. Done when each is written in prod.

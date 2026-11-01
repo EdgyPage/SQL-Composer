@@ -7,7 +7,9 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
     python run_notebook.py path/to/notebook.ipynb --cells 1-3,5
 
 The second runs only the code cells it names, counted from 1, in order, as a user runs a
-Workflow's cells one at a time to stop at a decision.
+Workflow's cells one at a time to stop at a decision. Each run starts with nothing defined, as
+a kernel just started does, so name the cells a step needs with it: the imports cell and the
+names cell, and from the decisions on, the decisions cell, such as --cells 1-3,6.
 
 Each code cell runs in turn, in one namespace, from the notebook's own folder and with it
 on sys.path, as a kernel started there runs it. What a cell prints is printed under its
@@ -92,7 +94,9 @@ def main(arguments: list[str]) -> int:
     if len(arguments) == 3 and arguments[1] == "--cells":
         return run_notebook(Path(arguments[0]), chosen_cells(arguments[2]))
     if len(arguments) != 1:
-        print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5]")
+        print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5]\n"
+              "Each run starts with nothing defined: name the imports cell and the names "
+              "cell with each step's.")
         return 2
     return run_notebook(Path(arguments[0]))
 

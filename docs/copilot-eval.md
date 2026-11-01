@@ -55,7 +55,7 @@ folder and references/, and its warehouse holds the same tables with the same ro
 ## The Excel tasks: Copilot files 15, 11 and 12
 
 Files 15, 11 and 12 are measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
-`tools/excel_eval.py`): 78 filled-in Formula workbooks, 39 dev and 39 held out. A proxy model
+`tools/excel_eval.py`): 84 filled-in Formula workbooks, 42 dev and 42 held out. A proxy model
 reads each workbook as text; in Copilot you attach the workbook itself.
 
 1. Write the held-out workbooks and the answers files:

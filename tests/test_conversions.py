@@ -128,6 +128,32 @@ def test_hive_a_conversion_cant_take_is_refused_saying_what_to_do(started: Path)
 # --- convert ----------------------------------------------------------------------------------
 
 
+@pytest.mark.parametrize(("written", "operator"), [
+    ("IF(AND(r.status <> 'TEST', r.dt <> '2026-09-23'), 1, 0)", "a AND b"),
+    ("IF(OR(r.status = 'FAILED', r.status IS NULL), 1, 0)", "a OR b")])
+def test_hive_sqlglot_cant_read_is_refused_naming_its_line_and_an_excel_function(
+        started: Path, written: str, operator: str) -> None:
+    hive = f"SELECT r.run_id,\n  {written} AS kept\nFROM ops.job_runs r"
+    with pytest.raises(ValueError) as refused:
+        project.convert("kept", hive, query=example_database.query, database="ops")
+    said = str(refused.value)
+    # sqlglot's line, from the Hive's first; no file named, as the Hive was given as text.
+    assert "can't read its Hive (" in said and "line 2, Col:" in said and operator in said
+    assert "writes no table" not in said and "hive.hql" not in said
+
+
+def test_other_hive_sqlglot_cant_read_is_refused_without_the_excel_advice(
+        started: Path) -> None:
+    # Hive's own x AND (y OR z) is no Excel AND(...): the fix says to correct the Hive.
+    hive = ("SELECT r.run_id FROM ops.job_runs r\nWHERE r.dt = '2026-09-24' AND (r.status = "
+            "'FAILED' OR r.job_id IN (1,")
+    with pytest.raises(ValueError) as refused:
+        project.convert("broken", hive, query=example_database.query, database="ops")
+    said = str(refused.value)
+    assert "sqlglot can't read its Hive (" in said and "line 2, Col:" in said
+    assert "Correct the Hive there" in said and "no AND() or OR() function" not in said
+
+
 def test_convert_makes_one_query_a_saved_table_in_dev(converted: Path, started: Path) -> None:
     assert files(converted) == [
         "conversion/checklist.md", "conversion/in_dev.hql", "conversion/scan.md",
@@ -489,6 +515,30 @@ MAPPED = {
     "not_of_not": f"SELECT r.run_id {DAYS} AND NOT (NOT r.status = 'FAILED')",
     "and_inside_or": (f"SELECT r.run_id {DAYS} AND (r.status = 'FAILED' OR (r.status = "
                       "'SUCCESS' AND r.duration_mins > 15))"),
+    # Conditions an Excel workbook filters its raw data by, as Copilot writes them in Hive
+    # (Toolbox 8.2, 19).
+    "if_over_an_and": ("SELECT r.run_id, IF(r.status <> '' AND r.status <> 'TEST', 1, 0) AS "
+                       f"kept {DAYS}"),
+    "if_over_and_or_not": ("SELECT r.run_id, IF((r.status = 'FAILED' OR r.duration_mins > 25) "
+                           f"AND NOT r.job_id = 1, 1, 0) AS needs_look {DAYS}"),
+    "case_over_an_or": ("SELECT r.run_id, CASE WHEN r.status = 'FAILED' OR r.status = 'TEST' "
+                        f"THEN r.duration_mins ELSE 0 END AS flagged_mins {DAYS}"),
+    "in_a_list": f"SELECT r.run_id {DAYS} AND r.status IN ('FAILED', 'TEST')",
+    "not_in_a_list": f"SELECT r.run_id {DAYS} AND r.status NOT IN ('TEST', 'FAILED')",
+    "a_range_on_one_column": (f"SELECT r.run_id {DAYS} AND r.duration_mins > 10 AND "
+                              "r.duration_mins <= 30"),
+    "between_and_an_or": (f"SELECT r.run_id {DAYS} AND r.duration_mins BETWEEN 10 AND 20 AND "
+                          "(r.job_id = 2 OR r.status IS NULL)"),
+    "an_or_of_ands": (f"SELECT r.run_id {DAYS} AND ((r.job_id = 2 AND r.duration_mins < 20) "
+                      "OR (r.job_id = 3 AND NOT r.duration_mins >= 30))"),
+    "a_pattern_any_case": f"SELECT r.run_id {DAYS} AND LOWER(r.status) LIKE '%ail%'",
+    "a_count_of_a_condition_over_a_group": (
+        "SELECT r.run_id, COUNT(CASE WHEN r.status = 'FAILED' AND r.duration_mins >= 20 THEN 1 "
+        f"END) OVER (PARTITION BY r.job_id) AS long_failed {DAYS}"),
+    "a_sum_of_a_condition_by_group": (
+        "SELECT r.job_id, COALESCE(SUM(CASE WHEN r.duration_mins > 10 AND "
+        "r.duration_mins <= 30 AND (r.status <> 'TEST' OR r.status IS NULL) THEN "
+        f"r.duration_mins END), 0) AS mid_mins {DAYS} GROUP BY r.job_id"),
     "count_over_a_group": ("SELECT r.run_id, COUNT(*) OVER (PARTITION BY r.job_id) AS "
                            f"runs_of_job {DAYS}"),
     "first_value": ("SELECT r.run_id, FIRST_VALUE(r.run_id) OVER (PARTITION BY r.job_id "
@@ -503,7 +553,9 @@ MAPPED = {
 }
 # The mappings whose condition keeps some runs and drops others.
 FILTERING = ("is_null", "is_not_null", "not_of_an_or", "not_of_an_and", "not_of_a_comparison",
-             "not_of_not", "and_inside_or")
+             "not_of_not", "and_inside_or", "in_a_list", "not_in_a_list",
+             "a_range_on_one_column", "between_and_an_or", "an_or_of_ands",
+             "a_pattern_any_case")
 
 
 @pytest.mark.parametrize("name", list(MAPPED))

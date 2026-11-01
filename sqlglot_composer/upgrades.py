@@ -344,6 +344,47 @@ DATABASE_MARKS = {
     "DEV =": "fill in your Dev Database's name",
     "PROD =": "fill in your Prod Database's name",
 }
+# The admin notebook 8.2 writes again, which checks a partitioned table's Key itself.
+CHECK_REFERENCES = "admin/check_references.ipynb"
+# The warehouse.py 8.0's start() wrote, and 8.1's, which 8.2 writes again where it is still
+# as it was.
+WAREHOUSE_TEXT_8_0 = \
+    '''"""warehouse - your connection to the warehouse, conn, and its two calls.
+
+Why: every notebook in the Project reaches the warehouse through query and execute, so a change
+to how you reach it is made here, once.
+
+Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
+them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something:
+whatever it gives back, execute drops. Until you do, conn is the Example database, which the
+how-tos run on. You
+pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
+a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
+two share one session, so a Session setting sent through execute holds for what is sent after
+it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
+failed only when your connection raises. It imports none of your own files, so any notebook or
+script of yours can import it.
+"""
+
+import pandas as pd
+
+from sqlglot_composer import example_database
+
+# Your connection to the warehouse. At work, replace example_database with your own, such as
+# conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
+# execute(sql) runs Hive that changes something.
+conn = example_database
+
+
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return conn.query(hive)
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    conn.execute(hive)
+'''
 # The warehouse.py 7.2's start() wrote, which 8.0 writes again where it is still as it was.
 WAREHOUSE_TEXT_7_2 = '''"""warehouse - your two calls to the warehouse, query and execute.
 
@@ -624,7 +665,17 @@ def to_8_2(upgrade: Upgrade) -> None:
     you wrote in kept, for the convert notebook's RENAME. Each Template still as 8.1 wrote it is
     written again, and one you changed is marked. A table new_table made from its query has its
     notebook's text and compare cells, and its checklist.md, name new_table's notebook, where
-    8.1 named convert's."""
+    8.1 named convert's. admin/check_references.ipynb is written again, checking each
+    partitioned table's Key on its latest Partition, and a warehouse.py still as 8.0 wrote it
+    gets 8.2's, which says how to import a connection kept outside the Project."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import WAREHOUSE, WAREHOUSE_TEXT, admin_notebook_cells
+
+    if (upgrade.root / CHECK_REFERENCES).exists():
+        upgrade.rewrite_notebook(CHECK_REFERENCES, admin_notebook_cells("check_references"))
+    warehouse = upgrade.root / WAREHOUSE
+    if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_8_0:
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
     for path in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
         if path.stem == path.parent.name:
             _add_the_hive_cell(upgrade, path.relative_to(upgrade.root).as_posix())

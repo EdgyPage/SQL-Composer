@@ -190,8 +190,9 @@ pick which one sends each Statement, by calling run_query(s, query) for what giv
 a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
 two share one session, so a Session setting sent through execute holds for what is sent after
 it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
-failed only when your connection raises. It imports none of your own files, so any notebook or
-script of yours can import it.
+failed only when your connection raises. Keep it importing nothing from references/,
+building_blocks/ or tables/, so any notebook or script of yours can import it; a connection
+kept in a file outside the Project is imported as the comment above conn shows.
 &quot;&quot;&quot;
 
 import pandas as pd
@@ -200,7 +201,12 @@ from sqlglot_composer import example_database
 
 # Your connection to the warehouse. At work, replace example_database with your own, such as
 # conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
-# execute(sql) runs Hive that changes something.
+# execute(sql) runs Hive that changes something. A connection kept in a file outside the
+# Project, such as team_connection.py, is imported by these lines, in place of the line
+# conn = example_database below:
+#     import sys
+#     sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+#     from team_connection import conn
 conn = example_database
 
 
@@ -220,7 +226,12 @@ def execute(hive: str) -&gt; None:
 <p>Goal: <code>query</code> and <code>execute</code> that reach your warehouse. At work, open warehouse.py in your editor and set <code>conn</code> to your team&#x27;s connection, once, in place of <code>example_database</code>. <code>conn</code> can be anything with the two calls: a module, as <code>example_database</code> is, or the object your team&#x27;s library connects you with. Here <code>my_api</code> and its connect call are made-up names for yours:</p>
 <pre class="python">import my_api  # your team&#x27;s library
 
-conn = my_api.connect()  # its query(sql) gives back a DataFrame; its execute(sql) runs</pre>
+conn = my_api.connect()  # its query gives back a DataFrame; its execute runs a change</pre>
+<p>If your team keeps its connection in a file outside the Project, such as team_connection.py in a folder C:/work/connections, write these lines in warehouse.py in place of <code>conn = example_database</code>: they put that folder on Python&#x27;s path, then import it.</p>
+<pre class="python">import sys
+
+sys.path.append(&quot;C:/work/connections&quot;)  # the folder team_connection.py is in
+from team_connection import conn</pre>
 <p>That is all, when your connection&#x27;s <code>query</code> gives back a pandas DataFrame whose columns are named as the SELECT names them, and its <code>execute</code> runs Hive that changes something. Whatever <code>conn.execute</code> gives back, <code>execute</code> drops it. <code>query</code> and <code>execute</code> below it pass each Hive string on. In this page, <code>query</code> and <code>execute</code> are always the two functions in warehouse.py; <code>conn.query</code> and <code>conn.execute</code> are your connection&#x27;s.</p>
 <p>If your connection gives rows some other way, as each row a dict or a tuple, change <code>query</code> to turn them into a DataFrame. A dict, such as <code>{&quot;run_id&quot;: 97, &quot;job_id&quot;: 3}</code>, gives its column names from its keys:</p>
 <pre class="python">def query(hive: str) -&gt; pd.DataFrame:
@@ -6938,6 +6949,8 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 Below, the Statement is mart.alerted_runs_ops_reports&#x27;s rows, and the original ops_reports.alerted_runs&#x27;s.
 
+## No Partition compared
+
 Failed: couldn&#x27;t compare: The Example database has no table &#x27;mart.alerted_runs_ops_reports&#x27;.
 Compared at 2026-09-25 09:00:00.
 
@@ -6950,6 +6963,8 @@ What happened:  The Example database has no table &#x27;mart.alerted_runs_ops_re
 
 Below, the Statement is mart.alerts_by_severity_ops_reports&#x27;s rows, and the original ops_reports.alerts_by_severity&#x27;s.
 
+## No Partition compared
+
 Failed: couldn&#x27;t compare: The Example database has no table &#x27;mart.alerts_by_severity_ops_reports&#x27;.
 Compared at 2026-09-25 09:00:00.
 
@@ -6961,6 +6976,8 @@ What happened:  The Example database has no table &#x27;mart.alerts_by_severity_
 <pre class="file"># mart.fail_history against ops_reports.fail_history
 
 Below, the Statement is mart.fail_history&#x27;s rows, and the original ops_reports.fail_history&#x27;s.
+
+## No Partition compared
 
 Failed: couldn&#x27;t compare: The Example database has no table &#x27;mart.fail_history&#x27;.
 Compared at 2026-09-25 09:00:00.
@@ -16982,7 +16999,7 @@ print(project.check())</pre>
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.</pre>
-<p class="label">It writes 28 files</p>
+<p class="label">It writes 29 files</p>
 <pre class="file">admin/admin_log.md
 admin/databases.py
 admin/project_version.txt
@@ -16995,6 +17012,7 @@ admin/removed/20260925-090000-upgrade_8.1/admin/workflows/new_table/new_table.ip
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/references/references.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/check_references.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/convert/convert.ipynb
 admin/removed/20260925-090000-upgrade_8.2/admin/workflows/new_table/new_table.ipynb

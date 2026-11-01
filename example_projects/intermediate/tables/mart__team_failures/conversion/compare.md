@@ -2,6 +2,8 @@
 
 Below, the Statement is mart.team_failures's rows, and the original ops_reports.team_failures's.
 
+## dt = '2026-09-24'
+
 Passed: compared on dt = '2026-09-24', the latest Partition both hold.
 Compared at 2026-09-25 06:00:00.
 

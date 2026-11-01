@@ -120,6 +120,20 @@ def test_a_sum_over_one_when_with_no_else_is_its_where() -> None:
             in done.query)
 
 
+@pytest.mark.parametrize("over", ["", " OVER (PARTITION BY job_id)"])
+def test_a_count_over_one_when_with_no_else_is_count_rows_where(over: str) -> None:
+    # COUNTIFS over its own Table, as Copilot writes it: a count of the rows where all hold.
+    done = convert_query("SELECT COUNT(CASE WHEN status = 'FAILED' AND duration_mins >= 20 "
+                         f"THEN 1 END){over} AS n FROM ops.job_runs")
+    where = ('where=all_of(equals(job_runs.status, "FAILED"), '
+             "at_least(job_runs.duration_mins, 20))")
+    windowed = ", over=window(PARTITION_BY=[job_runs.job_id])" if over else ""
+    # As one line, the trailing commas a statement's lines end on left out.
+    written = "".join(done.query.split()).replace(",)", ")")
+    assert "".join(f"count_rows({where}{windowed})".split()) in written
+    assert not found(done, "unchecked")
+
+
 def test_a_hive_function_is_kept_as_hive_function_when_it_writes_back_the_same() -> None:
     done = convert_query("SELECT regexp_extract(status, 'F(A)', 1) AS f FROM ops.job_runs")
     assert 'hive_function("regexp_extract", job_runs.status, "F(A)", 1)' in done.query
