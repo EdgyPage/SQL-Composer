@@ -138,4 +138,12 @@ there is no 8.0 score to meet:
 
 The file fix came from a held-out failure, against the rule that files are tuned on dev tasks
 only; the shape of the decisions cell was a gap the beginner read had also named in the
-README. The dev tasks T31, T32, T34 and T35 haven't been run on a proxy.
+README. The dev tasks T31, T32, T34 and T35 were run after, below.
+| 2026-11-01 | de6bc5fc | haiku | C | dev | 75 | 100 | 100 | 75 | 75 | 75 | 0 | 0 | 0 | 0 | 13:50 14:100 |
+| 2026-11-01 | 8a631c94 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 14:100 |
+
+Toolbox 8.1, ticket 12, the Workflow tasks' dev split (T31, T32, T34, T35), Haiku, arm C, the
+two rows above: de6bc5fc, 3 of 4, T32 giving STAGING as a list, since file 13 never showed its
+shape (project.convert then failed with an AttributeError, not a refusal); 8a631c94, file 13
+showing HIVE's and STAGING's shapes, 4 of 4 (file 14's answers kept from the round before, its
+file unchanged). project.convert now refuses a staging= that isn't a dict, saying what to give.

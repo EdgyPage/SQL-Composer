@@ -1,0 +1,6 @@
+T31  pass  found parses builds runs correct
+T32  FAIL  found parses  (doesn't build: AttributeError: 'list' object has no attribute 'items')
+T34  pass  found parses builds runs correct
+T35  pass  found parses builds runs correct
+
+C on haiku: 75% passed of 4; found 100%, parses 100%, builds 75%, runs 75%, correct 75%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'13': 50, '14': 100}

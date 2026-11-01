@@ -1,0 +1,6 @@
+T31  pass  found parses builds runs correct
+T32  pass  found parses builds runs correct
+T34  pass  found parses builds runs correct
+T35  pass  found parses builds runs correct
+
+C on haiku: 100% passed of 4; found 100%, parses 100%, builds 100%, runs 100%, correct 100%; invented names in 0%; needless opt-outs 0; star imports 0; not run 0; per objective {'13': 100, '14': 100}
