@@ -325,7 +325,27 @@ WRITTEN_ANOTHER_WAY = {
     "distribute_by": ("SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'\n"
                       "DISTRIBUTE BY r.job_id SORT BY r.run_id",
                       "DISTRIBUTE BY r.job_id is dropped"),
+    "a_count_written_as_a_sum": (
+        "SELECT r.job_id, COALESCE(SUM(CASE WHEN r.status = 'FAILED' THEN 1 END), 0) AS f\n"
+        "FROM ops.job_runs r WHERE r.dt = '2026-09-24' GROUP BY r.job_id",
+        "SUM(CASE WHEN r.status = 'FAILED' THEN 1 END) becomes count_rows(where=...)"),
+    "a_bare_sum_of_ones": (
+        "SELECT r.job_id, SUM(CASE WHEN r.status = 'FAILED' THEN 1 END) AS f\n"
+        "FROM ops.job_runs r WHERE r.dt = '2026-09-24' GROUP BY r.job_id",
+        "it gives 0 where the SUM gave NULL"),
 }
+
+
+def test_a_count_written_as_a_sum_gives_the_originals_rows(started: Path) -> None:
+    # Toolbox 8.2, 10: inside COALESCE(..., 0), count_rows(where=...) gives what the SUM gave.
+    hive = WRITTEN_ANOTHER_WAY["a_count_written_as_a_sum"][0]
+    project.convert("counted", hive, query=example_database.query, database="ops")
+    converted = example_database.query(to_hive(project.load("mart_dev.counted").preview()))
+    original = example_database.query(hive)
+    assert converted.sort_values("job_id").values.tolist() == (
+        original.sort_values("job_id").values.tolist())
+    assert "gives 0 where the SUM gave NULL" not in conversion_file(started, "counted",
+                                                                     "scan.md")
 
 
 @pytest.mark.parametrize("name", list(WRITTEN_ANOTHER_WAY))

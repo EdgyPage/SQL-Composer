@@ -11,6 +11,7 @@ Example database.
 from __future__ import annotations
 
 import datetime
+import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -580,8 +581,10 @@ def test_a_table_that_reads_itself_gets_a_seed_step_first(started: Path) -> None
 def fill_in_its_location(root: Path, table: str) -> None:
     """Fill in a converted table's location=, as its checklist asks, so it can be written."""
     path = root / "references" / f"{table.replace('.', '__')}.py"
-    path.write_text(path.read_text(encoding="utf-8").replace(
-        "location=None,", f'location="/data/{table.replace(".", "/")}",'), encoding="utf-8")
+    # The whole line, its TODO with it: a location= line that keeps its TODO is still open.
+    filled = re.sub(r"location=None,.*", f'location="/data/{table.replace(".", "/")}",',
+                    path.read_text(encoding="utf-8"))
+    path.write_text(filled, encoding="utf-8")
     forget_the_projects_modules()
 
 

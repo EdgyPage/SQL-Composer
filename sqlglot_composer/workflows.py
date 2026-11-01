@@ -1270,11 +1270,16 @@ def next_step(root: Path, workflow: Workflow, inputs: dict[str, object]) -> Step
 
 
 def steps_left(root: Path, workflow: Workflow, inputs: dict[str, object]) -> tuple[Step, ...]:
-    """The steps after the last one the Project's files say is done."""
+    """The steps after the last one the Project's files say is done, or from the first step
+    of Decisions still open before it: its Table references say so exactly, whatever ran
+    after it."""
     after = 0
     for number, step in enumerate(workflow.steps, 1):
         if step.done is not None and step.done(root, inputs):
             after = number
+    for index, step in enumerate(workflow.steps[:after]):
+        if step.decides and step.done is not None and not step.done(root, inputs):
+            return workflow.steps[index:]
     return workflow.steps[after:]
 
 
