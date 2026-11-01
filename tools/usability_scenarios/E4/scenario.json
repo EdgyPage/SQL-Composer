@@ -1,0 +1,18 @@
+{
+ "id": "E4",
+ "split": "held_out",
+ "title": "two final Tables, a fixed value and a value typed over a formula",
+ "phases": [
+  {
+   "role": "non_technical",
+   "job": "Your manager wants the Job costs and Team runs sheets of your workbook from_your_team/costs.xlsx turned into a table in the company's warehouse, so the data team can keep it up to date. Get it ready for them: make a copy of the empty Formula workbook that came with the Toolbox, main/copilot/formula_workbook.xlsx, fill it in as its Steps sheet says, and save it as my_work/costs_formula.xlsx."
+  },
+  {
+   "role": "converter",
+   "job": "Your colleague filled in a Formula workbook, my_work/costs_formula.xlsx, from their own workbook. Turn it into tables of your own in your Dev Database, written there: mart_dev.job_costs and mart_dev.team_runs. Use Copilot to turn the workbook into Hive, as the workbook's Steps sheet says, then make the tables with the Toolbox, as its README says. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+  }
+ ],
+ "given": {
+  "from_your_team/costs.xlsx": "costs.xlsx"
+ }
+}

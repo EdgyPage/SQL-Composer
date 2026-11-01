@@ -203,6 +203,197 @@ def _spell_out_cases(tree: exp.Expression) -> exp.Expression:
     return tree
 
 
+def _work_out_grouping_sets(tree: exp.Expression) -> exp.Expression:
+    """Work out each SELECT grouped by GROUPING SETS, a ROLLUP or a CUBE as Hive does: a SELECT
+    grouped by each set's columns in turn, each column the set leaves out NULL and grouping() of
+    it 1, their rows stacked with UNION ALL. sqlglot's executor has none of them."""
+    from sqlglot import exp
+
+    # The innermost first, so a SELECT is worked out before one around it is copied.
+    for number, select in enumerate(reversed(list(tree.find_all(exp.Select)))):
+        group = select.args.get("group")
+        sets = _grouping_sets_of(group) if group is not None else None
+        if sets is None:
+            continue
+        if select.args.get("order") is not None or select.args.get("limit") is not None:
+            _refuse_missing_part("ORDER BY or LIMIT on the same SELECT as GROUPING SETS")
+        grouped_by = set()
+        for each_set in sets:
+            grouped_by |= set(each_set)
+        stacked = None
+        for each_set in sets:
+            one_set = _grouped_by_one_set(select, grouped_by, each_set)
+            stacked = one_set if stacked is None else exp.union(stacked, one_set,
+                                                                distinct=False)
+        every_set = exp.select("*").from_(_named_subquery(stacked, f"_sets_{number}"))
+        tree = _in_place_of(tree, select, every_set)
+    return tree
+
+
+def _grouping_sets_of(group: exp.Group) -> list[list[exp.Expression]] | None:
+    """The sets a GROUP BY groups by, each its columns, as GROUPING SETS lists them, a ROLLUP
+    each leading run of its columns, with any column beside it in every set; None for a plain
+    one."""
+    from sqlglot import exp
+
+    keys = list(group.expressions)
+    if group.args.get("grouping_sets"):
+        sets = []
+        for listed in group.args["grouping_sets"][0].expressions:
+            inside = listed.expressions if isinstance(listed, exp.Tuple) else [listed.unnest()]
+            sets.append(list(inside))
+        return sets
+    if group.args.get("rollup"):  # GROUP BY a, b WITH ROLLUP rolls up every column
+        return _rolled_up([], keys)
+    rolled = [key for key in keys if isinstance(key, exp.Rollup)]
+    if rolled:  # GROUP BY a, ROLLUP(b, c) keeps a in every set
+        beside = [key for key in keys if not isinstance(key, exp.Rollup)]
+        return _rolled_up(beside, rolled[0].expressions)
+    if group.args.get("cube") or any(isinstance(key, exp.Cube) for key in keys):
+        _refuse_missing_part("CUBE, which cube writes")
+    return None
+
+
+def _rolled_up(beside: list[exp.Expression],
+               columns: list[exp.Expression]) -> list[list[exp.Expression]]:
+    """A ROLLUP's sets: `beside` and each leading run of `columns`, longest first."""
+    return [beside + list(columns[:size]) for size in range(len(columns), -1, -1)]
+
+
+def _grouped_by_one_set(select: exp.Select, grouped_by: set[exp.Expression],
+                        each_set: list[exp.Expression]) -> exp.Select:
+    """The SELECT grouped by the columns of `each_set` alone: each column of `grouped_by` the
+    set leaves out NULL, and grouping() of a column 1 when the set leaves it out, else 0.
+    sqlglot's nodes are compared as they are written, so a column is found by its node."""
+    from sqlglot import exp
+
+    in_the_set = set(each_set)
+    left_out = grouped_by - in_the_set
+
+    def as_the_set_gives_it(node: exp.Expression) -> exp.Expression:
+        if isinstance(node, exp.Grouping):
+            return exp.Literal.number(int(node.expressions[0] not in in_the_set))
+        if (isinstance(node, exp.Column) and node in left_out
+                and node.find_ancestor(exp.AggFunc) is None):
+            return exp.Null()
+        return node
+
+    one_set = select.copy()
+    one_set.set("expressions", _outputs_rewritten(select, as_the_set_gives_it))
+    one_set.set("group", exp.Group(expressions=[column.copy() for column in each_set])
+                if each_set else None)
+    if select.args.get("having"):
+        one_set.set("having", select.args["having"].copy().transform(as_the_set_gives_it))
+    return one_set
+
+
+def _outputs_rewritten(select: exp.Select,
+                       rewrite: Callable[[exp.Expression], exp.Expression]
+                       ) -> list[exp.Expression]:
+    """Each of a SELECT's outputs rewritten by `rewrite`, under the name it had."""
+    from sqlglot import exp
+
+    outputs = []
+    for output in select.expressions:
+        rewritten = output.copy().transform(rewrite)
+        if not isinstance(output, exp.Alias):
+            rewritten = exp.alias_(rewritten, output.alias_or_name)
+        outputs.append(rewritten)
+    return outputs
+
+
+def _named_subquery(query: exp.Expression, name: str) -> exp.Subquery:
+    """`query` as a subquery read under `name`."""
+    from sqlglot import exp
+
+    return exp.Subquery(this=query, alias=exp.TableAlias(this=exp.to_identifier(name)))
+
+
+def _in_place_of(tree: exp.Expression, select: exp.Select,
+                 worked_out: exp.Select) -> exp.Expression:
+    """The tree with `worked_out` in place of `select`, which may be the whole tree."""
+    if select is tree:
+        return worked_out
+    select.replace(worked_out)
+    return tree
+
+
+def _work_out_mixed_groups(tree: exp.Expression) -> exp.Expression:
+    """Work out each grouped SELECT whose output mixes an aggregate with its group's own
+    column, such as CASE WHEN job_id = 3 THEN 1000 ELSE COUNT(*) END, in two steps: the group's
+    columns and each aggregate under a name of its own, then the output from them.
+
+    sqlglot's executor reads the group's column wrong beside an aggregate in one output, giving
+    every row the aggregate's branch, without a word: a value typed over a formula, converted,
+    is written so.
+    """
+    from sqlglot import exp
+
+    for number, select in enumerate(reversed(list(tree.find_all(exp.Select)))):
+        if select.args.get("group") is None:
+            continue
+        if not any(_mixes_a_group(output) for output in select.expressions):
+            continue
+        # A name of its own for each, since the executor keeps one step of each name.
+        tree = _in_place_of(tree, select, _grouped_in_two_steps(select, f"_grouped_{number}"))
+    return tree
+
+
+def _mixes_a_group(output: exp.Expression) -> bool:
+    """Whether an output holds an aggregate and, outside any aggregate, a column."""
+    from sqlglot import exp
+
+    return output.find(exp.AggFunc) is not None and any(
+        column.find_ancestor(exp.AggFunc) is None for column in output.find_all(exp.Column))
+
+
+class _GroupPart(NamedTuple):
+    """A column a grouped SELECT groups by, or an aggregate it gives, under its own name."""
+
+    name: str
+    part: exp.Expression
+
+
+def _parts_of_the_group(select: exp.Select) -> dict[exp.Expression, _GroupPart]:
+    """Each column a grouped SELECT groups by and each aggregate its outputs hold, by its node,
+    which is equal to any node written the same."""
+    from sqlglot import exp
+
+    parts = {}
+    for number, key in enumerate(select.args["group"].expressions):
+        parts[key] = _GroupPart(f"_group_{number}", key)
+    for output in select.expressions:
+        for aggregate in output.find_all(exp.AggFunc):
+            if aggregate not in parts and aggregate.find_ancestor(exp.AggFunc) is None:
+                parts[aggregate] = _GroupPart(f"_aggregate_{len(parts)}", aggregate)
+    return parts
+
+
+def _grouped_in_two_steps(select: exp.Select, name: str) -> exp.Select:
+    """A grouped SELECT as two: an inner one, named `name`, giving the group's columns and each
+    aggregate under a name of its own, and an outer one giving the outputs from those names."""
+    from sqlglot import exp
+
+    parts = _parts_of_the_group(select)
+    inner = select.copy()
+    inner.set("expressions", [exp.alias_(each.part.copy(), each.name)
+                              for each in parts.values()])
+    for clause in ("order", "limit"):
+        inner.set(clause, None)
+
+    def by_its_name(node: exp.Expression) -> exp.Expression:
+        if isinstance(node, (exp.AggFunc, exp.Column)) and node in parts:
+            return exp.column(parts[node].name)
+        return node
+
+    outer = exp.select(*_outputs_rewritten(select, by_its_name)).from_(
+        _named_subquery(inner, name))
+    for clause in ("order", "limit"):
+        if select.args.get(clause) is not None:
+            outer.set(clause, select.args[clause].copy().transform(by_its_name))
+    return outer
+
+
 def _make_casts_plain(tree: exp.Expression) -> exp.Expression:
     """Make each CAST to text a plain one, which is all sqlglot's executor knows.
 
@@ -805,9 +996,6 @@ def _refuse_what_it_runs_wrong(tree: exp.Expression) -> None:
     """Refuse a part of Hive the executor hasn't got, or would run wrong without a word."""
     from sqlglot import exp
 
-    if tree.find(exp.GroupingSets):
-        # Its executor would group by every column, leaving out the subtotal rows unsaid.
-        _refuse_missing_part("GROUPING SETS, which rollup, cube and grouping_sets write")
     # The executor would run a LEFT SEMI JOIN as a LEFT JOIN, repeating and keeping rows.
     if any(join.kind == "SEMI" for join in tree.find_all(exp.Join)):
         _refuse_missing_part("LEFT SEMI JOIN")
@@ -842,11 +1030,14 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
         rows["ops"][name] = [dict(zip(table._columns, row)) for row in table_rows]
     _refuse_what_it_runs_wrong(tree)
     try:
-        tree = _stacked_reads_told_apart(tree, schema)
+        # Grouping sets stack a SELECT per set, so they are worked out before the stacked reads
+        # are told apart.
+        tree = _stacked_reads_told_apart(_work_out_grouping_sets(tree), schema)
         with _joined_tables_kept_apart():
             def run(query: exp.Expression) -> executed.Table:
-                return execute(_make_casts_plain(_spell_out_cases(_spell_out_likes(query))),
-                               schema=schema, tables=rows, dialect="hive")
+                spelled_out = _make_casts_plain(_spell_out_cases(_spell_out_likes(query)))
+                return execute(_work_out_mixed_groups(spelled_out), schema=schema,
+                               tables=rows, dialect="hive")
             result = run(_work_out_windows(tree, schema, rows, run))
     except sqlglot.errors.ExecuteError as error:
         # The executor wraps what stops a step in an ExecuteError, raised from it.

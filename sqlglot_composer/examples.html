@@ -2625,7 +2625,15 @@ GROUP BY
   )</pre>
 <p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total. Not every Example database makes subtotals; the how-to &quot;Rollups and subtotals&quot; shows their rows.</p>
 <p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. The Toolbox writes this form rather than ROLLUP, so the Hive names each set of rows it makes.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>job_name</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>data</td><td>nightly_load</td><td>2</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>finance</td><td>invoice_sync</td><td>1</td></tr>
+<tr><td>finance</td><td>report_build</td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>rollup</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="cube">
@@ -2652,7 +2660,20 @@ GROUP BY
     ()
   )</pre>
 <p>GROUP_BY(cube(jobs.team, jobs.region)) gives a row for each team and region, a subtotal row for each team over every region, one for each region over every team, and one for all the rows. Two columns give 4 sets of rows, three give 8: each column doubles them. It works as rollup(...) does in every other way.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
+<tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
+<tr><td><i>NULL</i></td><td>PAR</td><td>1</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>data</td><td>LON</td><td>1</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>finance</td><td>NYC</td><td>1</td></tr>
+<tr><td>finance</td><td>PAR</td><td>1</td></tr>
+<tr><td>web</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>web</td><td>LON</td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>cube</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="grouping_sets">
@@ -2678,7 +2699,16 @@ GROUP BY
     ()
   )</pre>
 <p>Each set is a list of columns, or one column, and [] is the grand total, one row over all the rows. Its rows are those of a GROUP_BY over each set in turn, one set after another, with the columns a set leaves out NULL, as rollup(...) and cube(...) give; it works as they do in every other way.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
+<tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
+<tr><td><i>NULL</i></td><td>PAR</td><td>1</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>web</td><td><i>NULL</i></td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>grouping_sets</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="is_total">

@@ -1,0 +1,16 @@
+{
+ "files": [
+  {
+   "path": "admin/project_version.txt",
+   "holds": [
+    "8.1"
+   ]
+  },
+  {
+   "path": "admin/databases.py",
+   "holds": [
+    "\"mart_dev\""
+   ]
+  }
+ ]
+}

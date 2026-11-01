@@ -1,0 +1,48 @@
+{
+ "tables": {
+  "mart_dev.job_costs": {
+   "columns": [
+    "job_id",
+    "cost_cents"
+   ],
+   "rows": [
+    [
+     1,
+     3350
+    ],
+    [
+     2,
+     2650
+    ],
+    [
+     3,
+     1000
+    ],
+    [
+     4,
+     0
+    ]
+   ]
+  },
+  "mart_dev.team_runs": {
+   "columns": [
+    "team",
+    "runs"
+   ],
+   "rows": [
+    [
+     "data",
+     4
+    ],
+    [
+     "finance",
+     5
+    ],
+    [
+     "web",
+     0
+    ]
+   ]
+  }
+ }
+}

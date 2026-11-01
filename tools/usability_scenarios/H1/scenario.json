@@ -1,0 +1,17 @@
+{
+ "id": "H1",
+ "split": "held_out",
+ "title": "convert a long script, then promote it",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's script, from_your_team/weekly.hql, writes three tables of mart, a database you can't write to; it has run, so they hold its rows. Make your own copy of each in your Dev Database, written and checked against its original, then carry them to your Prod Database, written there, with the Toolbox. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+  }
+ ],
+ "hive_ran": [
+  "weekly.hql"
+ ],
+ "given": {
+  "from_your_team/weekly.hql": "weekly.hql"
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "id": "W3",
+ "split": "dev",
+ "title": "a new table from a query",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team gave you a query, from_your_team/failed_runs.hql. Make it a table of your own, mart_dev.failed_runs, with the Toolbox: written, and checked against the query. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each table's folder is /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly."
+  }
+ ],
+ "given": {
+  "from_your_team/failed_runs.hql": "failed_runs.hql"
+ }
+}

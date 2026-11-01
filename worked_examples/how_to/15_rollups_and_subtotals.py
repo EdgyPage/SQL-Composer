@@ -85,11 +85,12 @@ GROUP BY
 7  2026-09-21       2       4
 8  2026-09-21       3       1
 
-Pasted into your own notebook, this `run_query`, and each `run_query` of a week, a month or
-subtotals below, stops with a RuntimeError saying the Example database can't run this Hive: the
-Example database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC, and makes no subtotals.
-The results here were worked out in pandas from the same rows, to show what the Hive gives. Your
-warehouse runs the Hive as it is, and Check it worked below runs on the Example database too.
+Pasted into your own notebook, this `run_query`, and each `run_query` of a week or a month
+below, stops with a RuntimeError saying the Example database can't run this Hive: the Example
+database runs Hive with sqlglot, which has no NEXT_DAY or TRUNC. The week and month results
+were worked out in pandas from the same rows, to show what the Hive gives. The subtotals below
+run on the Example database as they are. Your warehouse runs the Hive as it is, and Check it
+worked below runs on the Example database too.
 
 The Hive works the Monday out from the day: DATE_ADD(job_events.dt, 7 * -1) adds -7 days, so
 it is the day a week earlier, and NEXT_DAY(..., 'MO') is the first Monday after that. For
@@ -227,18 +228,21 @@ GROUP BY
   );
 >>> run_query(runs_per_job, query)  # -> DataFrame
       team  job_id  runs  minutes
-0      NaN    <NA>    14      206
-1     data    <NA>     7       82
-2     data       1     7       82
-3  finance    <NA>     7      124
-4  finance       2     5       79
-5  finance       3     2       45
+0      NaN     NaN    14      206
+1     data     NaN     7       82
+2     data     1.0     7       82
+3  finance     NaN     7      124
+4  finance     2.0     5       79
+5  finance     3.0     2       45
 
 The Hive spells out each set of rows in `GROUPING SETS`: each team and job, each team, and
 `()`, nothing, for one row over all of them. In a subtotal row the columns it totals over are
-empty, NULL, which pandas shows as NaN in a column of text and as `<NA>` in a column of whole
-numbers, and the tables on this page as NULL: the job in a team's subtotal, and the team too in
+empty, NULL, which pandas shows as NaN: the job in a team's subtotal, and the team too in
 the grand total. report_build, job 3, counts for finance: its team from 2026-09-18 on.
+
+pandas keeps NaN only among fractions, so a column of whole numbers with a NaN in it shows its
+numbers as 1.0, 2.0 and so on: job_id here. A column that is NULL in every row has no numbers
+to go by, so pandas shows each NULL as None, as in the next steps' job_id.
 
 ### Tell a subtotal row from a real NULL
 
@@ -313,10 +317,10 @@ looks like the rows it totals, so the Toolbox refuses it.
 ...     HAVING(is_total(job_events.job_id)),
 ... )
 >>> run_query(team_totals, query)  # -> DataFrame
-      team  job_id  runs
-0      NaN    <NA>    14
-1     data    <NA>     7
-2  finance    <NA>     7
+      team job_id  runs
+0      NaN   None    14
+1     data   None     7
+2  finance   None     7
 
 ### Other sets of subtotals
 
@@ -519,16 +523,15 @@ Test it in `HAVING`, as Keep only the subtotals does.
 import pandas as pd
 
 from sqlglot_composer import (
-    FROM, LEFT_JOIN, SELECT, WHERE, all_columns, all_of, between, equals, example_database,
-    run_query, statement,
+    FROM, SELECT, WHERE, all_columns, between, example_database, run_query, statement,
 )
 
 job_events = example_database.job_events
 job_owners = example_database.job_owners
 
-# The Example database can't run week_start, month_start or a rollup, so the page and the
-# doctest get each such Statement's result from these, worked out in pandas from rows read
-# with Statements it can run.
+# The Example database can't run week_start or month_start, so the page and the doctest
+# get each such Statement's result from these, worked out in pandas from rows read with
+# Statements it can run.
 
 
 def every_event() -> pd.DataFrame:
@@ -572,81 +575,3 @@ def days_per_week_in_pandas() -> pd.DataFrame:
     """days_per_week's result, computed in pandas, not by running this Hive."""
     return every_event().groupby("week", as_index=False).dt.nunique().rename(
         columns={"dt": "days"})
-
-
-def week_events() -> pd.DataFrame:
-    """Every event of the week from 2026-09-18, with its job's team that day, read with a
-    Statement the Example database can run, and a 1 in "start" on a run's start, and its
-    minutes in "ended" on the event that ends a run."""
-    events = run_query(
-        statement(SELECT(job_events.job_id, job_events.event_type, job_events.minutes,
-                         job_owners.team),
-                  FROM(job_events),
-                  LEFT_JOIN(job_owners, ON=all_of(
-                      equals(job_owners.job_id, job_events.job_id),
-                      equals(job_owners.dt, job_events.dt),
-                      between(job_owners.dt, "2026-09-18", "2026-09-24"))),
-                  WHERE(between(job_events.dt, "2026-09-18", "2026-09-24"))),
-        example_database.query,
-    )
-    ends = events.event_type.isin(["finish", "fail"])
-    return events.assign(start=(events.event_type == "start").astype("int64"),
-                         ended=events.minutes.where(ends))
-
-
-def team_rollup() -> pd.DataFrame:
-    """The rows of rollup(team, job_id) over the week: each team and job, each team, and the
-    grand total, with the job, and then the team too, NULL in a subtotal row."""
-    events = week_events()
-    found = []
-    for columns in (["team", "job_id"], ["team"], []):
-        grouped = (events.assign(every=0).groupby(columns + ["every"], as_index=False)
-                   .agg(runs=("start", "sum"), minutes=("ended", "sum")))
-        found.append(grouped.drop(columns="every"))
-    rows = pd.concat(found, ignore_index=True)
-    rows["team"] = rows["team"].astype("str")
-    rows["job_id"] = rows["job_id"].astype("Int64")
-    rows["minutes"] = rows["minutes"].astype("int64")
-    return rows[["team", "job_id", "runs", "minutes"]]
-
-
-def _sorted(frame: pd.DataFrame) -> pd.DataFrame:
-    """The rows as the Example database gives them: sorted by every column, NULL first."""
-    keys = [frame[column].map(lambda value: (not pd.isna(value), value))
-            for column in frame.columns]
-    order = sorted(range(len(frame)), key=lambda i: tuple(key.iloc[i] for key in keys))
-    return frame.iloc[order].reset_index(drop=True)
-
-
-def runs_per_job_in_pandas() -> pd.DataFrame:
-    """runs_per_job's result, computed in pandas, not by running this Hive."""
-    return _sorted(team_rollup())
-
-
-def team_totals_in_pandas() -> pd.DataFrame:
-    """team_totals' result, computed in pandas, not by running this Hive."""
-    found = runs_per_job_in_pandas()
-    return found[found["job_id"].isna()][["team", "job_id", "runs"]].reset_index(drop=True)
-
-
-def labelled_in_pandas() -> pd.DataFrame:
-    """labelled's result, computed in pandas, not by running this Hive."""
-    found = runs_per_job_in_pandas()
-    team = found["team"].where(found["team"].notna(), "every team")
-    job = found["job_id"].astype("str").where(found["job_id"].notna(), "every job")
-    labelled = pd.DataFrame({"team": team, "job": job, "runs": found["runs"]})
-    return _sorted(labelled)
-
-
-def jobs_per_owner_in_pandas() -> pd.DataFrame:
-    """jobs_per_owner's result, computed in pandas, not by running this Hive."""
-    owners = run_query(statement(SELECT(job_owners.owner), FROM(job_owners),
-                                 WHERE(equals(job_owners.dt, "2026-09-24"))),
-                       example_database.query)
-    each = (owners.assign(every=0).groupby(["owner", "every"], dropna=False, as_index=False)
-            .size().rename(columns={"size": "jobs"}).drop(columns="every"))
-    each["subtotal"] = 0
-    total = pd.DataFrame({"owner": [None], "subtotal": [1], "jobs": [len(owners)]})
-    rows = pd.concat([each, total], ignore_index=True)
-    rows["owner"] = rows["owner"].astype("str")
-    return _sorted(rows[["owner", "subtotal", "jobs"]])

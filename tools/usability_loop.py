@@ -113,6 +113,10 @@ class Scenario:
     hive_ran: tuple[str, ...] = ()  # files of Hive the team's warehouse ran already
     given: dict[str, str] = field(default_factory=dict)  # file given, by its path from the run
     folder: Path = SCENARIOS
+    # A Project the user has already, as my_project/: copied in, by its path from the repo's
+    # top, or made by the reference end of the scenario it starts from, by that one's id.
+    project: str = ""
+    start_from: str = ""
 
 
 def read_scenario(scenario_id: str, folder: Path = SCENARIOS) -> Scenario:
@@ -124,7 +128,8 @@ def read_scenario(scenario_id: str, folder: Path = SCENARIOS) -> Scenario:
             raise ValueError(f"{scenario_id}: a phase's role is {phase.role!r}, not "
                              f"{in_words(list(ROLE_TEXT), last='or')}")
     return Scenario(held["id"], held["split"], held["title"], phases,
-                    tuple(held.get("hive_ran", [])), dict(held.get("given", {})), folder)
+                    tuple(held.get("hive_ran", [])), dict(held.get("given", {})), folder,
+                    held.get("project", ""), held.get("start_from", ""))
 
 
 def read_answer_key(chosen: Scenario) -> dict[str, dict]:
@@ -164,6 +169,8 @@ def prepare(chosen: Scenario, run: Path, *, main: Path | None = None,
         (run / given).parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(chosen.folder / chosen.id / source, run / given)
     set_up_the_warehouse(chosen, run)
+    if chosen.project or chosen.start_from:
+        bring_in_the_project(chosen, run)
     shutil.copyfile(TOOLS / "notebook_runner.py", run / "run_notebook.py")
     for number, phase in enumerate(chosen.phases, 1):
         (run / "_loop" / f"phase_{number}.md").write_text(
@@ -183,6 +190,32 @@ def set_up_the_warehouse(chosen: Scenario, run: Path) -> None:
     (run / "team_connection.py").write_text(TEAM_CONNECTION.format(
         main=str(run / "main"), loop=str(loop), warehouse=str(loop / "warehouse.json")),
         encoding="utf-8")
+
+
+# What a Project's warehouse.py says, before its user sets conn, and the lines the team's
+# connection is given by in a Project the user has already.
+EXAMPLE_CONN = "conn = example_database"
+TEAMS_CONN = ("import sys  # noqa: E402\nfrom pathlib import Path  # noqa: E402\n\n"
+              "sys.path.insert(0, str(Path(__file__).resolve().parent.parent))\n"
+              "from team_connection import conn  # noqa: E402")
+
+
+def bring_in_the_project(chosen: Scenario, run: Path) -> None:
+    """The Project the scenario's user has already, as my_project/: copied in, or made by the
+    reference end of the scenario it starts from, its tables in the run's warehouse; then its
+    warehouse.py reaching the team's connection."""
+    root = run / "my_project"
+    if chosen.start_from:
+        import usability_scenario_files  # it imports this file
+
+        usability_scenario_files.reference_end(chosen.start_from, run)
+    else:
+        shutil.copytree(ROOT / chosen.project, root)
+    warehouse_py = root / "warehouse.py"
+    text = warehouse_py.read_text(encoding="utf-8")
+    if EXAMPLE_CONN not in text:
+        raise ValueError(f"{warehouse_py} has no line {EXAMPLE_CONN!r} to set")
+    warehouse_py.write_text(text.replace(EXAMPLE_CONN, TEAMS_CONN), encoding="utf-8")
 
 
 def what_you_have(phase: Phase, run: Path, python: Path) -> list[str]:

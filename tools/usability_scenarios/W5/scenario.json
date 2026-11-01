@@ -1,0 +1,12 @@
+{
+ "id": "W5",
+ "split": "dev",
+ "title": "change a Saved table",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "In your team's Project, my_project, the Saved table mart_dev.runs_per_day holds the day 2026-09-24, which it shouldn't: remove that day from the table, with the Toolbox, as its guides say to change a Saved table."
+  }
+ ],
+ "start_from": "W2"
+}

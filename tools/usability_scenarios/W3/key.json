@@ -1,0 +1,28 @@
+{
+ "tables": {
+  "mart_dev.failed_runs": {
+   "columns": [
+    "job_id",
+    "fails"
+   ],
+   "rows": [
+    [
+     2,
+     1
+    ],
+    [
+     3,
+     1
+    ]
+   ]
+  }
+ },
+ "files": [
+  {
+   "path": "tables/mart_dev__failed_runs/conversion/compare.md",
+   "holds": [
+    "Passed"
+   ]
+  }
+ ]
+}
