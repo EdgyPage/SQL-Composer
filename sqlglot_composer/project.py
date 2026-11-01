@@ -2208,7 +2208,8 @@ def _staging_choices(call: str, found: dict[str, str], staging: dict[str, str],
     """The choice `staging` makes for each staging table `found`, by its name as db.table,
     refusing a choice but "fold" or "keep", or a name that isn't one."""
     if not isinstance(staging, dict):
-        fix = "This Hive has no staging tables: leave staging= out."
+        fix = ("This Hive has no staging tables: leave staging= out, or give {}, as "
+               "STAGING = {} in the convert notebook's names cell.")
         if found:
             example = python_literal(list(found)[0])
             fix = (f'Give a dict, such as staging={{{example}: "fold"}}, each table named with '
