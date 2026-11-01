@@ -99,6 +99,7 @@ def test_staging_given_as_a_list_is_refused_as_its_cell_refuses_it(started: Path
     stopped = run("convert")
     assert "Stopped by what this says: mend it." in stopped
     assert "was given staging=['weekly.staging']" in stopped
+    assert "STAGING = {} in the convert notebook's names cell" in stopped
 
 
 def test_a_names_cell_naming_several_batches_runs_each_and_a_stop_names_which(
