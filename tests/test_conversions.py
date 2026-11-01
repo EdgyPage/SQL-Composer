@@ -18,7 +18,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import toolbox_module
+from conftest import forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import compare_hive, example_database, project, set_admin_log, to_hive
 
@@ -334,6 +334,54 @@ WRITTEN_ANOTHER_WAY = {
         "FROM ops.job_runs r WHERE r.dt = '2026-09-24' GROUP BY r.job_id",
         "it gives 0 where the SUM gave NULL"),
 }
+
+
+def logic_of(started: Path, table: str) -> str:
+    """The text of a converted table's logic cell, as its notebook holds it."""
+    notebook = started / "tables" / f"mart_dev__{table}" / f"mart_dev__{table}.ipynb"
+    sources = ["".join(cell["source"])
+               for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]]
+    return next(text for text in sources if text.startswith("# logic"))
+
+
+def test_a_cte_of_rows_typed_in_keeps_its_key(started: Path) -> None:
+    # Toolbox 8.2, 15: Copilot's team list as a CTE of typed-in rows, each team once, has its
+    # Key, so the write keyed on team is let through with no opt-out.
+    hive = """\
+WITH team_names AS (SELECT 'data' AS team UNION ALL SELECT 'finance' UNION ALL SELECT 'web')
+SELECT n.team, COUNT(r.run_id) AS runs FROM team_names n
+LEFT JOIN ops.jobs j ON j.team = n.team
+LEFT JOIN ops.job_runs r ON r.job_id = j.job_id AND r.dt = '2026-09-24'
+GROUP BY n.team"""
+    project.convert("teams", hive, query=example_database.query, database="ops")
+    logic = logic_of(started, "teams")
+    assert '}, key=["team"])' in logic
+    assert "unproven_key" not in logic
+    project.write_decisions({"mart_dev.teams": {"location": "/data/mart_dev/teams"}})
+    forget_the_projects_modules()
+    project.load("mart_dev.teams").write()
+
+
+@pytest.mark.parametrize(("rows", "key"), [
+    ("SELECT 'data' AS team, 'a' AS kind UNION ALL SELECT 'web', 'a'", '}, key=["team"])'),
+    ("SELECT 'data' AS team, 'a' AS kind UNION ALL SELECT 'data', 'b'",
+     '}, key=["team", "kind"])'),
+    ("SELECT 'data' AS team, 'a' AS kind UNION ALL SELECT 'data', 'a'", None),
+    ("SELECT 1 AS n, 'a' AS kind UNION ALL SELECT 1.0, 'a'", None),
+])
+def test_a_cte_of_rows_typed_in_has_the_key_its_rows_show(started: Path, rows: str,
+                                                           key: str | None) -> None:
+    # Toolbox 8.2, 15: the first column alone when it never repeats, else every column when
+    # no row repeats, else none; 1 and 1.0 are one value, as Hive compares them.
+    first = rows.split(" AS ")[1].split(",")[0]
+    hive = f"WITH listed AS ({rows})\nSELECT l.{first}, l.kind FROM listed l"
+    project.convert("typed", hive, query=example_database.query, database="ops")
+    logic = logic_of(started, "typed")
+    assert "unchecked_derived(" in logic
+    if key is None:
+        assert "}, key=[" not in logic
+    else:
+        assert key in logic
 
 
 def test_a_count_written_as_a_sum_gives_the_originals_rows(started: Path) -> None:

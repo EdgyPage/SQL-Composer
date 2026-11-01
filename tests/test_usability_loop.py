@@ -225,3 +225,26 @@ def test_a_run_built_from_dev_holds_mains_tree(tmp_path: Path) -> None:
     assert (main / ".github" / "README.md").is_file()
     assert (main / "copilot" / "formula_workbook.xlsx").is_file()
     assert not (main / "tools").exists() and not (main / ".scratch").exists()
+
+
+def test_the_runner_runs_only_the_cells_it_is_given(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # A Workflow's cells run one at a time, to stop at a decision, as the README says.
+    notebook = tmp_path / "book.ipynb"
+    code = [{"cell_type": "code", "source": [f"print('cell {number}')"]}
+            for number in (1, 2, 3, 4)]
+    notebook.write_text(json.dumps({"cells": code}), encoding="utf-8")
+    assert notebook_runner.main([str(notebook), "--cells", "1-2,4"]) == 0
+    shown = capsys.readouterr().out
+    assert "cell 1" in shown and "cell 2" in shown and "cell 4" in shown
+    assert "cell 3" not in shown
+
+
+def test_the_saved_warehouse_answers_a_select_of_values_and_keeps_a_location(
+        tmp_path: Path) -> None:
+    path = tmp_path / "warehouse.json"
+    warehouse = SavedWarehouse(path)
+    assert warehouse.query("SELECT 1 AS one").values.tolist() == [[1]]
+    warehouse.execute("CREATE EXTERNAL TABLE mart_dev.kept (a BIGINT) LOCATION '/data/kept'")
+    described = SavedWarehouse(path).query("DESCRIBE FORMATTED mart_dev.kept")
+    assert ["Location:", "/data/kept"] in described.iloc[:, :2].values.tolist()

@@ -134,6 +134,8 @@ process of its own.
   types](issues/13-copilots-hive-with-a-literal-list.md), found by 04
 - [14 RENAME in the convert notebook's names cell](issues/14-rename-in-the-convert-notebook.md), found
   by 04
+- [15 A CTE of rows typed in keeps its Key](issues/15-rows-typed-in-keep-their-key.md), found by
+  05's round two
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.
