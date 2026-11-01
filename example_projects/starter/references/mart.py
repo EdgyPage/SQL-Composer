@@ -1,4 +1,4 @@
-# sqlglot Composer 7.2 - copy it, then edit your copy
+# sqlglot Composer 8.1 - copy it, then edit your copy
 """mart - a Database: written by the Project actions, never by hand.
 
 Why: `from references import mart` gives each of its Table references by its name, so a column

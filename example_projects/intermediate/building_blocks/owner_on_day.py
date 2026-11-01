@@ -1,4 +1,4 @@
-# sqlglot Composer 7.2 - copy it, then edit your copy
+# sqlglot Composer 8.1 - copy it, then edit your copy
 """owner_on_day - the team that owned each job on each day, joined as of that day.
 
 Why: mart.job_day_facts saves each job's day beside its team then, and mart.team_days'

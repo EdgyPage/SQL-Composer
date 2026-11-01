@@ -1,4 +1,5 @@
-"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this one.
+"""Upgrades: a Project's files carried from the Toolbox version that last wrote them to this
+one.
 
 project.upgrade() runs, in order, each version's step from the Project's version, which
 admin/project_version.txt holds, to the Toolbox's, which its version.txt holds. A step makes
@@ -14,10 +15,18 @@ admin/project_version.txt was made by 7.1.
 
 from __future__ import annotations
 
-import json
+import ast
+import hashlib
 import re
 from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .notebooks import read_cells, read_cells_if_readable, write_cell_text, write_notebook
+from .shared import counted
+
+if TYPE_CHECKING:  # workflows.py imports this file, so its name is for the hints alone
+    from .workflows import Workflow
 
 PROJECT_VERSION = Path("admin") / "project_version.txt"
 # The first version a Project can be upgraded from, and the one a Project that records no
@@ -25,7 +34,8 @@ PROJECT_VERSION = Path("admin") / "project_version.txt"
 FIRST_UPGRADABLE = "7.1"
 PROJECT_VERSION_TEXT = (
     "{version}\n"
-    "# The Toolbox version that last wrote this Project: project.start() and project.upgrade()\n"
+    "# The Toolbox version that last wrote this Project: project.start() and "
+    "project.upgrade()\n"
     "# write it, so don't edit it.\n"
 )
 # A mark a step leaves for you, such as "# UPGRADE 7.2: write run_query or run_execute here".
@@ -62,6 +72,7 @@ def project_version(root: Path) -> str | None:
     path = root / PROJECT_VERSION
     if not path.is_file():
         return None
+    # utf-8-sig, since an editor that saves a byte-order mark puts one at the start of line 1.
     lines = path.read_text(encoding="utf-8-sig").split("\n")
     return lines[0].strip() or None
 
@@ -75,49 +86,62 @@ def write_project_version(root: Path, version: str) -> None:
 class Upgrade:
     """One version's step at work on a Project: what it changed, and what it marked for you.
 
-    `complete` adds what this Toolbox's project.start() makes that the Project lacks, writing
-    over nothing, and gives each path it added.
+    `add_what_start_lacks` adds to the Project at the root it is given what this Toolbox's
+    project.start() makes that the Project lacks, writing over nothing, and gives each path it
+    added.
     """
 
     def __init__(self, root: Path, version: str, archive: Path,
-                 complete: Callable[[], list[str]]) -> None:
-        self.root, self.version, self.archive = root, version, archive
+                 add_what_start_lacks: Callable[[Path], list[str]]) -> None:
+        self.root = root
+        self.version = version
+        self.archive = archive
         self.changed: list[str] = []
         # Each mark as [file, cell or None, the line the mark is on, what to change]: a later
         # mark above it in the same place moves it down.
         self._marks: list[list[str | int | None]] = []
-        self._complete = complete
+        self._add_what_start_lacks = add_what_start_lacks
 
     def add_what_start_makes(self) -> None:
         """Add each folder, admin notebook and Template project.start() makes that the Project
         lacks, writing over nothing."""
-        self.changed += [f"added {path}" for path in self._complete()]
+        self.changed += [f"added {path}" for path in self._add_what_start_lacks(self.root)]
+
+    def add(self, relative: str, text: str) -> None:
+        """Write a file the Project lacks, writing over nothing."""
+        path = self.root / relative
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text, encoding="utf-8")
+            self.changed.append(f"added {relative}")
 
     def rewrite(self, relative: str, text: str) -> None:
         """Write a file's new text, once the file as it was is kept in the archive."""
-        self._keep(relative)
+        self._archive_original(relative)
         (self.root / relative).write_text(text, encoding="utf-8")
+        self.changed.append(f"rewrote {relative}")
+
+    def rewrite_notebook(self, relative: str, cells: list[tuple[str, str]]) -> None:
+        """Write a notebook's new cells, once the notebook as it was is kept in the archive."""
+        self._archive_original(relative)
+        write_notebook(self.root / relative, cells)
         self.changed.append(f"rewrote {relative}")
 
     def mark(self, relative: str, line: int, what: str, cell: int | None = None) -> None:
         """Put `# UPGRADE <version>: <what>` above line `line` of a .py file, or of cell `cell`
         of a notebook, at that line's indent, and list it for the checklist. Lines and cells
-        count from 1, every cell counted, text cells too, as the file reads before this mark. The
-        file as it was is kept in the archive first. A mark moves the lines below it down one,
-        and the checklist follows each earlier mark it moves."""
-        self._keep(relative)
+        count from 1, every cell counted, text cells too, as the file reads before this mark.
+        The file as it was is kept in the archive first. A mark moves the lines below it down
+        one, and the checklist follows each earlier mark it moves."""
+        self._archive_original(relative)
         path = self.root / relative
         mark = MARK.format(version=self.version, what=what)
         if cell is None:
-            path.write_text(_marked(path.read_text(encoding="utf-8"), line, mark),
-                            encoding="utf-8")
+            marked = _text_with_mark(path.read_text(encoding="utf-8"), line, mark)
+            path.write_text(marked, encoding="utf-8")
         else:
-            notebook = json.loads(path.read_text(encoding="utf-8"))
-            source = notebook["cells"][cell - 1]["source"]
-            text = _marked("".join(source) if isinstance(source, list) else source, line, mark)
-            # As notebooks.write_notebook writes a cell: its lines, each with its own newline.
-            notebook["cells"][cell - 1]["source"] = text.splitlines(keepends=True)
-            path.write_text(json.dumps(notebook, indent=1) + "\n", encoding="utf-8")
+            _, text = read_cells(path)[cell - 1]
+            write_cell_text(path, cell, _text_with_mark(text, line, mark))
         for earlier in self._marks:
             if earlier[:2] == [relative, cell] and earlier[2] >= line:
                 earlier[2] += 1
@@ -127,27 +151,39 @@ class Upgrade:
     def marks(self) -> list[str]:
         """Each mark this step left, as the checklist lists it, such as
         "references/ops__jobs.py, line 12: say which call this is"."""
-        return [f"{relative}{'' if cell is None else f', cell {cell}'}, line {line}: {what}"
-                for relative, cell, line, what in self._marks]
+        listed = []
+        for relative, cell, line, what in self._marks:
+            if cell is None:
+                listed.append(f"{relative}, line {line}: {what}")
+            else:
+                listed.append(f"{relative}, cell {cell}, line {line}: {what}")
+        return listed
 
-    def _keep(self, relative: str) -> None:
-        """Copy the file as it is into the archive, unless this step kept it already."""
-        kept = self.archive / relative
-        if not kept.exists():
-            kept.parent.mkdir(parents=True, exist_ok=True)
-            kept.write_bytes((self.root / relative).read_bytes())
+    def retire(self, relative: str, why: str = "which this version no longer has") -> None:
+        """Take a file this version no longer has out of the Project, once it is kept in the
+        archive; the checklist says `why` after it."""
+        self._archive_original(relative)
+        (self.root / relative).unlink()
+        self.changed.append(f"archived {relative}, {why}")
+
+    def _archive_original(self, relative: str) -> None:
+        """Copy the file as it is into the archive, unless this step did already."""
+        archived = self.archive / relative
+        if not archived.exists():
+            archived.parent.mkdir(parents=True, exist_ok=True)
+            archived.write_bytes((self.root / relative).read_bytes())
 
     @property
     def checklist_path(self) -> str:
         """Where this step's checklist goes, such as admin/upgrade_7.2.md."""
         return f"admin/upgrade_{self.version}.md"
 
-    def said(self) -> str:
+    def report_line(self) -> str:
         """What project.upgrade() says of this step, once it has run."""
         if not self.marks:
-            return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists what "
-                    "it did.")
-        changes = "1 change" if len(self.marks) == 1 else f"{len(self.marks)} changes"
+            return (f"{self.version}: nothing to change by hand. {self.checklist_path} lists "
+                    "what it did.")
+        changes = counted(len(self.marks), "change")
         return (f"{self.version}: {changes} for you to make, each marked "
                 f"`# UPGRADE {self.version}:`, and listed in {self.checklist_path}.")
 
@@ -164,16 +200,16 @@ class Upgrade:
         lines += ["", "## For you to do", ""]
         if self.marks:
             lines += [f"Each is marked `# UPGRADE {self.version}:` at its line; a notebook's "
-                      "cells are counted from its first, text cells too. Make the change, delete "
-                      "the mark, and tick its box here, writing [x] for [ ]. project.check() lists "
-                      "every mark left.", ""]
+                      "cells are counted from its first, text cells too. Make the change, "
+                      "delete the mark, and tick its box here, writing [x] for [ ]. "
+                      "project.check() lists every mark left.", ""]
             lines += [f"- [ ] {mark}" for mark in self.marks]
         else:
             lines.append(f"Nothing: {self.version} needs nothing changed by hand.")
         return "\n".join(lines) + "\n"
 
 
-def _marked(text: str, line: int, mark: str) -> str:
+def _text_with_mark(text: str, line: int, mark: str) -> str:
     """`text` with `mark` put above its line `line`, counted from 1, at that line's indent."""
     lines = text.split("\n")
     marked = lines[line - 1]
@@ -184,37 +220,370 @@ def _marked(text: str, line: int, mark: str) -> str:
 def marks_in(root: Path, pattern: re.Pattern[str]) -> list[str]:
     """Each line of the Project's .py files and notebooks' cells that `pattern` matches, as
     "<file>, line <n>: <the line>", or "<file>, cell <c>, line <n>: ...", outside the Toolbox's
-    folder and admin/removed/."""
+    folder and admin/removed/. A notebook Jupyter couldn't open is passed over."""
     found = []
-    for path in sorted([*root.rglob("*.py"), *root.rglob("*.ipynb")]):
+    for path in _searched_files(root):
         relative = path.relative_to(root).as_posix()
-        if any(relative == skip or relative.startswith(f"{skip}/") for skip in NOT_SEARCHED):
-            continue
-        if path.suffix == ".py":
-            places = [("", path.read_text(encoding="utf-8", errors="replace"))]
-        else:
-            try:
-                cells = json.loads(path.read_text(encoding="utf-8"))["cells"]
-            except (ValueError, KeyError, TypeError):
-                continue
-            places = [(f", cell {number}", "".join(cell.get("source", "")))
-                      for number, cell in enumerate(cells, 1)]
-        for place, text in places:
+        for place, text in _searched_texts(path):
             for number, line in enumerate(text.split("\n"), 1):
                 if pattern.search(line):
                     found.append(f"{relative}{place}, line {number}: {line.strip()}")
     return found
 
 
-# --- The steps, one per version -------------------------------------------------------------------
+def _searched_files(root: Path) -> list[Path]:
+    """The Project's .py files and notebooks that marks_in and calls_to search."""
+    return [path for path in sorted([*root.rglob("*.py"), *root.rglob("*.ipynb")])
+            if _is_searched(path.relative_to(root).as_posix())]
+
+
+def _is_searched(relative: str) -> bool:
+    """Whether marks_in searches a path in the Project: one outside the Toolbox's folder and
+    admin/removed/."""
+    for skipped in NOT_SEARCHED:
+        if relative == skipped or relative.startswith(f"{skipped}/"):
+            return False
+    return True
+
+
+def _searched_texts(path: Path) -> list[tuple[str, str]]:
+    """The texts marks_in searches in a file, each after the words that name its place: a .py
+    file's whole text, after "", or each notebook cell's, after ", cell <c>"."""
+    return [("" if cell is None else f", cell {cell}", text)
+            for cell, _, text in _texts_of(path)]
+
+
+def _texts_of(path: Path) -> list[tuple[int | None, str, str]]:
+    """A file's texts, each as (its cell, its kind, its text): a .py file's whole text, as
+    (None, "code", ...), or each notebook cell's, counted from 1; none of a notebook Jupyter
+    couldn't open."""
+    if path.suffix == ".py":
+        # errors="replace": a stray byte in a file of yours never stops the search.
+        return [(None, "code", path.read_text(encoding="utf-8", errors="replace"))]
+    cells = read_cells_if_readable(path) or []
+    return [(number, kind, text) for number, (kind, text) in enumerate(cells, 1)]
+
+
+def calls_to(root: Path, function: str) -> list[tuple[str, int | None, int]]:
+    """Each line of the Project's code that calls `function`, by its name or as an attribute,
+    such as project.finish_conversion(...), as (its file, its cell or None, its line), each
+    counted from 1, outside the Toolbox's folder and admin/removed/: code only, a .py file's or
+    a notebook's code cell's, and never a docstring or comment that names it. A cell's %magic
+    and !command lines are read as blank; code Python still can't read is passed over."""
+    found = []
+    for path in _searched_files(root):
+        relative = path.relative_to(root).as_posix()
+        for cell, kind, text in _texts_of(path):
+            if kind != "code":
+                continue
+            try:
+                tree = ast.parse(_without_magics(text))
+            except SyntaxError:
+                continue
+            lines = {node.lineno for node in ast.walk(tree)
+                     if isinstance(node, ast.Call) and _called_name(node.func) == function}
+            found += [(relative, cell, line) for line in sorted(lines)]
+    return found
+
+
+def _without_magics(text: str) -> str:
+    """A cell's code with each line Jupyter runs itself, %magic or !command, left blank, so
+    Python reads the rest and each line keeps its number."""
+    return "\n".join("" if line.lstrip().startswith(("%", "!")) else line
+                     for line in text.split("\n"))
+
+
+def _called_name(function: ast.expr) -> str | None:
+    """The name a call calls: f for f(...), and f for project.f(...)."""
+    if isinstance(function, ast.Name):
+        return function.id
+    if isinstance(function, ast.Attribute):
+        return function.attr
+    return None
+
+
+def _line_starting(path: Path, start: str) -> tuple[int | None, int]:
+    """The cell, or None in a .py file, and the line, each counted from 1, of a file's first
+    line that starts with `start`, such as NAME = in a Workflow notebook."""
+    for cell, _, text in _texts_of(path):
+        for number, line in enumerate(text.split("\n"), 1):
+            if line.startswith(start):
+                return cell, number
+    raise LookupError(f"{path} has no line starting {start}")
+
+
+# --- The steps, one per version ---------------------------------------------------------------
 
 
 def to_7_2(upgrade: Upgrade) -> None:
-    """7.1 to 7.2: nothing of yours changes. The Project gets what 7.2's project.start() makes
-    that it lacks, such as admin/upgrade.ipynb."""
+    """7.1 to 7.2: nothing of yours changes. The Project gets what project.start() makes
+    that it lacks, such as admin/workflows/."""
     upgrade.add_what_start_makes()
+
+
+# The one-action admin notebooks 7.2's start() wrote, which 8.0's Workflow notebooks, in
+# admin/workflows/, and admin/remove.ipynb take the place of.
+RETIRED_IN_8_0 = ("new_table", "remove_table", "add_references", "change_a_saved_table",
+                  "convert", "upgrade")
+# The admin notebooks 8.0 writes again: their cells changed, and the user only runs them.
+# check_project.ipynb, where the user runs project.upgrade(), is left as it is: written while it
+# is open, it would be saved over. Its new cell, project.do_next(), runs from any notebook.
+REWRITTEN_IN_8_0 = ("new_block",)
+# Where 7.2 kept a Conversion: a folder each, its Hive as given in original.hql. 8.0's batches,
+# in admin/workflows/convert/, take their place, and no finish_conversion finishes one now.
+CONVERSIONS_7_2 = "admin/conversions"
+ORIGINAL_HIVE_7_2 = "original.hql"
+CONVERT_FOLDER = "admin/workflows/convert"
+CONVERT_NOTEBOOK = f"{CONVERT_FOLDER}/convert.ipynb"
+# Each name admin/databases.py holds, and the mark the 8.0 step puts above it while it is
+# still <...>.
+DATABASE_MARKS = {
+    "DEV =": "fill in your Dev Database's name",
+    "PROD =": "fill in your Prod Database's name",
+}
+# The warehouse.py 7.2's start() wrote, which 8.0 writes again where it is still as it was.
+WAREHOUSE_TEXT_7_2 = '''"""warehouse - your two calls to the warehouse, query and execute.
+
+Why: every notebook in the Project reaches the warehouse through these two functions, so a
+change to how you reach it is made here, once.
+
+You pick which one sends each Statement, by calling run_query(s, query) for what gives back
+rows, as a SELECT does, or run_execute(s, execute) for what changes something, as a write does.
+Replace each example_database call with your warehouse's own: the how-to Start a Project shows
+how to write them. Let the two share one session, so a Session setting sent through execute
+holds for what is sent after it, through either function; and let each raise when the warehouse
+reports a failure, since the Toolbox knows a step failed only when your function raises. It
+imports none of your own files, so any notebook or script of yours can import it.
+"""
+
+import pandas as pd
+
+from sqlglot_composer import example_database
+
+
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return example_database.query(hive)  # at work: your warehouse's query call
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    example_database.execute(hive)  # at work: your warehouse's execute call
+'''
+
+
+# The Templates 7.2 and 8.0 wrote, by the sha256 of their text, which 8.1's new_table, its
+# Table reference written from the logic, needs written again: one still as written is, and one
+# you changed is marked.
+TEMPLATES_BEFORE_8_1 = {
+    "saved_table": "2cd1eeedcd8d35574a46ffea8b115fe5c25db843c1c8c921e4351a5334181937",
+    "quality_checks": "3c46046763380f9e12d3eb37cf9185d5f3ab53c934baec5ede1bfb46f588598d",
+    "saved_table_reference": "8042a4ef5a603a3462ffca5f23456fb9dbeb3ed9e6e3396b5ac81da76381a633",
+}
+TEMPLATE_MARK = ("new_table now writes a table's Table reference from its logic: copy what "
+                 "changed from this Template in a new Project's admin/templates/, such as "
+                 "PARTITIONED_BY beside READS")
+
+
+def _write_templates_again(upgrade: Upgrade) -> None:
+    """Write again each Template still as 7.2 or 8.0 wrote it, and mark each you changed;
+    one already as this Toolbox writes it is left as it is."""
+    from .project_templates import TEMPLATES  # it is read here, when the step runs
+
+    for name, digest in TEMPLATES_BEFORE_8_1.items():
+        relative = f"admin/templates/{name}.py"
+        path = upgrade.root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if text == TEMPLATES[name]:
+            continue
+        if hashlib.sha256(text.encode("utf-8")).hexdigest() == digest:
+            upgrade.rewrite(relative, TEMPLATES[name])
+        else:
+            upgrade.mark(relative, 1, TEMPLATE_MARK)
+
+
+def to_8_0(upgrade: Upgrade) -> None:
+    """7.2 to 8.0: the Project gets 8.0's admin layout: a notebook per Workflow in
+    admin/workflows/, admin/remove.ipynb, admin/databases.py and admin/sent.csv. Each one-action
+    notebook a Workflow's notebook takes the place of is archived; new_block.ipynb is written
+    again, kept in the archive first; and a warehouse.py still as 7.2 wrote it gets 8.0's, which
+    holds conn, your connection. A warehouse.py you changed is yours, and stays.
+
+    Each name admin/databases.py holds that is still <...> is marked for you to fill in.
+    Each Conversion 7.2 left open, in admin/conversions/, is archived, its Hive put beside the
+    convert Workflow's notebook, which is marked to convert it again as a batch; and each line
+    of yours that calls finish_conversion, which 8.0 no longer has, is marked."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import DATABASES, WAREHOUSE, WAREHOUSE_TEXT, admin_notebook_cells
+
+    for name in RETIRED_IN_8_0:
+        if (upgrade.root / "admin" / f"{name}.ipynb").exists():
+            upgrade.retire(f"admin/{name}.ipynb")
+    for name in REWRITTEN_IN_8_0:
+        relative = f"admin/{name}.ipynb"
+        if (upgrade.root / relative).exists():
+            upgrade.rewrite_notebook(relative, admin_notebook_cells(name))
+    warehouse = upgrade.root / WAREHOUSE
+    if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_7_2:
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
+    upgrade.add_what_start_makes()
+    databases = upgrade.root / DATABASES
+    for start, what in DATABASE_MARKS.items():
+        _, line = _line_starting(databases, start)
+        if "<" in databases.read_text(encoding="utf-8").split("\n")[line - 1]:
+            upgrade.mark(DATABASES.as_posix(), line, what)
+    _carry_open_conversions(upgrade)
+    _mark_finish_conversion(upgrade)
+
+
+def _carry_open_conversions(upgrade: Upgrade) -> None:
+    """Each Conversion 7.2 left open: its Hive as <name>.hql beside the convert Workflow's
+    notebook, and the notebook's names cell marked to convert it again; then admin/conversions/
+    archived and taken out."""
+    conversions = upgrade.root / CONVERSIONS_7_2
+    if not conversions.is_dir():
+        return
+    archived = upgrade.archive.relative_to(upgrade.root).as_posix()
+    for folder in sorted(path for path in conversions.iterdir() if path.is_dir()):
+        # Found afresh for each: a mark above it moves the NAME = line down one.
+        cell, line = _line_starting(upgrade.root / CONVERT_NOTEBOOK, "NAME =")
+        upgrade.mark(CONVERT_NOTEBOOK, line, _convert_again(folder, archived), cell=cell)
+        hive = folder / ORIGINAL_HIVE_7_2
+        if hive.is_file():
+            upgrade.add(f"{CONVERT_FOLDER}/{folder.name}.hql", hive.read_text(encoding="utf-8"))
+    _take_out(upgrade, conversions, "a 7.2 Conversion's, which 8.0 converts as a batch")
+
+
+def _convert_again(folder: Path, archived: str) -> str:
+    """The mark that asks you to convert a 7.2 Conversion again as a batch, its names to fill
+    in, and where its 7.2 files are kept."""
+    name = folder.name
+    kept = f"{archived}/{CONVERSIONS_7_2}/{name}/"
+    if not (folder / ORIGINAL_HIVE_7_2).is_file():
+        return (f"convert {name} again, as a batch: NAME = \"{name}\", and its Hive, which its "
+                f"7.2 folder didn't hold, kept in {kept}, as FILES or HIVE")
+    return (f'convert {name} again, as a batch: NAME = "{name}", FILES = ["{name}.hql"], and '
+            "DATABASE as 7.2's admin/convert.ipynb set it, kept in "
+            f"{archived}/admin/convert.ipynb; 8.0 writes its notebook afresh, so copy over any "
+            f"change you made to its 7.2 notebook, kept in {kept}")
+
+
+def _take_out(upgrade: Upgrade, folder: Path, why: str) -> None:
+    """Archive each file in a folder, saying `why`, and take the folder out, deepest first, so
+    each folder is empty when it goes."""
+    for path in sorted(folder.rglob("*"), reverse=True):
+        if path.is_file():
+            upgrade.retire(path.relative_to(upgrade.root).as_posix(), why)
+        else:
+            path.rmdir()
+    folder.rmdir()
+
+
+def _mark_finish_conversion(upgrade: Upgrade) -> None:
+    """Mark each line of yours that calls finish_conversion, the last in a file first, so each
+    line found is still where it was."""
+    for relative, cell, line in reversed(calls_to(upgrade.root, "finish_conversion")):
+        upgrade.mark(relative, line, "finish_conversion is gone: delete this line, convert the "
+                     "Hive again in admin/workflows/convert/convert.ipynb, and promote its "
+                     "table for the name you gave here", cell=cell)
+
+
+def to_8_1(upgrade: Upgrade) -> None:
+    """8.0 to 8.1: each Workflow notebook is written again, kept in admin/removed/ first, with a
+    decisions cell where its steps wait on Decisions, its new inputs and steps, and its last
+    cell, run_workflow: each name its names cell gave stays, under any mark above it, and so
+    does each step cell you write in, one whose call holds a ... to fill in, such as
+    change_a_saved_table's Admin statement. Each Template still as 8.0 wrote it is written
+    again, and one you changed is marked. Each converted table's checklist.md is written again
+    as the view of its Decisions, made or open, with no boxes to tick: a box ticked in 8.0 was
+    ticked once its answer was in the Table reference, which keeps it."""
+    # project.py and workflows.py import this file, so their names are read here, when it runs.
+    from . import workflows
+    from .project import WORKFLOW_PATH_LINES, checklists_written_again
+
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(upgrade.root, workflow)
+        if path.is_file():
+            cells = _workflow_cells_with_yours(upgrade.root, workflow, WORKFLOW_PATH_LINES)
+            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+    _write_templates_again(upgrade)
+    for relative, text in checklists_written_again(upgrade.root).items():
+        upgrade.rewrite(relative, text)
+    upgrade.add_what_start_makes()
+
+
+def _workflow_cells_with_yours(root: Path, workflow: Workflow,
+                               path_lines: list[str]) -> list[tuple[str, str]]:
+    """A Workflow notebook's cells as this version writes them, with each name its names cell
+    gave, and each step cell the user writes in, one whose call holds a ... to fill in."""
+    from . import workflows  # it imports this file
+
+    given = workflows.given_inputs(root, workflow)
+    path = workflows.notebook_path(root, workflow)
+    written = _step_cells_written(path)
+    marks = _marks_above(path, workflow)
+    cells = []
+    step = None
+    for kind, text in workflows.notebook_cells(workflow, path_lines):
+        if kind == "markdown":
+            step = workflows.step_name_of(text) or step
+        elif text == workflows.inputs_cell(workflow):
+            text = _names_cell_with_given(workflow, given, marks)
+        elif step in written and "..." in text:
+            text = written[step]
+        cells.append((kind, text))
+    return cells
+
+
+def _step_cells_written(path: Path) -> dict[str, str]:
+    """Each step's code cell in a Workflow notebook, by the step's name."""
+    from . import workflows  # it imports this file
+
+    written = {}
+    step = None
+    for kind, text in read_cells(path):
+        if kind == "markdown":
+            step = workflows.step_name_of(text) or step
+        elif step is not None and step not in written:
+            written[step] = text
+    return written
+
+
+def _marks_above(path: Path, workflow: Workflow) -> dict[str, list[str]]:
+    """Each UPGRADE mark in a Workflow notebook's names cell, by the input whose line it is
+    above, as an earlier version's step left it."""
+    if not workflow.inputs:
+        return {}
+    first = f"{workflow.inputs[0].name} ="
+    marks: dict[str, list[str]] = {}
+    for kind, text in read_cells(path):
+        if kind != "code" or first not in text:
+            continue
+        waiting: list[str] = []
+        for line in text.split("\n"):
+            if MARK_LINE.search(line):
+                waiting.append(line)
+            elif waiting and " = " in line:
+                marks[line.split(" = ", 1)[0].strip()] = waiting
+                waiting = []
+    return marks
+
+
+def _names_cell_with_given(workflow: Workflow, given: dict[str, object],
+                           marks: dict[str, list[str]]) -> str:
+    """A Workflow notebook's names cell, each input holding what the user gave, under each
+    UPGRADE mark an earlier step left above it."""
+    from . import workflows  # it imports this file
+
+    lines = []
+    for each in workflow.inputs:
+        lines += marks.get(each.name, [])
+        lines.append(workflows.input_line(each, given.get(each.name, each.empty)))
+    return "\n".join(lines)
 
 
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds.
-STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2}
+STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1}

@@ -1,4 +1,4 @@
-# sqlglot Composer 7.2 - copy it, then edit your copy
+# sqlglot Composer 8.1 - copy it, then edit your copy
 """mart.daily_job_runs - one row per job and day: runs, failed runs and minutes.
 
 Why: its notebook saves these numbers once a day, so mart.team_day and anyone else can read

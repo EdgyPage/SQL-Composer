@@ -1,10 +1,10 @@
-# Copilot file 06: saving a table (sqlglot Composer 7.2)
+# Copilot file 06: saving a table (sqlglot Composer 8.1)
 
 Objective: write a Saved table from a Statement, in its Table notebook.
 Load this file when the user wants to save rows into a table of their own, write a day of
 it, add to it, or write the logic cell of a Table notebook.
 
-You write Python for sqlglot Composer 7.2, a Toolbox that writes Hive. Answer with one Python code
+You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
 block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Always
@@ -38,11 +38,12 @@ block the user can paste into a notebook cell, then a few plain sentences.
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive.
+    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
 
-- project.new_table(name, template='saved_table')
+- project.new_table(name, template='saved_table', queries=None)
 - project.load(name)
 - project.run_tables(*, execute=None, tables=None)
 - create_table(t, may_exist=False)
@@ -59,13 +60,15 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 ## Steps
 
-1. `project.new_table("mart.job_day_events")` makes the Table notebook,
-   tables/mart__job_day_events/mart__job_day_events.ipynb, and the Table reference,
-   references/mart__job_day_events.py. The user fills in the reference's columns and its
-   `<LOCATION>` (file 02).
+1. In the new_table Workflow, admin/workflows/new_table/new_table.ipynb (file 14),
+   `project.new_table("mart.job_day_events")` makes the Table notebook,
+   tables/mart__job_day_events/mart__job_day_events.ipynb, and a stand-in Table reference;
+   once the logic runs, `project.reference_from_logic` writes the reference from it, and the
+   user answers its location in the Workflow's decisions cell.
 2. The notebook's logic cell starts with the line `# logic` and holds only imports,
    constants and functions; nothing in it runs Hive. Keep the shape the notebook already has:
    - `READS`, the Condition that picks the rows it reads, such as a day;
+   - `PARTITIONED_BY`, the table's partition columns, last in SELECT: `[]` for none;
    - `create()` returns `create_table(job_day_events, may_exist=True)`;
    - `rows()` returns the list of Clauses that give the rows: SELECT, FROM, `WHERE(READS)`,
      GROUP_BY;
@@ -102,6 +105,7 @@ from references.mart__job_day_events import job_day_events
 from references.ops__job_events import job_events
 
 READS = equals(job_events.dt, "2026-09-24")
+PARTITIONED_BY = ["dt"]
 
 
 def create() -> Statement:
