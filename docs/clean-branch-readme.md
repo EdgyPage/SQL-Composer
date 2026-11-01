@@ -1290,15 +1290,18 @@ To hand over an Excel workbook's calculations, one chat holds three files:
    message of its own), then attach your workbook and send "Convert this workbook". Done when
    Copilot answers with a map, a Hive query for each final, and what to do next; then step 3.
 3. **Check the map.** Action: read the map Copilot answers with: which Tables are sources, the
-   samples of your database's tables, and which are finals, each becoming a query. Done when
-   every Table you expected is there; then step 4.
+   samples of your database's tables, and which are finals, the Tables your work ends with,
+   each becoming a query. Done when every Table you expected is there; then step 4.
 4. **Fill in the names.** Action: each query writes `<...>` for a name it can't know, such as
    `<database>.<sales_data>`. Fill each in with your database's own names: your Project's
    `references/` folder has them, `ops__job_runs.py` for `ops.job_runs`, or ask whoever owns
    the data. Done when no `<...>` is left; then step 5.
-5. **Save the queries.** Goal: the convert Workflow can read them. Action: save each
-   filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
-   `convert.ipynb`, named for its final Table. Done when each final has its file; then step 6.
+5. **Save the queries.** Goal: the convert Workflow can read them. Action: leave out each
+   final no one needs kept as a table, such as a Total Row whose total no one needs. Save each
+   other filled-in query as a .hql file of its own in `admin/workflows/convert/`, beside
+   `convert.ipynb`, named for its final Table, such as `by_job.hql`; a Total Row's query,
+   titled `by_job (Total Row)`, as `by_job_total.hql`. Done when each final you keep has its
+   file; then step 6.
 6. **Convert them.** Goal: a Saved table in dev for each final. Action: in the convert
    notebook's names cell, name the batch and its files, such as `NAME = "sales_summary"` and
    `FILES = ["sales.hql", "regions.hql"]`, with DEV filled in, in `admin/databases.py`, then
@@ -1312,7 +1315,7 @@ it.
 
 Before you go on, check:
 
-- Each final of the workbook has its query saved as a .hql file, with no `<...>` left in it.
+- Each final you keep has its query saved as a .hql file, with no `<...>` left in it.
 - Each table the batch made has passed its compare in the convert notebook.
 
 ## Update
@@ -1343,6 +1346,10 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      6.0's "To update from 5.x". Each says what to change in your notebooks and files. A
      Project 7.0 made looks like one 7.1 made to `project.upgrade()`, so do 7.1's "To update
      from 7.0" first.
+   - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' names, fill in
+     DEV and PROD in place of `<DEV_DATABASE>` and `<PROD_DATABASE>`. Naming them renames
+     nothing: each Saved table you made before, such as `mart.daily_job_runs`, keeps its name
+     and its folder, and new tables, conversions and promotions use the names you set.
 
 What an Upgrade does:
 

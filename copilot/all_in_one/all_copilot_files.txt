@@ -1921,8 +1921,10 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
   `SUM(a * b) OVER ()`.
 - A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each cell
   that holds a total, in the Table's order, and no column for a cell that is empty or a label
-  such as "Total", reading the Table's final query as a CTE. SUBTOTAL(109,
-  ...) is a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+  such as "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM,
+  101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+- If the user says no one needs a Total Row's total kept as a table, write no block for it,
+  and name it in the map as left out.
 - Write the Table's own final query without its Total Row, so it holds only its rows: a Saved
   table holds no Subtotal row.
 

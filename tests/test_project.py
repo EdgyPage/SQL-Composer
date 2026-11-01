@@ -1540,7 +1540,7 @@ def test_check_names_an_open_key_after_a_later_step_ran(started: Path) -> None:
 
 
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
-    assert repr(project.do_next()).startswith("No Workflow is started")
+    assert repr(project.do_next()).startswith("No Workflow has a step left")
     fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs", "mart.team_day"]')
     report = repr(project.do_next())
     assert (started / "tables" / "mart__daily_job_runs").is_dir()

@@ -1075,7 +1075,11 @@ NEW_TABLE = Workflow(
              goal="a Table folder for each table in `TABLES`: from its query, when `QUERIES` "
              "gives one, its logic written for you; else from a Template, its logic for you to "
              "write",
-             action="run the cell below.",
+             action="if `QUERIES` gives a query, first give each table it reads a Table "
+             "reference, with the references Workflow. Then run the cell below. Each query is "
+             "converted as the convert Workflow converts one: in a batch of its own, named for "
+             "its table, in `admin/workflows/convert/`; the batch moves to `finished/` once "
+             "compared.",
              done_when="each table in `TABLES` has its Table folder in tables/"),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"), ("its logic",),
@@ -1231,7 +1235,9 @@ UPGRADE = Workflow(
              goal="each change the Upgrade left for you made",
              action="go to each `# UPGRADE` mark, which the Upgrade's report names, "
              "`admin/upgrade_<version>.md` lists and `project.check()` lists, make the change "
-             "it asks for, then delete the mark.",
+             "it asks for, then delete the mark. If a mark in `admin/databases.py` asks for "
+             "your Dev and Prod Databases' names, naming them renames nothing: each Saved "
+             "table made before keeps its name and its folder.",
              done_when="no `# UPGRADE` mark is left in the Project's own files"),
     ),
     about="Carries the Project's files to the Toolbox you copied in, once you have restarted "

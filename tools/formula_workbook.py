@@ -65,6 +65,7 @@ STEPS = (
     "place of the formula.",
     "Copilot files: the numbered text files in the copilot folder this workbook came from. "
     "Loaded in a Copilot chat, they tell Copilot how to convert your workbook.",
+    "M: a Power Query's text, which its Advanced Editor shows (step 7).",
     "The Parameters and Keys sheets:",
     "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, "
     "its name under name and its value under value (step 6). Keys is only for a Table where a "
@@ -118,10 +119,19 @@ STEPS = (
     "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%. Done when each "
     "formula reads its fixed values from Parameters. Then step 7.",
     "7. Use Power Query for a calculation, if you use Power Query. If you don't, go to step 8. "
-    "Goal: a calculation done by Power Query in place of a formula. Action: Data > From "
-    "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new "
-    "Table. Copilot reads its steps, and the new Table converts like any other. Done when each "
-    "query you made is loaded to a Table. Then step 8.",
+    "Goal: a calculation done by Power Query in place of a formula, reading your Tables. "
+    "Action: copy each query's M from your original workbook: Data > Queries & Connections, "
+    "right-click the query, Edit, then Home > Advanced Editor. Here, add it: Data > Get Data "
+    "> From Other Sources > Blank Query, Home > Advanced Editor, paste the M, and change the "
+    "line that reads its source to read your Table by name, such as Source = "
+    "Excel.CurrentWorkbook(){[Name=\"job_runs\"]}[Content]. Name the query for the Table it "
+    "makes, then Home > Close & Load To > Table. Example 03, examples/03_power_query.xlsx in "
+    "the copilot folder this workbook came from, shows two. Copilot reads the query's steps, "
+    "and the Table it loads converts like any other. If your Excel can't add a query: on a "
+    "sheet named Power Query, type Query <its name>: in a cell and paste its M in the cell "
+    "below, then type the rows it gives into a Table of its name. Done when each query is "
+    "loaded to a Table of its name, or its M is on the Power Query sheet and its rows are "
+    "typed into a Table of its name. Then step 8.",
     "8. Write running totals with SUMIFS. Goal: formulas Copilot can read as SQL. Action: "
     "write a running total as =SUMIFS(t[v], t[d], \"<=\"&[@d]), which Copilot can read. A "
     "formula that reads the row above, or a cell outside a Table, can't be read as SQL: "
@@ -149,11 +159,12 @@ STEPS = (
     "one. Copilot leaves charts and anything outside a Table alone, and names them; titles "
     "and notes can stay. Done when every calculation you want converted is inside a Table. "
     "Then step 12.",
-    "12. Hand it to Copilot. Goal: the Hive for your workbook. Action: go through the checks "
-    "below, then save the workbook, attach it in a Copilot chat with Copilot files 15, 11 "
-    "and 12 loaded, and ask Copilot to convert it. Done when Copilot "
-    "replies with the Hive for your workbook.",
-    "Check before you attach it:",
+    "12. Hand it on. Goal: the Hive for your workbook. Action: go through the checks below, "
+    "then save the workbook. If someone else converts it for you, such as your data team, "
+    "send it to them: the rest of this step is theirs. Else attach it in a Copilot chat with "
+    "Copilot files 15, 11 and 12 loaded, and ask Copilot to convert it. Done when Copilot "
+    "replies with the Hive for your workbook, or the workbook is sent.",
+    "Check before you hand it on:",
     "Each table of raw data is a named Table on a sheet of its own, with one header row.",
     "Each calculation is a formula column in a Table, a Power Query loaded to a Table, a "
     "summary Table or a Total Row.",

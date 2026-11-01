@@ -5,6 +5,7 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
 
     python run_notebook.py path/to/notebook.ipynb
     python run_notebook.py path/to/notebook.ipynb --cells 1-3,5
+    python run_notebook.py path/to/notebook.ipynb --list
 
 The second runs only the code cells it names, counted from 1, in order, as a user runs a
 Workflow's cells one at a time to stop at a decision. Each run starts with nothing defined, as
@@ -90,13 +91,22 @@ def run_notebook(notebook: Path, chosen: set[int] | None = None) -> int:
     return 0
 
 
+def list_cells(notebook: Path) -> int:
+    """Print each code cell of `notebook` by the number --cells gives it, and its first line."""
+    for number, source in enumerate(code_cells(notebook), 1):
+        print(f"{number}: {(source.splitlines() or [''])[0]}")
+    return 0
+
+
 def main(arguments: list[str]) -> int:
     if len(arguments) == 3 and arguments[1] == "--cells":
         return run_notebook(Path(arguments[0]), chosen_cells(arguments[2]))
+    if len(arguments) == 2 and arguments[1] == "--list":
+        return list_cells(Path(arguments[0]))
     if len(arguments) != 1:
-        print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5]\n"
-              "Each run starts with nothing defined: name the imports cell and the names "
-              "cell with each step's.")
+        print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5 | "
+              "--list]\nEach run starts with nothing defined: name the imports cell and the "
+              "names cell with each step's. --list shows each code cell's number.")
         return 2
     return run_notebook(Path(arguments[0]))
 

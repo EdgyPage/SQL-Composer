@@ -267,7 +267,10 @@ def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> 
         "its code cells, in order, add `--cells 1-3,5` (code cells counted from 1, text cells "
         "not counted). Each run starts with nothing defined, as a kernel just restarted does, "
         "so name with each step the cells it needs: the imports cell and the names cell, and "
-        "from the decisions on the decisions cell too, such as `--cells 1-3,6`.",
+        "from the decisions on the decisions cell too, such as `--cells 1-3,6`. `--list` "
+        "prints each code cell's number and first line. To fill in a cell without Jupyter, "
+        "change its lines in the notebook's file, which is JSON: each code cell's lines are "
+        "its \"source\" list.",
     ]
     return lines
 

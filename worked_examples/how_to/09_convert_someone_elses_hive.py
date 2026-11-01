@@ -179,16 +179,16 @@ answer into the table's Table reference:
 
 >>> print(project.write_decisions(DECISIONS))
 Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
-mart.alerts_by_severity_ops_reports: 1 TODO line left in references/mart__alerts_by_severity_ops_reports.py, which waits
-on nothing: fill it in when you like.
+mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
+on nothing: fill each in when you like.
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
-mart.alerted_runs_ops_reports: 1 TODO line left in references/mart__alerted_runs_ops_reports.py, which waits
-on nothing: fill it in when you like.
+mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait
+on nothing: fill each in when you like.
 Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
-mart.fail_history: 1 TODO line left in references/mart__fail_history.py, which waits
-on nothing: fill it in when you like.
+mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait
+on nothing: fill each in when you like.
 Each Decision of mart.fail_history is made.
 
 `project.check()` names the batch's next step in the Workflow, the first call to the

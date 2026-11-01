@@ -50,6 +50,13 @@ def test_a_todo_that_is_no_decision_and_a_comment_wait_on_nothing() -> None:
     assert all(kind != decisions.PLACEHOLDER for kind, _ in kinds(REFERENCE))
 
 
+def test_a_docstring_todo_is_counted_once_as_waiting_on_nothing() -> None:
+    text = ('"""mart_dev.z - TODO: say in one line what one row is."""\n'
+            'z = Table(\n    "mart_dev.z",\n    key=["team"],\n)\n')
+    assert decisions.todo_lines(text) == [
+        '"""mart_dev.z - TODO: say in one line what one row is."""']
+
+
 def test_a_placeholder_names_itself_and_its_docstring_is_not_read() -> None:
     text = ('"""mart_dev.y - <COLUMN> and <COLUMN_TYPE>: a column."""\n'
             "y = Table(\n    columns={\n        <COLUMN>: <COLUMN_TYPE>,\n    },\n"
@@ -118,8 +125,8 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path) -> None:
     report = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
     assert report == ("Wrote 1 answer into references/ops__job_runs.py.\n"
-                      "ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which "
-                      "waits on nothing: fill it in when you like.\n"
+                      "ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which "
+                      "wait on nothing: fill each in when you like.\n"
                       "Each Decision of ops.job_runs is made.")
     reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
     assert '    key=["run_id"],' in reference

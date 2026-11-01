@@ -1494,9 +1494,10 @@ def do_next(workflow: str | None = None) -> ProjectReport:
             continue
         for inputs in workflows.instances_of(root, each):
             lines += _run_file_steps(root, each, inputs)
-    return ProjectReport(lines or ["No Workflow is started: name what one works on in the "
-                                   "names cell of its notebook, in admin/workflows/, and save "
-                                   "it."])
+    return ProjectReport(lines or ["No Workflow has a step left: each Workflow you started "
+                                   "is done, or you have started none. To start one, name what "
+                                   "it works on in the names cell of its notebook, in "
+                                   "admin/workflows/, and save it."])
 
 
 def _run_file_steps(root: Path, workflow: workflows.Workflow,
@@ -1545,8 +1546,8 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         skipped
       references: 3. Write each answer into its table's Table reference
         Wrote 1 answer into references/ops__job_events.py.
-        ops.job_events: 1 TODO line left in references/ops__job_events.py, which waits on
-        nothing: fill it in when you like.
+        ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
+        nothing: fill each in when you like.
         Each Decision of ops.job_events is made.
       references: 4. Refresh the Reference sheet and the Database modules
         Wrote references/reference_sheet.csv: 5 rows, 1 table.
@@ -3277,14 +3278,16 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     >>> _ = project.add_references("ops.job_runs", query=example_database.query)
     >>> print(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
     Wrote 1 answer into references/ops__job_runs.py.
-    ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on nothing: fill
-    it in when you like.
+    ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
+    fill each in when you like.
     Each Decision of ops.job_runs is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
     holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the columns
     whose values name one row, or None when none do; and each column a Conversion wrote
-    "string" because nothing told it the type. `answers` is the decisions cell, DECISIONS, of
+    "string" because nothing told it the type. A TODO: on any other line, such as the
+    docstring's first line or does_not_add_up=, is no Decision: it waits on nothing, as the
+    two above do. `answers` is the decisions cell, DECISIONS, of
     a Workflow's notebook: by table, a dict holding "location", "key" or "types", such as
     {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
     "types": {"fails": "bigint"}}}. Each answer is written into the open line it answers. A
