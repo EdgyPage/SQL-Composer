@@ -215,9 +215,7 @@ def test_each_table_has_its_lineage_named_by_the_time(name: str) -> None:
 @pytest.mark.parametrize("name", example_project.PROJECTS)
 def test_each_table_has_its_hive_beside_its_notebook(name: str) -> None:
     """Toolbox 8.2, ticket 01: each Table notebook's Hive cell wrote <db>__<table>.hql."""
-    tables = [table for table, _ in example_project.SAVED_TABLES[name]]
-    tables += [table for _, _, table in example_project.CONVERSIONS[name]]
-    for table in tables:
+    for table in example_project.saved_and_converted_tables(name):
         stem = table.replace(".", "__")
         hive = (ROOT / "example_projects" / name / "tables" / stem / f"{stem}.hql").read_text(
             encoding="utf-8")
@@ -311,8 +309,7 @@ def test_run_tables_prints_each_write_writers_first(
     report = project.run_tables()
     headings = [line.split(": ", 1)[1] for line in capsys.readouterr().out.splitlines()
                 if re.match(r"-- \d+ of \d+: ", line)]
-    tables = [table for table, _ in example_project.SAVED_TABLES[name]] + [
-        table for _, _, table in example_project.CONVERSIONS[name]]
+    tables = example_project.saved_and_converted_tables(name)
     assert sorted(set(headings)) == sorted(tables)
     assert headings.index(reader) > max(len(headings) - 1 - headings[::-1].index(table)
                                         for table in read)

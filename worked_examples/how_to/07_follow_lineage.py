@@ -286,8 +286,13 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     # 6. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
     project.refresh_reference_sheet("mart.daily_job_runs")
 
-Cell 4 exports the table's Lineage, and cell 5, beside it, the Hive its logic sends, into
-mart__daily_job_runs.hql, as [Save a table](#save_a_table) shows. Here, `project.load` gives
+Cell 4 exports the table's Lineage into lineage/. Cell 5, the Hive, beside the notebook,
+writes the Hive its logic sends into mart__daily_job_runs.hql, in the Table folder, as
+[Save a table](#save_a_table) shows. The two keep different things: each export of cell 4 adds
+a new pair to lineage/, so the table's Lineage keeps its history, but each run of cell 5
+writes mart__daily_job_runs.hql again, over the one before, so it shows the Hive of the logic
+as last saved and keeps no history. To see how the Hive changed, commit the file each time
+and compare its commits. Here, `project.load` gives
 the notebook's logic, as its cell 2 does when it runs: an object with one attribute per
 function of the logic cell, such as `daily.write`. The write goes in a variable with a
 meaningful name first:
