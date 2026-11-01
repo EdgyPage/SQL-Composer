@@ -9,10 +9,11 @@ map's Notes, "The loop"). `docs/usability-loop.md` says how a round is run.
     python tools/usability_loop.py score W1 2026-11-01-W1-1 --record "<a note>"
 
 A scenario is a folder in `tools/usability_scenarios/`: `scenario.json` (its id, split, title,
-the Hive its team's warehouse ran already, the files the user is given, and each phase: a role
-and the job in the user's words) and `key.json`, its answer key (each table the end goal holds,
-with its columns and rows, and each file it holds, from the Project's folder, with any text it
-must hold), never copied into a run.
+the Hive its team's warehouse ran already, the files the user is given, any Project they
+start from, as `project`, a folder of dev's, or `start_from`, another scenario whose reference
+end makes it, and each phase: a role and the job in the user's words) and `key.json`, its
+answer key (each table the end goal holds, with its columns and rows, and each file it holds,
+from the Project's folder, with any text it must hold), never copied into a run.
 
 A run's folder is made outside the repo, in the computer's temporary folder, so an agent finds
 nothing of dev's around it; its agents run Python from a virtual environment outside the repo
@@ -22,6 +23,8 @@ too (the doc says how to make it). It holds what the user has:
   user downloads;
 - `from_your_team/`, the scenario's files, such as a script or a workbook;
 - `my_work/`, empty, where the agents keep what they make;
+- `my_project/`, when the scenario starts from a Project: its folder, its warehouse.py given
+  the team's connection;
 - `team_connection.py`, their team's connection, `conn`, to a warehouse that keeps each table
   between processes (`tools/workflow_warehouse.py`'s SavedWarehouse), holding the Example
   database's tables and what the scenario's Hive wrote;
