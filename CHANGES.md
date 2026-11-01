@@ -10,9 +10,10 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   Table notebook beside its lineage cell, writes `<db>__<table>.hql` beside the notebook: the
   Hive its logic sends, `create()`, any `seed()`, the table's Session settings, then `write()`,
   in the order they are sent, each as `show_hive` shows it, under lines saying the file is
-  generated. The Python stays the table's definition: edit the logic, and run the cell again,
-  which writes the same text when nothing changed. `export_hive(s)` writes one Statement's
-  Hive, named for its variable, beside your notebook or script. The saved_table and
+  generated. The Python stays the table's definition: edit the logic, save the notebook, and
+  run the cell again, which writes the same text when nothing changed. `export_hive(s)` writes
+  one Statement's Hive, named for its variable, beside your notebook or script: one call per
+  variable, such as `export_hive(daily)` then `export_hive(weekly)`. The saved_table and
   quality_checks Templates, the Table notebooks `project.convert` writes, and the Example
   projects' Table notebooks have the cell.
 

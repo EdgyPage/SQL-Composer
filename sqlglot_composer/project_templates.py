@@ -19,6 +19,23 @@ Editing a Template changes only the notebooks made after.
 from __future__ import annotations
 
 
+# The code cells every Table notebook Template ends with, after its try-it cell: its lineage,
+# its Hive in a file beside it, and its rows in the Reference sheet.
+_LAST_CELLS = '''
+# %%
+# 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
+export_lineage(write())
+
+# %%
+# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/<NAME>.py
+project.refresh_reference_sheet("<DB>.<TABLE>")
+'''
+
+
 def _notebook(name: str, about: str, saves: str, fill_in: str, logic: str, try_it: str
               ) -> str:
     """A Table notebook's Template: its text cell, then its six code cells, the logic and the
@@ -67,23 +84,6 @@ from warehouse import query
 # 3. Try it: the Hive of each step, then the rows
 {try_it}
 {_LAST_CELLS}'''
-
-
-# The code cells every Table notebook Template ends with, after its try-it cell: its lineage,
-# its Hive in a file beside it, and its rows in the Reference sheet.
-_LAST_CELLS = '''
-# %%
-# 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
-export_lineage(write())
-
-# %%
-# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved
-export_hive()
-
-# %%
-# 6. The Reference sheet: this table's rows, from references/<NAME>.py
-project.refresh_reference_sheet("<DB>.<TABLE>")
-'''
 
 
 # What every Table notebook Template says of READS, the rows its write() reads.

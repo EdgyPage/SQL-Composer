@@ -163,6 +163,13 @@ HOW = (
 BY_HAND = "# filled in by hand"
 
 
+def saved_and_converted_tables(name: str) -> list[str]:
+    """Each Saved table of the project `name` that has a Table folder: its SAVED_TABLES, in
+    the order a user makes them, then the tables its CONVERSIONS became."""
+    tables = [table for table, _ in SAVED_TABLES[name]]
+    return tables + [table for _, _, table in CONVERSIONS[name]]
+
+
 class TodoMissing(RuntimeError):
     """A TODO line FILLED_IN fills in isn't in the file add_references wrote."""
 
@@ -376,9 +383,7 @@ def _export_lineage(name: str, folder: Path) -> None:
     write() that gives several, such as write_budget_overruns_1."""
     from sqlglot_composer import export_lineage, lineage, project
 
-    tables = [table for table, _ in SAVED_TABLES[name]]
-    tables += [table for _, _, table in CONVERSIONS[name]]
-    for table in tables:
+    for table in saved_and_converted_tables(name):
         os.chdir(folder / "tables" / project.table_stem(table))
         writes, names = [], []
         for drawn in [*LINEAGE_ACROSS.get(table, []), table]:
@@ -402,9 +407,7 @@ def _export_hive(name: str, folder: Path) -> None:
     Hive cell does, export_hive() run in its Table folder."""
     from sqlglot_composer import export_hive, project
 
-    tables = [table for table, _ in SAVED_TABLES[name]]
-    tables += [table for _, _, table in CONVERSIONS[name]]
-    for table in tables:
+    for table in saved_and_converted_tables(name):
         os.chdir(folder / "tables" / project.table_stem(table))
         export_hive()
         os.chdir(folder)
