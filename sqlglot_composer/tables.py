@@ -344,6 +344,8 @@ def _python_family(value: bool | int | float | decimal.Decimal | str | datetime.
         return "number"
     if isinstance(value, str):
         return "string"
+    if isinstance(value, datetime.datetime):
+        return "timestamp"
     return "date"
 
 

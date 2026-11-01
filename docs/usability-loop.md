@@ -25,9 +25,10 @@ installs, plus openpyxl, which stands in for Excel's own hands:
 
        .venv/Scripts/python tools/usability_loop.py prepare W1 2026-11-01-W1-1
 
-   It builds main's tree into the folder from dev's last commit, adds the scenario's files and
-   the team's connection to a warehouse that keeps each write, and writes each phase's message
-   to `_loop/phase_<n>.md`. It prints the folder. Pass `--main <folder>` to copy a tree built
+   It builds main's tree into the folder from dev's last commit, adds the scenario's files,
+   the team's connection to a warehouse that keeps each write, and, for a scenario that starts
+   from a Project (W5, H2), that Project as `my_project/`, and writes each phase's message to
+   `_loop/phase_<n>.md`. It prints the folder. Pass `--main <folder>` to copy a tree built
    already, for the other runs of the same round.
 2. **Start phase 1's agent.** Use the `zero-context-user` agent, on Haiku, with the prompt
    `Read <run>/_loop/phase_1.md and follow it.`
