@@ -33,8 +33,9 @@ too (the doc says how to make it). It holds what the user has:
 - `_loop/`, which only the loop reads: the warehouse's file, each phase's message, each
   question, each Copilot message and reply, and each agent's reply.
 
-Scored with `--record`, a run's folder, but for `main/`, is copied into
-`.scratch/usability-loop/runs/`, and a row added to `.scratch/usability-loop/results.md`.
+Scored with `--record`, a run's folder, but for `main/` and any copy of the Toolbox's
+folder, is copied into `.scratch/usability-loop/runs/`, and a row added to
+`.scratch/usability-loop/results.md`.
 """
 
 from __future__ import annotations

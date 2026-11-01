@@ -274,6 +274,14 @@ def _python_of_literal(node: exp.Expression) -> str | None:
     return None
 
 
+def _is_filled_with_zero(node: exp.Expression) -> bool:
+    """Whether `node` is the first value of a COALESCE(node, 0)."""
+    parent = node.parent
+    return (isinstance(parent, exp.Coalesce) and parent.this is node
+            and len(parent.expressions) == 1
+            and _python_of_literal(parent.expressions[0]) == "0")
+
+
 def _python_name(text: str) -> str:
     """A name made plain for Python: lower case, letters, digits and _."""
     name = re.sub(r"\W+", "_", text).strip("_").lower() or "t"
@@ -761,15 +769,29 @@ class _Converter:
 
     def aggregate(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """sum_of, average_of, min_of or max_of; one over a CASE with one WHEN and no ELSE is
-        the aggregate's where=, as the Toolbox writes it."""
+        the aggregate's where=, as the Toolbox writes it, and a SUM of 1 there is a count."""
         inner = node.this
-        name = self.use(_AGGREGATES[type(node)])
         if (isinstance(inner, exp.Case) and len(inner.args.get("ifs") or []) == 1
                 and not inner.args.get("default") and not inner.this):
             branch = inner.args["ifs"][0]
+            where = self.condition_or_unchecked(branch.this, scope)
+            if isinstance(node, exp.Sum) and _python_of_literal(branch.args["true"]) == "1":
+                return self.count_where(node, where)
+            name = self.use(_AGGREGATES[type(node)])
             return (f"{name}({self.column_or_unchecked(branch.args['true'], scope)}, "
-                    f"where={self.condition_or_unchecked(branch.this, scope)})")
+                    f"where={where})")
+        name = self.use(_AGGREGATES[type(node)])
         return f"{name}({self.column_or_unchecked(inner, scope)})"
+
+    def count_where(self, node: exp.Sum, where: str) -> str:
+        """SUM(CASE WHEN c THEN 1 END), the number of rows where c holds, as
+        count_rows(where=c). Inside COALESCE(..., 0) it gives the same rows; bare, it gives 0
+        where the SUM gave NULL, for a group with no such row, and the scan says so."""
+        finding = f"{sql_text(node)} becomes count_rows(where=...), a count of those rows"
+        if not _is_filled_with_zero(node):
+            finding += ": it gives 0 where the SUM gave NULL, for a group with no such row"
+        self.note_finding(node, "changed", finding)
+        return f"{self.use('count_rows')}(where={where})"
 
     def case(self, node: exp.Case, scope: dict[str, _Source]) -> str:
         """CASE as mapped(...), if_else(...) or first_match(...).

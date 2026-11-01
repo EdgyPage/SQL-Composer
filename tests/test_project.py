@@ -1523,6 +1523,17 @@ def test_check_names_the_next_step_of_a_workflow_once_it_is_started(started: Pat
         'project.new_table(["mart.daily_job_runs"], queries=QUERIES)')
 
 
+def test_check_names_an_open_key_after_a_later_step_ran(started: Path) -> None:
+    # Toolbox 8.2, 12: the Reference sheet refreshed, the last step, still leaves the Key open.
+    fill_in(started, "references", 'TABLES = ["ops.run_alerts"]')
+    project.add_references(["ops.run_alerts"], query=example_database.query)
+    project.refresh_reference_sheet()
+    assert ("references.ipynb: 2. Answer each table's open Decisions in the decisions cell"
+            in repr(project.check()))
+    assert "ops.run_alerts: key: the columns" in repr(project.check())
+    assert "2. Answer each table's open Decisions" in repr(project.do_next("references"))
+
+
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
     assert repr(project.do_next()).startswith("No Workflow is started")
     fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs", "mart.team_day"]')

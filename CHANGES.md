@@ -31,6 +31,14 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   WHEN job_id = 3 THEN 1000 ELSE SUM(...) END`, which a Formula workbook's value typed over a
   formula converts to, gives each row its own value, where sqlglot's executor gave every row
   the aggregate's.
+- **A count written as a SUM converts.** `SUM(CASE WHEN c THEN 1 END)`, the way most Hive, and
+  Copilot, counts the rows where a condition holds, converts to `count_rows(where=c)`, where
+  before its conversion stopped on its own refusal. Inside `COALESCE(..., 0)` it gives the same
+  rows; bare, it gives 0 where the SUM gave NULL, and the scan says so.
+- **`project.check()` names a Decision still open after a later step.** A Workflow's step of
+  Decisions, such as a Table reference's Key, is named until it is made, though a step after
+  it, such as refreshing the Reference sheet, has run; before, check() said every step was
+  done.
 
 ## 8.1
 
