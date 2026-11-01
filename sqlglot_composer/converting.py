@@ -774,7 +774,8 @@ class _Converter:
                 f"{self.column_or_unchecked(node.args.get('false') or exp.Null(), scope)})")
 
     def count(self, node: exp.Count, scope: dict[str, _Source]) -> str:
-        """COUNT(*) as count_rows(), COUNT(DISTINCT x) as count_distinct(x)."""
+        """COUNT(*) as count_rows(), COUNT(CASE WHEN c THEN 1 END) as count_rows(where=c),
+        COUNT(DISTINCT x) as count_distinct(x), and any other COUNT as hive_function."""
         inner = node.this
         if isinstance(inner, exp.Star):
             return f"{self.use('count_rows')}()"

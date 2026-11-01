@@ -23,8 +23,8 @@ from sqlglot_composer import example_database
 # Your connection to the warehouse. At work, replace example_database with your own, such as
 # conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
 # execute(sql) runs Hive that changes something. A connection kept in a file outside the
-# Project, such as team_connection.py, is imported by these lines, in place of the line
-# conn = example_database below:
+# Project, such as team_connection.py, is imported by these lines, written in place of the
+# line below that sets conn to example_database:
 #     import sys
 #     sys.path.append("C:/work/connections")  # the folder team_connection.py is in
 #     from team_connection import conn

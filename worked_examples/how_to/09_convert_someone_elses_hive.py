@@ -285,7 +285,7 @@ it worked, below.
 
 Before you go on, check that:
 
-- each table's conversion/compare.md starts "Passed:";
+- each result in each table's conversion/compare.md says "Passed:";
 - `project.check()` names no step of the batch;
 - the batch is in admin/workflows/convert/finished/;
 - the promote Workflow has written each table in prod.
