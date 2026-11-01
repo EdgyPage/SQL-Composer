@@ -1,0 +1,2 @@
+TABLES = ["mart_dev.runs_per_day"]
+QUERIES = {}

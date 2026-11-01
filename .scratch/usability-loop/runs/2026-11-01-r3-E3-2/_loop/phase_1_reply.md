@@ -1,0 +1,1 @@
+DONE: Saved my_work/daily_runs_formula.xlsx: job_runs Table with its note above, CleanRuns typed in with its M on a Power Query sheet, Daily Table with its Total Row on. Gap: the Steps sheet doesn't say what to do when the Power Query can't be added by hand.

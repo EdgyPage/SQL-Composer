@@ -1,0 +1,6 @@
+NAME = "team_fails"  # the batch's name: one file, so named for its table
+FILES = ["weekly_fails.hql"]  # the scripts' files, from the convert folder
+HIVE = None  # read FILES
+DATABASE = "default"  # every table the script names has its database
+RENAME = {"mart.team_fails": "team_fails"}  # its copy in dev is mart_dev.team_fails
+STAGING = {}  # the script has no temporary tables

@@ -1,0 +1,3 @@
+time,kind,tables,script
+2026-11-01 10:17:55,create,mart_dev.daily_runs,a notebook
+2026-11-01 10:17:55,write,mart_dev.daily_runs,a notebook

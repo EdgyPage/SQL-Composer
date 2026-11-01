@@ -1,0 +1,3 @@
+[
+ "Please convert the attached workbook daily_runs_formula.xlsx into Hive as its Steps sheet says: a map, one query per final (mart_dev.daily_runs from its Daily table), and the Toolbox code; the Power Query CleanRuns is only M text on its sheet with typed-in rows, and the Daily table has a 'Total' row."
+]

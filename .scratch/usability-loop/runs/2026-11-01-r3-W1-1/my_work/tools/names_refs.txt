@@ -1,0 +1,1 @@
+TABLES = ["ops.job_runs", "ops.job_owners"]  # the tables, by their names in the warehouse

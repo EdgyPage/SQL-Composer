@@ -1,0 +1,3 @@
+[
+ "Please convert the attached Formula workbook into Hive as its Steps sheet says: Jobs and Runs are ops.jobs and ops.job_runs; the final is the Teams sheet's teams summary, saved as team_report.hql. Give me the map, then the Hive for that final."
+]

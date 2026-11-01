@@ -1,0 +1,2 @@
+DECISIONS = {"ops.job_runs": {"key": ["run_id"]},  # run_id alone names one row: checked, no repeats
+             "ops.job_owners": {"key": ["job_id", "dt"]}}  # one owner per job per day: checked, no repeats

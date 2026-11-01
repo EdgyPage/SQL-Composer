@@ -1,0 +1,1 @@
+DECISIONS = {"mart_dev.team_fails": {"location": "/data/team/mart_dev.db/team_fails"}}  # its folder; the Key proposed (team, dt) is checked

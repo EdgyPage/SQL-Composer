@@ -1,0 +1,2 @@
+TABLES = ["mart_dev.runs_per_day"]  # the new tables, by their names in the warehouse, such as ["mart_dev.daily_job_runs"]
+QUERIES = {}  # each table's query, by its name without its database, as Hive text or a .hql file in admin/workflows/new_table/, such as {"daily_job_runs": "daily_job_runs.hql"} for mart_dev.daily_job_runs: it is made in your Dev Database, its logic written from its query

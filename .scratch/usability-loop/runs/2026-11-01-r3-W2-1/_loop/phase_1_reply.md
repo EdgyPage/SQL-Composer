@@ -1,0 +1,1 @@
+DONE: mart_dev.runs_per_day with references and new_table, logic by hand, 6 rows. Friction: --cells without the imports cell fails (NameError); editing a notebook without Jupyter; DESCRIBE FORMATTED now shows the Location.

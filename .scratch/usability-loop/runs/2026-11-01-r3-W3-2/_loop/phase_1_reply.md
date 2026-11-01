@@ -1,0 +1,1 @@
+DONE: mart_dev.failed_runs via references then new_table with QUERIES; compare passed. Friction: no how-to names QUERIES; the convert batch new_table makes; new_table's step 2 a decision though the logic is written.

@@ -1,0 +1,1 @@
+DONE: mart_dev.team_fails via references then convert with RENAME; compared both Partitions. Friction: --cells needs the imports cell; convert docs don't say sources need Table references; warehouse.py docstring.

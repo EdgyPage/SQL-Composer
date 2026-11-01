@@ -175,3 +175,66 @@ the ROLLUP refusal; Copilot's typed team list (E2) now has its columns typed, ti
 - Which Workflow takes one query file, new_table's or convert's (W3-1); first_look's
   signature (W2-1); check_key needs a Key declared, and where= on a partitioned table (W2-2,
   W3-1); warehouse.py keeps its Example database comment once conn changes (W3-3).
+| 2026-11-01 | W2 | dev | 2026-11-01-r3-W2-2 | pass | 0 | Round 3. Done with run_notebook --cells; does_not_add_up's TODO not named by reference_from_logic's message. |
+| 2026-11-01 | W3 | dev | 2026-11-01-r3-W3-1 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W3 | dev | 2026-11-01-r3-W3-3 | pass | 0 | Round 3. Done with --cells. |
+| 2026-11-01 | W2 | dev | 2026-11-01-r3-W2-1 | pass | 0 | Round 3. Done; --cells needs the imports cell first. |
+| 2026-11-01 | W2 | dev | 2026-11-01-r3-W2-3 | pass | 0 | Round 3. Done; the DDL's PRIMARY KEY names dt, a partition column (to check). |
+| 2026-11-01 | W1 | dev | 2026-11-01-r3-W1-1 | pass | 0 | Round 3. Done with RENAME; both Partitions compared. |
+| 2026-11-01 | W1 | dev | 2026-11-01-r3-W1-3 | pass | 0 | Round 3. Done with RENAME. |
+| 2026-11-01 | W1 | dev | 2026-11-01-r3-W1-2 | pass | 0 | Round 3. Done with RENAME. |
+| 2026-11-01 | W3 | dev | 2026-11-01-r3-W3-2 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W4 | dev | 2026-11-01-r3-W4-1 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W4 | dev | 2026-11-01-r3-W4-3 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W5 | dev | 2026-11-01-r3-W5-1 | pass | 0 | Round 3. Done with --cells. |
+| 2026-11-01 | W5 | dev | 2026-11-01-r3-W5-3 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W5 | dev | 2026-11-01-r3-W5-2 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | W4 | dev | 2026-11-01-r3-W4-2 | pass | 0 | Round 3. Done. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r3-E1-1 | pass | 1 | Round 3. 1 question; caught Copilot's wrong <database> (it said Dev) from the sheet's ops note. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r3-E1-2 | pass | 1 | Round 3. 1 question. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r3-E1-3 | pass | 1 | Round 3. 1 question. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r3-E2-1 | pass | 1 | Round 3. 1 question; no key opt-out needed for the typed team list. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r3-E2-3 | pass | 1 | Round 3. 1 question. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r3-E2-2 | pass | 1 | Round 3. 1 question; Copilot read the teams from jobs, not the typed list (a team only typed in would drop). |
+| 2026-11-01 | E3 | dev | 2026-11-01-r3-E3-2 | pass | 1 | Round 3. 1 question; the Total Row its own query, no ROLLUP. |
+| 2026-11-01 | E3 | dev | 2026-11-01-r3-E3-1 | pass | 1 | Round 3. 1 question; went through new_table's QUERIES, reading convert as needing a script that writes a table (it takes a query alone too). |
+| 2026-11-01 | E3 | dev | 2026-11-01-r3-E3-3 | pass | 1 | Round 3. 1 question; Copilot misread the real Total Row as typed, the converter checked it. |
+
+## Round three, 2026-11-01: after ticket 15 and round two's harness fixes
+
+Main's tree built from de23a133. Every dev scenario three times, fresh Haiku agents, Copilot's
+two hops on Haiku. Nothing was fixed during the round.
+
+| scenario | split | passed | questions |
+|---|---|---|---|
+| W1 | dev | 3/3 | 0 |
+| W2 | dev | 3/3 | 0 |
+| W3 | dev | 3/3 | 0 |
+| W4 | dev | 3/3 | 0 |
+| W5 | dev | 3/3 | 0 |
+| E1 | dev | 3/3 | 1 each |
+| E2 | dev | 3/3 | 1 each |
+| E3 | dev | 3/3 | 1 each |
+
+Two rounds running with every dev scenario at 3/3: ticket 05 is done. The agents ran each
+Workflow's cells with run_notebook.py --cells, stopping at each decision; no E2 run needed a
+key opt-out over a list of teams typed in; no E3 run met the ROLLUP refusal.
+
+### Found in round three, for after 8.2's raise (none failed a run)
+
+**Copilot files**
+- File 11 says not how a summary keeps the groups its rows list with no data (web): two
+  answers typed the list in, one read the teams from jobs, which drops a team typed in only
+  (E2-2). File 11 has 2 characters to spare: a cut or a file 15.
+- A Table's real Total Row was read as a total typed as a row, by a Copilot answer (E3-3) and a
+  converter (E3-1): file 11 should say Excel keeps the Total Row inside the Table's range.
+- One answer said `<database>` is the Dev Database where the source's note named ops; the
+  converter caught it (E1-1).
+
+**Docs**
+- `--cells` needs the imports cell with it; how to run a step's Check first line (W5-2).
+- Which Workflow takes one query file, new_table's QUERIES or convert's (W3-1, W3-2, E3-1).
+- The tables a convert reads need Table references first, unsaid in its section (W1-1, W1-2).
+- warehouse.py's docstring says it imports none of your files (W3-3, W1-1).
+- reference_from_logic names one TODO line where two are left (W2-2).
+- The generated DDL's PRIMARY KEY names a partition column, dt (W2-3): to check against Hive.

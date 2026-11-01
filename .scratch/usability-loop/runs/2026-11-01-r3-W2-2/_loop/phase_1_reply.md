@@ -1,0 +1,1 @@
+DONE: mart_dev.runs_per_day with the references and new_table Workflows, logic by hand, 6 rows. Friction: names cells edited as JSON (no Jupyter); new_table's preview step prints nothing; reference_from_logic names 1 TODO where 2 are left (does_not_add_up's); the Table notebook's markdown TODO.
