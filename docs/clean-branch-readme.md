@@ -51,9 +51,9 @@ tables/ and warehouse.py.
 Next: set conn, your connection, in warehouse.py.
 ```
 
-Import from `sqlglot_composer`, at its top level, never from a file inside it. Each `project`
-call returns its report, which a notebook shows under the cell; from a plain Python script,
-`print(project.start())` to see it.
+Import from `sqlglot_composer`, at its top level, never from a file inside it. Each Project
+action, such as `project.start()`, returns its report, which a notebook shows under the cell;
+from a plain Python script, `print(project.start())` to see it.
 
 ### Every file of a Project
 
