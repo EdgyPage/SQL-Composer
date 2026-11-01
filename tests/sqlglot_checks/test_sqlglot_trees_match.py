@@ -15,6 +15,7 @@ import pytest
 from sqlglot import exp
 
 import hive_corpus_cases
+from conftest import TODAY, toolbox_module
 from sqlglot_composer import GuardRefused, LoadRefused, Statement, writing
 from sqlglot_composer.clauses import derived_tables
 from sqlglot_composer.trees import HIVE_AGGREGATES, KINDS, Node, has_aggregate
@@ -28,11 +29,15 @@ def _trees_of(s: Statement) -> list[Node]:
 
 
 def _corpus_trees() -> list[Node]:
+    """Every tree of the corpus's Statements, built with today fixed, as the tests run: this
+    runs as the module is collected, before the fixture that fixes it, and a case such as
+    last_n_days writes today's date into its Hive, which the snapshot keeps."""
     found = []
     for _, build in hive_corpus_cases.edge_cases() + hive_corpus_cases.generated_cases():
         try:
-            with warnings.catch_warnings():
+            with warnings.catch_warnings(), pytest.MonkeyPatch.context() as patch:
                 warnings.simplefilter("ignore")  # some cases join off a key, which warns
+                patch.setattr(toolbox_module("conditions"), "today", lambda: TODAY)
                 statements = build()
         except (GuardRefused, LoadRefused, TypeError, ValueError):
             continue
