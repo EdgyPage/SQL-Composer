@@ -503,3 +503,44 @@ def test_an_opt_out_already_there_or_named_by_no_refusal_is_none() -> None:
                                    "Opt-out:        FROM(r, reads_all_partitions=True)") is None
     assert converting.with_opt_out(LOGIC,
                                    "Opt-out:        none - it can't be switched off.") is None
+
+
+# --- What no Clause function writes, and why ------------------------------------------------
+
+
+@pytest.mark.parametrize(("hive", "why"), [
+    ("SELECT run_id, SUM(duration_mins) OVER (PARTITION BY job_id ORDER BY run_id RANGE "
+     "BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS so_far FROM ops.job_runs",
+     "window(...) writes ROWS frames only, not RANGE"),
+    ("SELECT r.run_id FROM ops.job_runs r JOIN ops.jobs j USING (job_id)",
+     "JOIN ... USING, which no Clause function writes"),
+    ("SELECT r.run_id FROM ops.job_runs r RIGHT JOIN ops.jobs j ON r.job_id = j.job_id",
+     "RIGHT JOIN, which no Clause function writes"),
+    ("SELECT run_id FROM ops.job_runs TABLESAMPLE (10 PERCENT)",
+     "TABLESAMPLE, which no Clause function writes"),
+    ("SELECT run_id FROM ops.job_runs UNION ALL SELECT job_id FROM ops.jobs ORDER BY 1 LIMIT 5",
+     "ORDER BY or LIMIT on a whole UNION, which no Stack takes"),
+    ("SELECT COUNT(DISTINCT job_id, status) AS pairs FROM ops.job_runs",
+     "no Toolbox function counts the distinct values of more"),
+    ("SELECT run_id FROM ops.job_runs WHERE status = NULL",
+     "a comparison with NULL is never true"),
+    ("SELECT r.run_id FROM (SELECT run_id FROM ops.job_runs)",
+     "a sub-query in FROM with no name"),
+], ids=["range_frame", "join_using", "right_join", "tablesample", "order_by_on_a_union",
+        "count_distinct_of_two", "equals_null", "unnamed_sub_query"])
+def test_what_no_clause_function_writes_stays_hive_and_says_why(hive: str, why: str) -> None:
+    # Toolbox 8.2, 17: each stays Hive, the smallest piece it can be, and the finding says why.
+    done = convert_query(hive)
+    assert any(why in finding for finding in found(done, "unchecked")), found(done, "unchecked")
+
+
+def test_not_of_an_or_keeps_hive_only_for_the_part_no_function_negates() -> None:
+    # Toolbox 8.2, 17: De Morgan writes each part's opposite; LIKE 'F_ILED' has none, so only
+    # NOT of it stays Hive, in brackets, so it reads as Hive reads it.
+    done = convert_query("SELECT run_id FROM ops.job_runs WHERE NOT (status = 'TEST' OR "
+                         "status LIKE 'F_ILED' AND duration_mins > 30)")
+    assert "WHERE(all_of(\n" in done.query
+    assert 'not_equals(job_runs.status, "TEST")' in done.query
+    assert "any_of(" in done.query and "at_most(job_runs.duration_mins, 30)" in done.query
+    assert ('unchecked_condition("NOT ({status} LIKE \'F_ILED\')", status=job_runs.status)'
+            in done.query)

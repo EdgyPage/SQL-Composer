@@ -40,6 +40,15 @@ _COMPARISONS = {
     exp.LT: ("less_than", "more_than"),
     exp.LTE: ("at_most", "at_least"),
 }
+# Each comparison's opposite, which NOT of it is.
+_OPPOSITES: dict[type[exp.Expression], type[exp.Expression]] = {
+    exp.EQ: exp.NEQ,
+    exp.NEQ: exp.EQ,
+    exp.GT: exp.LTE,
+    exp.GTE: exp.LT,
+    exp.LT: exp.GTE,
+    exp.LTE: exp.GT,
+}
 # Its aggregates, by the sqlglot aggregate they write.
 _AGGREGATES = {exp.Sum: "sum_of", exp.Avg: "average_of", exp.Min: "min_of", exp.Max: "max_of"}
 # The arithmetic Python writes for the Toolbox, by the sqlglot operator it writes.
@@ -1004,15 +1013,29 @@ class _Converter:
         return f"{self.use(name)}({self.value(node.this, scope)}, {listed})"
 
     def negated(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
-        """NOT IN, IS NOT NULL and NOT x = y, as the condition functions that say each."""
+        """NOT IN, IS NOT NULL, NOT of a comparison as its opposite, and NOT of AND or OR as
+        the opposite of each part, as the condition functions that say each. Each keeps the
+        rows NOT keeps, a NULL's too: NOT (a > b) and a <= b are both unknown for a NULL."""
         if isinstance(node, exp.Paren):
             return self.negated(node.this, scope)
+        if isinstance(node, exp.Not):
+            return self.condition(node.this, scope)
         if isinstance(node, exp.In):
             return self.in_list(node, scope, "is_not_in")
         if isinstance(node, exp.Is) and isinstance(node.expression, exp.Null):
             return f"{self.use('is_not_null')}({self.value(node.this, scope)})"
-        if isinstance(node, exp.EQ):
-            return self.comparison(exp.NEQ(this=node.this, expression=node.expression), scope)
+        if type(node) in _OPPOSITES:
+            opposite = _OPPOSITES[type(node)](this=node.this, expression=node.expression)
+            return self.comparison(opposite, scope)
+        if isinstance(node, (exp.And, exp.Or)):
+            # De Morgan: NOT (a AND b) is NOT a OR NOT b, and NOT (a OR b) NOT a AND NOT b; a
+            # part no function says NOT of stays Hive alone, as NOT of it.
+            name = "any_of" if isinstance(node, exp.And) else "all_of"
+            parts = [self.condition_or_unchecked(exp.Not(this=exp.Paren(this=part.copy())),
+                                                 scope)
+                     for part in node.flatten()]
+            return (f"{self.use(name)}(\n" + "".join(f"    {_indented(part, 4)},\n"
+                                                     for part in parts) + ")")
         raise Unconvertible("no condition function writes NOT of it yet")
 
     def like(self, node: exp.Like, scope: dict[str, _Source]) -> str:

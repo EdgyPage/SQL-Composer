@@ -441,3 +441,64 @@ def test_each_shape_written_another_way_builds_and_says_how(started: Path, name:
     project.convert(f"shape_{name}", hive, query=example_database.query, database="ops")
     project.load(f"mart_dev.shape_{name}").preview()
     assert said in conversion_file(started, f"shape_{name}", "scan.md")
+
+
+# --- Each SQL mapping, run --------------------------------------------------------------------
+
+# One day of ops.job_runs, which each query below reads.
+# Both days of ops.job_runs, which each query below reads: nine runs, one TEST, two FAILED,
+# run 98's status NULL, and durations from 5 to 40, so each condition keeps some rows and not
+# others, and a NULL under a NOT shows whether the conversion keeps what Hive keeps.
+DAYS = "FROM ops.job_runs r WHERE r.dt BETWEEN '2026-09-23' AND '2026-09-24'"
+# Hive a Conversion writes as Toolbox code, with no piece of it left Hive, each by what it
+# maps: Toolbox 8.2, 17.
+MAPPED = {
+    "a_negative_number": f"SELECT r.run_id, r.duration_mins * -1 AS negated {DAYS}",
+    "true_and_false": ("SELECT r.run_id, CASE WHEN r.status = 'FAILED' THEN TRUE ELSE FALSE "
+                       f"END AS failed {DAYS}"),
+    "null_in_a_case": ("SELECT r.run_id, CASE WHEN r.status = 'TEST' THEN NULL ELSE "
+                       f"r.duration_mins END AS mins {DAYS}"),
+    "if": f"SELECT r.run_id, IF(r.duration_mins > 15, 'long', 'short') AS size {DAYS}",
+    "brackets_round_arithmetic": ("SELECT r.run_id, (r.duration_mins + 1) * 2 AS doubled "
+                                  f"{DAYS}"),
+    "is_null": f"SELECT r.run_id {DAYS} AND r.status IS NULL",
+    "is_not_null": f"SELECT r.run_id {DAYS} AND r.status IS NOT NULL",
+    "not_of_an_or": (f"SELECT r.run_id {DAYS} AND NOT (r.status = 'TEST' OR "
+                     "r.status = 'FAILED')"),
+    "not_of_an_and": (f"SELECT r.run_id {DAYS} AND NOT (r.status = 'SUCCESS' AND "
+                      "r.duration_mins < 20)"),
+    "not_of_a_comparison": f"SELECT r.run_id {DAYS} AND NOT r.duration_mins > 20",
+    "not_of_not": f"SELECT r.run_id {DAYS} AND NOT (NOT r.status = 'FAILED')",
+    "and_inside_or": (f"SELECT r.run_id {DAYS} AND (r.status = 'FAILED' OR (r.status = "
+                      "'SUCCESS' AND r.duration_mins > 15))"),
+    "count_over_a_group": ("SELECT r.run_id, COUNT(*) OVER (PARTITION BY r.job_id) AS "
+                           f"runs_of_job {DAYS}"),
+    "first_value": ("SELECT r.run_id, FIRST_VALUE(r.run_id) OVER (PARTITION BY r.job_id "
+                    f"ORDER BY r.run_id) AS first_run {DAYS}"),
+    "a_running_total": ("SELECT r.run_id, SUM(r.duration_mins) OVER (PARTITION BY r.job_id "
+                        "ORDER BY r.run_id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) "
+                        f"AS so_far {DAYS}"),
+    "order_by_a_position": (f"SELECT r.job_id, COUNT(*) AS runs {DAYS} GROUP BY r.job_id "
+                            "ORDER BY 2 DESC, 1 LIMIT 2"),
+    "order_by_a_name": (f"SELECT r.job_id, COUNT(*) AS runs {DAYS} GROUP BY r.job_id "
+                        "ORDER BY runs DESC, r.job_id LIMIT 2"),
+}
+# The mappings whose condition keeps some runs and drops others.
+FILTERING = ("is_null", "is_not_null", "not_of_an_or", "not_of_an_and", "not_of_a_comparison",
+             "not_of_not", "and_inside_or")
+
+
+@pytest.mark.parametrize("name", list(MAPPED))
+def test_each_mapping_is_toolbox_code_giving_the_originals_rows(started: Path,
+                                                                name: str) -> None:
+    hive = MAPPED[name]
+    project.convert(f"mapped_{name}", hive, query=example_database.query, database="ops")
+    assert "unchecked_" not in logic_of(started, f"mapped_{name}")
+    converted = example_database.query(
+        to_hive(project.load(f"mart_dev.mapped_{name}").preview()))
+    original = example_database.query(hive)
+    # Each condition keeps some of the nine runs and drops others, so the rows tell.
+    assert name not in FILTERING or 0 < len(original) < 9
+    assert list(converted.columns) == list(original.columns)
+    assert sorted(map(repr, converted.to_numpy().tolist())) == sorted(
+        map(repr, original.to_numpy().tolist()))
