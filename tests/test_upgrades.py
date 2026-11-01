@@ -39,7 +39,10 @@ GAINED_BY_HAND = {
     "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
                      "references/mart__team_failures.py", "tables/mart__team_failures/",
                      "admin/workflows/convert/finished/"),
-    "starter": ("README.md", "admin/databases.py", "references/mart__alerts_per_severity.py"),
+    "starter": ("README.md", "admin/databases.py", "references/mart__alerts_per_severity.py",
+                *[f"tables/{stem}/{stem}.ipynb" for stem in (
+                    "mart__alerts_per_job", "mart__alerts_per_severity",
+                    "mart__daily_job_runs", "mart__team_day")]),
 }
 # What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
 # check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and

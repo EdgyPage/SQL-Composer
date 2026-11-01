@@ -65,10 +65,11 @@ registry:
   Saved table worked out from a table it reads, a count per group of the rows it reads;
 - lineage/ beside it, empty until the notebook exports the table's Lineage;
 - references/mart__alerts_per_severity.py, its Table reference. A Saved table doesn't exist
-  until its notebook creates it, so nothing can be asked of it: you fill its Table reference
-  in by hand.
+  until its notebook creates it, so nothing can be asked of it: this one stands in until
+  `project.reference_from_logic` writes it from the logic you write.
 
-Both hold `<...>` placeholders, each to type over, brackets and all. Until you do, the notebook
+Both hold `<...>` placeholders. Type over each in the notebook, brackets and all; the Table
+reference's are written for you, once the logic is. Until you do, the notebook
 isn't Python yet, and `project.load`, which runs a notebook's logic from anywhere in the
 Project, says which line stops it:
 
@@ -221,7 +222,7 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     # One row per severity and day: how many alerts of that severity the runs raised that day.
     #
     # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-    # It is partitioned however its Table reference says, or not at all.
+    # It is partitioned as PARTITIONED_BY says, or not at all.
     #
     # Made by `project.new_table("mart.alerts_per_severity")` from
     # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
@@ -255,6 +256,9 @@ The file `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`, aft
     # The rows write() reads: change it to write others. A condition that calls something other
     # than equals, such as between or is_in, needs it added to the import above.
     READS = equals(run_alerts.dt, "2026-09-24")
+
+    # This table's partition columns, in the order its SELECT gives them, last: [] for none.
+    PARTITIONED_BY = ["dt"]
 
 
     def create() -> Statement:
@@ -339,8 +343,8 @@ references/mart__alerts_per_severity.py describes the table the notebook's write
 This is it as `project.new_table` wrote it, from the saved_table_reference Template, to stand
 in until the logic is written: then `project.reference_from_logic("mart.alerts_per_severity")`,
 the new_table Workflow's step, writes it from the logic, its columns, partition columns and Key,
-leaving its location= for you to answer. Here you write it yourself instead, as the Starter
-Example project did, a file it then keeps as yours:
+leaving its location= for you to answer. The Starter Example project's file was written by
+hand instead, so it is the Starter's own, and this how-to shows that way:
 
 The file `references/mart__alerts_per_severity.py`, as project.new_table wrote it:
 
@@ -381,8 +385,8 @@ The file `references/mart__alerts_per_severity.py`, as project.new_table wrote i
 It has no `does_not_add_up=`, which the Table references `project.add_references` writes have:
 the Template's table saves counts, which add up, so it is left out and taken as empty. Add
 `does_not_add_up=[...]` yourself if your table saves an average, a ratio or a distinct count.
-Write each column, its partition columns, Key and location=, and the TODO lines, as here,
-the file as it is in the Starter Example project:
+reference_from_logic writes each column, its partition columns and Key; by hand, write those,
+location= and the TODO lines, as here, the file as it is in the Starter Example project:
 
 The file `references/mart__alerts_per_severity.py`, after you fill it in:
 
@@ -391,10 +395,9 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
     Why: its notebook saves the day's count of low and high alerts, so a dashboard of alerts
     reads two rows a day rather than every alert.
 
-    project.new_table wrote this file from admin/templates/saved_table_reference.py. A Saved
-    table's Table reference is filled in by hand, since the table doesn't exist until its
-    notebook's create() makes it from this file. Its notebook's text cell says which columns it
-    lists, and its Key.
+    project.new_table wrote this file from admin/templates/saved_table_reference.py, and it was
+    then written by hand, which keeps it yours: project.reference_from_logic would have written it
+    from the table's logic. Its notebook's text cell says which columns it lists, and its Key.
     \"\"\"
 
     from sqlglot_composer import Table
@@ -437,8 +440,8 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
   each row is one severity on one day, so a severity alone repeats, once a day. The warehouse
   never checks a Key, so the Toolbox does: a write whose rows could share one is refused as it
   is built. Here GROUP_BY makes one row per severity and dt.
-- `location=` is what `<LOCATION>` became: the table's own folder in the warehouse, where its
-  files go, in quotes and used exactly as written. Ask whoever looks after your warehouse where
+- `location=` is the table's own folder in the warehouse, where its files go: a Decision,
+  written in quotes and used exactly as written. Ask whoever looks after your warehouse where
   your team may write, such as `"/data/your_team/mart.db/alerts_per_severity"`. No two Saved
   tables may share a folder, or have one inside the other: the Toolbox refuses two that do.
 - `descriptions={...}` says what each column holds, for the Reference sheet.

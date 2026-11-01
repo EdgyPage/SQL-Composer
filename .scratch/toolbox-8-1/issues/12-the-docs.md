@@ -1,7 +1,7 @@
 # The docs and the Copilot files
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 02, 03, 04, 05, 06, 07, 08, 09, 10, 11
 Size: M
 
@@ -26,3 +26,44 @@ Size: M
 - The held-out Copilot evaluation runs on every Copilot file 8.1 changed, file 13 with its
   Workflow tasks, and the Excel evaluation if files 11 or 12 changed; each score is recorded in
   `.scratch/copilot-eval/results.md`, at least what 8.0's was.
+
+## Answer
+
+Built 2026-10-31.
+
+- `docs/workflows.md`, the README's charts and step lists, how-to 29 and each Example
+  project's Workflow notebooks, with their decisions cells, are written again from the
+  Workflows by `tools/workflow_graph.py` and `tools/example_project.py`, at each ticket that
+  changed a step; the one-source test holds them, and Copilot files 13 and 14, to the Workflows.
+- The README: "The Workflows" opens with the decisions cell, its shape, and the notebook's last
+  cell, `project.run_workflow(...)`, its dry run too; step 6 says `project.reference_from_logic`
+  writes a new table's Table reference from its logic, `PARTITIONED_BY` included, and gives
+  `QUERIES` for a table whose query you have.
+- How-to 6 names `PARTITIONED_BY` in the filled notebook, and says the stand-in reference waits
+  for `reference_from_logic`, the Starter's written by hand; the Starter's four Table notebooks
+  name it too, listed in `GAINED_BY_HAND`. How-tos 9, 28 and 29 tell 8.1's steps (tickets 04,
+  07, 10 and 13).
+- The Copilot files, read as one story from 00 to 14: file 13 split in two, 13 convert and
+  promote, 14 new_table, references, change and upgrade (the user's OK to add files); 01 names
+  both; rule 10 lists both; 02 has the Key answered in the decisions cell and a new table's
+  reference from its logic; 06 and 07 have the Key proposed, a staging table folded and the last
+  cell; 13's worked example passes `staging=`. No file keeps a ticked box, a typed Table
+  reference or a SET line sent by hand. Every file is at most 8,000 characters and its tests
+  pass.
+- Names cells: NAME says a list is for the last cell alone, new_table's TABLES names a dev
+  table, and the decisions cell says "a Key proposed from a query".
+- Held-out Copilot evaluation, Haiku, arm C, on the four objective files 8.1 changed (01, 02, 06
+  and 07): 4 of 4, as 8.0's; recorded in `.scratch/copilot-eval/results.md`. Files 13 and 14
+  have no tasks of their own, the one-source test holding their steps; 11 and 12 are unchanged,
+  so the Excel round wasn't run.
+- Not done: the spec's "file 13 with its Workflow tasks". The evaluation has no Workflow
+  tasks, as in 8.0, and its scorer runs a Statement, not a Workflow; writing them, with a
+  scorer that runs a notebook's cells, is left to the user. The one-source test holds every
+  step and call files 13 and 14 list to the Workflows.
+- Code review: Standards: no hard finding; two how-to 6 sentences reworded, and new_table
+  keeps its own TABLES input, its example a dev table, as promote's does. Spec: Copilot 08's
+  step 6 and how-to 6's placeholders still told of steps 8.1 removed (both fixed); 06's step 7
+  keeps sending a table's settings by hand, its by-hand route; the Intermediate project's Table
+  notebooks keep no `PARTITIONED_BY`, as their Table references were not written from their
+  logic; how-to 29's `change=change` is the name step 1's cell gives.
+- Beginner reader: [12-beginner-reader.md](../reports/12-beginner-reader.md).

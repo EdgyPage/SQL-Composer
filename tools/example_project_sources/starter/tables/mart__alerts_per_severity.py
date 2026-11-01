@@ -4,7 +4,7 @@
 # One row per severity and day: how many alerts of that severity the runs raised that day.
 #
 # A Saved table worked out from a table it reads: a count per group of the rows READS picks.
-# It is partitioned however its Table reference says, or not at all.
+# It is partitioned as PARTITIONED_BY says, or not at all.
 #
 # Made by `project.new_table("mart.alerts_per_severity")` from
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
@@ -38,6 +38,9 @@ from references.ops__run_alerts import run_alerts
 # The rows write() reads: change it to write others. A condition that calls something other
 # than equals, such as between or is_in, needs it added to the import above.
 READS = equals(run_alerts.dt, "2026-09-24")
+
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["dt"]
 
 
 def create() -> Statement:

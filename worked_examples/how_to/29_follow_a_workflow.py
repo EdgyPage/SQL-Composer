@@ -105,8 +105,8 @@ flowchart TD
 
 Its names cell, which you fill in and save first:
 
-    # the batch's name, plain lowercase, such as "weekly"; for project.run_workflow, a
-    # list of batches converted already
+    # the batch's name, plain lowercase, such as "weekly" (or, for the last cell alone,
+    # a list of batches converted already)
     NAME = ''
     # the scripts' files, from this folder, such as ["daily.hql"], or [] to read HIVE
     FILES = []
@@ -125,7 +125,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key project.convert proposed is made, but an answer here changes it
+    # a Key proposed from a query is made, but an answer here changes it
 
 Its steps:
 
@@ -229,7 +229,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key project.convert proposed is made, but an answer here changes it
+    # a Key proposed from a query is made, but an answer here changes it
 
 Its steps:
 
@@ -328,7 +328,8 @@ flowchart TD
 
 Its names cell, which you fill in and save first:
 
-    # the tables, by their names in the warehouse, such as ["mart.daily_job_runs"]
+    # the new tables, by their names in the warehouse, such as
+    # ["mart_dev.daily_job_runs"]
     TABLES = []
     # each table's query, by its name without its database, as Hive text or a .hql file
     # in admin/workflows/new_table/, such as {"daily_job_runs": "daily_job_runs.hql"}
@@ -343,7 +344,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key project.convert proposed is made, but an answer here changes it
+    # a Key proposed from a query is made, but an answer here changes it
 
 Its steps:
 
@@ -440,7 +441,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key project.convert proposed is made, but an answer here changes it
+    # a Key proposed from a query is made, but an answer here changes it
 
 Its steps:
 

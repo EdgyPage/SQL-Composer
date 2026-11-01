@@ -45,6 +45,9 @@ from references.ops__jobs import jobs
 # The rows write() reads: change it to write others.
 READS = equals(daily_job_runs.dt, "2026-09-24")
 
+# This table's partition columns, in the order its SELECT gives them, last: [] for none.
+PARTITIONED_BY = ["dt"]
+
 
 def create() -> Statement:
     """Step 1: create mart.team_day from its Table reference, if it isn't there yet."""

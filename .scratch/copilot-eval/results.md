@@ -101,3 +101,13 @@ new file 13. Held out once, on Haiku, arm C: the four objective files the ticket
 keep within its reply's length, no Toolbox code, which file 11 now leaves to the convert
 Workflow. After the round, 07's header and 11's step 8 were reworded to agree with the
 Workflow (D360, the beginner reader); the answers they ask for are the same.
+| 2026-10-31 | c8c63aed | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 01:100 02:100 06:100 07:100 |
+
+Toolbox 8.1, ticket 12 (files c8c63aed, at 2ff0555): the Copilot files said 8.1's way, the
+Workflows split into files 13 and 14. Held out once, on Haiku, arm C: the four objective files
+8.1 changed, 01, 02, 06 and 07, pass every task (4 of 4), as 8.0's did. Files 13 and 14 have no
+tasks of their own; the one-source test holds each Workflow's steps and calls in them. Files
+11 and 12 are unchanged, so the Excel round wasn't run again. After the round, the beginner
+read reworded the rule naming the files (13 and 14), 08's step 6 (project.check() notes a
+`# CONVERSION:` mark, which blocks nothing) and 13's worked example (`staging=`); not run
+again.
