@@ -794,7 +794,10 @@ in
     Kept"""),)),
         {"by_team": f"WITH {RUNS_WITH_ALERTS} SELECT team, SUM(duration_mins) AS total_mins, "
                     "COUNT(CASE WHEN alerts > 0 THEN 1 END) AS alerted_runs FROM runs GROUP BY "
-                    "team WITH ROLLUP",
+                    "team",
+         "by_team (Total Row)": f"WITH {RUNS_WITH_ALERTS} SELECT SUM(duration_mins) AS "
+                                "total_mins, COUNT(CASE WHEN alerts > 0 THEN 1 END) AS "
+                                "alerted_runs FROM runs",
          "noisy_runs": f"WITH {RUNS_WITH_ALERTS} SELECT run_id, team, alerts, running_mins "
                        "FROM runs WHERE alerts >= 2"}),
     ExcelTask(
@@ -1457,8 +1460,9 @@ in
                                "entries": "=SUBTOTAL(109,by_region[entries])",
                                "priciest": "=SUBTOTAL(104,by_region[priciest])"}))),
         {"by_region": "SELECT region, SUM(cost_cents) AS total_cents, COUNT(*) AS entries, "
-                      "MAX(cost_cents) AS priciest FROM ops.region_costs GROUP BY region WITH "
-                      "ROLLUP"}),
+                      "MAX(cost_cents) AS priciest FROM ops.region_costs GROUP BY region",
+         "by_region (Total Row)": "SELECT SUM(cost_cents) AS total_cents, COUNT(*) AS entries, "
+                                  "MAX(cost_cents) AS priciest FROM ops.region_costs"}),
     ExcelTask(
         "X62", "held_out", ("dates_more", "week_month_start", "text_more", "long_form"),
         FormulaWorkbook((ExcelTable(
@@ -1679,7 +1683,10 @@ in
     Kept"""),)),
         {"job_totals": f"WITH {COSTS_WITH_BUDGETS} SELECT job_id, SUM(cost_cents) AS "
                        "total_cents, COUNT(CASE WHEN over_budget THEN 1 END) AS over_count "
-                       "FROM costs GROUP BY job_id WITH ROLLUP",
+                       "FROM costs GROUP BY job_id",
+         "job_totals (Total Row)": f"WITH {COSTS_WITH_BUDGETS} SELECT SUM(cost_cents) AS "
+                                   "total_cents, COUNT(CASE WHEN over_budget THEN 1 END) AS "
+                                   "over_count FROM costs",
          "late_costs": f"WITH {COSTS_WITH_BUDGETS} SELECT job_id, dt, running_cost FROM costs "
                        "WHERE running_cost > 1500"},
         marks=(("blank", "empty"),)),
