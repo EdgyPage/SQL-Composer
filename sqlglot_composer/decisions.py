@@ -11,7 +11,8 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
   hand.
 
 A `key=` line project.convert proposed, marked `# proposed`, is made, but an answer may
-still change it. Any other `TODO:` line, such as `does_not_add_up=`, waits on nothing. You
+still change it. Any other `TODO:` line, such as the docstring's first line or
+`does_not_add_up=`, is no Decision: it waits on nothing. You
 answer each in the decisions cell of a Workflow's notebook,
 `DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"}}}`,
 and `answered_text` gives the Table reference with each answer written into the line it
@@ -159,10 +160,14 @@ def _subject_of(kind: str, line: str) -> str:
 
 
 def todo_lines(text: str) -> list[str]:
-    """Each TODO: line of a Table reference's code that is no Decision, such as
-    does_not_add_up=: it waits on nothing."""
-    return [line.strip() for line in code_of(text).split("\n")
-            if "TODO:" in line and not kind_of(line) and not line.strip().startswith("#")]
+    """Each TODO: line of a Table reference that is no Decision, such as its docstring's
+    first line or does_not_add_up=: it waits on nothing."""
+    code = code_of(text)
+    docstring = text[:len(text) - len(code)]
+    in_docstring = [line for line in docstring.splitlines() if "TODO:" in line]
+    in_code = [line for line in code.splitlines()
+               if "TODO:" in line and not kind_of(line) and not line.strip().startswith("#")]
+    return [line.strip() for line in in_docstring + in_code]
 
 
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:

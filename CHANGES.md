@@ -92,6 +92,14 @@ those people found unsaid.
   result for each Partition compared, a compare of another adding its own, so the table passes
   only when each passed; a result from before the table was last written is dropped. The
   convert Workflow's compare step and the README say how to compare another Partition.
+- **What people new to the Toolbox met a second time, said.** write_decisions counts a Table
+  reference's docstring TODO line among those left; `project.do_next()` with no step left says
+  each Workflow named is done, where it said none was started; new_table's first step says a
+  query is converted in a batch of its own and each table it reads needs its Table reference
+  first; the upgrade Workflow and the README's Update say naming DEV and PROD renames no table
+  made before; the Steps sheet adds a Power Query as example 03 does, keeps its M when Excel
+  isn't at hand, and leaves step 12 to the data team when they convert it; and file 12 and the
+  README say a Total Row's query may be left out.
 - **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
   as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
   holding `<a value>`.

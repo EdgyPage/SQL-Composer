@@ -272,6 +272,19 @@ def test_the_runner_runs_only_the_cells_it_is_given(
     assert "cell 3" not in shown
 
 
+def test_the_runner_lists_each_code_cell_by_its_number_and_first_line(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # So a step's cell is found by its number, text cells left out as --cells leaves them.
+    notebook = tmp_path / "book.ipynb"
+    cells = [{"cell_type": "markdown", "source": ["# Steps"]},
+             {"cell_type": "code", "source": ["import pathlib\n", "x = 1"]},
+             {"cell_type": "markdown", "source": ["## Step 1"]},
+             {"cell_type": "code", "source": ["# names\n", "TABLES = []"]}]
+    notebook.write_text(json.dumps({"cells": cells}), encoding="utf-8")
+    assert notebook_runner.main([str(notebook), "--list"]) == 0
+    assert capsys.readouterr().out == "1: import pathlib\n2: # names\n"
+
+
 def test_the_saved_warehouse_answers_a_select_of_values_and_keeps_a_location(
         tmp_path: Path) -> None:
     path = tmp_path / "warehouse.json"

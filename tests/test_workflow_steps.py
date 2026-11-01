@@ -187,8 +187,8 @@ def test_a_step_that_only_reads_waits_on_nothing_and_is_named_beside_the_next(
 def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None:
     project.add_references("ops.job_runs", query=toolbox_module("example_database").query)
     said = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
-    assert ("ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on "
-            "nothing: fill it in when you like.") in said
+    assert ("ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on "
+            "nothing: fill each in when you like.") in said
     assert "Each Decision of ops.job_runs is made." in said
 
 
