@@ -542,7 +542,8 @@ class _Converter:
                 value = self.unchecked_derived_call(alias, node.this, columns)
                 self.note_finding(node, "unchecked", f"the sub-query {alias}, rows typed in, "
                                   "stays Hive, in unchecked_derived(...), which the Toolbox "
-                                  f"writes at the top, as WITH {alias} AS (...)")
+                                  f"writes at the top, as WITH {alias} AS (...): no Statement "
+                                  "lists rows typed in, and its Key is the one its rows show")
             else:
                 query = self.query(node.this)
                 value = f"{self.use('derived')}({python_literal(alias)}, {query})"
