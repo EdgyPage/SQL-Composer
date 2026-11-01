@@ -428,7 +428,7 @@ def _shown(value: object, typed: bool) -> str:
     return str(value)
 
 
-def _row_label(table: Table, number: int, count: int) -> str:
+def row_label(table: Table, number: int, count: int) -> str:
     """How the text names row `number` of a Table of `count` rows: its headers, a row of
     values, or its Total Row."""
     if number == 1:
@@ -461,7 +461,7 @@ def as_text(described: FormulaWorkbook) -> str:
             for number, row in enumerate(rows, 1):
                 in_a_table |= {cell.coordinate for cell in row}
                 shown = " | ".join(_shown(cell.value, described.as_typed) for cell in row)
-                lines.append(f"    {_row_label(table, number, len(rows))}: {shown}")
+                lines.append(f"    {row_label(table, number, len(rows))}: {shown}")
         for row in sheet.iter_rows():
             for cell in row:
                 if cell.coordinate not in in_a_table and cell.value is not None:

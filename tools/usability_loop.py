@@ -56,6 +56,7 @@ sys.path[:0] = [str(ROOT)]
 
 import export_clean  # noqa: E402
 import openpyxl  # noqa: E402
+from formula_workbook import row_label  # noqa: E402
 from workflow_warehouse import SavedWarehouse  # noqa: E402
 
 from sqlglot_composer.shared import counted, in_words  # noqa: E402
@@ -341,9 +342,11 @@ def workbook_text(path: Path) -> str:
         in_a_table: set[str] = set()
         for table in sheet.tables.values():
             lines.append(f'  Excel Table "{table.displayName}", {table.ref}')
-            for row in sheet[table.ref]:
+            rows = sheet[table.ref]
+            for number, row in enumerate(rows, 1):
                 in_a_table |= {cell.coordinate for cell in row}
-                lines.append("    " + " | ".join(str(cell.value) for cell in row))
+                shown = " | ".join(str(cell.value) for cell in row)
+                lines.append(f"    {row_label(table, number, len(rows))}: {shown}")
         for row in sheet.iter_rows():
             for cell in row:
                 if cell.coordinate not in in_a_table and cell.value is not None:
