@@ -168,3 +168,7 @@ temporary staging table the user wants kept, STAGING = {"high_alerts": "keep"}),
 Run once on Haiku, arm C, files e805b0a4, the row above: 1 of 1. The answer gave the names
 cell and the first step's cell, named the steps after them in words, and kept the table. A
 clean held-out score on one task: small, but untuned.
+
+The user confirmed the rule, 2026-11-01: the cells asked for by default, and every later
+step's cell only when the user asks for them, a line added to files 13 and 14 after T38's run.
+T38 measured the default, which the line leaves as it was.
