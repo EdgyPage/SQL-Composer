@@ -90,6 +90,27 @@ warehouse; each scenario has an answer key, written before any run.
 | held out | convert a long script with staging, then promote; upgrade a Project left by 8.0 | E4 several final Tables across sheets, with Parameters and Keys |
 
   Each Excel scenario starts from a presentation workbook made for it, the user's own view.
+  E3's Power Query can't be made with openpyxl, so its M code is written for the scenario and
+  kept in the workbook file, where the agents and Copilot read it (the user: "Generate the code
+  of power query and throw it in conversion process. Assume the model can access it from the
+  file.").
+
+### What a user reads is an exact process (the user, while 02 was built)
+
+"keep in mind you are writing insructions in copilot instructions and the howtos and examples.
+So these are machine readable and human readable. llms need support for processes and exact
+step orders to prevent hallucinations." So every fix the rounds make (05) is written as
+numbered steps, in the order they are done, naming each file, cell and call exactly. And: "you
+have permission to edit and add documentation files within reason."
+
+### Running a notebook (02)
+
+The agents can't press Run, so `tools/notebook_runner.py`, copied into each run as
+`run_notebook.py`, runs a notebook's code cells in turn as Run All does. Its `exec` is an
+`ALLOWED` site of `tools/offline_policy.py`, the user's OK given 2026-11-01 ("A cell runner").
+The warehouse a run's agents write to keeps its tables in a JSON file between processes
+(`tools/workflow_warehouse.py`'s SavedWarehouse), since each notebook and script runs in a
+process of its own.
 
 ## Tickets
 

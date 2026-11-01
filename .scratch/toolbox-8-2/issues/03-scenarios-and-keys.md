@@ -23,6 +23,12 @@ written before any run (map, "The loop": Q7, Q12).
 - Each Excel scenario has a presentation workbook, the user's own view, built with `openpyxl`
   on dev as `tools/formula_workbook_examples.py` builds the examples, and an answer key computed
   from its own values, never from the Toolbox's Hive.
+- E3's Power Query: openpyxl can't author one, so its M code is written for the scenario and
+  put in the workbook itself, where whoever opens the file reads it (the user, 2026-11-01:
+  "Generate the code of power query and throw it in conversion process. Assume the model can
+  access it from the file."). It goes in as the Formula workbook's Steps sheet tells a user to
+  record a query, or, where it says nothing, on a sheet of its own named for the query. The
+  relay's workbook text (`usability_loop.workbook_text`) shows it to Copilot with the rest.
 - Each answer key is checked by a test on dev: the reference end, reached by hand with the
   Toolbox, passes it, so a key can't ask for what the Toolbox can't do.
 - Written and committed before any round runs.

@@ -18,8 +18,10 @@ warehouse: it checks no type, and a CREATE AS a query gives its columns no types
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pandas as pd
 import sqlglot
@@ -239,6 +241,50 @@ def _static_partition(partition: exp.Expression | None) -> dict[str, object]:
         if isinstance(each, exp.EQ):
             values[each.this.name] = each.expression.to_py()
     return values
+
+
+class SavedWarehouse(Warehouse):
+    """The stand-in, its tables kept in a JSON file between Python processes, as a warehouse
+    keeps them between sessions: each table but the Example database's, with its columns,
+    partitions and rows, saved after each execute. A Session setting holds for one process,
+    as for one session. The usability loop's agents run each notebook and script in a process
+    of its own, so their warehouse is this one."""
+
+    def __init__(self, path: Path, database: str = "default") -> None:
+        super().__init__(database)
+        self.path = Path(path)
+        if self.path.is_file():
+            for name, kept in json.loads(self.path.read_text(encoding="utf-8")).items():
+                table = Table(name, kept["columns"], partitioned_by=kept["partitioned_by"])
+                self.tables[name] = Stored(table, [tuple(row) for row in kept["rows"]])
+
+    def execute(self, hive: str) -> None:
+        """Run Hive that changes something, as Warehouse does, then save every table."""
+        super().execute(hive)
+        self.save()
+
+    def save(self) -> None:
+        """Write each table but the Example database's to the JSON file."""
+        examples = {f"ops.{name}" for name in example_database._TABLES}
+        kept = {}
+        for name, stored in self.tables.items():
+            if name in examples:
+                continue
+            rows = []
+            for row in stored.rows:
+                rows.append([_json_value(value) for value in row])
+            kept[name] = {"columns": dict(stored.table._columns),
+                          "partitioned_by": stored.partitioned_by, "rows": rows}
+        self.path.write_text(json.dumps(kept, indent=1), encoding="utf-8")
+
+
+def _json_value(value: object) -> object:
+    """A value as the JSON file keeps it: a number, text, True, False or None."""
+    if hasattr(value, "item"):  # a numpy value
+        return _json_value(value.item())
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
 
 
 def _with_static(row: tuple[object, ...], columns: list[str],

@@ -316,6 +316,10 @@ ALLOWED: tuple[Allowed, ...] = (
             "exec",
             "runs a Project's own Workflow notebook's code cells, as Jupyter runs them, in a "
             "test's temp Project"),
+    # Reviewed with the user, 2026-11-01 (Toolbox 8.2's ticket 02).
+    Allowed("tools/notebook_runner.py", "run_cell", "dynamic code", "exec",
+            "runs a notebook's own code cells, as Jupyter's Run All runs them, for the "
+            "usability loop's agents, in a run's temporary folder"),
     Allowed("tests/test_lineage.py", "test_the_pages_script_is_javascript_a_browser_can_read",
             "process", "subprocess.run", "runs node --check on the lineage page's own script"),
     Allowed("tests/offline_trap.py", "<module>", "network", "socket",
