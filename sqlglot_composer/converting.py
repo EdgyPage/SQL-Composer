@@ -25,7 +25,7 @@ import sqlglot
 from sqlglot import exp
 
 from .shared import in_words, python_literal, singular_or_plural, split_table_name
-from .writing import read_hive, sql_text
+from .writing import read_hive, sql_text, typed_hive
 
 # An IN list with at least this many values becomes a named constant.
 LONG_LIST = 4
@@ -1273,6 +1273,9 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
     return query
 
 
+# How the finding on a write's INSERT starts, which a scan of a query alone words again.
+WRITE_FINDING = "its INSERT"
+
 # Hive's FROM ... INSERT ... INSERT, which a Conversion refuses, saying what to do instead.
 _SEVERAL_INSERTS = ("it is one FROM with {count} INSERTs, into {targets}, and a Conversion "
                     "of one query reads one: write each INSERT as a query of its own, FROM "
@@ -1986,6 +1989,50 @@ def selected_columns(statement: BatchStatement) -> list[str]:
     if not isinstance(query, _QUERIES):
         return []
     return [name.lower() for name in query.named_selects]
+
+
+# Hive's names for the types sqlglot works out for a query's columns: one not here, such as a
+# decimal's, whose precision it would need, is left untold.
+_HIVE_TYPES = {
+    exp.DataType.Type.TINYINT: "tinyint", exp.DataType.Type.SMALLINT: "smallint",
+    exp.DataType.Type.INT: "int", exp.DataType.Type.BIGINT: "bigint",
+    exp.DataType.Type.FLOAT: "float", exp.DataType.Type.DOUBLE: "double",
+    exp.DataType.Type.VARCHAR: "string", exp.DataType.Type.TEXT: "string",
+    exp.DataType.Type.BOOLEAN: "boolean", exp.DataType.Type.DATE: "date",
+    exp.DataType.Type.TIMESTAMP: "timestamp",
+}
+
+
+def typed_selected_columns(statement: BatchStatement,
+                           types: dict[str, dict[str, str]]) -> dict[str, str]:
+    """The columns a write's query gives, as its SELECT names them, each with the type
+    sqlglot works out from the tables it reads, `types` each table's columns by its name, such
+    as {"ops.jobs": {"team": "string"}}: for a query kept whole as Hive, whose Statement gives
+    none. A column whose type it can't tell, or whose type has a size or precision, is "";
+    every column is "" when sqlglot can't read the query."""
+    columns = dict.fromkeys(selected_columns(statement), "")
+    if not columns:
+        return columns
+    query = (statement.tree if statement.kind == QUERY else statement.tree.expression).copy()
+    # A WITH written before INSERT hangs on the INSERT: its query reads it all the same.
+    if statement.kind != QUERY and statement.tree.args.get("with_"):
+        query.set("with_", statement.tree.args["with_"].copy())
+    schema: dict[str, dict[str, dict[str, str]]] = {}
+    for name, known in types.items():
+        database, table = split_table_name(name)
+        schema.setdefault(database, {})[table] = {column: kind for column, kind in known.items()
+                                                  if kind}
+    try:
+        typed = typed_hive(query, schema)
+    # Hive sqlglot reads but can't qualify, such as a column its schema lacks, may raise a
+    # KeyError or ValueError of its own: the types are then left untold, as for any error.
+    except (sqlglot.errors.SqlglotError, KeyError, ValueError):
+        return columns
+    for select in typed.selects:
+        name = select.alias_or_name.lower()
+        if name in columns and select.type is not None and not select.type.expressions:
+            columns[name] = _HIVE_TYPES.get(select.type.this, "")
+    return columns
 
 
 def insert_partitions(statement: BatchStatement) -> list[str]:

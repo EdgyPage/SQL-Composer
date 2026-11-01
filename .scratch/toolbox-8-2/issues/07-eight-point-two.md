@@ -19,3 +19,8 @@ Size: M
 - CLAUDE.md names 8.2.
 - The Copilot held-out evaluation runs on every Copilot file 8.2 changed, and the Excel one if
   files 11 or 12 changed; each score is recorded.
+
+## Found since
+
+- Ticket 11: a Table notebook and checklist.md a new_table table wrote before 8.2 send its
+  Decisions to convert's notebook; the Upgrade step writes them to name new_table's.

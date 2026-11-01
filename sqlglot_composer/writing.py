@@ -15,6 +15,8 @@ from typing import TYPE_CHECKING, NamedTuple
 import sqlglot
 from sqlglot import exp
 from sqlglot.errors import ErrorLevel
+from sqlglot.optimizer.annotate_types import annotate_types
+from sqlglot.optimizer.qualify import qualify
 
 from .refusals import four_part_message, refuse
 from .shared import singular_or_plural
@@ -64,6 +66,16 @@ def read_hive(text: str) -> list[exp.Expression]:
     A Conversion reads the Hive it converts with it; sqlglot's ParseError says what it can't
     read."""
     return [tree for tree in sqlglot.parse(text, read=_DIALECT) if tree is not None]
+
+
+def typed_hive(query: exp.Expression,
+               schema: dict[str, dict[str, dict[str, str]]]) -> exp.Expression:
+    """A query read from Hive, its columns qualified and each output's type worked out by
+    sqlglot from `schema`, each table's columns and types by database and table. It raises
+    what sqlglot raises on Hive it can't work through."""
+    return annotate_types(qualify(query, schema=schema, dialect=_DIALECT,
+                                  validate_qualify_columns=False),
+                          schema=schema, dialect=_DIALECT)
 
 
 def hive_text(node: Node) -> str:

@@ -5,9 +5,9 @@
   "references/mart__team_failures.py": "02fcdd5841304acde8a3acbbc8e363b2dff341c2c8f316620d5491bb6e6f09bf",
   "tables/mart__team_failures/conversion/checklist.md": "4174b128e9c1e19377c73c32a185320887e9aa0d3fad9311dde4442fbc5b7ec5",
   "tables/mart__team_failures/conversion/in_dev.hql": "11c2e136c6835bd56ad9b6af897a7b6794632cdf3cb613a76c1661ae79254766",
-  "tables/mart__team_failures/conversion/scan.md": "b7bbfabb4925333d2e88a22e4e675e4c7aa30d21d2fd9cae4ff5506432d2fa51",
+  "tables/mart__team_failures/conversion/scan.md": "aabcee7c9b773f3edc43004da6b44640413bf249e97cd23bdcf0a901aaaf6a7a",
   "tables/mart__team_failures/conversion/statement.hql": "cf4372551ad613ed0ea9442177e30c34fcd9d4ac98ffaf456a446509ad39c678",
-  "tables/mart__team_failures/mart__team_failures.ipynb": "b568810e7289c3c0ffc64d5f8ec32b61de80380caf29755de6307595a3f7be35"
+  "tables/mart__team_failures/mart__team_failures.ipynb": "4668bb54a550c2bf0602ac85595d5ca6ec020ac17965bbe6f712e7e3b8ddbc93"
  },
  "originals": {
   "mart.team_failures": "ops_reports.team_failures"

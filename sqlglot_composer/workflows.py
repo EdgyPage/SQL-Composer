@@ -1260,7 +1260,8 @@ def next_step(root: Path, workflow: Workflow, inputs: dict[str, object]) -> Step
     """The first step not done after the last one the Project's files say is done: a step
     whose done function says no, or that has none, but one that only reads, which waits on
     nothing. A step whose done function says yes means each one before it is done too,
-    though the files can't tell of some."""
+    though the files can't tell of some, but for a step of Decisions still open, which the
+    Table references tell exactly: it is named whatever ran after it."""
     for step in steps_left(root, workflow, inputs):
         if step.reads_only:
             continue
