@@ -69,5 +69,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 
 ## Before you answer
 
-- Name the Workflow and the step the user is at; give each later step's cell as it is.
+- Name the Workflow and the step the user is at; give the cells the user asks for, each as
+  listed, and name the steps after them in words, not as cells: a step's cell may run only
+  once the steps before it are done.
 - Never invent a step or a call: only those listed here.

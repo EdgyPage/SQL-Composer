@@ -19,12 +19,12 @@ def fenced(code: str) -> str:
 
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
-    assert len(BY_ID) == len(TASKS) == 37
-    assert Counter(task.split for task in TASKS) == {"dev": 25, "held_out": 12}
+    assert len(BY_ID) == len(TASKS) == 38
+    assert Counter(task.split for task in TASKS) == {"dev": 26, "held_out": 12}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
-        # 13's first held-out task, T33, was tuned on, so it is a dev task, and T37 held out.
-        dev = ["dev"] * (3 if objective == "13" else 2)
+        # 13's held-out T33 and T37 were tuned on, so they are dev tasks, and T38 held out.
+        dev = ["dev"] * (4 if objective == "13" else 2)
         assert splits == [*dev, "held_out"], objective
     assert sum(task.trap for task in TASKS) == 6
 
@@ -91,6 +91,8 @@ CONTROLS = [
                  "builds", id="a_query_named_with_its_database"),
     pytest.param("T37", fenced(BY_ID["T37"].reference.replace('"ops"', '"default"')),
                  "correct", id="the_tables_database_left_out"),
+    pytest.param("T38", fenced(BY_ID["T38"].reference.replace('"keep"', '"fold"')),
+                 "correct", id="folds_what_to_keep"),
     pytest.param("T31", fenced(BY_ID["T31"].reference.replace('"daily_ops"', '"daily"')),
                  "correct", id="another_batch_name"),
     pytest.param("T33", fenced(BY_ID["T33"].reference.replace(

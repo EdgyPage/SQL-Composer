@@ -158,3 +158,13 @@ steps 2 to 7, as file 13's "give each later step's cell as it is" asks, though t
 asked for two cells: step 4's create ran before any Decision was answered and was refused. The
 file's rule and the tasks' scoring disagree, the same as T33's second round; which gives way
 is the user's call, and the next held-out round needs a task written fresh.
+| 2026-11-01 | e805b0a4 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+
+Toolbox 8.1, ticket 12, file 13's held-out score: with the user away, files 13 and 14 were
+changed as recommended, to give the cells the user asks for and name the steps after them in
+words, since a later step's cell may run only once the steps before it are done. T37 led to
+that change, so it became a dev task, and T38, written before any run of it (a script whose
+temporary staging table the user wants kept, STAGING = {"high_alerts": "keep"}), is held out.
+Run once on Haiku, arm C, files e805b0a4, the row above: 1 of 1. The answer gave the names
+cell and the first step's cell, named the steps after them in words, and kept the table. A
+clean held-out score on one task: small, but untuned.

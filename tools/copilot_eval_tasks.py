@@ -98,6 +98,17 @@ FROM job_runs r
 WHERE r.dt = '2026-09-24'
 GROUP BY r.job_id
 """
+# A script whose first statement makes a temporary staging table, which convert would fold.
+HIGH_ALERTS = """CREATE TEMPORARY TABLE high_alerts AS
+SELECT a.run_id
+FROM ops.run_alerts a
+WHERE a.dt = '2026-09-24' AND a.severity = 'high';
+
+INSERT OVERWRITE TABLE mart.high_alerts_per_run PARTITION (dt = '2026-09-24')
+SELECT h.run_id, COUNT(*) AS alerts
+FROM high_alerts h
+GROUP BY h.run_id;
+"""
 # A new table's query, as the user saved it.
 OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
@@ -683,8 +694,9 @@ project.write_decisions(DECISIONS)
          files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS},
          before='''project.convert("fails", None, files=["daily_fails.hql"], query=query)
 '''),
-    # Written in T33's place as held out, after the files were tuned on it.
-    Task("T37", "13", "held_out",
+    # Written in T33's place as held out; its one run led files 13 and 14 to give only the
+    # cells asked, so it is a dev task now, and T38 held out.
+    Task("T37", "13", "dev",
          "Convert this query into my Dev Database as a batch named runs_per_job. Its tables "
          "are in the ops database, though the query doesn't say so: give the convert "
          "notebook's names cell and its first step's cell.\n\n" + RUNS_PER_JOB,
@@ -697,6 +709,22 @@ STAGING = {}
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 staging=STAGING)
 ''', tables=("job_runs",), workflow="convert"),
+    # Written in T37's place as held out, after files 13 and 14 were changed for it.
+    Task("T38", "13", "held_out",
+         "I have alerts.hql from the ops team, saved in admin/workflows/convert/. Its first "
+         "statement makes a temporary table, high_alerts, which I want kept as a table of "
+         "its own rather than folded. Convert it into my Dev Database as a batch named "
+         "alerts: give the convert notebook's names cell and its first step's cell.",
+         "workflow", '''NAME = "alerts"
+FILES = ["alerts.hql"]
+HIVE = None
+DATABASE = "default"
+STAGING = {"high_alerts": "keep"}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+''', tables=("run_alerts",), workflow="convert",
+         files={"admin/workflows/convert/alerts.hql": HIGH_ALERTS}),
     # --- 14 a Workflow: new tables and upkeep -----------------------------------------------
     Task("T34", "14", "dev",
          "Add Table references for ops.jobs and ops.run_alerts with the references Workflow: "
