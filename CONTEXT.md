@@ -442,8 +442,9 @@ of their own. A Table's typed columns stand for the database table it samples; w
 are final is read from what reads what, never declared; and the Tables keep whatever names they
 have. A person moves a presentation workbook's
 data and formulas into one, so Copilot can turn it into Hive without anyone explaining the
-workbook.
-_Avoid_: state table, Excel template, mapping sheet
+workbook. A final Table, one no other Table reads, is a table the person wants to keep: its
+Hive becomes a new Saved table.
+_Avoid_: state table, Excel template, mapping sheet, custom table view
 
 **Example gallery**:
 The searchable page holding every Worked example, generated from them, which ships in the

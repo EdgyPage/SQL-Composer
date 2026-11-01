@@ -47,7 +47,10 @@ Database, and every Project action taking one or many) is charted through
 (end-to-end tests of each Workflow, Decisions answered in a Workflow's notebook in place of
 hand edits, a runner that runs a Workflow's steps, new tables from a query, and staging tables
 folded) is charted through `.scratch/toolbox-8-1/map.md`; read its Notes before working one of
-its tickets.
+its tickets. Toolbox 8.2 (`export_hive`, each table's SQL in a file beside its notebook, and the
+usability loop: zero-context agents run each Workflow and the Excel path from what main ships)
+is charted through `.scratch/toolbox-8-2/map.md`; read its Notes before working one of its
+tickets.
 
 ## Checks
 
