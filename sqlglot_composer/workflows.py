@@ -872,10 +872,10 @@ CONVERT = Workflow(
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
                   "to read FILES"),
             Input("DATABASE", "default", "the database of a table the Hive names without one"),
-            Input("RENAME", {}, "each table's copy in dev named as you name it, by the table's "
-                  'name in the scripts, such as {"mart.team_fails": "team_fails"} for '
-                  "mart_dev.team_fails: left out, it is <table>_<its database>, such as "
-                  "team_fails_mart"),
+            Input("RENAME", {}, "a name of your own for a table's copy in dev, by the table's "
+                  'full name, such as {"mart.team_fails": "team_fails"} for '
+                  "mart_dev.team_fails: left out, a copy is <table>_<its database>, such as "
+                  "mart_dev.team_fails_mart"),
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept")),
@@ -1043,7 +1043,10 @@ CHANGE_A_SAVED_TABLE = Workflow(
     steps=(
         Step("Write the Admin statement for the change", DECISION,
              ("a Saved table", "the change wanted"), ("an Admin statement",),
+             "from sqlglot_composer import between, equals  # where= takes a Condition\n"
              "table = project.table_reference(TABLE)\n"
+             '# such as where=equals(table.dt, "2026-09-24"), or a range of days,\n'
+             '# where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column\n'
              "change = admin.drop_partitions(table, where=...)  # or another: help(admin)",
              change_written),
         Step("Print its Hive, and run the check its Check first line names", FILE_STEP,

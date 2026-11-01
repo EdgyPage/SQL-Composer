@@ -325,7 +325,9 @@ def guard_unproven_key(call: str, key: list[str], why: str) -> NoReturn:
         "word, and every join and count that trusts the Key would repeat them.",
         fix="Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, "
         "or keep row_number(...) at 1 for each Key in a Derived table, and join only on "
-        "each joined table's whole Key. The how-to on Keys shows each.",
+        "each joined table's whole Key. When a table it reads declares no Key, though a column "
+        "or a few tell its rows apart, add one to its Table reference by hand, such as "
+        'key=["job_id"], once check_key(...) confirms it. The how-to on Keys shows each.',
         opt_out=f"{call[:-1]}, unproven_key=True), if each row has a Key of its own for a "
         "reason the Toolbox can't see.",
         error=GuardRefused,

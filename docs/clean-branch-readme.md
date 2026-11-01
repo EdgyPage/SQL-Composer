@@ -264,7 +264,10 @@ reference that stands in until a later step, `project.reference_from_logic`, wri
 the logic you write: its columns and types from `preview()`, its partition columns from the
 logic's `PARTITIONED_BY`, and its Key. Have its query already? Give it in the names cell's
 `QUERIES = {"alerts_per_severity": "alerts_per_severity.hql"}`, the table named in your Dev
-Database, and its logic is written for you from the query, then compared with it:
+Database, and its logic is written for you from the query, then compared with it. Each table
+the new table reads, from its query or from logic you write, needs its Table reference first:
+add them with the references Workflow, `admin/workflows/references/references.ipynb`, before
+you run the new_table Workflow.
 
 ```python
 >>> project.new_table("mart.alerts_per_severity")
@@ -361,13 +364,23 @@ How-to: [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_so
 ## The Workflows
 
 Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
-take you from what you start with to the end goal. Fill in its names cell and save it; what
-only you can decide of a table, a Decision such as its folder, you answer in its decisions
-cell, `DECISIONS = {"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly"}}`, and a
-step writes each answer in for you. Then run each step's cell in turn, or, in their place, the
-notebook's last cell, `project.run_workflow(...)`, which runs every step left, the calls to
-the warehouse too, up to the first only you can do, and says where it stopped; with
-`dry_run=True` it sends nothing through your execute and says the Hive each step would send.
+take you from what you start with to the end goal. What only you can decide of a table, a
+Decision such as its folder, you answer in its decisions cell,
+`DECISIONS = {"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly"}}`, and a step
+writes each answer in for you. Run its cells one at a time, never all at once (Run All),
+since a step after a decision would write before you make it:
+
+1. fill in the names cell, and save the notebook;
+2. run each step's cell in turn, down to the first step that is a decision: the line under
+   its heading says "It is a decision, yours to make";
+3. make it where that step says, such as the decisions cell for each table's open Decisions,
+   or the step's own cell for change_a_saved_table's change, and save the notebook;
+4. run each cell after it in turn, back to step 3 at the next decision, or, in their place,
+   the notebook's last cell, `project.run_workflow(...)`, which runs every step left, the
+   calls to the warehouse too, up to the first only you can do, and says where it stopped.
+
+With `dry_run=True`, `run_workflow` sends nothing through your execute and says the Hive each
+step would send.
 `project.check()` names each Workflow's next step, and `project.do_next()` runs only the steps
 that write files. Each chart below is drawn from the steps its notebook runs, beside the
 same steps as a list. In each chart, a plain box is a step that changes only files, or only
@@ -784,7 +797,10 @@ flowchart TD
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
 
+       from sqlglot_composer import between, equals  # where= takes a Condition
        table = project.table_reference(TABLE)
+       # such as where=equals(table.dt, "2026-09-24"), or a range of days,
+       # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
 2. Print its Hive, and run the check its Check first line names (it changes only files, or only

@@ -1878,8 +1878,11 @@ def _check_has_location(t: Table) -> None:
             what=f"create_table({t._alias}): its Table reference has no location=.",
             why="Each of your Saved tables is an external table, in a folder of its own: its "
             "location=.",
-            fix="Add location=... to its Table(...) call, its own folder, such as "
-            'location="/data/your_team/mart.db/daily_runs".',
+            fix="Answer its location in the decisions cell of the Workflow you are in, such "
+            f'as DECISIONS = {{"{t._name}": {{"location": "/data/your_team/'
+            f'{split_table_name(t._name)[0]}.db/{t._alias}"}}}}, '
+            "then run its step that writes each answer in; or add location=... to its "
+            "Table(...) call, its own folder, yourself.",
             error=ValueError,
         )
 

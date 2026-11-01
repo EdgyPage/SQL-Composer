@@ -1718,9 +1718,9 @@ Toolbox code, with files 11, 03, 04 and 05.
 - A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a
   query of its own, one row, a column per total, in order, with no label; name it in the map
   as `<Table> (Total Row)`.
-- But a summary Table's Total Row whose totals only add up SUMs or COUNTs, or take the MAX of
-  MAXes or MIN of MINs, needs no query of its own: the summary's query ends `GROUP BY a WITH
-  ROLLUP`, which adds the total as one more row, its a NULL (a Subtotal row).
+- A Total Row is never in the summary's own query: never end it `WITH ROLLUP`, as a Saved
+  table refuses a Subtotal row. Write only its own query, as above; rollup(...) is for a
+  later Statement that reads the saved summary (file 05), not this conversion.
 
 ## Order
 
@@ -1839,6 +1839,10 @@ For any Hive, one query or many scripts. NAME is the batch's name (for the last 
 a list of batches converted already). FILES are the .hql files, saved beside the notebook, in
 admin/workflows/convert/, where it reads them; or FILES = [] and HIVE the Hive as text.
 DATABASE is the database of a table the Hive names without one, such as "ops".
+RENAME gives a table's copy in dev a name of your own. Its key is the table's full name,
+database and all (DATABASE when the scripts give none), and its value the new name, no
+database: {"mart.team_fails": "team_fails"} makes mart_dev.team_fails. Left out ({}), the
+copy keeps where it came from in its name, <table>_<its database>: mart_dev.team_fails_mart.
 A staging table is one a statement of the Hive makes and a later one reads; convert's report
 names each. Folded, its query goes inside each table that reads it, and it is never made;
 kept, it becomes a Saved table of its own. STAGING is a dict, leaving the rest as convert
@@ -1926,10 +1930,11 @@ NAME = "ops_reports"
 FILES = ["daily.hql", "weekly.hql"]
 HIVE = None
 DATABASE = "default"
+RENAME = {}
 STAGING = {}
 
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                staging=STAGING)
+                rename=RENAME, staging=STAGING)
 ```
 
 ## Do and don't
@@ -2053,7 +2058,10 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
 
+       from sqlglot_composer import between, equals  # where= takes a Condition
        table = project.table_reference(TABLE)
+       # such as where=equals(table.dt, "2026-09-24"), or a range of days,
+       # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
 2. Print its Hive, and run the check its Check first line names (it changes only files, or only

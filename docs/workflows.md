@@ -249,7 +249,10 @@ Ends with: the change sent, the change logged.
 
 ```mermaid
 flowchart TD
-    s0{"1. Write the Admin statement for the change: table = project.table_reference(TABLE)
+    s0{"1. Write the Admin statement for the change: from sqlglot_composer import between, equals  #35; where= takes a Condition
+table = project.table_reference(TABLE)
+#35; such as where=equals(table.dt, #quot;2026-09-24#quot;), or a range of days,
+#35; where=between(table.dt, #quot;2026-09-01#quot;, #quot;2026-09-30#quot;), dt its partition column
 change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}:::your_decision
     s1["2. Print its Hive, and run the check its Check first line names: show_hive(change)"]:::files_only
     s2[["3. Send it, then any check after it, such as admin.check_the_copy: run_execute(change, execute)"]]:::warehouse_call

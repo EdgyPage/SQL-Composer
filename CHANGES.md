@@ -55,6 +55,21 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   as you name it, such as `{"mart.team_fails": "team_fails"}` for `mart_dev.team_fails`, where
   you added `rename=` to the call by hand; left out, a copy is `<table>_<its database>`, such as
   `team_fails_mart`, as before.
+- **What round one of the usability loop found unsaid, said.** A Workflow notebook's cells run
+  one at a time, in four numbered steps the README gives, never Run All, which would write
+  before the Decisions are answered. new_table's query needs each table it reads to have its
+  Table reference first. compare_batch says how many Partitions both tables hold that it
+  didn't compare, and that partition= compares one. change_a_saved_table's step cell imports
+  equals and between, with an example of `where=`. A write's Key refusal says to give a table
+  that declares no Key its key=, and create_table's no-location refusal to answer the location
+  in the Workflow's decisions cell. In the Formula workbook's Steps sheet, step 2 says to name
+  a Table after its database table without the database, step 4 that a saved file may hold
+  `[@col]` as `Table[[#This Row],[col]]`, and step 5 which function each figure takes, and to
+  total a Table with its own Total Row. Copilot file 12 writes a Total Row as a query of its
+  own, never `WITH ROLLUP`, which a Saved table refuses; file 13 says what RENAME does.
+- **An Upgrade keeps only a step cell you wrote in.** A Workflow step cell you fill in, such
+  as change_a_saved_table's Admin statement, is kept when an Upgrade writes its notebook
+  again only once you wrote in it: one still as an earlier version wrote it is written afresh.
 
 ## 8.1
 

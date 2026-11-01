@@ -73,11 +73,13 @@ EXAMPLES: dict[str, tuple[ExcelTask, str]] = {
                                "longest": "=SUBTOTAL(104,by_job[longest])"})), as_typed=True),
         {"by_job": "SELECT job_id, SUM(duration_mins) AS total_mins, COUNT(*) AS runs,\n"
                    "  COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed, "
-                   "MAX(duration_mins) AS longest\nFROM ops.job_runs\nGROUP BY job_id WITH "
-                   "ROLLUP"}),
+                   "MAX(duration_mins) AS longest\nFROM ops.job_runs\nGROUP BY job_id",
+         "by_job (Total Row)": "SELECT SUM(duration_mins) AS total_mins, COUNT(*) AS runs,\n"
+                               "  COUNT(CASE WHEN status = 'FAILED' THEN 1 END) AS failed, "
+                               "MAX(duration_mins) AS longest\nFROM ops.job_runs"}),
         "Sources: job_runs. Finals: by_job (job_id, total_mins, runs, failed, longest), a "
-        "summary: a GROUP BY of job_runs. Its Total Row adds up sums and counts and takes the "
-        "MAX of the MAXes, so it is the Subtotal row WITH ROLLUP adds, its job_id NULL. Fill "
+        "summary: a GROUP BY of job_runs, and by_job (Total Row), its totals in one row, a "
+        "query of its own: a Saved table refuses the Subtotal row WITH ROLLUP would add. Fill "
         "in: <database>."),
     "03_power_query.xlsx": (ExcelTask(
         "E03", "example", (),

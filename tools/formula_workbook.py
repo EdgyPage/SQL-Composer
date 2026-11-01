@@ -66,19 +66,29 @@ STEPS = (
     "hold formulas: you rebuild those in step 4.",
     "2. Click inside it, press Ctrl+T and tick \"My table has headers\". If the data was "
     "already in a Table, keep that Table's name; if you know the database table it comes from, "
-    "use that name. Otherwise any name will do, with no spaces (Table Design > Table Name; on "
-    "older Excel, Design under Table Tools). Copilot keeps the names you give, and marks any "
-    "it can't match to a database table for you to fill in.",
+    "use the part of its name after the dot, such as job_runs for ops.job_runs; then "
+    "right-click the row number of the header row, choose Insert to add a row above it, and "
+    "type there where it came from, such as \"Copied from ops.job_runs\". Otherwise any name "
+    "will do, with no spaces. Set the name "
+    "in Table Design > Table Name (on older Excel, Design under Table Tools). Copilot keeps "
+    "the names you give, and marks any it can't match to a database table for you to fill "
+    "in.",
     "3. Do steps 1 and 2 for every table of raw data before going on.",
     "Your calculations:",
     "4. Add a column to a Table for each calculation, and write its formula once, in the first "
     "row. Click a cell in the same row rather than typing its address, and Excel writes it by "
-    "column name, such as =[@units]*[@price]. Excel fills the formula down the column.",
+    "column name, such as =[@units]*[@price]. Excel fills the formula down the column. If you "
+    "see it written as =sales[[#This Row],[units]]*sales[[#This Row],[price]], it is the "
+    "same formula.",
     "5. A calculation that reads another Table, such as an XLOOKUP or a SUMIFS, is written the "
     "same way, naming the other Table: =XLOOKUP([@product_id], products[product_id], "
     "products[name]). A summary of totals, such as a block of SUMIFS cells or a PivotTable, is "
     "rebuilt as a Table of its own: a column for what it groups by, one row per group, and a "
-    "SUMIFS column for each figure.",
+    "column for each figure: SUMIFS for a total, COUNTIFS for a count, AVERAGEIFS for an "
+    "average, MAXIFS for the largest, MINIFS for the smallest. To total any Table, raw or "
+    "summary, turn on its Total Row (Table Design > Total "
+    "Row) and pick each column's total from the list in its last row: a total typed as a row "
+    "of its own is read as one more row of data.",
     "6. Move each fixed value a formula uses into the Parameters Table, one row per value, "
     "whether it was typed in a cell such as $B$3 or inside a formula such as *0.2, and change "
     "the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "

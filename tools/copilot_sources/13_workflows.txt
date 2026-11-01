@@ -31,6 +31,10 @@ For any Hive, one query or many scripts. NAME is the batch's name (for the last 
 a list of batches converted already). FILES are the .hql files, saved beside the notebook, in
 admin/workflows/convert/, where it reads them; or FILES = [] and HIVE the Hive as text.
 DATABASE is the database of a table the Hive names without one, such as "ops".
+RENAME gives a table's copy in dev a name of your own. Its key is the table's full name,
+database and all (DATABASE when the scripts give none), and its value the new name, no
+database: {"mart.team_fails": "team_fails"} makes mart_dev.team_fails. Left out ({}), the
+copy keeps where it came from in its name, <table>_<its database>: mart_dev.team_fails_mart.
 A staging table is one a statement of the Hive makes and a later one reads; convert's report
 names each. Folded, its query goes inside each table that reads it, and it is never made;
 kept, it becomes a Saved table of its own. STAGING is a dict, leaving the rest as convert
@@ -55,10 +59,11 @@ NAME = "ops_reports"
 FILES = ["daily.hql", "weekly.hql"]
 HIVE = None
 DATABASE = "default"
+RENAME = {}
 STAGING = {}
 
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                staging=STAGING)
+                rename=RENAME, staging=STAGING)
 ```
 
 ## Do and don't
