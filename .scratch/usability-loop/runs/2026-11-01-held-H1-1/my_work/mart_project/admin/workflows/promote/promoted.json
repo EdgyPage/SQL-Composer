@@ -1,0 +1,32 @@
+{
+ "team_prod.job_fails_counted": {
+  "dev": "mart_dev.job_fails_counted",
+  "files": {
+   "tables/team_prod__job_fails_counted/conversion/in_dev.hql": "a660c61061be47ae3cf4bd422e14a0575ddd32db5f0ea3bc2e41c1a892342038",
+   "tables/team_prod__job_fails_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+   "tables/team_prod__job_fails_counted/team_prod__job_fails_counted.ipynb": "9cf2f570c64f9a90a06285398c275673b257033ae98502a1ab93d44415ba74b9"
+  },
+  "reference": "433881b6b9c4c4962233fe60429bcbd97f4561ad32c2cb49a454ce2ff4f4655b",
+  "seeded": false
+ },
+ "team_prod.job_runs_counted": {
+  "dev": "mart_dev.job_runs_counted",
+  "files": {
+   "tables/team_prod__job_runs_counted/conversion/in_dev.hql": "fdd164d92052da989fbb9638c20f8757a63daa89902955fe52aa29bcbe802cc5",
+   "tables/team_prod__job_runs_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+   "tables/team_prod__job_runs_counted/team_prod__job_runs_counted.ipynb": "575a2a0ced7d1a700b4b9e63752e8a61bc3cfd5d5db1fce6c3ba49e365640391"
+  },
+  "reference": "f8626e7282308926b7eb206ec7ce3fd43c43afce975e5af2c4b58449af3cac92",
+  "seeded": false
+ },
+ "team_prod.team_fails": {
+  "dev": "mart_dev.team_fails",
+  "files": {
+   "tables/team_prod__team_fails/conversion/in_dev.hql": "a3623c3deb4a3c39c97f6992dc9c0199f5beb6747b14c7a443efe250ea52955a",
+   "tables/team_prod__team_fails/conversion/statement.hql": "822699f8e2c1701fe7a696822225fb1925afd91d1c71cf7c048253ed79cc5593",
+   "tables/team_prod__team_fails/team_prod__team_fails.ipynb": "322c6e6452afbf582ddb4d9150656b1bbd30ed53f7806cf51f4c23aeec83f92c"
+  },
+  "reference": "5557535ca2067ca83d64a2e63d6d7d3e269d834aa60556f2b2062a5b32865cb2",
+  "seeded": false
+ }
+}

@@ -136,6 +136,8 @@ process of its own.
   by 04
 - [15 A CTE of rows typed in keeps its Key](issues/15-rows-typed-in-keep-their-key.md), found by
   05's round two
+- [16 A subquery of rows typed in converts as a CTE of them does](issues/16-a-subquery-of-rows-typed-in.md),
+  found by 06
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.

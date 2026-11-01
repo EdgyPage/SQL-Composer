@@ -1,0 +1,3 @@
+DONE: The three tables are copied to mart_dev and carried to team_prod with the Toolbox, each checked against its original, and nothing is left open in project.check().
+
+(Full report: Project my_work/mart_project; references for ops.job_runs and ops.job_owners added; weekly.hql converted with RENAME to mart_dev.team_fails, job_runs_counted, job_fails_counted; locations answered; create, seed, write in dev; compare_batch passed on 2026-09-24 and compare_with_original on 2026-09-23; promote to team_prod. Noted: the original joins job_owners on job_id alone, which inflates counts; kept as the original does, flagged for the user.)

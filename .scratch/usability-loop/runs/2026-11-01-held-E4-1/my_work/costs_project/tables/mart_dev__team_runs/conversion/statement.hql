@@ -1,0 +1,10 @@
+WITH job_runs AS (
+  SELECT r.job_id, r.duration_mins, j.team
+  FROM ops.job_runs r
+  LEFT JOIN ops.jobs j ON r.job_id = j.job_id
+)
+SELECT t.team, COALESCE(c.runs, 0) AS runs
+FROM (SELECT 'data' AS team UNION ALL SELECT 'finance' UNION ALL SELECT 'web') t
+LEFT JOIN (SELECT team, COUNT(*) AS runs
+           FROM job_runs
+           GROUP BY team) c ON t.team = c.team;

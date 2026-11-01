@@ -186,3 +186,9 @@ the finished batch's among them, and the warehouse holds the reference's rows; t
 review's controls hold it to that (a create skipped, a write sent through query). One run of
 each, and T39's request names the table and its folder, so it shows the option works, not
 how often.
+| 2026-11-01 | 93b81356 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-01 | 93b81356 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 14:100 |
+
+Toolbox 8.2, ticket 07: files 93b81356 (8.2's RENAME, the count written as a SUM, the Total
+Row bullets), held out on haiku, arm C: file 13's T38 and T39 pass, 2 of 2; file 14's T36
+passes, 1 of 1. The two rows above.

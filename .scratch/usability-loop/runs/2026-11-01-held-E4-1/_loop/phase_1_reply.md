@@ -1,0 +1,1 @@
+DONE: Saved my_work/costs_formula.xlsx: jobs and job_runs Tables with notes above, team by XLOOKUP, job_costs and team_runs Tables, cents_a_minute in Parameters, job 3's typed 1000 kept with job_costs/job_id in Keys.

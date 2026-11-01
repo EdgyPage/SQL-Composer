@@ -238,3 +238,32 @@ key opt-out over a list of teams typed in; no E3 run met the ROLLUP refusal.
 - warehouse.py's docstring says it imports none of your files (W3-3, W1-1).
 - reference_from_logic names one TODO line where two are left (W2-2).
 - The generated DDL's PRIMARY KEY names a partition column, dt (W2-3): to check against Hive.
+| 2026-11-01 | H2 | held_out | 2026-11-01-held-H2-1 | pass | 0 | Held-out, after rounds 2 and 3. Done. |
+| 2026-11-01 | H1 | held_out | 2026-11-01-held-H1-1 | pass | 0 | held-out, main bcb2239f; 0 questions; RENAME used as the names cell says; spotted the original's job_id-only join inflating counts and left it as a decision |
+| 2026-11-01 | E4 | held_out | 2026-11-01-held-E4-1 | pass | 1 | held-out, main bcb2239f; 1 question (the conversion, file 11 routed); Parameters, the typed-over value and Keys used; both tables right by hand; found: Copilot's typed-in rows in a FROM subquery keep the whole query as Unchecked Hive |
+
+## The held-out round, 2026-11-01: the docs as tuning left them
+
+Main's tree built from bcb2239f: rounds one to three's fixes and tickets 10 to 15 in. Each
+held-out scenario once, fresh Haiku agents for each phase, Copilot's two hops on Haiku. Its
+three rows are just above; nothing is changed after it for 8.2's docs.
+
+| scenario | split | passed | questions | round one |
+|---|---|---|---|---|
+| H1 | held out | 1/1 | 0 | 0/1 (named its copies by hand, as W1) |
+| H2 | held out | 1/1 | 0 | 1/1 (ended on a question of the job's wording) |
+| E4 | held out | 1/1 | 1 | 1/1 (the key guard's message named no fix) |
+
+What tuning did for a job it wasn't tuned on: H1 named its copies as the originals through
+RENAME, as the names cell says, with no question, where round one renamed them from a script;
+it compared a second Partition by hand once batch.md said the compare checked one, and named the
+original's job_id-only join, which counts each failed run once a day of owner rows, as a
+decision left to the user. H2 upgraded and set the Databases with no question. E4's converter
+asked Copilot once, for the conversion, and each table's rows came out right by hand.
+
+### Found in the held-out round
+
+- E4: Copilot's Hive lists a summary's typed groups as a subquery in FROM, `(SELECT 1 AS
+  job_id UNION ALL ...) c`, and convert keeps each such query whole as an Unchecked statement,
+  "a SELECT with no FROM": ticket 15 lifts only a CTE of rows typed in. A Toolbox gap, not a
+  docs one, so it is ticket 16, fixed for 8.2 without running the round again.
