@@ -192,3 +192,14 @@ how often.
 Toolbox 8.2, ticket 07: files 93b81356 (8.2's RENAME, the count written as a SUM, the Total
 Row bullets), held out on haiku, arm C: file 13's T38 and T39 pass, 2 of 2; file 14's T36
 passes, 1 of 1. The two rows above.
+| 2026-11-01 | 93b81356 | haiku | C | held_out | 85 | 100 | 100 | 97 | 85 | 95 | 97 | 0 | 0 |
+
+Toolbox 8.2, ticket 07: the Excel held-out round on files 93b81356, whose file 12 changed one
+bullet (a Total Row is a query of its own, never WITH ROLLUP) and file 11 none: haiku, arm C,
+85% of 39, the row above, against 97% on 8.1's ea80a87. None of the six failures touches the
+changed bullet: X73, X77 and X78 left out a step that is loaded to a sheet, a final too; X70
+mapped two source tables in place of its finals; X69's window orders by a column its own
+SELECT makes (dt_date); X65 left an ORDER BY unnamed. Held-out is scored once per files
+version, so it stands; 87% (5df4678) and 97% (ea80a87) on files with the same rules put it in
+the proxy's spread, all 39 answered in one reply. The raw answers are in
+runs/2026-11-01-haiku-C-excel-held_out-8.2/.

@@ -1,8 +1,8 @@
-# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.1)
+# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.2)
 
 Objective: take the user through converting Hive and promoting it to prod, step by step,
 from each Workflow's notebook. Load this file when the user asks how to turn Hive into their
-own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.1, a
+own tables end to end, or carry dev tables to prod. You write the steps for sqlglot Composer 8.2, a
 Toolbox that writes Hive: the steps left, each its cell, in order. For a new table of their
 own, Table references, an upgrade or a change to a Saved table, the user loads file 14; for
 the Python inside a step, that step's file.

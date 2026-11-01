@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.1: How-tos</title>
+<title>sqlglot Composer 8.2: How-tos</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -33,7 +33,7 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.1: How-tos</h1>
+<h1>sqlglot Composer 8.2: How-tos</h1>
 <p>Each how-to walks through one job from start to finish: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
@@ -3819,7 +3819,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 <p class="note">It writes <code>lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.name  # -&gt; str</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;20260925-090000_1a2b3c4_lineage_notebook_team_runs.md&#x27;</pre>
@@ -4151,7 +4151,7 @@ FROM runs_per_job
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.relative_to(Path.cwd()).as_posix()  # -&gt; str</pre>
@@ -4675,7 +4675,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>tables/mart__team_day/lineage/20260925-090000-mart__team_day.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.name  # -&gt; str</pre>
@@ -5119,7 +5119,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>lineage/team_alone.html</code> too, a page to open in your browser.</p>
 <pre class="python">&quot;ops.job_runs&quot; in alone_markdown.read_text(encoding=&quot;utf-8&quot;)</pre>
@@ -8132,7 +8132,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>daily_totals.html</code> too, a page to open in your browser.</p>
 <h4>Check it worked</h4>
@@ -11003,7 +11003,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
 <p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Keys, then the Hive, as <a href="#follow_lineage">Follow lineage</a> shows. Open the HTML page in your browser to see the same drawn.</p>
@@ -11407,7 +11407,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>after.html</code> too, a page to open in your browser.</p>
 <h5>Compare the two Markdown files</h5>
@@ -12868,7 +12868,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>lineage/keys.html</code> too, a page to open in your browser.</p>
 <pre class="python">for keys in markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;### Keys&quot;)[1:]:
@@ -15627,7 +15627,7 @@ WHERE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 </details>
 <p class="note">It writes <code>lineage/run_speed.html</code> too, a page to open in your browser.</p>
 <p>The chart draws the step as one box, &quot;Python step&quot;, naming the function and its line, with an arrow in from each column it read and out to each column of mart.run_speed. The Toolbox can&#x27;t see inside it, so it can&#x27;t tell which column made which: the columns of mart.slow_runs go back as far as the step, and the step&#x27;s own section says what it read and where its function lives.</p>
@@ -16133,7 +16133,7 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.1.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.2.</pre>
 <p class="note">It writes <code>lineage/busy_jobs.html</code> too, a page to open in your browser.</p>
 <pre class="python">print(markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;## busy_jobs&quot;)[1].split(&quot;###&quot;)[0])</pre>
 <p class="label">Python prints</p><pre class="output">⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can&#x27;t be followed through it. It reads ops.job_events and ops.jobs.</pre>
@@ -16444,7 +16444,7 @@ warehouse.py</pre>
     Path(added).unlink()
 shutil.rmtree(&quot;admin/workflows&quot;)
 version = Path(&quot;admin/project_version.txt&quot;)  # -&gt; Path
-_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.1&quot;, &quot;7.2&quot;, 1),
+_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.2&quot;, &quot;7.2&quot;, 1),
                        encoding=&quot;utf-8&quot;)</pre>
 <p class="note">It writes <code>admin/project_version.txt</code> too.</p>
 <p>admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has none, and is taken to be 7.1.</p>
@@ -16452,14 +16452,15 @@ _ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&qu
 <p>Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before writing 7.2 in the version file, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
 <pre class="python">from sqlglot_composer import project
 print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.1: run project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the Project has one.</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.2: run project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the Project has one.</pre>
 <h5>Upgrade it</h5>
 <p>Run <code>project.upgrade()</code> from a notebook in the Project: the first time, in a new cell of admin/check_project.ipynb, which imports <code>project</code> already.</p>
 <pre class="python">print(project.upgrade())</pre>
-<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.1.
+<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.2.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.
-8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.</pre>
-<p class="label">It writes 21 files</p>
+8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
+8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.</pre>
+<p class="label">It writes 28 files</p>
 <pre class="file">admin/admin_log.md
 admin/databases.py
 admin/project_version.txt
@@ -16472,16 +16473,23 @@ admin/removed/20260925-090000-upgrade_8.1/admin/workflows/new_table/new_table.ip
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/references/references.ipynb
 admin/removed/20260925-090000-upgrade_8.1/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/upgrade/upgrade.ipynb
 admin/sent.csv
 admin/upgrade_8.0.md
 admin/upgrade_8.1.md
+admin/upgrade_8.2.md
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
 admin/workflows/upgrade/upgrade.ipynb</pre>
-<p>It ran the step from each version to the next, here two, and wrote a checklist for each:</p>
+<p>It ran the step from each version to the next, here three, and wrote a checklist for each:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 for line in checklist.splitlines():
     if line.startswith(&quot;- &quot;):
@@ -16522,7 +16530,7 @@ PROD = &quot;mart&quot;  # such as &quot;mart&quot;</pre>
 <p class="label">Python prints</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
 <p>Run again, the Upgrade does nothing:</p>
 <pre class="python">print(project.upgrade())</pre>
-<p class="label">Python prints</p><pre class="output">The Project is at 8.1 already, as this Toolbox is: nothing to upgrade.</pre>
+<p class="label">Python prints</p><pre class="output">The Project is at 8.2 already, as this Toolbox is: nothing to upgrade.</pre>
 <h4>Common mistakes</h4>
 <ul><li>**Pasting the new folder over the old one.** Delete the old <code>sqlglot_composer</code> folder first: a file a newer version dropped would be left behind, and the import stops on it, since the folder checks itself against its version.txt, as the README&#x27;s Update says.</li><li>**Upgrading a Project made before 7.1.** An Upgrade carries a Project from 7.1 on: bring an older one to 7.1 by hand, as CHANGES.md says, then upgrade it.</li><li>**Leaving the marks.** Each <code># UPGRADE</code> mark is a change only you can make: <code>project.check()</code> lists every one left.</li></ul>
 <h4>Next</h4>

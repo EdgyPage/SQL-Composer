@@ -14,19 +14,23 @@ from __future__ import annotations
 import datetime
 import json
 import shutil
+import sys
 import warnings
 from pathlib import Path
 
 import pytest
-from conftest import toolbox_folder, toolbox_module
+from conftest import forget_the_projects_modules, toolbox_folder, toolbox_module
+import notebook_runner
 
 import sqlglot_composer
-from sqlglot_composer import project, set_admin_log
+from sqlglot_composer import example_database, project, set_admin_log
 
 NOW = datetime.datetime(2026, 10, 26, 9, 30, 0)
 VERSION = sqlglot_composer.TOOLBOX_VERSION
 # The step the tests of a Conversion 7.2 left open read the marks and checklist of.
 STEP_8_0 = "8.0"
+# The step that adds a Table notebook's Hive cell.
+STEP_8_2 = "8.2"
 ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 
@@ -40,28 +44,27 @@ def notebooks_and_hive(*stems: str) -> tuple[str, ...]:
 
 
 # What each Example project gained by hand in this version, which no Upgrade makes, left out of
-# the comparison: 8.0's READMEs, the starter's saying to set conn, your connection (ticket 21),
-# and the intermediate's naming the convert Workflow's notebook (ticket 12); DEV, filled in in
-# admin/databases.py; and the intermediate's Conversion, made again the 8.0 way, as a batch
-# whose Saved table's folder keeps conversion/ (ticket 14). Empty it when the next version's
-# frozen copy holds them. 8.2's Table notebooks gain the Hive cell, and each its Hive file
-# (ticket 01).
+# the comparison: 8.2's READMEs, naming each table's Hive file; each Table notebook, whose text
+# cell and import name its Hive cell, which the Upgrade adds bare, and the Hive file it writes,
+# which test_an_upgraded_notebooks_hive_cell_writes_the_example_projects_hive holds (ticket
+# 01); and the intermediate's Conversion, its scan counting the script's lines and its notebook
+# naming its Workflow's compare step (ticket 11), with its batch's record of their hashes.
+# Empty it when the next version's frozen copy holds them.
 GAINED_BY_HAND = {
-    "intermediate": ("README.md", "admin/databases.py", "admin/registry.csv",
-                     "references/mart__team_failures.py", "tables/mart__team_failures/",
+    "intermediate": ("README.md", "tables/mart__team_failures/",
                      "admin/workflows/convert/finished/",
                      *notebooks_and_hive("mart__budget_overruns", "mart__job_day_costs",
                                          "mart__job_day_facts", "mart__job_events_checks",
                                          "mart__job_notes", "mart__team_days")),
-    "starter": ("README.md", "admin/databases.py", "references/mart__alerts_per_severity.py",
+    "starter": ("README.md",
                 *notebooks_and_hive("mart__alerts_per_job", "mart__alerts_per_severity",
                                     "mart__daily_job_runs", "mart__team_day")),
 }
-# What this version's Upgrade leaves as the version before wrote it, on purpose: 8.0's
-# check_project.ipynb gains a project.do_next() cell, but the user runs the Upgrade from it, and
-# a notebook written while it is open is saved over. Empty it with GAINED_BY_HAND.
-LEFT_AS_IT_WAS = ("admin/check_project.ipynb",)
+# What this version's Upgrade leaves as the version before wrote it, on purpose: nothing in
+# 8.2. Empty it with GAINED_BY_HAND.
+LEFT_AS_IT_WAS: tuple[str, ...] = ()
 upgrades = toolbox_module("upgrades")
+notebooks = toolbox_module("notebooks")
 
 
 @pytest.fixture
@@ -164,7 +167,8 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
         f"Upgraded the Project from 7.1 to {VERSION}.",
         "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did."]
     assert said[2].startswith("8.0: ")
-    assert said[3].startswith(f"{VERSION}: ")
+    assert said[3].startswith("8.1: ")
+    assert said[4].startswith(f"{VERSION}: ")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -487,7 +491,7 @@ def test_a_template_you_changed_is_marked_and_one_as_written_is_written_again(
     changed.write_text(changed.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
     monkeypatch.chdir(copy)
     project.upgrade()
-    assert f"# UPGRADE {VERSION}: new_table now writes" in changed.read_text(encoding="utf-8")
+    assert "# UPGRADE 8.1: new_table now writes" in changed.read_text(encoding="utf-8")
     written = (copy / "admin" / "templates" / "saved_table.py").read_text(encoding="utf-8")
     assert "PARTITIONED_BY = [" in written
 
@@ -497,7 +501,6 @@ def test_a_name_given_under_an_upgrade_mark_stays_given(
     copy = tmp_path / "starter"
     shutil.copytree(UPGRADE_FROM / "8.0" / "starter", copy)
     notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
-    notebooks = toolbox_module("notebooks")
     for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
         if text.startswith("NAME = "):
             notebooks.write_cell_text(notebook, number, "# UPGRADE 8.0: convert it again\n"
@@ -506,3 +509,122 @@ def test_a_name_given_under_an_upgrade_mark_stays_given(
     project.upgrade()
     names = next(text for kind, text in notebooks.read_cells(notebook) if "NAME = " in text)
     assert names.startswith("# UPGRADE 8.0: convert it again\nNAME = 'weekly'")
+
+
+# --- An upgrade from 8.1 ----------------------------------------------------------------------
+
+
+def hive_files(name: str) -> list[str]:
+    """Each Table folder of an Example project whose Hive file its notebook's cell writes."""
+    folder = ROOT / "example_projects" / name / "tables"
+    return [f"{name}/{path.parent.name}" for path in sorted(folder.glob("*/*.hql"))
+            if path.stem == path.parent.name]
+
+
+@pytest.mark.parametrize("table", hive_files("starter") + hive_files("intermediate"))
+def test_an_upgraded_notebooks_hive_cell_writes_the_example_projects_hive(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, table: str) -> None:
+    # Toolbox 8.2, 07: the cell 8.2 adds after the lineage cell writes the Hive a notebook
+    # made by 8.2 writes.
+    name, stem = table.split("/")
+    copy = tmp_path / name
+    shutil.copytree(UPGRADE_FROM / "8.1" / name, copy)
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    folder = copy / "tables" / stem
+    notebook = folder / f"{stem}.ipynb"
+    code = notebook_runner.code_cells(notebook)
+    # Numbered from 1, as the runner counts code cells: the Project's, the logic and the Hive's.
+    lineage = next(number for number, text in enumerate(code, 1) if "export_lineage(" in text)
+    logic = next(number for number, text in enumerate(code, 1) if text.startswith("# logic"))
+    assert code[lineage].endswith("\nexport_hive()")
+    try:
+        assert notebook_runner.run_notebook(notebook, {1, logic, lineage + 1}) == 0
+    finally:
+        forget_the_projects_modules()
+    written = (folder / f"{stem}.hql").read_bytes()
+    example = (ROOT / "example_projects" / name / "tables" / stem / f"{stem}.hql").read_bytes()
+    assert written == example.replace(b"\r\n", b"\n")
+
+
+def test_a_table_notebook_with_no_lineage_cell_is_marked(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.1" / "starter", copy)
+    notebook = copy / "tables" / "mart__team_day" / "mart__team_day.ipynb"
+    notebooks.write_notebook(notebook, [cell for cell in notebooks.read_cells(notebook)
+                                        if "export_lineage(" not in cell[1]])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    assert not any(text.endswith("export_hive()") for _, text in notebooks.read_cells(notebook))
+    first = next(text for kind, text in notebooks.read_cells(notebook) if kind == "code")
+    assert first.startswith(f"# UPGRADE {STEP_8_2}: this notebook has no lineage cell")
+    assert "then run it to write mart__team_day.hql beside this notebook" in first
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_2}.md").read_text(encoding="utf-8")
+    assert "- [ ] tables/mart__team_day/mart__team_day.ipynb, cell 2, line 1:" in checklist
+
+
+# A Table notebook's text cell, and its compare cell's first lines, as 8.1 wrote them for a
+# table new_table made from its query, mart_dev.failed_jobs.
+TEXT_CELL_8_1 = (
+    "# mart_dev.failed_jobs\n\nA Saved table the batch failed_jobs made, with "
+    "project.convert(...), from the statements in `conversion/statement.hql`, as its script "
+    "wrote them. Its logic cell builds the same query from the Toolbox's own functions, with "
+    "create(), preview() and write(). Answer its open Decisions, which "
+    "`conversion/checklist.md` lists, in the decisions cell of the convert Workflow's "
+    "notebook, `admin/workflows/convert/convert.ipynb`, then run the cells top to bottom. The "
+    "cells comparing it with the original stay until you delete them.")
+COMPARE_AHEAD_8_1 = ("# The convert Workflow's step 6, project.compare_batch, compares this "
+                     "table once written.\n# This compares its query with the original's "
+                     "first:\n")
+
+
+def test_a_name_given_in_8_1s_convert_notebook_stays_given_beside_rename(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.1" / "starter", copy)
+    notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
+    for number, (_, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if text.startswith("NAME = "):
+            assert "RENAME = " not in text
+            notebooks.write_cell_text(notebook, number,
+                                      text.replace("NAME = ''", "NAME = 'weekly'"))
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    names = next(text for _, text in notebooks.read_cells(notebook) if "NAME = " in text)
+    assert names.startswith("NAME = 'weekly'")
+    assert "\nRENAME = {}" in names
+
+
+def test_a_table_new_table_made_names_new_tables_notebook_again(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Toolbox 8.2, 11 and 07: 8.1 sent the Decisions of a table new_table made from its query
+    # to convert's notebook; 8.2's step names new_table's, as 8.2 writes them.
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    databases = started / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8")
+                         .replace('"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    query = "SELECT r.run_id, r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'"
+    project.new_table("mart_dev.failed_jobs", queries={"failed_jobs": query})
+    folder = started / "tables" / "mart_dev__failed_jobs"
+    notebook = folder / "mart_dev__failed_jobs.ipynb"
+    checklist = folder / "conversion" / "checklist.md"
+    as_8_2 = {path: path.read_text(encoding="utf-8") for path in (notebook, checklist)}
+    # Its text cell, the opening of its compare cell and its checklist as 8.1 wrote them.
+    notebooks.write_cell_text(notebook, 1, TEXT_CELL_8_1)
+    for number, (_, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if text.startswith("# The new_table Workflow's compare step"):
+            notebooks.write_cell_text(notebook, number,
+                                      COMPARE_AHEAD_8_1 + text.split("\n", 2)[2])
+    checklist.write_text(as_8_2[checklist].replace(
+        "admin/workflows/new_table/new_table.ipynb", "admin/workflows/convert/convert.ipynb"),
+        encoding="utf-8")
+    assert all(path.read_text(encoding="utf-8") != as_8_2[path] for path in as_8_2)
+    upgrades.write_project_version(started, "8.1")
+    try:
+        project.upgrade()
+    finally:
+        forget_the_projects_modules()
+    assert {path: path.read_text(encoding="utf-8") for path in as_8_2} == as_8_2

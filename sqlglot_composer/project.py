@@ -1705,11 +1705,12 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.1.
+    Upgraded the Project from 7.1 to 8.2.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
+    8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
     cell of admin/check_project.ipynb, which imports project already, or of
@@ -2679,18 +2680,8 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
     create(), preview() and write(), trying it, its lineage, its Hive in a file beside it, its
     checks against the original, and its rows in the Reference sheet. `made_for` names the
     Workflow that made it, when convert's didn't."""
-    if made_for == NEW_TABLE_WORKFLOW:
-        made_by = ("project.new_table(..., queries=...), from its query in "
-                   f"`{CONVERSION}/{STATEMENT}`")
-    else:
-        made_by = (f"the batch {batch}, with project.convert(...), from the statements in "
-                   f"`{CONVERSION}/{STATEMENT}`, as its script wrote them")
     return [
-        ("markdown", f"# {dev}\n\nA Saved table made by {made_by}. Its logic cell builds the "
-         "same query from the Toolbox's own functions, with create(), preview() and write(). "
-         f"Answer its open Decisions, which `{CONVERSION}/{CHECKLIST}` lists, in the "
-         f"decisions cell of `{_decisions_notebook(made_for)}`, then run the cells top to "
-         "bottom. The cells comparing it with the original stay until you delete them."),
+        ("markdown", converted_notebook_text(dev, batch, made_for)),
         ("code", "import pathlib\nimport sys\n"
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up\n\n"
          "from sqlglot_composer import (compare_hive, compare_with_original, export_hive, "
@@ -2712,14 +2703,35 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
     ]
 
 
+def converted_notebook_text(dev: str, batch: str, made_for: str) -> str:
+    """A converted table's notebook's text cell: what made it, and where its Decisions are
+    answered. `made_for` names the Workflow that made it, when convert's didn't."""
+    if made_for == NEW_TABLE_WORKFLOW:
+        made_by = ("project.new_table(..., queries=...), from its query in "
+                   f"`{CONVERSION}/{STATEMENT}`")
+    else:
+        made_by = (f"the batch {batch}, with project.convert(...), from the statements in "
+                   f"`{CONVERSION}/{STATEMENT}`, as its script wrote them")
+    return (f"# {dev}\n\nA Saved table made by {made_by}. Its logic cell builds the same query "
+            "from the Toolbox's own functions, with create(), preview() and write(). Answer "
+            f"its open Decisions, which `{CONVERSION}/{CHECKLIST}` lists, in the decisions "
+            f"cell of `{_decisions_notebook(made_for)}`, then run the cells top to bottom. The "
+            "cells comparing it with the original stay until you delete them.")
+
+
+def compare_ahead(made_for: str) -> str:
+    """The lines a converted table's compare cell starts with, saying its Workflow's compare
+    step compares the table once written. `made_for` names that Workflow, when not convert."""
+    return (f"# The {made_for or 'convert'} Workflow's compare step, project.compare_batch, "
+            "compares this table once\n# written. This compares its query with the "
+            "original's first:\n")
+
+
 def _rows_compared(hive_read: converting.ConvertedQuery, made_for: str) -> str:
     """The cell comparing a converted table's rows with the original's, commented until you
     choose the Partition to compare on. `made_for` names the Workflow that made it, when
     convert's didn't."""
-    # The batch's own compare, its Workflow's compare step, comes once the table is written.
-    ahead = (f"# The {made_for or 'convert'} Workflow's compare step, project.compare_batch, "
-             "compares this table once\n# written. This compares its query with the "
-             "original's first:\n")
+    ahead = compare_ahead(made_for)
     given = [column for column in hive_read.partition_columns
              if column not in hive_read.static_partition]
     if given or not hive_read.static_partition:

@@ -4,7 +4,32 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 8.2
 
-8.2 is being built on dev; this section grows with it, and ships when it is done.
+8.2 puts each table's Hive in a file beside its notebook, and fixes what people new to the
+Toolbox met when they ran each Workflow, and the Excel path, from the docs alone: a
+Conversion keeps a calculation's type, turns a count written as a SUM into a count, and keeps
+a list of rows typed in with its Key; the convert notebook's RENAME gives a table's copy in
+dev a name of your own; and the README, the Steps sheet and the Copilot files now say what
+those people found unsaid.
+
+### To update from 8.1
+
+- **Copy in 8.2's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.2.md`.
+- **Each Table notebook** gains a cell after its lineage cell, `export_hive()`, which writes the
+  table's Hive in `<db>__<table>.hql` beside it: run it to make the file. A notebook whose
+  lineage cell you took out is marked `# UPGRADE 8.2:`, to add the cell by hand.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`, so convert's names cell has RENAME, a name of your own for each table's
+  copy in dev. Each name you gave stays, and so does each step cell you wrote in.
+- **The Templates in `admin/templates/`** that new_table copies are written again with the
+  Hive cell if they are still as 8.1 wrote them; one you changed is marked `# UPGRADE 8.2:`,
+  saying what to copy.
+- **A table new_table made from its query** has its notebook and `conversion/checklist.md`
+  name new_table's notebook, `admin/workflows/new_table/new_table.ipynb`, for its Decisions,
+  as 8.2 writes them: 8.1 named convert's. There is nothing for you to do.
+
+### What's new
 
 - **Each table's Hive in a file beside its notebook.** `export_hive()`, in a new cell of each
   Table notebook beside its lineage cell, writes `<db>__<table>.hql` beside the notebook: the
@@ -47,10 +72,11 @@ What changed in each Toolbox version, in plain words. The newest version comes f
   script wrote it, where it counted the one line it is rewritten as, and gives its findings
   without that one line's number.
 - **Hive kept whole has its columns typed.** A query a Conversion keeps whole as an Unchecked
-  statement, such as one that starts from a list typed in, `SELECT 'data' AS team UNION ALL
-  ...`, which a Statement can't build, has its columns' types worked out from the Table
-  references of the tables it reads, where each was written "string" as a guess for you to
-  answer. A column whose type nothing tells, such as one `explode` gives, is still a Decision.
+  statement, such as a query of values alone, `SELECT 'data' AS team UNION ALL SELECT 'web'`,
+  which a Statement can't build, has its columns' types worked out from its values, or from
+  the Table references of the tables it reads, where each was written "string" as a guess for
+  you to answer. A column whose type nothing tells, such as one `explode` gives, is still a
+  Decision.
 - **RENAME in the convert notebook.** Its names cell has RENAME, each table's copy in dev named
   as you name it, such as `{"mart.team_fails": "team_fails"}` for `mart_dev.team_fails`, where
   you added `rename=` to the call by hand; left out, a copy is `<table>_<its database>`, such as
