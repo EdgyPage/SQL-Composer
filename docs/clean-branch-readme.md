@@ -84,7 +84,8 @@ or made by hand.
 | `building_blocks/<name>.py`, a Building block | `project.new_block("<name>")` | its `<...>` and TODO lines |
 | `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table | `project.new_table("<db>.<table>")` | its `<...>` lines |
 | `tables/<db>__<table>/lineage/`, the table's Lineage | its notebook's lineage cell | nothing |
-| `tables/<db>__<table>/<db>__<table>.hql`, the Hive the table's logic sends, to read at a glance | its notebook's Hive cell, `export_hive()`, written again each time it runs | nothing: edit the logic instead |
+| `tables/<db>__<table>/<db>__<table>.hql`, the Hive the table's logic sends, to read at a glance and to commit: generated, so never edit it | its notebook's Hive cell, `export_hive()`, written again each time it runs | nothing: edit the notebook's logic, save the notebook, and run its `export_hive()` cell again |
+| a `.hql` file of Hive you write or are given, such as `daily.hql`: your input, not generated | you, saved in `admin/workflows/convert/` for the convert Workflow's `FILES`, or in `admin/workflows/new_table/` for the new_table Workflow's `QUERIES` | all of it: it is yours, and nothing writes over it |
 | `lineage/`, beside the notebook you run it from: the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)` | nothing |
 | admin/removed/, what you archive | `project.remove_table(...)`, `project.remove_reference(...)`, `project.remove_block(...)` and `project.remove_conversion(...)`, and `project.upgrade()` and `project.convert(..., overwrite=True)`, which keep each file as it was before they change it | nothing |
 
@@ -282,7 +283,17 @@ every Saved table, each after the tables it reads, sending that setting first; w
 it prints each write's Hive in order and sends nothing. To read a table's Hive at a glance, its
 notebook's Hive cell, `export_hive()`, writes it into `<db>__<table>.hql` beside the notebook:
 `create()`, then `write()`, in the order they are sent. The Python stays the table's
-definition: edit the logic, not the file, and run the cell again.
+definition, so the file is generated, to read and to commit, never edited: to change it,
+
+1. edit the logic cell of the Table notebook, such as
+   `tables/mart__alerts_per_severity/mart__alerts_per_severity.ipynb`;
+2. save the notebook, since `export_hive()` reads it as last saved;
+3. run its `export_hive()` cell, which writes `mart__alerts_per_severity.hql` again.
+
+That generated file is not the `.hql` you give a Workflow. Hive you write yourself or are
+given, such as `alerts_per_severity.hql` above, is yours: save it in
+`admin/workflows/new_table/` for the new_table Workflow's `QUERIES`, or in
+`admin/workflows/convert/` for the convert Workflow's `FILES`, never in a Table folder.
 
 How-to: [Save a table](../sqlglot_composer/how_to.html#save_a_table), with the Starter Example
 project's `mart.alerts_per_severity` notebook filled in beside its Table reference.

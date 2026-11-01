@@ -77,10 +77,13 @@ block the user can paste into a notebook cell, then a few plain sentences.
    `# CONVERSION:` mark, which blocks nothing.
 7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
    notebook. Hive's plan, without running: `run_query(explain(s), query)`.
-8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`. In a Table notebook,
-   the cell after the lineage cell, `export_hive()`, writes the table's Hive into
-   <db>__<table>.hql beside the notebook: create(), any seed(), its Session settings, then
-   write(). `export_hive(s)` writes one Statement's.
+8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.
+9. To keep a Table notebook's Hive in a file: save the notebook, then run its
+   `export_hive()` cell, after the lineage cell. It writes <db>__<table>.hql beside the
+   notebook, such as tables/mart__job_day_events/mart__job_day_events.hql: create(), any
+   seed(), its Session settings, then write(), from the notebook as last saved. Never edit
+   it. `export_hive(weekly)` writes one Statement's Hive into weekly.hql, named for its
+   variable: one call per variable, never a loop.
 
 ## Worked example
 
