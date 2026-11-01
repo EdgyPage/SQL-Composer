@@ -76,9 +76,9 @@ Toolbox code, with files 11, 03, 04 and 05.
 - A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a
   query of its own, one row, a column per total, in order, with no label; name it in the map
   as `<Table> (Total Row)`.
-- But a summary Table's Total Row whose totals only add up SUMs or COUNTs, or take the MAX of
-  MAXes or MIN of MINs, needs no query of its own: the summary's query ends `GROUP BY a WITH
-  ROLLUP`, which adds the total as one more row, its a NULL (a Subtotal row).
+- A Total Row is never in the summary's own query: never end it `WITH ROLLUP`, as a Saved
+  table refuses a Subtotal row. Write only its own query, as above; rollup(...) is for a
+  later Statement that reads the saved summary (file 05), not this conversion.
 
 ## Order
 

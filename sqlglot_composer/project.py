@@ -3435,7 +3435,14 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
         return None, (f"no Partition in common: {dev}'s last is {_last_of(ours)}, and "
                       f"{original}'s {_last_of(theirs)}")
     latest = dict(pair.split("=", 1) for pair in common[-1].split("/"))
-    return latest, f"compared on {_partition_in_words(latest)}, the latest Partition both hold"
+    described = f"compared on {_partition_in_words(latest)}, the latest Partition both hold"
+    if len(common) > 1:
+        # One Partition is compared: the others both hold are named as left unchecked.
+        others = len(common) - 1
+        described += (f"; {counted(others, 'other Partition')} both tables hold "
+                      f"{singular_or_plural(others, 'was', 'were')} not compared: to compare "
+                      f'one, give compare_batch partition={{"{next(iter(latest))}": "..."}}')
+    return latest, described
 
 
 # What a compare's result says when the Partition you gave isn't held by both sides: it

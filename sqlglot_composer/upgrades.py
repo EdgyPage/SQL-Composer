@@ -495,7 +495,8 @@ def to_8_1(upgrade: Upgrade) -> None:
     decisions cell where its steps wait on Decisions, its new inputs and steps, and its last
     cell, run_workflow: each name its names cell gave stays, under any mark above it, and so
     does each step cell you write in, one whose call holds a ... to fill in, such as
-    change_a_saved_table's Admin statement. Each Template still as 8.0 wrote it is written
+    change_a_saved_table's Admin statement, once you wrote in it: one holding only lines this
+    version's cell has is written afresh. Each Template still as 8.0 wrote it is written
     again, and one you changed is marked. Each converted table's checklist.md is written again
     as the view of its Decisions, made or open, with no boxes to tick: a box ticked in 8.0 was
     ticked once its answer was in the Table reference, which keeps it."""
@@ -531,10 +532,17 @@ def _workflow_cells_with_yours(root: Path, workflow: Workflow,
             step = workflows.step_name_of(text) or step
         elif text == workflows.inputs_cell(workflow):
             text = _names_cell_with_given(workflow, given, marks)
-        elif step in written and "..." in text:
+        elif step in written and "..." in text and _written_in(written[step], text):
             text = written[step]
         cells.append((kind, text))
     return cells
+
+
+def _written_in(kept: str, fresh: str) -> bool:
+    """Whether a step cell was written in, not left as an earlier version wrote it: a line of
+    it isn't one of the cell this version writes, `fresh`, which then has each line it has."""
+    lines = set(fresh.split("\n"))
+    return any(line not in lines for line in kept.split("\n") if line.strip())
 
 
 def _step_cells_written(path: Path) -> dict[str, str]:

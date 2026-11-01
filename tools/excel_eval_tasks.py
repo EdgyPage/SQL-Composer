@@ -609,8 +609,9 @@ in
                                "runs": "=SUBTOTAL(109,by_job[runs])",
                                "longest": "=SUBTOTAL(104,by_job[longest])"}))),
         {"by_job": "SELECT job_id, SUM(duration_mins) AS total_mins, COUNT(*) AS runs, "
-                   "MAX(duration_mins) AS longest FROM ops.job_runs GROUP BY job_id WITH "
-                   "ROLLUP"}),
+                   "MAX(duration_mins) AS longest FROM ops.job_runs GROUP BY job_id",
+         "by_job (Total Row)": "SELECT SUM(duration_mins) AS total_mins, COUNT(*) AS runs, "
+                               "MAX(duration_mins) AS longest FROM ops.job_runs"}),
     ExcelTask(
         "X54", "dev", ("dates_more", "week_month_start", "short_form"),
         FormulaWorkbook((runs_table(("run_id", "dt"), formulas={

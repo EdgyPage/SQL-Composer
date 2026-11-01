@@ -8508,7 +8508,7 @@ statement(
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day_facts) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: events_per_job&#x27;s rows are told apart by job_id, dt, and SELECT leaves out events_per_job.dt, so nothing makes its rows one for each job_id.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=[&quot;job_id&quot;], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(job_day_facts, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
 <p><code>partition=</code> says where the rows go, and the reads which rows: keep them the same, with <code>WHERE(equals(events.dt, day))</code> as <code>one_day</code> does, or leave <code>partition=</code> out and let each row&#x27;s own day say, as <code>write_days</code> does. A table with no Key isn&#x27;t checked, so there nothing would stop it: each day&#x27;s Partition would hold the counts of three days.</p>
 <h5>Using INSERT_INTO for a window of days</h5>
@@ -12622,7 +12622,7 @@ GROUP BY
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day_events) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: job_events&#x27; rows are told apart by event_id, not by job_id, dt.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=[&quot;job_id&quot;], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(job_day_events, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
 <p>ops.job_events&#x27; own Key is event_id: without GROUP_BY, the rows written are its rows, one for each event, and nothing makes them one for each job and day.</p>
 <h5>The ways the Toolbox sees a Key</h5>
@@ -12956,7 +12956,7 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day_events) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: GROUP_BY groups by job_events.event_type, which SELECT leaves out, so nothing makes its rows one for each job_id, dt.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=[&quot;job_id&quot;], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(job_day_events, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
 <p>Either the Key is wrong, and should hold event_type too, or the write should group by the job and the day alone.</p>
 <h5>A join that can repeat rows</h5>
@@ -12972,7 +12972,7 @@ bool(rows.duplicated([&quot;job_id&quot;, &quot;dt&quot;]).any())</pre>
 <p class="label">Python stops with this message</p><pre class="refusal">GuardRefused:
   What happened:  INSERT_OVERWRITE(job_day_events) can&#x27;t show that each row it writes has a Key (job_id, dt) of its own: JOIN(team_notes, ON=...) can match several team_notes rows to one row, and team_notes declares no Key, so nothing makes its rows one for each job_id, dt.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key&#x27;s columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table&#x27;s whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=[&quot;job_id&quot;], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(job_day_events, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can&#x27;t see.</pre>
 <p>Group the joined rows by the Key, one row for each job and day, as <a href="#count_join_and_stay_safe">Count, join and stay safe</a> shows.</p>
 <h5>Checking every Partition by leaving where= out</h5>
@@ -16633,9 +16633,9 @@ FILES = []
 HIVE = None
 # the database of a table the Hive names without one
 DATABASE = &#x27;default&#x27;
-# each table&#x27;s copy in dev named as you name it, by the table&#x27;s name in the scripts,
-# such as {&quot;mart.team_fails&quot;: &quot;team_fails&quot;} for mart_dev.team_fails: left out, it is
-# &lt;table&gt;_&lt;its database&gt;, such as team_fails_mart
+# a name of your own for a table&#x27;s copy in dev, by the table&#x27;s full name, such as
+# {&quot;mart.team_fails&quot;: &quot;team_fails&quot;} for mart_dev.team_fails: left out, a copy is
+# &lt;table&gt;_&lt;its database&gt;, such as mart_dev.team_fails_mart
 RENAME = {}
 # each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
 # &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
@@ -16945,7 +16945,10 @@ flowchart TD
 TABLE = &#x27;&#x27;</pre>
 <p>Its steps:</p>
 <ul><li>1. Write the Admin statement for the change (it is a decision, yours to make).</li></ul>
-<pre class="python">table = project.table_reference(TABLE)
+<pre class="python">from sqlglot_composer import between, equals  # where= takes a Condition
+table = project.table_reference(TABLE)
+# such as where=equals(table.dt, &quot;2026-09-24&quot;), or a range of days,
+# where=between(table.dt, &quot;2026-09-01&quot;, &quot;2026-09-30&quot;), dt its partition column
 change = admin.drop_partitions(table, where=...)  # or another: help(admin)</pre>
 <ul><li>2. Print its Hive, and run the check its Check first line names (it changes only files, or only prints: run its cell).</li></ul>
 <pre class="python">show_hive(change)</pre>

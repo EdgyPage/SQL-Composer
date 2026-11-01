@@ -16778,7 +16778,7 @@ GROUP BY
 GuardRefused:
   What happened:  INSERT_OVERWRITE(daily_runs) can't show that each row it writes has a Key (job_id, dt) of its own: GROUP_BY groups by job_runs.dt, which SELECT leaves out, so nothing makes its rows one for each job_id.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=["job_id"], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(daily_runs, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can't see.
 
 == edge:create_table:tinyint
@@ -17197,7 +17197,7 @@ LOCATION '/data/your_team/mart.db/runs_per_job_day'
 ValueError:
   What happened:  create_table(stored): its Table reference has no location=.
   Why it matters: Each of your Saved tables is an external table, in a folder of its own: its location=.
-  Usual fix:      Add location=... to its Table(...) call, its own folder, such as location="/data/your_team/mart.db/daily_runs".
+  Usual fix:      Answer its location in the decisions cell of the Workflow you are in, such as DECISIONS = {"mart.stored": {"location": "/data/your_team/mart.db/stored"}}, then run its step that writes each answer in; or add location=... to its Table(...) call, its own folder, yourself.
   Opt-out:        none - this one can't be switched off.
 
 == edge:storage:location_with_a_scheme
@@ -18332,7 +18332,7 @@ WHERE
 GuardRefused:
   What happened:  INSERT_OVERWRITE(runs_per_job_day) can't show that each row it writes has a Key (job_id, dt) of its own: job_runs' rows are told apart by run_id, not by job_id.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=["job_id"], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(runs_per_job_day, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can't see.
 
 == edge:write:key:unproven_key
@@ -19324,7 +19324,7 @@ WHERE
 GuardRefused:
   What happened:  INSERT_OVERWRITE(job_teams) can't show that each row it writes has a Key (job_id) of its own: job_runs' rows are told apart by run_id, and SELECT leaves out job_runs.run_id, so nothing makes its rows one for each job_id.
   Why it matters: Hive never checks a Key, so rows that share one would be saved without a word, and every join and count that trusts the Key would repeat them.
-  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. The how-to on Keys shows each.
+  Usual fix:      Write one row for each Key: GROUP_BY the Key's columns, use SELECT_DISTINCT, or keep row_number(...) at 1 for each Key in a Derived table, and join only on each joined table's whole Key. When a table it reads declares no Key, though a column or a few tell its rows apart, add one to its Table reference by hand, such as key=["job_id"], once check_key(...) confirms it. The how-to on Keys shows each.
   Opt-out:        INSERT_OVERWRITE(job_teams, unproven_key=True), if each row has a Key of its own for a reason the Toolbox can't see.
 
 == edge:write:unpartitioned:refused:reads_every_partition

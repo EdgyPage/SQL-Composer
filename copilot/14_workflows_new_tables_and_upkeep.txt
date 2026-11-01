@@ -103,7 +103,10 @@ DEV and PROD, the Dev and Prod Databases, are set once in admin/databases.py.
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
 
+       from sqlglot_composer import between, equals  # where= takes a Condition
        table = project.table_reference(TABLE)
+       # such as where=equals(table.dt, "2026-09-24"), or a range of days,
+       # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
 2. Print its Hive, and run the check its Check first line names (it changes only files, or only
