@@ -1935,7 +1935,8 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 
 - Name the Workflow and the step the user is at; give the cells the user asks for, each as
   listed, and name the steps after them in words, not as cells: a step's cell may run only
-  once the steps before it are done.
+  once the steps before it are done. Only when the user asks for every step's cell, give
+  each later one as listed, in order.
 - Never invent a step or a call: only those listed here.
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
@@ -2083,5 +2084,6 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 - Name the Workflow and the step the user is at; give the cells the user asks for, each as
   listed, and name the steps after them in words, not as cells: a step's cell may run only
-  once the steps before it are done.
+  once the steps before it are done. Only when the user asks for every step's cell, give
+  each later one as listed, in order.
 - Never invent a step or a call: only those listed here.

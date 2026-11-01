@@ -95,5 +95,8 @@ Built 2026-10-31.
 - File 13's held-out score, settled: with the user away, files 13 and 14 were changed as
   recommended, to give the cells asked for and name the later steps in words (reversible if
   the user prefers every cell). T37 led to it, so it became a dev task, and T38, written before
-  any run, held out: run once, files e805b0a4, 1 of 1, recorded in results.md.
+  any run, held out: run once, files e805b0a4, 1 of 1, recorded in results.md. The user,
+  2026-11-01: "1 by default, but give the option for every cell. Every cell was getting to be
+  a hassle in the actual process that bogged down the process." So files 13 and 14 give the
+  cells asked for by default, and every later step's cell only when the user asks for them.
 - Beginner reader: [12-beginner-reader.md](../reports/12-beginner-reader.md).
