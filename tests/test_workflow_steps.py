@@ -190,3 +190,13 @@ def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None
     assert ("ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on "
             "nothing: fill it in when you like.") in said
     assert "Each Decision of ops.job_runs is made." in said
+
+
+@pytest.mark.parametrize("workflow", workflows.WORKFLOWS,
+                         ids=lambda workflow: workflow.name)
+def test_each_step_s_text_cell_says_its_goal_action_and_when_it_is_done(
+        workflow: object) -> None:
+    # Toolbox 8.2, 18: each step's text cell is written to docs/agents/instruction-rules.md, so
+    # a step left without its goal, action or done-when would write "Goal: ." unnoticed.
+    for step in workflow.steps:
+        assert step.goal and step.action and step.done_when, step.name

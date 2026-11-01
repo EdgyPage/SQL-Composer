@@ -4,33 +4,43 @@ For: Getting started
 
 ## Goal
 
-Keep your Project's files and its tables in step as they change. The registry lists every
-Table folder, Table reference, Building block and Conversion folder a Project action made:
+Keep your Project's files and its tables in step as they change. A Project is your folder of
+scripts at work, in the Toolbox's fixed layout, and a Project action is a one-time change to
+its files, such as `project.new_table`. The registry is the Project's list of every Table
+folder, Table reference, Building block and Conversion folder a Project action made:
 `project.check()` says what it gets wrong, and `project.register` adopts a file made by hand.
-The Reference sheet lists every column of every table in one CSV file.
+A Table reference is the file that describes one table; a Table folder holds everything about
+one Saved table, a table your Statements write; a Building block is a piece of your own code
+reused across notebooks. The Reference sheet lists every column of every table in one CSV file.
 admin/check_references.ipynb compares each Table reference with its table in the warehouse. The
-`project.remove_*` actions archive what you no longer need, deleting nothing. And the Levels say
-which of your files may import which.
+`project.remove_*` actions archive what you no longer need, deleting nothing. And the Levels,
+the three tiers of your own files, say which of your files may import which.
 
 ## When you'd use it
 
-- After you copy in a file by hand, such as a colleague's Table reference, or move or delete
-  one.
-- When you look for a column and don't know which table has it, or someone new asks what the
-  Project's tables hold.
-- On a schedule, say every Monday, and whenever a table's owners say it changed: a table goes
-  on changing after its Table reference is written, and a Table reference out of date lets
-  through Statements the warehouse then refuses.
-- When a Saved table, a Table reference or a Building block is no longer needed.
+- If you copy in a file by hand, such as a colleague's Table reference, run `project.check()`
+  and adopt it with `project.register` (steps 3 and 4).
+- If you move or delete a file by hand, run `project.check()`: it says the call that mends the
+  registry.
+- If you look for a column and don't know which table has it, or someone new asks what the
+  Project's tables hold, read the Reference sheet (steps 6 and 7).
+- If a table's owners say it changed, or on a schedule, say every Monday, check each Table
+  reference against its table (steps 8 and 9): a table goes on changing after its Table
+  reference is written, and a Table reference out of date lets through Statements the
+  warehouse then refuses.
+- If a Saved table, a Table reference or a Building block is no longer needed, archive it
+  (step 10).
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
+
+Goal: a Project with Table references, a Building block and a Saved table to keep in order.
 
 [Follow lineage](#follow_lineage) left the Project with its Table references, its Building
-block and its Saved tables. This how-to looks at the Project's files rather than
-running its notebooks, so the steps make it again with the three Table references filled in,
-the Building block as `project.new_block` writes it, and one Saved table,
+block and its Saved tables. This how-to looks at the Project's files rather than running its
+notebooks, so the calls below make it again with the three Table references filled in, the
+Building block as `project.new_block` writes it, and one Saved table,
 mart.alerts_per_severity, whose Table reference is filled in:
 
 >>> import csv
@@ -124,11 +134,13 @@ The file `references/mart__alerts_per_severity.py`, after you fill it in:
         location="/data/your_team/mart.db/alerts_per_severity",
     )
 
-### Read the registry, and check it
+Done when the four Table references are filled in as shown. Then step 2.
 
-Each Project action adds a row to the registry, admin/registry.csv: what it made, the table or
-Building block, when, and, once it is archived, when that was. You never edit it; the Project
-actions do:
+### 2. Read the registry
+
+Goal: what each Project action made. Each Project action adds a row to the registry,
+admin/registry.csv: what it made, the table or Building block, when, and, once it is archived,
+when that was. The Project actions write it; leave it to them:
 
 >>> registry = pd.read_csv("admin/registry.csv", keep_default_na=False)  # -> DataFrame
 >>> registry[["kind", "table", "removed_at"]]
@@ -140,17 +152,24 @@ actions do:
 4    table_folder  mart.alerts_per_severity
 5       reference  mart.alerts_per_severity
 
-`project.check()`, which the admin notebook admin/check_project.ipynb runs, compares the
-registry with the files, and changes nothing:
+Done when the registry has six rows, none removed. Then step 3.
+
+### 3. Check the registry against the files
+
+Goal: know whether the registry and the files agree. `project.check()`, which the admin
+notebook admin/check_project.ipynb runs, compares the registry with the files, and changes
+nothing:
 
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.
 
-### Adopt a file made by hand with project.register
+Done when it says every one is registered and there. Then step 4.
 
-Say a colleague gives you the Table reference they wrote for `ops.scheduler_runs`, and you copy
-it into references/:
+### 4. Adopt a file made by hand with project.register
+
+Goal: a file made by hand listed in the registry. Say a colleague gives you the Table reference
+they wrote for `ops.scheduler_runs`, and you copy it into references/:
 
 The file `references/ops__scheduler_runs.py`, after you copy it in:
 
@@ -180,29 +199,37 @@ Restart the kernel of a notebook that imported references, to see a table added 
 `project.register` takes a table's name, with its database, for its Table folder or Table
 reference, and a Building block's name, with no dot, such as `project.register("runs_per_job")`,
 for its file in building_blocks/. It also wrote the Database modules again, so
-`from references import ops` now gives `ops.scheduler_runs` too.
+`from references import ops` now gives `ops.scheduler_runs` too. A Database module, such as
+references/ops.py, is the one file that gives each table of a Database, the first part of a
+table's name, `ops` in `ops.jobs`.
 
-### Keep each file to its Level
+Done when it says `Registered references/ops__scheduler_runs.py.` Then step 5.
 
-Your files sit at three Levels, and a file imports only from the Toolbox and from Levels below
-its own, never from its own Level or one above:
+### 5. Keep each file to its Level
 
-| Level | Files | May import |
-|---|---|---|
-| 0 | references/: each Table reference and Database module; warehouse.py | the Toolbox; a Database module also imports the Table references of its Database |
-| 1 | building_blocks/: each Building block | the Toolbox and Level 0 |
-| 2 | each Table notebook's logic cell | the Toolbox, Level 0 and Level 1 |
+Goal: imports that never break a file at a lower Level. Your files sit at three Levels, and a
+file imports only from the Toolbox and from Levels below its own:
+
+- Level 0, references/, each Table reference and Database module, and warehouse.py: imports
+  the Toolbox; a Database module also imports the Table references of its Database;
+- Level 1, building_blocks/, each Building block: imports the Toolbox and Level 0;
+- Level 2, each Table notebook's logic cell: imports the Toolbox, Level 0 and Level 1.
 
 What runs many Table notebooks in order, such as admin/run_tables.ipynb, sits above the three,
-and may read them all. So a Table reference never imports a Building block, and a Building
-block never imports another: a block that reads another takes the Derived table it gives back
-as an argument, from the notebook that imports both, as [Share Building
-blocks](#share_building_blocks) says. A file changed at one Level then never breaks one below
-it, and `project.load` can run any notebook's logic from anywhere in the Project. Nothing
-stops an import that breaks the Levels: keep to them as you write.
+and may read them all. So a Table reference imports no Building block, and a Building block
+imports no other: a block that reads another takes the Derived table it gives back as an
+argument, from the notebook that imports both, as [Share Building
+blocks](#share_building_blocks) says. A Derived table is a Statement given a name so another
+Statement can read from it. A file changed at one Level then never breaks one below it, and
+`project.load` can run any notebook's logic from anywhere in the Project. Nothing stops an
+import that breaks the Levels: keep to them as you write.
 
-### Read the Reference sheet
+Done when each file you write imports only from the Toolbox and from Levels below its own. Then
+step 6.
 
+### 6. Write the Reference sheet
+
+Goal: references/reference_sheet.csv, written from your Table references.
 `project.refresh_reference_sheet()`, from admin/refresh_reference_sheet.ipynb, writes
 references/reference_sheet.csv from the Table references in references/, never from the
 warehouse, so it says what your files say:
@@ -210,10 +237,16 @@ warehouse, so it says what your files say:
 >>> project.refresh_reference_sheet()
 Wrote references/reference_sheet.csv: 20 rows, 5 tables.
 
-It has a row per column of each table: the table and the column, its Hive type, "yes" under
-partition and in_key for each partition column and each column of the Key, its Aliases (a
-condition shown as "failed (a condition)"), its description, and exported_at, when the sheet
-was written. Read it in a spreadsheet, or in pandas. Python's `csv` module keeps an empty cell
+Done when it says it wrote 20 rows, 5 tables. Then step 7.
+
+### 7. Read the Reference sheet
+
+Goal: find a column, and the tables that have it. The sheet has a row per column of each
+table: the table and the column, its Hive type, "yes" under
+partition and in_key for each partition column and each column of the Key, the columns whose
+values name one row, its Aliases, the names you give a column or a condition in a Table
+reference (a condition shown as "failed (a condition)"), its description, and exported_at,
+when the sheet was written. Read it in a spreadsheet, or in pandas. Python's `csv` module keeps an empty cell
 as empty text, `""`, so `sheet.aliases != ""` picks the filled ones:
 
 >>> with open("references/reference_sheet.csv", encoding="utf-8", newline="") as file:
@@ -238,15 +271,18 @@ Every Alias, and the column it reads:
 After you change one Table reference, `project.refresh_reference_sheet("ops.job_runs")`
 refreshes its rows alone, as a Table notebook's last cell does for its own table.
 
-### Check each Table reference against its table
+Done when you have the three tables with a job_id column, and the three Aliases. Then step 8.
 
+### 8. Check each Table reference against its table
+
+Goal: know whether each Table reference still matches its table in the warehouse.
 admin/check_references.ipynb compares every table the Reference sheet lists with the table in
 the warehouse, through your query: DESCRIBE FORMATTED, Hive's fuller DESCRIBE, lists the
 table's columns, their types and its partition columns, and never its rows. It prints what
 differs, with the line to change, then checks each Key it can. Run it in Jupyter, top to
-bottom. At its heart is
-`check_table_reference`, which gives back a Verdict; here, on each Table reference, with the
-Project's query from warehouse.py:
+bottom. At its heart is `check_table_reference`, which gives back a Verdict, whose `.ok` says
+whether the check found nothing wrong; here, on each Table reference, with the Project's query
+from warehouse.py:
 
 >>> from references import mart, ops
 >>> for table in [ops.jobs, ops.job_runs, ops.run_alerts, mart.alerts_per_severity]:
@@ -265,13 +301,18 @@ mart.alerts_per_severity: DESCRIBE FORMATTED failed, so nothing was compared. Ch
     Opt-out:        none - this one can't be switched off.
 
 The Saved table reports that DESCRIBE FORMATTED failed: it exists only once its notebook's
-create() has made it in your warehouse, and the Example database holds none, so that is
-expected here, as the notebook reports for each Saved table of the Starter Example project. At
-work, a Saved table you have created is compared like the others.
+create() has made it in your warehouse, and the Example database, the small made-up tables
+this page runs on, holds none, so that is expected here, as the notebook reports for each
+Saved table of the Starter Example project. At work, a Saved table you have created is
+compared like the others.
 
-When a table changes under its Table reference, the check says how. Say the team that owns
-`ops.jobs` adds a column, `"owner"`. A stand-in query plays the warehouse after that change: it
-answers DESCRIBE FORMATTED with the new columns, and passes every other query on:
+Done when each table the warehouse holds says it matches its Table reference. Then step 9.
+
+### 9. Read what the check says when a table changes
+
+Goal: the line to add or change when a table changes under its Table reference. Say the team
+that owns `ops.jobs` adds a column, `"owner"`. A stand-in query plays the warehouse after that
+change: it answers DESCRIBE FORMATTED with the new columns, and passes every other query on:
 
 >>> def query_after_the_change(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("DESCRIBE"):
@@ -288,13 +329,21 @@ Notes:
 It still matches, since a Note may not matter: a column the Table reference doesn't list is
 just not there for your Statements. A Problem, listed under Problems, such as a column gone or
 a type changed, makes Statements wrong or the warehouse refuse them: fix every one, writing the
-line it gives into the Table reference. The check never edits your file. Then refresh the
-table's rows in the Reference sheet.
+line it gives into the Table reference. The check leaves your file as it is, so you write the
+line. Then refresh the table's rows in the Reference sheet.
 
-### Archive what you no longer need
+- If the check lists a Note, add the line it gives if you want the column; your Statements
+  stay right either way.
+- If the check lists a Problem, write the line it gives into the Table reference, then refresh
+  the table's rows in the Reference sheet.
 
-Say you made a Table folder for mart.job_minutes, and then found mart.daily_job_runs holds its
-numbers already:
+Done when the check lists the Note about owner. Then step 10.
+
+### 10. Archive what you no longer need
+
+Goal: a Table folder and its Table reference moved to admin/removed/, nothing deleted. Say you
+made a Table folder for mart.job_minutes, and then found mart.daily_job_runs holds its numbers
+already:
 
 >>> project.new_table("mart.job_minutes")
 Made tables/mart__job_minutes/: mart__job_minutes.ipynb and lineage/, from
@@ -310,10 +359,21 @@ Moved tables/mart__job_minutes/ to admin/removed/...-mart__job_minutes/.
 >>> project.remove_reference("mart.job_minutes")
 Moved references/mart__job_minutes.py to admin/removed/...-mart__job_minutes.py.
 
-Nothing is deleted, and nothing in the warehouse changes: a table you created stays there until
-you drop it with an Admin statement, a Statement that changes one of your Saved tables in the
-warehouse, such as dropping it. The admin module makes them; import it by name, since the star
-import leaves it out:
+`project.remove_block` archives a Building block the same way, from admin/remove.ipynb. Each
+refuses while something still needs what it archives: `project.remove_reference` while the
+table has a Table folder, whose notebook imports it, and `project.remove_block` while a Table
+notebook or another Building block imports the block, naming each. So archive the Table folder
+first, then its Table reference, as here.
+
+Done when both are moved to admin/removed/. Then step 11.
+
+### 11. Drop a table you created, with an Admin statement
+
+Goal: a table you created gone from the warehouse, once you mean it. Nothing is deleted, and
+nothing in the warehouse changes: a table you created stays there until you drop it with an
+Admin statement, a Statement that changes one of your Saved tables in the warehouse, such as
+dropping it. The admin module makes them; import it by name, since the star import leaves it
+out:
 
 >>> from sqlglot_composer import admin
 
@@ -322,10 +382,8 @@ import leaves it out:
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb does. `help(admin)` lists
 every Admin statement.
 
-`project.remove_block` archives a Building block the same way, from admin/remove.ipynb. Each refuses while something still needs what it archives:
-`project.remove_reference` while the table has a Table folder, whose notebook imports it, and
-`project.remove_block` while a Table notebook or another Building block imports the block,
-naming each.
+Done when `from sqlglot_composer import admin` runs; this page drops nothing, since
+mart.job_minutes was never created. Then check it worked, below.
 
 ## Check it worked
 
@@ -340,6 +398,13 @@ nothing amiss:
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.
+
+Before you go on, check that:
+
+- the registry marks mart.job_minutes' Table folder and Table reference removed;
+- `project.check()` says every one is registered and there;
+- references/reference_sheet.csv lists ops.scheduler_runs, the file you adopted;
+- admin/removed/ holds mart__job_minutes' folder and file.
 
 ## Common mistakes
 

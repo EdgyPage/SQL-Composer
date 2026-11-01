@@ -5,26 +5,33 @@ For: Intermediate
 ## Goal
 
 Before you change a Building block that several Statements read, see what the change does to
-each of them, and check that they give the numbers you meant. Export their Lineage before the
-change and after it and compare the two Markdown files line by line; then work the same
-answer out a second way, in pandas, from the rows themselves, and compare the two with plain
-`assert`s.
+each of them, and check that they give the numbers you meant. A Building block is a piece of
+your own code that several notebooks reuse, such as a filter or a Derived table; a Statement
+is one query, built from the Toolbox's Clause functions. Export the Statements' Lineage, the
+record of which table columns feed each output column, before the change and after it, and
+compare the two Markdown files line by line. Then work the same answer out a second way, in
+pandas, from the rows themselves, and compare the two with plain `assert`s.
 
 ## When you'd use it
 
-Before you change a Building block or a Table reference that other Statements rely on, when
-you review someone else's change, and before a Statement's numbers are read by other people.
-The lines that differ between the two Markdown files are what the change does, Statement by
-Statement, whatever the code looked like. The Toolbox's Guards and Warnings catch mistakes of a
-known shape, such as a join that repeats rows; only a test catches a Statement that counts the
-wrong thing.
-
-It needs [Share Building blocks](#share_building_blocks), [Save a table](#save_a_table) and
-[Follow lineage](#follow_lineage).
+- If you are about to change a Building block or a Table reference that other Statements
+  rely on, follow these steps before and after the change.
+- If you review someone else's change, compare the Lineage before and after it: the lines
+  that differ are what the change does, Statement by Statement, whatever the code looked like.
+- If other people will read a Statement's numbers, test it against a second answer first. The
+  Toolbox's Guards and Warnings catch mistakes of a known shape, such as a join that repeats
+  rows; only a test catches a Statement that counts the wrong thing.
+- If you haven't yet, read [Share Building blocks](#share_building_blocks),
+  [Save a table](#save_a_table) and [Follow lineage](#follow_lineage) first: this how-to
+  needs all three.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
+
+Goal: a Project to work in, with the Building block and the notebooks that read it. An
+Example project is a Project made for the Example database's tables, filled in, to read and
+copy from.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -38,6 +45,15 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
+Done when the folder you work in holds the Project's admin/, references/, building_blocks/
+and tables/. Then step 2.
+
+### 2. Import what the steps call
+
+Goal: the names every step below reads. Import Python's `difflib` and pandas, every Toolbox
+name, the Toolbox's project module, your `query` and `execute` from the Project's
+warehouse.py, and the tables of the Database ops, a named group of tables:
+
 >>> import difflib
 >>> import pandas as pd
 >>> from sqlglot_composer import *
@@ -46,17 +62,21 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> from references import ops
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table
 
-### The Building block and the Statements that read it
+Done when the imports run without an error. Then step 3.
 
+### 3. Build the Statements that read the Building block
+
+Goal: the Statements the change will reach, built by one call you can make again.
 building_blocks/events_per_job.py is a Building block, as [Share Building
-blocks](#share_building_blocks) shows: a Derived table of each job's events, runs and minutes
-per day. A run's minutes are on the event that ends it, finish or fail. Two notebooks read it:
-mart.job_day_facts saves its numbers, and mart.team_days checks a team's day from them.
+blocks](#share_building_blocks) shows: a Derived table, a Statement named so another can read
+from it, of each job's events, runs and minutes per day. A run's minutes are on the event that
+ends it, finish or fail. Two notebooks read it: mart.job_day_facts saves its numbers, and
+mart.team_days checks a team's day from them.
 
 `project.load` gives a Table notebook's logic, its functions, as `project.run_tables` reads
-them. A function of yours builds the two Statements from them, so after you change the
-Building block, one call builds them again; `project.load` reads the files as they are at
-that moment:
+them; a Table notebook is the notebook that creates and writes one Saved table. A function of
+yours builds the two Statements from them, so after you change the Building block, one call
+builds them again; `project.load` reads the files as they are at that moment:
 
 >>> def build_statements(day: str) -> tuple[Statement, Statement]:
 ...     facts = project.load("mart.job_day_facts")
@@ -68,9 +88,11 @@ that moment:
 0     data       2     1       14
 1  finance       4     2       34
 
-### A second answer, in pandas
+Done when `run_query(team_day, query)` gives the data and finance rows above. Then step 4.
 
-Before changing anything, check that `team_day` gives the numbers you mean. Fetch the rows
+### 4. Work out a second answer, in pandas
+
+Goal: an answer to check `team_day` against, before you change anything. Fetch the rows
 themselves, every column of every event of the day, and each job's team that day, and work
 the answer out in pandas, which counts in a way of its own. This is an oracle, an answer you
 trust because you can read each step of it:
@@ -101,11 +123,14 @@ trust because you can read each step of it:
 Fetching every row is fine for a test over a day or two; it is what the Statement saves you
 from on the whole table.
 
-### Compare the two with assert
+Done when the oracle gives the same rows as `team_day` did in step 3. Then step 5.
 
-`assert` stops with an AssertionError when what follows it is False, and does nothing when it
-is True. `same_rows` puts each DataFrame's rows in one order, by `"team"`, and turns them into
-a list of plain dicts, which compare with `==` as Python lists do:
+### 5. Compare the two with assert
+
+Goal: a test that stops when the Statement and the oracle disagree. `assert` stops with an
+AssertionError when what follows it is False, and does nothing when it is True. `same_rows`
+puts each DataFrame's rows in one order, by `"team"`, and turns them into a list of plain
+dicts, which compare with `==` as Python lists do:
 
 >>> def same_rows(result: pd.DataFrame, expected: pd.DataFrame) -> bool:
 ...     return (result.sort_values("team").to_dict("records")
@@ -119,25 +144,33 @@ a list of plain dicts, which compare with `==` as Python lists do:
 It printed nothing, so the `assert` held. Choose the days to hold the awkward cases: here
 2026-09-18, when report_build failed, so a run ended without finishing.
 
-### Export the Lineage before the change
+Done when `test_team_day` prints nothing. Then step 6.
 
-Pass both Statements to [`export_lineage`](examples.html#export_lineage), so one Lineage covers
-everything the Building block feeds. `to=` gives the files a name you can find again;
-otherwise each export gets a new name, from the time it ran:
+### 6. Export the Lineage before the change
+
+Goal: a record of what the Statements do now, to compare with later. Pass both Statements to
+[`export_lineage`](examples.html#export_lineage), so one Lineage covers everything the
+Building block feeds. `to=` gives the files a name you can find again; without it, each export
+gets a new name, from the time it ran:
 
 >>> html_file, markdown_file = export_lineage(facts_write, team_day,
 ...                                           to="before.html")  # -> tuple[Path, Path]
 
 The Markdown file holds, for each Statement, every calculated column with the table columns it
 comes from and the conditions that decide which rows count, then the copied columns, then the
-Keys, then the Hive, as [Follow lineage](#follow_lineage) shows. Open the HTML page in your
-browser to see the same drawn.
+Keys, then the Hive, as [Follow lineage](#follow_lineage) shows. A Key is the columns whose
+values name exactly one row of a table. Open the HTML page in your browser to see the same
+drawn.
 
-### Change the Building block
+Done when the folder holds before.html and before.md. Then step 7.
 
-Say a failed run's minutes shouldn't count, only a finished run's: the minutes line of
-events_per_job changes, from where=ends_a_run, the Alias of a finish or a fail, to
-`where=equals(job_events.event_type, "finish")`, and its docstring and imports with it:
+### 7. Change the Building block
+
+Goal: the new meaning, in the one file that holds it. Say only a finished run's minutes count
+now, and a failed run's count none: the minutes line of events_per_job changes, from
+where=ends_a_run, the Alias of a finish or a fail, to
+`where=equals(job_events.event_type, "finish")`, and its docstring and imports with it. An
+Alias is a name you give by hand, in a Table reference, to a column or a condition:
 
 The file `building_blocks/events_per_job.py`, after you change it:
 
@@ -181,21 +214,37 @@ The file `building_blocks/events_per_job.py`, after you change it:
             ),
         )
 
-Then build the Statements again, since each holds the Building block as it was when it was
-built, and export the Lineage after:
+Done when building_blocks/events_per_job.py holds the file above. Then step 8.
+
+### 8. Build the Statements again
+
+Goal: Statements that hold the changed Building block. Each Statement holds the Building block
+as it was when it was built, so build them again with `build_statements`, keeping the old
+`team_day` as `team_day_before`:
 
 >>> team_day_before = team_day
 >>> facts_write, team_day = build_statements("2026-09-18")
+
+Done when `build_statements` runs without an error. Then step 9.
+
+### 9. Export the Lineage after the change
+
+Goal: a record of what the changed Statements do. Export the same two Statements again, to
+after.html:
+
 >>> html_file, markdown_file = export_lineage(facts_write, team_day,
 ...                                           to="after.html")  # -> tuple[Path, Path]
 
-### Compare the two Markdown files
+Done when the folder holds after.html and after.md beside the before files. Then step 10.
 
-Python's `difflib.ndiff` compares two lists of lines and marks each line that only the first
-holds with "- ", and each that only the second holds with "+ ". `changed_lines` prints those
-lines, each under the part of the Markdown file it is in: the Statement, from its `##`
-heading, then the column or the Hive, from the heading under that. It leaves out the last line
-of each file, which says when the file was made, and so differs every time:
+### 10. Compare the two Markdown files
+
+Goal: the lines the change made differ, Statement by Statement. Python's `difflib.ndiff`
+compares two lists of lines and marks each line that only the first holds with "- ", and each
+that only the second holds with "+ ". `changed_lines` prints those lines, each under the part
+of the Markdown file it is in: the Statement, from its `##` heading, then the column or the
+Hive, from the heading under that. It leaves out the last line of each file, which says when
+the file was made, and so differs every time:
 
 >>> def changed_lines(before_file: str, after_file: str) -> None:
 ...     before = Path(before_file).read_text(encoding="utf-8").splitlines()
@@ -261,11 +310,14 @@ events_per_job, the calculation changed, so every number added up from it may ch
 both Statements; in each Hive, the minutes' CASE WHEN changed. Nothing else did: no column came
 or went, and no column takes its value from anywhere new.
 
-### Test the change
+Done when every changed line is under a minutes column or a Hive's minutes. Then step 11.
 
-Run the test's comparison again. It fails on 2026-09-18, the day report_build failed: the
-oracle still counts a failed run's minutes, and the changed Building block doesn't. The
-finance team's minutes fell by 12, the minutes report_build ran before it failed:
+### 11. Run the test against the old oracle
+
+Goal: see the change on the numbers. Run the test's comparison again. It fails on 2026-09-18,
+the day report_build failed: the oracle still counts a failed run's minutes, and the changed
+Building block doesn't. The finance team's minutes fell by 12, the minutes report_build ran
+before it failed:
 
 >>> result = run_query(team_day, query)
 >>> expected = oracle(rows_of("2026-09-18"), ending=["finish", "fail"])
@@ -280,13 +332,22 @@ AssertionError: 2026-09-18:
 0     data       2     1       14
 1  finance       4     2       34
 
-That is the change doing what it was meant to, on exactly the day and team it was meant to:
-change the oracle to the new meaning, finished runs only, and test it on several days, the
-awkward ones among them. `test_team_day` prints nothing when every `assert` holds:
+That is the change doing what it was meant to, on exactly the day and team it was meant to.
+
+Done when the AssertionError shows only finance's minutes differing, 22 against 34. Then
+step 12.
+
+### 12. Test the new meaning on several days
+
+Goal: a test that holds for the new meaning. Change the oracle to finished runs only,
+`ending=["finish"]`, and test it on several days, the awkward ones among them.
+`test_team_day` prints nothing when every `assert` holds:
 
 >>> for day in ["2026-09-14", "2026-09-18", "2026-09-24"]:
 ...     facts_write, team_day = build_statements(day)
 ...     test_team_day(team_day, day, ending=["finish"])
+
+Done when the loop prints nothing. Then check it worked, below.
 
 ## Check it worked
 
@@ -298,6 +359,13 @@ True
 >>> 'where=equals(job_events.event_type, "finish")' in Path("before.md").read_text(
 ...     encoding="utf-8")
 False
+
+Before you go on, check that:
+
+- `changed_lines("before.md", "after.md")` lists changes only under minutes and the Hive;
+- the after file names `where=equals(job_events.event_type, "finish")`, and the before file
+  doesn't, as above;
+- `test_team_day` with `ending=["finish"]` prints nothing on each day you test.
 
 ## Common mistakes
 
@@ -315,7 +383,7 @@ False
 Build the Statements again after each change, with `build_statements`, then export. A
 function you imported yourself from the Building block also stays as it was until you
 restart the notebook's kernel: `project.load` reads the files again each time, an import of
-your own doesn't.
+your own reads them once.
 
 ### Comparing two DataFrames with ==
 
@@ -354,8 +422,8 @@ message stops you:
 >>> same_rows(result, result)
 True
 
-Work the oracle out from the rows themselves, as `oracle` does from `rows_of`, and in another
-way than the Statement does.
+Work the oracle out from the rows themselves, as `oracle` does from `rows_of`, and count in a
+way of its own, apart from the Statement's.
 
 ## Next
 

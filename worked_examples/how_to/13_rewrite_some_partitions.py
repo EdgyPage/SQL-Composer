@@ -4,35 +4,44 @@ For: Intermediate
 
 ## Goal
 
-Rewrite some of a Saved table's Partitions, and leave the rest as they are: a range of days of
+Rewrite some of a Saved table's Partitions, and leave the rest as they are. A Saved table is a
+real table in the warehouse that your own Statements write; a Partition is a slice of a table,
+the rows that share one value of each column it is partitioned by. You write a range of days of
 a table partitioned by its day, in one write that fills each Partition from its rows, or in a
 loop of writes that each name their Partition with `partition={...}`; the last few days again
 on every run, for rows that come in late; a table partitioned by region, written a region at a
-time; and a table whose source writes its days another way. Then write several Saved tables in
-order with `project.run_tables`.
+time; and a table whose source writes its days another way. Then you write several Saved
+tables in order with `project.run_tables`.
 
 ## When you'd use it
 
-- When a Saved table is new, and the Partitions it should already hold are empty: a backfill.
-- After fixing a mistake in a write, since every Partition it wrote holds the mistake.
-- When rows can come in late, such as a bill a day or two after its day, so the last few days
-  of a table that counts them must be written again on each run.
-- When one region's numbers changed, and the other regions' Partitions should stay as they
-  are.
+- If a Saved table is new, and the Partitions it should already hold are empty, write the
+  range in one backfill, as steps 4 to 7 do.
+- If you fixed a mistake in a write, rewrite every Partition it wrote, since each holds the
+  mistake.
+- If rows can come in late, such as a bill a day or two after its day, rewrite the last few
+  days of the table that counts them on each run, as step 8 shows.
+- If a backfill covers more days than one Statement should read at once, write it a Partition
+  at a time, in a loop, as steps 9 to 12 do.
+- If one region's numbers changed, rewrite that region's Partition alone, and the other regions'
+  Partitions stay as they are, as steps 13 and 14 do.
+- If several Saved tables read one another, write them in order with `project.run_tables`, as
+  step 16 does.
+- If you have not yet done the Getting started how-tos, do
+  [Share Building blocks](#share_building_blocks) and [Save a table](#save_a_table) first.
 
 The Example database can't be written to, so on this page each write shows its Hive, and is
 sent through the Project's execute, which here prints the first line of what it would send
 and changes nothing. The rows a write would save are checked with a plain SELECT first, which
 the Example database does run.
 
-It needs the Getting started how-tos [Share Building blocks](#share_building_blocks) and [Save
-a table](#save_a_table).
-
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
+Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox's fixed
+layout, and an Example project is one made for the Example database's tables, to read and copy
+from. Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
 `sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
 makes the same copy in its first step, from the download the Toolbox came in, and runs its
@@ -44,16 +53,24 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the `project` module, and your query and execute:
+Done when the folder holds the Intermediate Example project's files. Then step 2.
+
+### 2. Import the Toolbox, project, query and execute
+
+Goal: every name the steps call. Import the Toolbox, the `project` module, and your query and
+execute:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from warehouse import query, execute
 
-### Load a Table notebook's logic
+Done when the three imports run without an error. Then step 3.
 
-mart.job_day_facts holds each job's events, runs and minutes per day, beside the team that
-owned the job that day. It is partitioned by its day, dt. Its Table notebook,
+### 3. Load a Table notebook's logic
+
+Goal: the table's functions, in your notebook. mart.job_day_facts holds each job's events, runs
+and minutes per day, beside the team that owned the job that day. It is partitioned by its day,
+dt. Its Table notebook, the notebook whose cells create and write the table,
 tables/mart__job_day_facts/mart__job_day_facts.ipynb, defines its steps as functions in its
 logic cell, and `project.load` gives them, from any notebook of the Project:
 
@@ -90,17 +107,20 @@ These are the functions of its logic cell this how-to uses, as the notebook has 
     def write() -> Statement:
         return write_days(first_day_written(DAY), DAY)
 
-`events_per_job`, a Building block, counts each job's day of `ops.job_events`, and keeps the
-day, dt, in its GROUP_BY and its SELECT, so each day's numbers stay apart. `owner_on_day`
-joins each row to the team that owned the job that day.
+`events_per_job`, a Building block, a piece of your own code reused across notebooks, counts
+each job's day of `ops.job_events`, and keeps the day, dt, in its GROUP_BY and its SELECT, so
+each day's numbers stay apart. `owner_on_day` joins each row to the team that owned the job
+that day.
 
-### Write a range of days in one write
+Done when `facts` lists create, rows, preview, write_days and write. Then step 4.
 
-`write_days` builds one write over a whole range of days. `INSERT_OVERWRITE` with no
-`partition=` fills the table's partition column, dt, from each row's own day, and replaces only
-the days the rows hold: any other day of the table keeps what it held. The partition column may
-go anywhere in SELECT: the Toolbox puts it last, where Hive takes it from. Here, the 14 days
-the Example database holds:
+### 4. Build a write over a range of days
+
+Goal: one write that fills each day's Partition from its rows. `write_days` builds one write
+over a whole range of days. `INSERT_OVERWRITE` with no `partition=` fills the table's partition
+column, dt, from each row's own day, and replaces only the days the rows hold: any other day of
+the table keeps what it held. The partition column may go anywhere in SELECT: the Toolbox puts
+it last, where Hive takes it from. Here, the 14 days the Example database holds:
 
 >>> backfill = facts.write_days("2026-09-11", "2026-09-24")  # -> Statement
 >>> text = show_hive(backfill)  # -> str
@@ -126,12 +146,16 @@ LEFT JOIN ops.job_owners AS job_owners
 
 PARTITION(dt) names no day: Hive takes each row's day from its last column. Filling
 Partitions from the rows needs Hive's dynamic partitioning switched on, the two SET lines
-above the write: the Session setting "dynamic_partitions".
+above the write: the Session setting "dynamic_partitions". A Session setting is a Hive SET
+sent before a Statement, which holds for the rest of the session.
 
-### Check the rows first
+Done when the Hive reads `INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt)`. Then
+step 5.
 
-`facts.preview()` is the same rows as a plain SELECT, for the days `write()` writes, which
-the Example database runs:
+### 5. Check the rows first
+
+Goal: see the rows a write would save, before it saves them. `facts.preview()` is the same
+rows as a plain SELECT, for the days `write()` writes, which the Example database runs:
 
 >>> run_query(facts.preview(), query)  # -> DataFrame
    job_id     team  events  runs  minutes          dt
@@ -145,27 +169,39 @@ the Example database runs:
 Job 2, invoice_sync, is still running on 2026-09-24: its day has a start and no finish yet,
 so 0 minutes.
 
-### Send it
+Done when the rows are what you expect for each day. Then step 6.
 
-`run_execute` sends a write through your execute. It doesn't send the SET lines with it: send
-the Session setting first, `hive_settings("dynamic_partitions")`, which holds for as long as
-your execute keeps one session:
+### 6. Send the Session setting
+
+Goal: dynamic partitioning switched on in your session. `run_execute` sends a write through
+your execute, without its SET lines. So send the Session setting first,
+`hive_settings("dynamic_partitions")`, which holds for as long as your execute keeps one
+session:
 
 >>> run_execute(hive_settings("dynamic_partitions"), execute)
 execute: SET hive.exec.dynamic.partition=true
 execute: SET hive.exec.dynamic.partition.mode=nonstrict
+
+Done when execute has been given both SET lines. Then step 7.
+
+### 7. Send the write
+
+Goal: the days written. Send the write through your execute:
+
 >>> run_execute(backfill, execute)
 execute: WITH events_per_job AS (
 
 The write is an INSERT OVERWRITE, which replaces the days it writes. So if it fails, say on a
 network error, send it again: a day written twice holds the same rows, not twice as many.
 
-### Rewrite the last few days on every run, for rows that come in late
+Done when execute has been given the write. Then step 8.
 
-An event can reach the warehouse a day or two after its day: say a run finished at 23:50 on
-2026-09-24, and its `"finish"` row arrives at 00:30 the next morning, after the run that wrote
-2026-09-24. The row lands in 2026-09-24's Partition of `ops.job_events`, a day a write of only
-the newest day would never look at again.
+### 8. Rewrite the last few days on every run, for rows that come in late
+
+Goal: a write that picks up late rows. An event can reach the warehouse a day or two after its
+day: say a run finished at 23:50 on 2026-09-24, and its `"finish"` row arrives at 00:30 the
+next morning, after the run that wrote 2026-09-24. The row lands in 2026-09-24's Partition of
+`ops.job_events`, a day a write of only the newest day would never look at again.
 
 So `write()` writes the last 3 days, ending on `DAY`, on every run. The 3 is written once, in
 the Building block building_blocks/days_rewritten.py, which every table of the Project that
@@ -189,14 +225,17 @@ no row for it, so it fills nothing there, and the day keeps its old rows.
 Rewrite as many days as late rows can take to arrive, plus one: rows up to two days late need
 the last three. A row later than that needs a one-off backfill of its day, with `write_days`.
 
-### Write a range a Partition at a time, in a loop
+Done when `write()`'s Hive reads the days 2026-09-22 to 2026-09-24. Then step 9.
 
-At work a backfill can cover months, more than one Statement should read at once. Then write it
-a Partition at a time: `one_day` below builds one write, which names its Partition with
-`partition={"dt": day}` and leaves dt out of SELECT, and a Python loop over the days. The
-Building blocks make the rows, as in the notebook, and `WHERE` keeps only the day the write
-names, so the Toolbox can see each row's day is that one, and each job has one row in it, as
-the table's Key, job_id and dt, needs:
+### 9. Build one write per day
+
+Goal: a function that writes one named Partition. At work a backfill can cover months, more
+than one Statement should read at once. Then write it a Partition at a time: `one_day` below
+builds one write, which names its Partition with `partition={"dt": day}` and leaves dt out of
+SELECT. The Building blocks make the rows, as in the notebook, and `WHERE` keeps only the day
+the write names, so the Toolbox can see each row's day is that one, and each job has one row in
+it, as the table's Key, job_id and dt, needs. A Key is the columns whose values name exactly one
+row:
 
 >>> from building_blocks.events_per_job import events_per_job
 >>> from building_blocks.owner_on_day import owner_on_day
@@ -213,7 +252,11 @@ the table's Key, job_id and dt, needs:
 ...         WHERE(equals(events.dt, day)),
 ...     )
 
-Python's `datetime` makes the list of days:
+Done when `one_day` is defined. Then step 10.
+
+### 10. Build a write for each day of the range
+
+Goal: one write per day, in a list. Python's `datetime` makes the list of days:
 
 >>> import datetime
 >>> first = datetime.date(2026, 9, 1)
@@ -222,8 +265,12 @@ Python's `datetime` makes the list of days:
 ['2026-09-01', '2026-09-02', '2026-09-03']
 >>> writes = [one_day(day) for day in september]  # -> list[Statement]
 
-`insert_line` picks out the line of a write's Hive that says where it writes, after the
-Building block's WITH:
+Done when `september` starts with 2026-09-01, 2026-09-02 and 2026-09-03. Then step 11.
+
+### 11. Read where each write writes
+
+Goal: see that each write names its own day. `insert_line` picks out the line of a write's Hive
+that says where it writes, after the Building block's WITH:
 
 >>> def insert_line(write: Statement) -> str:
 ...     return next(line for line in to_hive(write).splitlines() if line.startswith("INSERT"))
@@ -233,8 +280,13 @@ INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-01')
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-02')
 INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-03')
 
-Each names its Partition, so it needs no Session setting. `show_hive(writes)` prints them all,
-each headed by its place in the list; a loop sends them, oldest first:
+Done when each line names its own day. Then step 12.
+
+### 12. Send the writes in a loop
+
+Goal: each day written, oldest first. Each write names its Partition, so it needs no Session
+setting. `show_hive(writes)` prints them all, each headed by its place in the list; a loop
+sends them, oldest first:
 
 >>> from collections.abc import Callable
 >>> def send_each(writes: list[Statement], execute: Callable[[str], None]) -> None:
@@ -247,12 +299,14 @@ execute: WITH events_per_job AS (
 A day the tables it reads hold no rows of is written with no rows. If the loop stops halfway,
 send it again from the day that failed, or from the start.
 
-### A table partitioned by region, a region at a time
+Done when execute has been given one write per day sent. Then step 13.
 
-Partitions are any columns, not only days. mart.budget_overruns holds each job's budget in a
-region and the days its cost went over it, and is partitioned by region. Its `write()` gives a
-list, a write per region, each naming its Partition, so a write replaces that region's
-Partition alone:
+### 13. Build a write per region
+
+Goal: writes for a table partitioned by region. Partitions are any columns, not only days.
+mart.budget_overruns holds each job's budget in a region and the days its cost went over it,
+and is partitioned by region. Its `write()` gives a list, a write per region, each naming its
+Partition, so a write replaces that region's Partition alone:
 
 >>> overruns = project.load("mart.budget_overruns")  # -> the notebook's functions
 >>> by_region = overruns.write()  # -> list[Statement]
@@ -265,19 +319,26 @@ INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'us')
 0       1           150    14          1
 1       2           200    10          2
 
-`overruns.preview()` is eu's rows. To rewrite eu alone, send its write alone; the us
-Partition keeps what it held:
+Done when there is one write for eu and one for us. Then step 14.
+
+### 14. Send one region's write
+
+Goal: eu rewritten, us left as it is. `overruns.preview()` is eu's rows. To rewrite eu alone,
+send its write alone; the us Partition keeps what it held:
 
 >>> run_execute(by_region[0], execute)
 execute: INSERT OVERWRITE TABLE mart.budget_overruns PARTITION(region = 'eu')
 
-### A source that writes its days another way
+Done when execute has been given eu's write alone. Then step 15.
 
-mart.job_day_costs holds each job's cost per day, all regions added up, from `ops.region_costs`,
-which writes its days like 20260924, where the Project's other tables write 2026-09-24. The
-Toolbox compares a day exactly as it is written, so the Building block
-building_blocks/costs_per_job.py writes the days it is asked for the table's way, and the day
-each row holds back the Project's way, so mart.job_day_costs saves its days like 2026-09-24:
+### 15. Read a source that writes its days another way
+
+Goal: a write whose source writes days like 20260924. mart.job_day_costs holds each job's cost
+per day, all regions added up, from `ops.region_costs`, which writes its days like 20260924,
+where the Project's other tables write 2026-09-24. The Toolbox compares a day exactly as it is
+written, so the Building block building_blocks/costs_per_job.py writes the days it is asked for
+the table's way, and the day each row holds back the Project's way, so mart.job_day_costs saves
+its days like 2026-09-24:
 
 >>> from building_blocks.costs_per_job import as_written_here
 >>> as_written_here("2026-09-24")  # -> str
@@ -290,12 +351,16 @@ each row holds back the Project's way, so mart.job_day_costs saves its days like
 Its write is the last 3 days too, read as `ops.region_costs` writes them, and written into
 Partitions named like 2026-09-24.
 
-### Write several Saved tables in order
+Done when the write reads `BETWEEN '20260922' AND '20260924'`. Then step 16.
 
-mart.team_days reads both mart.job_day_facts and mart.job_day_costs, so it must be written
-after them, the same days. `project.run_tables` loads each table's `write()` and sends them in
-the order Lineage draws them, every table before the tables that read it, with the Session
-setting "dynamic_partitions" first, since some fill their Partitions from their rows:
+### 16. Write several Saved tables in order
+
+Goal: every table written after the tables it reads. mart.team_days reads both
+mart.job_day_facts and mart.job_day_costs, so it must be written after them, the same days.
+`project.run_tables` loads each table's `write()` and sends them in the order Lineage draws
+them, every table before the tables that read it, with the Session setting
+"dynamic_partitions" first, since some fill their Partitions from their rows. Lineage is the
+record of which table columns feed each column a Statement gives:
 
 >>> project.run_tables(execute=execute,  # -> a report, printed
 ...                    tables=["mart.team_days", "mart.job_day_costs", "mart.job_day_facts"])
@@ -314,6 +379,9 @@ Left out, `tables=` is every Table folder of the Project, and with no execute,
 fails, it stops there, and the tables after it aren't written, so a team's day is never written
 from facts that weren't.
 
+Done when it prints `Wrote 3 tables, in order.` with mart.team_days last. Then check it worked,
+below.
+
 ## Check it worked
 
 A write that fills Partitions from its rows replaces the Partitions its rows fill, and no
@@ -331,6 +399,12 @@ INSERT OVERWRITE TABLE mart.job_day_facts PARTITION(dt = '2026-09-30')
 
 At work, after a rewrite, read the Saved table's days back with `run_query`, and compare them
 with `facts.preview()`'s rows.
+
+Before you go on, check that:
+
+- `facts.preview()` gives the days 2026-09-22, 2026-09-23 and 2026-09-24;
+- the last two day-at-a-time writes name 2026-09-29 and 2026-09-30;
+- `project.run_tables` printed `Wrote 3 tables, in order.`
 
 ## Common mistakes
 
@@ -361,7 +435,8 @@ Add `events.dt` to SELECT, as the notebook's `rows` does, or name the Partition 
 `partition={"dt": "2026-09-24"}` names the Partition every row goes to, whatever day it was
 read from. With the Building block reading three days, each job would have three rows in
 2026-09-24, one from each day read, so the table's Key, job_id and dt, would repeat. The
-Toolbox refuses it as you build it:
+Toolbox refuses it as you build it, with a Guard, a check that refuses a Statement that would
+give a wrong result:
 
 >>> statement(
 ...     INSERT_OVERWRITE(job_day_facts, partition={"dt": "2026-09-24"}),
@@ -410,6 +485,8 @@ ValueError:
   What happened:  between(job_events.dt, '2026-09-24', '2026-09-11') starts after it ends.
 ...
 
+Give the earlier day first: `facts.write_days("2026-09-11", "2026-09-24")`.
+
 ### Writing a day the usual way, on a table that writes it another way
 
 The Toolbox compares a day exactly as you write it, so a day written with dashes matches no
@@ -429,7 +506,7 @@ Index: []
 A write from it would write no rows, and nothing would say so. Write each day the table's way,
 as `as_written_here` does.
 
-### Handing run_execute a whole list
+### Giving run_execute a whole list
 
 `run_execute` sends one Statement, and refuses a list, such as a `write()` that gives a write
 per region:

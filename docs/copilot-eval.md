@@ -52,9 +52,9 @@ create, write and compare included, runs to the end. It is correct when it leave
 files as the reference's cells, each with the same text, under tables/, the Workflow's own
 folder and references/, and its warehouse holds the same tables with the same rows.
 
-## The Excel tasks: Copilot files 11 and 12
+## The Excel tasks: Copilot files 15, 11 and 12
 
-Files 11 and 12 are measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
+Files 15, 11 and 12 are measured the same way, on its own tasks and scorer (`tools/excel_eval_tasks.py`,
 `tools/excel_eval.py`): 78 filled-in Formula workbooks, 39 dev and 39 held out. A proxy model
 reads each workbook as text; in Copilot you attach the workbook itself.
 
@@ -76,13 +76,19 @@ reads each workbook as text; in Copilot you attach the workbook itself.
    reading the replies.
 2. **A0, before the files.** In a new chat, attach the task's workbook and send
    `I attached an Excel workbook. Convert its calculations into Hive SQL.`
-3. **C, with the files.** In a new chat, attach `copilot/11_*.txt`, `12_*`, `03_*`, `04_*`
-   and `05_*` (or paste them, one message each), then attach the workbook and send the same
-   request.
+3. **C, with the files.** In a new chat, attach `copilot/15_*.txt`, `11_*` and `12_*` (or
+   paste them, one message each), then attach the workbook and send the same request.
 4. Paste each reply under its task's heading, then score each file:
 
        .venv/Scripts/python tools/excel_eval.py score answers-excel-C.md --record .scratch/copilot-eval/results.md
 
+A proxy round gives each proxy model a few workbooks, as a person gives one to a fresh
+chat: `excel_eval.py proxy C --split dev --tasks X01,X02,X03,X04,X05`, one message per
+five tasks, each answered by its own proxy, the replies merged under one header to score.
+Given all 39 at once, a proxy reads its message in pieces and cuts its replies short.
+
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
 Table's rows, it says which Tables are the sources and which the finals, it names what the
-task refuses, marks or leaves alone, and it invents no name. The Toolbox code is scored apart.
+task refuses, marks or leaves alone, and it invents no name. Files 15, 11 and 12 ask for no
+Toolbox code: the convert Workflow writes it from the Hive, checked; a reply that has some
+still has it scored apart.

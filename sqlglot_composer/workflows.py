@@ -115,6 +115,11 @@ class Step:
     # A step project.run_workflow runs that calls the warehouse, or only prints: what it did,
     # or, in a dry run, the Hive it would send.
     send: Callable[[dict[str, object], Calls], list[str]] | None = None
+    # Its cell's text, for the person who runs it: what it is for, what to do, and what says
+    # it is done, which step_cell writes as its Goal, Action and Done when.
+    goal: str = ""
+    action: str = ""
+    done_when: str = ""
 
 
 @dataclass(frozen=True)
@@ -135,6 +140,8 @@ class Workflow:
     instances: Callable[[Path], list[dict[str, object]]] | None = None
     # What its notebook's last cell gives project.run_workflow, by name.
     run_with: tuple[str, ...] = ("query", "execute")
+    # Its notebook's Self-check: what holds once its last step is done, each a line.
+    checks: tuple[str, ...] = ()
 
 
 # --- What the Project's files say -------------------------------------------------------------
@@ -838,32 +845,65 @@ CONVERT = Workflow(
              ("a dev Table folder per table the scripts write", "a Table reference per table"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,\n"
              "                rename=RENAME, staging=STAGING)",
-             every_batch_converted, send=convert_the_batch),
+             every_batch_converted, send=convert_the_batch,
+             goal="a Table folder and a Table reference for each table the scripts write, each "
+             "a Saved table in your Dev Database",
+             action="run the cell below. It reads DESCRIBE through your query, and writes only "
+             "files.",
+             done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
+             "with its batch.md, which convert writes last"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("a Table reference per table",), ("each answer in the decisions cell",),
-             done=every_dev_decision_answered, decides=DEV_DECISIONS),
+             done=every_dev_decision_answered, decides=DEV_DECISIONS,
+             goal="an answer to each open Decision of the batch's tables",
+             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
+             "as `project.check()` writes it, then save the notebook. Each table's "
+             "`conversion/checklist.md`, in its Table folder, lists its open Decisions.",
+             done_when="the decisions cell answers each Decision `project.check()` names for "
+             "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each answer written in",),
              "project.write_decisions(DECISIONS)", every_dev_decision_made,
-             write_the_decisions),
+             write_the_decisions,
+             goal="each answer written into its table's Table reference",
+             action="run the cell below.",
+             done_when="each table's `conversion/checklist.md` says None under Open Decisions"),
         Step("Create each table in dev", PERMISSION, ("each answer written in",),
              ("each made in dev",),
              "for table in project.batch_tables(NAME):\n"
              "    run_execute(project.load(table).create(), execute)", every_table_created,
-             send=create_the_batch),
+             send=create_the_batch,
+             goal="each table of the batch made in your Dev Database",
+             action="run the cell below. It sends each table's `create()` through your "
+             "execute.",
+             done_when="admin/sent.csv records a create of each table"),
         Step("Seed each table that reads itself, once, from its original", PERMISSION,
              ("each made in dev",), ("each seeded",),
              'run_execute(hive_settings("dynamic_partitions"), execute)\n'
              "for table in project.batch_tables(NAME, seeded=True):\n"
              "    run_execute(project.load(table).seed(), execute)", every_table_seeded,
-             send=seed_the_batch),
+             send=seed_the_batch,
+             goal="each table that reads itself holding its original's rows, once",
+             action="run the cell below. It sends the Session setting their Partitions need, "
+             "then each such table's `seed()`, through your execute. If no table of the batch "
+             "reads itself, this step is done once step 4 is.",
+             done_when="admin/sent.csv records the seed of each table that reads itself"),
         Step("Write each table in dev", PERMISSION, ("each seeded",), ("each written in dev",),
              "project.run_tables(tables=project.batch_tables(NAME), execute=execute)",
-             every_table_written, send=write_the_batch),
+             every_table_written, send=write_the_batch,
+             goal="each table's rows written in your Dev Database",
+             action="run the cell below. `project.run_tables` sends each table's `write()` "
+             "through your execute.",
+             done_when="admin/sent.csv records each table written"),
         Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
              "project.compare_batch(NAME, query=query)", every_table_compared,
-             send=compare_the_batch),
+             send=compare_the_batch,
+             goal="each table's rows checked against its original's",
+             action="run the cell below. `project.compare_batch` reads both through your query "
+             "and writes each table's result in its `conversion/compare.md`.",
+             done_when="each table's `conversion/compare.md` says it passed, and the batch's "
+             "folder has moved to admin/workflows/convert/finished/"),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
                   "for the last cell alone, a list of batches converted already)", starts=True),
@@ -884,6 +924,14 @@ CONVERT = Workflow(
     "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",
     databases=("DEV",),
     instances=batch_instances,
+    checks=("Each table the scripts write has its Table folder in tables/ and its Table "
+            "reference in references/.",
+            "Each table's `conversion/checklist.md` says None under Open Decisions.",
+            "admin/sent.csv records each table created and written, and each that reads itself "
+            "seeded.",
+            "Each table's `conversion/compare.md` says it passed, and the batch's folder is in "
+            "admin/workflows/convert/finished/.",
+            "`project.check()` names no next step of this batch."),
 )
 
 # Promote dev tables to prod, project.promote's copies reading each other's.
@@ -900,38 +948,78 @@ PROMOTE = Workflow(
               "your Prod Database's name"),
              ("prod Table folders", "prod Table references"), "project.promote(TABLES)",
              every_table_promoted,
-             promote_tables),
+             promote_tables,
+             goal="a prod copy of each dev table in `TABLES`, its own Table folder and Table "
+             "reference, each reading the prod copies of the others promoted with it",
+             action="run the cell below.",
+             done_when="each dev table in `TABLES` has its prod copy's Table folder in "
+             "tables/"),
         Step("Answer each prod table's open Decisions in the decisions cell", DECISION,
              ("prod Table references",), ("each answer in the decisions cell",),
-             done=every_prod_decision_answered, decides=PROD_DECISIONS),
+             done=every_prod_decision_answered, decides=PROD_DECISIONS,
+             goal="an answer to each prod copy's open Decision: its location, the folder its "
+             "files go in",
+             action="write each answer in the decisions cell, `DECISIONS`, by the prod table's "
+             "name as `project.check()` writes it, then save the notebook.",
+             done_when="the decisions cell answers each Decision `project.check()` names for "
+             "the prod copies"),
         Step("Write each answer into its prod table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each with its location=",),
              "project.write_decisions(DECISIONS)", every_prod_decision_made,
-             write_the_decisions),
+             write_the_decisions,
+             goal="each answer written into its prod copy's Table reference, which then has "
+             "its `location=`",
+             action="run the cell below.",
+             done_when="each prod copy's Table reference leaves no Decision open"),
         Step("Create each table in prod", PERMISSION, ("each with its location=",),
              ("each made in prod",),
              "for table in project.promoted_tables(TABLES):\n"
              "    run_execute(project.load(table).create(), execute)",
-             every_prod_table_created, send=create_the_prod_copies),
+             every_prod_table_created, send=create_the_prod_copies,
+             goal="each prod copy made in your Prod Database",
+             action="run the cell below. It sends each prod copy's `create()` through your "
+             "execute.",
+             done_when="admin/sent.csv records a create of each prod copy"),
         Step("Seed each prod table that reads itself, once, from its original", PERMISSION,
              ("each made in prod",), ("each seeded in prod",),
              'run_execute(hive_settings("dynamic_partitions"), execute)\n'
              "for table in project.promoted_tables(TABLES, seeded=True):\n"
              "    run_execute(project.load(table).seed(), execute)", every_prod_table_seeded,
-             send=seed_the_prod_copies),
+             send=seed_the_prod_copies,
+             goal="each prod copy that reads itself holding its original's rows, once: a prod "
+             "copy's original is its dev copy's original",
+             action="run the cell below. It sends the Session setting their Partitions need, "
+             "then each such prod copy's `seed()`, through your execute. If no prod copy reads "
+             "itself, this step is done once step 4 is.",
+             done_when="admin/sent.csv records the seed of each prod copy that reads itself"),
         Step("Write each table in prod", PERMISSION, ("each seeded in prod",),
              ("each written in prod",),
              "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)",
-             every_prod_table_written, send=write_the_prod_copies),
+             every_prod_table_written, send=write_the_prod_copies,
+             goal="each prod copy's rows written in your Prod Database",
+             action="run the cell below. `project.run_tables` sends each prod copy's `write()` "
+             "through your execute.",
+             done_when="admin/sent.csv records each prod copy written"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("each written in prod",), ("each in the Reference sheet",),
              "project.refresh_reference_sheet(project.promoted_tables(TABLES))",
-             prod_sheet_is_fresh, refresh_the_prod_sheet),
+             prod_sheet_is_fresh, refresh_the_prod_sheet,
+             goal="each prod copy in the Reference sheet and in its Database module",
+             action="run the cell below.",
+             done_when="references/reference_sheet.csv is written again after each prod copy's "
+             "Table reference last changed"),
     ),
     inputs=(Input("TABLES", [], 'the dev tables, by their names in your Dev Database, such '
                   'as ["mart_dev.daily_job_runs"]', starts=True),),
     databases=("DEV", "PROD"),
     about="Carries Saved tables from your Dev Database to your Prod Database.",
+    checks=("Each dev table in `TABLES` has a prod copy: its Table folder in tables/ and its "
+            "Table reference in references/.",
+            "Each prod copy's Table reference has its `location=` and leaves no Decision open.",
+            "admin/sent.csv records each prod copy created and written, and each that reads "
+            "itself seeded.",
+            "references/reference_sheet.csv lists each prod copy's columns.",
+            "`project.check()` names no next step of this Workflow."),
 )
 
 # Build new Saved tables from scratch.
@@ -944,39 +1032,79 @@ NEW_TABLE = Workflow(
         Step("Make each Table folder, converting each table's query QUERIES gives",
              FILE_STEP, ("the tables' names",), ("a Table folder",),
              "project.new_table(TABLES, queries=QUERIES)", every_table_folder_made,
-             make_table_folders),
+             make_table_folders,
+             goal="a Table folder for each table in `TABLES`: from its query, when `QUERIES` "
+             "gives one, its logic written for you; else from a Template, its logic for you to "
+             "write",
+             action="run the cell below.",
+             done_when="each table in `TABLES` has its Table folder in tables/"),
         Step("Write each table's logic in its Table notebook, and save it", DECISION,
              ("a Table folder", "what each table should hold"), ("its logic",),
              "for table in TABLES:\n"
              "    project.load(table).preview()  # says what stops it, if anything does",
-             every_preview_builds),
+             every_preview_builds,
+             goal="logic in each Table notebook that loads, so its `preview()` builds",
+             action="open each table's Table notebook, in its Table folder, fill in each "
+             "`<...>` in its code cells as its text cell says, and save it; a table made from "
+             "its query has its logic written already. Then run the cell below: it says what "
+             "stops each table's logic, if anything does.",
+             done_when="the cell below runs with no error"),
         Step("Write each Table reference from its logic", FILE_STEP, ("its logic",),
              ("its Table reference",), "project.reference_from_logic(TABLES)",
-             every_reference_from_logic, write_references_from_logic),
+             every_reference_from_logic, write_references_from_logic,
+             goal="each table's Table reference written from its logic: its columns and types "
+             "from `preview()`, its partition columns from `PARTITIONED_BY`, and the Key its "
+             "query makes",
+             action="run the cell below.",
+             done_when="each table's Table reference in references/ lists its columns, no "
+             "longer the stand-in new_table wrote"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("its Table reference",), ("each answer in the decisions cell",),
-             done=every_new_table_decision_answered, decides=DEV_DECISIONS),
+             done=every_new_table_decision_answered, decides=DEV_DECISIONS,
+             goal="an answer to each open Decision of the new tables",
+             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
+             "as `project.check()` writes it, then save the notebook.",
+             done_when="the decisions cell answers each Decision `project.check()` names for "
+             "these tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("a dev Table folder whose logic loads",),
              "project.write_decisions(DECISIONS)", every_new_table_decision_made,
-             write_the_decisions),
+             write_the_decisions,
+             goal="each answer written into its table's Table reference",
+             action="run the cell below.",
+             done_when="each table's Table reference leaves no Decision open"),
         Step("Check each table's rows with preview(), which writes nothing", PERMISSION,
              ("a dev Table folder whose logic loads",), ("its rows, checked",),
              "for table in TABLES:\n"
              "    print(run_query(project.load(table).preview(), query))", reads_only=True,
-             send=preview_each),
+             send=preview_each,
+             goal="each table's rows read and checked before anything is written",
+             action="run the cell below. It prints the rows each table's `preview()` gives, "
+             "read through your query. `project.check()` names this step beside step 7.",
+             done_when="you have read each table's rows, and they are the rows it should "
+             "hold"),
         Step("Create and write each in dev", PERMISSION,
              ("its rows, checked", "its Table reference"),
              ("written in dev",),
              "for table in TABLES:\n"
              "    run_execute(project.load(table).create(), execute)\n"
              "project.run_tables(tables=TABLES, execute=execute)", every_table_written,
-             send=create_and_write_the_tables),
+             send=create_and_write_the_tables,
+             goal="each table made and written in your Dev Database",
+             action="run the cell below. It sends each table's `create()`, then "
+             "`project.run_tables` sends each table's `write()`, through your execute.",
+             done_when="admin/sent.csv records each table written"),
         Step("Compare each table made from a query with its query", PERMISSION,
              ("written in dev",), ("each from a query compared with it",),
              "for name in QUERIES:\n"
              "    print(project.compare_batch(name, query=query))",
-             every_query_table_compared, send=compare_the_queries),
+             every_query_table_compared, send=compare_the_queries,
+             goal="each table made from a query checked against its query",
+             action="run the cell below. `project.compare_batch` compares each with its query, "
+             "through your query, and writes the result in its `conversion/compare.md`. If "
+             "`QUERIES` gives no query, this step is done once step 7 is.",
+             done_when="each table made from a query has a `conversion/compare.md` that says "
+             "it passed"),
     ),
     inputs=(Input("TABLES", [], 'the new tables, by their names in the warehouse, such as '
                   '["mart_dev.daily_job_runs"]', starts=True),
@@ -987,6 +1115,12 @@ NEW_TABLE = Workflow(
     about="Makes a Table folder for each new Saved table: from its query, when QUERIES gives "
     "one, its logic written for you; else from a Template, its logic for you to write. A "
     "Building block, a piece several notebooks share, is made with project.new_block(...).",
+    checks=("Each table in `TABLES` has its Table folder in tables/, and its step 2 cell runs "
+            "with no error.",
+            "Each table's Table reference lists its columns and leaves no Decision open.",
+            "admin/sent.csv records each table created and written.",
+            "Each table made from a query has a `conversion/compare.md` that says it passed.",
+            "`project.check()` names no next step of this Workflow."),
 )
 
 # Add Table references for tables a Project reads.
@@ -998,22 +1132,44 @@ REFERENCES = Workflow(
         Step("Write the Table references from DESCRIBE", PERMISSION,
              ("table names your query can DESCRIBE",), ("Table references with TODO lines",),
              "project.add_references(TABLES, query=query)", every_reference_written,
-             send=add_the_references),
+             send=add_the_references,
+             goal="a Table reference for each table in `TABLES`, its columns and their types "
+             "read from its DESCRIBE",
+             action="run the cell below. It reads each table's DESCRIBE through your query, "
+             "and writes only files.",
+             done_when="each table in `TABLES` has its Table reference in references/"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("Table references with TODO lines",), ("each answer in the decisions cell",),
-             done=every_source_decision_answered, decides=SOURCE_DECISIONS),
+             done=every_source_decision_answered, decides=SOURCE_DECISIONS,
+             goal="an answer to each table's open Key: the columns whose values name exactly "
+             "one row, or None when no columns do",
+             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
+             "as `project.check()` writes it, then save the notebook.",
+             done_when="the decisions cell answers each Key `project.check()` names for these "
+             "tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("filled-in Table references",),
              "project.write_decisions(DECISIONS)", every_source_decision_made,
-             write_the_decisions),
+             write_the_decisions,
+             goal="each answer written into its table's Table reference",
+             action="run the cell below.",
+             done_when="each table's Table reference leaves no Key open"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("filled-in Table references",),
              ("the Reference sheet", "the Database modules"),
              "project.refresh_reference_sheet(TABLES)", reference_sheet_is_fresh,
-             refresh_the_sheet),
+             refresh_the_sheet,
+             goal="each table in the Reference sheet and in its Database module",
+             action="run the cell below.",
+             done_when="references/reference_sheet.csv is written again after each table's "
+             "Table reference last changed"),
     ),
     inputs=(TABLES_INPUT,),
     about="Writes a Table reference for each table your Project reads, from its DESCRIBE.",
+    checks=("Each table in `TABLES` has its Table reference in references/, and leaves no Key "
+            "open.",
+            "references/reference_sheet.csv lists each table's columns.",
+            "`project.check()` names no next step of this Workflow."),
 )
 
 # Carry a Project to a new Toolbox version.
@@ -1025,14 +1181,26 @@ UPGRADE = Workflow(
         Step("Upgrade the Project's files", FILE_STEP,
              ("a Project at an older version", "the new Toolbox copied in"),
              ("the Project at the new version", "UPGRADE marks"), "project.upgrade()",
-             project_is_current, upgrade_the_project),
+             project_is_current, upgrade_the_project,
+             goal="the Project's files carried to the Toolbox version you copied in, each file "
+             "it changes archived first",
+             action="restart the kernel, then run the cell below.",
+             done_when="admin/project_version.txt names the Toolbox version you copied in"),
         Step("Make each change an UPGRADE mark asks for, and delete the mark", DECISION,
              ("UPGRADE marks",), ("every UPGRADE mark dealt with",),
-             done=no_upgrade_mark_left),
+             done=no_upgrade_mark_left,
+             goal="each change the Upgrade left for you made",
+             action="go to each `# UPGRADE` mark, which the Upgrade's report names, "
+             "`admin/upgrade_<version>.md` lists and `project.check()` lists, make the change "
+             "it asks for, then delete the mark.",
+             done_when="no `# UPGRADE` mark is left in the Project's own files"),
     ),
     about="Carries the Project's files to the Toolbox you copied in, once you have restarted "
     "the kernel.",
     run_with=(),
+    checks=("admin/project_version.txt names the Toolbox version you copied in.",
+            "No `# UPGRADE` mark is left in the Project's own files.",
+            "`project.check()` lists no UPGRADE mark and no upgrade to make."),
 )
 
 # Change a Saved table in the warehouse.
@@ -1048,20 +1216,40 @@ CHANGE_A_SAVED_TABLE = Workflow(
              '# such as where=equals(table.dt, "2026-09-24"), or a range of days,\n'
              '# where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column\n'
              "change = admin.drop_partitions(table, where=...)  # or another: help(admin)",
-             change_written),
+             change_written,
+             goal="`change`, the Admin statement that makes the change you want to `TABLE`",
+             action="in the cell below, write the Partitions to change in place of the `...` "
+             "in `where=...`, or call another Admin statement in place of "
+             "`admin.drop_partitions` (`help(admin)` lists them), then run the cell.",
+             done_when="the cell sets `change` with its arguments, no `...` left, and runs "
+             "with no error"),
         Step("Print its Hive, and run the check its Check first line names", FILE_STEP,
              ("an Admin statement",), ("its Hive, read and checked",), "show_hive(change)",
-             send=show_the_change),
+             send=show_the_change,
+             goal="the change's Hive read and checked before you send it",
+             action="run the cell below and read the Hive it prints, then run the check its "
+             "`Check first` line names, such as a `SHOW PARTITIONS`.",
+             done_when="that check shows the change reaches only what you mean it to"),
         Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
              ("its Hive, read and checked",),
              ("the change sent", "the change logged"), "run_execute(change, execute)",
-             every_change_sent),
+             every_change_sent,
+             goal="the change made in the warehouse, and logged",
+             action="run the cell below. It sends `change` through your execute. Then run any "
+             "check after it, such as `admin.check_the_copy`.",
+             done_when="admin/sent.csv records the Admin statement on `TABLE`, and "
+             "admin/admin_log.md logs it"),
     ),
     inputs=(Input("TABLE", "", 'the Saved table to change, such as "mart.daily_job_runs"',
                   starts=True),),
     about="Changes a Saved table in the warehouse with one of the admin module's Admin "
     "statements, each logged in admin/admin_log.md.",
     run_with=("query", "execute", "change"),
+    checks=("Step 1's cell sets `change` with its arguments, no `...` left.",
+            "admin/sent.csv records the Admin statement on `TABLE`, and admin/admin_log.md "
+            "logs it.",
+            "You ran the check its `Check first` line names, and any check after it.",
+            "`project.check()` names no next step of this Workflow."),
 )
 
 WORKFLOWS = (CONVERT, PROMOTE, NEW_TABLE, REFERENCES, UPGRADE, CHANGE_A_SAVED_TABLE)
@@ -1110,8 +1298,128 @@ def step_said(workflow: Workflow, step: Step) -> str:
 
 
 def step_cell(number: int, workflow: Workflow, step: Step) -> str:
-    """A step's markdown cell in its Workflow's notebook: its number, name and kind."""
-    return f"## {number}. {step.name}\n\nIt {step_said(workflow, step)}."
+    """A step's markdown cell in its Workflow's notebook: its number, name and kind, then its
+    Goal, Action and Done when, which names the step after it."""
+    then = f"then step {number + 1}"
+    if number == len(workflow.steps):
+        then = "the Workflow is done: go through the Self-check at the top"
+    return (f"## {number}. {step.name}\n\nIt {step_said(workflow, step)}.\n\n"
+            f"- **Goal:** {step.goal}.\n- **Action:** {step.action[0].upper()}"
+            f"{step.action[1:]}\n- **Done when** {step.done_when}; {then}.")
+
+
+# The words of this repo a Workflow notebook's text uses, each defined in its Terms the first
+# time its text uses it, in the order the text first does.
+NOTEBOOK_TERMS = {
+    "Hive": "the SQL your warehouse runs.",
+    "Saved table": "a table in the warehouse that only your own code writes, its files in a "
+                   "folder of its own.",
+    "Dev Database": "the database where you create and write tables of your own, each built, "
+                    "written and compared there first: `DEV` in admin/databases.py.",
+    "Prod Database": "the database others read your finished Saved tables from, which a table "
+                     "reaches only once promoted from the Dev Database: `PROD` in "
+                     "admin/databases.py.",
+    "Table folder": "the folder in tables/ that holds everything about one Saved table: its "
+                    "Table notebook, its past lineage, and its Hive.",
+    "Table notebook": "the notebook in a Table folder whose cells create, preview and write "
+                      "its Saved table; its logic cell is the one whose first line is "
+                      "`# logic`.",
+    "Table reference": "a script in references/ describing one table: its columns and their "
+                       "types, its Partitions and its Key.",
+    "Decision": "one thing about one table that only you decide, such as its location or its "
+                "Key; the table's files say whether it is answered yet.",
+    "Key": "the columns whose values name exactly one row of a table.",
+    "Partition": "the rows of a table that share one value of each column it is partitioned "
+                 "by.",
+    "Session setting": "a `SET` line sent before a Statement, which it needs to run.",
+    "original": "the table a converted script writes, in the warehouse already, which its "
+                "Saved table copies; for a query alone, such as one Copilot wrote from a "
+                "workbook, the rows the query gives.",
+    "reads itself": "a table whose own script reads it, such as a running total, seeded once "
+                    "from its original before its first write.",
+    "staging table": "a table one script makes and a later one reads, folded into the table "
+                     "that reads it or kept as a Saved table of its own.",
+    "batch": "the scripts converted together, under one name.",
+    "Template": "the empty shape of a Table notebook, in admin/templates/, each specific left "
+                "as a `<...>` to fill in.",
+    "Building block": "a piece of your own code several notebooks share, a file of its own in "
+                      "building_blocks/.",
+    "Reference sheet": "references/reference_sheet.csv, one table listing every column of "
+                       "every table the Project has a Table reference for.",
+    "Database module": "a file such as references/ops.py, which gives each table of one "
+                       "database by name, such as ops.jobs.",
+    "Admin statement": "a Statement from the Toolbox's admin module that changes a Saved "
+                       "table's definition or deletes its data, such as dropping some of its "
+                       "Partitions; it shows what it will change before its Hive.",
+    "Statement": "a query your code builds, which becomes one Hive string.",
+    "Project action": "a one-time change to a Project's files, run from the admin folder or a "
+                      "Workflow's notebook, and recorded in admin/admin_log.md.",
+    "Upgrade": "the Project action that carries a Project's files from the Toolbox version "
+               "that last wrote them to the one copied in, one version at a time.",
+    "UPGRADE mark": "a `# UPGRADE` comment the Upgrade puts at a line it leaves for you to "
+                    "change.",
+}
+
+
+def terms_cell_lines(workflow: Workflow, text: str) -> list[str]:
+    """The Terms of a Workflow's notebook: its step, names cell and decisions cell, then each
+    word of NOTEBOOK_TERMS its text, or a Term before, uses, in the order the text first
+    does."""
+    lines = ["- **Step**: each numbered heading below, with the code cell under it. Its first "
+             "line says its kind: it changes only files, or only prints; it is a call to the "
+             "warehouse, yours to run; or it is a decision, yours to make."]
+    if workflow.inputs:
+        lines.append("- **Names cell**: the code cell after the one that finds the Project. It "
+                     "holds this Workflow's inputs, the start materials you fill in once, each "
+                     "with what to write in its comment; each step's call reads them.")
+    if any(step.decides for step in workflow.steps):
+        lines.append(f"- **Decisions cell**: `{DECISIONS}`, the code cell after the names "
+                     "cell, where you answer each open Decision a step waits on, by the "
+                     "table's name.")
+    used: list[str] = []
+    # The cell's text, then each definition added, as each can use a term of its own.
+    scanned_text = text
+    while True:
+        found = []
+        for word in NOTEBOOK_TERMS:
+            # A whole word, or its plural: batch, not compare_batch.
+            first = re.search(rf"\b{re.escape(word)}s?\b", scanned_text)
+            if first is not None and word not in used:
+                found.append((first.start(), word))
+        if not found:
+            break
+        word = min(found)[1]
+        used.append(word)
+        scanned_text += NOTEBOOK_TERMS[word]
+    for word in used:
+        lines.append(f"- **{word[0].upper()}{word[1:]}**: {NOTEBOOK_TERMS[word]}")
+    return lines
+
+
+def about_cell(workflow: Workflow) -> str:
+    """A Workflow notebook's first cell: what it is for, its Terms, what to do before step 1,
+    which cells to run, and its Self-check."""
+    rules = ["- If you run the steps yourself, run each step's cell in turn, in order.",
+             "- If you want them run for you, run the last cell, `project.run_workflow(...)`, "
+             "in place of their cells. It runs every step left in turn, up to the first only "
+             "you can do, and says where it stopped: go on from that step."]
+    before: list[str] = []
+    if workflow.inputs:
+        rules.append("- If you want only the steps that change files run for you, run "
+                     "`project.do_next()`, the cell before the last. It runs them up to the "
+                     "first it can't.")
+        before = ["## Before step 1", "",
+                  "Fill in the names cell below and save the notebook: each call reads it, and "
+                  "so do `project.check()`, which names the next step, and "
+                  "`project.do_next()`, the cell before the last.", ""]
+    steps = "\n".join(step_cell(number, workflow, step)
+                      for number, step in enumerate(workflow.steps, 1))
+    head = [f"# {workflow.name}", "", workflow.about, ""]
+    return "\n".join([
+        *head, "## Terms", "", *terms_cell_lines(workflow, "\n".join([*head, *rules, steps])),
+        "", *before, "## Decision rules", "", *rules, "", "## Self-check", "",
+        "Once the last step is done, each of these holds:", "",
+        *[f"- {check}" for check in workflow.checks]])
 
 
 def step_name_of(cell: str) -> str | None:
@@ -1125,15 +1433,7 @@ def step_name_of(cell: str) -> str | None:
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next."""
-    about = (f"# {workflow.name}\n\n{workflow.about} Run each step's cell in turn, or, in "
-             "their place, the last cell, project.run_workflow(...), which runs every step "
-             "left in turn, up to the first only you can do, and says where it stopped.")
-    if workflow.inputs:
-        about += (" First fill in the names cell below and save the notebook: each call reads "
-                  "it, and so do project.check(), which names the next step, and "
-                  "project.do_next(), the cell before the last, which runs only the steps that "
-                  "change files, up to the first it can't.")
-    cells = [("markdown", about), ("code", "\n".join(path_lines))]
+    cells = [("markdown", about_cell(workflow)), ("code", "\n".join(path_lines))]
     if workflow.inputs:
         cells.append(("code", inputs_cell(workflow)))
     if any(step.decides for step in workflow.steps):

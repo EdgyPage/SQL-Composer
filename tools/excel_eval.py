@@ -1,6 +1,6 @@
 """Score answers to the Copilot evaluation's Excel tasks: a Formula workbook into Hive, offline.
 
-Copilot files 11 and 12 should make Copilot turn a Formula workbook into Hive that gives the
+Copilot files 15, 11 and 12 should make Copilot turn a Formula workbook into Hive that gives the
 workbook's rows. This measures it, as `tools/copilot_eval.py` measures the other files: the
 same tasks (`tools/excel_eval_tasks.py`) are answered with and without the files, by Copilot in
 its web chat or by a proxy model, each reply is kept in an answers file, and this scores the
@@ -79,10 +79,10 @@ COPILOT = ROOT / "copilot"
 # sqlglot warns of what it can't turn into SQLite, such as a DATEDIFF in days; the query then
 # fails to run, which the score says.
 logging.getLogger("sqlglot").setLevel(logging.ERROR)
-# Files 11 and 12, and the Toolbox files their Toolbox code needs, all loaded in one chat.
-EXCEL_FILES = ("11", "12", "03", "04", "05")
+# File 15, the steps, and files 11 and 12, the reference it reads, all loaded in one chat.
+EXCEL_FILES = ("15", "11", "12")
 ARMS = {"A0": "nothing: the request alone",
-        "C": "Copilot files 11 and 12, with files 03, 04 and 05 for the Toolbox code"}
+        "C": "Copilot files 15, 11 and 12"}
 REQUEST = "I attached an Excel workbook. Convert its calculations into Hive SQL."
 
 
@@ -100,8 +100,7 @@ def tasks_of(split: str) -> list[ExcelTask]:
 
 
 def shared_text(arm: str) -> str | None:
-    """What the person shares before asking: nothing, or files 11 and 12 and the Toolbox
-    files."""
+    """What the person shares before asking: nothing, or files 15, 11 and 12."""
     if arm == "A0":
         return None
     texts = []
@@ -568,6 +567,8 @@ class ExcelScore:
     runs: bool = False
     correct: bool = False
     mapped: bool = False
+    # Whether its Hive reads each table the reference reads, not the sample's rows typed in.
+    reads: bool = False
     unnamed: list[str] = field(default_factory=list)
     invented: list[str] = field(default_factory=list)
     # Its Toolbox code: "none", "parses", "doesn't parse", or the names it invents.
@@ -576,7 +577,8 @@ class ExcelScore:
 
     @property
     def passed(self) -> bool:
-        return self.correct and self.mapped and not self.unnamed and not self.invented
+        return (self.correct and self.reads and self.mapped and not self.unnamed
+                and not self.invented)
 
 
 # A final Table's Total Row, which is a query of its own, as `finals` names it.
@@ -626,6 +628,7 @@ def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
         result.note = "no SQL block"
         return result
     got = []
+    answer_tables: set[str] = set()
     try:
         for sql in code:
             sql, placed = filled(sql, task)
@@ -633,6 +636,7 @@ def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
                 runnable, invented = resolved(query, task, placed)
                 result.invented += [name for name in invented if name not in result.invented]
                 got.append(runnable)
+                answer_tables |= tables_read(query)
     except sqlglot.errors.ParseError as error:
         result.note = f"doesn't parse: {str(error).splitlines()[0]}"
         return result
@@ -647,7 +651,28 @@ def score(task: ExcelTask, reply: str, hive: sqlite3.Connection,
     result.correct = not missing
     if missing:
         result.note = f"gives something else for {', '.join(missing)}"
+    unread = unread_tables(task, answer_tables)
+    result.reads = not unread
+    if unread and result.correct:
+        result.note = (f"types in the rows of {', '.join(unread)}, a sample, where its Hive "
+                       "reads the table")
     return result
+
+
+def unread_tables(task: ExcelTask, read: set[str]) -> list[str]:
+    """Each table a task's reference Hive reads that an answer, reading `read`, doesn't."""
+    referenced: set[str] = set()
+    for sql in task.finals.values():
+        for query in queries(sql):
+            referenced |= tables_read(query)
+    return sorted(referenced - read)
+
+
+def tables_read(query: exp.Query) -> set[str]:
+    """Each database table a query reads, by its name: not a CTE it defines."""
+    ctes = {cte.alias for cte in query.find_all(exp.CTE)}
+    return {table.name for table in query.find_all(exp.Table)
+            if table.db or table.name not in ctes}
 
 
 def scored(replies: dict[str, str]) -> list[ExcelScore]:
@@ -733,6 +758,9 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--split", choices=("dev", "held_out", "all"), default="dev")
         if name == "proxy":
             command.add_argument("arm", choices=sorted(ARMS))
+            # A few tasks to a proxy, as a person sends one workbook to a fresh chat.
+            command.add_argument("--tasks", default="",
+                                 help="the tasks to give, such as X01,X02: all the split's")
         if name == "workbooks":
             command.add_argument("--into", type=Path, required=True)
     scoring = commands.add_parser("score")
@@ -744,7 +772,9 @@ def main(argv: list[str] | None = None) -> int:
     elif given.command == "template":
         print(template(given.split), end="")
     elif given.command == "proxy":
-        print(proxy_message(given.arm, tasks_of(given.split)))
+        chosen = set(filter(None, given.tasks.split(",")))
+        print(proxy_message(given.arm, [task for task in tasks_of(given.split)
+                                        if not chosen or task.id in chosen]))
     elif given.command == "workbooks":
         for path in write_workbooks(given.split, given.into):
             print(path)

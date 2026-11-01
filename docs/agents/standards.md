@@ -73,6 +73,11 @@ The Toolbox's user is Python-first and new to SQL. Read every change as they wou
 contact: a Statement, a docstring, a refusal message. A change passes when they could follow it
 without stopping to study it. Some safety complication may stay, if it reads plainly.
 
+A doc a person or Copilot follows step by step, a Copilot file, the README template, a how-to,
+the Formula workbook's Steps sheet or a notebook's text cell, is written to
+`docs/agents/instruction-rules.md`: steps with a goal, an action and a transition, explicit
+if/then decision rules, an output contract, more than one example, and a final self-check.
+
 ## Glossary words
 
 Code, docstrings and refusal messages use the words in `CONTEXT.md`, and none of the words it

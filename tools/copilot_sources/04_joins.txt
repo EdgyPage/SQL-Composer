@@ -1,11 +1,19 @@
 # Copilot file 04: joins ({version})
 
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
+
 Objective: combine rows of two or more tables.
 Load this file when the user asks for columns from several tables, rows with or without a
 match in another table, or a count of matches.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: {version}, which writes Hive from Python.
+- **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
+  `equals(...)`.
+- `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.
+- **Key**: the columns that tell one row from another, from the Table reference.
+- **Derived table**: a named Statement, `derived(...)`, read like a table (file 03).
 
 {always}
 
@@ -13,39 +21,59 @@ block the user can paste into a notebook cell, then a few plain sentences.
 
 {names: JOIN, LEFT_JOIN, FULL_JOIN, SEMI_JOIN, ANTI_JOIN, CROSS_JOIN, AS, all_of, equals, count_distinct, count_rows, statement, SELECT, FROM, WHERE, GROUP_BY}
 
+## Joins
+
+- After FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a Condition;
+  several, with `all_of(...)`.
+- Join on the joined table's whole Key. Joined on less, one row can match many, and the
+  Toolbox warns that counts and sums may come out too big. Then join a Derived table with
+  one row per value instead.
+- The same table twice, or two tables of one name: give one a second name,
+  `o = AS(other, "o")`, then use `o.job_id`.
+
+## Partitions
+
+- Each partitioned table needs its own bound, with a value; `equals(other.dt, t.dt)` matches
+  rows but bounds nothing:
+  - FROM and JOIN: in WHERE, `WHERE(equals(t.dt, day), equals(other.dt, day))`.
+  - LEFT_JOIN, SEMI_JOIN and ANTI_JOIN: inside ON=,
+    `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
+- A WHERE on a LEFT_JOIN's table is refused: it would throw away the rows with no match.
+  Put that Condition in ON= instead.
+
 ## Steps
 
-1. Each join comes after FROM: `JOIN(other, ON=equals(other.job_id, t.job_id))`. ON= takes a
-   Condition; several, with `all_of(...)`.
-2. Which join:
-   - JOIN keeps the rows with a match in both.
-   - LEFT_JOIN keeps every row of FROM's table, with NULL where `other` has no match.
-   - FULL_JOIN keeps every row of both.
-   - SEMI_JOIN keeps FROM's rows that have a match, each once, and gives no column of
-     `other`; ANTI_JOIN keeps those that have none.
-   - There is no RIGHT_JOIN: swap the two tables and use LEFT_JOIN.
-   - Every row with every row is `CROSS_JOIN(other)`; a JOIN with no ON= is refused.
-3. Partitions: each partitioned table needs its own bound on its partition column, with a
-   value, not another table's column:
-   - FROM and JOIN: in WHERE, `WHERE(equals(t.dt, day), equals(other.dt, day))`.
-   - LEFT_JOIN, SEMI_JOIN and ANTI_JOIN: inside ON=,
-     `ON=all_of(equals(other.job_id, t.job_id), equals(other.dt, day))`.
-   - `equals(other.dt, t.dt)` matches rows but bounds nothing.
-4. A WHERE on a LEFT_JOIN's table is refused: it would throw away the rows with no match.
-   Put that Condition in ON= instead.
-5. Join on the joined table's whole Key, as its Table reference gives it. Joined on less,
-   one row can match many, and the Toolbox warns that counts and sums may come out too
-   big. Then join a Derived table that has one row per value instead (file 03), or pass
-   `many_matches=True` when the user says the repeats are wanted.
-6. Counting matches after a LEFT_JOIN: `count_distinct(other.run_id)` gives 0 for a row
-   with no match; `count_rows()` would give 1.
-7. The same table twice, or two tables of one name: give one a second name,
-   `o = AS(other, "o")`, then use `o.job_id`.
-8. Only if the user asks: the opt-out `keeps_only_matches=True` lets WHERE test a
-   LEFT_JOIN's table, so the join keeps only matched rows. `broadcast=True`, no opt-out,
-   asks Hive to copy a small table to every worker, to join it faster.
+1. **Pick.** Goal: know which rows stay. Action: name each join by the Decision rules. Done
+   when each has one; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If only rows with a match in both stay: JOIN.
+- If every row of FROM's table stays, with NULL where `other` has no match: LEFT_JOIN.
+- If every row of both stays: FULL_JOIN.
+- If FROM's rows that have a match stay, each once, with no column of `other`: SEMI_JOIN.
+- If FROM's rows that have no match stay: ANTI_JOIN.
+- If the user asks for a right join: swap the tables and use LEFT_JOIN; there is no
+  RIGHT_JOIN.
+- If every row goes with every row: `CROSS_JOIN(other)`. A JOIN with no ON= is refused.
+- If it counts matches after a LEFT_JOIN: `count_distinct(other.run_id)`, which gives 0 for
+  a row with no match; `count_rows()` would give 1.
+- If the user says the repeats are wanted: `many_matches=True`.
+- If the user asks that a LEFT_JOIN keep only matched rows: `keeps_only_matches=True`, the
+  opt-out that lets WHERE test its table.
+- If the user asks Hive to copy a small table to every worker, to join it faster:
+  `broadcast=True`, which is no opt-out.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
+## Examples
 
 Each run of a day with its job's name:
 
@@ -79,17 +107,9 @@ s = statement(
 )
 ```
 
-## Do and don't
-
-- Do put a LEFT_JOIN table's Conditions in ON=; don't put them in WHERE.
-- Do bound each partitioned table with a value; don't count `other.dt = t.dt` as a bound.
-- Do `count_distinct(other.key)` to count matches; don't count rows after a LEFT_JOIN.
-- Don't write RIGHT_JOIN, and don't leave ON= out.
-- Don't add `many_matches=True` or `keeps_only_matches=True` unless the user asks for what it
-  allows.
-
-## Before you answer
+## Self-check
 
 - Every join has ON=, on the joined table's Key where it can.
 - Every partitioned table, joined or not, has a bound with a value.
 - No WHERE tests a LEFT_JOIN's table.
+- Each opt-out is one the user asked for.

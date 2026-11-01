@@ -7,25 +7,29 @@ For: Getting started
 Answer "how many, and how much, per something", such as runs per job or minutes per team, and
 put two tables' columns side by side without counting any row twice. `GROUP_BY` makes one row
 per group, `count_rows` and `sum_of` work out its numbers, `HAVING` keeps some groups, and
-`ORDER_BY` with `LIMIT` keeps the top N. `JOIN` and `LEFT_JOIN` bring in another table. On the
-way you meet the three ways the Toolbox stops a Statement, or warns about it, as you build it:
-a Guard, a Warning and a Load limit, and when each one's opt-out is right.
+`ORDER_BY` with `LIMIT` keeps the top N. `JOIN` and `LEFT_JOIN` bring in another table. A
+Statement is one query, built from the Toolbox's Clause functions. On the way you meet the three
+ways the Toolbox stops a Statement, or warns about it, as you build it: a Guard, a Warning and a
+Load limit, and when each one's opt-out is right.
 
 ## When you'd use it
 
-Whenever the answer is a table of totals rather than a list of rows: a daily count for a
-dashboard, the busiest jobs, each team's minutes. The warehouse does the counting, so only the
-totals come back to your notebook. And whenever a Statement stops with a message, or builds
-with a Warning: read it before you change anything.
+- If the answer is a table of totals rather than a list of rows, such as a daily count for a
+  dashboard, the busiest jobs or each team's minutes, group and count as the steps below do. The
+  warehouse does the counting, so only the totals come back to your notebook.
+- If you need another table's columns beside each row, join it, as steps 8 to 11 do.
+- If a Statement stops with a message, or builds with a Warning, read the message before you
+  change anything, as steps 12 to 17 show.
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
 
-[Build and run a first statement](#build_and_run_a_first_statement) built its Statements on
+Goal: a Project with the three Table references, the files that describe each table, filled
+in. [Build and run a first statement](#build_and_run_a_first_statement) built its Statements on
 the Project as [Add your tables' references](#add_your_tables_references) left it: three Table
 references filled in, and Aliases in two of them. This page has no Project, so it makes one
-with the same three files; in your own, leave these steps out:
+with the same three files; in your own Project, leave these calls out:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -140,9 +144,13 @@ The file `references/ops__run_alerts.py`, after you fill it in:
 
     high = equals(run_alerts.severity, "high")
 
-### Add the two tables this how-to also reads
+Done when references/ holds the three files, filled in as above. Then step 2.
 
-Two more of the Example database's tables show how the Toolbox keeps a Statement safe:
+### 2. Add the two tables this how-to also reads
+
+Goal: Table references for the two tables the safety steps read. Two more of the Example
+database's tables, the made-up tables that ship inside the Toolbox, show how the Toolbox keeps
+a Statement safe:
 ops.region_budgets, each job's budget for a day, in the region it is billed in, partitioned by
 that region; and ops.team_notes, the notes each team wrote about its jobs, not partitioned at
 all. Add their Table references, before any notebook imports references:
@@ -221,10 +229,14 @@ The file `references/ops__team_notes.py`, after you fill it in:
     # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
     #     <alias> = equals(team_notes.team, <value>)
 
-### Name the tables
+Done when references/ holds ops__region_budgets.py and ops__team_notes.py, filled in as above.
+Then step 3.
 
-`from references import ops` gives every table, and the Aliases `failed` and `minutes` come
-from their table's own file. Short names keep the Statements below easy to read:
+### 3. Name the tables
+
+Goal: short names that keep the Statements below easy to read. `from references import ops`
+gives every table, and the Aliases `failed` and `minutes`, your own names for a condition and a
+column, come from their table's own file:
 
 >>> from references import ops
 >>> from references.ops__job_runs import failed, minutes
@@ -232,9 +244,12 @@ from their table's own file. Short names keep the Statements below easy to read:
 >>> job_runs = ops.job_runs  # -> Table
 >>> run_alerts = ops.run_alerts  # -> Table
 
-### Count every row
+Done when the imports run without an error. Then step 4.
 
-`count_rows()` counts rows, and `sum_of` adds up a Column, here `minutes`, the Alias of
+### 4. Count every row
+
+Goal: one total over every row read. `count_rows()` counts rows, and `sum_of` adds up a Column,
+here `minutes`, the Alias of
 `job_runs.duration_mins`. Each gives a Column, a calculation, and every calculation in
 `SELECT` needs a name for its column in the result, which `AS` gives:
 
@@ -256,9 +271,11 @@ WHERE
 
 Without `GROUP_BY`, all the rows read are one group: one row comes back.
 
-### One row per job
+Done when the result is one row: 9 runs, 180 minutes. Then step 5.
 
-`GROUP_BY(job_runs.job_id)` makes one group per job. `SELECT` then holds the columns you group
+### 5. Make one row per job
+
+Goal: the numbers of each job. `GROUP_BY(job_runs.job_id)` makes one group per job. `SELECT` then holds the columns you group
 by, and calculations over each group, such as `min_of` and `max_of`. `count_rows` takes
 `where=`, a Condition, to count only the rows where it holds while the group keeps every row:
 here the Alias `failed`:
@@ -297,9 +314,12 @@ GROUP BY
 in `WHERE` instead would drop the other runs before counting, so `"runs"` would count only
 failed runs too.
 
-### Keep some groups, or the top N
+Done when the result has one row per job, jobs 1, 2 and 3. Then step 6.
 
-`WHERE` picks rows before they are counted, so it can't test a count. `HAVING` tests each
+### 6. Keep some groups
+
+Goal: only the groups whose numbers pass a test. `WHERE` picks rows before they are counted, so
+it can't test a count. `HAVING` tests each
 group after `GROUP_BY` has counted it, and repeats the calculation itself, `count_rows()`:
 SQL works `HAVING` out before `SELECT` has named anything. Here, the jobs with 3 runs or more:
 
@@ -315,7 +335,12 @@ SQL works `HAVING` out before `SELECT` has named anything. Here, the jobs with 3
 0       1     4
 1       2     3
 
-`ORDER_BY` sorts the result, smallest first, or largest first with `descending`, and `LIMIT`
+Done when the result holds jobs 1 and 2 alone. Then step 7.
+
+### 7. Keep the top N
+
+Goal: the few groups with the biggest numbers. `ORDER_BY` sorts the result, smallest first, or
+largest first with `descending`, and `LIMIT`
 keeps the first rows. `ORDER_BY` is worked out after `SELECT`, so it sorts by the name. Here,
 the two jobs with the most minutes:
 
@@ -332,10 +357,14 @@ the two jobs with the most minutes:
 0       1       67
 1       3       60
 
-### Join on the other table's Key
+Done when the result holds jobs 1 and 3, most minutes first. Then step 8.
 
-`JOIN` adds another table's columns to each row, matched by its `ON=` Condition. Each run names
-one job, and `jobs.job_id` is the Key of ops.jobs, so each run meets exactly one row of it:
+### 8. Join on the other table's Key
+
+Goal: another table's columns beside each row, with no row repeated. `JOIN` adds another
+table's columns to each row, matched by its `ON=` Condition, a test of each row. Each run names
+one job, and `jobs.job_id` is the Key of ops.jobs, the columns that name exactly one of its
+rows, so each run meets exactly one row of it:
 nothing is repeated, and counting per team after the join is safe:
 
 >>> per_team = statement(  # -> Statement
@@ -364,9 +393,12 @@ GROUP BY
 
 Nine runs, and 180 minutes, as before the join.
 
-### Read the repeated-rows Warning
+Done when the teams' runs add up to 9 and their minutes to 180. Then step 9.
 
-Now the runs' alerts. `run_alerts.run_id` isn't the Key of ops.run_alerts: a run with two
+### 9. Read the repeated-rows Warning
+
+Goal: see a join that repeats rows, and the Warning that says so. A Warning lets a Statement
+through, but says why a number may come out wrong. Now the runs' alerts. `run_alerts.run_id` isn't the Key of ops.run_alerts: a run with two
 alerts matches two rows, so the run comes out twice, and its minutes are added twice. The
 Toolbox builds the Statement, since sometimes one row per match is what you want, but warns at
 the JOIN. `run_alerts` is partitioned too, so it gets its own filter on `run_alerts.dt`:
@@ -397,9 +429,13 @@ And so it is: the nine runs took 180 minutes, but here they come out as 210. Run
 are added twice, run 101 three times, and the four runs with no alert not at all, since `JOIN`
 keeps only rows that match.
 
-### Add up first, with a Derived table
+Done when you have read the Warning's four parts, and seen 210 minutes where 180 is right. Then
+step 10.
 
-The Warning's usual fix: give ops.run_alerts one row per run before joining it. `derived` gives
+### 10. Add up first, with a Derived table
+
+Goal: the right totals, with the alerts joined. The Warning's usual fix: give ops.run_alerts
+one row per run before joining it. `derived` gives
 a Statement a name, so another Statement can read it like a table: a Derived table, which is a
 Table too. This one groups the alerts by run, and the Toolbox takes its GROUP_BY column as its
 Key. `LEFT_JOIN` keeps every run, those with no alert too, with NULL in the joined columns, and
@@ -445,9 +481,12 @@ No Warning, and the totals are right. The Derived table is written at the top of
 `WITH alerts_per_run AS (...)`. [Share Building blocks](#share_building_blocks) keeps one in a
 file of its own, for every notebook that needs it.
 
-### Find the rows with no match
+Done when the result is 180 minutes and 9 alerts, with no Warning. Then step 11.
 
-A row `LEFT_JOIN` keeps for having no match has NULL in every joined column, so `is_null` on
+### 11. Find the rows with no match
+
+Goal: the rows of one table that nothing in the other matches. A row `LEFT_JOIN` keeps for
+having no match has NULL in every joined column, so `is_null` on
 one of them keeps just those rows. Here, the jobs that never ran on the two days, from the runs
 counted per job first, so each job meets at most one row:
 
@@ -469,9 +508,12 @@ counted per job first, so each job meets at most one row:
 
 A plain `JOIN` would have left cache_warm out, with nothing to say it was missing.
 
-### Know the three ways the Toolbox stops or warns
+Done when the result is job 4, cache_warm. Then step 12.
 
-You have met two already. The three kinds, each checked as you build a Statement:
+### 12. Know the three ways the Toolbox stops or warns
+
+Goal: tell a Guard, a Warning and a Load limit apart. You have met two already. The three kinds,
+each checked as you build a Statement:
 
 - a Guard refuses a Statement that would silently give a wrong answer, such as a sum that
   counts some rows twice. It stops with a `GuardRefused`;
@@ -481,13 +523,17 @@ You have met two already. The three kinds, each checked as you build a Statement
   though its answer would have been right. It stops with a `LoadRefused`.
 
 Every message has the same four parts: what happened, why it matters, the usual fix, and the
-opt-out, a keyword to add to one of your calls, or "none" when there is no way around it. Each
-of the next three steps meets one on the two tables added above.
+opt-out, a keyword to add to one of your calls, or "none" when there is no way around it. Steps
+13 to 15 each meet one, on the two tables added in step 2.
 
-### A Load limit: read only the Partitions you need
+Done when you can say which of the three stops with a `GuardRefused`, which with a
+`LoadRefused`, and which lets the Statement through. Then step 13.
 
-ops.region_budgets is partitioned by region, so a Statement that names no region would read
-every Partition:
+### 13. A Load limit: read only the Partitions you need
+
+Goal: a Statement that reads only the Partitions, the slices a table is stored in, that it
+needs. ops.region_budgets is partitioned by region, so a Statement that names no region would
+read every Partition:
 
 >>> statement(
 ...     SELECT(ops.region_budgets.job_id, ops.region_budgets.budget_cents),
@@ -520,9 +566,12 @@ any other:
 The opt-out, `reads_all_partitions=True` on `FROM`, is right only for a small table you truly
 need whole.
 
-### A Guard: a condition on the LEFT_JOIN's table goes in ON=
+Done when `every_budget` gives the four budgets. Then step 14.
 
-Every job, with its budget in eu, keeping the jobs that have none there. `WHERE` runs after the
+### 14. A Guard: a condition on the LEFT_JOIN's table goes in ON=
+
+Goal: a `LEFT_JOIN` that keeps the rows with no match. Every job, with its budget in eu, keeping
+the jobs that have none there. `WHERE` runs after the
 join, and a job with no eu budget has NULL in every column `LEFT_JOIN` brought in, so a
 Condition on them in `WHERE` would throw that job away again, and the `LEFT_JOIN` would quietly
 act as a `JOIN`. A Guard stops it:
@@ -564,10 +613,13 @@ value; a column of whole numbers holding a NaN is made floats, so the budgets sh
 opt-out, `keeps_only_matches=True`, is almost never right: if you want only the jobs that have a
 match, `JOIN` says so plainly.
 
-### A Warning: a table with no Key
+Done when `eu_budgets` keeps report_build, with NaN. Then step 15.
 
-ops.team_notes has no Key, so the Toolbox can't know how many notes a team has, and warns at
-any join onto it. Each job, beside its team's notes:
+### 15. A Warning: a table with no Key
+
+Goal: a join onto a table with no Key, its Warning answered. ops.team_notes has no Key, so the
+Toolbox can't know how many notes a team has, and warns at any join onto it. Each job, beside
+its team's notes:
 
 >>> notes = ops.team_notes  # -> Table
 >>> job_notes = statement(  # -> Statement
@@ -595,10 +647,13 @@ Toolbox and to the next reader, and the Warning goes:
 ...     JOIN(notes, ON=equals(notes.team, jobs.team), many_matches=True),
 ... )
 
-### Switch on the row limit
+Done when `job_notes` builds with no Warning. Then step 16.
 
-Two Load limits are always on: a partitioned table must have a partition column filtered, and
-`ORDER_BY` needs a `LIMIT`, as Common mistakes shows. A third is off until you switch it on,
+### 16. Switch on the row limit
+
+Goal: a cap on the rows a query brings back to your notebook. Two Load limits are always on: a
+partitioned table must have a partition column filtered, and `ORDER_BY` needs a `LIMIT`, as
+Common mistakes shows. A third is off until you switch it on,
 since only you know how much your notebook can take. `set_load_limits(rows=...)` adds a LIMIT
 to every query that has none of its own, and refuses a result that fills it, since it was then
 probably cut short. At work, `set_load_limits(rows=100000)`, in the first cell of a notebook,
@@ -625,10 +680,12 @@ with nothing in it switches the limit off again:
 >>> set_load_limits()  # -> dict[str, int | None]
 {'rows': None}
 
-### Know when an opt-out is right
+Done when `set_load_limits()` shows `{'rows': None}`. Then step 17.
 
-Each opt-out says "I know, and I mean it". Add one only when the message's "why it matters"
-doesn't apply to what you want:
+### 17. Know when an opt-out is right
+
+Goal: an opt-out only where the message's reason doesn't apply. Each opt-out says "I know, and
+I mean it". Add one only when the message's "why it matters" doesn't apply to what you want:
 
 - `many_matches=True` on a `JOIN` or `LEFT_JOIN`: when one row per match is the point, such as
   listing each note beside its job, and nothing over it is added up.
@@ -641,6 +698,8 @@ doesn't apply to what you want:
 - `keeps_only_matches=True` on `LEFT_JOIN`: almost never; write `JOIN`.
 
 When the opt-out would hide a mistake, make the fix instead.
+
+Done when you can say the case each opt-out above is right for. Then check it worked, below.
 
 ## Check it worked
 
@@ -665,6 +724,13 @@ And the warehouse's counts per job match the same counts made in pandas from the
 >>> every_run.groupby("job_id")["duration_mins"].sum().to_dict() == dict(
 ...     zip(from_hive["job_id"], from_hive["minutes"]))
 True
+
+Before you go on, check that:
+
+- the teams' runs in `per_team` add up to the runs in `all_runs`, 9;
+- `fixed_total` gives 180 minutes, the total before any join;
+- the minutes per job from the warehouse match those worked out in pandas: the comparison shows
+  `True`.
 
 ## Common mistakes
 
@@ -706,7 +772,8 @@ sqlglot_composer.refusals.GuardRefused:
                   listed in does_not_add_up in its Table reference.
 ...
 
-If you leave `does_not_add_up=[]` empty, nothing stops it, and the total means nothing.
+List every average, ratio and count of different values in `does_not_add_up=[...]`: left
+empty, nothing stops the total, and it means nothing.
 
 ### Sorting without a LIMIT
 

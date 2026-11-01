@@ -5,37 +5,50 @@ For: Intermediate
 ## Goal
 
 Change some rows in pandas, in a function of your own, save them to a table with your own
-call, and declare the change to the Toolbox with `python_step`, so the Lineage of your tables
-shows where the change lives, rather than stopping at the gap, and `project.run_tables` writes
-the tables that read it after it.
+call, and declare the change to the Toolbox with `python_step`. A Python step is such a change,
+made outside any Statement, the query the Toolbox builds, and declared with the columns it read
+and the table it wrote. Declared, it lets the Lineage of your tables, the record of which
+columns feed each result, show where the change lives, rather than stopping at the gap, and
+`project.run_tables` write the tables that read it after it.
 
 ## When you'd use it
 
-When a step is easier in pandas than in a Statement. Here it is how many minutes longer each
-run took than its job's usual run, the median, which pandas works out in one line. The
-Toolbox never moves the rows: you pull them with a Statement, change them with your function,
-and save them with your work's own call. `python_step` only tells the Toolbox which columns the
-change read, which table it wrote, and which function made it, so whoever reads the Lineage
-can open that function and see what it does.
-
-It needs [Save a table](#save_a_table), [Share Building blocks](#share_building_blocks) and
-[Follow lineage](#follow_lineage).
+- If a step is easier in pandas than in a Statement, make it a Python step. Here it is how many
+  minutes longer each run took than its job's usual run, the median, which pandas works out in
+  one line.
+- If you need the Toolbox to move the rows, use a Statement instead: for a Python step you pull
+  the rows with a Statement, change them with your function, and save them with your work's own
+  call. `python_step` only tells the Toolbox which columns the change read, which table it
+  wrote, and which function made it, so whoever reads the Lineage can open that function and
+  see what it does.
+- If you have not saved a table, made a Building block or exported Lineage yet, do
+  [Save a table](#save_a_table), [Share Building blocks](#share_building_blocks) and
+  [Follow lineage](#follow_lineage) first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
-`example_projects/intermediate/` from the download to a folder of your own, copy the
-`sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
-makes the same copy in its first step, from the download the Toolbox came in, into the folder
-it runs in, which Python's path holds already, as Jupyter's does for a notebook's own folder:
+Goal: a Project, your folder of scripts at work, to make the change in. Work in a copy of the
+Intermediate Example project, at its top: copy `example_projects/intermediate/` from the
+download to a folder of your own, copy the `sqlglot_composer` folder into it, as a Project holds
+it, and open a notebook there. This page makes the same copy in its first step, from the
+download the Toolbox came in, into the folder it runs in, which Python's path holds already, as
+Jupyter's does for a notebook's own folder:
 
 >>> import shutil
 >>> from pathlib import Path
 >>> import sqlglot_composer
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
+
+Done when the folder you work in holds the Project's admin/, references/ and tables/ folders.
+Then step 2.
+
+### 2. Import the names the steps use
+
+Goal: the Toolbox, your query and execute, and ops.job_events with its Alias `ends_a_run`, a
+name its Table reference gives a condition on it:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -44,17 +57,24 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> from references.ops__job_events import ends_a_run  # -> Condition
 >>> job_events = ops.job_events  # -> Table
 
-### Write the change in a Building block
+Done when `job_events` and `ends_a_run` are set. Then step 3.
 
-Keep the function in a Building block, a file of the Project's building_blocks/ folder, where
-its line stays put and any notebook can import it. `project.new_block` makes the file, from
-the Project's building_block Template, and registers it:
+### 3. Make a Building block for the change
+
+Goal: a file for your function. Keep the function in a Building block, a file of the Project's
+building_blocks/ folder, where its line stays put and any notebook can import it.
+`project.new_block` makes the file, from the Project's building_block Template, and registers
+it:
 
 >>> project.new_block("run_speed")
 Wrote building_blocks/run_speed.py, from admin/templates/building_block.py:
 fill in its <...> and TODO lines.
 
-Then write your function over the Template's code:
+Done when building_blocks/run_speed.py is written. Then step 4.
+
+### 4. Write the change in it
+
+Goal: your function, importable. Write your function over the Template's code:
 
 The file `building_blocks/run_speed.py`, after you write your function in it:
 
@@ -75,11 +95,14 @@ The file `building_blocks/run_speed.py`, after you write your function in it:
 
 >>> from building_blocks.run_speed import add_minutes_over_median
 
-### Pull the rows with a Statement
+Done when `add_minutes_over_median` imports. Then step 5.
 
-A run's minutes are on the event that ends it, which ops.job_events' Alias `ends_a_run` picks.
-The runs that ended on the Example database's last two days, with the columns the change reads.
-`run_query` gives back a DataFrame:
+### 5. Pull the rows with a Statement
+
+Goal: the rows the change reads, as a DataFrame. A run's minutes are on the event that ends
+it, which ops.job_events' Alias `ends_a_run` picks. The runs that ended on the Example
+database's last two days, with the columns the change reads. `run_query` gives back a
+DataFrame:
 
 >>> ended = statement(  # -> Statement
 ...     SELECT(job_events.event_id, job_events.job_id, job_events.minutes, job_events.dt),
@@ -93,9 +116,12 @@ The runs that ended on the Example database's last two days, with the columns th
 1        54       2       18  2026-09-23
 2        56       1       10  2026-09-24
 
-### Change them in pandas
+Done when `runs` holds events 52, 54 and 56. Then step 6.
 
-Your function takes the DataFrame and gives back another, as any pandas code does:
+### 6. Change them in pandas
+
+Goal: the changed rows. Your function takes the DataFrame and gives back another, as any pandas
+code does:
 
 >>> changed = add_minutes_over_median(runs)  # -> DataFrame
 >>> changed
@@ -106,10 +132,14 @@ Your function takes the DataFrame and gives back another, as any pandas code doe
 
 Job 1's run on 2026-09-23 took a minute longer than its usual run.
 
-### Make the table it saves to, and its notebook
+Done when `changed` has the column minutes_over_median. Then step 7.
 
-The table the rows go to is a Saved table like any other, here mart.run_speed, made with
-`project.new_table`, as [Save a table](#save_a_table) shows:
+### 7. Make the table it saves to
+
+Goal: a Saved table, a real table your own code writes, for the changed rows, with its Table
+reference, the file that describes it. The table the rows go to is a Saved table like any
+other, here mart.run_speed, made with `project.new_table`, as [Save a table](#save_a_table)
+shows:
 
 >>> project.new_table("mart.run_speed")
 Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
@@ -135,10 +165,15 @@ The file `references/mart__run_speed.py`, after you fill it in:
         location="/data/your_team/mart.db/run_speed",
     )
 
-Its notebook's logic cell says what the change reads and writes: rows() is the Statement
-that pulls the rows, and write() gives the change, declared with `python_step`. The cell
-after it pulls the rows, changes them and saves them, with your API's own write call, since
-the Toolbox has no call that saves a DataFrame:
+Done when references/mart__run_speed.py names the table's five columns. Then step 8.
+
+### 8. Fill in its Table notebook
+
+Goal: the notebook that pulls, changes and saves the rows. A Table notebook is the notebook in a
+Table folder whose cells create and write its Saved table. Its logic cell says what the change
+reads and writes: rows() is the Statement that pulls the rows, and write() gives the change,
+declared with `python_step`. The cell after it pulls the rows, changes them and saves them,
+with your API's own write call, since the Toolbox has no call that saves a DataFrame:
 
 The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
 
@@ -209,12 +244,15 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
     export_lineage(rows(), write())
 
-### Declare the step
+Done when the notebook's logic cell has rows() and write(). Then step 9.
 
-`python_step` takes your function itself, not what it gave back, the columns it read, each
-through its Table reference (a Table reference stands for every one of its columns), and the
-table it wrote. It gives back a `PythonStep`, and sends nothing. `project.load` runs the
-notebook's logic cell, as `project.run_tables` does, so its write() is here too:
+### 9. Declare the step
+
+Goal: the change, declared as a `PythonStep`. `python_step` takes your function itself, not
+what it gave back, the columns it read, each through its Table reference (a Table reference
+stands for every one of its columns), and the table it wrote. It gives back a `PythonStep`, and
+sends nothing. `project.load` runs the notebook's logic cell, as `project.run_tables` does, so
+its write() is here too:
 
 >>> speed = project.load("mart.run_speed")  # -> the notebook's functions
 >>> speed_step = speed.write()  # -> PythonStep
@@ -232,10 +270,12 @@ since it has no Hive:
 -- and ops.job_events.dt, and writes mart.run_speed. Nothing is sent for it: your own call
 -- saves its rows.
 
-### A table that reads it is written after it
+Done when `show_hive` names add_minutes_over_median and line 10. Then step 10.
 
-mart.slow_runs keeps the runs that took more than 5 minutes over their job's usual run, read
-from mart.run_speed:
+### 10. Make a table that reads it
+
+Goal: a second Saved table, written from what the Python step saved. mart.slow_runs keeps the
+runs that took more than 5 minutes over their job's usual run, read from mart.run_speed:
 
 >>> project.new_table("mart.slow_runs")
 Made tables/mart__slow_runs/: mart__slow_runs.ipynb and lineage/, from
@@ -316,9 +356,13 @@ The file `tables/mart__slow_runs/mart__slow_runs.ipynb`, after you fill it in:
     # 4. Lineage: a new pair in lineage/, named by the time and this table, beside the ones before
     export_lineage(write())
 
-`project.run_tables` writes each table before the tables that read it. mart.slow_runs reads
-what the Python step wrote, so it comes after it; with no execute, it prints each one in
-order and sends nothing:
+Done when mart.slow_runs' Table reference and notebook are filled in. Then step 11.
+
+### 11. Write the tables in order
+
+Goal: each table written after the tables it reads. `project.run_tables` writes each table
+before the tables that read it. mart.slow_runs reads what the Python step wrote, so it comes
+after it; with no execute, it prints each one in order and sends nothing:
 
 >>> project.run_tables(tables=["mart.slow_runs", "mart.run_speed"])
 -- 1 of 2: mart.run_speed
@@ -355,10 +399,13 @@ Wrote 1 table, in order.
 Passed over 1 Python step, of mart.run_speed: run each one's notebook, whose own call saves its
     rows.
 
-### Export the Lineage, the step drawn as one box
+Done when it says it passed over the Python step of mart.run_speed and wrote mart.slow_runs.
+Then step 12.
 
-Pass the step to `export_lineage` with the Statements around it: the one that pulls its rows,
-and the write that reads what it saved:
+### 12. Export the Lineage, the step drawn as one box
+
+Goal: Lineage that shows where the change lives. Pass the step to `export_lineage` with the
+Statements around it: the one that pulls its rows, and the write that reads what it saved:
 
 >>> slow = project.load("mart.slow_runs")  # -> the notebook's functions
 >>> html_file, markdown_file = export_lineage(
@@ -371,6 +418,9 @@ can't see inside it, so it can't tell which column made which: the columns of ma
 go back as far as the step, and the step's own section says what it read and where its
 function lives.
 
+Done when export_lineage has written lineage/run_speed.html and its .md beside it. Then check
+it worked, below.
+
 ## Check it worked
 
 The step's section names the function and where it lives, and the write of mart.slow_runs
@@ -381,6 +431,13 @@ reads the table the step wrote:
 True
 >>> "It reads the Saved table mart.run_speed, written by" in text
 True
+
+Before you go on, check that:
+
+- the Lineage's step section names building_blocks/run_speed.py, add_minutes_over_median and
+  line 10;
+- the Lineage says mart.slow_runs reads the Saved table mart.run_speed;
+- `project.run_tables` lists mart.run_speed before mart.slow_runs.
 
 ## Common mistakes
 

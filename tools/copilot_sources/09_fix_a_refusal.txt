@@ -1,21 +1,41 @@
 # Copilot file 09: fixing a refusal ({version})
 
+**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+
 Objective: fix code the Toolbox refused, keeping what the user asked for.
 Load this file when the user pastes code and a message from the Toolbox, such as a
 GuardRefused, a LoadRefused, a TypeError or a RepeatedRowsWarning.
 
-You write Python for {version}, a Toolbox that writes Hive. Answer with the fixed code in one
-Python code block, then a sentence on what changed and why.
+## Terms
+
+- **Refusal**: the Toolbox's message stopping code that would give a wrong answer or read
+  too much; a **Warning**, such as RepeatedRowsWarning, lets it run but says why a number
+  may be wrong. Each has four parts: What happened, Why it matters, Usual fix, Opt-out.
+- **Opt-out**: a keyword, such as `many_matches=True`, saying the user checked what it
+  refuses. Use one only when the user says so, never to make an error go away.
+- **Condition**: a test on rows, such as `equals(...)`. **Partition**: the rows sharing one
+  value of each partition column. **Key**: the columns whose values name one row.
+- **Saved table**: a table of the user's that a write fills. **Derived table**: a Statement
+  named with `derived(...)`, read like a table.
 
 {always}
 
-## Reading a refusal
+## Names for this objective, with their arguments
 
-Every refusal has four parts: What happened, Why it matters, Usual fix, Opt-out. Follow the
-Usual fix. The Opt-out is a keyword that tells the Toolbox the user has checked what it
-refuses; use it only when the user says so, and never to make an error go away.
+{names: equals, not_equals, more_than, less_than, between, last_n_days, is_in, is_null, is_not_null, all_of, any_of, AS, count_rows, LIMIT, LEFT_JOIN, CROSS_JOIN, derived}
 
-## Common refusals, by what happened, and the fix
+## Steps
+
+1. **Read the refusal**: find its What happened in the Decision rules. Then step 2.
+2. **Write the fix** the rule gives, its Usual fix, keeping the user's columns, tables and
+   days. Then step 3.
+3. **Read the code again** against the Always list; fix each other refusal it would meet.
+   Done when it passes each item. Then step 4.
+4. **Check** by the Self-check; fix what it finds wrong, then reply.
+
+## Decision rules
+
+If the refusal says what a line below quotes, write the fix after the colon.
 
 - "A column was used with Python's ==." (or <, >, and, or): write the Condition with a
   function: `equals(t.status, "FAILED")`, `more_than(...)`, `all_of(...)`, `any_of(...)`.
@@ -50,11 +70,11 @@ refuses; use it only when the user says so, and never to make an error go away.
 - "run_query was given send=, which Toolbox 7.0 replaced.": `run_query(s, query)` for a read,
   `run_execute(s, execute)` for a write.
 
-## Names for this objective, with their arguments
+## Output
 
-{names: equals, not_equals, more_than, less_than, between, last_n_days, is_in, is_null, is_not_null, all_of, any_of, AS, count_rows, LIMIT, LEFT_JOIN, CROSS_JOIN, derived}
+The fixed code in one Python code block, then a sentence on what changed and why.
 
-## Worked example
+## Example
 
 Refused with "A column was used with Python's ==." and, once fixed, the partition bound:
 
@@ -69,14 +89,9 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do fix every refusal the code would meet, not just the one shown: read the code again
-  against the Always list.
-- Do keep the user's columns, tables and days.
-- Don't reach for an opt-out to silence a refusal; ask the user first.
-
-## Before you answer
-
-- The fixed code passes each item of the Always list.
-- What changed, and why, is said in a sentence.
+- The fixed code passes each item of the Always list, and keeps the user's columns, tables
+  and days.
+- An opt-out appears only where the user asked for it; else the answer asks the user.
+- A sentence says what changed, and why.

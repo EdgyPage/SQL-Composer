@@ -5,31 +5,39 @@ For: Getting started
 ## Goal
 
 See where each column of a Statement's result comes from: the table columns that feed it, the
-conditions that decide which rows count towards it, and the Hive that ran. `export_lineage`
-writes this Lineage as two files, an HTML page to explore in your browser and a Markdown file
-to read anywhere. You export one Statement's, then a Saved table's from its Table notebook,
-into its Table folder's lineage/, then a table that reads another Saved table, drawn together
-with it, all the way back to the tables they start from; `project.run_tables` writes them in
-that same order. Last, a change made in pandas is declared with `python_step`, so the Lineage
-doesn't stop at it.
+conditions that decide which rows count towards it, and the Hive that ran. A Statement is one
+query; its Lineage is the record of which table columns feed each of its output columns.
+`export_lineage` writes this Lineage as two files, an HTML page to explore in your browser and
+a Markdown file to read anywhere. You export one Statement's, then a Saved table's from its
+Table notebook, into its Table folder's lineage/, then a table that reads another Saved table,
+drawn together with it, all the way back to the tables they start from; `project.run_tables`
+writes them in that same order. A Saved table is a real table in the warehouse that your
+Statements write; its Table folder holds everything about it, and its Table notebook is the
+notebook in that folder whose cells create and write it. Last, you declare a change made in
+pandas with `python_step`, so the Lineage goes on through it.
 
 ## When you'd use it
 
-- Before you hand someone a number, so you can answer "where does this come from?" by
-  pointing at the files.
-- When a number looks wrong: the Markdown file lists every condition that decides which rows
-  count towards it, from every step, in one place.
-- Whenever a Saved table's logic changes: each export is kept, beside the ones before, to
-  compare.
+- If you hand someone a number, export its Lineage first, so you can answer "where does this
+  come from?" by pointing at the files.
+- If a number looks wrong, read its Markdown file: it lists every condition that decides which
+  rows count towards it, from every step, in one place.
+- If a Saved table's logic changes, export its Lineage again: each export is kept, beside the
+  ones before, to compare.
+- If a step of a table is done in pandas, declare it with `python_step`, as steps 10 to 13 do.
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
+
+Goal: a Project with the Table references and the Building block the steps read. A Table
+reference is the file that describes one table; a Building block is a piece of your own code
+reused across notebooks, here a Derived table, a named Statement another Statement reads from.
 
 [Save a table](#save_a_table) left the Project with its Table references, its Building block
-and one Saved table. This how-to reads two of the Table references and the
-Building block, so the steps make those again, shortened; mart.alerts_per_severity isn't read
-here, so it is left out:
+and one Saved table. This how-to reads two of the Table references and the Building block, so
+the calls below make those again, shortened; mart.alerts_per_severity isn't read here, so it is
+left out:
 
 >>> import os
 >>> from pathlib import Path
@@ -113,13 +121,16 @@ The file `building_blocks/runs_per_job.py`, after you fill it in:
             ),
         )
 
-The steps run in a notebook in the Project's folder, which Jupyter puts on Python's path:
+The calls run in a notebook in the Project's folder, which Jupyter puts on Python's path:
 
 >>> from references import ops
 
-### Export one Statement's Lineage
+Done when `from references import ops` runs without an error. Then step 2.
 
-The Statement here counts each team's runs, and their failed runs, over two days:
+### 2. Build a Statement to follow
+
+Goal: a Statement whose result you want to trace. This one counts each team's runs, and their
+failed runs, over two days:
 
 >>> team_runs = statement(  # -> Statement
 ...     SELECT(
@@ -137,9 +148,13 @@ The Statement here counts each team's runs, and their failed runs, over two days
 0     data     4            0
 1  finance     5            2
 
-`export_lineage` takes the Statement itself, not its Hive or its result. It writes the two
-files and gives back their paths, the HTML page first. Nothing is sent to the warehouse: the
-Lineage is worked out from the Statement alone.
+Done when the result shows the teams data and finance. Then step 3.
+
+### 3. Export its Lineage
+
+Goal: the Statement's Lineage, as two files. `export_lineage` takes the Statement itself, its
+Hive and its result aside. It writes the two files and gives back their paths, the HTML page
+first. Nothing is sent to the warehouse: the Lineage is worked out from the Statement alone.
 
 Where the files go, and their names, take one of two forms. Each name starts with `<time>`,
 the time it ran, such as `20260925-090000` for 09:00:00 on 2026-09-25, so each export gets a
@@ -154,8 +169,8 @@ share the name, ending `.html` and `.md`:
   name of the variable that holds the Statement, here `team_runs`. So put a Statement in a
   variable with a meaningful name before you export it;
 - a write of a Saved table goes in its Table folder's lineage/, wherever you run it, named
-  `<time>-<database>__<table>.md`, such as `20260925-090000-mart__daily_job_runs.md`, as the
-  next step shows.
+  `<time>-<database>__<table>.md`, such as `20260925-090000-mart__daily_job_runs.md`, as
+  step 6 shows.
 
 `to=`, such as `to="lineage/team_runs.html"`, names the files instead, replacing the last.
 
@@ -165,7 +180,12 @@ share the name, ending `.html` and `.md`:
 >>> markdown_file.parent.name  # -> str
 'lineage'
 
-Read the Markdown file from the top. Graph is a chart in Mermaid, a text format for charts that
+Done when the Markdown file is in lineage/, named for `team_runs`. Then step 4.
+
+### 4. Read the Markdown file
+
+Goal: where each column of the result comes from. Read the Markdown file from the top. Graph
+is a chart in Mermaid, a text format for charts that
 JupyterLab and GitHub draw: each table read is a group holding the columns the Statement uses,
 a solid arrow carries a value, and a dotted one carries a column into a condition. Then the
 Statement's own section, `team_runs`:
@@ -176,18 +196,23 @@ Statement's own section, `team_runs`:
   (here the two days in WHERE, and the match in JOIN's `ON=`; when a number looks wrong, look
   here first), and what one row stands for, from GROUP_BY;
 - Copied columns: `"team"`, from `ops.jobs.team`;
-- Keys: which columns tell the rows apart, here `"team"`;
+- Keys: which columns tell the rows apart, here `"team"`; a table's Key is the columns whose
+  values name exactly one row;
 - Hive as submitted: the Hive `run_query` or `run_execute` sends.
 
 The HTML page draws the same Lineage as boxes and arrows: click a box to light up every column
 it comes from and every condition that decides its rows. It needs no internet.
 
-### Export a Saved table's Lineage, from its Table notebook
+Done when you can name the condition that decides which rows `"failed_runs"` counts. Then
+step 5.
 
-mart.daily_job_runs saves each job's runs, failed runs and minutes per day, from the Building
-block. Make its Table folder, and fill in its notebook and its Table reference, as [Save a
-table](#save_a_table) does; here they are filled in, shortened from the Starter Example
-project's:
+### 5. Make a Saved table's Table folder
+
+Goal: a Saved table, mart.daily_job_runs, whose Lineage step 6 exports. It saves each job's
+runs, failed runs and minutes per day, from the Building block. Make its Table folder, and fill
+in its notebook and its Table reference, as [Save a table](#save_a_table) does; here they are
+filled in, shortened from the Starter Example project's, a Project made for the Example
+database, the small made-up tables this page runs on:
 
 >>> project.new_table("mart.daily_job_runs")
 Made tables/mart__daily_job_runs/: mart__daily_job_runs.ipynb and lineage/, from
@@ -286,14 +311,18 @@ The file `tables/mart__daily_job_runs/mart__daily_job_runs.ipynb`, after you fil
     # 6. The Reference sheet: this table's rows, from references/mart__daily_job_runs.py
     project.refresh_reference_sheet("mart.daily_job_runs")
 
-Cell 4 exports the table's Lineage into lineage/. Cell 5, the Hive, beside the notebook,
-writes the Hive its logic sends into mart__daily_job_runs.hql, in the Table folder, as
-[Save a table](#save_a_table) shows. The two keep different things: each export of cell 4 adds
-a new pair to lineage/, so the table's Lineage keeps its history, but each run of cell 5
-writes mart__daily_job_runs.hql again, over the one before, so it shows the Hive of the logic
-as last saved and keeps no history. To see how the Hive changed, commit the file each time
-and compare its commits. Here, `project.load` gives
-the notebook's logic, as its cell 2 does when it runs: an object with one attribute per
+Done when the notebook and the Table reference hold no `<...>`. Then step 6.
+
+### 6. Export its Lineage from its Table notebook
+
+Goal: the table's Lineage in its Table folder's lineage/. Cell 4 exports the table's Lineage
+into lineage/. Cell 5, the Hive, beside the notebook, writes the Hive its logic sends into
+mart__daily_job_runs.hql, in the Table folder, as [Save a table](#save_a_table) shows. The two
+keep different things: each export of cell 4 adds a new pair to lineage/, so the table's
+Lineage keeps its history, but each run of cell 5 writes mart__daily_job_runs.hql again, over
+the one before, so it shows the Hive of the logic as last saved and keeps no history. To see
+how the Hive changed, commit the file each time and compare its commits. Here, `project.load`
+gives the notebook's logic, as its cell 2 does when it runs: an object with one attribute per
 function of the logic cell, such as `daily.write`. The write goes in a variable with a
 meaningful name first:
 
@@ -310,13 +339,15 @@ Its Graph draws the Building block as a group of its own, named `"runs_per_job"`
 names it: `"failed_runs"` is counted there, from `ops.job_runs.status`, and copied into the
 table.
 
-### Draw a table that reads another Saved table
+Done when the pair is in tables/mart__daily_job_runs/lineage/. Then step 7.
 
-mart.team_day adds up each team's day from what mart.daily_job_runs saved. It reads the Saved
-table through its Table reference, like any other table. Its notebook below is shortened from
-the Starter Example project's, whose cell 3 also runs a function of its logic,
-team_runs_from_job_runs, each team's day worked out from ops.job_runs itself, so that it runs
-on the Example database:
+### 7. Make a table that reads another Saved table
+
+Goal: a second Saved table, mart.team_day, that adds up each team's day from what
+mart.daily_job_runs saved. It reads the Saved table through its Table reference, like any
+other table. Its notebook below is shortened from the Starter Example project's, whose cell 3
+also runs a function of its logic, team_runs_from_job_runs, each team's day worked out from
+ops.job_runs itself, so that it runs on the Example database:
 
 >>> project.new_table("mart.team_day")
 Made tables/mart__team_day/: mart__team_day.ipynb and lineage/, from
@@ -428,12 +459,17 @@ The file `tables/mart__team_day/mart__team_day.ipynb`, after you fill it in:
     # 6. The Reference sheet: this table's rows, from references/mart__team_day.py
     project.refresh_reference_sheet("mart.team_day")
 
-Its Lineage alone would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads
-the logic of the table it reads, and passes both writes. One write goes in its own Table
-folder's lineage/ wherever you run it, but with several writes the folder you run from decides
-where they go: the lineage/ of the Table folder you run them from, when one of them fills its
-table, or else beside your notebook. Jupyter runs a notebook in its own folder, so the steps
-move there first, as opening the notebook would, then do what cell 4 does:
+Done when the notebook and the Table reference hold no `<...>`. Then step 8.
+
+### 8. Draw both tables together
+
+Goal: one Lineage that reaches from mart.team_day back to ops.job_runs. Its Lineage alone
+would stop at mart.daily_job_runs, with nothing behind it. So cell 4 loads the logic of the
+table it reads, and passes both writes. One write goes in its own Table folder's lineage/
+wherever you run it, but with several writes the folder you run from decides where they go:
+the lineage/ of the Table folder you run them from, when one of them fills its table, or else
+beside your notebook. Jupyter runs a notebook in its own folder, so the calls below move there
+first, as opening the notebook would, then do what cell 4 does:
 
 >>> os.chdir("tables/mart__team_day")
 >>> team = project.load("mart.team_day")  # -> the notebook's functions
@@ -443,21 +479,24 @@ move there first, as opening the notebook would, then do what cell 4 does:
 >>> markdown_file.name  # -> str
 '20260925-090000-mart__team_day.md'
 
-The files go in this Table folder's lineage/, named for its own table. The order you pass them
-in doesn't matter: `export_lineage` puts each write before the ones that read the Saved table it
-fills. The Markdown file has a section for each write. The second's first line says it reads
+The files go in this Table folder's lineage/, named for its own table. Pass the writes in any
+order: `export_lineage` puts each write before the ones that read the Saved table it fills.
+The Markdown file has a section for each write. The second's first line says it reads
 mart.daily_job_runs, written by write_daily_job_runs above, so the tree of the team's
 `"failed_runs"` goes on through the Saved table, and the Building block, back to
 `ops.job_runs.status`: the file answers "what counts as a failed run here?" in one place.
 
-### Write them in that order
+Done when the Markdown file is named `20260925-090000-mart__team_day.md`. Then step 9.
 
-`project.run_tables` writes every table in the order the Lineage draws them: a table before any
-table that reads it, found from each write's Hive. With your query and execute, from
-warehouse.py, which here hold the Example database's, it sends each in turn, and the Example
-database's execute prints the first line of each. It takes query= as well as execute=, since
-a write() may give an Admin statement or an Unchecked statement, and one that reads rows goes
-to your query:
+### 9. Write them in that order
+
+Goal: each table written after the tables it reads. `project.run_tables` writes every table in
+the order the Lineage draws them: a table before any table that reads it, found from each
+write's Hive. With your query and execute, from warehouse.py, which here hold the Example
+database's, it sends each in turn, and the Example database's execute prints the first line of
+each. It takes query= as well as execute=, since a write() may give an Admin statement, one
+that changes a Saved table's definition or deletes its data, or an Unchecked statement, Hive
+written by hand, and one that reads rows goes to your query:
 
 >>> os.chdir("../..")
 >>> project.run_tables(execute=execute)
@@ -470,18 +509,22 @@ execute: INSERT OVERWRITE TABLE mart.team_day PARTITION(dt)
 Wrote 2 tables, in order.
 
 mart.team_day goes after mart.daily_job_runs, so it reads the rows that were just written.
-mart.daily_job_runs's write starts `WITH runs_per_job AS (`, not INSERT: its rows come from
-the Building block, a Derived table, which the Hive writes at its top, ahead of the INSERT
+mart.daily_job_runs's write starts `WITH runs_per_job AS (`, ahead of its INSERT: its rows come
+from the Building block, a Derived table, which the Hive writes at its top, ahead of the INSERT
 OVERWRITE that reads it.
 
-### Declare a change made in pandas, in a Table notebook
+Done when it says `Wrote 2 tables, in order.` Then step 10.
 
-Some steps are easier in pandas than in a Statement, such as how many minutes longer each run
-took than its job's usual run, the median. The Toolbox never moves the rows: you pull them with
-a Statement, change them with your own function, and save them with your work's own call.
-`python_step` declares the change, so the Lineage shows where it lives rather than stopping at
-the gap. In a Table notebook, write() gives the Python step, and the notebook's cell 3 pulls,
-changes and saves. Make the Table folder as usual, then write over the Template's logic:
+### 10. Make a Table folder for a change made in pandas
+
+Goal: a Saved table, mart.run_speed, whose rows a pandas function works out. Some steps are
+easier in pandas than in a Statement, such as how many minutes longer each run took than its
+job's usual run, the median. The Toolbox leaves the rows where they are: you pull them with a
+Statement, change them with your own function, and save them with your work's own call.
+`python_step` declares the change, a Python step, so the Lineage shows where it lives rather
+than stopping at the gap. In a Table notebook, write() gives the Python step, and the
+notebook's cell 3 pulls, changes and saves. Make the Table folder as usual, then write over the
+logic of the Template, the saved_table notebook new_table copies:
 
 >>> project.new_table("mart.run_speed")
 Made tables/mart__run_speed/: mart__run_speed.ipynb and lineage/, from
@@ -594,8 +637,13 @@ The file `tables/mart__run_speed/mart__run_speed.ipynb`, after you fill it in:
     # 6. The Reference sheet: this table's rows, from references/mart__run_speed.py
     project.refresh_reference_sheet("mart.run_speed")
 
-Its function lives in the logic cell, so any notebook that loads the logic can call it. Cell 3
-pulls the rows and changes them:
+Done when the notebook's logic holds add_minutes_over_median and a write() that gives a
+PythonStep. Then step 11.
+
+### 11. Pull the rows and change them
+
+Goal: the changed rows, as a DataFrame. Its function lives in the logic cell, so any notebook
+that loads the logic can call it. Cell 3 pulls the rows and changes them:
 
 >>> speed = project.load("mart.run_speed")  # -> the notebook's functions
 >>> runs = run_query(speed.preview(), query)  # -> DataFrame
@@ -609,8 +657,14 @@ pulls the rows and changes them:
 
 The Toolbox has no call that saves a DataFrame: you save it the way your work does, such as
 your API's own write call, which cell 3 shows in a comment, since it reaches your warehouse.
-`speed.write()` gives the Python step: your function itself, not what it gave back, the columns
-it read, and the table it wrote. It sends nothing, and `show_hive` prints what it is:
+
+Done when `changed` has the column minutes_over_median. Then step 12.
+
+### 12. Declare the change
+
+Goal: a Python step the Lineage can draw. `speed.write()` gives the Python step: your function
+itself, rather than what it gave back, the columns it read, and the table it wrote. It sends
+nothing, and `show_hive` prints what it is:
 
 >>> speed_step = speed.write()  # -> PythonStep
 >>> text = show_hive(speed_step)  # -> str
@@ -625,8 +679,13 @@ cell is named by its notebook, and its line is a line of that cell. Its Lineage 
 as one box, from the columns it read to each column of mart.run_speed: the Toolbox can't see
 inside it, and its section says where to open the function.
 
-`project.run_tables` puts the step in order with the other tables, by the tables it reads and
-writes, and passes over it, since your own call saves its rows:
+Done when `show_hive` names add_minutes_over_median and mart.run_speed. Then step 13.
+
+### 13. Put the Python step in order with the other tables
+
+Goal: the Python step's place among the writes. `project.run_tables` puts the step in order
+with the other tables, by the tables it reads and writes, and passes over it, since your own
+call saves its rows:
 
 >>> project.run_tables(execute=execute)
 execute: SET hive.exec.dynamic.partition=true
@@ -644,6 +703,9 @@ A table whose write() reads mart.run_speed is written after it, and reads what m
 holds then: the rows your own call saved the last time its notebook ran. So run that notebook,
 cell 3 and its save, before `project.run_tables`, on each day its rows should change.
 
+Done when it says it passed over 1 Python step, of mart.run_speed. Then check it worked,
+below.
+
 ## Check it worked
 
 Each Table folder's lineage/ holds its pair, and mart.team_day's has a section for each write,
@@ -656,6 +718,14 @@ reaching back through the Saved table to `ops.job_runs`:
 ['## Graph', '## write_daily_job_runs', '## write_team_day']
 >>> "written by write_daily_job_runs above" in text, "ops.job_runs.status" in text
 (True, True)
+
+Before you go on, check that:
+
+- tables/mart__team_day/lineage/ holds an .html and an .md file of the same name;
+- the Markdown file has a section for each write, `## write_daily_job_runs` and
+  `## write_team_day`;
+- it names `ops.job_runs.status`, so the team's `"failed_runs"` reaches back to it;
+- `project.run_tables` writes mart.daily_job_runs before mart.team_day.
 
 ## Common mistakes
 
@@ -685,7 +755,8 @@ TypeError:
   What happened:  export_lineage was given [...], which isn't a Statement that reads a table.
 ...
 
-Name each write, as cell 4 does.
+Pass each write as its own argument, each in a variable named for it, as cell 4 does:
+`export_lineage(write_daily_job_runs, write_team_day)`.
 
 ### Loading a table that has no Table folder
 
@@ -700,7 +771,8 @@ FileNotFoundError:
                   tables/ops__job_runs/ops__job_runs.ipynb.
 ...
 
-A table the Project only reads has no write to draw: its columns are where each tree starts.
+Give `project.load` only a table with a Table folder, such as `"mart.team_day"`. A table the
+Project only reads has no write to draw: its columns are where each tree starts.
 
 ## Next
 

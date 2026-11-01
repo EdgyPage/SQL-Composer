@@ -5,30 +5,34 @@ For: Intermediate
 ## Goal
 
 Write a Table reference yourself, one argument at a time, for a table
-`project.add_references` can't ask about, and keep it in the Project's references/ folder.
-Here it is mart.job_day, a table that doesn't exist yet, with one row per job per day. Along
-the way you see what each argument of `Table` is for: the columns and their types,
-`partitioned_by=`, `key=`, `does_not_add_up=` and `location=`, and how a table partitioned by
-two columns, whose days are written another way, is described.
+`project.add_references` can't ask about, and keep it in the Project's references/ folder. A
+Table reference is the file that describes one table: its columns and their types, its
+Partitions and its Key. Here the table is mart.job_day, a table that doesn't exist yet, with one
+row per job per day. Along the way you see what each argument of `Table` is for: the columns
+and their types, `partitioned_by=`, `key=`, `does_not_add_up=` and `location=`, and how to
+describe a table partitioned by two columns, whose days are written another way.
 
 ## When you'd use it
 
-- For a table that doesn't exist yet, such as one your own Python will write, or one another
-  team is about to make: there is nothing to DESCRIBE, so you write what it will hold.
-- When you fill in the Table reference `project.new_table` writes for a Saved table: it is
-  written by hand in the same way, as [Save a table](#save_a_table) shows.
-- When you know a table better than the warehouse does: its Key and the columns that don't add
-  up are never in its DESCRIBE, so even a Table reference `project.add_references` writes
-  needs your hand, as [Add your tables' references](#add_your_tables_references) shows.
-
-It needs the Getting started how-tos [Start a Project](#start_a_project) and [Add your
-tables' references](#add_your_tables_references).
+- If a table doesn't exist yet, such as one your own Python will write, or one another team is
+  about to make, write its Table reference by hand: there is nothing to DESCRIBE, so you write
+  what it will hold.
+- If you fill in the Table reference `project.new_table` writes for a Saved table, write it by
+  hand in the same way, as [Save a table](#save_a_table) shows.
+- If you know a table better than the warehouse does, fill in what DESCRIBE never holds, its
+  Key and the columns that don't add up, even in a Table reference `project.add_references`
+  writes, as [Add your tables' references](#add_your_tables_references) shows.
+- If you have not yet done the Getting started how-tos, do
+  [Start a Project](#start_a_project) and
+  [Add your tables' references](#add_your_tables_references) first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
+Goal: a Project to work in. A Project is your folder of scripts at work, in the Toolbox's fixed
+layout, and an Example project is one made for the Example database's tables, to read and copy
+from. Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
 `sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
 makes the same copy in its first step, from the download the Toolbox came in, and runs its
@@ -40,25 +44,36 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the `project` module, the Project's `ops` Database and your query:
+Done when the folder holds the Intermediate Example project's files. Then step 2.
+
+### 2. Import the Toolbox and your query
+
+Goal: every name the steps call. Import the Toolbox, the `project` module, the Project's `ops`
+Database and your query. A Database is a named group of tables, the first part of a table's
+name, `ops` in `ops.jobs`:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
 >>> from references import ops
 >>> from warehouse import query, execute
 
-### Decide what one row is
+Done when the four imports run without an error. Then step 3.
 
-Before you write anything, say in one sentence what one row of the table is. For mart.job_day
-it is "one job on one day": how many times the job ran that day, how many of those runs
-failed, their minutes in all, and the average minutes of a run. Each of those becomes a
-column, and the sentence decides the Key.
+### 3. Decide what one row is
 
-### Write the Table reference in a file
+Goal: the sentence that decides the columns and the Key. Before you write anything, say in one
+sentence what one row of the table is. For mart.job_day it is "one job on one day": how many
+times the job ran that day, how many of those runs failed, their minutes in all, and the
+average minutes of a run. Each of those becomes a column, and the sentence decides the Key, the
+columns whose values name exactly one row.
 
-A Table reference is one call to `Table`, kept in the Project's references/ folder, in a file
-named after its database and table joined by two underscores, so every notebook of the Project
-that reads the table imports the same one:
+Done when you have the sentence, and the columns it names. Then step 4.
+
+### 4. Write the Table reference in a file
+
+Goal: one Table reference every notebook of the Project imports. A Table reference is one call
+to `Table`, kept in the Project's references/ folder, in a file named after its database and
+table joined by two underscores:
 
 The file `references/mart__job_day.py`, after you write it:
 
@@ -91,7 +106,8 @@ What each argument says:
   compare a typed column with, so comparing `job_day.runs` with `"3"` stops, since `"3"` is
   text.
 - `partitioned_by=["dt"]` lists the columns the table is split into Partitions by, in the
-  order Hive partitions by them: here one, the day. Each is a column in `columns=` too. The
+  order Hive partitions by them: here one, the day. A Partition is a slice of the table: the
+  rows that share one value of each of those columns. Each is a column in `columns=` too. The
   warehouse stores a Partition at a time, and every Statement that reads the table must filter
   at least one of them. A table that isn't partitioned, such as `ops.team_notes`, leaves it
   out.
@@ -104,13 +120,16 @@ What each argument says:
   Toolbox refuses to add these up.
 - `location="/data/your_team/mart.db/job_day"` is the table's own folder, used exactly as you
   write it: the Toolbox adds nothing to it. Only a table you create yourself has one, and no
-  two of your Saved tables may name one folder. A table someone else owns, such as
-  `ops.job_events`, leaves it out.
+  two of your Saved tables may name one folder. A Saved table is a real table your own
+  Statements write. A table someone else owns, such as `ops.job_events`, leaves it out.
 
-### Register it
+Done when references/mart__job_day.py holds the call to `Table` above. Then step 5.
 
-A file you write by hand isn't in the Project's registry yet. `project.check()` lists it as
-made by hand, with the call that adopts it:
+### 5. Register it
+
+Goal: the Project knows the file. A file you write by hand isn't in the Project's Registry yet,
+the Project's list of every file a Project action made. `project.check()` lists it as made by
+hand, with the call that adopts it:
 
 >>> project.check()  # -> a report, printed
 Not registered, made by hand. Adopt each with the call beside it:
@@ -122,18 +141,25 @@ Wrote references/mart.py: from references import mart gives mart.budget_overruns
     mart.team_days and mart.team_failures.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
-`project.register` also writes references/mart.py again, the `mart` Database, so the table
-is one of its attributes:
+Done when `project.register` prints `Registered references/mart__job_day.py.` Then step 6.
+
+### 6. Import it from its Database
+
+Goal: the table as an attribute of `mart`. `project.register` also writes references/mart.py
+again, the `mart` Database, so the table is one of its attributes:
 
 >>> from references import mart
 >>> job_day = mart.job_day  # -> Table
 >>> job_day
 Table('mart.job_day', columns: job_id, runs, failed_runs, minutes, avg_minutes, dt)
 
-### Read it in a Statement
+Done when `job_day` shows its six columns. Then step 7.
 
-A hand-written Table reference works exactly like one `project.add_references` wrote. Its
-columns are its attributes, and a Statement reads it with `FROM`:
+### 7. Read it in a Statement
+
+Goal: a Statement, one query, that reads your table. A hand-written Table reference works
+exactly like one `project.add_references` wrote. Its columns are its attributes, and a
+Statement reads it with `FROM`:
 
 >>> long_days = statement(  # -> Statement
 ...     SELECT(job_day.job_id, job_day.dt, job_day.minutes),
@@ -153,13 +179,16 @@ The table mart.job_day isn't on the Example database, so this how-to shows its H
 run it. At work, once the table exists and holds some days, `run_query(long_days, query)` runs
 it.
 
-### A table partitioned by two columns, its days written another way
+Done when the Hive reads `FROM mart.job_day AS job_day`. Then step 8.
 
-The Project's `ops.region_costs`, each job's cost in cents per region per day, is partitioned
-by two columns: the region, then the day. Its Key is the job, the region and the day. It
-writes its days like 20260924 rather than 2026-09-24. `project.add_references` wrote its Table
-reference, references/ops__region_costs.py, from its DESCRIBE, both partition columns among
-it, and its Key was filled in by hand:
+### 8. Read a table partitioned by two columns
+
+Goal: a Statement on a table whose days are written another way. The Project's
+`ops.region_costs`, each job's cost in cents per region per day, is partitioned by two columns:
+the region, then the day. Its Key is the job, the region and the day. It writes its days like
+20260924 rather than 2026-09-24. `project.add_references` wrote its Table reference,
+references/ops__region_costs.py, from its DESCRIBE, both partition columns among it, and its
+Key was filled in by hand:
 
     partitioned_by=["region", "dt"],
     key=["job_id", "region", "dt"],  # filled in by hand
@@ -178,11 +207,16 @@ table's way:
 0       1         120
 1       2         180
 
-Filtering either partition column is enough for the Load limit: the step above filters the
-day alone, and one that filters the region alone, or both, is let through too.
+Filtering either partition column is enough for the Load limit, the check that refuses a
+Statement that would read too much: the step above filters the day alone, and one that filters
+the region alone, or both, is let through too.
 
-Days written year first, as both 20260924 and 2026-09-24 are, sort in date order as text, so
-`between` works on them as on dates:
+Done when the result holds jobs 1 and 2. Then step 9.
+
+### 9. Keep a range of days written another way
+
+Goal: several days from the same table. Days written year first, as both 20260924 and
+2026-09-24 are, sort in date order as text, so `between` works on them as on dates:
 
 >>> two_days = statement(  # -> Statement
 ...     SELECT(region_costs.job_id, region_costs.cost_cents),
@@ -197,9 +231,12 @@ FROM ops.region_costs AS region_costs
 WHERE
   region_costs.dt BETWEEN '20260923' AND '20260924';
 
+Done when the Hive's WHERE reads `BETWEEN '20260923' AND '20260924'`. Then check it worked,
+below.
+
 ## Check it worked
 
-A table that already exists can be compared with its Table reference:
+Compare a table that already exists with its Table reference:
 
 >>> check_table_reference(region_costs, query=query)  # -> Verdict
 ops.region_costs matches its Table reference.
@@ -237,6 +274,12 @@ Project knows the file:
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.
 
+Before you go on, check that:
+
+- `check_table_reference` says the table matches its Table reference;
+- the Hive of `create_table(job_day)` holds dt under PARTITIONED BY and your LOCATION;
+- `project.check()` says every Table reference is registered.
+
 ## Common mistakes
 
 ### A partition column left out of columns
@@ -272,8 +315,8 @@ ValueError:
   What happened:  Table('mart.job_day'): key names 'day', which isn't one of its columns.
 ...
 
-`key=`, `partitioned_by=` and `does_not_add_up=` each name columns from `columns=`, spelled
-the same way.
+Name in `key=`, `partitioned_by=` and `does_not_add_up=` only columns from `columns=`,
+spelled the same way.
 
 ### Adding up a column that doesn't add up
 
@@ -291,10 +334,12 @@ sqlglot_composer.refusals.GuardRefused:
 ...
   Opt-out:        sum_of(job_day.avg_minutes, adds_up=True)
 
-Each day's average is right for its day, but a week's average isn't the sum of the days', nor
-their average when the days had different numbers of runs. The table keeps `job_day.minutes`
-and `job_day.runs`, which add up: total those over the week, and work the average out from
-the totals. The Opt-out is for the rare call where a total really is what you mean.
+The Toolbox stops it with a Guard, a check that refuses a Statement that would give a wrong
+result. Each day's average is right for its day, but a week's average isn't the sum of the
+days', nor their average when the days had different numbers of runs. The table keeps
+`job_day.minutes` and `job_day.runs`, which add up: total those over the week, and work the
+average out from the totals. Keep the Opt-out for the rare call where a total really is what
+you mean.
 
 ### A day written the other way
 
@@ -313,7 +358,7 @@ Columns: [job_id]
 Index: []
 
 When a result comes back empty, look at how the table writes the column: `first_look` shows a
-few of its rows.
+few of its rows. Then write the day the table's way.
 
 ### date_partition= from an older Toolbox
 
@@ -336,6 +381,8 @@ TypeError:
                   where it said date_partition=None, and remove date_format=. CHANGES.md, under
                   7.0, says more.
 ...
+
+Write the Table reference as the Usual fix says.
 
 ## Next
 

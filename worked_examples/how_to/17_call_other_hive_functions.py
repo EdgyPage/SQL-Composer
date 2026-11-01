@@ -5,22 +5,26 @@ For: Intermediate
 ## Goal
 
 Call a Hive function the Toolbox has no function of its own for, such as upper or concat, with
-`hive_function`. Then see three things worth knowing about the Hive the Toolbox writes: what a
-division by 0 gives, how a Python float is written, and a function written by another name.
+`hive_function`. Hive is the SQL your warehouse runs. Then see three things worth knowing about
+the Hive the Toolbox writes: what a division by 0 gives, how a Python float is written, and a
+function written by another name.
 
 ## When you'd use it
 
-When the Hive you need has a function the Toolbox doesn't wrap: text functions such as upper,
-concat or substr, or date functions such as datediff and date_format. And when the Hive you
-see isn't quite what you typed.
-
-It needs the Getting started how-tos [Build and run a first
-statement](#build_and_run_a_first_statement) and [Count, join and stay
-safe](#count_join_and_stay_safe).
+- If the Hive you need has a function the Toolbox doesn't wrap, such as the text functions
+  upper, concat or substr, or the date functions datediff and date_format, call it with
+  `hive_function` (step 3).
+- If the Hive you see isn't quite what you typed, read steps 4 to 6.
+- If you haven't done the Getting started how-tos [Build and run a first
+  statement](#build_and_run_a_first_statement) and [Count, join and stay
+  safe](#count_join_and_stay_safe), do them first.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Copy the Intermediate Example project
+
+Goal: a Project to work in, its Table references written. A Project is your folder of scripts
+at work, in the Toolbox's fixed layout; a Table reference is the file that describes one table.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -34,7 +38,12 @@ steps there:
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-Then import the Toolbox, the Project's `ops` Database and your query:
+Done when the folder you work in holds `references/` and `warehouse.py`. Then step 2.
+
+### 2. Import the Toolbox and the tables
+
+Goal: the two tables the steps read. Import the Toolbox, the Project's `ops` Database, the
+named group of tables whose names start `ops.`, and your query:
 
 >>> from sqlglot_composer import *
 >>> from references import ops
@@ -42,10 +51,13 @@ Then import the Toolbox, the Project's `ops` Database and your query:
 >>> job_owners = ops.job_owners  # -> Table
 >>> job_events = ops.job_events  # -> Table
 
-### Call a function the Toolbox doesn't wrap
+Done when the imports run without an error. Then step 3.
 
-`hive_function` takes the function's name as text, then its arguments: columns, or values,
-which it quotes for you. It gives back a Column, a calculation to name with `AS`. Here upper
+### 3. Call a function the Toolbox doesn't wrap
+
+Goal: a Hive function in a Statement, one query built with the Toolbox. `hive_function` takes
+the function's name as text, then its arguments: columns, or values, which it quotes for you.
+It gives back a Column, a calculation to name with `AS`. Here upper
 writes each team in capitals, and concat joins each job's owner and team into one contact,
 such as ana@data:
 
@@ -79,14 +91,13 @@ Before writing the call, `hive_function` checks it: for the functions it knows, 
 substr or date_add, it refuses the wrong number of arguments, and it refuses a function that
 works only over a window of rows, such as lag or rank. The Common mistakes below show both.
 
-### Three things to know about the Hive
+Done when the result shows every team in capitals and a contact for every job. Then step 4.
 
-Each step below builds a Statement, shows the Hive the Toolbox writes for it, and runs it.
+### 4. Divide by something that could be 0
 
-### Dividing by something that could be 0
-
-How many retries each job's finished runs needed on 2026-09-24: the retries, divided by the
-finishes.
+Goal: see what a division by 0 gives. Steps 4 to 6 each build a Statement, show the Hive the
+Toolbox writes for it, and run it. Here, how many retries each job's finished runs needed on
+2026-09-24: the retries, divided by the finishes.
 
 >>> retries_per_finish = statement(  # -> Statement
 ...     SELECT(job_events.job_id,
@@ -115,9 +126,12 @@ GROUP BY
 invoice_sync, job 2, is still running on 2026-09-24, so it has no finish, and its row divides
 by 0. Hive gives that row NULL, which pandas shows as NaN, rather than stop.
 
-### A Python float
+Done when job 2's row shows NaN. Then step 5.
 
-The jobs whose finished runs took more than 15.5 minutes on average. `job_events.minutes`
+### 5. Compare with a Python float
+
+Goal: see how a Python float is written. The jobs whose finished runs took more than 15.5
+minutes on average. `job_events.minutes`
 holds the minutes since the run started, so on a `"finish"` row it is how long the run took.
 15.5 is a Python float:
 
@@ -148,10 +162,13 @@ HAVING
 
 A Python float is written as it is, 15.5, which Hive reads as a DOUBLE, SQL's float.
 
-### A hive_function call written by another name
+Done when the Hive's HAVING ends `> 15.5`. Then step 6.
 
-The function nvl gives its first argument, or its second where the first is NULL, as
-`fill_null` does. Here it puts "none" in for cache_warm, job 4, which has no owner:
+### 6. Read a hive_function call written by another name
+
+Goal: see a function the Hive writes by another name. The function nvl gives its first
+argument, or its second where the first is NULL, as `fill_null` does. Here it puts "none" in
+for cache_warm, job 4, which has no owner:
 
 >>> owners = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, AS(hive_function("nvl", job_owners.owner, "none"), "owner")),
@@ -176,6 +193,8 @@ The Hive says COALESCE, not nvl: the Toolbox writes a `hive_function` call as sq
 back, sometimes by another name that does the same, as COALESCE for nvl, and sometimes with an
 argument changed, as the Common mistakes below show for date_format. The result is the same.
 
+Done when the Hive says COALESCE and job 4's owner is none. Then check it worked, below.
+
 ## Check it worked
 
 The function's name, in capitals, and each argument are in the Hive, and the result holds what
@@ -188,6 +207,12 @@ the function gives: every team in capitals, and a contact for every job.
 0
 
 `int(...)` makes the count a plain number, which numpy would otherwise print as np.int64(0).
+
+Before you go on, check that:
+
+- the Hive of `contacts` names UPPER and CONCAT, each with its arguments;
+- every team in the result is in capitals;
+- no job's contact is NULL: the count above is 0.
 
 ## Common mistakes
 
@@ -221,6 +246,8 @@ ValueError:
   What happened:  hive_function('upper(job_owners.team)', ...) isn't a function name.
 ...
 
+Write `hive_function("upper", job_owners.team)`.
+
 ### The wrong number of arguments
 
 The function substr needs the text and where to start, and takes how many characters as a
@@ -233,6 +260,8 @@ TypeError:
   What happened:  hive_function('substr', ...) gives substr 1 argument, and substr takes 2 to 3
                   arguments.
 ...
+
+Give it the number of arguments the message names, here the text and where to start.
 
 ### A NULL in concat
 
@@ -251,6 +280,8 @@ Without `fill_null`, a job with no owner gets no contact at all, not "@web":
 1       2    ben@finance
 2       3  chloe@finance
 3       4            NaN
+
+Wrap a column that may be NULL in `fill_null`, as `contacts` does.
 
 ### YYYY for the year in date_format
 
@@ -280,8 +311,9 @@ WHERE
 lag, lead, rank and the other window functions need OVER (...) after them, which
 `hive_function` can't write, so it refuses them. For lag, lead, rank, dense_rank, ntile and
 row_number, its message names the Toolbox's own function that writes it, such as `lag`, which
-takes a `window`; for the others, such as percent_rank, it says to work it out in pandas.
-[Look across rows](#look_across_rows) shows the ones the Toolbox writes.
+takes a `window`; for the others, such as percent_rank, it says to work it out in pandas. Use
+the function the message names; [Look across rows](#look_across_rows) shows the ones the
+Toolbox writes.
 
 ## Next
 

@@ -6,25 +6,31 @@ For: Intermediate
 
 Keep the rows that have a match in another table, each once, with `SEMI_JOIN`; keep the rows
 that have none with `ANTI_JOIN`; and compare two records of the same things, row for row, with
-`FULL_JOIN`. On the way, ask Hive to copy a small table to every worker with `broadcast=True`,
-and see why `RIGHT_JOIN` is refused.
+`FULL_JOIN`. On the way, ask Hive for a map join, a join that copies a small table to every
+worker, with `broadcast=True`, and see why `RIGHT_JOIN` is refused.
 
 ## When you'd use it
 
-- **SEMI_JOIN**: the jobs that had an event on a day, the runs that raised an alert. A plain
-  `JOIN` gives a row for each match, so a job with two events comes out twice; `SEMI_JOIN`
-  keeps it once, and adds none of the other table's columns.
-- **ANTI_JOIN**: the jobs with no event on a day, the rows a copy is missing.
-- **FULL_JOIN**: two records that should agree, such as the runs `ops.job_runs` holds and the
-  runs the scheduler says it started. Each run comes out once, whichever side has it.
-
-It needs [Build and run a first statement](#build_and_run_a_first_statement) and [Count, join
-and stay safe](#count_join_and_stay_safe), which shows `JOIN`, `LEFT_JOIN` and the
-repeated-rows Warning.
+- If you want the rows that have a match in another table, such as the jobs that had an event
+  on a day or the runs that raised an alert, use `SEMI_JOIN`. A plain `JOIN` gives a row for
+  each match, so a job with two events comes out twice; `SEMI_JOIN` keeps it once, and adds
+  none of the other table's columns.
+- If you want the rows with no match, such as the jobs with no event on a day or the rows a
+  copy is missing, use `ANTI_JOIN`.
+- If you have two records that should agree, such as the runs `ops.job_runs` holds and the
+  runs the scheduler says it started, compare them with `FULL_JOIN`. Each run comes out once,
+  whichever side has it.
+- If you haven't yet, read [Build and run a first
+  statement](#build_and_run_a_first_statement) and [Count, join and stay
+  safe](#count_join_and_stay_safe) first, which shows `JOIN`, `LEFT_JOIN` and the
+  repeated-rows Warning.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
+
+Goal: a Project to work in. An Example project is a Project made for the Example database's
+tables, filled in, to read and copy from.
 
 Work in a copy of the Intermediate Example project, at its top: copy
 `example_projects/intermediate/` from the download to a folder of your own, copy the
@@ -38,10 +44,16 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-The Project reads ops.job_events and ops.job_owners already. The full join compares
-`ops.job_runs` with `ops.scheduler_runs`, the scheduler's own record of the runs it started,
-which should match it run for run but doesn't quite. Add their Table references, as [Add your
-tables' references](#add_your_tables_references) shows:
+Done when the folder you work in holds the Project's admin/, references/ and tables/. Then
+step 2.
+
+### 2. Add the two records' Table references
+
+Goal: Table references, the files that describe one table each, for the two records the full
+join compares. The Project reads ops.job_events and ops.job_owners already. The full join
+compares `ops.job_runs` with `ops.scheduler_runs`, the scheduler's own record of the runs it
+started, which should match it run for run but doesn't quite. Add their Table references, as
+[Add your tables' references](#add_your_tables_references) shows:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import project
@@ -53,7 +65,12 @@ Wrote references/ops.py: from references import ops gives ops.job_events, ops.jo
     ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
-Then fill in their TODO lines. Each has a row per run, named by its run_id:
+Done when references/ holds ops__job_runs.py and ops__scheduler_runs.py. Then step 3.
+
+### 3. Fill in their TODO lines
+
+Goal: each table's Key, the columns that name one of its rows. Each has a row per run, named
+by its run_id:
 
 The file `references/ops__job_runs.py`, after you fill it in:
 
@@ -87,14 +104,22 @@ The file `references/ops__scheduler_runs.py`, after you fill it in:
         key=["run_id"],
     )
 
+Done when both files say `key=["run_id"]`. Then step 4.
+
+### 4. Import the tables
+
+Goal: the four tables, by name, from the Database ops, a named group of tables:
+
 >>> from references import ops
 >>> job_events, job_owners = ops.job_events, ops.job_owners  # -> Table, Table
 >>> job_runs, scheduler_runs = ops.job_runs, ops.scheduler_runs  # -> Table, Table
 
-### See JOIN repeat the jobs
+Done when the imports run without an error. Then step 5.
 
-Which of the jobs ops.job_owners lists on 2026-09-24 had an event that day? Join the events,
-and a job comes out once for each event:
+### 5. See JOIN repeat the jobs
+
+Goal: see why a plain join is the wrong tool here. Which of the jobs ops.job_owners lists on
+2026-09-24 had an event that day? Join the events, and a job comes out once for each event:
 
 >>> repeated = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, job_owners.team),
@@ -110,11 +135,14 @@ and a job comes out once for each event:
 1       1     data
 2       2  finance
 
-### Keep each job with an event once, with SEMI_JOIN
+Done when job 1 comes out twice. Then step 6.
 
-`SEMI_JOIN` keeps each row that has a match, once, however many rows match it, so it needs no
-`many_matches=` and gives no repeated-rows Warning. It is written `LEFT SEMI JOIN`. The
-events' day goes inside its `ON=`, since only `ON=` may read its table's columns:
+### 6. Keep each job with an event once, with SEMI_JOIN
+
+Goal: each job with an event, once. `SEMI_JOIN` keeps each row that has a match, once, however
+many rows match it, so it needs no `many_matches=` and gives no repeated-rows Warning. It is
+written `LEFT SEMI JOIN`. The events' day goes inside its `ON=`, since only `ON=` may read its
+table's columns:
 
 >>> with_an_event = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, job_owners.team),
@@ -146,11 +174,13 @@ Since a semi join never repeats rows, the rows keep their Key, ops.job_owners' j
 a write of these rows into a Saved table with that Key is let through, as
 [Keys](#keys) explains.
 
-### Keep each job with no event, with ANTI_JOIN
+Done when jobs 1 and 2 each come out once. Then step 7.
 
-`ANTI_JOIN` keeps the rows that have no match. Hive 3 has no anti join of its own, so the
-Toolbox writes a `LEFT JOIN`, then a `WHERE` that keeps the rows where the column `ON=`
-matched is NULL: a job with an event has its job_id there.
+### 7. Keep each job with no event, with ANTI_JOIN
+
+Goal: each job with no event that day. `ANTI_JOIN` keeps the rows that have no match. Hive 3
+has no anti join of its own, so the Toolbox writes a `LEFT JOIN`, then a `WHERE` that keeps the
+rows where the column `ON=` matched is NULL: a job with an event has its job_id there.
 
 >>> no_event = statement(  # -> Statement
 ...     SELECT(job_owners.job_id, job_owners.team),
@@ -175,12 +205,16 @@ WHERE
 
 The events' day is inside `ON=` here too: an event on another day doesn't count as a match.
 
-### Compare two records with FULL_JOIN
+Done when jobs 3 and 4 come out. Then step 8.
 
-`FULL_JOIN` pairs the rows that match and keeps the rows of each side that have none, with
-NULL in the other side's columns. Each side keeps all of its rows, so its partitions can't be
-filtered in `WHERE`, which would throw away the other side's unmatched rows, nor in `ON=`,
-which keeps every row anyway: each side reads its own days in a Derived table first.
+### 8. Read each record's days in a Derived table
+
+Goal: each side of the full join, its Partitions already filtered. `FULL_JOIN` pairs the rows
+that match and keeps the rows of each side that have none, with NULL in the other side's
+columns. Each side keeps all of its rows, so its partitions can't be filtered in `WHERE`,
+which would throw away the other side's unmatched rows, nor in `ON=`, which keeps every row
+anyway: each side reads its own days in a Derived table first, a Statement named so another
+Statement can read from it.
 
 >>> recorded = derived("recorded", statement(  # -> Table
 ...     SELECT(job_runs.run_id),
@@ -193,8 +227,12 @@ which keeps every row anyway: each side reads its own days in a Derived table fi
 ...     WHERE(between(scheduler_runs.dt, "2026-09-23", "2026-09-24")),
 ... ))
 
-`fill_null` takes the run_id from whichever side has one, and `if_else` says where each run
-was found:
+Done when `recorded` and `started` build without a refusal. Then step 9.
+
+### 9. Compare the two records with FULL_JOIN
+
+Goal: every run once, with where it was found. `fill_null` takes the run_id from whichever
+side has one, and `if_else` says where each run was found:
 
 >>> both_records = statement(  # -> Statement
 ...     SELECT(AS(fill_null(recorded.run_id, started.run_id), "run_id"),
@@ -244,11 +282,13 @@ FULL JOIN started
 Run 99, a TEST run started by hand, never went through the scheduler; run 100 was started but
 never reached `ops.job_runs`.
 
-### Keep only the differences
+Done when runs 99 and 100 are each found on one side only. Then step 10.
 
-A `WHERE` on either side's columns is refused after a `FULL_JOIN`, since it would throw away
-rows the join kept, unless it is `is_null(...)`, which keeps a side's rows with no match. So
-the runs only one side holds:
+### 10. Keep only the differences
+
+Goal: the runs only one side holds. A `WHERE` on either side's columns is refused after a
+`FULL_JOIN`, since it would throw away rows the join kept, unless it is `is_null(...)`, which
+keeps a side's rows with no match. So the runs only one side holds:
 
 >>> differences = statement(  # -> Statement
 ...     SELECT(AS(recorded.run_id, "in_job_runs"), AS(started.run_id, "in_scheduler_runs")),
@@ -264,23 +304,35 @@ the runs only one side holds:
 pandas shows a whole-number column with a missing value as decimals, with NaN for NULL.
 
 A `FULL_JOIN`'s rows have no Key the Toolbox can see, since either side's run_id may be NULL:
-to write them into a Saved table, group them by the run_id that `fill_null` makes, with
-`GROUP_BY(fill_null(recorded.run_id, started.run_id))`, which gives them that Key.
+to write them into a Saved table, a real table your own Statements write, group them by the
+run_id that `fill_null` makes, with `GROUP_BY(fill_null(recorded.run_id, started.run_id))`,
+which gives them that Key.
 
-### Ask Hive to copy a small table to every worker
+Done when the result holds runs 100 and 99 alone. Then step 11.
 
-`broadcast=True`, on `JOIN`, `LEFT_JOIN`, `SEMI_JOIN` or `ANTI_JOIN`, asks for a map join: the
-small table, here one day of ops.job_owners, is copied whole to every worker, so each worker
-matches the big table's rows where they are, without first sorting them and sending them
-across the cluster. The Toolbox writes it as a hint after `SELECT`: a comment, `/*+ ... */`,
-that Hive reads as a request. Hive ignores the hint unless the Session setting "map_joins" is
-sent first, since one of its lines sets hive.ignore.mapjoin.hint to false, so send it before
-the Statement:
+### 11. Send the "map_joins" Session setting
+
+Goal: Hive ready to read a map join's hint. `broadcast=True`, on `JOIN`, `LEFT_JOIN`,
+`SEMI_JOIN` or `ANTI_JOIN`, asks for a map join: the small table, here one day of
+ops.job_owners, is copied whole to every worker, so each worker matches the big table's rows
+where they are, without first sorting them and sending them across the cluster. The Toolbox
+writes it as a hint after `SELECT`: a comment, `/*+ ... */`, that Hive reads as a request.
+Hive ignores the hint unless the Session setting "map_joins", a set of Hive SET lines that
+hold for the rest of the session, is sent first, since one of its lines sets
+hive.ignore.mapjoin.hint to false, so send it before the Statement:
 
 >>> run_execute(hive_settings("map_joins"), execute)
 execute: SET hive.auto.convert.join=true
 execute: SET hive.auto.convert.join.noconditionaltask=true
 execute: SET hive.ignore.mapjoin.hint=false
+
+Done when execute shows the three SET lines. Then step 12.
+
+### 12. Ask for a map join with broadcast=True
+
+Goal: a join that copies the small table to every worker. Give the small table's join
+`broadcast=True`:
+
 >>> per_team = statement(  # -> Statement
 ...     SELECT(job_owners.team, AS(count_rows(), "events")),
 ...     FROM(job_events),
@@ -311,8 +363,11 @@ GROUP BY
 
 The rows are the same with it or without it: it only changes how the work is done. Usually
 you don't need the hint, though: with "map_joins" sent, Hive makes map joins by itself, from
-the tables' sizes and statistics. Ask for it only for a table you know is small: copied to
-every worker, a big table can run them out of memory.
+the tables' sizes and Statistics, what the warehouse has counted about them. Ask for it only
+for a table you know is small: copied to every worker, a big table can run them out of
+memory.
+
+Done when the Hive starts `SELECT /*+ MAPJOIN(job_owners) */`. Then check it worked, below.
 
 ## Check it worked
 
@@ -332,6 +387,12 @@ Every job ops.job_owners lists on the day either had an event or hadn't, so the 
 4
 
 And the `FULL_JOIN` gave 10 rows: the 8 runs in both, and one only in each.
+
+Before you go on, check that:
+
+- the jobs `SEMI_JOIN` keeps and the jobs `ANTI_JOIN` keeps add up to 4, every job of the day;
+- `both_records` gives 10 rows, one for each run;
+- `differences` gives runs 99 and 100 alone.
 
 ## Common mistakes
 
@@ -391,8 +452,8 @@ sqlglot_composer.refusals.GuardRefused:
 
 ### Writing a RIGHT_JOIN
 
-A RIGHT JOIN keeps every row of the table it joins. The Toolbox doesn't write one: swap the
-two tables, putting the one whose every row you want in `FROM`, and `LEFT_JOIN` the other.
+A RIGHT JOIN keeps every row of the table it joins. The Toolbox writes none: swap the two
+tables, putting the one whose every row you want in `FROM`, and `LEFT_JOIN` the other.
 
 >>> RIGHT_JOIN(job_owners, ON=equals(job_owners.job_id, job_events.job_id))
 Traceback (most recent call last):

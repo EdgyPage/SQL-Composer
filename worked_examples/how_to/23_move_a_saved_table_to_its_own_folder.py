@@ -6,32 +6,35 @@ For: Intermediate
 
 Move a Saved table that shares its folder with other tables into a folder of its own, with
 the admin module: copy it whole into a new table at its own folder, check the copy, then
-drop the old table and give the new one its name. Along the way, meet the admin module, the
-changes to your own Saved tables that the Toolbox writes and checks for you.
+drop the old table and give the new one its name. A Saved table is a real table in your
+warehouse that your own Statements, the queries you build with the Toolbox, write. Along the
+way, meet the admin module: the changes to your own Saved tables that the Toolbox writes and
+checks for you.
 
 ## When you'd use it
 
-When `check_table_reference` says a Saved table isn't at its own folder: a table made by hand
-in a folder it shares with other tables, or one `create_table` made before 5.0, a managed
-table, whose files the warehouse keeps where it chooses. A Saved table keeps its files in a
-folder of its own, the one its `location=` names. Two tables in one folder read each other's
-files, and an INSERT OVERWRITE of a Partition in one can delete the other's files for that
-Partition, so move each one out before writing it again.
-
-It needs [Save a table](#save_a_table) and [Keep the Project in
-order](#keep_the_project_in_order), which checks Table references against their tables;
-[Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the folder
-of its own.
+- If `check_table_reference` says a Saved table isn't at its own folder, move it, as the steps
+  below do.
+- If a table was made by hand in a folder it shares with other tables, move it before writing
+  it again: two tables in one folder read each other's files, and an INSERT OVERWRITE of a
+  Partition in one can delete the other's files for that Partition.
+- If `create_table` made a table before 5.0, a managed table, whose files the warehouse keeps
+  where it chooses, move it to the folder of its own its `location=` names.
+- If you have not saved a table or checked a Table reference yet, do
+  [Save a table](#save_a_table) and [Keep the Project in order](#keep_the_project_in_order)
+  first; [Choose how a Saved table is stored](#choose_how_a_saved_table_is_stored) explains the
+  folder of its own.
 
 ## Steps
 
-### Start from the Intermediate Example project
+### 1. Start from the Intermediate Example project
 
-Work in a copy of the Intermediate Example project, at its top: copy
-`example_projects/intermediate/` from the download to a folder of your own, copy the
-`sqlglot_composer` folder into it, as a Project holds it, and open a notebook there. This page
-makes the same copy in its first step, from the download the Toolbox came in, into the folder
-it runs in, which Python's path holds already, as Jupyter's does for a notebook's own folder:
+Goal: a Project, your folder of scripts at work, holding a Saved table. Work in a copy of the
+Intermediate Example project, at its top: copy `example_projects/intermediate/` from the
+download to a folder of your own, copy the `sqlglot_composer` folder into it, as a Project holds
+it, and open a notebook there. This page makes the same copy in its first step, from the
+download the Toolbox came in, into the folder it runs in, which Python's path holds already, as
+Jupyter's does for a notebook's own folder:
 
 >>> import shutil
 >>> from pathlib import Path
@@ -39,9 +42,15 @@ it runs in, which Python's path holds already, as Jupyter's does for a notebook'
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "intermediate", ".", dirs_exist_ok=True)
 
-The admin module holds the changes to your own Saved tables: dropping one or some of its
-Partitions, adding columns, setting its properties, and moving it. The star import leaves it
-out, so you import it by name, and it is plain where a notebook changes a table:
+Done when the folder you work in holds the Project's admin/, references/ and tables/ folders.
+Then step 2.
+
+### 2. Import the admin module
+
+Goal: the admin module, beside the everyday names. The admin module holds the changes to your
+own Saved tables: dropping one or some of its Partitions, adding columns, setting its
+properties, and moving it. The star import leaves it out, so import it by name, and it is plain
+where a notebook changes a table:
 
 >>> from sqlglot_composer import *
 >>> from sqlglot_composer import admin, project
@@ -49,11 +58,14 @@ out, so you import it by name, and it is plain where a notebook changes a table:
 >>> from references import mart
 >>> job_day_facts = mart.job_day_facts  # -> Table
 
-### Find the table that shares a folder
+Done when `job_day_facts` is set. Then step 3.
 
-mart.job_day_facts, each job's events, runs and minutes per day beside its team, is one of the
-Project's Saved tables. Its Table reference, references/mart__job_day_facts.py, gives it its
-own folder, /data/your_team/mart.db/job_day_facts.
+### 3. Find the table that shares a folder
+
+Goal: know which table to move. mart.job_day_facts, each job's events, runs and minutes per day
+beside its team, is one of the Project's Saved tables. Its Table reference, the file that
+describes the table, references/mart__job_day_facts.py, gives it its own folder,
+/data/your_team/mart.db/job_day_facts.
 
 The Example database holds no Saved table, so a stand-in query plays the warehouse at work: it
 answers DESCRIBE FORMATTED for a mart.job_day_facts that was made by hand in
@@ -82,22 +94,27 @@ Problems:
 Here /data/your_team/tables isn't mart.job_day_facts' own folder, so the line to change isn't
 the Table reference's: the table is the one to move.
 
-### Check its rows first
+Done when the check names the folder the table shares. Then step 4.
 
-The move copies the table as it reads it. Where two tables shared a folder, each read the
-other's files too, so a Partition may hold rows that aren't its own. Before you move it, check
-its Key on its newest Partition, with `check_key(job_day_facts, query=query,
-where=equals(job_day_facts.dt, "2026-09-24"))`, and look at a Partition you know. If the rows
-are mixed, don't copy them: drop the table with `admin.drop_table`, create it with
-`create_table`, and write it again from its sources, as [Rewrite some
-partitions](#rewrite_some_partitions) does.
+### 4. Check its rows first
 
-### Build the move
+Goal: rows worth copying. The move copies the table as it reads it. Where two tables shared a
+folder, each read the other's files too, so a Partition may hold rows that aren't its own.
+Before you move it, check its Key, the columns that name one row, on its newest Partition, with
+`check_key(job_day_facts, query=query, where=equals(job_day_facts.dt, "2026-09-24"))`, and look
+at a Partition you know. If the rows are mixed, rebuild the table in place of moving it: drop it
+with `admin.drop_table`, create it with `create_table`, and write it again from its sources, as
+[Rewrite some partitions](#rewrite_some_partitions) does.
 
-The move comes in two calls, so that the old table can't be dropped before its copy is
-checked. `admin.move_to_own_folder` sends DESCRIBE FORMATTED through your query to find where
-the table is, and gives back the first two steps, as a list of Statements, in order. `show_hive`
-prints each one, after what it does:
+Done when the Key check finds nothing wrong and a Partition you know holds only its own rows.
+Then step 5.
+
+### 5. Build the move
+
+Goal: the first two Statements of the move. The move comes in two calls, so that the old table
+can't be dropped before its copy is checked. `admin.move_to_own_folder` sends DESCRIBE FORMATTED
+through your query to find where the table is, and gives back the first two steps, as a list of
+Statements, in order. `show_hive` prints each one, after what it does:
 
 >>> moves = admin.move_to_own_folder(job_day_facts, query=query_at_work)  # -> list[Statement]
 >>> text = show_hive(moves)
@@ -141,14 +158,16 @@ The new table is made at the folder the Table reference names, under a name of i
 the old table still has the table's name. The copy is one INSERT OVERWRITE, which fills each
 Partition from the rows' own dt, so sent twice it is written once.
 
-### Check the copy, then finish
+Done when `moves` holds the CREATE and the INSERT OVERWRITE. Then step 6.
 
-Once both steps have run, `admin.check_the_copy` counts each Partition's rows in both tables,
-through your query, and stops the move with a message, before anything is dropped, if any
-Partition differs or is missing from the copy. When they match, it gives back the steps that
-finish the move. The comparison's Hive starts `WITH old_counts`, as its entry in the Admin
-log shows. The stand-in query answers it with no row, as the warehouse does when every
-Partition matches:
+### 6. Check the copy, then get the steps that finish
+
+Goal: the steps that drop the old table, given only once the copy holds every row. Once both
+steps have run, `admin.check_the_copy` counts each Partition's rows in both tables, through your
+query, and stops the move with a message, before anything is dropped, if any Partition differs
+or is missing from the copy. When they match, it gives back the steps that finish the move. The
+comparison's Hive starts `WITH old_counts`, as its entry in the Admin log shows. The stand-in
+query answers it with no row, as the warehouse does when every Partition matches:
 
 >>> def query_after_the_copy(hive: str) -> pd.DataFrame:
 ...     if hive.startswith("WITH old_counts"):  # the count of each Partition's rows
@@ -178,14 +197,16 @@ The first keeps the old files when the old table is dropped, since the folder it
 other tables' files too. Only then is the old table dropped, and the new one renamed: a renamed
 table keeps its folder.
 
-### Send the steps at work
+Done when `finish` holds the three steps: keep the files, drop, rename. Then step 7.
 
-At work, send the Session setting the copy needs, then each step in turn with `run_execute`,
-then the check, then the steps it gives. A step that fails raises, so the function stops there,
-and the steps after it aren't sent; the check raises when a Partition's rows differ, before
-anything is dropped. Here it is a function that takes your own query and execute, so that the
-move can be sent again; it isn't called on this page, since the Example database is never
-written to:
+### 7. Send the steps at work
+
+Goal: the move made in your warehouse. At work, send the Session setting the copy needs, then
+each step in turn with `run_execute`, then the check, then the steps it gives. A step that
+fails raises, so the function stops there, and the steps after it aren't sent; the check raises
+when a Partition's rows differ, before anything is dropped. Here it is a function that takes
+your own query and execute, so that the move can be sent again; it isn't called on this page,
+since the Example database is never written to:
 
 >>> from collections.abc import Callable
 >>> def move(t: Table, query: Callable[[str], pd.DataFrame],
@@ -201,18 +222,25 @@ admin/admin_log.md: when, the call, such as admin.move_to_own_folder(mart.job_da
 query=...)[1] for the copy, the Hive, the script and its git commit, and whether it worked.
 `show_hive` adds nothing to it.
 
-If a step before the drop fails, fix what it says and send the move again from the first:
-creating the new table again does nothing, and the copy is written again whole. If the check
-says a Partition is missing from the copy, one was written since the copy, so send the move
-again. Once the old table is dropped, the check can't be made again, since the table it reads
-is gone: if only the last step, the rename, fails, send it alone again with
-`run_execute(finish[-1], execute)`, from the `finish` the check gave.
+- If a step before the drop fails, fix what it says and send the move again from the first:
+  creating the new table again does nothing, and the copy is written again whole.
+- If the check says a Partition is missing from the copy, one was written since the copy, so
+  send the move again.
+- If only the last step, the rename, fails, send it alone again with
+  `run_execute(finish[-1], execute)`, from the `finish` the check gave: once the old table is
+  dropped, the check can't be made again, since the table it reads is gone.
 
-### Move the other tables
+Done when the Admin log holds an entry that worked for each step. Then step 8.
 
-Each of your Saved tables that shared the folder needs the same, one at a time, each to its own
-folder. Once none of them reads the old folder, its files are left over: ask whoever looks after
-the folder before deleting any, since other teams' tables may read it too.
+### 8. Move the other tables
+
+Goal: every Saved table that shared the folder at its own. Move each of them the same way, one
+at a time, each to its own folder. Once none of them reads the old folder, its files are left
+over: ask whoever looks after the folder before deleting any, since other teams' tables may
+read it too.
+
+Done when `check_table_reference` says each of those tables matches its Table reference. Then
+check it worked, below.
 
 ## Check it worked
 
@@ -251,6 +279,12 @@ The logic of mart.job_day_facts: create, rows, preview, write_days, write.
 
 The moved mart.job_day_facts should hold the same two rows on 2026-09-24, with these numbers.
 
+Before you go on, check that:
+
+- `check_table_reference` says mart.job_day_facts matches its Table reference;
+- the moved table holds the two rows of 2026-09-24 that `logic.preview()` gives;
+- no table named mart.job_day_facts_moving is left in the warehouse.
+
 ## Common mistakes
 
 ### Moving a table someone else owns
@@ -266,6 +300,8 @@ ValueError:
   What happened:  admin.move_to_own_folder(...) was given ops.job_events, which isn't one of
                   your Saved tables: its Table reference has no location=.
 ...
+
+Move only tables whose Table reference has `location=`; ask the owner of any other table.
 
 ### Moving a table that is at its own folder already
 
@@ -285,7 +321,8 @@ ValueError:
 
 `admin.move_to_own_folder` gives no step that drops anything: the drop comes only from
 `admin.check_the_copy`, once the copy holds every row. A DROP written by hand, or
-`admin.drop_table`, sent before the check, can lose Partitions the copy doesn't hold.
+`admin.drop_table`, sent before the check, can lose Partitions the copy doesn't hold. Send the
+drop only as `admin.check_the_copy` gives it.
 
 ## Next
 

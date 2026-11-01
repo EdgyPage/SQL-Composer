@@ -54,14 +54,22 @@ THING_STYLE = "    classDef thing fill:#ffffff,stroke:#888888"
 HEADING = """# Workflows
 
 What a Project goes through to reach each end goal, drawn from `sqlglot_composer/workflows.py`
-by `tools/workflow_graph.py`: don't edit this page, run the tool. Each box with round corners is
-something a step needs or makes; each step is drawn by its kind:
+by `tools/workflow_graph.py`. **To change this page, change `workflows.py` and run the tool,
+which writes the page again.**
 
-- a **file step** (green), which touches only files, or only prints, never the
-  Warehouse: a Project action, or show_hive;
-- a **permission** (blue, double-edged), a call to the Warehouse the user makes on purpose;
-- a **decision** (yellow, a diamond), which needs the user's judgement;
-- **fiddling** (red, a flag), a step done by hand though the code knows the answer.
+## Terms
+
+- **Workflow**: an ordered list of steps that takes a Project from its start materials, what
+  the user brings, to one end goal.
+- **Start materials** ("Starts from"): what the first steps need. **End artifacts** ("Ends
+  with"): what the last steps make.
+- A box with round corners is something a step needs or makes.
+- Each step is drawn by its kind:
+  - a **file step** (green), which touches only files, or only prints, never the
+    Warehouse: a Project action, or show_hive;
+  - a **permission** (blue, double-edged), a call to the Warehouse the user makes on purpose;
+  - a **decision** (yellow, a diamond), which needs the user's judgement;
+  - **fiddling** (red, a flag), a step done by hand though the code knows the answer.
 
 Toolbox 8.0 takes each Workflow's fiddling to nothing.
 """
@@ -104,7 +112,7 @@ PROGRAM_FLOW = ("""flowchart TD
 # From an Excel workbook to prod: a chart and its steps.
 EXCEL_FLOW = ("""flowchart TD
     workbook("a Formula workbook")
-    copilot{{"Copilot, given files 03, 04, 05, 11 and 12: the workbook as Hive"}}
+    copilot{{"Copilot, given files 15, 11 and 12: the workbook as Hive"}}
     scripts("its Hive, each name in angle brackets filled in, saved as .hql files")
     convert["the convert Workflow: project.convert(NAME, files=FILES), one batch"]
     dev[["each table created, seeded and written in dev"]]
@@ -113,8 +121,8 @@ EXCEL_FLOW = ("""flowchart TD
     prod[["each created and written in prod"]]
     workbook --> copilot --> scripts --> convert --> dev --> compare --> promote --> prod""",
               [("Fill in a Formula workbook, laid out as copilot/formula_workbook.xlsx is", ""),
-               ("Give Copilot files 03, 04, 05, 11 and 12 with the workbook: it writes the "
-                "workbook as Hive, a query for each final Table", ""),
+               ("Give Copilot files 15, 11 and 12 with the workbook: it writes the workbook as "
+                "Hive, a query for each final Table", ""),
                ("Fill in each name it writes in angle brackets, save each query as a .hql "
                 "file named for its final Table, and convert them as one batch in the convert "
                 "Workflow, DEV filled in: each becomes a Saved table named for its file, or, "
@@ -170,69 +178,139 @@ def with_charts(text: str) -> str:
 
 
 def how_to_text() -> str:
-    """How-to 29, which this writes whole: each Workflow's chart, names cell and steps, as the
-    Workflow notebook it starts from runs them."""
-    lines = _how_to_head()
+    """How-to 29, which this writes whole: its numbered steps, then each Workflow's chart,
+    names cell and steps, as the Workflow notebook it starts from runs them."""
+    lines = [*_how_to_head(), *_how_to_steps()]
     for workflow in workflows.WORKFLOWS:
         lines += _how_to_section(workflow)
-    lines += ["## Check it worked", "",
-              "`project.check()` says each Workflow's next step, or that every step is done.",
-              "", "## Common mistakes", "",
-              "### A step named again after you ran it", "",
-              "A step no file tells of, such as change_a_saved_table's \"Print its Hive\", is",
-              "named until a later step is done, and says so: once you have run it, go on. A",
-              "step that only reads, such as new_table's preview, is never named on its own:",
-              "check() names it beside the step after it.", "",
-              "## Next", "",
-              "[Convert someone else's Hive](#convert_someone_elses_hive) walks the convert",
-              "Workflow through a batch of scripts."]
+    lines += [
+        "## Check it worked", "",
+        "Before you go on, check that:", "",
+        *_wrapped("- `project.check()` names the next step of each Workflow you have started, "
+                  "or says that every step is done;", "  "),
+        *_wrapped("- `project.check()` names no open Decision for the tables of the Workflow "
+                  "you ran.", "  "), "",
+        "## Common mistakes", "",
+        "### A step named again after you ran it", "",
+        *_wrapped("`project.check()` names a step no file tells of, such as "
+                  "change_a_saved_table's \"Print its Hive\", until a later step is done, and "
+                  "says so: once you have run it, go on to the next step. A step that only "
+                  "reads, such as new_table's preview, is never named on its own: check() "
+                  "names it beside the step after it."), "",
+        "## Next", "",
+        *_wrapped("- Walk the convert Workflow through a batch of scripts: "
+                  "[Convert someone else's Hive](#convert_someone_elses_hive).", "  ")]
     # A docstring holds no three quotes of its own: the page reads each escaped one as one.
     body = "\n".join(lines[1:]).replace('"""', '\\"\\"\\"')
     return f"{lines[0]}\n{body}\n" + '"""\n'
 
 
+def _wrapped(text: str, indent: str = "") -> list[str]:
+    """A paragraph, or a list item continued at `indent`, wrapped as a how-to's prose is."""
+    return textwrap.wrap(text, width=96, subsequent_indent=indent, break_long_words=False,
+                         break_on_hyphens=False)
+
+
 def _how_to_head() -> list[str]:
-    """How-to 29's title, group, Goal, When you'd use it, and its first step, which starts a
-    Project and shows the imports each Workflow notebook starts with."""
-    return ['"""Follow a Workflow', "", "For: Intermediate", "", "## Goal", "",
-            "Do a whole job from its Workflow notebook, step by step, with nothing typed",
-            "twice: each Workflow below is drawn and listed from the steps its notebook",
-            "runs, in admin/workflows/, a folder for each.", "",
-            "## When you'd use it", "",
-            "Each time you start one of the jobs below. `project.check()` names the next",
-            "step of each Workflow you have started. Run each step's cell in turn, or, in",
-            "their place, each notebook's last cell, `project.run_workflow(...)`, which runs",
-            "every step left, the calls to the warehouse too, up to the first only you can do:",
-            "a Decision, or a check of what a step printed. With `dry_run=True` it sends",
-            "nothing through your execute and says the Hive each step would send. It runs for",
-            "real convert and the references Workflow's first step, which read DESCRIBE, and",
-            "each step that changes only files up to the first that would send; after that it",
-            "names each such step, \"would run: ...\", and runs none. Run one before you first",
-            "send.",
-            "`project.do_next()` runs only the steps that change files.", "",
-            "It needs [Start a Project](#start_a_project).", "", "## Steps", "",
-            "### Start a Project", "",
-            "Every Project has the Workflow notebooks, each waiting for its names cell:", "",
-            ">>> from sqlglot_composer import project",
-            ">>> project.start()",
-            "Started a Project in the folder you're working in: admin/, references/, "
-            "building_blocks/,",
-            "tables/ and warehouse.py.",
-            "Next: set conn, your connection, in warehouse.py.", "",
-            "Each Workflow notebook starts by finding the Project, then imports what its "
-            "steps call:", "",
-            *[f"    {line}" for line in _imports_wrapped()], "",
-            *textwrap.wrap(LEGEND, width=96), ""]
+    """How-to 29's title, group, Goal and When you'd use it."""
+    return [
+        '"""Follow a Workflow', "", "For: Intermediate", "", "## Goal", "",
+        *_wrapped("Do a whole job from its Workflow notebook, step by step, with nothing "
+                  "typed twice. A Workflow is an ordered list of steps that takes a Project, "
+                  "your folder of scripts at work, from what you bring to one end goal, such "
+                  "as converting scripts or promoting tables. Each Workflow has a notebook in "
+                  "admin/workflows/, a folder for each, and each Workflow below is drawn and "
+                  "listed from the steps its notebook runs. A Decision is one thing about one "
+                  "table that only you decide, such as its location or its Key, the columns "
+                  "whose values name exactly one row."), "",
+        "## When you'd use it", "",
+        *_wrapped("- If you start one of the jobs below, follow its Workflow's notebook, as "
+                  "the steps below do.", "  "),
+        *_wrapped("- If you don't know which step of a Workflow comes next, run "
+                  "`project.check()`: it names the next step of each Workflow you have "
+                  "started.", "  "),
+        *_wrapped("- If you want every step left run for you, run the notebook's last cell, "
+                  "`project.run_workflow(...)`, in place of the steps' cells: it runs every "
+                  "step left, the calls to the warehouse too, up to the first only you can "
+                  "do: a Decision, or a check of what a step printed.", "  "),
+        *_wrapped("- If you haven't sent anything yet, run `project.run_workflow(...)` with "
+                  "`dry_run=True` first: it sends nothing through your execute and says the "
+                  "Hive each step would send. It runs for real convert and the references "
+                  "Workflow's first step, which read DESCRIBE, and each step that changes "
+                  "only files up to the first that would send; after that it names each such "
+                  "step, \"would run: ...\", and runs none.", "  "),
+        *_wrapped("- If you want only the steps that change files run, run "
+                  "`project.do_next()`.", "  "),
+        *_wrapped("- If you have no Project yet, do [Start a Project](#start_a_project) "
+                  "first.", "  "), ""]
+
+
+def _workflow_choices() -> list[str]:
+    """One "- If ..." line for each Workflow: what it does, and its notebook."""
+    lines = []
+    for workflow in workflows.WORKFLOWS:
+        lines += _wrapped(f"- If you want a Workflow that {_about_first_clause(workflow)}, "
+                          f"choose {workflow.name}: "
+                          f"admin/workflows/{workflow.name}/{workflow.name}.ipynb.", "  ")
+    return lines
+
+
+def _how_to_steps() -> list[str]:
+    """How-to 29's numbered steps, the first of which starts a Project and the third shows the
+    imports each Workflow notebook starts with."""
+    return [
+        "## Steps", "",
+        "### 1. Start a Project", "",
+        *_wrapped("Goal: a Project whose admin/workflows/ folder holds a notebook for each "
+                  "Workflow, each waiting for its names cell:"), "",
+        ">>> from sqlglot_composer import project",
+        ">>> project.start()",
+        "Started a Project in the folder you're working in: admin/, references/, "
+        "building_blocks/,",
+        "tables/ and warehouse.py.",
+        "Next: set conn, your connection, in warehouse.py.", "",
+        "Done when `project.start()` says it started a Project. Then step 2.", "",
+        "### 2. Choose the Workflow for your job", "",
+        *_wrapped("Goal: the one Workflow whose end goal is yours. Each Workflow is described "
+                  "after these steps, with its chart, its names cell and its steps."), "",
+        *_workflow_choices(), "",
+        *textwrap.wrap(LEGEND, width=96), "",
+        "Done when you know the notebook to open. Then step 3.", "",
+        "### 3. Open its notebook", "",
+        *_wrapped("Goal: the notebook whose cells run your job's steps. Each Workflow "
+                  "notebook starts by finding the Project, then imports what its steps "
+                  "call:"), "",
+        *[f"    {line}" for line in _imports_wrapped()], "",
+        "Done when its first cells run without an error. Then step 4.", "",
+        "### 4. Fill in its names cell, and save it", "",
+        *_wrapped("Goal: the start materials the Workflow works on, named once. Write each "
+                  "name its names cell asks for, as its Workflow's section below shows, and "
+                  "save the notebook."), "",
+        "Done when each name the cell asks for is filled in and saved. Then step 5.", "",
+        "### 5. Run its steps in order", "",
+        *_wrapped("Goal: the Workflow's end goal reached. Run each step's cell in turn, as its "
+                  "Workflow's section below lists them, or its last cell in their place. At a "
+                  "step that is a decision, yours to make, make it: write your answer to each "
+                  "open Decision in the decisions cell, beside the names cell, and save it, or "
+                  "read what the step before printed. Then run the next step."), "",
+        *_wrapped("Done when `project.check()` says every step of the Workflow is done. Then "
+                  "check it worked, below."), "",
+        "The Workflows, for steps 2 to 5:", ""]
+
+
+def _about_first_clause(workflow: Workflow) -> str:
+    """What a Workflow does, up to its first colon, as words that follow "a Workflow that"."""
+    first_clause = workflow.about.split(":")[0].rstrip(".")
+    return first_clause[0].lower() + first_clause[1:]
 
 
 def _how_to_section(workflow: Workflow) -> list[str]:
     """One Workflow's part of how-to 29: what it does, its chart, its names cell, and its
-    steps, each its kind in words and its call."""
+    steps, numbered, each its kind in words and its call."""
     lines = [f"### The {workflow.name} Workflow", "",
-             *textwrap.wrap(workflow.about, width=96), "",
-             *textwrap.wrap("Its chart, drawn from the steps of its notebook, "
-                            f"admin/workflows/{workflow.name}/{workflow.name}.ipynb:",
-                            width=96, break_long_words=False, break_on_hyphens=False), "",
+             *_wrapped(workflow.about), "",
+             *_wrapped("Its chart, drawn from the steps of its notebook, "
+                       f"admin/workflows/{workflow.name}/{workflow.name}.ipynb:"), "",
              *diagram(workflow, with_calls=False)]
     if workflow.inputs:
         lines += ["", "Its names cell, which you fill in and save first:", ""]
@@ -244,12 +322,10 @@ def _how_to_section(workflow: Workflow) -> list[str]:
     if any(step.decides for step in workflow.steps):
         lines += ["", "Its decisions cell, beside it, where you answer each open Decision:",
                   "", *[f"    {line}" for line in workflows.DECISIONS_CELL.split("\n")]]
-    lines += ["", "Its steps:", ""]
+    lines += ["", "Its steps, in order:", ""]
     for number, step in enumerate(workflow.steps, 1):
-        lines += textwrap.wrap(f"- {number}. {step.name} (it "
-                               f"{workflows.step_said(workflow, step)}).",
-                               width=96, subsequent_indent="  ", break_long_words=False,
-                               break_on_hyphens=False)
+        lines += _wrapped(f"{number}. {step.name} (it {workflows.step_said(workflow, step)}).",
+                          "   ")
         if step.call:
             lines += ["", *[f"    {line}" for line in step.call.split("\n")], ""]
     lines += ["", "Its last cell runs every step left, in place of their cells:", "",

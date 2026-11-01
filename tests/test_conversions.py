@@ -423,6 +423,24 @@ def test_a_column_of_rows_typed_in_whose_values_differ_in_type_is_left_untyped(
     assert '"team": "string",' in logic
 
 
+@pytest.mark.parametrize("pasted", [
+    "\n\nSELECT r.job_id\nFROM ops.job_runs r\nWHERE r.dt = '2026-09-24'\n",
+    "SELECT r.job_id\nFROM ops.job_runs r\nWHERE r.dt = '2026-09-24'",
+    "SELECT r.job_id\nFROM ops.job_runs r\nWHERE r.dt = '2026-09-24'\n\n",
+], ids=["after_a_line_break", "quotes_closed_on_its_last_line", "a_blank_line_after"])
+def test_hive_pasted_any_way_is_kept_from_its_first_line_to_its_last(started: Path,
+                                                                     pasted: str) -> None:
+    # Toolbox 8.2, 18: HIVE = """ then a line break, as most people paste, gives Hive whose
+    # first line is empty; the batch keeps it from its first line of Hive, as the person reads
+    # it, so batch.md's line numbers are theirs, ending on one line break, as a file does.
+    project.convert("pasted", pasted, query=example_database.query, database="ops")
+    batch = started / "admin" / "workflows" / "convert" / "pasted"
+    assert "hive.hql line 1, `SELECT r.job_id" in (batch / "batch.md").read_text(
+        encoding="utf-8")
+    assert (batch / "scripts" / "hive.hql").read_text(encoding="utf-8") == (
+        "SELECT r.job_id\nFROM ops.job_runs r\nWHERE r.dt = '2026-09-24'\n")
+
+
 def test_a_count_written_as_a_sum_gives_the_originals_rows(started: Path) -> None:
     # Toolbox 8.2, 10: inside COALESCE(..., 0), count_rows(where=...) gives what the SUM gave.
     hive = WRITTEN_ANOTHER_WAY["a_count_written_as_a_sum"][0]

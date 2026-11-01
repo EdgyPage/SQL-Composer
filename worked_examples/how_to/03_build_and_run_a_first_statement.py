@@ -4,25 +4,33 @@ For: Getting started
 
 ## Goal
 
-Build a Statement, one query, from your Table references, read the Hive the Toolbox writes for
-it, run it through your query, and get the rows back as a pandas DataFrame. On the way you meet
+Build a Statement from your Table references, read the Hive the Toolbox writes for it, run it
+through your query, and get the rows back as a pandas DataFrame. A Statement is one query, made
+of the Toolbox's Clause functions; a Table reference is the file that describes one table, its
+columns, its Partitions and its Key; Hive is the SQL your warehouse runs. On the way you meet
 the chain of types every Statement is built along, from a Table to a DataFrame, and the
-conditions `WHERE` takes to keep only the rows you want.
+Conditions `WHERE` takes to keep only the rows you want.
 
 ## When you'd use it
 
-Every time you ask a table a question. Read a Statement's Hive before you run it, and paste it
-into another program, such as Hue, Beeline or DBeaver, when someone who doesn't use Python
-needs the query, or when a result looks wrong: the Hive shows exactly what the warehouse was
-asked.
+- If you have a question for a table, build a Statement for it, as the steps below do.
+- If someone who doesn't use Python needs the query, print its Hive with `show_hive` (step 7)
+  and paste it into another program, such as Hue, Beeline or DBeaver.
+- If a result looks wrong, read the Statement's Hive (step 6): it shows exactly what the
+  warehouse was asked.
+- If the question counts per group or joins tables, do this how-to first, then
+  [Count, join and stay safe](#count_join_and_stay_safe).
 
 ## Steps
 
-### Where the last how-to left the Project
+### 1. Set up the Project the last how-to left
+
+Goal: a Project whose Table references the steps below read. A Project is your folder of
+scripts at work, in the Toolbox's fixed layout.
 
 [Add your tables' references](#add_your_tables_references) left the Project with the Table
 references of ops.jobs, ops.job_runs and ops.run_alerts. This page has no Project, so it makes
-one with the same three; in your own, leave these steps out. Their TODO lines don't change any
+one with the same three; in your own Project, leave these calls out. Their TODO lines change no
 Statement here, so this page leaves them as `project.add_references` writes them:
 
 >>> from sqlglot_composer import *
@@ -39,48 +47,66 @@ Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs
     ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
-A notebook of the Project starts with three imports: every Toolbox name, your query and
-execute, and the tables of the Database ops:
+Every notebook of the Project starts with three imports: every Toolbox name, your query and
+execute, and the tables of the Database ops. A Database is a named group of tables, the first
+part of a table's name, `ops` in `ops.jobs`:
 
 >>> from references import ops
 
-### Follow the chain of types
+Done when `from references import ops` runs without an error. Then step 2.
 
-A Statement is built along a chain of types, each made by a call on the one before:
+### 2. Name the table and a column
+
+Goal: the first two links of the chain of types. A Statement is built along a chain of types,
+each made by a call on the one before:
 
 - `ops.job_runs` is a Table: a table, its columns, its Partitions and its Key;
 - `ops.job_runs.status` is a Column: one of its columns;
 - `equals(...)`, and every test like it, gives a Condition: a test of each row;
-- `SELECT(...)`, `FROM(...)`, `WHERE(...)` and the other clause functions each give a Clause:
+- `SELECT(...)`, `FROM(...)`, `WHERE(...)` and the other Clause functions each give a Clause:
   one part of a query;
 - `statement(...)` gives a Statement: its Clauses, checked together as one query;
 - `to_hive(...)` gives a `str`: the Hive, the query's text;
 - `run_query(..., query)` gives a DataFrame: the rows your query gives back, in pandas.
 
 Each step below makes one, and its comment, such as `# -> Table`, says which. The question
-is: which runs failed on 2026-09-23 and 2026-09-24? Give the table a short name first:
+the steps answer: which runs failed on 2026-09-23 and 2026-09-24? Give the table a short name
+first, then read one of its Columns:
 
 >>> job_runs = ops.job_runs  # -> Table
 >>> job_runs.status  # -> Column
 job_runs.status
 
-A Condition tests a Column, row by row:
+Done when `job_runs.status` shows `job_runs.status`. Then step 3.
+
+### 3. Make a Condition
+
+Goal: a test that keeps the failed runs. A Condition tests a Column, row by row:
 
 >>> is_failed = equals(job_runs.status, "FAILED")  # -> Condition
 >>> is_failed
 job_runs.status = 'FAILED'
 
-ops.job_runs is partitioned by dt: the warehouse stores it a Partition at a time, one for each
-value of dt, so every Statement that reads it must filter dt, here with `between`, which keeps
-the values from the first to the last, both included. `WHERE` keeps a row only if every
-Condition in it holds:
+Done when `is_failed` shows `job_runs.status = 'FAILED'`. Then step 4.
+
+### 4. Make a WHERE Clause
+
+Goal: a Clause that keeps only the rows you want. ops.job_runs is partitioned by dt: the
+warehouse stores it a Partition at a time, one Partition for each value of dt. So every
+Statement that reads it filters dt, here with `between`, which keeps the values from the first
+to the last, both included. `WHERE` keeps a row only if every Condition in it holds:
 
 >>> where = WHERE(is_failed, between(job_runs.dt, "2026-09-23", "2026-09-24"))  # -> Clause
 >>> where
 <WHERE clause - put it in statement(...)>
 
-A Clause on its own is only a part. `statement` puts the Clauses together, in SQL's order,
-`SELECT` the columns you want, `FROM` a table, then `WHERE`, and checks them as one query:
+Done when `where` shows `<WHERE clause - put it in statement(...)>`. Then step 5.
+
+### 5. Put the Clauses into a Statement
+
+Goal: one query, checked as a whole. A Clause on its own is only a part. `statement` puts the
+Clauses together in SQL's order, `SELECT` the columns you want, `FROM` a table, then `WHERE`,
+and checks them as one query:
 
 >>> failed = statement(  # -> Statement
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.dt),
@@ -90,14 +116,16 @@ A Clause on its own is only a part. `statement` puts the Clauses together, in SQ
 >>> failed
 <Statement reading ops.job_runs - print(to_hive(s)) shows its Hive>
 
-Nothing has run yet: `failed` holds the Statement, ready to become Hive. You will mostly write
-the Clauses straight into `statement(...)`, as every Statement after this one does; it is the
-same Statement.
+Nothing has run yet: `failed` holds the Statement, ready to become Hive. Most of the time you
+write the Clauses straight into `statement(...)`, as every Statement after this one does; it is
+the same Statement.
 
-### Read its Hive
+Done when `failed` shows `<Statement reading ops.job_runs - ...>`. Then step 6.
 
-`to_hive` gives the Hive as text, a `str`, exactly what `run_query` sends. `print` shows it as
-it is, one clause to a line:
+### 6. Read its Hive
+
+Goal: see exactly what the warehouse will be asked. `to_hive` gives the Hive as text, a `str`,
+exactly what `run_query` sends. `print` shows it as it is, one clause to a line:
 
 >>> hive = to_hive(failed)  # -> str
 >>> print(hive)
@@ -113,11 +141,13 @@ WHERE
 column in the Hive starts with `job_runs.`, just as it does in your Python. The two Conditions
 are joined with AND.
 
-### Print it ready to paste
+Done when the Hive's WHERE holds both Conditions, joined with AND. Then step 7.
 
-`show_hive` prints the same Hive with a `;` at the end, which Hue, Beeline and DBeaver need to
-tell one query from the next. It gives the text back too, so `text` keeps it to save or use
-again:
+### 7. Print it ready to paste
+
+Goal: Hive you can paste into Hue, Beeline or DBeaver. `show_hive` prints the same Hive with a
+`;` at the end, which those programs need to tell one query from the next. It gives the text
+back too, so `text` keeps it to save or use again:
 
 >>> text = show_hive(failed)  # -> str
 SELECT
@@ -134,10 +164,13 @@ them all, ready to paste as one script, each headed by a `--` comment line: its 
 as `-- 1 of 2`, then the name of the variable it is in, when it is in one, such as
 `-- 1 of 2: failed`.
 
-### Run it
+Done when the printed Hive ends with `;`. Then step 8.
 
-`run_query` turns the Statement into Hive, hands it to your `query`, and gives back the
-DataFrame `query` returns. You call `run_query` for a Statement that reads rows:
+### 8. Run it
+
+Goal: the rows, as a DataFrame. `run_query` turns the Statement into Hive, hands it to your
+`query`, and gives back the DataFrame `query` returns. Call `run_query` for a Statement that
+reads rows:
 
 >>> result = run_query(failed, query)  # -> DataFrame
 >>> result
@@ -149,9 +182,12 @@ The column names are the Statement's. From here it is pandas, such as `result["r
 Statement that writes a table goes to your execute instead, with `run_execute`, which gives
 back nothing, as [Save a table](#save_a_table) shows.
 
-### Keep only the rows you want
+Done when the result holds runs 97 and 102. Then step 9.
 
-`WHERE` takes any number of Conditions. Each function below makes one:
+### 9. Keep only the rows you want
+
+Goal: the Conditions for any question you ask. `WHERE` takes any number of Conditions. Each
+function below makes one:
 
 - `equals` and `not_equals` test one value;
 - `at_least` (>=), `at_most` (<=), `more_than` (>) and `less_than` (<) compare with a number,
@@ -162,7 +198,8 @@ back nothing, as [Save a table](#save_a_table) shows.
 - `any_of` keeps a row where at least one of its Conditions holds, SQL's OR, and `all_of`
   groups Conditions that must all hold, for use inside `any_of`.
 
-The runs on 2026-09-24 of jobs 1 and 3 that took 20 minutes or more, each on one line:
+The runs on 2026-09-24 of jobs 1 and 3 that took 20 minutes or more, each Condition on one
+line:
 
 >>> long_runs = statement(  # -> Statement
 ...     SELECT(job_runs.run_id, job_runs.job_id, job_runs.duration_mins),
@@ -244,11 +281,13 @@ WHERE
    job_id      job_name
 0       2  invoice_sync
 
-### Name a column in the result
+Done when each Statement gives the rows shown under it. Then step 10.
 
-`AS` gives a column the name you want in the result, here `"minutes"` in place of
-`"duration_mins"`. `WHERE` still tests `job_runs.duration_mins`: the new name is the result's,
-and `WHERE` reads the table.
+### 10. Name a column in the result
+
+Goal: a result column named as you want. `AS` gives a column the name you want in the result,
+here `"minutes"` in place of `"duration_mins"`. `WHERE` still tests `job_runs.duration_mins`:
+the new name is the result's, and `WHERE` reads the table.
 
 >>> minutes_named = statement(  # -> Statement
 ...     SELECT(job_runs.run_id, AS(job_runs.duration_mins, "minutes")),
@@ -260,20 +299,26 @@ and `WHERE` reads the table.
 0     103       30
 1     104       40
 
-### Select every column, or columns by their names
+Done when the result's second column is named minutes. Then step 11.
 
-`all_columns` gives a Table's Columns as a Python list, in the table's order, and `SELECT`
-takes a list as well as single Columns. Hive's `SELECT *` would ask for whatever the table
-holds on the day it runs, so a column added later would quietly change your result; a list of
-names doesn't:
+### 11. Select every column
+
+Goal: every column of a table, named one by one. `all_columns` gives a Table's Columns as a
+Python list, in the table's order, and `SELECT` takes a list as well as single Columns. Hive's
+`SELECT *` would ask for whatever the table holds on the day it runs, so a column added later
+would quietly change your result; a list of names keeps your result the same:
 
 >>> every_column = all_columns(job_runs)  # -> list[Column]
 >>> every_column
 [job_runs.run_id, job_runs.job_id, job_runs.status, job_runs.duration_mins,
     job_runs.avg_retry_secs, job_runs.dt]
 
-When the names you want come as text, from a list in your settings or another table's columns,
-Python's own `getattr` takes each Column by its name:
+Done when `every_column` lists the table's six Columns. Then step 12.
+
+### 12. Select columns by their names
+
+Goal: Columns chosen by names you hold as text, from a list in your settings or another
+table's columns. Python's own `getattr` takes each Column by its name:
 
 >>> wanted = ["run_id", "status", "duration_mins"]
 >>> chosen = [getattr(job_runs, name) for name in wanted]  # -> list[Column]
@@ -290,8 +335,12 @@ Python's own `getattr` takes each Column by its name:
 3      98      NaN             15
 4      99     TEST              5
 
-`first_look` builds a Statement that reads every column and the first 20 rows the warehouse
-comes to, so it is quick on a big table: `LIMIT 20` stops the read early. Which 20 a big table
+Done when the result's columns are run_id, status and duration_mins. Then step 13.
+
+### 13. Take a first look at a table
+
+Goal: a quick look at a big table. `first_look` builds a Statement that reads every column and
+the first 20 rows the warehouse comes to: `LIMIT 20` stops the read early. Which 20 a big table
 gives is up to the warehouse:
 
 >>> text = show_hive(first_look(job_runs))
@@ -304,6 +353,8 @@ SELECT
   job_runs.dt
 FROM ops.job_runs AS job_runs
 LIMIT 20;
+
+Done when the Hive ends with `LIMIT 20;`. Then check it worked, below.
 
 ## Check it worked
 
@@ -321,8 +372,12 @@ Partitions it reads. Here, `to_check`: the runs that failed or took 30 minutes o
 True
 
 Both lists are sorted first: without `ORDER_BY`, the warehouse may give the rows in any order.
-At work, do this on a Partition small enough to look at, and look at a few of the rows left
-out too.
+At work, run this check on a Partition small enough to look at, and look at a few of the rows
+left out too. Before you go on, check that:
+
+- `print(to_hive(failed))` shows a WHERE that filters dt;
+- `run_query(failed, query)` gives runs 97 and 102;
+- the comparison with pandas above shows `True`.
 
 ## Common mistakes
 
@@ -344,9 +399,9 @@ sqlglot_composer.refusals.LoadRefused:
 ...
   Opt-out:        FROM(job_runs, reads_all_partitions=True)
 
-This is a Load limit: it protects the cluster, not the answer. Filter the partition column as
-the message says, as `failed` does. The Opt-out, `reads_all_partitions=True`, reads every
-Partition: use it only for a small table you truly need whole.
+This is a Load limit: a check that protects the cluster, not the answer. Filter the partition
+column as the message says, as `failed` does. The Opt-out, `reads_all_partitions=True`, reads
+every Partition: keep it for a small table you truly need whole.
 [Count, join and stay safe](#count_join_and_stay_safe) shows the other Load limits.
 
 ### Giving run_query the Hive text
@@ -362,12 +417,13 @@ TypeError:
 ...
 
 Pass the Statement itself: `run_query(failed, query)`. Your query works the other way round:
-it takes Hive text, a `str`, not a Statement.
+it takes Hive text, a `str`.
 
 ### Comparing with None
 
 `equals(job_runs.status, None)` looks like the way to find run 98, but in SQL nothing equals
-NULL, not even NULL, so it would keep no rows at all. The Toolbox stops it:
+NULL, not even NULL, so it would keep no rows at all. The Toolbox stops it with a Guard, a
+check that refuses a Statement that would give a wrong result:
 
 >>> equals(job_runs.status, None)
 Traceback (most recent call last):
@@ -376,7 +432,7 @@ sqlglot_composer.refusals.GuardRefused:
   What happened:  equals(job_runs.status, None) compares with None.
 ...
 
-Use `is_null(job_runs.status)`, as `still_running` does. A None in a list given to `is_in`
+Write `is_null(job_runs.status)`, as `still_running` does. A None in a list given to `is_in`
 stops the same way.
 
 ### Expecting not_equals to keep NULL
@@ -412,7 +468,7 @@ TypeError:
                   '3'.
 ...
 
-Write `equals(job_runs.job_id, 3)`.
+Write the value in the column's type: `equals(job_runs.job_id, 3)`.
 
 ## Next
 

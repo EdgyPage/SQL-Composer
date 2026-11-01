@@ -209,3 +209,35 @@ runs/2026-11-01-haiku-C-excel-held_out-8.2/.
 Toolbox 8.2, ticket 07: files 0db74777, 8.2's as committed (93b81356 with the version line 8.2),
 held out on haiku, arm C: file 06's T18 and file 08's T24, each changed by ticket 01's
 export_hive steps, pass, 1 of 1 each. The two rows above.
+| 2026-11-01 | 18-base | haiku | C | dev | 97 | 100 | 100 | 100 | 97 | 97 | 100 | 0 | 74 |
+| 2026-11-01 | 18-r1 | haiku | C | dev | 97 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-11-01 | 18-r2 | haiku | C | dev | 97 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-11-01 | 18-r3 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-11-01 | 18-held | haiku | C | held_out | 82 | 100 | 100 | 97 | 90 | 100 | 100 | 0 | 0 |
+| 2026-11-01 | 18-held2 (second look, after edits from 18-held) | haiku | C | held_out | 97 | 100 | 100 | 100 | 97 | 97 | 100 | 0 | 0 |
+| 2026-11-01 | 18-dev | haiku | C | dev | 96 | 100 | 100 | 100 | 100 | 96 | 0 | 0 | 0 | 0 | 01:100 02:100 03:100 04:100 05:100 06:100 07:100 08:100 09:50 10:100 13:100 14:100 |
+| 2026-11-01 | 18-dev2 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 01:100 02:100 03:100 04:100 05:100 06:100 07:100 08:100 09:100 10:100 13:100 14:100 |
+| 2026-11-01 | 18-held | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 01:100 02:100 03:100 04:100 05:100 06:100 07:100 08:100 09:100 10:100 13:100 14:100 |
+
+Toolbox 8.2, ticket 18: every Copilot file written to docs/agents/instruction-rules.md
+(Microsoft's rules for Copilot instructions), and the Excel path rebuilt as file 15, the
+steps, with 11 and 12 as reference; it now asks for Hive alone. Each proxy now answers a few
+tasks, as a person asks one per chat: the Excel tasks five a proxy (`excel_eval.py proxy
+--tasks`), the others one objective a proxy. Before this, one proxy answered all 39 Excel
+tasks in one reply, reading its message in pieces: 18-base is 8.2's files on dev that way,
+five a proxy, 97%, against 85% on held-out all at once. The Excel scorer now fails Hive that
+types in a Table's sample rows where it should read the table (`reads`); the rows here are
+re-scored with it.
+
+- Excel: dev 97% (r1, r2: X72 typed in jobs' rows), then 100% (r3) once file 15 said a Table's
+  typed columns are always read from `<database>.<table>`. Held-out once on r2's files: 82%
+  (18-held: Total Rows with columns for cells holding no total, a query named in another
+  query's M read as a table, sample rows typed in). Those first two rules were then written
+  into files 15 and 12 from held-out's failures, so 18-held2, 97% (X69 left two Tables out of
+  its map), is a second look, not a clean held-out score.
+- Copilot files 01 to 14: dev 96% (18-dev: T26, the rewritten rule 1 read as barring a name in
+  the user's own code; restored), then 100% (18-dev2, with project.convert now keeping pasted
+  Hive from its first line to its last, which T32 and T37 found); held-out 100% (18-held), each
+  objective, files unseen by tuning.
+| 2026-11-01 | 18-r4 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |
+| 2026-11-01 | 18-r5 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 |

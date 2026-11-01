@@ -20,13 +20,26 @@ stand-ins (below). The docstring is laid out like this:
     ## Goal                             <- the six fixed headings, each once, in this order:
     ## When you'd use it                   Goal, When you'd use it, Steps, Check it worked,
     ## Steps                               Common mistakes and Next
-    ### Import the Toolbox               <- a step, or a mistake, under its heading
+    ### 1. Import the Toolbox            <- a step, numbered, or a mistake, under its heading
+    Goal: every Toolbox name.           <- what the step is for
     >>> from sqlglot_composer import *  <- Python that runs, as in a doctest
+    Done when ... Then step 2.          <- when it is done, and which step comes next
+
+A how-to is written to the rules in docs/agents/instruction-rules.md, for a person to read:
+
+- When you'd use it is a list of "- If ..." lines, each the case it is for, and what to do;
+- Steps are numbered from 1, each with a line "Goal: ...", its action, and "Done when ...",
+  then "Then step N." or, the last, "Then check it worked, below."; after them, Steps may
+  hold, under headings not numbered, what the steps refer to, such as how-to 29's Workflows;
+- Check it worked closes with a "- " list of what you see once the job is done;
+- each word of the Toolbox's own, such as Table reference, is said what it is where it is
+  first used, as CONTEXT.md says it.
 
 Under the headings go:
 
-- prose: paragraphs, "- " lists, `code` in backticks, and links, written [text](#slug) to
-  another how-to and [text](examples.html#entry) to an entry of the Example gallery;
+- prose: paragraphs, "- " lists, "1. " lists, `code` in backticks, **bold**, and links, written
+  [text](#slug) to another how-to and [text](examples.html#entry) to an entry of the Example
+  gallery;
 - `>>>` steps, with what each shows written under it as a doctest has it. They run in order, as
   one notebook, and tests/test_how_tos.py runs each how-to as a doctest. The page shows what
   each step really gives, run again while it is written: what it prints (the Hive, when it
@@ -116,6 +129,7 @@ from example_gallery import (  # noqa: E402
     message_text,
     names_html,
     names_in,
+    paragraphs,
     prose_html,
     run_step,
     table_html,
@@ -439,8 +453,30 @@ LINK = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
 
 
 def linked(text: str) -> str:
-    """One line of prose, with `backticks` shown as code and [text](target) as a link."""
-    return LINK.sub(r'<a href="\2">\1</a>', inline(text))
+    """One line of prose, with `backticks` shown as code, **stars** as bold and [text](target)
+    as a link."""
+    shown = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", inline(text))
+    return LINK.sub(r'<a href="\2">\1</a>', shown)
+
+
+# An item of a numbered list: "1. " at a line's start.
+NUMBERED = re.compile(r"(\d+)\. ")
+
+
+def numbered_prose_html(text: str) -> str:
+    """Prose, as prose_html shows it, with a paragraph of "1. " items shown as a numbered list,
+    starting at its first item's number, since code may stand between a list's items."""
+    shown = []
+    for paragraph in paragraphs(text):
+        first = NUMBERED.match(paragraph)
+        if first is None:
+            shown.append(prose_html(paragraph, linked))
+            continue
+        items = re.split(r"\n(?=\d+\. )", paragraph)
+        shown.append(f'<ol start="{first.group(1)}">'
+                     + "".join(f"<li>{linked(NUMBERED.sub('', item, count=1))}</li>"
+                               for item in items) + "</ol>")
+    return "\n".join(shown)
 
 
 # --- A step, run -----------------------------------------------------------------------------
@@ -651,7 +687,7 @@ def live_steps_html(text: str, notebook: Notebook) -> str:
             if part.strip() and waiting:
                 shown.append(code_html("".join(waiting)))
                 waiting = []
-            shown.append(prose_html(part, linked))
+            shown.append(numbered_prose_html(part))
             continue
         notebook.sources.append(part.source)
         waiting.append(part.source)

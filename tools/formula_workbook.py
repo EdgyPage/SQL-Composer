@@ -52,70 +52,116 @@ STEPS = (
     "Formula workbook: how to fill it in",
     "Copilot reads this workbook and writes Hive, the SQL your team's database runs, without "
     "anyone explaining what the workbook is for. Make a copy of this file for each piece of "
-    "work.",
+    "work, then do steps 1 to 12 below in order. Each step says its goal, what to do, and when "
+    "it is done; go to the next step only then.",
+    "Words used here:",
+    "Table: an Excel Table, made with Ctrl+T, with a name and one header row. Copilot converts "
+    "only what is inside a Table.",
+    "Raw data: the records the work starts from, as values, with no formula in them.",
+    "Calculation: a value worked out from others, by a formula or by a Power Query step.",
+    "Typed column: a column whose cells hold values someone typed, not formulas, such as "
+    "run_id. Not the same as a typed-over value.",
+    "Typed-over value: a value someone typed into one row of a column that holds a formula, in "
+    "place of the formula.",
+    "Copilot files: the numbered text files in the copilot folder this workbook came from. "
+    "Loaded in a Copilot chat, they tell Copilot how to convert your workbook.",
     "The Parameters and Keys sheets:",
     "Parameters holds the fixed values your formulas use, such as a tax rate: one row each, "
     "its name under name and its value under value (step 6). Keys is only for a Table where a "
     "value was typed over a formula: it names the columns that tell that Table's rows apart, "
-    "so Copilot can find the row the typed value belongs to (step 10). Both start empty, and "
-    "stay empty if you need neither.",
+    "so Copilot can find the row the typed value belongs to (step 10). Both start empty: leave "
+    "a sheet empty when no step asks you to fill it in.",
     "Your data:",
-    "1. For each table of raw data the work starts from, paste a sample on a sheet of its own, "
-    "as values only (Home > Paste > Paste Values): one header row, one row per record, no "
-    "blank rows, no merged cells. Paste only the columns that hold data, not the ones that "
-    "hold formulas: you rebuild those in step 4.",
-    "2. Click inside it, press Ctrl+T and tick \"My table has headers\". If the data was "
-    "already in a Table, keep that Table's name; if you know the database table it comes from, "
-    "use the part of its name after the dot, such as job_runs for ops.job_runs; then "
-    "right-click the row number of the header row, choose Insert to add a row above it, and "
-    "type there where it came from, such as \"Copied from ops.job_runs\". Otherwise any name "
-    "will do, with no spaces. Set the name "
-    "in Table Design > Table Name (on older Excel, Design under Table Tools). Copilot keeps "
-    "the names you give, and marks any it can't match to a database table for you to fill "
-    "in.",
-    "3. Do steps 1 and 2 for every table of raw data before going on.",
+    "1. Paste one table of raw data. Goal: a sample of the data the work starts from, as plain "
+    "values. Action: paste a sample of one table of raw data on a sheet of its own, as values "
+    "only (Home > Paste > Paste Values): one header row, one row per record, no blank rows, no "
+    "merged cells. Paste only the columns that hold data; you rebuild the columns that hold "
+    "formulas in step 4. Done when the sheet holds the header row and the sample's rows, and "
+    "nothing else. Then step 2.",
+    "2. Make it a named Table. Goal: a Table Copilot can read by name. Action: click inside "
+    "the sample, press Ctrl+T and tick \"My table has headers\". Then set its name in Table "
+    "Design > Table Name (on older Excel, Design under Table Tools), by the first of the three "
+    "rules below that fits. Copilot keeps the names you give, and marks any it can't match to "
+    "a database table for you to fill in. Done when the Table has its name. Then step 3.",
+    "If the data was already in a Table: keep that Table's name.",
+    "If you know the database table it comes from: use the part of its name after the dot, "
+    "such as job_runs for ops.job_runs. Then right-click the row number of the header row, "
+    "choose Insert to add a row above it, and type there where it came from, such as "
+    "\"Copied from ops.job_runs\".",
+    "Otherwise: give it any name, with no spaces.",
+    "3. Repeat for each table of raw data. Goal: all the raw data in Tables. Action: do steps "
+    "1 and 2 for every other table of raw data the work starts from. Done when each one is a "
+    "named Table on a sheet of its own. Then step 4.",
     "Your calculations:",
-    "4. Add a column to a Table for each calculation, and write its formula once, in the first "
-    "row. Click a cell in the same row rather than typing its address, and Excel writes it by "
-    "column name, such as =[@units]*[@price]. Excel fills the formula down the column. If you "
-    "see it written as =sales[[#This Row],[units]]*sales[[#This Row],[price]], it is the "
-    "same formula.",
-    "5. A calculation that reads another Table, such as an XLOOKUP or a SUMIFS, is written the "
-    "same way, naming the other Table: =XLOOKUP([@product_id], products[product_id], "
-    "products[name]). A summary of totals, such as a block of SUMIFS cells or a PivotTable, is "
-    "rebuilt as a Table of its own: a column for what it groups by, one row per group, and a "
-    "column for each figure: SUMIFS for a total, COUNTIFS for a count, AVERAGEIFS for an "
-    "average, MAXIFS for the largest, MINIFS for the smallest. To total any Table, raw or "
-    "summary, turn on its Total Row (Table Design > Total "
-    "Row) and pick each column's total from the list in its last row: a total typed as a row "
-    "of its own is read as one more row of data.",
-    "6. Move each fixed value a formula uses into the Parameters Table, one row per value, "
-    "whether it was typed in a cell such as $B$3 or inside a formula such as *0.2, and change "
-    "the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "
-    "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%.",
-    "7. Power Query, if you use it, can do a calculation instead of a formula: Data > From "
+    "4. Add each calculation on a row as a column. Goal: each calculation written once, by "
+    "column name. Action: add a column to a Table for each calculation, and write its formula "
+    "once, in the first row. Click a cell in the same row rather than typing its address, and "
+    "Excel writes it by column name, such as =[@units]*[@price]. Excel fills the formula down "
+    "the column. If you see it written as =sales[[#This Row],[units]]*sales[[#This "
+    "Row],[price]], it is the same formula. Done when each calculation on a Table's own row "
+    "has its column. Then step 5.",
+    "5. Add each calculation that reads another Table, each summary and each total. Goal: "
+    "every other calculation in a Table, by name. Action: write a calculation that reads "
+    "another Table, such as an XLOOKUP or a SUMIFS, the same way, naming the other Table: "
+    "=XLOOKUP([@product_id], products[product_id], products[name]). Rebuild a summary of "
+    "totals, such as a block of SUMIFS cells or a PivotTable, as a Table of its own: a column "
+    "for what it groups by, one row per group, and a column for each figure: SUMIFS for a "
+    "total, COUNTIFS for a count, AVERAGEIFS for an average, MAXIFS for the largest, MINIFS "
+    "for the smallest. To total any Table, raw or summary, turn on its Total Row (Table "
+    "Design > Total Row) and pick each column's total from the list in its last row: Copilot "
+    "reads a total typed as a row of its own as one more row of data. Done when each summary "
+    "is a Table of its own and each total is in a Total Row. Then step 6.",
+    "6. Move each fixed value into Parameters. Goal: every fixed value in one place, read by "
+    "name. Action: add each fixed value a formula uses to the Parameters Table, one row per "
+    "value, whether it was typed in a cell such as $B$3 or inside a formula such as *0.2, and "
+    "change the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "
+    "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%. Done when each "
+    "formula reads its fixed values from Parameters. Then step 7.",
+    "7. Use Power Query for a calculation, if you use Power Query. If you don't, go to step 8. "
+    "Goal: a calculation done by Power Query in place of a formula. Action: Data > From "
     "Table/Range, make the changes in the Power Query Editor, then Close & Load to a new "
-    "Table. Copilot reads its steps, and the new Table converts like any other. Skip this step "
-    "if you don't use Power Query.",
-    "8. A formula that reads the row above, or a cell outside a Table, can't be read as SQL: "
-    "Copilot names it and leaves its column empty for you to finish. Write a running total "
-    "as =SUMIFS(t[v], t[d], \"<=\"&[@d]), which Copilot can read.",
+    "Table. Copilot reads its steps, and the new Table converts like any other. Done when each "
+    "query you made is loaded to a Table. Then step 8.",
+    "8. Write running totals with SUMIFS. Goal: formulas Copilot can read as SQL. Action: "
+    "write a running total as =SUMIFS(t[v], t[d], \"<=\"&[@d]), which Copilot can read. A "
+    "formula that reads the row above, or a cell outside a Table, can't be read as SQL: "
+    "Copilot names it and leaves its column empty for you to finish. Done when each running "
+    "total is written with SUMIFS. Then step 9.",
     "Before you hand it over:",
-    "9. Take out anything you don't want converted: a Table, a column, a value typed over a "
-    "formula. Whatever is left in a Table converts.",
-    "10. A value someone typed over a formula in one row is converted as it is, for that row. "
-    "Find each in the original workbook (Ctrl+` shows formulas, so a typed value stands out) "
-    "and type it over the formula in the same row here, making sure your sample holds that "
-    "row. Then add one row to the Keys Table for that Table, however many values were typed "
-    "over in it: the Table's name under table, and under key_columns the typed column or "
-    "columns that tell its rows apart, separated by commas. For example, job_runs with run_id; "
-    "or sales with region, month. If no column tells the rows apart, leave the Table out of "
-    "Keys: Copilot then matches the row on all its typed columns. A Table with no value typed "
-    "over a formula needs no row in Keys.",
-    "11. Charts and anything outside a Table are left alone, and Copilot names them. Titles "
-    "and notes can stay.",
-    "12. Save the workbook, attach it in a Copilot chat with Copilot files 11 and 12 loaded "
-    "(with files 03, 04 and 05), and ask Copilot to convert it.",
+    "9. Take out what you don't want converted. Goal: only what you want converted left in a "
+    "Table. Action: delete anything you don't want converted: a Table, or a column. Keep each "
+    "typed-over value you want kept: step 10 is for those. Whatever is left in a Table "
+    "converts. Done when each Table holds only what you want converted. Then step 10.",
+    "10. Put back each typed-over value and name its Table in Keys. If no value was typed over "
+    "a formula, go to step 11: a Table with no value typed over a formula needs no row in "
+    "Keys. Goal: each typed-over value converted as it is, for its row. Action: find each in "
+    "the original workbook (Ctrl+` shows formulas, so a typed value stands out) and type it "
+    "over the formula in the same row here, making sure your sample holds that row. Then add "
+    "one row to the Keys Table for that Table, however many values were typed over in it: the "
+    "Table's name under table, and under key_columns the typed column or columns that tell its "
+    "rows apart, separated by commas. For example, job_runs with run_id; or sales with region, "
+    "month. If no column tells the rows apart, leave the Table out of Keys: Copilot then "
+    "matches the row on all its typed columns. Done when each typed-over value is in its row "
+    "here, and each Table that holds one has its row in Keys or has no column that tells its "
+    "rows apart. Then step 11.",
+    "11. Keep each calculation you want converted inside a Table. Goal: nothing you want "
+    "converted left outside a Table. Action: move into a Table any calculation still outside "
+    "one. Copilot leaves charts and anything outside a Table alone, and names them; titles "
+    "and notes can stay. Done when every calculation you want converted is inside a Table. "
+    "Then step 12.",
+    "12. Hand it to Copilot. Goal: the Hive for your workbook. Action: go through the checks "
+    "below, then save the workbook, attach it in a Copilot chat with Copilot files 15, 11 "
+    "and 12 loaded, and ask Copilot to convert it. Done when Copilot "
+    "replies with the Hive for your workbook.",
+    "Check before you attach it:",
+    "Each table of raw data is a named Table on a sheet of its own, with one header row.",
+    "Each calculation is a formula column in a Table, a Power Query loaded to a Table, a "
+    "summary Table or a Total Row.",
+    "Each fixed value a formula uses is a row in Parameters, written as a plain number or "
+    "text.",
+    "Each Table that holds a typed-over value has its row in Keys, or has no column that tells "
+    "its rows apart.",
+    "Nothing you don't want converted is left in a Table.",
 )
 # The Tables whose headers are fixed, each on a sheet of its own name.
 TABLES = {"Parameters": ("name", "value"), "Keys": ("table", "key_columns")}
