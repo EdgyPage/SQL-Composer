@@ -882,11 +882,11 @@ block the user can paste into a notebook cell, then a few plain sentences.
    its column left out of SELECT.
 5. A Saved table with a Key takes rows one per Key: GROUP_BY over the Key, SELECT_DISTINCT,
    or a row_number kept at 1 (file 05). Otherwise the write is refused.
-6. The notebook's next cell looks: `show_hive([create(), write()])` shows the Hive, any
-   Session setting a write needs first included, and `run_query(preview(), query)` reads
-   the rows. The writes are sent by `project.run_tables(execute=execute)`, in
-   admin/run_tables.ipynb: each Saved table after the tables it reads, its Session settings
-   first.
+6. The next cell looks: `show_hive([create(), write()])` shows the Hive, with any Session
+   setting a write needs, and `run_query(preview(), query)` reads the rows; a later cell,
+   `export_hive()`, keeps the Hive in a .hql file beside it. The writes are sent by
+   `project.run_tables(execute=execute)`, in admin/run_tables.ipynb: each Saved table after
+   the tables it reads, its Session settings first.
 7. To send one table by hand: `run_execute(create(), execute)` once, then
    `run_execute(hive_settings("dynamic_partitions"), execute)`, as a write whose rows fill
    their Partitions needs, then `run_execute(write(), execute)`.
@@ -1147,6 +1147,7 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - check_table_reference(t, *, query=None)
 - project.check()
 - export_lineage(*statements, to=None)
+- export_hive(s=None)
 - explain(s)
 - to_hive(s)
 - show_hive(*statements)
@@ -1174,7 +1175,10 @@ block the user can paste into a notebook cell, then a few plain sentences.
    `# CONVERSION:` mark, which blocks nothing.
 7. Where columns come from: `export_lineage(write())` writes the Lineage page beside the
    notebook. Hive's plan, without running: `run_query(explain(s), query)`.
-8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`.
+8. Look at the Hive itself: `print(to_hive(s))`, or `show_hive(s)`. In a Table notebook,
+   the cell after the lineage cell, `export_hive()`, writes the table's Hive into
+   <db>__<table>.hql beside the notebook: create(), any seed(), its Session settings, then
+   write(). `export_hive(s)` writes one Statement's.
 
 ## Worked example
 

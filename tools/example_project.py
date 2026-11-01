@@ -29,7 +29,7 @@ For each project, in a Python of its own, started in an empty folder, it:
   finishes the batch, its folder moved to `admin/workflows/convert/finished/`;
 - copies the source's README.md, refreshes the Reference sheet, and exports each table's
   lineage from its Table folder, as the notebook's lineage cell does, from each notebook's
-  write().
+  write(), then its Hive, beside its notebook, as the notebook's Hive cell does.
 
 The time, the commit and the calling script are pinned, as if a notebook ran everything on
 PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
@@ -272,6 +272,7 @@ def write_here(name: str) -> None:
     _add_conversions(name, folder)
     project.refresh_reference_sheet()
     _export_lineage(name, folder)
+    _export_hive(name, folder)
     _tidy(folder)
 
 
@@ -393,6 +394,19 @@ def _export_lineage(name: str, folder: Path) -> None:
         # pinned for this export, as pin() pins the time.
         with mock.patch.object(lineage, "statement_names", return_value=names):
             export_lineage(*writes)
+        os.chdir(folder)
+
+
+def _export_hive(name: str, folder: Path) -> None:
+    """Write each Saved table's Hive beside its notebook, <db>__<table>.hql, as its notebook's
+    Hive cell does, export_hive() run in its Table folder."""
+    from sqlglot_composer import export_hive, project
+
+    tables = [table for table, _ in SAVED_TABLES[name]]
+    tables += [table for _, _, table in CONVERSIONS[name]]
+    for table in tables:
+        os.chdir(folder / "tables" / project.table_stem(table))
+        export_hive()
         os.chdir(folder)
 
 

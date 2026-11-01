@@ -34,6 +34,8 @@ A Project is the folder you work in, laid out the same way every time:
     └── tables/              a Table folder per Saved table you build
         └── mart__daily_job_runs/
             ├── mart__daily_job_runs.ipynb
+            ├── mart__daily_job_runs.hql    its Hive, which the notebook's export_hive()
+            │                               writes
             └── lineage/
 
 You make three things by hand: the Project's folder, the copy of sqlglot_composer in it, and
@@ -2643,8 +2645,8 @@ def _notes_of(checklist: str) -> list[str]:
 def _converted_table_cells(dev: str, batch: str, logic: str,
                            hive_read: converting.ConvertedQuery) -> list[tuple[str, str]]:
     """The cells of a converted table's notebook: its text, the Project, its logic with
-    create(), preview() and write(), trying it, its lineage, its checks against the original,
-    and its rows in the Reference sheet."""
+    create(), preview() and write(), trying it, its lineage, its Hive in a file beside it, its
+    checks against the original, and its rows in the Reference sheet."""
     return [
         ("markdown", f"# {dev}\n\nA Saved table the batch {batch} made, with "
          f"project.convert(...), from the statements in `{CONVERSION}/{STATEMENT}`, as "
@@ -2656,14 +2658,16 @@ def _converted_table_cells(dev: str, batch: str, logic: str,
          "it with the original stay until you delete them."),
         ("code", "import pathlib\nimport sys\n"
          "sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project: two up\n\n"
-         "from sqlglot_composer import (compare_hive, compare_with_original, export_lineage, "
-         "project,\n                              run_query, show_hive)\n"
+         "from sqlglot_composer import (compare_hive, compare_with_original, export_hive, "
+         "export_lineage,\n                              project, run_query, show_hive)\n"
          "from warehouse import query"),
         ("code", f"{LOGIC}\n{logic}"),
         ("code", "# Try it: its rows, then, once its Table reference has its location=, the "
          "Hive of\n# each step\nrun_query(preview(), query)\nshow_hive([create(), write()])"),
         ("code", "# Lineage: a new pair in lineage/, named by the time and this table\n"
          "export_lineage(write())"),
+        ("code", f"# Its Hive: {table_stem(dev)}.hql beside this notebook, from the logic as "
+         "last saved\nexport_hive()"),
         ("code", f"# Its Hive against the original's, as {CONVERSION}/{IN_DEV} holds it\n"
          f'ORIGINAL = pathlib.Path("{CONVERSION}/{IN_DEV}").read_text(encoding="utf-8")\n'
          "show_hive(preview())\nprint(compare_hive(preview(), ORIGINAL))"),
@@ -4845,7 +4849,7 @@ def run_tables(*, execute: Callable[[str], None] | None = None,
     settings: dict[str, SessionSettings] = {}
     for name in tables:
         logic = load(name)
-        named += [(write, name) for write in _writes_of(name, logic, call)]
+        named += [(write, name) for write in writes_of(name, logic, call)]
         if hasattr(logic, "session_settings"):
             settings[name] = logic.session_settings()
     ordered = in_order(named, call=call)
@@ -4919,10 +4923,11 @@ def _run_tables_report(ordered: list[tuple[Statement | UncheckedStatement | Pyth
     return lines
 
 
-def _writes_of(name: str, logic: TableLogic, call: str
+def writes_of(name: str, logic: TableLogic, call: str
                ) -> list[Statement | UncheckedStatement | PythonStep]:
     """What the write() of `name`'s Table notebook gives, its logic as load gave it, each one
-    checked. load has checked that its logic cell defines a write() taking nothing."""
+    checked, for run_tables to send and export_hive to show. load has checked that its logic
+    cell defines a write() taking nothing."""
     written = logic.write()
     # A write() may give several writes, sent in the order it gives them.
     several = isinstance(written, (list, tuple))

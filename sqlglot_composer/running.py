@@ -3,7 +3,8 @@
 run_query(s, query) and run_execute(s, execute) are how a Statement reaches the warehouse,
 through your own two functions: `query` takes a Hive string and gives back a DataFrame,
 `execute` takes one and gives back nothing. You choose which by the one you call. Connection,
-retries and saving CSVs stay in them. The Toolbox never imports them.
+retries and saving CSVs stay in them. The Toolbox never imports them. show_hive prints the
+Hive, and export_hive keeps it in a file: a Table notebook's, beside the notebook.
 """
 
 from __future__ import annotations
@@ -11,8 +12,9 @@ from __future__ import annotations
 import inspect
 import textwrap
 from collections.abc import Callable
+from pathlib import Path
 from types import FrameType
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import pandas as pd
 
@@ -31,6 +33,7 @@ from .refusals import (
     refuse_removed_arguments,
     refuse_what_isnt_a_dataframe,
 )
+from .project_files import TABLE_FOLDER
 from .shared import in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
@@ -39,12 +42,18 @@ from .unchecked import (
     SHIPPED,
     SessionSettings,
     UncheckedStatement,
+    hive_settings,
     logged_run,
     record_sent,
     settings_text,
     unchecked_call,
     unchecked_text,
 )
+
+if TYPE_CHECKING:
+    # Only a hint names them, and project.py imports this file: imported here, they would
+    # make an import cycle.
+    from .project import ProjectReport, TableLogic
 
 # The seam that ships switched off. set_load_limits(...) switches it on.
 _limits = {"rows": None}
@@ -513,6 +522,178 @@ def _hive_to_show(s: object, frame: FrameType) -> str:
     need_statement(s, "show_hive", frame,
                     why="show_hive prints the Hive of Statements made by statement(...).")
     return "\n".join([*settings_needed(s), *admin_notes(s), to_hive(s) + ";"])
+
+
+# --- Hive kept in a file ---------------------------------------------------------------------
+
+# The end of the name of each file export_hive writes, such as mart__daily_job_runs.hql.
+HIVE_FILE_END = ".hql"
+# How wide the lines starting a Table notebook's Hive file are, after the -- that starts each.
+_HEADER_WIDTH = 86
+
+
+def export_hive(s: Statement | SessionSettings | UncheckedStatement | PythonStep | None = None
+                ) -> ProjectReport:
+    """Write a Table notebook's Hive into a file beside it, to read at a glance.
+
+    >>> failed_runs = statement(
+    ...     SELECT(job_runs.run_id),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24"), equals(job_runs.status, "FAILED")),
+    ... )
+    >>> export_hive(failed_runs)
+    Wrote failed_runs.hql, beside your notebook or script: the Hive of failed_runs, as
+    show_hive shows it.
+
+    Given a Statement, as above, it writes its Hive, as show_hive shows it, into a file named
+    for its variable, beside your notebook or script: statement.hql for one in no variable.
+    It takes what show_hive takes, one at a time: Session settings, an Unchecked statement,
+    or a Python step too.
+
+    Given nothing, in a cell of a Table notebook, it writes the table's Hive into
+    <db>__<table>.hql beside the notebook: create(), then seed() if the logic has one, after
+    the Session setting it needs, then the table's Session settings, session_settings(), and
+    last write(), each headed by its number and its step, in the order they are sent: a
+    Workflow sends create() and seed(), and project.run_tables the rest. Each step's Hive is
+    show_hive's, so a write that fills Partitions from its rows has the SET lines it needs
+    above it. The file starts with lines saying it is generated: edit the notebook's logic,
+    and run the cell again. It reads the notebook as last saved, as project.load does, so save
+    the notebook first. Run again with no change, it writes the same text. Here a short
+    Template stands in for a notebook of yours, and os.chdir for opening it, since Jupyter
+    runs a notebook in its own folder:
+
+    >>> import os
+    >>> from pathlib import Path
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> _ = Path("admin/templates/short.py").write_text(
+    ...     "# %%\\n# logic\\n"
+    ...     "from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\\n"
+    ...     "from sqlglot_composer.example_database import jobs\\n"
+    ...     "names = Table('mart.job_teams', columns={'job_id': 'bigint', 'team': 'string'},\\n"
+    ...     "              location='/data/your_team/mart.db/job_teams')\\n"
+    ...     "def write():\\n"
+    ...     "    return statement(INSERT_OVERWRITE(names), SELECT(jobs.job_id, jobs.team),\\n"
+    ...     "                     FROM(jobs))\\n")
+    >>> _ = project.new_table("mart.job_teams", template="short")
+    >>> os.chdir("tables/mart__job_teams")
+    >>> export_hive()
+    Wrote mart__job_teams.hql beside its notebook: the Hive of write(), in the order they are
+    sent.
+    >>> print(Path("mart__job_teams.hql").read_text())
+    -- The Hive of mart.job_teams, generated by export_hive() from the logic cell of
+    -- mart__job_teams.ipynb, beside this file. Edit the logic there, not this file: each
+    -- export_hive() writes it again, from the notebook as last saved. Its steps are in the
+    -- order they are sent: create(), any seed(), the table's Session settings, then write().
+    <BLANKLINE>
+    -- 1 of 1: write()
+    INSERT OVERWRITE TABLE mart.job_teams
+    SELECT
+      jobs.job_id,
+      jobs.team
+    FROM ops.jobs AS jobs;
+    <BLANKLINE>
+
+    Outside a Table notebook, export_hive() is refused: pass the Statement instead. Its write()
+    is refused as project.run_tables refuses it, such as one that gives a read.
+    """
+    frame = inspect.currentframe().f_back
+    # lineage imports this file, so it is read here, when the file is written.
+    from .lineage import caller_folder, calling_file
+
+    here = caller_folder(calling_file(frame))
+    if s is None:
+        return _export_table_hive(here, frame)
+    if kinds.kind(s) is None:
+        need_statement(s, "export_hive", frame,
+                        why="export_hive writes the Hive of one Statement made by "
+                        "statement(...), as show_hive shows it, or, given nothing in a Table "
+                        "notebook, the Hive of its table.")
+    name = name_in(frame, s) or "statement"
+    path = here / f"{name}{HIVE_FILE_END}"
+    path.write_text(_hive_to_show(s, frame) + "\n", encoding="utf-8")
+    from .project import ProjectReport  # project.py imports this file
+
+    return ProjectReport([f"Wrote {path.name}, beside your notebook or script: the Hive of "
+                          f"{name}, as show_hive shows it."])
+
+
+def _export_table_hive(here: Path, frame: FrameType) -> ProjectReport:
+    """export_hive() in a Table notebook: the table's Hive, step by step, into
+    <db>__<table>.hql beside the notebook, `here` the notebook's folder, if it can be told."""
+    from .project import ProjectReport, load  # project.py imports this file
+
+    folder = _table_folder_working_in(here)
+    name = TABLE_FOLDER.name_of(folder.name)
+    logic = load(name)
+    steps = _steps_sent(name, logic)
+    path = folder / f"{folder.name}{HIVE_FILE_END}"
+    header = (f"The Hive of {name}, generated by export_hive() from the logic cell of "
+              f"{folder.name}.ipynb, beside this file. Edit the logic there, not this file: "
+              "each export_hive() writes it again, from the notebook as last saved. Its "
+              "steps are in the order they are sent: create(), any seed(), the table's "
+              "Session settings, then write().")
+    texts = ["\n".join("-- " + line for line in textwrap.wrap(header, width=_HEADER_WIDTH))]
+    for position, (step, sent) in enumerate(steps, start=1):
+        texts.append(f"-- {position} of {len(steps)}: {step}\n{_hive_to_show(sent, frame)}")
+    path.write_text("\n\n".join(texts) + "\n", encoding="utf-8")
+    functions = [f"{function}()" for function in ("create", "seed", "session_settings", "write")
+                 if hasattr(logic, function)]
+    return ProjectReport([f"Wrote {path.name} beside its notebook: the Hive of "
+                          f"{in_words(functions)}, in the order they are sent."])
+
+
+def _table_folder_working_in(here: Path) -> Path:
+    """The Table folder of the notebook export_hive() runs in: the calling notebook's folder,
+    or else the folder you're working in, where Jupyter starts a notebook. Refused when
+    neither is a Project's Table folder holding its notebook."""
+    from .project import project_folder  # project.py imports this file
+
+    for folder in dict.fromkeys([here.resolve(), Path.cwd().resolve()]):
+        root = project_folder(folder)
+        if (root is not None and folder.parent == root / TABLE_FOLDER.folder
+                and (folder / f"{folder.name}.ipynb").is_file()):
+            return folder
+    refuse(
+        what="export_hive() was run outside a Table notebook: neither your notebook's folder "
+        "nor the folder you're working in is a Table folder of a Project, such as "
+        "tables/mart__daily_job_runs/.",
+        why="Given nothing, it writes the Hive a Table notebook's logic sends, its create(), "
+        "any seed(), its Session settings and its write(), into <db>__<table>.hql beside the "
+        "notebook, so it runs in that notebook to know which table's it is.",
+        fix="Run it in a cell of the Table notebook, as the saved_table Template's cell 5 "
+        "does. For one Statement's Hive anywhere, pass it: export_hive(weekly) writes "
+        "weekly.hql beside your notebook.",
+        error=FileNotFoundError,
+    )
+
+
+def _steps_sent(name: str, logic: TableLogic
+                ) -> list[tuple[str, Statement | SessionSettings | UncheckedStatement
+                                | PythonStep]]:
+    """Each step of `name`'s logic in the order it is sent, with its heading: create(), the
+    Session setting a seed() needs and the seed() a Workflow sends, then the Session settings
+    and write() project.run_tables sends, each of several writes by its place."""
+    from .project import writes_of  # project.py imports this file
+
+    steps = []
+    if hasattr(logic, "create"):
+        steps.append(("create()", logic.create()))
+    if hasattr(logic, "seed"):
+        steps.append(('hive_settings("dynamic_partitions"), sent before seed()',
+                      hive_settings("dynamic_partitions")))
+        steps.append(("seed()", logic.seed()))
+    if hasattr(logic, "session_settings"):
+        steps.append(("session_settings()", logic.session_settings()))
+    writes = writes_of(name, logic, "export_hive()")
+    if len(writes) == 1:
+        steps.append(("write()", writes[0]))
+    else:
+        steps += [(f"write()[{index}]", write) for index, write in enumerate(writes)]
+    return steps
 
 
 def run_query(s: Statement | UncheckedStatement,
