@@ -1,0 +1,2 @@
+TABLES = ["mart_dev.failed_runs"]  # the new tables, by their names in the warehouse, such as ["mart_dev.daily_job_runs"]
+QUERIES = {"failed_runs": "failed_runs.hql"}  # each table's query, by its name without its database: the team's query, saved beside this notebook

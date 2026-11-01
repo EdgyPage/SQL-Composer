@@ -1,0 +1,3 @@
+[
+ "Convert this Formula workbook (daily_runs_formula.xlsx) into Hive for the Toolbox, as its Steps sheet says: first the map of sources and finals, then the query for each final Table, with each name you can't know in angle brackets. The final we need is daily_runs, from its Daily sheet, in mart_dev."
+]

@@ -1,0 +1,1 @@
+DONE: Made mart_dev.failed_runs via the references then new_table Workflows with QUERIES; compare passed. Friction: start() prints nothing from a script; warehouse.py's comment stale once conn changed; the README names QUERIES in one sentence; convert's messages from new_table confusing.

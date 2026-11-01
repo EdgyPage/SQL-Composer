@@ -1,0 +1,1 @@
+DONE: Saved my_work/run_report_formula.xlsx from the Steps sheet: job_runs Table with its source note above it, run_report Table with COUNTIFS/AVERAGEIFS by Table name; Parameters and Keys empty. No question.

@@ -1,0 +1,1 @@
+DONE: Started a Project, Table references for ops.jobs and ops.run_alerts with their Keys answered in the references Workflow's decisions cell and written in; checks pass. Friction: run_notebook runs every cell; SELECT 1 refused; start() from a hand-written notebook logged as a notebook.

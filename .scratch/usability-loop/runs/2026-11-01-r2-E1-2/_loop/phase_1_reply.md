@@ -1,0 +1,1 @@
+DONE: Saved my_work/run_report_formula.xlsx: job_runs Table named for the part after the dot, its source note above, run_report Table with COUNTIFS/AVERAGEIFS by Table name; Parameters and Keys empty.

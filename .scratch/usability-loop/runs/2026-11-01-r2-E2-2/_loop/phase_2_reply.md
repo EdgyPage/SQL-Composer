@@ -1,0 +1,1 @@
+DONE: mart_dev.team_report from Copilot's Hive through convert, compare passed; promoted to team_prod.team_report too. The write was refused by the Key guard over the listed Derived table of team names; named key=[team] on it.

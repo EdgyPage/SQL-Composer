@@ -1,0 +1,1 @@
+DECISIONS = {"mart_dev.failed_runs": {"location": "/data/team/mart_dev.db/failed_runs"}}  # your answer to each open Decision, by table

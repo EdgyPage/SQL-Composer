@@ -1,0 +1,1 @@
+DONE: Started a Project, Table references for ops.jobs and ops.run_alerts, Keys answered in the decisions cell, written in. Friction: project calls return their report, so from a script nothing prints; reaching team_connection needs a hard-coded path.

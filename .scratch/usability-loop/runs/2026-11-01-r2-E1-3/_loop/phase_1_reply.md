@@ -1,0 +1,1 @@
+DONE: Saved my_work/run_report_formula.xlsx: job_runs Table with its source note in a row above, run_report summary Table with COUNTIFS/AVERAGEIFS; Parameters and Keys empty. Unsure how to name a new summary Table.

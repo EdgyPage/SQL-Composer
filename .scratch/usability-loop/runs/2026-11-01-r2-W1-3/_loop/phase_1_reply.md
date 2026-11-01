@@ -1,0 +1,1 @@
+DONE: Made mart_dev.team_fails via convert with RENAME; compared both Partitions (the second by hand). Friction: SELECT 1 fails on the team connection; run_notebook runs every cell (wrote run_cells.py); compare checks only the latest Partition.

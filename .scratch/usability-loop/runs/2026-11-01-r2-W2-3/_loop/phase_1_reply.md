@@ -1,0 +1,1 @@
+DONE: Made mart_dev.runs_per_day with the new_table Workflow, logic by hand, 6 rows checked. Friction: start() printed nothing from a script; new_table called before the Workflow's step 1, which then skipped it as done; SELECT 1 AS one fails on the team connection.

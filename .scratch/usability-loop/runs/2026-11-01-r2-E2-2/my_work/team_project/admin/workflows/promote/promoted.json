@@ -1,0 +1,12 @@
+{
+ "team_prod.team_report": {
+  "dev": "mart_dev.team_report",
+  "files": {
+   "tables/team_prod__team_report/conversion/in_dev.hql": "02b248c3b9f49f77ac9dc812adcf3e29a3c322b5e6f130b0c32d61b6b050caa4",
+   "tables/team_prod__team_report/conversion/statement.hql": "af2ee38e116782f57de92988d7d66c5d9e801296542b040f7b16eed7da3488f1",
+   "tables/team_prod__team_report/team_prod__team_report.ipynb": "856c058fb30944e4ca096809d36bbe0676f00a89161f7b1171a2936092c007b3"
+  },
+  "reference": "32f0e698074d50dacbc2e2a611afbfa8fe4c1f0b6f4ba8d7641c29c3085765d5",
+  "seeded": false
+ }
+}

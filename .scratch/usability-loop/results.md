@@ -105,3 +105,73 @@ technical user asked. Phase 1 (the non-technical user) asked none in any Excel r
 - The key guard's refusal on a source with no Key doesn't name declaring one (E4-1); promote's
   dry run asks for prod locations already filled from dev (H1-1); create_table's no-location
   refusal says to edit Table(...) where new_table answers it as a Decision (W2-2).
+| 2026-11-01 | W1 | dev | 2026-11-01-r2-W1-2 | pass | 0 | Round 2. RENAME used from the names cell; ran cells by hand to stop at the decision (the runner runs them all); compared the second Partition with partition=. |
+| 2026-11-01 | W2 | dev | 2026-11-01-r2-W2-3 | pass | 0 | Round 2. Done through new_table's run_workflow; SELECT 1 refused by the warehouse (the loop's). |
+| 2026-11-01 | W2 | dev | 2026-11-01-r2-W2-2 | pass | 0 | Round 2. Done; ran chosen cells by hand (the runner runs every cell, run_workflow too). |
+| 2026-11-01 | W1 | dev | 2026-11-01-r2-W1-3 | pass | 0 | Round 2. RENAME used; cells run by hand to stop at the decision. |
+| 2026-11-01 | W3 | dev | 2026-11-01-r2-W3-3 | pass | 0 | Round 2. Done; references first, as the README now says. |
+| 2026-11-01 | W1 | dev | 2026-11-01-r2-W1-1 | pass | 0 | Round 2. Done with RENAME and run_workflow; a references DECISIONS filled after a run went unwritten until write_decisions by hand (to check). |
+| 2026-11-01 | W3 | dev | 2026-11-01-r2-W3-2 | pass | 0 | Round 2. Done; the no-reference refusal sent it to the references Workflow first. |
+| 2026-11-01 | W3 | dev | 2026-11-01-r2-W3-1 | pass | 0 | Round 2. Done; unsure whether a query file is new_table's or convert's. |
+| 2026-11-01 | W4 | dev | 2026-11-01-r2-W4-1 | pass | 0 | Round 2. Done; SELECT 1 refused (the loop's). |
+| 2026-11-01 | W2 | dev | 2026-11-01-r2-W2-1 | pass | 0 | Round 2. Done; DESCRIBE FORMATTED lists no Location, so check_table_reference reports storage unchecked (the loop's). |
+| 2026-11-01 | W5 | dev | 2026-11-01-r2-W5-3 | pass | 0 | Round 2. Done; equals from the step cell's import and example. |
+| 2026-11-01 | W5 | dev | 2026-11-01-r2-W5-1 | pass | 0 | Round 2. Done; ran the first cells by hand (the runner runs them all). |
+| 2026-11-01 | W4 | dev | 2026-11-01-r2-W4-2 | pass | 0 | Round 2. Done through the decisions cell, the Key named open by check(). |
+| 2026-11-01 | W5 | dev | 2026-11-01-r2-W5-2 | pass | 0 | Round 2. Done; cells run one at a time. |
+| 2026-11-01 | W4 | dev | 2026-11-01-r2-W4-3 | pass | 0 | Round 2. Done; a report shows only when printed from a script. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r2-E1-1 | pass | 1 | Round 2. 1 question; through the convert Workflow. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r2-E1-3 | pass | 1 | Round 2. 1 question; through new_table's QUERIES. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r2-E2-3 | pass | 1 | Round 2. 1 question; Hive kept whole for the typed team list, its columns now typed. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r2-E2-1 | pass | 1 | Round 2. 1 question; the key guard refused a key over the CTE of typed team names (unchecked_derived), opted out with unproven_key=True. |
+| 2026-11-01 | E2 | dev | 2026-11-01-r2-E2-2 | pass | 1 | Round 2. 1 question; the key guard refused over the literal team list again, mended with key= on the Derived table; promoted too, unasked. |
+| 2026-11-01 | E1 | dev | 2026-11-01-r2-E1-2 | pass | 1 | Round 2. 1 question (relayed late: its own background shell hung). |
+| 2026-11-01 | E3 | dev | 2026-11-01-r2-E3-1 | pass | 1 | Round 2. 1 question; Copilot gave the Total Row its own query, as file 12 now says; no WITH ROLLUP. |
+| 2026-11-01 | E3 | dev | 2026-11-01-r2-E3-2 | pass | 1 | Round 2. 1 question; no ROLLUP, the Total Row its own query. |
+| 2026-11-01 | E3 | dev | 2026-11-01-r2-E3-3 | pass | 1 | Round 2. 1 question; no ROLLUP. |
+
+## Round two, 2026-11-01: after ticket 05's fixes and tickets 10 to 14
+
+Main's tree built from f48a70ad: round one's doc, loop and scenario fixes, tickets 10 to 14 in.
+Every dev scenario three times, fresh Haiku agents for each phase, Copilot's two hops on Haiku.
+Nothing was fixed during the round.
+
+| scenario | split | passed | questions | round one |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 0/3 (named its copy by hand) |
+| W2 | dev | 3/3 | 0 | 3/3 |
+| W3 | dev | 3/3 | 0 | 3/3 |
+| W4 | dev | 3/3 | 0 | 3/3 |
+| W5 | dev | 3/3 | 0 | 3/3 |
+| E1 | dev | 3/3 | 1 each | 3/3 |
+| E2 | dev | 3/3 | 1 each | 3/3 |
+| E3 | dev | 3/3 | 1 each | 3/3 (two hit the ROLLUP refusal) |
+
+What round one's fixes did: W1's converters named their copies through RENAME (3/3, from 0/3);
+W5's used the step cell's equals import and example; the E3 users turned the Table's Total Row
+on in place of a typed total row, and Copilot gave it a query of its own, so no converter met
+the ROLLUP refusal; Copilot's typed team list (E2) now has its columns typed, ticket 13.
+
+### Found in round two, sorted
+
+**Toolbox**
+- E2-1, E2-2: Copilot's typed team list as a CTE of literal rows becomes an Unchecked derived
+  table with no Key, so a write keyed on team is refused; one opted out (unproven_key=True),
+  one named key=["team"] on the derived table.
+
+**The loop's fault**
+- run_notebook.py runs every cell, run_workflow's too, so nearly every agent wrote its own
+  cell runner to stop at a decision, as the README now says.
+- The warehouse refuses SELECT 1 (no FROM) and SHOW CREATE TABLE, and loses a CREATE's
+  LOCATION between processes, so DESCRIBE FORMATTED lists none and check_table_reference
+  reports storage unchecked (W2-1).
+- E1-2's own background command hung, and its relay came late.
+
+**Doc gaps** (one or two runs each)
+- A project call's report shows only when printed, so a plain script shows nothing (start(),
+  check(), run_workflow; W2-3, W3-3, W4-3, W1-1).
+- A Table notebook's header TODO stays once its logic is written (W2-2); does_not_add_up's
+  TODO doesn't say [] is an answer (W2-2).
+- Which Workflow takes one query file, new_table's or convert's (W3-1); first_look's
+  signature (W2-1); check_key needs a Key declared, and where= on a partitioned table (W2-2,
+  W3-1); warehouse.py keeps its Example database comment once conn changes (W3-3).

@@ -1,0 +1,1 @@
+DONE: Made mart_dev.failed_runs via new_table with QUERIES, after the references Workflow (the refusal named it); compare passed. Friction: run_notebook runs every cell (wrote run_cells.py, numbering cells with markdown ran do_next by accident); the README doesn't say to check a Key by hand.

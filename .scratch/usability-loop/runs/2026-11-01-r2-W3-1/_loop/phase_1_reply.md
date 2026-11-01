@@ -1,0 +1,1 @@
+DONE: Made mart_dev.failed_runs via references then new_table with QUERIES; compare passed. Friction: run_notebook runs every cell (wrote run_chosen_cells.py); the docs don't say whether a team's query file goes to new_table or convert; check_key refuses until a Key is declared.

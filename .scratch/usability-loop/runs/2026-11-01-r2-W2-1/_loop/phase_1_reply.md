@@ -1,0 +1,1 @@
+DONE: Wrote mart_dev.runs_per_day with references then new_table, logic by hand, 6 rows. Friction: run_notebook runs every cell; first_look's signature not in the cheat sheet; check_table_reference reports a storage difference as the warehouse's DESCRIBE FORMATTED lists no Location.

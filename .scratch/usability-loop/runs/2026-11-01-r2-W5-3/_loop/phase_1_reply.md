@@ -1,0 +1,1 @@
+DONE: Dropped dt=2026-09-24 from mart_dev.runs_per_day with change_a_saved_table: where=equals(table.dt, ...), Hive printed and checked, sent. Friction: ran cells by hand to stop before the send (run_notebook runs every cell).

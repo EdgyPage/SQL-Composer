@@ -1,0 +1,1 @@
+DONE: Made mart_dev.team_fails with the convert Workflow, RENAME in its names cell; compared both Partitions (the second by partition=). Friction: run_notebook.py runs every cell, so it can't stop at the decision (wrote run_cells.py); compare checks one Partition, the README doesn't say to compare each; importing a connection outside the Project.

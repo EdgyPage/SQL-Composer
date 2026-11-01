@@ -1,0 +1,4 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+team_prod.team_report,team,string,,yes,,,2026-11-01 09:37:00
+team_prod.team_report,runs,bigint,,,,,2026-11-01 09:37:00
+team_prod.team_report,total_duration_mins,bigint,,,,,2026-11-01 09:37:00

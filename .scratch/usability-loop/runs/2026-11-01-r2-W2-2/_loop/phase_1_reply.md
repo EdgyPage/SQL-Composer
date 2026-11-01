@@ -1,0 +1,1 @@
+DONE: Made mart_dev.runs_per_day with the references then new_table Workflows, logic by hand, 6 rows. Friction: run_notebook.py runs every cell incl. run_workflow (wrote run_cells.py); no Jupyter, cells saved by editing JSON; Table notebook header TODO stays; does_not_add_up TODO when none; check_key needs where= on a partitioned table.
