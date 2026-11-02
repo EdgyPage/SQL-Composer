@@ -2,6 +2,201 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.2
+
+8.2 puts each table's Hive in a file beside its notebook, and fixes what people new to the
+Toolbox met when they ran each Workflow, and the Excel path, from the docs alone: a
+Conversion keeps a calculation's type, turns a count written as a SUM into a count, and keeps
+a list of rows typed in with its Key; the convert notebook's RENAME gives a table's copy in
+dev a name of your own; and the README, the Steps sheet and the Copilot files now say what
+those people found unsaid.
+
+### To update from 8.1
+
+- **Copy in 8.2's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.2.md`.
+- **Each Table notebook** gains a cell after its lineage cell, `export_hive()`, which writes the
+  table's Hive in `<db>__<table>.hql` beside it: run it to make the file. A notebook whose
+  lineage cell you took out is marked `# UPGRADE 8.2:`, to add the cell by hand.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`, so convert's names cell has RENAME, a name of your own for each table's
+  copy in dev. Each name you gave stays, and so does each step cell you wrote in.
+- **The Templates in `admin/templates/`** that new_table copies are written again with the
+  Hive cell if they are still as 8.1 wrote them; one you changed is marked `# UPGRADE 8.2:`,
+  saying what to copy.
+- **A table new_table made from its query** has its notebook and `conversion/checklist.md`
+  name new_table's notebook, `admin/workflows/new_table/new_table.ipynb`, for its Decisions,
+  as 8.2 writes them: 8.1 named convert's. There is nothing for you to do.
+- **`admin/check_references.ipynb`** is written again, kept as it was in `admin/removed/`: it
+  checks each partitioned table's Key on its latest Partition itself.
+- **`warehouse.py`**, if still as 8.0 or 8.1 wrote it, is written again, saying how to import a
+  connection kept in a file outside the Project; one you changed is yours, and stays.
+
+### What's new
+
+- **Every doc written as steps you can check.** The README, the how-tos, the Copilot files,
+  the Formula workbook's Steps sheet and the text cells of each Workflow and Table notebook
+  now follow one shape (`docs/agents/instruction-rules.md`, from Microsoft's rules for
+  Copilot instructions): the words they use defined first, each step's goal, what to do and
+  how you know it is done, explicit if/then rules where you choose, and a closing check.
+- **The Excel path loads files 15, 11 and 12, and Copilot answers with Hive alone.** A new
+  Copilot file, 15, holds the steps of turning a Formula workbook into Hive: which Tables and
+  queries become which queries, and the reply's shape; files 11 and 12 are now what each
+  formula and Power Query step becomes. Copilot no longer writes Toolbox code for a workbook:
+  the convert Workflow writes it from the Hive, checked. Files 03, 04 and 05 are no longer
+  loaded with them.
+- **Hive pasted any way converts the same.** `project.convert` and `project.scan_hive` keep
+  Hive passed as text from its first line to its last, ending on one line break, so Hive pasted
+  after `HIVE = """` and a line break gives the same batch and report, its line numbers yours.
+- **Each table's Hive in a file beside its notebook.** `export_hive()`, in a new cell of each
+  Table notebook beside its lineage cell, writes `<db>__<table>.hql` beside the notebook: the
+  Hive its logic sends, `create()`, any `seed()`, the table's Session settings, then `write()`,
+  in the order they are sent, each as `show_hive` shows it, under lines saying the file is
+  generated. The Python stays the table's definition: edit the logic, save the notebook, and
+  run the cell again, which writes the same text when nothing changed. `export_hive(s)` writes
+  one Statement's Hive, named for its variable, beside your notebook or script: one call per
+  variable, such as `export_hive(daily)` then `export_hive(weekly)`. The saved_table and
+  quality_checks Templates, the Table notebooks `project.convert` writes, and the Example
+  projects' Table notebooks have the cell.
+- **A calculation's type, as Hive gives it.** A count is a `bigint`; a sum a `bigint` of whole
+  numbers, a `double` of fractions; an average a `double`; a smallest or largest value its
+  column's type; `if_else`, `first_match` and `mapped` the type their values share; `fill_null`
+  its column's, else its value's; arithmetic the wider of its two sides, a division a
+  `double`; a Hive function whose type is fixed, such as `upper` or `count`, its own. So a
+  table converted from a query, or made from one by new_table, has its calculated columns'
+  types in its Table reference, where before each was written "string" as a guess for you to
+  answer. A calculation whose type nothing tells is still a Decision.
+- **The Example database runs subtotals, and a value beside a total.** `rollup`, `cube` and
+  `grouping_sets`, with `is_total` in `SELECT` or `HAVING`, and Hive's `WITH ROLLUP` and
+  `ROLLUP(...)`, run there now, each set its own rows, so how-to 15 shows each one's rows as
+  run. And a calculation that reads a group's own column beside an aggregate, such as `CASE
+  WHEN job_id = 3 THEN 1000 ELSE SUM(...) END`, which a Formula workbook's value typed over a
+  formula converts to, gives each row its own value, where sqlglot's executor gave every row
+  the aggregate's.
+- **A count written as a SUM converts.** `SUM(CASE WHEN c THEN 1 END)`, the way most Hive, and
+  Copilot, counts the rows where a condition holds, converts to `count_rows(where=c)`, where
+  before its conversion stopped on its own refusal. Inside `COALESCE(..., 0)` it gives the same
+  rows; bare, it gives 0 where the SUM gave NULL, and the scan says so.
+- **A count of a condition converts, over a window too.** `COUNT(CASE WHEN c THEN 1 END)`,
+  how Copilot writes an Excel COUNTIFS, converts to `count_rows(where=c)`, and with `OVER
+  (...)` to `count_rows(where=c, over=window(...))`, where the windowed one stayed Hive in
+  `unchecked_column(...)`.
+- **Hive a Conversion can't read says where, and why.** Hive sqlglot can't read, such as
+  Excel's `IF(AND(a, b), 1, 0)` left in a query, is refused naming its file and line and what
+  sqlglot found, and for an `AND(` or `OR(`, Hive's `a AND b`, where before the refusal said its
+  Hive wrote no table. Copilot file 11 now says AND(), OR() and NOT() become operators, and
+  how SUMPRODUCT over conditions, several conditions on one range, and a sum of -IFS forms
+  convert.
+- **A conversion's compare keeps each Partition's result.** `conversion/compare.md` keeps a
+  result for each Partition compared, a compare of another adding its own, so the table passes
+  only when each passed; a result from before the table was last written is dropped. The
+  convert Workflow's compare step and the README say how to compare another Partition.
+- **What people new to the Toolbox met a second time, said.** write_decisions counts a Table
+  reference's docstring TODO line among those left; `project.do_next()` with no step left says
+  each Workflow named is done, where it said none was started; new_table's first step says a
+  query is converted in a batch of its own and each table it reads needs its Table reference
+  first; the upgrade Workflow and the README's Update say naming DEV and PROD renames no table
+  made before; the Steps sheet adds a Power Query as example 03 does, keeps its M when Excel
+  isn't at hand, and leaves step 12 to the data team when they convert it; and file 12 and the
+  README say a Total Row's query may be left out.
+- **What people new to the Toolbox met a third time, said.** write_decisions and
+  reference_from_logic name each TODO line a Table reference leaves, by its line number, such
+  as its docstring's first line and `does_not_add_up=`, where they gave only a count; and
+  new_table's step 3 says to fill them in by hand, in a Table reference it keeps too.
+  change_a_saved_table's step 2 cell runs the check its `Check first` line names, such as
+  `SHOW PARTITIONS`, through your query, and prints what it reads, as `run_workflow` does,
+  where you ran the check yourself. A Key reference_from_logic proposes for a table made from
+  a Template is marked `# proposed from its logic`, where it said "from its query". new_table's
+  step 2 says what to read when `QUERIES` wrote a table's logic; promote's decisions step says
+  there is nothing to answer when promote filled in each `location=`; the README says which
+  name the convert Workflow gives each table, and that RENAME keeps the original's; and each
+  of its first sections ends naming the next by its title. `project.write_decisions({})`, a
+  decisions cell that answers no table, says so, where it printed nothing; and
+  change_a_saved_table's step 2 says the Example database holds no Saved table, so there its
+  check stops, naming the table: run the step at work.
+- **A workbook as text, for Copilot: `copilot/workbook_text.py`.** `python
+  copilot/workbook_text.py "costs.xlsx"`, in a terminal, writes costs.txt beside the
+  workbook, with nothing but Python: each Table row by row with its formulas as typed, each
+  Power Query's M as Excel saved it, or from a Power Query sheet, and an Order listing each
+  piece after every piece it reads. A loop is refused, each link named. The README's Excel
+  path attaches the text in place of the workbook, and Copilot file 15 reads each final's
+  CTEs in that order.
+- **What people new to the Toolbox met a fourth time, said.** A converted table's checklist
+  note for a `# CONVERSION:` mark says what the Toolbox refuses without its opt-out, the
+  refusal's first line beside its keyword, and batch.md and checklist.md give each note once,
+  where a table read three times gave one three times. `project.check()` gives each
+  Workflow's next step before the `# CONVERSION:` marks, which block nothing; says a batch
+  whose folder is in `admin/workflows/convert/finished/` is done, where it said nothing; and
+  says why the Reference sheet needs a refresh, such as which Table reference changed after
+  it was last written. The convert and promote seed cells print that they seeded nothing
+  when no table reads itself, sending nothing, where they sent a SET line and printed
+  nothing. The compare step says it checks only the latest Partition both hold, unless
+  partition= gives another; and the references Workflow says how to check a Key with
+  `check_key` before you answer it, and that deleting `does_not_add_up=`'s TODO comment says
+  no column is one.
+- **Copilot file 16, the promote Workflow.** Promoting dev tables to prod has a Copilot file of
+  its own, `copilot/16_workflows_promote.txt`, and file 13 holds convert alone, with room
+  for its wording again. File 00 routes promoting to file 16.
+- **Three queries stacked with UNION ALL convert.** `a UNION ALL b UNION ALL c` becomes one
+  `UNION_ALL(a, b, c)`, where it wrote Python with a stray comma that `project.convert` stopped
+  on.
+- **The Steps sheet's step 6 keeps a value a formula matches on**, such as "FAILED" in a
+  COUNTIFS, in the formula. Copilot file 11 names in the map a Parameters value or a summary's
+  typed groups written into the Hive, since a changed value or a later day won't reach the
+  table. README step 3 of section 1 says where a Project's folder goes.
+- **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
+  as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
+  holding `<a value>`.
+- **NOT of a condition converts.** `NOT (a OR b)` becomes `all_of(...)` of each part's opposite,
+  `NOT (a AND b)` `any_of(...)` of them, `NOT x > 3` `at_most(x, 3)`, and `NOT (NOT a)` `a`,
+  each keeping the rows NOT keeps, a NULL's too, where only `NOT IN`, `IS NOT NULL` and
+  `NOT a = b` converted and the rest stayed Hive in `unchecked_condition(...)`. A part with no
+  opposite, such as a `LIKE` neither function writes, stays Hive alone.
+- **`project.check()` names a Decision still open after a later step.** A Workflow's step of
+  Decisions, such as a Table reference's Key, is named until it is made, though a step after
+  it, such as refreshing the Reference sheet, has run; before, check() said every step was
+  done.
+- **A conversion's files say what made the table.** A table new_table makes from its query
+  has a notebook and checklist.md that send its Decisions to new_table's notebook, where they
+  named convert's; batch.md names it by its copy in dev, "from its query", where it named
+  `default.<name>`; and its scan says its query becomes the Saved table's write, where it
+  named an INSERT OVERWRITE no script wrote. Every scan counts the lines of the Hive as its
+  script wrote it, where it counted the one line it is rewritten as, and gives its findings
+  without that one line's number.
+- **Hive kept whole has its columns typed.** A query a Conversion keeps whole as an Unchecked
+  statement, such as a query of values alone, `SELECT 'data' AS team UNION ALL SELECT 'web'`,
+  which a Statement can't build, has its columns' types worked out from its values, or from
+  the Table references of the tables it reads, where each was written "string" as a guess for
+  you to answer. A column whose type nothing tells, such as one `explode` gives, is still a
+  Decision.
+- **RENAME in the convert notebook.** Its names cell has RENAME, each table's copy in dev named
+  as you name it, such as `{"mart.team_fails": "team_fails"}` for `mart_dev.team_fails`, where
+  you added `rename=` to the call by hand; left out, a copy is `<table>_<its database>`, such as
+  `team_fails_mart`, as before.
+- **What round one of the usability loop found unsaid, said.** A Workflow notebook's cells run
+  one at a time, in four numbered steps the README gives, never Run All, which would write
+  before the Decisions are answered. new_table's query needs each table it reads to have its
+  Table reference first. compare_batch says how many Partitions both tables hold that it
+  didn't compare, and that partition= compares one. change_a_saved_table's step cell imports
+  equals and between, with an example of `where=`. A write's Key refusal says to give a table
+  that declares no Key its key=, and create_table's no-location refusal to answer the location
+  in the Workflow's decisions cell. In the Formula workbook's Steps sheet, step 2 says to name
+  a Table after its database table without the database, step 4 that a saved file may hold
+  `[@col]` as `Table[[#This Row],[col]]`, and step 5 which function each figure takes, and to
+  total a Table with its own Total Row. Copilot file 12 writes a Total Row as a query of its
+  own, never `WITH ROLLUP`, which a Saved table refuses; file 13 says what RENAME does.
+- **A list of rows typed in keeps its Key.** A CTE that only lists values typed in, such as
+  `SELECT 'data' AS team UNION ALL SELECT 'web'`, the way Copilot keeps a group with no data,
+  stays Hive but has its first column as its Key when no value of it repeats, so a write keyed
+  on it is let through with no opt-out, and each column has the type its values give. The
+  same list as a sub-query, `FROM (SELECT 1 AS job_id UNION ALL ...) c`, or one joined, stays
+  Hive alone in the same way, the query around it Toolbox code, where the whole query stayed
+  Hive before.
+- **An Upgrade keeps only a step cell you wrote in.** A Workflow step cell you fill in, such
+  as change_a_saved_table's Admin statement, is kept when an Upgrade writes its notebook
+  again only once you wrote in it: one still as an earlier version wrote it is written afresh.
+
 ## 8.1
 
 8.1 takes the hand edits out of the Workflows. What only you decide of a table, a Decision, is

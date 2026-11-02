@@ -1,43 +1,50 @@
-# Copilot file 03: building a Statement (sqlglot Composer 8.1)
+# Copilot file 03: building a Statement (sqlglot Composer 8.2)
+
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
 Objective: read rows with a Statement: pick columns, filter, count and add up, group, sort.
 Load this file when the user asks for rows, counts, totals or a list from their tables.
 
-You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
+  a **Condition**, a test on rows: `equals(...)`.
+- `t`: a table, as its Table reference describes it: `job_runs`.
+- **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -80,31 +87,51 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - fill_null(column, value)
 - descending(column)
 
+## Clauses
+
+- `s = statement(SELECT(...), FROM(t), WHERE(...), GROUP_BY(...), HAVING(...),
+  ORDER_BY(...), LIMIT(n))`, each clause only where needed.
+- Columns: `t.status`, or a calculation, named: `AS(t.minutes / 60, "hours")`. Every column
+  of a table: `SELECT(*all_columns(t))`.
+- Dates are compared as the table holds them: `equals(t.dt, "2026-09-24")`,
+  `between(t.dt, "2026-09-18", "2026-09-24")`, or `last_n_days(t.dt, 7)` for the 7 days
+  before today.
+- Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
+  "running")`. More than two labels: file 10.
+- `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole result,
+  sort its DataFrame: `run_query(s, query).sort_values("minutes")`.
+
+## Totals and steps
+
+- `count_rows()` counts rows; `count_rows(where=equals(t.status, "FAILED"))` counts only
+  those; `count_distinct(t.job_id)` counts different values.
+- `sum_of(t.minutes)`, `average_of(...)`, `min_of(...)`, `max_of(...)`.
+- Every column in SELECT that isn't added up goes in GROUP_BY. A calculation is grouped by
+  its AS name, written as text: `GROUP_BY(t.job_id, "hours")`.
+- HAVING tests a total: `HAVING(more_than(count_rows(), 3))`.
+- `d = derived("d", statement(...))`: `FROM(d)`, `d.runs`. One used in several notebooks goes
+  in building_blocks/<name>.py as a function that returns it.
+
 ## Steps
 
-1. `s = statement(SELECT(...), FROM(t), WHERE(...), GROUP_BY(...), HAVING(...),
-   ORDER_BY(...), LIMIT(n))`, each clause only where needed, always in this order.
-2. Columns: `t.status`. Every column of a table: `SELECT(*all_columns(t))`. A calculation
-   needs a name: `AS(t.minutes / 60, "hours")`, `AS(count_rows(), "runs")`.
-3. Dates are compared as the table holds them, such as "2026-09-24":
-   `equals(t.dt, "2026-09-24")`, `between(t.dt, "2026-09-18", "2026-09-24")`, or
-   `last_n_days(t.dt, 7)` for the 7 days before today.
-4. Counting and adding up:
-   - `count_rows()` counts rows; `count_rows(where=equals(t.status, "FAILED"))` counts
-     only those; `count_distinct(t.job_id)` counts different values.
-   - `sum_of(t.minutes)`, `average_of(...)`, `min_of(...)`, `max_of(...)`.
-   - Every column in SELECT that isn't added up goes in GROUP_BY. A calculation is grouped by
-     its AS name, written as text: `GROUP_BY(t.job_id, "hours")`.
-   - HAVING tests a total: `HAVING(more_than(count_rows(), 3))`.
-5. Labels: `if_else(condition, then, otherwise)`; NULL made a value: `fill_null(t.status,
-   "running")`. More than two labels: file 10.
-6. Sorting: `ORDER_BY(descending(t.minutes))` then `LIMIT(10)` for a top 10. To sort a whole
-   result, sort the DataFrame in pandas: `run_query(s, query).sort_values("minutes")`.
-7. In steps: `d = derived("d", statement(...))` makes a Derived table, read like a table:
-   `FROM(d)`, `d.runs`. A Derived table holds no ORDER_BY. A step used in several notebooks
-   goes in building_blocks/<name>.py as a function that returns the Derived table.
+1. **Read.** Goal: know the result. Action: list its columns, totals, filters and order.
+   Done when listed; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the user asks for every day of `t`: `FROM(t, reads_all_partitions=True)`.
+- If a column must be NULL: `is_null(t.owner)`, never `equals(t.owner, None)`.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences: what it gives, each opt-out and why.
+
+## Examples
 
 Each job's runs and total minutes on two days, the jobs with more than one run:
 
@@ -142,17 +169,9 @@ s = statement(
 )
 ```
 
-## Do and don't
+## Self-check
 
-- Do bound a partitioned table on its partition column; don't read it whole unless the user
-  asks for every day, then `FROM(t, reads_all_partitions=True)`.
-- Do `count_rows()`; don't write COUNT(*). Do `sum_of(...)`; don't write SUM.
-- Do `any_of(a, b)` for "a or b"; don't write `a or b`.
-- Do `is_null(t.owner)`; don't write `equals(t.owner, None)`.
-- Do `LIMIT` after `ORDER_BY`; don't sort without one.
-
-## Before you answer
-
-- The clauses are in SQL order inside one `statement(...)`.
-- Each calculation has `AS`; each other SELECT column is in GROUP_BY when there is one.
+- The clauses are in SQL order, in one `statement(...)`.
+- Each calculation has `AS`; each other SELECT column is in GROUP_BY, if any.
 - Each partitioned table is bounded; every name is imported.
+- Each ORDER_BY has a LIMIT, and no Derived table holds one.

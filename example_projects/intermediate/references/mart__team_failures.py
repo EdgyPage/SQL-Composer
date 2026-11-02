@@ -1,4 +1,4 @@
-# sqlglot Composer 8.1 - copy it, then edit your copy
+# sqlglot Composer 8.2 - copy it, then edit your copy
 """mart.team_failures - one row per team and day: its events and its fails.
 
 Why: the project's notebooks read the table through this file, so each column they name, and

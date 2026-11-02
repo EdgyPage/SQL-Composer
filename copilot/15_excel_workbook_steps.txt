@@ -1,0 +1,136 @@
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.2)
+
+**Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
+the Output section gives.**
+
+Objective: turn the calculations of an Excel workbook the user attaches, or the text
+`workbook_text.py` writes of it, into one Hive query per final, for the user's convert
+Workflow to check and make Toolbox code of.
+Load this file when the user attaches a workbook and asks for its calculations as Hive, with
+file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and Total Rows).
+
+## Terms
+
+- **Table**: an Excel Table; the workbook shows each as `Excel Table "name"`, its headers and
+  rows, and any Total Row.
+- **Typed column**: a column whose cells hold values; a **formula column** holds formulas.
+- **Query**: a Power Query; the workbook lists each after its sheets as `Power Query "name"`,
+  its M below it. A query and the Table it loads are two things, even with one name. A
+  query's name inside another query's M, as in `Table.Sort(owner_load, ...)`, is that query.
+- **Sample**: a Table's typed rows are a sample of a database table of the Table's name,
+  which holds more rows: read the table, never the sample.
+- **Source**: a database table a final reads, `<database>.<table>`; a Table's typed columns
+  are one, of the Table's name. **Step**: a Table or query a final reads, as a CTE. **Final**:
+  a Table that gets a query of its own. The Decision rules give each piece its role.
+- **Mark**: a formula converted where Excel and Hive can differ, named in the map (file 11).
+- **Parameters**, **Keys**: the workbook's two settings Tables, read by step 4.
+
+## Steps
+
+1. **Read.** Goal: see all of the workbook. Action: list each `Excel Table` with its typed
+   and formula columns and Total Row, each defined name, and each `Power Query` listed after
+   the sheets, with what each reads: its line under `Order, each piece after every piece it
+   reads:`, or else each Table and query its M or formulas name, and its loading query.
+   Done when every `Excel Table` and `Power Query` is on your list with what it reads. Then
+   step 2.
+2. **Decide each role.** Goal: know what each piece becomes. Action: give each Table and each
+   query its role by the Decision rules, one rule per piece, a query apart from its Table.
+   Done when each listed piece has a role. Then step 3.
+3. **Write the map.** Goal: the user sees each piece's role. Action: write the Output's map
+   from steps 1 and 2. Done when the map names each piece on your list. Then step 4.
+4. **Write each final's reads.** Goal: each final's query reads what its Table reads. Action:
+   for each final, start its query: each source read as `<database>.<table>`, each step it
+   reads as a CTE in it (`WITH name AS (...)`), each CTE after every CTE it reads. **A
+   Table's typed columns are always read from `<database>.<table>`, never typed in**; only a
+   summary's typed groups are typed in.
+   Done when each final has its FROM and CTEs. Then step 5.
+5. **Write each final's columns.** Goal: each column gives the workbook's values. Action:
+   write the columns in the Table's order, each formula by file 11, each query step and
+   total by file 12, each calculated one named with AS; read a Parameters value in as its
+   value; match a value typed over a formula on its Keys row's columns. Done when each
+   final's block is whole. Then step 6.
+6. **Name what changed.** Goal: the user sees each change. Action: list each mark, each
+   refusal (NULL in its place, with why), each thing left alone, and each `<...>` to fill
+   in, by files 11 and 12. Done when each is in the map. Then step 7.
+7. **Check.** Goal: a reply with nothing to fix. Action: go through the Self-check; fix any
+   answer it finds wrong. Done when each check holds; then reply.
+
+## Decision rules
+
+- If a Table has only typed columns and no query loads it, it is a source, never a final.
+- If a Table has a formula column and no query loads it: if another Table's formula or a
+  query reads it, it is a step; if nothing else reads it, it is a final. Its own formula
+  columns reading its own row don't count.
+- If a Table's only typed columns are the ones its SUMIFS or COUNTIFS match on, it is a
+  summary: its final query is a GROUP BY of the Table it reads, its typed rows kept.
+- If a query's M names another query, the named query is a step: a CTE in each final that
+  reads it, `WITH owner_load AS (...)`, never a read of `<database>.owner_load`.
+- If a query loads a Table: if another Table's formula reads that Table, the Table is a step;
+  if not, the Table is a final, its rows the query's.
+- If a query loads nothing and nothing reads it, leave it out, and name it.
+- If a Table has a Total Row, its Total Row is a final of its own, `<Table> (Total Row)`,
+  with a column for each Total Row cell that holds a total, and no other column.
+- Parameters and Keys are never a source, step or final.
+- If pieces read each other in a loop, refuse each final in it, no block; name the loop.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Map**: Sources, Steps and Finals, each with its columns; then each value written in,
+   each value typed over a formula, each mark, each refusal, what was left alone, and
+   each `<...>` to fill in.
+2. **Hive**: a heading and one ```sql block per final, Total Rows included, nothing between.
+3. **Next**: "Take out what you don't want, fill in each `<...>`, save each query as a .hql
+   file named for its final, and run the convert Workflow on them as one batch (file 13). It
+   writes and checks the Toolbox code."
+
+## Examples
+
+Table jobs (job_id, job_name), typed. Table job_runs (run_id, job_id, duration_mins) adds
+job_name `=XLOOKUP([@job_id],jobs[job_id],jobs[job_name])`. Map: Sources jobs, job_runs (its typed
+columns). Finals job_runs (run_id, job_id, duration_mins, job_name). jobs is a source only.
+
+```sql
+SELECT r.run_id, r.job_id, r.duration_mins, j.job_name
+FROM <database>.job_runs r
+LEFT JOIN <database>.jobs j ON r.job_id = j.job_id
+```
+
+Query ok_runs keeps job_runs' SUCCESS rows and loads Table ok_runs; query ok_by_job reads query
+ok_runs and loads Table ok_by_job. Map: Sources job_runs. Steps query ok_runs. Finals Table ok_runs and Table
+ok_by_job: no formula reads either Table. Each final has its own block:
+
+```sql
+SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+```
+
+```sql
+WITH ok_runs AS (
+  SELECT run_id, job_id, duration_mins FROM <database>.job_runs WHERE status = 'SUCCESS'
+)
+SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
+```
+
+Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
+summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
+file 12's second example. by_job's typed job_ids, its groups, are typed in:
+
+```sql
+SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+  ON j.job_id = c.job_id
+```
+
+## Self-check
+
+- Each `Excel Table` and `Power Query` the workbook lists has a role in the map.
+- Each final, Total Rows included, has its own ```sql block; no block is a step alone.
+- Each final's columns are its Table's, in order; a refused one is `NULL AS` its header.
+- Each source and each Table's typed columns are read from `<database>.<table>`; the only
+  rows typed in are a summary's groups.
+- Each Total Row's block has a column only for each cell that holds a total.
+- Each step a final reads is a CTE inside that final's block, after each CTE it reads.
+- Each value typed over a formula is in a CASE, matched on its Keys row's columns.
+- Each mark, refusal, thing left alone and `<...>` is named in the map.

@@ -19,10 +19,14 @@ from .refusals import (
 from .shared import with_article
 from .tables import (
     COMPARABLE_VALUES,
+    FRACTIONS,
+    WHOLE_NUMBERS,
     Column,
     literal,
+    literal_type,
     made_by,
     python_text,
+    shared_type,
     type_family,
     value_family,
 )
@@ -110,7 +114,38 @@ def _aggregate_column(name: str, kind: str, column: object, where: object, *,
         inner = Node("Distinct", expressions=[inner])
     tree, adds_up, because = _over_window(Node(kind, this=inner), over, call, adds_up, because)
     made_by(tree, name, column, where=where, over=over)
-    return Column(tree, adds_up=adds_up, not_adding_up_because=because)
+    return Column(tree, type=aggregate_type(kind, column._type), adds_up=adds_up,
+                  not_adding_up_because=because)
+
+
+def aggregate_type(kind: str, read: str | None) -> str | None:
+    """The Hive type an aggregate of `kind` gives, by the type of the column it reads: a count a
+    bigint whatever it reads; a sum a bigint of whole numbers, a double of fractions; an average
+    a double; a smallest or largest value its column's type; None where what it reads doesn't
+    tell."""
+    if kind == "Count":
+        return "bigint"
+    if read is None:
+        return None
+    read = read.strip().lower()
+    if kind == "Sum" and read in WHOLE_NUMBERS:
+        return "bigint"
+    if kind in ("Sum", "Avg") and read in WHOLE_NUMBERS + FRACTIONS:
+        return "double"
+    if kind in ("Min", "Max"):
+        return read
+    return None
+
+
+def values_type(values: list[object]) -> str | None:
+    """The type a CASE's values share, its THENs and ELSE as the user gave them: a Python None,
+    a NULL, goes with any; None where a column's type is untold, or they share none."""
+    types = []
+    for value in values:
+        if value is None:
+            continue
+        types.append(value._type if isinstance(value, Column) else literal_type(value))
+    return shared_type(types)
 
 
 # Why a value worked out over a Window doesn't add up again: guard_unsafe_regrouping's reason.
@@ -235,7 +270,7 @@ def max_of(column: Column, where: Condition | None = None,
 def _as_column(value: object, call: str) -> Column:
     if isinstance(value, Column):
         return value
-    return Column(literal(value, call=call, in_condition=False))
+    return Column(literal(value, call=call, in_condition=False), type=literal_type(value))
 
 
 def if_else(condition: Condition,
@@ -264,7 +299,8 @@ def if_else(condition: Condition,
     made_by(tree, "if_else", condition, then, otherwise)
     adds_up = first._adds_up and second._adds_up
     because = first._not_adding_up_because or second._not_adding_up_because
-    return Column(tree, adds_up=adds_up, not_adding_up_because=None if adds_up else because)
+    return Column(tree, type=values_type([then, otherwise]), adds_up=adds_up,
+                  not_adding_up_because=None if adds_up else because)
 
 
 def first_match(
@@ -518,7 +554,8 @@ def _case_column(column: Column | None, pairs: list[tuple[Node, object]], otherw
         written += f", otherwise={python_text(otherwise)}"
     tree.meta["call"] = f"{written})"
     because = _not_adding_up_reason(values)
-    return Column(tree, adds_up=because is None, not_adding_up_because=because)
+    return Column(tree, type=values_type(given), adds_up=because is None,
+                  not_adding_up_because=because)
 
 
 def _not_adding_up_reason(parts: list[Column]) -> str | None:
@@ -603,7 +640,7 @@ def fill_null(column: Column, value: Column | str | int | float | datetime.date)
     return Column(
         made_by(Node("Coalesce", this=column._tree.copy(), expressions=[other._tree.copy()]),
                 "fill_null", column, value),
-        type=column._type,
+        type=column._type or values_type([value]),
         adds_up=column._adds_up,
         not_adding_up_because=column._not_adding_up_because,
     )
@@ -758,7 +795,18 @@ def hive_function(name: str, *args: Column | str | int | float | datetime.date) 
         for part in parts:
             _check_no_total_or_window_inside(call, part)
     because = _not_adding_up_reason(parts)
-    return Column(tree, adds_up=because is None, not_adding_up_because=because)
+    return Column(tree, type=HIVE_FUNCTION_TYPES.get(name.lower()), adds_up=because is None,
+                  not_adding_up_because=because)
+
+
+# The type a Hive function gives whatever it reads, for those whose type is fixed: another's
+# is untold, a Decision.
+HIVE_FUNCTION_TYPES = {
+    "count": "bigint",
+    **dict.fromkeys(("upper", "lower", "trim", "ltrim", "rtrim", "concat", "concat_ws",
+                     "substr", "substring", "regexp_replace", "lpad", "rpad"), "string"),
+    **dict.fromkeys(("length", "year", "month", "day", "datediff"), "int"),
+}
 
 
 def _check_function(name: str, count: int, call: str) -> None:

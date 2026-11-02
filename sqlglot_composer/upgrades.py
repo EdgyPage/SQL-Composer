@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import json
 import re
 from collections.abc import Callable
 from pathlib import Path
@@ -121,11 +122,13 @@ class Upgrade:
         (self.root / relative).write_text(text, encoding="utf-8")
         self.changed.append(f"rewrote {relative}")
 
-    def rewrite_notebook(self, relative: str, cells: list[tuple[str, str]]) -> None:
-        """Write a notebook's new cells, once the notebook as it was is kept in the archive."""
+    def rewrite_notebook(self, relative: str, cells: list[tuple[str, str]],
+                         said: str = "") -> None:
+        """Write a notebook's new cells, once the notebook as it was is kept in the archive;
+        the checklist says `said` of it, or that it was rewritten."""
         self._archive_original(relative)
         write_notebook(self.root / relative, cells)
-        self.changed.append(f"rewrote {relative}")
+        self.changed.append(said or f"rewrote {relative}")
 
     def mark(self, relative: str, line: int, what: str, cell: int | None = None) -> None:
         """Put `# UPGRADE <version>: <what>` above line `line` of a .py file, or of cell `cell`
@@ -341,6 +344,47 @@ DATABASE_MARKS = {
     "DEV =": "fill in your Dev Database's name",
     "PROD =": "fill in your Prod Database's name",
 }
+# The admin notebook 8.2 writes again, which checks a partitioned table's Key itself.
+CHECK_REFERENCES = "admin/check_references.ipynb"
+# The warehouse.py 8.0's start() wrote, and 8.1's, which 8.2 writes again where it is still
+# as it was.
+WAREHOUSE_TEXT_8_0 = \
+    '''"""warehouse - your connection to the warehouse, conn, and its two calls.
+
+Why: every notebook in the Project reaches the warehouse through query and execute, so a change
+to how you reach it is made here, once.
+
+Set conn to your connection: an object whose query(sql) runs Hive that gives back rows and gives
+them back as a pandas DataFrame, and whose execute(sql) runs Hive that changes something:
+whatever it gives back, execute drops. Until you do, conn is the Example database, which the
+how-tos run on. You
+pick which one sends each Statement, by calling run_query(s, query) for what gives back rows, as
+a SELECT does, or run_execute(s, execute) for what changes something, as a write does. Let the
+two share one session, so a Session setting sent through execute holds for what is sent after
+it; and let each raise when the warehouse reports a failure, since the Toolbox knows a step
+failed only when your connection raises. It imports none of your own files, so any notebook or
+script of yours can import it.
+"""
+
+import pandas as pd
+
+from sqlglot_composer import example_database
+
+# Your connection to the warehouse. At work, replace example_database with your own, such as
+# conn = your_library.connect(...): its query(sql) gives back a DataFrame, and its
+# execute(sql) runs Hive that changes something.
+conn = example_database
+
+
+def query(hive: str) -> pd.DataFrame:
+    """Run a Hive string that gives back rows, and give them back as a pandas DataFrame."""
+    return conn.query(hive)
+
+
+def execute(hive: str) -> None:
+    """Run a Hive string that changes something, such as a write, and give back nothing."""
+    conn.execute(hive)
+'''
 # The warehouse.py 7.2's start() wrote, which 8.0 writes again where it is still as it was.
 WAREHOUSE_TEXT_7_2 = '''"""warehouse - your two calls to the warehouse, query and execute.
 
@@ -385,12 +429,13 @@ TEMPLATE_MARK = ("new_table now writes a table's Table reference from its logic:
                  "PARTITIONED_BY beside READS")
 
 
-def _write_templates_again(upgrade: Upgrade) -> None:
-    """Write again each Template still as 7.2 or 8.0 wrote it, and mark each you changed;
-    one already as this Toolbox writes it is left as it is."""
+def _write_templates_again(upgrade: Upgrade, before: dict[str, str], mark: str) -> None:
+    """Write again each Template still as the version before wrote it, its hash in `before`,
+    and mark each you changed with `mark`; one already as this Toolbox writes it is left as it
+    is."""
     from .project_templates import TEMPLATES  # it is read here, when the step runs
 
-    for name, digest in TEMPLATES_BEFORE_8_1.items():
+    for name, digest in before.items():
         relative = f"admin/templates/{name}.py"
         path = upgrade.root / relative
         if not path.is_file():
@@ -401,7 +446,7 @@ def _write_templates_again(upgrade: Upgrade) -> None:
         if hashlib.sha256(text.encode("utf-8")).hexdigest() == digest:
             upgrade.rewrite(relative, TEMPLATES[name])
         else:
-            upgrade.mark(relative, 1, TEMPLATE_MARK)
+            upgrade.mark(relative, 1, mark)
 
 
 def to_8_0(upgrade: Upgrade) -> None:
@@ -495,20 +540,15 @@ def to_8_1(upgrade: Upgrade) -> None:
     decisions cell where its steps wait on Decisions, its new inputs and steps, and its last
     cell, run_workflow: each name its names cell gave stays, under any mark above it, and so
     does each step cell you write in, one whose call holds a ... to fill in, such as
-    change_a_saved_table's Admin statement. Each Template still as 8.0 wrote it is written
+    change_a_saved_table's Admin statement, once you wrote in it: one holding only lines this
+    version's cell has is written afresh. Each Template still as 8.0 wrote it is written
     again, and one you changed is marked. Each converted table's checklist.md is written again
     as the view of its Decisions, made or open, with no boxes to tick: a box ticked in 8.0 was
     ticked once its answer was in the Table reference, which keeps it."""
-    # project.py and workflows.py import this file, so their names are read here, when it runs.
-    from . import workflows
-    from .project import WORKFLOW_PATH_LINES, checklists_written_again
+    from .project import checklists_written_again  # project.py imports this file
 
-    for workflow in workflows.WORKFLOWS:
-        path = workflows.notebook_path(upgrade.root, workflow)
-        if path.is_file():
-            cells = _workflow_cells_with_yours(upgrade.root, workflow, WORKFLOW_PATH_LINES)
-            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
-    _write_templates_again(upgrade)
+    _write_workflow_notebooks_again(upgrade)
+    _write_templates_again(upgrade, TEMPLATES_BEFORE_8_1, TEMPLATE_MARK)
     for relative, text in checklists_written_again(upgrade.root).items():
         upgrade.rewrite(relative, text)
     upgrade.add_what_start_makes()
@@ -531,10 +571,17 @@ def _workflow_cells_with_yours(root: Path, workflow: Workflow,
             step = workflows.step_name_of(text) or step
         elif text == workflows.inputs_cell(workflow):
             text = _names_cell_with_given(workflow, given, marks)
-        elif step in written and "..." in text:
+        elif step in written and "..." in text and _written_in(written[step], text):
             text = written[step]
         cells.append((kind, text))
     return cells
+
+
+def _written_in(kept: str, fresh: str) -> bool:
+    """Whether a step cell was written in, not left as an earlier version wrote it: a line of
+    it isn't one of the cell this version writes, `fresh`, which then has each line it has."""
+    lines = set(fresh.split("\n"))
+    return any(line not in lines for line in kept.split("\n") if line.strip())
 
 
 def _step_cells_written(path: Path) -> dict[str, str]:
@@ -584,6 +631,136 @@ def _names_cell_with_given(workflow: Workflow, given: dict[str, object],
     return "\n".join(lines)
 
 
+# Each Template as 8.1 wrote it, by its hash, which 8.2 writes again with a Table notebook's
+# Hive cell.
+TEMPLATES_BEFORE_8_2 = {
+    "quality_checks": "bcdd1b97c9250031a3d3d5fa5d5d4f8dde1dd4ece9167ec46f4fdaae80341565",
+    "saved_table": "2ee295260fc58047ef5727faee89b77392dbbd77492c7dafb3dccececb9f1408",
+}
+TEMPLATE_MARK_8_2 = ("a Table notebook now has a code cell, a # %% block, writing its Hive, "
+                     "export_hive(), after its lineage cell: copy that block from this "
+                     "Template as project.start() writes it in an empty folder's "
+                     "admin/templates/")
+# A Table notebook's cell that writes its Hive, as this version puts it after its lineage cell.
+HIVE_CELL = ("# Its Hive: {stem}.hql beside this notebook, from the logic as last saved: save\n"
+             "# the notebook first\n"
+             "from sqlglot_composer import export_hive\n\nexport_hive()")
+HIVE_MARK = ("this notebook has no lineage cell, export_lineage(...), for 8.2 to put its Hive "
+             "cell after: add a code cell after the one that defines write() holding "
+             "`from sqlglot_composer import export_hive` and `export_hive()`, then run it to "
+             "write {stem}.hql beside this notebook")
+# The lines 8.1 began a converted table's compare cell with, which 8.2 writes as the compare
+# step of the Workflow that made it.
+COMPARE_AHEAD_8_1 = ("# The convert Workflow's step 6, project.compare_batch, compares this "
+                     "table once written.\n# This compares its query with the original's "
+                     "first:\n")
+CONVERT_NOTEBOOK_8_1 = "admin/workflows/convert/convert.ipynb"
+NEW_TABLE_NOTEBOOK = "admin/workflows/new_table/new_table.ipynb"
+
+
+def to_8_2(upgrade: Upgrade) -> None:
+    """8.1 to 8.2: each Table notebook gains a cell after its lineage cell, export_hive(),
+    which writes the table's Hive in <db>__<table>.hql beside it once run; one with no lineage
+    cell is marked. Each Workflow notebook is written again, each name given and each step cell
+    you wrote in kept, for the convert notebook's RENAME. Each Template still as 8.1 wrote it is
+    written again, and one you changed is marked. A table new_table made from its query has its
+    notebook's text and compare cells, and its checklist.md, name new_table's notebook, where
+    8.1 named convert's. admin/check_references.ipynb is written again, checking each
+    partitioned table's Key on its latest Partition, and a warehouse.py still as 8.0 wrote it
+    gets 8.2's, which says how to import a connection kept outside the Project."""
+    # project.py imports this file, so its names are read here, when the step runs.
+    from .project import WAREHOUSE, WAREHOUSE_TEXT, admin_notebook_cells
+
+    if (upgrade.root / CHECK_REFERENCES).exists():
+        upgrade.rewrite_notebook(CHECK_REFERENCES, admin_notebook_cells("check_references"))
+    warehouse = upgrade.root / WAREHOUSE
+    if warehouse.is_file() and warehouse.read_text(encoding="utf-8") == WAREHOUSE_TEXT_8_0:
+        upgrade.rewrite(WAREHOUSE, WAREHOUSE_TEXT)
+    for path in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
+        if path.stem == path.parent.name:
+            _add_the_hive_cell(upgrade, path.relative_to(upgrade.root).as_posix())
+    _write_workflow_notebooks_again(upgrade)
+    _write_templates_again(upgrade, TEMPLATES_BEFORE_8_2, TEMPLATE_MARK_8_2)
+    for table in _tables_made_by_new_table(upgrade.root):
+        _name_new_tables_notebook(upgrade, table)
+    upgrade.add_what_start_makes()
+
+
+def _add_the_hive_cell(upgrade: Upgrade, relative: str) -> None:
+    """Put the Hive cell after a Table notebook's lineage cell, unless it has one; mark one
+    with no lineage cell, its first code cell."""
+    path = upgrade.root / relative
+    cells = read_cells_if_readable(path)
+    if cells is None or any("export_hive(" in text for _, text in cells):
+        return
+    lineage = [number for number, (kind, text) in enumerate(cells, 1)
+               if kind == "code" and "export_lineage(" in text]
+    if not lineage:
+        first = [number for number, (kind, _) in enumerate(cells, 1) if kind == "code"]
+        if first:
+            upgrade.mark(relative, 1, HIVE_MARK.format(stem=path.stem), cell=first[0])
+        return
+    cells.insert(lineage[0], ("code", HIVE_CELL.format(stem=path.stem)))
+    upgrade.rewrite_notebook(relative, cells,
+                             f"added a cell writing its Hive, export_hive(), after the lineage "
+                             f"cell of {relative}: run it to write {path.stem}.hql beside it")
+
+
+def _tables_made_by_new_table(root: Path) -> list[str]:
+    """Each table a batch new_table made from its query holds, as the batch's record names it;
+    a record that isn't JSON is passed over."""
+    from .workflows import BATCH_RECORD, BATCHES, FINISHED  # workflows.py imports this file
+
+    tables: list[str] = []
+    for record in sorted([*(root / BATCHES).glob(f"*/{BATCH_RECORD}"),
+                          *(root / BATCHES / FINISHED).glob(f"*/{BATCH_RECORD}")]):
+        try:
+            written = json.loads(record.read_text(encoding="utf-8"))
+        except ValueError:
+            continue
+        if isinstance(written, dict) and written.get("made_for") == "new_table":
+            tables += written.get("tables", [])
+    return tables
+
+
+def _name_new_tables_notebook(upgrade: Upgrade, table: str) -> None:
+    """Write again, as 8.2 writes them, the text cell and compare cell of a table new_table
+    made from its query, and its checklist.md, where 8.1 named convert's notebook."""
+    from .project import compare_ahead, converted_notebook_text  # project.py imports this file
+
+    stem = table.replace(".", "__", 1)
+    notebook = f"tables/{stem}/{stem}.ipynb"
+    cells = read_cells_if_readable(upgrade.root / notebook)
+    if cells is not None:
+        rewritten = [(kind, text.replace(COMPARE_AHEAD_8_1, compare_ahead("new_table")))
+                     for kind, text in cells]
+        if rewritten and rewritten[0][1].startswith(f"# {table}\n\nA Saved table the batch "):
+            rewritten[0] = ("markdown", converted_notebook_text(table, "", "new_table"))
+        if rewritten != cells:
+            upgrade.rewrite_notebook(notebook, rewritten)
+    checklist = upgrade.root / "tables" / stem / "conversion" / "checklist.md"
+    if checklist.is_file():
+        text = checklist.read_text(encoding="utf-8")
+        if CONVERT_NOTEBOOK_8_1 in text:
+            upgrade.rewrite(checklist.relative_to(upgrade.root).as_posix(),
+                            text.replace(CONVERT_NOTEBOOK_8_1, NEW_TABLE_NOTEBOOK))
+
+
+def _write_workflow_notebooks_again(upgrade: Upgrade) -> None:
+    """Write each Workflow notebook again as this version writes it, kept in admin/removed/
+    first, each name its names cell gave and each step cell you wrote in kept."""
+    # project.py and workflows.py import this file, so their names are read here, when it runs.
+    from . import workflows
+    from .project import WORKFLOW_PATH_LINES
+
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(upgrade.root, workflow)
+        if path.is_file():
+            cells = _workflow_cells_with_yours(upgrade.root, workflow, WORKFLOW_PATH_LINES)
+            upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
+
+
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds.
-STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1}
+STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
+                                               "8.2": to_8_2}
