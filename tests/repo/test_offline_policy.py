@@ -286,6 +286,14 @@ def test_an_allowed_entry_that_matches_nothing_is_stale() -> None:
     assert "matches nothing" in stale.code
 
 
+def test_an_allowed_entry_for_a_workbooks_part_is_matched_by_its_part() -> None:
+    fixture = "tests/fixtures/workbook_text/03_loop.xlsx"
+    found = Allowed(fixture, "<module>", "network", "xl/connections.xml", "a reason")
+    missing = Allowed(fixture, "<module>", "network", "xl/externalLinks/one.xml", "a reason")
+    assert [stale.name for stale in stale_entries(ROOT, (found, missing))] == [
+        "xl/externalLinks/one.xml"]
+
+
 def test_every_allowed_entry_gives_its_reason() -> None:
     assert all(entry.reason.strip() for entry in offline_policy.ALLOWED)
 

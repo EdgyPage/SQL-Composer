@@ -1289,17 +1289,29 @@ flowchart TD
 
 <!-- /chart -->
 
-To hand over an Excel workbook's calculations, one chat holds three files:
+To hand over an Excel workbook's calculations, one chat holds three Copilot files and the workbook:
 
 1. **Fill in a Formula workbook.** Action: copy `copilot/formula_workbook.xlsx` and follow its
    Steps sheet to move the data and formulas in. `copilot/examples/` shows three filled in:
    formulas with a value typed over, a summary Table with a Total Row, and Power Query, whose
    queries you add by hand as its Power Query sheet says. The last sheet of each, Hive, is the
    conversion Copilot should give. Done when your data and formulas are in it; then step 2.
-2. **Ask Copilot.** Action: in a new chat, attach `copilot/15_excel_workbook_steps.txt`,
-   `11_excel_formula_workbooks.txt` and `12_excel_power_query.txt` (or paste each as a
-   message of its own), then attach your workbook and send "Convert this workbook". Done when
-   Copilot answers with a map, a Hive query for each final, and what to do next; then step 3.
+2. **Ask Copilot.** Goal: Copilot sees all of the workbook. Copilot may not see a Power
+   Query's M inside an attached workbook; the workbook written as text shows it.
+   - If you can run Python: in a terminal in the download's top folder, run
+     `python copilot/workbook_text.py "C:/my work/costs.xlsx"`, with your workbook's path in
+     quotes. It needs nothing but Python, and writes costs.txt beside the workbook: each
+     Table and formula, each Power Query's M, from the workbook or its Power Query sheet, and
+     the order each piece reads the others in. If it names a loop instead, it writes nothing:
+     break the link it names in Excel, save, and run it again. Attach the .txt below.
+   - If you can't: attach the workbook itself below. If it has a Power Query, keep each
+     query's M on its Power Query sheet too, as the Steps sheet's step 7 lays it out.
+
+   Action: in a new chat, attach `copilot/15_excel_workbook_steps.txt`,
+   `11_excel_formula_workbooks.txt` and `12_excel_power_query.txt` (or paste each as a message
+   of its own), then attach the .txt or the workbook, and send "Convert this workbook". Done
+   when Copilot answers with a map, a Hive query for each final, and what to do next; then
+   step 3.
 3. **Check the map.** Action: read the map Copilot answers with: which Tables are sources, the
    samples of your database's tables, and which are finals, the Tables your work ends with,
    each becoming a query. Done when every Table you expected is there; then step 4.

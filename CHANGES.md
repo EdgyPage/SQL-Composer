@@ -112,6 +112,13 @@ those people found unsaid.
   there is nothing to answer when promote filled in each `location=`; the README says which
   name the convert Workflow gives each table, and that RENAME keeps the original's; and each
   of its first sections ends naming the next by its title.
+- **A workbook as text, for Copilot: `copilot/workbook_text.py`.** `python
+  copilot/workbook_text.py "costs.xlsx"`, in a terminal, writes costs.txt beside the
+  workbook, with nothing but Python: each Table row by row with its formulas as typed, each
+  Power Query's M as Excel saved it, or from a Power Query sheet, and an Order listing each
+  piece after every piece it reads. A loop is refused, each link named. The README's Excel
+  path attaches the text in place of the workbook, and Copilot file 15 reads each final's
+  CTEs in that order.
 - **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
   as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
   holding `<a value>`.

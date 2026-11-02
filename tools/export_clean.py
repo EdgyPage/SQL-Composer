@@ -15,9 +15,9 @@ It builds the Clean tree in a temporary folder, from what `dev` has committed:
   `# sqlglot Composer 7.2 - copy it, then edit your copy`; the Templates ship inside the
   Toolbox, in `sqlglot_composer/project_templates.py`;
 - it copies the Copilot files, `copilot/`, the same way: each .txt as dev holds it, unstamped,
-  as Copilot counts every character, `count_characters.py` stamped, and the empty Formula
-  workbook, `formula_workbook.xlsx`, and the examples of it, `examples/*.xlsx`, byte for byte,
-  as main can't rebuild them;
+  as Copilot counts every character; `count_characters.py` and `workbook_text.py` stamped; and
+  the empty Formula workbook, `formula_workbook.xlsx`, and the examples of it,
+  `examples/*.xlsx`, byte for byte, as main can't rebuild them;
 - it writes `.github/README.md` from `docs/clean-branch-readme.md`, putting in the version, the
   list of how-tos, from `worked_examples/how_to/`, and a cheat sheet: one line per public name,
   grouped by file, from each docstring's first line;
