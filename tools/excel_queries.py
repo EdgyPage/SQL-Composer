@@ -69,8 +69,10 @@ def _package(queries: list[tuple[str, str]]) -> bytes:
     held = io.BytesIO()
     with zipfile.ZipFile(held, "w", zipfile.ZIP_DEFLATED) as package:
         for name, text in files.items():
-            # A fixed time, so a package built twice holds the same bytes.
+            # A fixed time and system, so a package built twice, on any computer, holds the
+            # same bytes: ZipInfo records the system it was made on.
             entry = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            entry.create_system = 0
             package.writestr(entry, text.encode("utf-8"), zipfile.ZIP_DEFLATED)
     return held.getvalue()
 
