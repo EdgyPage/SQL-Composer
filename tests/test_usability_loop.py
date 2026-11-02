@@ -259,30 +259,46 @@ def test_a_run_built_from_dev_holds_mains_tree(tmp_path: Path) -> None:
     assert not (main / "tools").exists() and not (main / ".scratch").exists()
 
 
+@pytest.mark.parametrize("path_first", [True, False], ids=["path first", "path last"])
 def test_the_runner_runs_only_the_cells_it_is_given(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    # A Workflow's cells run one at a time, to stop at a decision, as the README says.
+        tmp_path: Path, capsys: pytest.CaptureFixture[str], path_first: bool) -> None:
+    # A Workflow's cells run one at a time, to stop at a decision, as the README says. Ticket
+    # 21: --cells works before the path too, as W4-2 and W3-1 wrote it.
     notebook = tmp_path / "book.ipynb"
     code = [{"cell_type": "code", "source": [f"print('cell {number}')"]}
             for number in (1, 2, 3, 4)]
     notebook.write_text(json.dumps({"cells": code}), encoding="utf-8")
-    assert notebook_runner.main([str(notebook), "--cells", "1-2,4"]) == 0
+    arguments = ["--cells", "1-2,4"]
+    arguments = [str(notebook), *arguments] if path_first else [*arguments, str(notebook)]
+    assert notebook_runner.main(arguments) == 0
     shown = capsys.readouterr().out
     assert "cell 1" in shown and "cell 2" in shown and "cell 4" in shown
     assert "cell 3" not in shown
 
 
+@pytest.mark.parametrize("path_first", [True, False], ids=["path first", "path last"])
 def test_the_runner_lists_each_code_cell_by_its_number_and_first_line(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        tmp_path: Path, capsys: pytest.CaptureFixture[str], path_first: bool) -> None:
     # So a step's cell is found by its number, text cells left out as --cells leaves them.
+    # Ticket 21: --list before the path printed only the usage line (W4-2, W3-1).
     notebook = tmp_path / "book.ipynb"
     cells = [{"cell_type": "markdown", "source": ["# Steps"]},
              {"cell_type": "code", "source": ["import pathlib\n", "x = 1"]},
              {"cell_type": "markdown", "source": ["## Step 1"]},
              {"cell_type": "code", "source": ["# names\n", "TABLES = []"]}]
     notebook.write_text(json.dumps({"cells": cells}), encoding="utf-8")
-    assert notebook_runner.main([str(notebook), "--list"]) == 0
+    arguments = [str(notebook), "--list"] if path_first else ["--list", str(notebook)]
+    assert notebook_runner.main(arguments) == 0
     assert capsys.readouterr().out == "1: import pathlib\n2: # names\n"
+
+
+@pytest.mark.parametrize("arguments", [[], ["a.ipynb", "b.ipynb"], ["--cells", "a.ipynb"],
+                                       ["a.ipynb", "--list", "--cells", "1"]],
+                         ids=["no path", "two paths", "no cells", "both"])
+def test_the_runner_says_how_to_run_it_when_its_arguments_dont_fit(
+        arguments: list[str], capsys: pytest.CaptureFixture[str]) -> None:
+    assert notebook_runner.main(arguments) == 2
+    assert capsys.readouterr().out.startswith("Run it as: python run_notebook.py")
 
 
 def test_the_saved_warehouse_answers_a_select_of_values_and_keeps_a_location(

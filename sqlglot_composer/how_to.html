@@ -2971,7 +2971,7 @@ alerts_per_severity = Table(
 #    It lists the columns write() saves, in the order its SELECT gives them: here
 #    &lt;GROUP_COLUMN&gt;, typed as the table read types it, then &lt;COUNT_NAME&gt;, a count, &quot;bigint&quot;,
 #    and last its partition column, if it has one, as PARTITIONED_BY names it. Its Key,
-#    proposed from the query, is the column each row is for, and the partition column if it
+#    proposed from the logic, is the column each row is for, and the partition column if it
 #    has one, such as key=[&quot;job_id&quot;, &quot;region&quot;].
 #    Done when `references/mart__alerts_per_severity.py` lists those columns; then step 4.
 # 4. **Answer its Decisions.** Goal: each Decision made. Action: answer each open Decision its
@@ -6574,12 +6574,18 @@ print(text.split(&quot;Open Decisions&quot;)[1].split(&quot;## Notes&quot;)[0].s
 <pre class="python">print(project.write_decisions(DECISIONS))</pre>
 <p class="label">Python prints</p><pre class="output">Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait on nothing: fill each in when you like.
+  line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait on nothing: fill each in when you like.
+  line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
 mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait on nothing: fill each in when you like.
+  line 1: mart.fail_history - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.</pre>
 <p class="label">It writes admin/admin_log.md</p>
 <pre class="file"># Admin log
@@ -17218,7 +17224,7 @@ STAGING = {}</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key proposed from a query is made, but an answer here changes it</pre>
+# a Key marked # proposed is made, but an answer here changes it</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
@@ -17294,7 +17300,7 @@ TABLES = []</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key proposed from a query is made, but an answer here changes it</pre>
+# a Key marked # proposed is made, but an answer here changes it</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.promote(TABLES)</pre>
@@ -17377,7 +17383,7 @@ QUERIES = {}</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key proposed from a query is made, but an answer here changes it</pre>
+# a Key marked # proposed is made, but an answer here changes it</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
@@ -17441,7 +17447,7 @@ TABLES = []</pre>
 # {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open;
-# a Key proposed from a query is made, but an answer here changes it</pre>
+# a Key marked # proposed is made, but an answer here changes it</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.add_references(TABLES, query=query)</pre>
@@ -17491,7 +17497,7 @@ project.run_workflow(&quot;upgrade&quot;)</pre>
 <details><summary>Its chart, as Mermaid text, which GitHub and VS Code draw</summary><pre class="chart">```mermaid
 flowchart TD
     s0{&quot;1. Write the Admin statement for the change&quot;}:::your_decision
-    s1[&quot;2. Print its Hive, and run the check its Check first line names&quot;]:::files_only
+    s1[[&quot;2. Print its Hive, and run the check its Check first line names&quot;]]:::warehouse_call
     s2[[&quot;3. Send it, then any check after it, such as admin.check_the_copy&quot;]]:::warehouse_call
     t0(&quot;a Saved table&quot;):::thing
     t1(&quot;the change wanted&quot;):::thing
@@ -17507,7 +17513,6 @@ flowchart TD
     t3 --&gt; s2
     s2 --&gt; t4
     s2 --&gt; t5
-    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -17522,8 +17527,9 @@ table = project.table_reference(TABLE)
 # such as where=equals(table.dt, &quot;2026-09-24&quot;), or a range of days,
 # where=between(table.dt, &quot;2026-09-01&quot;, &quot;2026-09-30&quot;), dt its partition column
 change = admin.drop_partitions(table, where=...)  # or another: help(admin)</pre>
-<ol start="2"><li>Print its Hive, and run the check its Check first line names (it changes only files, or only prints: run its cell).</li></ol>
-<pre class="python">show_hive(change)</pre>
+<ol start="2"><li>Print its Hive, and run the check its Check first line names (it is a call to the warehouse, yours to run).</li></ol>
+<pre class="python">show_hive(change)
+print(query(&quot;SHOW PARTITIONS &quot; + TABLE))</pre>
 <ol start="3"><li>Send it, then any check after it, such as admin.check_the_copy (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">run_execute(change, execute)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>

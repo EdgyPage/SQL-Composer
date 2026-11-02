@@ -14,6 +14,7 @@ import sys
 from collections.abc import Iterator
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from conftest import toolbox_module
 
@@ -120,6 +121,44 @@ def test_the_check_is_run_before_the_send_from_the_hive_show_hive_prints() -> No
     assert "project.table_reference(TABLE)" in steps[0].call
 
 
+def test_the_check_its_check_first_line_names_has_a_cell_that_reads_it() -> None:
+    # Ticket 21 (W5-1, W5-3): step 2 named a SHOW PARTITIONS no cell ran, and the README's
+    # chart called it a step that only prints.
+    step = workflows.CHANGE_A_SAVED_TABLE.steps[1]
+    assert step.kind == workflows.PERMISSION
+    assert step.call.startswith("show_hive(change)\n")
+    assert step.call.endswith('\nprint(query("SHOW PARTITIONS " + TABLE))')
+    assert '`"DESCRIBE FORMATTED "` for `admin.drop_table`' in step.action
+
+
+def test_run_workflow_reads_the_check_a_change_names_first() -> None:
+    from sqlglot_composer import Table, admin, equals
+
+    daily_runs = Table("mart.daily_runs", partitioned_by=["dt"],
+                       columns={"job_id": "bigint", "dt": "string"},
+                       location="/data/team/mart.db/daily_runs")
+    change = admin.drop_partitions(daily_runs, where=equals(daily_runs.dt, "2026-09-24"))
+    asked = []
+
+    def query(hive: str) -> pd.DataFrame:
+        asked.append(hive)
+        return pd.DataFrame({"partition": ["dt=2026-09-23", "dt=2026-09-24"]})
+
+    said = workflows.show_the_change({}, workflows.Calls(query, None, change=change))
+    assert asked == ["SHOW PARTITIONS mart.daily_runs"]
+    assert said[0].startswith("-- admin.drop_partitions(mart.daily_runs")
+    assert "SHOW PARTITIONS mart.daily_runs:" in said
+    assert any("dt=2026-09-24" in line for line in said)
+    dry = workflows.show_the_change({}, workflows.Calls(query, None, dry_run=True,
+                                                        change=change))
+    assert dry[-1] == "would read: SHOW PARTITIONS mart.daily_runs"
+    assert len(asked) == 1, "a dry run read through query"
+    dropped = workflows.show_the_change({}, workflows.Calls(query, None,
+                                                            change=admin.drop_table(daily_runs)))
+    assert asked[-1] == "DESCRIBE FORMATTED mart.daily_runs"
+    assert "DESCRIBE FORMATTED mart.daily_runs:" in dropped
+
+
 def test_a_table_reference_is_written_once_its_columns_are_with_its_docstring_unchanged(
         started: Path) -> None:
     project.new_table(TABLE)
@@ -144,12 +183,48 @@ def test_reference_from_logic_writes_the_columns_preview_gives(started: Path) ->
     assert "Wrote references/mart__daily_runs.py from its logic: job_id and team." in said
     written = (started / "references" / "mart__daily_runs.py").read_text(encoding="utf-8")
     assert '"job_id": "bigint",' in written and '"team": "string",' in written
+    # Ticket 21: each TODO line it leaves is named, by its line.
+    assert ("mart.daily_runs: 2 TODO lines left in references/mart__daily_runs.py, which wait "
+            "on nothing: fill each in when you like.\n"
+            "  line 1: mart.daily_runs - TODO: say in one line what one row is.\n"
+            "  line ") in said
+    assert "does_not_add_up=[],  # TODO: columns that are averages" in said
+
+
+def test_reference_from_logic_says_a_key_it_proposes_is_from_the_logic(started: Path) -> None:
+    # Ticket 21 (W2-2): a table new_table made from a Template has no query, so its Key is
+    # proposed from its logic, not "from its query".
+    project.new_table(TABLE)
+    path = started / "references" / "mart__daily_runs.py"
+    as_new_table_wrote_it = path.read_text(encoding="utf-8")
+    logic_written(started, LOGIC.replace("SELECT(jobs.job_id, jobs.team), FROM(jobs)",
+                                         "SELECT(jobs.job_id, jobs.team), FROM(jobs), "
+                                         "GROUP_BY(jobs.job_id, jobs.team)")
+                  .replace("import FROM,", "import FROM, GROUP_BY,"))
+    path.write_text(as_new_table_wrote_it, encoding="utf-8")
+    said = repr(project.reference_from_logic(TABLE))
+    assert "Its Key, proposed from its logic: job_id." in said
+    assert "from its query" not in said
+    written = path.read_text(encoding="utf-8")
+    assert '    key=["job_id"],  # proposed from its logic; if it is wrong' in written
+    assert "from its query" not in written
+    # Proposed from its logic, it is made, and an answer still changes it.
+    answered = repr(project.write_decisions({TABLE: {"key": ["job_id", "team"]}}))
+    assert "Wrote 1 answer" in answered
+    assert '    key=["job_id", "team"],\n' in path.read_text(encoding="utf-8")
 
 
 def test_reference_from_logic_keeps_one_whose_columns_you_wrote(started: Path) -> None:
     project.new_table(TABLE)
     logic_written(started, LOGIC)
-    assert "Kept references/mart__daily_runs.py" in repr(project.reference_from_logic(TABLE))
+    (started / "references" / "mart__daily_runs.py").write_text(REFERENCE.replace(
+        "one row per job", "TODO: say in one line what one row is"), encoding="utf-8")
+    said = repr(project.reference_from_logic(TABLE))
+    assert "Kept references/mart__daily_runs.py" in said
+    # Ticket 21 (W3-2, W3-3): the TODO lines it keeps are named, to fill in.
+    assert ("mart.daily_runs: 1 TODO line left in references/mart__daily_runs.py, which waits "
+            "on nothing: fill it in when you like.\n"
+            '  line 1: mart.daily_runs - TODO: say in one line what one row is.') in said
 
 
 def test_a_step_no_file_tells_of_says_so(started: Path) -> None:
@@ -188,7 +263,7 @@ def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None
     project.add_references("ops.job_runs", query=toolbox_module("example_database").query)
     said = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
     assert ("ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on "
-            "nothing: fill each in when you like.") in said
+            "nothing: fill each in when you like.\n  line 1: ") in said
     assert "Each Decision of ops.job_runs is made." in said
 
 

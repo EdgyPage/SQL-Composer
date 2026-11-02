@@ -151,10 +151,11 @@ it.
        # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
-2. Print its Hive, and run the check its Check first line names (it changes only files, or only
-   prints: run its cell).
+2. Print its Hive, and run the check its Check first line names (it is a call to the warehouse,
+   yours to run).
 
        show_hive(change)
+       print(query("SHOW PARTITIONS " + TABLE))
 
 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
    warehouse, yours to run).

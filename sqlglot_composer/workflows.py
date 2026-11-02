@@ -776,13 +776,38 @@ def the_change(calls: Calls) -> Statement:
 
 def show_the_change(inputs: dict[str, object], calls: Calls) -> list[str]:
     """change_a_saved_table's second step: the change's Hive as show_hive prints it, its
-    Check first lines with it, to read and check before you send it."""
+    Check first line with it, then what the check that line names reads through your query,
+    as the step's cell reads it, to read before you send it; a dry run says the check's
+    Hive."""
     from .running import show_hive  # running imports what imports this
 
+    change = the_change(calls)
     printed = io.StringIO()
     with contextlib.redirect_stdout(printed):
-        show_hive(the_change(calls))
-    return printed.getvalue().rstrip("\n").split("\n")
+        show_hive(change)
+    lines = printed.getvalue().rstrip("\n").split("\n")
+    check = check_first_hive(change)
+    if check is None:
+        return lines
+    if calls.dry_run:
+        return [*lines, f"would read: {check}"]
+    return [*lines, f"{check}:", *str(calls.query(check)).split("\n")]
+
+
+# The check an Admin statement's Check first line names, such as
+# "Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: ...".
+CHECK_FIRST = re.compile(r"^Check first: (?P<hive>(SHOW PARTITIONS|DESCRIBE FORMATTED|DESCRIBE) "
+                         r"\S+) ")
+
+
+def check_first_hive(change: Statement) -> str | None:
+    """The Hive of the check an Admin statement's Check first line names, such as
+    SHOW PARTITIONS mart.daily_runs; None for one with no such line."""
+    for said in change._admin_about:
+        found = CHECK_FIRST.match(said)
+        if found:
+            return found["hive"]
+    return None
 
 
 # --- What a file step runs --------------------------------------------------------------------
@@ -998,10 +1023,14 @@ PROMOTE = Workflow(
              done=every_prod_decision_answered, decides=PROD_DECISIONS,
              goal="an answer to each prod copy's open Decision: its location, the folder its "
              "files go in",
-             action="write each answer in the decisions cell, `DECISIONS`, by the prod table's "
-             "name as `project.check()` writes it, then save the notebook.",
+             action="read what step 1 printed, or run `project.check()`. If neither names an "
+             "open Decision of a prod copy, there is nothing to answer: step 1 filled in each "
+             "prod copy's `location=` from its dev one, its folder named for your Prod "
+             "Database, or from the one it had when promoted before. Leave the decisions cell "
+             "as it is, and go on. Else write each answer in the decisions cell, `DECISIONS`, "
+             "by the prod table's name as `project.check()` writes it, then save the notebook.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
-             "the prod copies"),
+             "the prod copies, or it names none"),
         Step("Write each answer into its prod table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each with its location=",),
              "project.write_decisions(DECISIONS)", every_prod_decision_made,
@@ -1087,18 +1116,27 @@ NEW_TABLE = Workflow(
              "    project.load(table).preview()  # says what stops it, if anything does",
              every_preview_builds,
              goal="logic in each Table notebook that loads, so its `preview()` builds",
-             action="open each table's Table notebook, in its Table folder, fill in each "
-             "`<...>` in its code cells as its text cell says, and save it; a table made from "
-             "its query has its logic written already. Then run the cell below: it says what "
-             "stops each table's logic, if anything does.",
+             action="for each table in `TABLES`, open its Table notebook, in its Table "
+             "folder, and do as the rules below say. If `QUERIES` gives the table's query, "
+             "its logic is written already, from that query: read its logic cell, the one "
+             "whose first line is `# logic`, and each `# CONVERSION:` line in it, which "
+             "`project.check()` lists too, and change nothing unless you want to, since step 8 "
+             "compares its rows with the query's. If `QUERIES` gives it no query, fill in each "
+             "`<...>` in its code cells as its text cell says, and save it. Then run the cell "
+             "below: it says what stops each table's logic, if anything does.",
              done_when="the cell below runs with no error"),
         Step("Write each Table reference from its logic", FILE_STEP, ("its logic",),
              ("its Table reference",), "project.reference_from_logic(TABLES)",
              every_reference_from_logic, write_references_from_logic,
              goal="each table's Table reference written from its logic: its columns and types "
              "from `preview()`, its partition columns from `PARTITIONED_BY`, and the Key its "
-             "query makes",
-             action="run the cell below.",
+             "logic makes",
+             action="run the cell below. It names each TODO line each Table reference leaves, "
+             "such as its docstring's first line, which waits on nothing. If it says it kept a "
+             "Table reference, as it does for a table made from its query, that file is yours "
+             "already, its columns written. Either way, open each Table reference it names, "
+             "fill in each TODO line it names by hand, such as one line saying what one row "
+             "is, and save the file, now or when you like: no step waits on them.",
              done_when="each table's Table reference in references/ lists its columns, no "
              "longer the stand-in new_table wrote"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
@@ -1268,12 +1306,19 @@ CHANGE_A_SAVED_TABLE = Workflow(
              "`admin.drop_partitions` (`help(admin)` lists them), then run the cell.",
              done_when="the cell sets `change` with its arguments, no `...` left, and runs "
              "with no error"),
-        Step("Print its Hive, and run the check its Check first line names", FILE_STEP,
-             ("an Admin statement",), ("its Hive, read and checked",), "show_hive(change)",
+        Step("Print its Hive, and run the check its Check first line names", PERMISSION,
+             ("an Admin statement",), ("its Hive, read and checked",),
+             "show_hive(change)\n"
+             'print(query("SHOW PARTITIONS " + TABLE))',
              send=show_the_change,
              goal="the change's Hive read and checked before you send it",
-             action="run the cell below and read the Hive it prints, then run the check its "
-             "`Check first` line names, such as a `SHOW PARTITIONS`.",
+             action="run the cell below. It prints the change's Hive, with what it changes and "
+             "its `Check first` line, then sends the check that line names through your "
+             "query, a `SHOW PARTITIONS` for `admin.drop_partitions`, and prints what it "
+             "reads. If you wrote another Admin statement in step 1, first write the check its "
+             '`Check first` line names in place of `"SHOW PARTITIONS "`, such as '
+             '`"DESCRIBE FORMATTED "` for `admin.drop_table` or `"DESCRIBE "` for '
+             "`admin.add_columns`. Read the Hive and the rows the check prints.",
              done_when="that check shows the change reaches only what you mean it to"),
         Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
              ("its Hive, read and checked",),
@@ -1325,7 +1370,7 @@ DECISIONS_CELL = (
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
     '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open;\n'
-    "# a Key proposed from a query is made, but an answer here changes it")
+    "# a Key marked # proposed is made, but an answer here changes it")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",

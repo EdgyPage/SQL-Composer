@@ -8,7 +8,8 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
     python run_notebook.py path/to/notebook.ipynb --list
 
 The second runs only the code cells it names, counted from 1, in order, as a user runs a
-Workflow's cells one at a time to stop at a decision. Each run starts with nothing defined, as
+Workflow's cells one at a time to stop at a decision. `--cells` and `--list` may come before
+the path too. Each run starts with nothing defined, as
 a kernel just started does, so name the cells a step needs with it: the imports cell and the
 names cell, and from the decisions on, the decisions cell, such as --cells 1-3,6.
 
@@ -99,16 +100,29 @@ def list_cells(notebook: Path) -> int:
 
 
 def main(arguments: list[str]) -> int:
-    if len(arguments) == 3 and arguments[1] == "--cells":
-        return run_notebook(Path(arguments[0]), chosen_cells(arguments[2]))
-    if len(arguments) == 2 and arguments[1] == "--list":
-        return list_cells(Path(arguments[0]))
-    if len(arguments) != 1:
+    """Run, or list, the notebook `arguments` name: its path, and --cells with its spec or
+    --list, before the path or after it. 2, and how to run it, when they don't fit."""
+    rest = list(arguments)
+    spec = None
+    if "--cells" in rest:
+        at = rest.index("--cells")
+        spec = rest[at + 1] if at + 1 < len(rest) else None
+        del rest[at:at + 2]
+    listing = "--list" in rest
+    if listing:
+        rest.remove("--list")
+    fits = len(rest) == 1 and not rest[0].startswith("--")
+    if not fits or ("--cells" in arguments and (spec is None or listing)):
         print("Run it as: python run_notebook.py path/to/notebook.ipynb [--cells 1-3,5 | "
               "--list]\nEach run starts with nothing defined: name the imports cell and the "
               "names cell with each step's. --list shows each code cell's number.")
         return 2
-    return run_notebook(Path(arguments[0]))
+    notebook = Path(rest[0])
+    if listing:
+        return list_cells(notebook)
+    if spec is not None:
+        return run_notebook(notebook, chosen_cells(spec))
+    return run_notebook(notebook)
 
 
 if __name__ == "__main__":

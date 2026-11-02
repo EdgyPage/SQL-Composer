@@ -249,7 +249,7 @@ flowchart TD
 
 ## change_a_saved_table
 
-Steps: 1 file step, 1 permission, 1 decision, 0 fiddling.
+Steps: 0 file step, 2 permission, 1 decision, 0 fiddling.
 
 Starts from: a Saved table, the change wanted.
 
@@ -262,7 +262,8 @@ table = project.table_reference(TABLE)
 #35; such as where=equals(table.dt, #quot;2026-09-24#quot;), or a range of days,
 #35; where=between(table.dt, #quot;2026-09-01#quot;, #quot;2026-09-30#quot;), dt its partition column
 change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}:::your_decision
-    s1["2. Print its Hive, and run the check its Check first line names: show_hive(change)"]:::files_only
+    s1[["2. Print its Hive, and run the check its Check first line names: show_hive(change)
+print(query(#quot;SHOW PARTITIONS #quot; + TABLE))"]]:::warehouse_call
     s2[["3. Send it, then any check after it, such as admin.check_the_copy: run_execute(change, execute)"]]:::warehouse_call
     t0("a Saved table"):::thing
     t1("the change wanted"):::thing
@@ -278,7 +279,6 @@ change = admin.drop_partitions(table, where=...)  #35; or another: help(admin)"}
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
