@@ -54,7 +54,17 @@ def test_a_docstring_todo_is_counted_once_as_waiting_on_nothing() -> None:
     text = ('"""mart_dev.z - TODO: say in one line what one row is."""\n'
             'z = Table(\n    "mart_dev.z",\n    key=["team"],\n)\n')
     assert decisions.todo_lines(text) == [
-        '"""mart_dev.z - TODO: say in one line what one row is."""']
+        (1, 'mart_dev.z - TODO: say in one line what one row is.')]
+
+
+def test_each_todo_line_is_given_by_its_line_in_the_file() -> None:
+    # Ticket 21: so write_decisions can name each, a docstring of many lines too.
+    text = ('"""mart_dev.z - TODO: say in one line what one row is.\n\nMore.\n"""\n'
+            'z = Table(\n    "mart_dev.z",\n    key=None,  # TODO: the columns\n'
+            "    does_not_add_up=[],  # TODO: averages\n)\n")
+    assert decisions.todo_lines(text) == [
+        (1, 'mart_dev.z - TODO: say in one line what one row is.'),
+        (8, "does_not_add_up=[],  # TODO: averages")]
 
 
 def test_a_placeholder_names_itself_and_its_docstring_is_not_read() -> None:
@@ -124,10 +134,14 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path) -> None:
     report = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
-    assert report == ("Wrote 1 answer into references/ops__job_runs.py.\n"
-                      "ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which "
-                      "wait on nothing: fill each in when you like.\n"
-                      "Each Decision of ops.job_runs is made.")
+    # Ticket 21: each TODO line left is named, by its line, so no one has to look for it.
+    assert report == ('Wrote 1 answer into references/ops__job_runs.py.\n'
+                      'ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which '
+                      'wait on nothing: fill each in when you like.\n'
+                      '  line 1: ops.job_runs - TODO: say in one line what one row is.\n'
+                      '  line 16: does_not_add_up=[],  # TODO: columns that are averages, '
+                      'ratios or distinct counts\n'
+                      'Each Decision of ops.job_runs is made.')
     reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
     assert '    key=["run_id"],' in reference
 

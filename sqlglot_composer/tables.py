@@ -1277,15 +1277,17 @@ ALIASES_HEADING = "# --- Aliases " + "-" * 78
 def table_reference_text(name: str, columns: dict[str, str], partitions: list[str],
                          module: str, stored_as: str | None = None,
                          location: str | None = None, guessed: tuple[str, ...] = (),
-                         proposed: tuple[list[str], ...] = ()) -> str:
+                         proposed: tuple[list[str], ...] = (),
+                         proposed_mark: str = PROPOSED) -> str:
     """A Table reference file's text for a table whose columns and types are known without
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
     descriptions, stored_as= when the CREATE gave it, and location=: the CREATE's, or None
     with a TODO to fill in. Each column `guessed` names, written "string" since nothing told
     its type, has a TODO saying so: a guessed-type Decision. `proposed`, each Key a Conversion
-    worked out of the table's query, writes key= as the first, marked # proposed, any other
-    named beside it: a Decision made, which an answer may still change. With none, key= is a
-    Decision to make."""
+    worked out of the table's query, writes key= as the first, marked with `proposed_mark`,
+    "# proposed from its query" unless it says another, any other named beside it: a
+    Decision made, which an answer may still change. With none, key= is a Decision to
+    make."""
     variable = _reference_variable(split_table_name(name)[1])
     storage = {}
     if stored_as is not None:
@@ -1295,7 +1297,7 @@ def table_reference_text(name: str, columns: dict[str, str], partitions: list[st
         line = f"        {escaped_literal(column)}: {escaped_literal(columns[column])},"
         text = text.replace(line + "\n", line + GUESSED + "\n", 1)
     if proposed:
-        line = f"    key={escaped_literal(proposed[0])},{PROPOSED}"
+        line = f"    key={escaped_literal(proposed[0])},{proposed_mark}"
         if proposed[1:]:
             line += "; another: " + ", ".join(escaped_literal(key) for key in proposed[1:])
         text = re.sub(r"^    key=None,  # TODO:.*$", line, text, count=1, flags=re.MULTILINE)

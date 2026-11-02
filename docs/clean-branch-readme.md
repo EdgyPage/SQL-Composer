@@ -90,8 +90,8 @@ Next: set conn, your connection, in warehouse.py.
 5. **Connect your warehouse.** Goal: the Toolbox's Hive reaching your tables. Action:
    `project.start()` set `conn` to the Example database; at work, set it to yours, once, in
    `warehouse.py`, as below. Done when `conn` in `warehouse.py` is your connection, or is still
-   the Example database while you follow this page; then go on to 2. Add your tables'
-   references.
+   the Example database while you follow this page; then go on to section 2, "Add your
+   tables' references".
 
 ```python
 import my_api  # your team's library
@@ -272,7 +272,7 @@ job_runs.status
    query=query, where=equals(ops.job_runs.dt, "2026-09-24"))`; `query("SHOW PARTITIONS
    ops.job_runs")` lists the Partitions it holds. `admin/check_references.ipynb` runs both
    checks on every table, each partitioned one on its latest Partition. Done when each check's
-   `ok` is true; then go on to 3. Build and run a first statement.
+   `ok` is true; then go on to section 3, "Build and run a first statement".
 
 How-to: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_tables_references).
 
@@ -393,8 +393,8 @@ Goal: numbers per group, other tables joined in, and each refusal read.
    step 3.
 3. **Read each refusal.** Goal: a Statement that gives the right number. Action: as you build a
    Statement, the Toolbox checks it three ways, below; follow the message of any check that
-   stops it. Done when the Statement builds, each Warning read; then go on to 5. Share
-   Building blocks.
+   stops it. Done when the Statement builds, each Warning read; then go on to section 5,
+   "Share Building blocks".
 
 The three checks:
 
@@ -440,7 +440,7 @@ fill in its <...> and TODO lines.
 2. **Fill it in.** Goal: the piece's logic. Action: fill in its `<...>` and TODO lines. The
    Starter Example project's `building_blocks/runs_per_job.py` is this file filled in: each
    job's runs, failed runs and minutes, for the rows a Condition it is given picks. Done when
-   no `<...>` or TODO line is left; then go on to 6. Save a table.
+   no `<...>` or TODO line is left; then go on to section 6, "Save a table".
 
 How-to: [Share Building blocks](../sqlglot_composer/how_to.html#share_building_blocks).
 
@@ -496,7 +496,7 @@ Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writ
 7. **Write its Hive file.** Goal: the table's Hive to read at a glance. Action: run its
    notebook's Hive cell, `export_hive()`, which writes it into `<db>__<table>.hql` beside the
    notebook: `create()`, then `write()`, in the order they are sent. Done when the file is
-   there; then go on to 7. Follow lineage.
+   there; then go on to section 7, "Follow lineage".
 
 How a write works:
 
@@ -546,7 +546,7 @@ Goal: each output column followed back to the table columns it reads.
    `lineage/`; then step 2.
 2. **Follow it past what it reads.** Goal: Lineage that goes back to where the rows start.
    Action: by the rules below. Done when the HTML page traces each output column to a table
-   column; then go on to 8. Keep the Project in order.
+   column; then go on to section 8, "Keep the Project in order".
    - If the table reads another Saved table, pass that table's write too, from
      `project.load("mart.daily_job_runs").write()`, so its Lineage goes on back to the tables
      they start from.
@@ -584,7 +584,7 @@ Every Table folder, Table reference and Building block is registered, and each o
 4. **Archive what you no longer need.** Action: run `project.remove_table(...)`,
    `project.remove_reference(...)` or `project.remove_block(...)`, which archive it in
    admin/removed/, deleting nothing. Done when `project.check()` prints the line above again;
-   then go on to 9. Convert someone else's Hive.
+   then go on to section 9, "Convert someone else's Hive".
 
 How a Project stays in order:
 
@@ -615,9 +615,20 @@ read it.
 1. **Save the scripts.** Goal: the Workflow can read them. Action: save them beside it, in
    `admin/workflows/convert/`, where it reads them. Done when each script is there; then
    step 2.
-2. **Name the batch.** Goal: the Workflow knows what to convert. Action: name the batch and its
-   scripts in its names cell, fill in DEV, your Dev Database, in `admin/databases.py`, and save
-   the notebook. Done when both are filled in; then step 3.
+2. **Name the batch.** Goal: the Workflow knows what to convert, and what each table it makes
+   is called. Action: name the batch and its scripts in its names cell, `NAME` and `FILES`,
+   fill in DEV, your Dev Database, in `admin/databases.py`, and save the notebook. Each table
+   the batch makes in dev is named by the rules below; give a name of your own in the names
+   cell's `RENAME` before you go on. Done when both are filled in; then step 3.
+   - If a script writes a table, such as `INSERT OVERWRITE TABLE mart.team_fails`, its copy in
+     dev is named for that table, then its database: `mart_dev.team_fails_mart`. If you want
+     the copy to keep the original's name, give it in `RENAME`, the name alone, without a
+     database: `RENAME = {"mart.team_fails": "team_fails"}` makes `mart_dev.team_fails`.
+   - If the batch is one file holding a query alone, one that writes no table, its table is
+     named for the batch, whatever the file is called: `NAME = "failed_runs"` with
+     `FILES = ["from_your_team.hql"]` makes `mart_dev.failed_runs`.
+   - If the batch is several files, each holding a query alone is named for its file:
+     `sales.hql` makes `mart_dev.sales`.
 3. **Convert them.** Goal: a Saved table for each table the scripts write. Action: run its
    first step, below, which makes each table the scripts write a Saved table in your Dev
    Database, with its Table folder, its Table reference and a checklist. Done when it names each
@@ -1075,7 +1086,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     s0{"1. Write the Admin statement for the change"}:::your_decision
-    s1["2. Print its Hive, and run the check its Check first line names"]:::files_only
+    s1[["2. Print its Hive, and run the check its Check first line names"]]:::warehouse_call
     s2[["3. Send it, then any check after it, such as admin.check_the_copy"]]:::warehouse_call
     t0("a Saved table"):::thing
     t1("the change wanted"):::thing
@@ -1091,7 +1102,6 @@ flowchart TD
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -1105,10 +1115,11 @@ flowchart TD
        # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
        change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
-2. Print its Hive, and run the check its Check first line names (it changes only files, or only
-   prints: run its cell).
+2. Print its Hive, and run the check its Check first line names (it is a call to the warehouse,
+   yours to run).
 
        show_hive(change)
+       print(query("SHOW PARTITIONS " + TABLE))
 
 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
    warehouse, yours to run).

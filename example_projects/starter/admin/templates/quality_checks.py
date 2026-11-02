@@ -39,7 +39,7 @@
 #    writes `references/<NAME>.py` from the logic, for you to answer.
 #    It lists one column, "row_count", a count, "bigint", then the partition column counted,
 #    typed as the table checked types it, as PARTITIONED_BY names it. Its Key, proposed from
-#    the query, is that partition column: one row per Partition counted.
+#    the logic, is that partition column: one row per Partition counted.
 #    Done when `references/<NAME>.py` lists those columns; then step 4.
 # 4. **Answer its Decisions.** Goal: each Decision made. Action: answer each open Decision its
 #    Table reference leaves, such as its location, in the new_table Workflow's decisions

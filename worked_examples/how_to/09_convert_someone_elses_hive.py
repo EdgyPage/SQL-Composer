@@ -181,14 +181,20 @@ answer into the table's Table reference:
 Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
 on nothing: fill each in when you like.
+  line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerts_by_severity_ops_reports is made.
 Wrote 2 answers into references/mart__alerted_runs_ops_reports.py.
 mart.alerted_runs_ops_reports: 2 TODO lines left in references/mart__alerted_runs_ops_reports.py, which wait
 on nothing: fill each in when you like.
+  line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerted_runs_ops_reports is made.
 Wrote 2 answers into references/mart__fail_history.py.
 mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait
 on nothing: fill each in when you like.
+  line 1: mart.fail_history - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
 
 `project.check()` names the batch's next step in the Workflow, the first call to the

@@ -182,7 +182,7 @@ SAVED_TABLE = _notebook(
 #    It lists the columns write() saves, in the order its SELECT gives them: here
 #    <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint",
 #    and last its partition column, if it has one, as PARTITIONED_BY names it. Its Key,
-#    proposed from the query, is the column each row is for, and the partition column if it
+#    proposed from the logic, is the column each row is for, and the partition column if it
 #    has one, such as key=["job_id", "region"].''',
     fill_in='''\
 #   - `<SOURCE_NAME>` and `<SOURCE_TABLE>`: the table it reads, by its file in references/ and
@@ -261,7 +261,7 @@ QUALITY_CHECKS = _notebook(
     saves='''\
 #    It lists one column, "row_count", a count, "bigint", then the partition column counted,
 #    typed as the table checked types it, as PARTITIONED_BY names it. Its Key, proposed from
-#    the query, is that partition column: one row per Partition counted.''',
+#    the logic, is that partition column: one row per Partition counted.''',
     fill_in='''\
 #   - `<CHECKED_NAME>` and `<CHECKED>`: the table checked, by its file in references/ and
 #     its name there, such as `ops__job_events` and `job_events`;

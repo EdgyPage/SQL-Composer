@@ -41,7 +41,7 @@
 #    It lists the columns write() saves, in the order its SELECT gives them: here
 #    <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint",
 #    and last its partition column, if it has one, as PARTITIONED_BY names it. Its Key,
-#    proposed from the query, is the column each row is for, and the partition column if it
+#    proposed from the logic, is the column each row is for, and the partition column if it
 #    has one, such as key=["job_id", "region"].
 #    Done when `references/<NAME>.py` lists those columns; then step 4.
 # 4. **Answer its Decisions.** Goal: each Decision made. Action: answer each open Decision its

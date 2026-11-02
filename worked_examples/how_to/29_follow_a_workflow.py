@@ -181,7 +181,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key proposed from a query is made, but an answer here changes it
+    # a Key marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -285,7 +285,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key proposed from a query is made, but an answer here changes it
+    # a Key marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -400,7 +400,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key proposed from a query is made, but an answer here changes it
+    # a Key marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -497,7 +497,7 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
     # "key": None says no columns name one row. project.check() names each one open;
-    # a Key proposed from a query is made, but an answer here changes it
+    # a Key marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -577,7 +577,7 @@ admin/workflows/change_a_saved_table/change_a_saved_table.ipynb:
 ```mermaid
 flowchart TD
     s0{"1. Write the Admin statement for the change"}:::your_decision
-    s1["2. Print its Hive, and run the check its Check first line names"]:::files_only
+    s1[["2. Print its Hive, and run the check its Check first line names"]]:::warehouse_call
     s2[["3. Send it, then any check after it, such as admin.check_the_copy"]]:::warehouse_call
     t0("a Saved table"):::thing
     t1("the change wanted"):::thing
@@ -593,7 +593,6 @@ flowchart TD
     t3 --> s2
     s2 --> t4
     s2 --> t5
-    classDef files_only fill:#e3f2e1,stroke:#4a8a3f
     classDef warehouse_call fill:#e1ecf7,stroke:#3f6a9a
     classDef your_decision fill:#fbf1d6,stroke:#a8842a
     classDef thing fill:#ffffff,stroke:#888888
@@ -614,10 +613,11 @@ Its steps, in order:
     # where=between(table.dt, "2026-09-01", "2026-09-30"), dt its partition column
     change = admin.drop_partitions(table, where=...)  # or another: help(admin)
 
-2. Print its Hive, and run the check its Check first line names (it changes only files, or only
-   prints: run its cell).
+2. Print its Hive, and run the check its Check first line names (it is a call to the warehouse,
+   yours to run).
 
     show_hive(change)
+    print(query("SHOW PARTITIONS " + TABLE))
 
 3. Send it, then any check after it, such as admin.check_the_copy (it is a call to the
    warehouse, yours to run).

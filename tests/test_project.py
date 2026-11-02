@@ -1539,6 +1539,20 @@ def test_check_names_an_open_key_after_a_later_step_ran(started: Path) -> None:
     assert "2. Answer each table's open Decisions" in repr(project.do_next("references"))
 
 
+def test_check_names_a_read_tables_open_key_while_new_table_goes_on(started: Path) -> None:
+    # Toolbox 8.2, 21: W3-3 saw a source reference's key=None TODO left unflagged, but had
+    # filled in key= by hand before it ran check(). The references Workflow that wrote the
+    # reference names its open Key, whatever new_table does after it.
+    fill_in(started, "references", 'TABLES = ["ops.job_runs"]')
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs"]')
+    project.new_table("mart.daily_job_runs")
+    checked = repr(project.check())
+    assert "new_table.ipynb: 2. Write each table's logic" in checked
+    assert "references.ipynb: 2. Answer each table's open Decisions" in checked
+    assert "ops.job_runs: key: the columns whose values name one row" in checked
+
+
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:
     assert repr(project.do_next()).startswith("No Workflow has a step left")
     fill_in(started, "new_table", 'TABLES = ["mart.daily_job_runs", "mart.team_day"]')

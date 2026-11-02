@@ -100,6 +100,18 @@ those people found unsaid.
   made before; the Steps sheet adds a Power Query as example 03 does, keeps its M when Excel
   isn't at hand, and leaves step 12 to the data team when they convert it; and file 12 and the
   README say a Total Row's query may be left out.
+- **What people new to the Toolbox met a third time, said.** write_decisions and
+  reference_from_logic name each TODO line a Table reference leaves, by its line number, such
+  as its docstring's first line and `does_not_add_up=`, where they gave only a count; and
+  new_table's step 3 says to fill them in by hand, in a Table reference it keeps too.
+  change_a_saved_table's step 2 cell runs the check its `Check first` line names, such as
+  `SHOW PARTITIONS`, through your query, and prints what it reads, as `run_workflow` does,
+  where you ran the check yourself. A Key reference_from_logic proposes for a table made from
+  a Template is marked `# proposed from its logic`, where it said "from its query". new_table's
+  step 2 says what to read when `QUERIES` wrote a table's logic; promote's decisions step says
+  there is nothing to answer when promote filled in each `location=`; the README says which
+  name the convert Workflow gives each table, and that RENAME keeps the original's; and each
+  of its first sections ends naming the next by its title.
 - **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
   as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
   holding `<a value>`.

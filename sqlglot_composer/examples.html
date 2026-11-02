@@ -4558,10 +4558,15 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/mart_dev__daily_runs.py from its logic: job_id, runs and dt, partitioned by
 dt.
-Its Key, proposed from its query: job_id and dt.
+Its Key, proposed from its logic: job_id and dt.
+mart_dev.daily_runs: 2 TODO lines left in references/mart_dev__daily_runs.py, which wait
+on nothing: fill each in when you like.
+  line 1: mart_dev.daily_runs - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+  counts
 Answer each open Decision in the new_table Workflow&#x27;s decisions cell: mart_dev.daily_runs:
 location: the folder its files go in.</pre>
-<p>It runs the table&#x27;s logic cell, as project.load does, and builds its preview(): the Table reference lists each column preview() gives, in its order, typed as the tables it reads type them (&quot;string&quot;, noted as a guess, where nothing tells); its partition columns, PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its query makes, proposed, as project.convert proposes one. location= is a Decision left to you, which the new_table Workflow&#x27;s decisions cell answers. It writes over only the file new_table wrote, whose columns are still &lt;COLUMNS&gt;: a Table reference whose columns you wrote is kept, and the report says so. It refuses a logic cell that doesn&#x27;t run, one that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming columns preview() doesn&#x27;t give last. <code>name</code> may be a list of tables&#x27; names, each written in turn.</p>
+<p>It runs the table&#x27;s logic cell, as project.load does, and builds its preview(): the Table reference lists each column preview() gives, in its order, typed as the tables it reads type them (&quot;string&quot;, noted as a guess, where nothing tells); its partition columns, PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic makes, proposed, as project.convert proposes one from a query. location= is a Decision left to you, which the new_table Workflow&#x27;s decisions cell answers. It writes over only the file new_table wrote, whose columns are still &lt;COLUMNS&gt;: a Table reference whose columns you wrote is kept, and the report says so. Either way, it names each TODO line the Table reference leaves, such as its docstring&#x27;s first line, which waits on nothing: fill each in by hand. It refuses a logic cell that doesn&#x27;t run, one that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming columns preview() doesn&#x27;t give last. <code>name</code> may be a list of tables&#x27; names, each written in turn.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="project.refresh_reference_sheet">
@@ -4739,13 +4744,16 @@ Next: set conn, your connection, in warehouse.py.</pre>
     Wrote 1 answer into references/ops__job_events.py.
     ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
     nothing: fill each in when you like.
+      line 1: ops.job_events - TODO: say in one line what one row is.
+      line 15: does_not_add_up=[],  # TODO: columns that are averages, ratios or
+      distinct counts
     Each Decision of ops.job_events is made.
   references: 4. Refresh the Reference sheet and the Database modules
     Wrote references/reference_sheet.csv: 5 rows, 1 table.
   references: every step is done.</pre>
 <p>Its notebook&#x27;s last cell runs it, with your query and execute, in place of each step&#x27;s cell. It reads the notebook as you last saved it: fill in its names cell, and its decisions cell if you know the answers already, as above, and save it first. It runs each step the Project&#x27;s files don&#x27;t say is done, in order, as the step&#x27;s own cell runs it, its calls to the warehouse too, and reports each, a step done already as skipped. A step that only reads, such as new_table&#x27;s preview, it runs, printing what it reads, and goes on.</p>
 <p>It stops at the first step only you can do, and the steps after it don&#x27;t run:</p>
-<ul><li>a Decision open, which it names, as check() does: answer it in the decisions cell;</li><li>a check of what a step printed, such as change_a_saved_table&#x27;s Hive and its Check first line: make the check, then run the next step&#x27;s own cell, which only you start;</li><li>a refusal or the warehouse&#x27;s error, written in full: mend what it says;</li><li>a step that ran and isn&#x27;t done, such as a compare that failed: mend what it says.</li></ul>
+<ul><li>a Decision open, which it names, as check() does: answer it in the decisions cell;</li><li>a check of what a step printed, such as change_a_saved_table&#x27;s Hive and what the check its Check first line names reads, which it sends through your query: read them, then run the next step&#x27;s own cell, which only you start;</li><li>a refusal or the warehouse&#x27;s error, written in full: mend what it says;</li><li>a step that ran and isn&#x27;t done, such as a compare that failed: mend what it says.</li></ul>
 <p>Then save the notebook and run its last cell again: each step done is skipped, so it goes on where it stopped. <code>workflow</code> is one Workflow&#x27;s name, such as &quot;convert&quot;. The convert Workflow runs the batch its names cell&#x27;s NAME names, or, when NAME is a list, each batch it names in turn, each converted already: a stop in one stops the rest. It never runs a batch you didn&#x27;t name.</p>
 <p>With dry_run=True it sends nothing through your execute. Each step that would send says the Hive it would send, &quot;would send: ...&quot;, and a preview or a compare says what it would read. Some steps it runs for real, since the steps after them read their files:</p>
 <ul><li>convert, and the references Workflow&#x27;s first step, which read DESCRIBE through your query and write Table references;</li><li>each step that changes only files, such as promote&#x27;s first, which writes the prod Table folders, up to the first step that would send. After that, such a step is named with its call, &quot;would run: ...&quot;, and not run.</li></ul>
@@ -4851,6 +4859,9 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="output">Wrote 1 answer into references/ops__job_runs.py.
 ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
 fill each in when you like.
+  line 1: ops.job_runs - TODO: say in one line what one row is.
+  line 16: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+  counts
 Each Decision of ops.job_runs is made.</pre>
 <p>A Decision is one line of a table&#x27;s Table reference only you can fill in, open while it holds a TODO: or a &lt;...&gt;: its location=, the folder its files go in; its key=, the columns whose values name one row, or None when none do; and each column a Conversion wrote &quot;string&quot; because nothing told it the type. A TODO: on any other line, such as the docstring&#x27;s first line or does_not_add_up=, is no Decision: it waits on nothing, as the two above do. <code>answers</code> is the decisions cell, DECISIONS, of a Workflow&#x27;s notebook: by table, a dict holding &quot;location&quot;, &quot;key&quot; or &quot;types&quot;, such as {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;, &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}. Each answer is written into the open line it answers. A Decision made already, as yours is once you change its line, is kept, and an answer that differs from it is named; so is an answer for a table with no Table reference, or one that answers no Decision. A converted table&#x27;s conversion/checklist.md, which lists its open Decisions, is written again. Its Workflow&#x27;s next step names each Decision still open.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>

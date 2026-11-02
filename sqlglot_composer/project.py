@@ -1548,6 +1548,9 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         Wrote 1 answer into references/ops__job_events.py.
         ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
         nothing: fill each in when you like.
+          line 1: ops.job_events - TODO: say in one line what one row is.
+          line 15: does_not_add_up=[],  # TODO: columns that are averages, ratios or
+          distinct counts
         Each Decision of ops.job_events is made.
       references: 4. Refresh the Reference sheet and the Database modules
         Wrote references/reference_sheet.csv: 5 rows, 1 table.
@@ -1563,8 +1566,9 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     It stops at the first step only you can do, and the steps after it don't run:
 
     - a Decision open, which it names, as check() does: answer it in the decisions cell;
-    - a check of what a step printed, such as change_a_saved_table's Hive and its Check first
-      line: make the check, then run the next step's own cell, which only you start;
+    - a check of what a step printed, such as change_a_saved_table's Hive and what the check
+      its Check first line names reads, which it sends through your query: read them, then
+      run the next step's own cell, which only you start;
     - a refusal or the warehouse's error, written in full: mend what it says;
     - a step that ran and isn't done, such as a compare that failed: mend what it says.
 
@@ -1687,8 +1691,8 @@ def _stop_after(root: Path, step: workflows.Step, inputs: dict[str, object],
         return "    Stopped: it ran, and isn't done, as it says above: mend what it says."
     if step.done is None and not step.reads_only:
         # A step no file tells of is a check of what it printed, which only you make.
-        return ("    Stopped: read what it printed, and make the check it names; then run the "
-                "next step's own cell, which only you start.")
+        return ("    Stopped: read what it printed, and check it shows what you mean it to; then "
+                "run the next step's own cell, which only you start.")
     return ""
 
 
@@ -3280,6 +3284,9 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     Wrote 1 answer into references/ops__job_runs.py.
     ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
     fill each in when you like.
+      line 1: ops.job_runs - TODO: say in one line what one row is.
+      line 16: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+      counts
     Each Decision of ops.job_runs is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
@@ -3318,18 +3325,26 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
         lines += [f"{table}: {each}." for each in answered.unwritten]
         _write_checklist_again(root, table)
         still_open = decisions.open_decisions(answered.text, table)
-        todos = decisions.todo_lines(answered.text)
-        if todos:
-            lines.append(f"{table}: {counted(len(todos), 'TODO line')} left in "
-                         f"{REFERENCE.shown(stem)}, which "
-                         f"{singular_or_plural(len(todos), 'waits', 'wait')} on "
-                         f"nothing: fill {singular_or_plural(len(todos), 'it', 'each')} in "
-                         "when you like.")
+        lines += _todo_lines_left(table, answered.text)
         lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
         if not still_open:
             lines.append(f"Each Decision of {table} is made.")
     _log(root, call, list(answers), files, frame)
     return ProjectReport(lines)
+
+
+def _todo_lines_left(table: str, text: str) -> list[str]:
+    """What write_decisions and reference_from_logic say of the TODO lines a table's Table
+    reference, `text`, leaves that are no Decision: how many, then each by its line."""
+    todos = decisions.todo_lines(text)
+    if not todos:
+        return []
+    count = len(todos)
+    said = (f"{table}: {counted(count, 'TODO line')} left in "
+            f"{REFERENCE.shown(table_stem(table))}, which "
+            f"{singular_or_plural(count, 'waits', 'wait')} on nothing: fill "
+            f"{singular_or_plural(count, 'it', 'each')} in when you like.")
+    return [said] + [f"  line {number}: {line}" for number, line in todos]
 
 
 def _refuse_answers_not_by_table(call: str, answers: object) -> None:
@@ -4777,18 +4792,25 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     >>> project.reference_from_logic("mart_dev.daily_runs")
     Wrote references/mart_dev__daily_runs.py from its logic: job_id, runs and dt, partitioned by
     dt.
-    Its Key, proposed from its query: job_id and dt.
+    Its Key, proposed from its logic: job_id and dt.
+    mart_dev.daily_runs: 2 TODO lines left in references/mart_dev__daily_runs.py, which wait
+    on nothing: fill each in when you like.
+      line 1: mart_dev.daily_runs - TODO: say in one line what one row is.
+      line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+      counts
     Answer each open Decision in the new_table Workflow's decisions cell: mart_dev.daily_runs:
     location: the folder its files go in.
 
     It runs the table's logic cell, as project.load does, and builds its preview(): the
     Table reference lists each column preview() gives, in its order, typed as the tables it
     reads type them ("string", noted as a guess, where nothing tells); its partition columns,
-    PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its query
-    makes, proposed, as project.convert proposes one. location= is a Decision left to you,
-    which the new_table Workflow's decisions cell answers. It writes over only the file
+    PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic
+    makes, proposed, as project.convert proposes one from a query. location= is a Decision left
+    to you, which the new_table Workflow's decisions cell answers. It writes over only the file
     new_table wrote, whose columns are still <COLUMNS>: a Table reference whose columns you
-    wrote is kept, and the report says so. It refuses a logic cell that doesn't run, one
+    wrote is kept, and the report says so. Either way, it names each TODO line the Table
+    reference leaves, such as its docstring's first line, which waits on nothing: fill each in
+    by hand. It refuses a logic cell that doesn't run, one
     that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming
     columns preview() doesn't give last. `name` may be a list of tables' names, each written
     in turn.
@@ -4806,9 +4828,9 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     path = REFERENCE.path(root, stem)
     shown = REFERENCE.shown(stem)
     if path.is_file() and decisions.has_columns_written(path.read_text(encoding="utf-8")):
-        return ProjectReport([f"Kept {shown}: its columns are written already, so it is "
-                              'yours. To write it from the logic again, make its columns= '
-                              '{"<COLUMNS>": "string"}.'])
+        kept = [f"Kept {shown}: its columns are written already, so it is yours. To write it "
+                'from the logic again, make its columns= {"<COLUMNS>": "string"}.']
+        return ProjectReport(kept + _todo_lines_left(name, path.read_text(encoding="utf-8")))
     namespace = _logic_namespace(root, name, table_notebook(stem), call)
     preview = _preview_of(namespace, name, call)
     columns = {column_name: column._type or "" for column, column_name in preview._outputs}
@@ -4816,7 +4838,7 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     proposed = _proposed_keys(preview, partitions)
     text = table_reference_text(name, _untyped_as_string(columns), partitions,
                                 f"{REFERENCE.folder}.{stem}", guessed=_guessed(columns),
-                                proposed=proposed)
+                                proposed=proposed, proposed_mark=decisions.PROPOSED_FROM_LOGIC)
     path.write_text(text, encoding="utf-8")
     _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
     said = f"Wrote {shown} from its logic: {in_words(list(columns))}"
@@ -4824,7 +4846,8 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
         said += f", partitioned by {in_words(partitions)}"
     lines = [said + "."]
     if proposed:
-        lines.append(f"Its Key, proposed from its query: {in_words(proposed[0])}.")
+        lines.append(f"Its Key, proposed from its logic: {in_words(proposed[0])}.")
+    lines += _todo_lines_left(name, text)
     still_open = decisions.open_decisions(text, name)
     if still_open:
         lines.append("Answer each open Decision in the new_table Workflow's decisions cell: "
