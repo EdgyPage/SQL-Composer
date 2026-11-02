@@ -111,7 +111,10 @@ those people found unsaid.
   step 2 says what to read when `QUERIES` wrote a table's logic; promote's decisions step says
   there is nothing to answer when promote filled in each `location=`; the README says which
   name the convert Workflow gives each table, and that RENAME keeps the original's; and each
-  of its first sections ends naming the next by its title.
+  of its first sections ends naming the next by its title. `project.write_decisions({})`, a
+  decisions cell that answers no table, says so, where it printed nothing; and
+  change_a_saved_table's step 2 says the Example database holds no Saved table, so there its
+  check stops, naming the table: run the step at work.
 - **A workbook as text, for Copilot: `copilot/workbook_text.py`.** `python
   copilot/workbook_text.py "costs.xlsx"`, in a terminal, writes costs.txt beside the
   workbook, with nothing but Python: each Table row by row with its formulas as typed, each
