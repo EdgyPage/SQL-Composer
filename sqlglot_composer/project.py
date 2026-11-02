@@ -98,7 +98,7 @@ import pandas as pd
 # unchecked.now is read through its module, never imported, so patching it pins every clock.
 from . import converting, decisions, describe, keys, kinds, unchecked, upgrades, workflows
 from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, COMPARED_AT,
-                        CONVERSION, FAILED, FINISHED, PASSED)
+                        CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
 from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
@@ -161,10 +161,9 @@ NEW_TABLE_WORKFLOW = "new_table"
 BLOCK_TEMPLATE = "building_block"
 # The Template a Saved table's Table reference is made from.
 REFERENCE_TEMPLATE = "saved_table_reference"
-# The Reference sheet, and its columns: one row per column of every Table reference, "yes" in
-# partition and in_key for its partition columns and the Key's columns, and the column's
-# Aliases and description.
-REFERENCE_SHEET = Path("references") / "reference_sheet.csv"
+# The Reference sheet's columns, the sheet being workflows.REFERENCE_SHEET: one row per column
+# of every Table reference, "yes" in partition and in_key for its partition columns and the
+# Key's columns, and the column's Aliases and description.
 SHEET_COLUMNS = ["table", "column", "type", "partition", "in_key", "aliases",
                  "description", "exported_at"]
 
@@ -1328,11 +1327,13 @@ def check() -> ProjectReport:
     with no warehouse.py beside it; a Project an older Toolbox last wrote, which
     project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which
     needs that newer Toolbox copied in; an admin/project_version.txt that holds no version;
-    each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line; each
-    `# CONVERSION:` mark project.convert left for you, with its file and line; each file of
-    a prod copy project.promote wrote that was changed or deleted by hand since; and the next
+    each `# UPGRADE <version>:` mark an Upgrade left for you, with its file and line; each file
+    of a prod copy project.promote wrote that was changed or deleted by hand since; the next
     step of each Workflow you have started, in admin/workflows/, with its call, which
-    project.do_next() runs for you when it can.
+    project.do_next() runs for you when it can, and why a step is due when its files can say,
+    such as which Table reference changed after the Reference sheet was last written; each
+    batch the convert Workflow finished, as done; and last, since they block nothing, each
+    `# CONVERSION:` mark project.convert left for you, with its file and line.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1348,14 +1349,6 @@ def check() -> ProjectReport:
     version_line = _version_check_line(root)
     if version_line:
         lines.append(version_line)
-    converted = upgrades.marks_in(root, converting.CONVERSION_MARK_LINE)
-    if converted:
-        lines.append("Noted by project.convert(...), which blocks nothing: each opt-out "
-                     "keeps what the original did, and the compare step checks the rows. "
-                     "Change what made one needed only if you want to, such as a WHERE on the "
-                     "partition column or a key= in a Table reference, then take it off and "
-                     "delete its mark.")
-        lines += [f"  {mark}" for mark in converted]
     marks = upgrades.marks_in(root, upgrades.MARK_LINE)
     if marks:
         lines.append("Marked by project.upgrade() for you to change: make each change, then "
@@ -1364,8 +1357,36 @@ def check() -> ProjectReport:
     lines += _edited_by_hand_lines(root)
     lines += _workflow_lines(root)
     lines += _databases_lines(root)
-    return ProjectReport(lines or ["Every Table folder, Table reference and Building block is "
-                                   "registered, and each one registered is there."])
+    if not lines:
+        lines = ["Every Table folder, Table reference and Building block is registered, and "
+                 "each one registered is there."]
+    # What blocks nothing comes last, so it never reads as a step to take first.
+    return ProjectReport([*lines, *_finished_batch_lines(root), *_conversion_note_lines(root)])
+
+
+def _conversion_note_lines(root: Path) -> list[str]:
+    """What check() says of the `# CONVERSION:` marks project.convert left: each one, with its
+    file and line, under a line saying they block nothing."""
+    converted = upgrades.marks_in(root, converting.CONVERSION_MARK_LINE)
+    if not converted:
+        return []
+    return ["Noted by project.convert(...), which blocks nothing: each opt-out keeps what the "
+            "original did, and the compare step checks the rows. Change what made one needed "
+            "only if you want to, such as a WHERE on the partition column or a key= in a Table "
+            "reference, then take it off and delete its mark.",
+            *[f"  {mark}" for mark in converted]]
+
+
+def _finished_batch_lines(root: Path) -> list[str]:
+    """What check() says of each batch the convert Workflow finished: that it is done, and
+    where its folder moved."""
+    names = workflows.finished_batch_names(root)
+    if not names:
+        return []
+    where = workflows.notebook_path(root, workflows.CONVERT).relative_to(root).as_posix()
+    return ["Done: every step of each Workflow below.",
+            *[f"  {where}, {name}: every table the batch wrote passed its compare, and its "
+              f"folder is {(BATCHES / FINISHED / name).as_posix()}/." for name in names]]
 
 
 def _workflow_lines(root: Path) -> list[str]:
@@ -1437,6 +1458,8 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     if step.done is None:
         said += ("\n    No file tells when it is done, so this names it until a later step is "
                  "done: once you have, go on.")
+    if step.why_due is not None:
+        said += f"\n    Why: {step.why_due(root, inputs)}."
     read = workflows.read_before(workflow, step)
     if read is not None:
         number_read = workflow.steps.index(read) + 1
@@ -2540,7 +2563,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     if not columns:
         return ("neither its query nor DESCRIBE of the original names a column, so it can't "
                 "have a Table reference: it is kept as Hive in batch.md")
-    files.marks[dev] = opt_outs
+    files.marks[dev] = list(opt_outs)
     proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
@@ -2553,7 +2576,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     if hive_read.kept_whole:
         whole_hive = write_hive
     _write_table_files(files, dev, batch, hive_read, logic, seed_hive, whole_hive)
-    scan = _batch_scan_lines(text, hive_read, pieces, ordered, opt_outs)
+    scan = _batch_scan_lines(text, hive_read, pieces, ordered, list(opt_outs))
     scan += _hive_compared(built, text, stopped)
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
@@ -2618,13 +2641,14 @@ def _write_conversion_folder(files: _BatchFiles, dev: str,
 
 
 def _logic_with_opt_outs(root: Path, hive_read: converting.ConvertedQuery
-                         ) -> tuple[str, Statement | UncheckedStatement | None, list[str],
+                         ) -> tuple[str, Statement | UncheckedStatement | None, dict[str, str],
                                     str | None]:
     """A converted query's logic, its Statement built, adding the opt-out each refusal names
     until none refuses, as convert does: the logic, the Statement (None when one refusal had
-    no opt-out to add), each opt-out added, and the first line of that refusal, or None."""
+    no opt-out to add), each opt-out added, once, with the first line of the refusal it
+    answers, and the first line of a refusal it had no opt-out for, or None."""
     logic = hive_read.logic()
-    added = []
+    added: dict[str, str] = {}
     for _ in range(_MOST_OPT_OUTS):
         try:
             with warnings.catch_warnings():
@@ -2637,7 +2661,8 @@ def _logic_with_opt_outs(root: Path, hive_read: converting.ConvertedQuery
             if with_opt_out is None:
                 return logic, None, added, _what_happened(str(refusal))
             logic, opt_out = with_opt_out
-            added.append(opt_out)
+            # One table read three times takes the same opt-out three times: noted once.
+            added.setdefault(opt_out, _what_happened(str(refusal)))
         # Logic the Toolbox then refuses: the table is still made, its logic to mend by hand.
         except (TypeError, ValueError) as refusal:
             return logic, None, added, _what_happened(str(refusal))
@@ -2692,14 +2717,19 @@ def _register_table(root: Path, dev: str, folder: bool) -> None:
     registry.add(new, unchecked.now())
 
 
-def _checklist_notes(opt_outs: list[str], hive_read: converting.ConvertedQuery,
+def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQuery,
                      stopped: str | None, proposed: tuple[list[str], ...]) -> list[str]:
-    """What a converted table's checklist notes, which blocks nothing: each mark, each piece
-    kept as Hive, a logic cell the Toolbox refused, which its create says why, and the Key it
-    proposed."""
-    notes = [f"The `# CONVERSION:` mark for {opt_out}, in the logic cell, keeps what the "
-             "original did; change what made it needed only if you want to, and the compare "
-             "step checks the rows either way." for opt_out in opt_outs]
+    """What a converted table's checklist notes, which blocks nothing: each mark, with what
+    the Toolbox refuses without it, each piece kept as Hive, a logic cell the Toolbox refused,
+    which its create says why, and the Key it proposed."""
+    notes = []
+    for opt_out, refused in opt_outs.items():
+        # An opt-out is written as FROM(job_runs, reads_all_partitions=True): its keyword last.
+        keyword = opt_out.rsplit(", ", 1)[-1].removesuffix(")")
+        notes.append(f"The `# CONVERSION:` mark for {opt_out}, in the logic cell, keeps what "
+                     f"the original did. Without {keyword} the Toolbox refuses the logic, "
+                     f"saying: {refused.rstrip('.')}. Change what made it needed only if you "
+                     "want to; the compare step checks the rows either way.")
     if any(finding.kind == "unchecked" for finding in hive_read.findings):
         notes.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:
@@ -3218,7 +3248,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     table's rows. `tables` names which, by their names in dev, such as
     mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
     every one has passed, the batch's folder moves to admin/workflows/convert/finished/<name>/,
-    and check no longer lists it; batch_tables still reads it, and compare_batch run on it
+    and check names it done; batch_tables still reads it, and compare_batch run on it
     again compares again, moving nothing. project.remove_conversion(name) archives a finished
     batch, which frees its name. It never needs your execute: it only reads.
     """
@@ -3246,8 +3276,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         moved = (f"moved {CONVERSION_FOLDER.shown(name)} to admin/workflows/convert/"
                  f"{FINISHED}/{name}/")
         written.append(moved)
-        lines.append(f"Every table the batch wrote passed, so it is finished: {moved}, which "
-                     "check no longer lists.")
+        lines.append(f"Every table the batch wrote passed, so it is finished: {moved}, and "
+                     "project.check() names it done.")
     _log(root, call, chosen, written, frame)
     return ProjectReport(lines)
 

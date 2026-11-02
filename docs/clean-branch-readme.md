@@ -822,9 +822,13 @@ flowchart TD
 5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
 
-       run_execute(hive_settings("dynamic_partitions"), execute)
-       for table in project.batch_tables(NAME, seeded=True):
-           run_execute(project.load(table).seed(), execute)
+       seeded = project.batch_tables(NAME, seeded=True)
+       if not seeded:
+           print("Seeded nothing: no table of the batch reads itself.")
+       else:
+           run_execute(hive_settings("dynamic_partitions"), execute)
+           for table in seeded:
+               run_execute(project.load(table).seed(), execute)
 
 6. Write each table in dev (it is a call to the warehouse, yours to run).
 
@@ -900,9 +904,13 @@ flowchart TD
 5. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
 
-       run_execute(hive_settings("dynamic_partitions"), execute)
-       for table in project.promoted_tables(TABLES, seeded=True):
-           run_execute(project.load(table).seed(), execute)
+       seeded = project.promoted_tables(TABLES, seeded=True)
+       if not seeded:
+           print("Seeded nothing: no prod copy reads itself.")
+       else:
+           run_execute(hive_settings("dynamic_partitions"), execute)
+           for table in seeded:
+               run_execute(project.load(table).seed(), execute)
 
 6. Write each table in prod (it is a call to the warehouse, yours to run).
 

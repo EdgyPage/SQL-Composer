@@ -122,6 +122,19 @@ those people found unsaid.
   piece after every piece it reads. A loop is refused, each link named. The README's Excel
   path attaches the text in place of the workbook, and Copilot file 15 reads each final's
   CTEs in that order.
+- **What people new to the Toolbox met a fourth time, said.** A converted table's checklist
+  note for a `# CONVERSION:` mark says what the Toolbox refuses without its opt-out, the
+  refusal's first line beside its keyword, and batch.md and checklist.md give each note once,
+  where a table read three times gave one three times. `project.check()` gives each
+  Workflow's next step before the `# CONVERSION:` marks, which block nothing; says a batch
+  whose folder is in `admin/workflows/convert/finished/` is done, where it said nothing; and
+  says why the Reference sheet needs a refresh, such as which Table reference changed after
+  it was last written. The convert and promote seed cells print that they seeded nothing
+  when no table reads itself, sending nothing, where they sent a SET line and printed
+  nothing. The compare step says it checks only the latest Partition both hold, unless
+  partition= gives another; and the references Workflow says how to check a Key with
+  `check_key` before you answer it, and that deleting `does_not_add_up=`'s TODO comment says
+  no column is one.
 - **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
   as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
   holding `<a value>`.

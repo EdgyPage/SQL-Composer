@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from conftest import toolbox_module
+from conftest import run_admin_notebook, toolbox_module
 
 from sqlglot_composer import (
     example_database,
@@ -96,14 +96,21 @@ def test_a_table_is_compared_on_the_latest_partition_both_hold(started: Path) ->
     assert "Passed: compared on dt = '2026-09-24', the latest Partition both hold" in text
 
 
-def test_once_every_table_passes_the_batch_is_finished_and_no_longer_listed(
+def test_once_every_table_passes_the_batch_is_finished_and_check_says_it_is_done(
         started: Path) -> None:
     report = repr(project.compare_batch("failed", query=SAME))
     assert "admin/workflows/convert/finished/failed/" in report
     convert = started / "admin" / "workflows" / "convert"
     assert (convert / "finished" / "failed" / "written.json").is_file()
     assert not (convert / "failed").exists()
-    assert "failed: " not in repr(project.check())
+    # Toolbox 8.2, 23: W3-2 found check() silent once the batch was done, where the
+    # Workflow's Self-check reads it.
+    checked = repr(project.check())
+    assert "convert.ipynb, failed: 7." not in checked
+    assert checked.endswith(
+        "Done: every step of each Workflow below.\n"
+        "  admin/workflows/convert/convert.ipynb, failed: every table the batch wrote passed "
+        "its compare, and its folder is admin/workflows/convert/finished/failed/.")
     # Its tables are still there to promote.
     assert project.batch_tables("failed") == [DEV]
 
@@ -235,6 +242,28 @@ def test_the_workflows_compare_step_calls_compare_batch(started: Path) -> None:
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert step.call == "project.compare_batch(NAME, query=query)"
 
+
+def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_another(
+        ) -> None:
+    # Toolbox 8.2, 23: H1 had to find partition= for itself.
+    step = toolbox_module("workflows").CONVERT.steps[-1]
+    assert "on the latest Partition both hold" in step.goal
+    assert "If you want another Partition compared too, then" in step.action
+    assert 'partition={"dt": "2026-09-23"}' in step.action
+
+
+def test_the_seed_step_says_it_seeded_nothing_when_no_table_reads_itself(
+        started: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    # Toolbox 8.2, 23: W1-1 saw the seed cell send its Session setting, and say nothing,
+    # though no table of the batch reads itself.
+    notebook = started / "admin" / "workflows" / "convert" / "convert.ipynb"
+    code = [text for kind, text in toolbox_module("notebooks").read_cells(notebook)
+            if kind == "code"]
+    seed = toolbox_module("workflows").CONVERT.steps[4]
+    assert seed.call in code
+    said = run_admin_notebook(notebook, [code[0], 'NAME = "failed"', seed.call], capsys)
+    assert said == "Seeded nothing: no table of the batch reads itself.\n"
+    assert toolbox_module("workflows").sent_rows(started) == []
 
 # --- What ticket 16's review found -----------------------------------------------------------
 

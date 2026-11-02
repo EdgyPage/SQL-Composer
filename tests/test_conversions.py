@@ -185,6 +185,54 @@ def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path,
     assert "# CONVERSION: many_matches=True, as the original did; check it" in said
 
 
+# The original reads ops.job_runs three times, filtering none of its Partitions: the
+# Conversion adds reads_all_partitions=True to each read, as the original took that chance.
+READS_THRICE = """\
+WITH fails AS (SELECT job_id, COUNT(*) AS n FROM ops.job_runs WHERE status = 'FAILED'
+               GROUP BY job_id),
+     retries AS (SELECT job_id, COUNT(*) AS n FROM ops.job_runs WHERE status = 'RETRY'
+                 GROUP BY job_id)
+SELECT a.job_id, f.n AS fails, r.n AS retries
+FROM ops.job_runs a
+LEFT JOIN fails f ON a.job_id = f.job_id
+LEFT JOIN retries r ON a.job_id = r.job_id
+"""
+
+
+def test_a_checklist_note_says_what_the_toolbox_refused_beside_its_opt_out(
+        started: Path) -> None:
+    # Toolbox 8.2, 23: W3-1 and E1-3 saw the note say only that the mark keeps what the
+    # original did, not what the Toolbox would have refused without it.
+    project.convert("thrice", READS_THRICE, query=example_database.query, database="ops")
+    checklist = conversion_file(started, "thrice", "checklist.md")
+    assert ("- The `# CONVERSION:` mark for FROM(job_runs, reads_all_partitions=True), in the "
+            "logic cell, keeps what the original did. Without reads_all_partitions=True the "
+            "Toolbox refuses the logic, saying: FROM(job_runs) reads ops.job_runs, but filters "
+            "none of its partition columns: dt. Change what made it needed only if you want "
+            "to; the compare step checks the rows either way.") in checklist
+
+
+def test_batch_md_and_the_checklist_say_each_note_once(started: Path) -> None:
+    # Toolbox 8.2, 23: a run saw one note three times, for a query reading one table thrice.
+    project.convert("thrice", READS_THRICE, query=example_database.query, database="ops")
+    checklist = conversion_file(started, "thrice", "checklist.md")
+    assert checklist.count("mark for FROM(job_runs, reads_all_partitions=True)") == 1
+    batch = (started / "admin" / "workflows" / "convert" / "thrice" / "batch.md").read_text(
+        encoding="utf-8")
+    assert batch.count("# CONVERSION: FROM(job_runs, reads_all_partitions=True)") == 1
+    # Each mark in the logic cell is still listed by check(), at its own line.
+    said = repr(project.check())
+    assert said.count("# CONVERSION: reads_all_partitions=True, as the original did") >= 2
+
+
+def test_check_gives_the_next_step_before_the_conversion_notes(started: Path) -> None:
+    # Toolbox 8.2, 23: the notes came first, and read as a blocker.
+    project.convert("thrice", READS_THRICE, query=example_database.query, database="ops")
+    said = repr(project.check())
+    next_step = said.index("The next step of each Workflow you have started")
+    assert next_step < said.index("Noted by project.convert(...), which blocks nothing")
+
+
 def test_convert_reads_a_file_and_keeps_it_as_given(started: Path) -> None:
     (started / "report.hql").write_text(HIVE, encoding="utf-8")
     project.convert("from_file", file="report.hql", query=example_database.query,
