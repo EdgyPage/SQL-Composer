@@ -69,3 +69,41 @@ untested.
   example 03 in Excel, add its queries as its Power Query sheet says, save it, and attach it
   in a Copilot chat. Until then, the Steps sheet's Power Query sheet stays the way the M
   reaches Copilot.
+
+## Review
+
+Most items were built by a worktree agent (43f19bc, cfb1caa, 9fdba40c, merged into dev). The
+dependency order went in with ticket 22 (df627b8). The code review (review-standards and
+review-spec, sonnet) and the beginner reader (opus,
+`.scratch/toolbox-8-2/reports/21-beginner-reader.md`) each had a finding fixed or answered:
+
+- **Fixed:**
+  - `check_first_hive` is `first_check_hive`: a `check_` name returns nothing (standards.md,
+    Names).
+  - `_todo_lines_left` is `_todo_lines_report`.
+  - The kept path reads its Table reference once.
+- **Fixed, from the beginner reader:**
+  - change_a_saved_table's step 2 says the Example database holds no Saved table, so there
+    its check stops: run the step at work.
+  - The README's references step says how a `does_not_add_up=` line is filled in: name its
+    columns, or delete its TODO when none is.
+  - The convert naming says "the original's database" and why. RENAME is optional.
+  - The eighth section ending says "section 4".
+  - new_table's step 2 drops "do as the rules below say".
+  - write_decisions with an empty decisions cell says so, where it printed nothing.
+- **The `key=None` question, answered, not a bug.** W3-3's own files show it: its
+  `admin_log.md` has add_references at 17:08:43, then write_decisions at 17:09:32 writing
+  nothing, as DECISIONS was `{}`. Yet its Reference sheet, refreshed at 17:09:32, already
+  holds `run_id` with `in_key=yes`. The Key was filled in by hand before `project.check()`
+  ran, so no Key was left open. `check()` names a read table's open Key through the
+  references Workflow, as `test_check_names_a_read_tables_open_key_while_new_table_goes_on`
+  holds. Left as it is: a Table reference written outside any started Workflow is never named
+  by `check()`, which reports Decisions through started Workflows.
+- **Answered, left as is:**
+  - Step 2's cell writes `SHOW PARTITIONS` out, and its action says what to write for
+    another Admin statement, while `run_workflow` reads the check from the change. The cell
+    the user runs is the one they read. Copilot file 14, which holds the cell, has 8
+    characters to spare.
+  - The runner's own argument reading stays: it is short and tested in both orders.
+  - `PROPOSED` and `PROPOSED_FROM_LOGIC` are the two marks a reader sees.
+  - `todo_lines` gives `(line, text)` pairs to its one caller.

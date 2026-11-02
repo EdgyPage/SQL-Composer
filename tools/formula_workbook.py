@@ -21,10 +21,11 @@ them.
 
 The Copilot evaluation's Excel tasks (`tools/excel_eval_tasks.py`) describe filled-in Formula
 workbooks, `FormulaWorkbook`: `build` makes one, a copy of the empty one with each Table's
-sample rows read from the Example database, and `as_text` writes what Copilot reads in it, read
-back from the saved file, for a proxy model, which can't be given a file. openpyxl writes no
-Power Query and no PivotTable, so a workbook's queries are given as their M, and anything else
-it can't write as a note, both in the text alone.
+sample rows read from the Example database, and `as_text` writes what Copilot reads in it, for
+a proxy model, which can't be given a file: the text `copilot/workbook_text.py` writes of the
+file `saved` gives, its Power Queries saved as Excel saves them (`tools/excel_queries.py`).
+openpyxl writes no PivotTable, so anything else it can't write is given as a note, in the text
+alone.
 """
 
 from __future__ import annotations

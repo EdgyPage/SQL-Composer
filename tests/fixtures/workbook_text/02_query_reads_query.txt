@@ -104,4 +104,5 @@ Order, each piece after every piece it reads:
   4. Excel Table "job_owners"
   5. Power Query "staffed", reads Excel Table "jobs", Excel Table "job_owners"
   6. Power Query "owners_by_team", reads Power Query "staffed"
-  7. Excel Table "owners_by_team", reads Power Query "owners_by_team"
+  7. Excel Table "owners_by_team", loaded by Power Query "owners_by_team"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

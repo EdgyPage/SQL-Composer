@@ -12,11 +12,14 @@ comes from the queries the workbook holds. A workbook that holds none, such as o
 Excel couldn't add a query, gives them from its Power Query sheet: a cell "Query <its name>:"
 with the M in the cell below it.
 
-The text ends with each piece in order, each after every piece it reads:
+The text ends with each piece in order, each after every piece it reads, each line saying how
+in Excel's words:
 - a query reads each Table it names as `Excel.CurrentWorkbook(){[Name="..."]}` and each other
   query its M names;
-- a Table reads the query that loads it, and each Table its formulas name, such as
-  `job_runs[dt]`.
+- a Table is loaded by the query that loads it, and its formulas read each Table they name,
+  such as `job_runs[dt]`.
+A last line says how the Order is used: each final's query reads the steps it needs as CTEs in
+that order.
 
 A loop, such as a query reading a Table whose formulas read that query's own Table, has no
 such order. The script names each link of it, writes nothing, and exits with 1.
@@ -612,9 +615,25 @@ def as_text(workbook: Workbook, typed: bool = True) -> str:
         lines.append(f"Defined name {name}: {cell_text('=' + text, typed)[1:]}")
     lines.append("Order, each piece after every piece it reads:")
     for number, (piece, pieces) in enumerate(in_order(workbook), 1):
-        read = f", reads {', '.join(piece_name(other) for other in pieces)}" if pieces else ""
-        lines.append(f"  {number}. {piece_name(piece)}{read}")
+        lines.append(f"  {number}. {_order_line(piece, pieces)}")
+    lines.append("Each final's query reads the steps it needs as CTEs in this order, each CTE "
+                 "after every CTE it reads.")
     return "\n".join(lines) + "\n"
+
+
+def _order_line(piece: tuple[str, str], pieces: list[tuple[str, str]]) -> str:
+    """A piece's line in the Order, in Excel's words: the query that loads a Table, the Tables
+    a Table's formulas read, and what a query reads."""
+    loaded_by = [other for other in pieces
+                 if piece[0] == "Excel Table" and other[0] == "Power Query"]
+    read = [other for other in pieces if other not in loaded_by]
+    line = piece_name(piece)
+    if loaded_by:
+        line += ", loaded by " + ", ".join(piece_name(other) for other in loaded_by)
+    if read:
+        verb = "its formulas read" if piece[0] == "Excel Table" else "reads"
+        line += f", {verb} " + ", ".join(piece_name(other) for other in read)
+    return line
 
 
 def workbook_text(source: Path | bytes, typed: bool = True) -> str:

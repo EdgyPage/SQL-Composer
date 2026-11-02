@@ -3325,15 +3325,15 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
         lines += [f"{table}: {each}." for each in answered.unwritten]
         _write_checklist_again(root, table)
         still_open = decisions.open_decisions(answered.text, table)
-        lines += _todo_lines_left(table, answered.text)
+        lines += _todo_lines_report(table, answered.text)
         lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
         if not still_open:
             lines.append(f"Each Decision of {table} is made.")
     _log(root, call, list(answers), files, frame)
-    return ProjectReport(lines)
+    return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
 
 
-def _todo_lines_left(table: str, text: str) -> list[str]:
+def _todo_lines_report(table: str, text: str) -> list[str]:
     """What write_decisions and reference_from_logic say of the TODO lines a table's Table
     reference, `text`, leaves that are no Decision: how many, then each by its line."""
     todos = decisions.todo_lines(text)
@@ -4827,10 +4827,11 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     stem = table_stem(name)
     path = REFERENCE.path(root, stem)
     shown = REFERENCE.shown(stem)
-    if path.is_file() and decisions.has_columns_written(path.read_text(encoding="utf-8")):
+    written = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if written and decisions.has_columns_written(written):
         kept = [f"Kept {shown}: its columns are written already, so it is yours. To write it "
                 'from the logic again, make its columns= {"<COLUMNS>": "string"}.']
-        return ProjectReport(kept + _todo_lines_left(name, path.read_text(encoding="utf-8")))
+        return ProjectReport(kept + _todo_lines_report(name, written))
     namespace = _logic_namespace(root, name, table_notebook(stem), call)
     preview = _preview_of(namespace, name, call)
     columns = {column_name: column._type or "" for column, column_name in preview._outputs}
@@ -4847,7 +4848,7 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     lines = [said + "."]
     if proposed:
         lines.append(f"Its Key, proposed from its logic: {in_words(proposed[0])}.")
-    lines += _todo_lines_left(name, text)
+    lines += _todo_lines_report(name, text)
     still_open = decisions.open_decisions(text, name)
     if still_open:
         lines.append("Answer each open Decision in the new_table Workflow's decisions cell: "
