@@ -54,8 +54,10 @@ def test_a_query_comes_before_its_table_and_the_table_before_the_formulas_readin
         '2. Excel Table "Keys"',
         '3. Excel Table "job_runs"',
         '4. Power Query "ok_runs", reads Excel Table "job_runs"',
-        '5. Excel Table "ok_runs", reads Power Query "ok_runs"',
-        '6. Excel Table "ok_by_job", reads Excel Table "ok_runs"',
+        '5. Excel Table "ok_runs", loaded by Power Query "ok_runs"',
+        '6. Excel Table "ok_by_job", its formulas read Excel Table "ok_runs"',
+        "Each final's query reads the steps it needs as CTEs in this order, each CTE after "
+        "every CTE it reads.",
     ]
     text = workbook_text.workbook_text(FIXTURES / "01_query_table_formula.xlsx")
     assert '  Excel Table "ok_runs", A1:C6, loaded by Power Query "ok_runs"' in text
@@ -64,10 +66,10 @@ def test_a_query_comes_before_its_table_and_the_table_before_the_formulas_readin
 
 
 def test_a_query_comes_after_the_connection_only_query_it_reads() -> None:
-    assert order_of(FIXTURES / "02_query_reads_query.xlsx")[4:] == [
+    assert order_of(FIXTURES / "02_query_reads_query.xlsx")[4:7] == [
         '5. Power Query "staffed", reads Excel Table "jobs", Excel Table "job_owners"',
         '6. Power Query "owners_by_team", reads Power Query "staffed"',
-        '7. Excel Table "owners_by_team", reads Power Query "owners_by_team"',
+        '7. Excel Table "owners_by_team", loaded by Power Query "owners_by_team"',
     ]
     text = workbook_text.workbook_text(FIXTURES / "02_query_reads_query.xlsx")
     assert 'Power Query "staffed" (connection only):' in text
@@ -96,9 +98,9 @@ def test_a_power_query_sheet_gives_each_query_loading_the_table_of_its_name() ->
     assert 'Power Query "ok_runs" (loads into Excel Table "ok_runs"):' in text
     assert '  Excel Table "ok_by_job", A1:B4, loaded by Power Query "ok_by_job"' in text
     assert "Query ok_runs:" not in text
-    assert text.split(ORDER)[1].splitlines()[-2:] == [
+    assert text.split(ORDER)[1].splitlines()[-3:-1] == [
         '  6. Power Query "ok_by_job", reads Power Query "ok_runs"',
-        '  7. Excel Table "ok_by_job", reads Power Query "ok_by_job"']
+        '  7. Excel Table "ok_by_job", loaded by Power Query "ok_by_job"']
 
 
 def test_a_section_documents_queries_are_read_past_strings_comments_and_quoted_names() -> None:

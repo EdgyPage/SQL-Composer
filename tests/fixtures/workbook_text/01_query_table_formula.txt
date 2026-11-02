@@ -47,5 +47,6 @@ Order, each piece after every piece it reads:
   2. Excel Table "Keys"
   3. Excel Table "job_runs"
   4. Power Query "ok_runs", reads Excel Table "job_runs"
-  5. Excel Table "ok_runs", reads Power Query "ok_runs"
-  6. Excel Table "ok_by_job", reads Excel Table "ok_runs"
+  5. Excel Table "ok_runs", loaded by Power Query "ok_runs"
+  6. Excel Table "ok_by_job", its formulas read Excel Table "ok_runs"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

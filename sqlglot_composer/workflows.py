@@ -786,7 +786,7 @@ def show_the_change(inputs: dict[str, object], calls: Calls) -> list[str]:
     with contextlib.redirect_stdout(printed):
         show_hive(change)
     lines = printed.getvalue().rstrip("\n").split("\n")
-    check = check_first_hive(change)
+    check = first_check_hive(change)
     if check is None:
         return lines
     if calls.dry_run:
@@ -800,7 +800,7 @@ CHECK_FIRST = re.compile(
     r"^Check first: (?P<check>(SHOW PARTITIONS|DESCRIBE FORMATTED|DESCRIBE) \S+) ")
 
 
-def check_first_hive(change: Statement) -> str | None:
+def first_check_hive(change: Statement) -> str | None:
     """The Hive of the check an Admin statement's Check first line names, such as
     SHOW PARTITIONS mart.daily_runs; None for one with no such line."""
     for said in change._admin_about:
@@ -1117,7 +1117,7 @@ NEW_TABLE = Workflow(
              every_preview_builds,
              goal="logic in each Table notebook that loads, so its `preview()` builds",
              action="for each table in `TABLES`, open its Table notebook, in its Table "
-             "folder, and do as the rules below say. If `QUERIES` gives the table's query, "
+             "folder. If `QUERIES` gives the table's query, "
              "its logic is written already, from that query: read its logic cell, the one "
              "whose first line is `# logic`, and each `# CONVERSION:` line in it, which "
              "`project.check()` lists too, and change nothing unless you want to, since step 8 "
@@ -1318,7 +1318,9 @@ CHANGE_A_SAVED_TABLE = Workflow(
              "reads. If you wrote another Admin statement in step 1, first write the check its "
              '`Check first` line names in place of `"SHOW PARTITIONS "`, such as '
              '`"DESCRIBE FORMATTED "` for `admin.drop_table` or `"DESCRIBE "` for '
-             "`admin.add_columns`. Read the Hive and the rows the check prints.",
+             "`admin.add_columns`. Read the Hive and the rows the check prints. The Example "
+             "database holds no Saved table, so on it the check stops, naming the table it "
+             "can't find: run this step at work.",
              done_when="that check shows the change reaches only what you mean it to"),
         Step("Send it, then any check after it, such as admin.check_the_copy", PERMISSION,
              ("its Hive, read and checked",),

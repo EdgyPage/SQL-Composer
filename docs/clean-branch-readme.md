@@ -254,7 +254,8 @@ Restart the kernel of a notebook that imported references, to see a table added 
 3. **Fill in what the table can't say.** Goal: each file complete. Action: fill in each file's
    TODO lines: what one row is, its Key, and which columns don't add up, such as averages.
    Below it, you may add **Aliases**, your own names for its columns and conditions. Done when
-   no TODO line is left; then step 4.
+   no TODO line is left. A `does_not_add_up=` line is filled in by naming its columns, or, when
+   no column is one, by deleting its TODO; then step 4.
 4. **Import the Database.** Goal: every table of the Database from one import. Action: run
    `from references import ops`; each column is at a dot after its table, as below. Done when
    `ops.job_runs.status` shows `job_runs.status`; then step 5.
@@ -337,7 +338,7 @@ Beeline or DBeaver.
 4. **Run a Worked example.** Goal: any function's example in your own notebook. Action: find
    it, `help(to_hive)` shows the one for `to_hive`, then run the lines below first and paste
    the example after them. Done when the example shows the rows its docstring shows; then go
-   on to 4. Count, join and stay safe.
+   on to section 4, "Count, join and stay safe".
 
 ```python
 from sqlglot_composer import *
@@ -618,10 +619,11 @@ read it.
 2. **Name the batch.** Goal: the Workflow knows what to convert, and what each table it makes
    is called. Action: name the batch and its scripts in its names cell, `NAME` and `FILES`,
    fill in DEV, your Dev Database, in `admin/databases.py`, and save the notebook. Each table
-   the batch makes in dev is named by the rules below; give a name of your own in the names
-   cell's `RENAME` before you go on. Done when both are filled in; then step 3.
+   the batch makes in dev is named by the rules below; you may give one a name of your own
+   in the names cell's `RENAME`. Done when both are filled in; then step 3.
    - If a script writes a table, such as `INSERT OVERWRITE TABLE mart.team_fails`, its copy in
-     dev is named for that table, then its database: `mart_dev.team_fails_mart`. If you want
+     dev is named for that table, then the original's database: `mart_dev.team_fails_mart`,
+     so two databases' tables of one name stay apart in your Dev Database. If you want
      the copy to keep the original's name, give it in `RENAME`, the name alone, without a
      database: `RENAME = {"mart.team_fails": "team_fails"}` makes `mart_dev.team_fails`.
    - If the batch is one file holding a query alone, one that writes no table, its table is
