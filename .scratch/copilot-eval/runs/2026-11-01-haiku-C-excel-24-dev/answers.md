@@ -1381,3 +1381,429 @@ LEFT JOIN (
 ### Next
 
 Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X05
+
+### Map
+
+**Sources**
+- job_runs, its typed columns (run_id, dt), read from `<database>.job_runs`.
+- region_costs, its typed columns (job_id, cost_cents, region, dt), read from `<database>.region_costs`.
+
+**Steps**
+- None. No query is in the workbook, and no Table's formula reads another Table.
+
+**Finals**
+- job_runs (run_id, dt, month, days_since). Its formulas read its own row, and nothing else reads it, so it is a final.
+- region_costs (job_id, cost_cents, region, dt, day). Nothing reads it, so it is a final.
+
+**Settings, neither a source, step nor final**
+- Parameters: empty, and no formula reads it. Left out.
+- Keys: empty, and no value is typed over a formula, so no row is needed. Left out.
+
+**Values written in**
+- None. Parameters is empty and no summary is in the workbook.
+
+**Values typed over a formula**
+- None. Every formula cell holds its formula.
+
+**Marks**
+- region_costs, day: dt holds dates as text (20260911), so day is built from its parts with CONCAT and SUBSTR, as text in the form yyyy-mm-dd, not as a date type.
+
+**Refusals**
+- None.
+
+**Left alone**
+- Parameters and Keys, as above.
+- The Steps sheet and the D1 notes on the Parameters and Keys sheets: cells outside a Table.
+
+**<...> to fill in**
+- `<database>` in the FROM line of each final.
+
+### Hive
+
+```sql
+SELECT run_id, dt, MONTH(dt) AS month, DATEDIFF(dt, '2026-09-01') AS days_since
+FROM <database>.job_runs
+```
+
+```sql
+SELECT job_id, cost_cents, region, dt,
+  CONCAT(SUBSTR(dt, 1, 4), '-', SUBSTR(dt, 5, 2), '-', SUBSTR(dt, 7, 2)) AS day
+FROM <database>.region_costs
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X10
+
+### Map
+
+**Sources**
+- job_runs, its typed columns (run_id, job_id, duration_mins, dt), read from `<database>.job_runs`.
+
+**Steps**
+- None.
+
+**Finals**
+- job_runs (run_id, job_id, duration_mins, dt, hours, sample). Its formulas read its own row, and nothing else reads it, so it is a final.
+
+**Settings, neither a source, step nor final**
+- Parameters: empty, and no formula reads it. Left out.
+- Keys: empty. There is no Keys row for job_runs, although one value is typed over a formula. So the typed-over value is matched on every typed column of its row (run_id, job_id, duration_mins, dt), and the map says there is no Keys row. A Keys row for job_runs with run_id would let the match use run_id alone.
+
+**Values written in**
+- None.
+
+**Values typed over a formula**
+- job_runs, hours, at run_id 103 (run_id 103, job_id 3, duration_mins 30, dt 2026-09-24): typed as 9, where the formula gives 30 / 60. Matched on every typed column, as there is no Keys row.
+
+**Marks**
+- None.
+
+**Refusals**
+- job_runs, sample (`=RAND()`): `NULL AS sample`. RAND has no Hive here, and its value changes on each calculation.
+
+**Left alone**
+- Parameters and Keys, as above.
+- The Steps sheet and the D1 notes on the Parameters and Keys sheets: cells outside a Table.
+
+**<...> to fill in**
+- `<database>` in the FROM line.
+
+### Hive
+
+```sql
+SELECT run_id, job_id, duration_mins, dt,
+  CASE WHEN run_id = 103 AND job_id = 3 AND duration_mins = 30 AND dt = '2026-09-24' THEN 9 ELSE duration_mins / 60 END AS hours,
+  NULL AS sample
+FROM <database>.job_runs
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X15
+
+### Map
+
+- **Sources:** `<database>.tblRuns`, its typed columns: `<run_id>` (Run ID), `<job_id>` (Job ID), `<duration_mins>` (Duration (mins)).
+- **Steps:** none.
+- **Finals:** tblRuns (`<run_id>`, `<job_id>`, `<duration_mins>`, hours). It has a formula column, no query loads it, and no other Table's formula or query reads it, so it is a final. Its formula column hours reads its own row only.
+- **Settings, never a source, step or final:** Parameters (empty, and no formula reads it) and Keys (empty, since no value is typed over a formula, so no Keys row is needed).
+- **Values written in:** none.
+- **Values typed over a formula:** none. Every Hours cell holds the formula.
+- **Marks:** none.
+- **Refusals:** none.
+- **Left alone:** the Steps sheet, and the D1 notes on the Parameters and Keys sheets, as cells outside a Table.
+- **`<...>` to fill in:** `<database>`, `<run_id>`, `<job_id>`, `<duration_mins>`.
+
+### Hive
+
+```sql
+SELECT <run_id>, <job_id>, <duration_mins>,
+  <duration_mins> / 60 AS hours
+FROM <database>.tblRuns
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X20
+
+### Map
+
+- **Sources:** `<database>.run_alerts`, its typed columns: alert_id, run_id, severity, dt. No query loads it, and it has no formula, so it is a source.
+- **Steps:** none. Query alert_pivot names no other query, so its steps are flattened into its final's SELECT.
+- **Finals:** alert_pivot (run_id, high, low), the Table that Power Query alert_pivot loads. No formula reads it, so it is a final, and its rows are the query's. The query and the Table are two pieces, the query's Hive is the Table's final block.
+- **Settings, never a source, step or final:** Parameters (empty, and no formula reads it) and Keys (empty, since no value is typed over a formula, so no Keys row is needed).
+- **Values written in:** none. The Table alert_pivot is not a summary, so its rows are not typed in; they come from the query.
+- **Values typed over a formula:** none.
+- **Marks:**
+  - Table.Pivot: the pivot's columns high and low are fixed now, as the severity values in the sample, so a new severity will not get a column. Each run with no row for a severity is NULL there, as M leaves it.
+  - Table.Pivot groups by run_id, the one column it does not pivot.
+- **Refusals:** none.
+- **Left alone:** the Steps sheet, and the D1 notes on the Parameters and Keys sheets, as cells outside a Table.
+- **`<...>` to fill in:** `<database>`.
+
+### Hive
+
+```sql
+SELECT run_id,
+  SUM(CASE WHEN severity = 'high' THEN 1 END) AS high,
+  SUM(CASE WHEN severity = 'low' THEN 1 END) AS low
+FROM <database>.run_alerts
+WHERE run_id = 97 OR run_id = 101
+GROUP BY run_id
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X45
+
+### Map
+
+**Sources**
+- `job_runs`: run_id, job_id, status, duration_mins, avg_retry_secs, dt (its typed columns, read as `<database>.job_runs`)
+- `scheduler_runs`: run_id, job_id, dt (its typed columns, read as `<database>.scheduler_runs`)
+
+**Steps**
+- None. No formula reads a Table, and no query is read by another query, so nothing is a CTE.
+
+**Finals**
+- Table `run_days` (run_id, dt), loaded by query `run_days`. Its rows are the query's. The query's M is the block itself, not a CTE, as nothing reads the query. Table.Combine inside Table.Distinct makes a UNION.
+- Table `matched` (run_id, job_id, dt, status), loaded by query `matched`. Its rows are the full outer join of scheduler_runs with job_runs, with status expanded from job_runs.
+
+**Values written in:** none.
+
+**Values typed over a formula:** none. The workbook has no formula column.
+
+**Marks:** none.
+
+**Refusals:** none.
+
+**Left alone:** Parameters and Keys, the two settings Tables, both empty. They are never a source, step or final, and Keys needs no row because no value is typed over a formula. Also left alone are the cells outside a Table: the Steps sheet, and the D1 notes on the Parameters and Keys sheets.
+
+**To fill in:** `<database>`, the database that holds job_runs and scheduler_runs, in both blocks.
+
+### Hive
+
+```sql
+SELECT run_id, dt FROM <database>.job_runs
+UNION
+SELECT run_id, dt FROM <database>.scheduler_runs
+```
+
+```sql
+SELECT s.run_id, s.job_id, s.dt, r.status
+FROM <database>.scheduler_runs s
+FULL OUTER JOIN <database>.job_runs r ON s.run_id = r.run_id
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X55
+
+### Map
+
+**Sources**
+- `jobs`: job_id, job_name, team, region (its typed columns, read as `<database>.jobs`)
+
+**Steps**
+- None.
+
+**Finals**
+- Table `jobs` (job_id, job_name, team, region, title, tag, code, has_sync, tens). Its formula columns read only its own row, so they don't make it a step, and nothing else reads it: it is a final.
+
+**Values written in:** none.
+
+**Values typed over a formula:** none.
+
+**Marks:** none.
+
+**Refusals:** none.
+
+**Left alone:** Parameters and Keys, the two settings Tables, both empty. They are never a source, step or final, and Keys needs no row because no value is typed over a formula. Also left alone are the cells outside a Table: the Steps sheet, and the D1 notes on the Parameters and Keys sheets.
+
+**To fill in:** `<database>`, the database that holds jobs, in the block below.
+
+### Hive
+
+```sql
+SELECT job_id, job_name, team, region,
+  INITCAP(REPLACE(job_name, '_', ' ')) AS title,
+  CONCAT_WS('/', team, region) AS tag,
+  CONCAT(region, '-', job_id) AS code,
+  INSTR(LOWER(job_name), LOWER('SYNC')) > 0 AS has_sync,
+  CAST(CONCAT(job_id, '0') AS DOUBLE) AS tens
+FROM <database>.jobs
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X68
+
+### Map
+
+**Sources**
+- `<database>.job_runs`: typed columns run_id, job_id, status, duration_mins, avg_retry_secs, dt. Read by step base.
+- `<database>.jobs`: typed columns job_id, job_name, team, region. Read by step base: job_id, job_name.
+- `<database>.region_budgets`: typed columns job_id, budget_cents, region. Read by step base: job_id, region.
+
+**Steps**
+- Query base, a CTE `base` in the blocks of Table by_region (its final and its Total Row) and Table top_runs. It reads the three sources: job_runs inner joined to jobs, then left joined to region_budgets, as M's Inner and LeftOuter joins. Columns: run_id, job_id, status, duration_mins, avg_retry_secs, dt, job_name, region.
+
+**Finals** (Hive blocks in this order)
+1. Table by_region: columns region, total_mins, runs, share. Its rows are query by_region's: base grouped by region, keeping the groups with at least 2 runs. Query by_region loads only this Table and nothing reads it, so it is this final's query and has no block of its own. share is a formula column by file 11: `total_mins / SUM(total_mins) OVER ()`, over the Table's rows.
+2. Table by_region (Total Row): total_mins only. The Total Row's region cell is the label Total, and its runs and share cells are empty, so there is no column for them. SUBTOTAL(109, ...) is a SUM.
+3. Table top_runs: columns run_id, job_name, region. Its rows are query top_runs': base sorted by duration_mins descending, then run_id ascending, the first 2 rows, with those three columns. Query top_runs loads only this Table, so it is this final's query and has no block of its own.
+
+**Values written in**: none. Parameters is empty, so no XLOOKUP value is written in. by_region is grouped by a query, not a summary typed in.
+
+**Values typed over a formula**: none. Keys is empty, so no Keys row is needed.
+
+**Marks**: none.
+
+**Refusals**: none.
+
+**Left alone**: Parameters and Keys. Both are empty settings Tables, never a source, step or final.
+
+**`<...>` to fill in**: `<database>` in each read of job_runs, jobs and region_budgets (in base, so in each block).
+
+### Hive
+
+```sql
+WITH base AS (
+  SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, r.dt,
+    j.job_name, b.region
+  FROM <database>.job_runs r
+  JOIN <database>.jobs j ON r.job_id = j.job_id
+  LEFT JOIN <database>.region_budgets b ON r.job_id = b.job_id
+),
+grouped AS (
+  SELECT region, SUM(duration_mins) AS total_mins, COUNT(*) AS runs
+  FROM base
+  GROUP BY region
+  HAVING COUNT(*) >= 2
+)
+SELECT region, total_mins, runs, total_mins / SUM(total_mins) OVER () AS share
+FROM grouped
+```
+
+```sql
+WITH base AS (
+  SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, r.dt,
+    j.job_name, b.region
+  FROM <database>.job_runs r
+  JOIN <database>.jobs j ON r.job_id = j.job_id
+  LEFT JOIN <database>.region_budgets b ON r.job_id = b.job_id
+),
+grouped AS (
+  SELECT region, SUM(duration_mins) AS total_mins, COUNT(*) AS runs
+  FROM base
+  GROUP BY region
+  HAVING COUNT(*) >= 2
+),
+by_region AS (
+  SELECT region, total_mins, runs, total_mins / SUM(total_mins) OVER () AS share
+  FROM grouped
+)
+SELECT SUM(total_mins) AS total_mins
+FROM by_region
+```
+
+```sql
+WITH base AS (
+  SELECT r.run_id, r.job_id, r.status, r.duration_mins, r.avg_retry_secs, r.dt,
+    j.job_name, b.region
+  FROM <database>.job_runs r
+  JOIN <database>.jobs j ON r.job_id = j.job_id
+  LEFT JOIN <database>.region_budgets b ON r.job_id = b.job_id
+)
+SELECT run_id, job_name, region
+FROM base
+ORDER BY duration_mins DESC, run_id ASC
+LIMIT 2
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X79
+
+### Map
+
+**Sources**: none. job_runs has formula columns and nothing else reads it, so it is a final, not a source.
+
+**Steps**: none.
+
+**Finals**
+1. Table job_runs: columns run_id, job_id, status, duration_mins (typed, read from `<database>.job_runs`), kept and long_or_failed (formula columns, by file 11). Nothing loads or reads job_runs apart from its own formulas, so it is a final, its rows read from the database.
+
+**Values written in**: none.
+
+**Values typed over a formula**: none. Keys is empty, so no Keys row is needed.
+
+**Marks**: blank. The sample has a blank status (run 98, Row 5), and both formulas read status, so each writes COALESCE(status, '') in place of status. IF is not an -IF(S) form, so the column is not left as it is.
+
+**Refusals**: none.
+
+**Left alone**: Parameters and Keys. Both are empty settings Tables, never a source, step or final.
+
+**`<...>` to fill in**: `<database>` in the FROM.
+
+### Hive
+
+```sql
+SELECT run_id, job_id, status, duration_mins,
+  IF(COALESCE(status, '') <> '' AND COALESCE(status, '') <> 'TEST', 1, 0) AS kept,
+  IF((duration_mins > 25 OR COALESCE(status, '') = 'FAILED'), 'yes', 'no') AS long_or_failed
+FROM <database>.job_runs
+```
+
+### Next
+
+Take out what you don't want, fill in each `<...>`, save each query as a .hql file named for its final, and run the convert Workflow on them as one batch (file 13). It writes and checks the Toolbox code.
+
+## X82
+
+### Map
+
+**Sources**
+- job_runs: its typed columns run_id, job_id, status, duration_mins and dt, read from `<database>.job_runs`.
+
+**Steps**
+- None.
+
+**Finals**
+- job_runs (run_id, job_id, status, duration_mins, dt, needs_look, failed_long_mins, failed_or_late): no query loads it, and no Table formula reads it, so it is a final. It has formula columns, so it is not a source alone. Its query reads the source directly, with no CTE.
+- Parameters and Keys are never a source, step or final.
+
+**Values written in**
+- None. No formula reads Parameters, and there is no summary.
+
+**Values typed over a formula**
+- None. Every formula cell holds its formula, and Keys is empty, so there is no Keys row and no CASE.
+
+**Marks**
+- blank: needs_look reads status, which is blank in run_id 98 (row 5). Written as `COALESCE(status, '')`, so the blank is not FAILED, as in Excel. failed_long_mins and failed_or_late compare status inside SUMPRODUCT conditions, which skip a blank, so they are written as they are.
+- whole-column totals: failed_long_mins and failed_or_late read their own Table, so each is written with `OVER ()`, and every row shows the same total, as Excel's SUMPRODUCT does.
+- failed_or_late: the `+` in `((..)+(..)>0)` is an OR, so it is written as `status = 'FAILED' OR dt = '2026-09-24'`.
+- check: dt is compared with the text '2026-09-24', as Excel's formula does. If dt holds a real date in the workbook rather than text, Excel's comparison never matches, so confirm dt is text before the run.
+
+**Refusals**
+- None. No formula in the workbook is refused.
+
+**Left alone**
+- Parameters: an empty settings Table, which no formula reads.
+- Keys: an empty settings Table, as no value is typed over a formula.
+- The Steps sheet, and the notes in D1 of the Parameters and Keys sheets: text outside a Table, not calculations.
+- No charts, PivotTables or defined names are listed in the workbook.
+
+**To fill in**
+- `<database>` in job_runs's FROM clause.
+
+### Hive
+
+```sql
+SELECT run_id, job_id, status, duration_mins, dt,
+  IF((COALESCE(status, '') = 'FAILED' OR duration_mins > 25) AND NOT (job_id = 1), 1, 0) AS needs_look,
+  SUM(CASE WHEN status = 'FAILED' AND duration_mins > 15 THEN duration_mins ELSE 0 END) OVER () AS failed_long_mins,
+  COUNT(CASE WHEN status = 'FAILED' OR dt = '2026-09-24' THEN 1 END) OVER () AS failed_or_late
+FROM <database>.job_runs
+```
+
+### Next
+
+Take out what you don't want, fill in `<database>`, save the query as a .hql file named job_runs.hql, and run the convert Workflow on it as one batch (file 13). It writes and checks the Toolbox code.
