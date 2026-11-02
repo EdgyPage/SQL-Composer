@@ -147,7 +147,9 @@ process of its own.
 - [20 What ticket 19's round found, fixed, then everything tested
   again](issues/20-the-ticket-19-rounds-findings.md), the user's ask
 - [21 What ticket 20's round found, and the Excel dependency order made
-  explicit](issues/21-the-ticket-20-rounds-findings.md), waiting on the user
+  explicit](issues/21-the-ticket-20-rounds-findings.md), the user's ask
+- [22 A workbook as text, in dependency order, with nothing but
+  Python](issues/22-workbook-text-in-dependency-order.md), the user's ask
 
 One at a time, by number. 01 to 03 are built before any round, so round one measures the docs
 as main ships them. A Toolbox bug a round finds gets a ticket of its own, numbered on.
