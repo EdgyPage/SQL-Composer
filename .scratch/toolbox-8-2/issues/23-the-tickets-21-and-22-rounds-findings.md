@@ -1,7 +1,7 @@
 # What the tickets 21 and 22 round found, fixed, then everything tested again
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 22
 Size: M
 
@@ -46,6 +46,45 @@ only at the end of them.
   had a stray comma.
 - Every Copilot file stays at 8,000 characters or fewer.
 - Everything tested again, as ticket 21 did.
+
+## Answer
+
+- **The CONVERSION opt-out.**
+  - A checklist note leads with the opt-out and says what the Toolbox refuses without it.
+  - It names a fix, and each note is said once.
+  - check() gives the next steps before the notes.
+- **convert.**
+  - Its seed cell prints "Seeded nothing" when no table reads itself, and promote's does too.
+  - check() ends with "Done: each convert batch below."
+  - The compare step says it checks the latest Partition, and gives `partition=` for another.
+- **references.**
+  - The Key step gives a check_key cell for a Key still open.
+  - The write step says what an empty `does_not_add_up=[]` means.
+  - check() gives a Why line for a pending refresh.
+- **The README.** Section 1, step 3, says where a Project's folder goes.
+- **Excel.**
+  - Step 6 keeps a value a formula matches on in the formula.
+  - File 11 has the map name a Parameters value or a summary's groups written into the Hive.
+  - File 15's Output lists "each value written in".
+- **The harness.**
+  - The loop's message says `--cells` takes `--list`'s numbers, and shows an escaped decisions
+    line.
+  - The scorer scores a static-partition INSERT in its dynamic form.
+- **A bug the work found.** Three queries stacked with UNION ALL convert to one UNION_ALL.
+
+Tested again in a targeted round, from main as 211907ae left it, with the user's OK
+(`.scratch/copilot-eval/results.md`; `.scratch/usability-loop/results.md`, "The tickets 23 and 24
+round"):
+
+| Check | Dev | Held out |
+|---|---|---|
+| Copilot evaluation, objectives 13 and 16 | 100% of 6 | 100% of 3 |
+| Excel evaluation | 100% of 42 | 98% of 42 |
+| Usability loop, W1, W3, H1, E1 to E4 | every scenario 3/3 | each scenario 1/1 |
+
+X69 failed as in the round before: a passed-through dt given the date held as text conversion.
+Every Excel answer named its typed-in groups in the map, and every route proxy named files 15,
+11 and 12. What the round found, none failing a run, is in the results.
 
 ## Review
 

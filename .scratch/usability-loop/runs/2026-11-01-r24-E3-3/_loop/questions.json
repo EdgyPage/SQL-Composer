@@ -1,0 +1,3 @@
+[
+ "Convert this workbook. Its job_runs is copied from ops.job_runs, so read ops.job_runs for each <database>. I need the Hive for the daily Table; its Total Row is not needed."
+]

@@ -1,0 +1,37 @@
+Sheet "Steps": the empty Formula workbook's steps, as it ships.
+Sheet "Parameters"
+  Excel Table "Parameters", A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP("tax_rate", Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet "Keys"
+  Excel Table "Keys", A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table's name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet "job_runs"
+  Excel Table "job_runs", A2:F11
+    Headers: run_id | job_id | status | duration_mins | avg_retry_secs | dt
+    Row 2: 95 | 1 | SUCCESS | 12 | 2 | 2026-09-23
+    Row 3: 96 | 2 | SUCCESS | 18 | 0 | 2026-09-23
+    Row 4: 97 | 3 | FAILED | 30 | 8 | 2026-09-23
+    Row 5: 98 | 2 |  | 15 |  | 2026-09-23
+    Row 6: 99 | 1 | TEST | 5 | 0 | 2026-09-23
+    Row 7: 101 | 1 | SUCCESS | 10 | 1 | 2026-09-24
+    Row 8: 102 | 2 | FAILED | 20 | 6 | 2026-09-24
+    Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24
+    Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24
+  A1: Copied from ops.job_runs
+Sheet "run_report"
+  Excel Table "run_report", A1:D4
+    Headers: job_id | runs | failed_runs | avg_duration_mins
+    Row 2: 1 | =COUNTIFS(job_runs[job_id],[@job_id]) | =COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"FAILED") | =AVERAGEIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])
+    Row 3: 2 | =COUNTIFS(job_runs[job_id],[@job_id]) | =COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"FAILED") | =AVERAGEIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])
+    Row 4: 3 | =COUNTIFS(job_runs[job_id],[@job_id]) | =COUNTIFS(job_runs[job_id],[@job_id],job_runs[status],"FAILED") | =AVERAGEIFS(job_runs[duration_mins],job_runs[job_id],[@job_id])
+  F1: One row per job: its runs, how many failed, its average minutes.
+Order, each piece after every piece it reads:
+  1. Excel Table "Parameters"
+  2. Excel Table "Keys"
+  3. Excel Table "job_runs"
+  4. Excel Table "run_report", its formulas read Excel Table "job_runs"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

@@ -1,0 +1,11 @@
+DONE: Made the Formula workbook for the Teams sheet and saved it as C:\Users\myfir\AppData\Local\Temp\usability-loop\runs\2026-11-01-r24-E2-2\my_work\team_report_formula.xlsx. It is a copy of main/copilot/formula_workbook.xlsx, filled in by openpyxl following the Steps sheet (steps 1 to 12 and the checks), with the Steps, Parameters and Keys sheets kept as the template has them.
+
+What is in it:
+- Sheet `jobs` (Table `jobs`, A2:D6): the raw Jobs data (job_id, job_name, team, region), values only. A1 holds the note "Copied from ops.jobs", inserted above the header as step 2 says.
+- Sheet `job_runs` (Table `job_runs`, A2:G11): the raw Runs data (run_id, job_id, status, duration_mins, avg_retry_secs, dt) as values, with A1 "Copied from ops.job_runs". Column G, `team`, is the one calculation, written once per row as `=_xlfn.XLOOKUP(job_runs[[#This Row],[job_id]],jobs[job_id],jobs[team])`, replacing the VLOOKUP on Jobs.
+- Sheet `teams` (Table `teams`, A1:C4): the summary rebuilt as a Table, one row per team (data, finance, web). Columns: team (typed), runs = `=COUNTIFS(job_runs[team],teams[[#This Row],[team]])`, total_duration_mins = `=SUMIFS(job_runs[duration_mins],job_runs[team],teams[[#This Row],[team]])`. The original note in E1 is kept. No Total Row was added, since the original Teams sheet had none.
+- Parameters and Keys are empty, because the source has no fixed values in its formulas, no running totals, and no typed-over formula values (every formula cell in the source is still a formula).
+
+Checks: each raw table is a named Table on its own sheet with one header row; the calculations are formula columns or a summary Table; nothing outside the Tables needs converting. Reloaded the saved file and confirmed the sheets, Table ranges and formulas.
+
+Points for the data team: the status cell on Runs for run_id 98 is blank and run 99 has status "TEST"; both are copied as they were, and the summary counts them, as the original Teams sheet did (expected results: data 4 runs / 67 minutes, finance 5 / 113, web 0 / 0). Step 12 is theirs, since the workbook goes to them to convert, so I did not run workbook_text.py or ask Copilot. The build script is at C:\Users\myfir\AppData\Local\Temp\usability-loop\runs\2026-11-01-r24-E2-2\my_work\build_team_report_formula.py. Nothing in _loop/ or main/ was changed.

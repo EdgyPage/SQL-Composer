@@ -1,0 +1,3 @@
+[
+ "Convert this workbook. Its one final is the run_report Table, to become one Hive query for a table named job_run_report; the raw job_runs Table is copied from ops.job_runs, as its note says. Keep to the steps and reply with the map and the Hive, with any name you can't know written in angle brackets."
+]

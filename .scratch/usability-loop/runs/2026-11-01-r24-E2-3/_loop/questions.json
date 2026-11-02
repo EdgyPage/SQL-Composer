@@ -1,0 +1,3 @@
+[
+ "Convert this workbook. It is a Formula workbook laid out as formula_workbook.xlsx shows, and its text from workbook_text.py is attached. Its Tables come from ops.jobs and ops.job_runs in our warehouse, so write ops for <database>. Reply in the shape file 15 gives: the map, then the Hive for each final, one sql block per final."
+]

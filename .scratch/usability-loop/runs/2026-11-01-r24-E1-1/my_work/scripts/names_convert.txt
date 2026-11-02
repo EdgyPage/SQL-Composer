@@ -1,0 +1,6 @@
+NAME = "job_run_report"  # the batch's name, plain lowercase: one file, so its table is mart_dev.job_run_report
+FILES = ["job_run_report.hql"]  # the scripts' files, from this folder
+HIVE = None  # the Hive as text, or None to read FILES
+DATABASE = 'default'  # the database of a table the Hive names without one
+RENAME = {}  # a name of your own for a table's copy in dev, by the table's full name
+STAGING = {}  # each staging table convert names, kept or folded

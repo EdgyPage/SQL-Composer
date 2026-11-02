@@ -1,7 +1,7 @@
 # Copilot file 16: the promote Workflow on its own, and file 13's wording given back
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 23
 Size: S
 
@@ -29,6 +29,30 @@ characters, and no Copilot evaluation task tests them.
 - The docs that list the Copilot files list 16: the README, `docs/copilot-eval.md`,
   `CHANGES.md`. Every Copilot file stays at 8,000 characters or fewer.
 - Tested with tickets 23's round.
+
+## Answer
+
+- `copilot/16_workflows_promote.txt` holds the promote Workflow on its own.
+  - Its location rule follows the code.
+  - It gives `rename=`, and says where query and execute come from.
+- File 13 holds convert alone, its ticket 23 wording given back, with 1,200 characters to spare.
+- File 00 routes promoting to 16, and files 01 and 14 name it.
+- The evaluation's objective 16 has T40 and T41 (dev) and T42 (held out), each run after T39's
+  convert, with two wrong-answer controls.
+
+Tested again in a targeted round, from main as 211907ae left it, with the user's OK
+(`.scratch/copilot-eval/results.md`; `.scratch/usability-loop/results.md`, "The tickets 23 and 24
+round"):
+
+| Check | Dev | Held out |
+|---|---|---|
+| Copilot evaluation, objectives 13 and 16 | 100% of 6 | 100% of 3 |
+| Excel evaluation | 100% of 42 | 98% of 42 |
+| Usability loop, W1, W3, H1, E1 to E4 | every scenario 3/3 | each scenario 1/1 |
+
+X69 failed as in the round before: a passed-through dt given the date held as text conversion.
+Every Excel answer named its typed-in groups in the map, and every route proxy named files 15,
+11 and 12. What the round found, none failing a run, is in the results.
 
 ## Review
 

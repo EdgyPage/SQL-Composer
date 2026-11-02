@@ -1,0 +1,3 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+mart_dev.failed_runs,job_id,bigint,,yes,,,2026-11-01 23:10:03
+mart_dev.failed_runs,fails,bigint,,,,,2026-11-01 23:10:03

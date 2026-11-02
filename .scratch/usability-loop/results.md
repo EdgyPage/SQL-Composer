@@ -627,3 +627,76 @@ three-file rule for a workbook. Those two runs were answered with files 15, 11 a
     out. Nothing tells the user (E3-3, E2-3).
   - A Parameters value is typed into the Hive, so a changed rate won't reach the table
     (E4-1). Neither point is said where the user reads the map.
+| 2026-11-01 | W1 | dev | 2026-11-01-r24-W1-1 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; RENAME used; compared both Partitions with partition= |
+| 2026-11-01 | W1 | dev | 2026-11-01-r24-W1-2 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; references Workflow first, unsaid in the convert how-to; flagged the original's 14x join |
+| 2026-11-01 | W1 | dev | 2026-11-01-r24-W1-3 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; compared the other Partition from a script |
+| 2026-11-01 | W3 | dev | 2026-11-01-r24-W3-1 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; ran a wrong --cells once, as its own count; a dev-only job's end unsaid |
+| 2026-11-01 | W3 | dev | 2026-11-01-r24-W3-2 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; seed sent nothing, as said |
+| 2026-11-01 | W3 | dev | 2026-11-01-r24-W3-3 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; new_table from a query; its Next line's order differs from the notebook's |
+| 2026-11-01 | H1 | held_out | 2026-11-01-r24-H1-1 | pass | 0 | tickets 23 and 24 rerun, main 211907ae; convert then promote; promote filled team_prod locations; --cells numbering once |
+| 2026-11-01 | E1 | dev | 2026-11-01-r24-E1-3 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; typed groups named in the map; 1 question |
+| 2026-11-01 | E1 | dev | 2026-11-01-r24-E1-2 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; typed groups named; 1 question |
+| 2026-11-01 | E1 | dev | 2026-11-01-r24-E1-1 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; typed groups named; re-ran convert once, harmless; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r24-E2-2 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; typed teams named in the map; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r24-E2-1 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; TODO lines left, as they wait on nothing; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r24-E2-3 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; Done heading for the batch seen; TODO lines left; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r24-E3-1 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; query chain as one CTE; typed days named; Total Row left out on ask; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r24-E3-3 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; ran a write before its decisions, refused clearly; typed days named; 1 question |
+| 2026-11-01 | E4 | held_out | 2026-11-01-r24-E4-1 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; Parameters value written in, named; typed-over value carried; held-out; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r24-E3-2 | pass | 1 | tickets 23 and 24 rerun, main 211907ae; Total Row block dropped; typed days named; 1 question |
+
+## The tickets 23 and 24 round, 2026-11-01: targeted, the paths those tickets changed
+
+Main's tree was built from 211907ae, which holds tickets 23 and 24:
+- the CONVERSION notes say what the Toolbox refuses, and say it once;
+- check() names a finished batch and says why a Reference sheet needs a refresh;
+- the seed cells say when they seed nothing, and the references Key step explains check_key;
+- the README says where a Project folder goes;
+- step 6 keeps a value a formula matches on, and file 11 has Copilot name in the map any value written into the Hive;
+- promote has a Copilot file of its own, 16.
+
+The user OKd a targeted round (2026-11-01). It ran the scenarios whose paths the two tickets
+changed: convert (W1, W3), convert then promote (H1), and the Excel path (E1 to E4). W2, W4, W5
+and H2 were left out, as nothing they run changed since the tickets 21 and 22 round, where each
+passed. Every phase had a fresh Haiku agent, and both Copilot steps ran on Haiku. The 17 rows
+are just above.
+
+| scenario | split | passed | questions | the tickets 21 and 22 round |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 3/3, 0 |
+| W3 | dev | 3/3 | 0 | 3/3, 0 |
+| H1 | held out | 1/1 | 0 | 1/1, 0 |
+| E1 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E2 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E3 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E4 | held out | 1/1 | 1, the convert | 1/1, 1 |
+
+What the tickets did:
+- **The map notes.** Every Excel answer named its summary's typed-in groups, saying a later day
+  or team won't be in the table. Each run said so back to its manager. E4 named its Parameters
+  value written into the Hive.
+- **Routing.** Every route proxy named files 15, 11 and 12. The route message now asks for any
+  file file 00 says goes with one, and no run lost a file.
+- **check() and the seed cells.**
+  - check() named each finished batch done (W3-1, W3-3, E2-3).
+  - The seed cells printed that they seeded nothing (W1-1, W3-2, H1).
+  - H1 promoted with file 16's Workflow, and promote filled each prod location.
+- **step 6.** No run moved "FAILED" into Parameters.
+
+### Found in the tickets 23 and 24 round, none failing a run
+
+- **The runner's cell numbers (W3-1, H1).** Two runs counted the notebook's own cells and ran the
+  wrong one once. `--list` gave the right number. The message says so; the notebook doesn't.
+- **new_table's convert step (W3-3).** Its "Next:" line says to answer the Decisions, then run the
+  next steps. The notebook's order is preview, then reference_from_logic, then the Decisions.
+- **Comparing another Partition (W1-3, H1).** Once the batch is in `finished/`, another Partition
+  is compared from a script, with compare_batch's `partition=`. The step says how, but no cell
+  holds it.
+- **Excel, step 5 (E2-1).** It doesn't say what to name a summary Table. Each run named it for its
+  sheet or file.
+- **X69 (Excel held out, two rounds running).** Copilot gives a passed-through dt the date held as
+  text conversion. File 11's rule says "a date held as text", with no word on a column no formula
+  reads.
+- **The harness: proxy reads.** An Excel proxy message of five workbooks ran past what a proxy
+  reads at once (about 600 lines), so it answered only the first four. Each missing task was run
+  again on its own, and each passed. Groups of two hold.
