@@ -2,11 +2,11 @@
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
-Objective: take the user through converting Hive and promoting it to prod, with {version}, a
-Toolbox that writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
-Load this file when the user asks how to turn Hive into their own tables end to end, or carry
-dev tables to prod. File 14 is for new tables, Table references, upgrades and changes to a
-Saved table; a step's own file, for the Python inside it.
+Objective: take the user through converting Hive and promoting it to prod, with {version}:
+the steps left, each a cell of a Workflow's notebook, in order. Load this file when the user
+asks how to turn Hive into their own tables end to end, or carry dev tables to prod. File 14
+is for new tables, Table references, upgrades and changes to a Saved table; a step's own
+file, for the Python inside it.
 
 ## Terms
 
@@ -36,11 +36,11 @@ Saved table; a step's own file, for the Python inside it.
 
 ## Decision rules
 
-- If the user asks for particular cells, give those: a step's cell runs only once the steps
-  before it are done.
-- If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
-  the user to answer: a Decision is the user's, never yours.
+- If the user asks for particular cells, give those; each runs once the steps before it are
+  done.
+- If the user asks for every step's cell, give each, as listed, in order.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks: a
+  Decision is the user's, never yours.
 - If the user names no rename, staging table or database, write `RENAME = {}`,
   `STAGING = {}` or `DATABASE = "default"`.
 - **Promote a table only once its compare has passed.**
@@ -53,10 +53,9 @@ Saved table; a step's own file, for the Python inside it.
 
 ## How a Workflow runs
 
-- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
-  each into its table's Table reference.
+- DECISIONS holds each answer by the table's name as `project.check()` writes it:
+  `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
+  "types": {"fails": "bigint"}}}`; the step after writes each in.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -66,15 +65,14 @@ Its inputs:
 
 - NAME: the batch's name (for the last cell alone, a list of batches converted already).
 - FILES: the .hql files, saved in admin/workflows/convert/; or `FILES = []` and HIVE the
-  Hive as text. A query that only SELECTs makes a Saved table too, named for its file or NAME.
+  Hive as text. A query alone makes a Saved table too, named for its file or NAME.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
-- RENAME: a dev copy's own name, by the table's full name (DATABASE when the scripts give
-  none), the new name without a database: `{"mart.team_fails": "team_fails"}` makes
-  mart_dev.team_fails. Left `{}`, it is <table>_<its database>: mart_dev.team_fails_mart.
-- STAGING: a staging table is one a statement makes and a later one reads; convert's report
-  names each. Folded, its query goes inside each table that reads it, and it is never made;
-  kept, it is a Saved table: `{"ops_reports.failed": "fold"}` or "keep". Each one not named,
-  convert folds if temporary or DROPped, and keeps if not.
+- RENAME: a dev copy's own name, with no database, by the table's full name (DATABASE when
+  the scripts give none): `{"mart.team_fails": "team_fails"}` makes mart_dev.team_fails.
+  Left `{}`, it is <table>_<its database>: team_fails_mart.
+- STAGING: each staging table convert's report names, made by one statement, read by a later
+  one: "fold", as `{"ops_reports.failed": "fold"}`, puts its query in each table reading it;
+  "keep" makes it a Saved table. Left out: folded if temporary or DROPped, else kept.
 
 {workflow: convert}
 
@@ -86,8 +84,8 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 
 ## Example
 
-The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
-convert notebook's names cell, then its first step's cell:
+The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The names
+cell, then step 1's cell:
 
 ```python
 NAME = "ops_reports"

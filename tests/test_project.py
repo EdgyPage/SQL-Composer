@@ -16,6 +16,7 @@ import csv
 import datetime
 import importlib
 import json
+import os
 import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -1551,6 +1552,37 @@ def test_check_names_a_read_tables_open_key_while_new_table_goes_on(started: Pat
     assert "new_table.ipynb: 2. Write each table's logic" in checked
     assert "references.ipynb: 2. Answer each table's open Decisions" in checked
     assert "ops.job_runs: key: the columns whose values name one row" in checked
+
+
+def test_check_says_why_the_reference_sheet_needs_a_refresh(started: Path) -> None:
+    # Toolbox 8.2, 23: W4-2 saw check() name a refresh without saying why it was due.
+    fill_in(started, "references", 'TABLES = ["ops.jobs"]')
+    project.add_references(["ops.jobs"], query=example_database.query)
+    project.write_decisions({"ops.jobs": {"key": ["job_id"]}})
+    refresh = "references.ipynb: 4. Refresh the Reference sheet and the Database modules"
+    assert refresh in repr(project.check())
+    assert ("    Why: references/reference_sheet.csv isn't written yet."
+            in repr(project.check()))
+    project.refresh_reference_sheet()
+    assert refresh not in repr(project.check())
+    # A Table reference filled in by hand after the sheet was written, as its TODO lines are.
+    reference = started / "references" / "ops__jobs.py"
+    later = (started / "references" / "reference_sheet.csv").stat().st_mtime + 10
+    os.utime(reference, (later, later))
+    checked = repr(project.check())
+    assert refresh in checked
+    assert ("    Why: references/ops__jobs.py changed after references/reference_sheet.csv "
+            "was last written." in checked)
+
+
+def test_the_references_workflow_says_how_to_check_a_key_and_what_a_todo_left_means() -> None:
+    # Toolbox 8.2, 23: W2-2 and W2-3 answered a Key before anything said how to check it,
+    # and W4-1 didn't know deleting does_not_add_up='s TODO says no column is one.
+    answer, write_in = toolbox_module("workflows").REFERENCES.steps[1:3]
+    assert "If you want to check a Key before you answer it, then" in answer.action
+    assert "check_key(" in answer.action
+    assert ("If no column is one, then delete only its `# TODO` comment, which says no column "
+            "is one." in write_in.action)
 
 
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:

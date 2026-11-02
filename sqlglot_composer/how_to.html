@@ -7159,10 +7159,12 @@ job_day = Table(
 <ul><li><code>&quot;mart.job_day&quot;</code> is the table&#x27;s name as the warehouse knows it: the database, a dot, then the table.</li><li><code>columns=</code> maps each column&#x27;s name to its Hive type, spelled as DESCRIBE prints it: <code>&quot;bigint&quot;</code> for whole numbers, <code>&quot;string&quot;</code> for text, <code>&quot;double&quot;</code> for numbers with a decimal point, <code>&quot;decimal(10,2)&quot;</code> for exact amounts such as money. The Toolbox checks the values you compare a typed column with, so comparing <code>job_day.runs</code> with <code>&quot;3&quot;</code> stops, since <code>&quot;3&quot;</code> is text.</li><li><code>partitioned_by=[&quot;dt&quot;]</code> lists the columns the table is split into Partitions by, in the order Hive partitions by them: here one, the day. A Partition is a slice of the table: the rows that share one value of each of those columns. Each is a column in <code>columns=</code> too. The warehouse stores a Partition at a time, and every Statement that reads the table must filter at least one of them. A table that isn&#x27;t partitioned, such as <code>ops.team_notes</code>, leaves it out.</li><li><code>key=[&quot;job_id&quot;, &quot;dt&quot;]</code> lists the columns that pick out one row of the table. A job has a row on every day, so <code>job_day.job_id</code> alone repeats; the job and the day together pick out one row. JOIN reads the Key to warn you when a join could repeat rows. A table with no Key, such as <code>ops.team_notes</code>, says <code>key=None</code>, and nothing is checked against one.</li><li><code>does_not_add_up=[&quot;avg_minutes&quot;]</code> lists the columns that are averages, ratios or counts of different values. Adding up two days&#x27; averages gives a number that means nothing, so the Toolbox refuses to add these up.</li><li><code>location=&quot;/data/your_team/mart.db/job_day&quot;</code> is the table&#x27;s own folder, used exactly as you write it: the Toolbox adds nothing to it. Only a table you create yourself has one, and no two of your Saved tables may name one folder. A Saved table is a real table your own Statements write. A table someone else owns, such as <code>ops.job_events</code>, leaves it out.</li></ul>
 <p>Done when references/mart__job_day.py holds the call to <code>Table</code> above. Then step 5.</p>
 <h5>5. Register it</h5>
-<p>Goal: the Project knows the file. A file you write by hand isn&#x27;t in the Project&#x27;s Registry yet, the Project&#x27;s list of every file a Project action made. <code>project.check()</code> lists it as made by hand, with the call that adopts it:</p>
+<p>Goal: the Project knows the file. A file you write by hand isn&#x27;t in the Project&#x27;s Registry yet, the Project&#x27;s list of every file a Project action made. <code>project.check()</code> lists it as made by hand, with the call that adopts it. Its last lines say a batch the Example project converted earlier is done, which needs nothing from you:</p>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Not registered, made by hand. Adopt each with the call beside it:
-  references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)</pre>
+  references/mart__job_day.py: project.register(&quot;mart.job_day&quot;)
+Done: every step of each Workflow below.
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <pre class="python">project.register(&quot;mart.job_day&quot;)  # -&gt; a report, printed</pre>
 <p class="label">Python shows</p><pre class="output">Registered references/mart__job_day.py.
 Wrote references/mart.py: from references import mart gives mart.budget_overruns, mart.job_day, mart.job_day_costs, mart.job_day_facts, mart.job_events_checks, mart.job_notes, mart.team_days and mart.team_failures.
@@ -7427,7 +7429,9 @@ LOCATION &#x27;/data/your_team/mart.db/job_day&#x27;;</pre>
 <p>The partition column, dt, goes under PARTITIONED BY rather than among the other columns: that is how Hive splits a table into Partitions. LOCATION is the folder you wrote, as you wrote it. STORED AS ORC says how Hive keeps the table&#x27;s files: ORC, a compact format Hive reads quickly. EXTERNAL and LOCATION say the files are yours, in the table&#x27;s own folder.</p>
 <p>At work, once <code>run_execute(create_table(job_day), execute)</code> has made the table, <code>check_table_reference(job_day, query=query)</code> compares it with your file, as above. And the Project knows the file:</p>
 <pre class="python">project.check()  # -&gt; a report, printed</pre>
-<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python shows</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Done: every step of each Workflow below.
+  admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its compare, and its folder is admin/workflows/convert/finished/team_failures/.</pre>
 <p>Before you go on, check that:</p>
 <ul><li><code>check_table_reference</code> says the table matches its Table reference;</li><li>the Hive of <code>create_table(job_day)</code> holds dt under PARTITIONED BY and your LOCATION;</li><li><code>project.check()</code> says every Table reference is registered.</li></ul>
 <h4>Common mistakes</h4>
@@ -17235,9 +17239,13 @@ STAGING = {}</pre>
 <pre class="python">for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)</pre>
 <ol start="5"><li>Seed each table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
-for table in project.batch_tables(NAME, seeded=True):
-    run_execute(project.load(table).seed(), execute)</pre>
+<pre class="python">seeded = project.batch_tables(NAME, seeded=True)
+if not seeded:
+    print(&quot;Seeded nothing: no table of the batch reads itself.&quot;)
+else:
+    run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
+    for table in seeded:
+        run_execute(project.load(table).seed(), execute)</pre>
 <ol start="6"><li>Write each table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
 <ol start="7"><li>Compare each table with its original (it is a call to the warehouse, yours to run).</li></ol>
@@ -17310,9 +17318,13 @@ TABLES = []</pre>
 <pre class="python">for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)</pre>
 <ol start="5"><li>Seed each prod table that reads itself, once, from its original (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
-for table in project.promoted_tables(TABLES, seeded=True):
-    run_execute(project.load(table).seed(), execute)</pre>
+<pre class="python">seeded = project.promoted_tables(TABLES, seeded=True)
+if not seeded:
+    print(&quot;Seeded nothing: no prod copy reads itself.&quot;)
+else:
+    run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute)
+    for table in seeded:
+        run_execute(project.load(table).seed(), execute)</pre>
 <ol start="6"><li>Write each table in prod (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)</pre>
 <ol start="7"><li>Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ol>
