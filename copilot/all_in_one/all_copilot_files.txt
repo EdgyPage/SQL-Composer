@@ -55,7 +55,8 @@ you can ask it in plain words.
   each as a message of its own), then attach the workbook and ask Copilot to convert
   it: a chat holds one file at a time, but for this one task.
 - If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
-  their Hive made into Saved tables in your Project, end to end, load file 13.
+  their Hive made into Saved tables in your Project, end to end, load file 13. To carry
+  tables from dev to prod once compared, load file 16.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -72,7 +73,8 @@ you can ask it in plain words.
   of each group, the row before, running totals; subtotals; stacking Statements.
 - `06_save_a_table.txt`: write a Saved table: its Table notebook's logic cell, with
   create(), rows(), preview() and write().
-- `07_convert_hive.txt`: turn Hive someone else wrote into Toolbox code.
+- `07_convert_hive.txt`: turn one query of Hive someone else wrote into Toolbox code; for
+  their Hive made into tables, a whole job, file 13.
 - `08_check_and_compare.txt`: compare a Statement with the Hive it replaces, check a Key, see
   what is left to do in the Project, follow lineage.
 - `09_fix_a_refusal.txt`: fix code the Toolbox refused.
@@ -82,12 +84,14 @@ you can ask it in plain words.
   laid out as `formula_workbook.xlsx` shows, as Hive; loaded with files 15 and 12.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
   Rows as Hive; loaded with files 15 and 11.
-- `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
-  from its Workflow notebook in admin/workflows/.
+- `13_workflows.txt`: converting Hive into Saved tables in dev, a whole job step by step,
+  from the convert Workflow's notebook in admin/workflows/.
 - `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
   Table references, an upgrade, a change to a Saved table, each a whole job step by step.
 - `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: which
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
+- `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
+  the promote Workflow's notebook.
 
 ## Fitting Copilot
 
@@ -1998,15 +2002,16 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the Workflows, Hive to prod (sqlglot Composer 8.2)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.2)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
-Objective: take the user through converting Hive and promoting it to prod, with sqlglot Composer 8.2:
-the steps left, each a cell of a Workflow's notebook, in order. Load this file when the user
-asks how to turn Hive into their own tables end to end, or carry dev tables to prod. File 14
-is for new tables, Table references, upgrades and changes to a Saved table; a step's own
-file, for the Python inside it.
+Objective: take the user through converting Hive into Saved tables in their Dev Database,
+with sqlglot Composer 8.2, a Toolbox that writes Hive: the steps left, each its cell of the convert
+Workflow's notebook, in order. Load this file when the user asks how to turn Hive into their
+own tables end to end. File 16 is for promoting dev tables to prod; file 14 for new tables,
+Table references, upgrades and changes to a Saved table; a step's own file, for the Python
+inside it.
 
 ## Terms
 
@@ -2018,6 +2023,8 @@ file, for the Python inside it.
   of its columns, partitions, Key and location.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
   Database, where others read them; set once in admin/databases.py.
+- **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
+  notebook's first cell imports them with the Toolbox's names.
 
 ## Names for this objective, with their arguments
 
@@ -2025,7 +2032,7 @@ file, for the Python inside it.
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partition=None)
-- project.promote(tables, *, rename=None)
+- project.write_decisions(answers)
 
 ## Steps
 
@@ -2040,14 +2047,15 @@ file, for the Python inside it.
 
 ## Decision rules
 
-- If the user asks for particular cells, give those; each runs once the steps before it are
-  done.
-- If the user asks for every step's cell, give each, as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks: a
-  Decision is the user's, never yours.
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
+  the user to answer: a Decision is the user's, never yours.
 - If the user names no rename, staging table or database, write `RENAME = {}`,
-  `STAGING = {}` or `DATABASE = "default"`.
-- **Promote a table only once its compare has passed.**
+  `STAGING = {}` or `DATABASE = "default"`. If no Decision is open, write `DECISIONS = {}`.
+- If the user asks to promote the tables to prod, name file 16 for it, once each compare
+  has passed.
 
 ## Output
 
@@ -2057,9 +2065,10 @@ file, for the Python inside it.
 
 ## How a Workflow runs
 
-- DECISIONS holds each answer by the table's name as `project.check()` writes it:
-  `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-  "types": {"fails": "bigint"}}}`; write_decisions writes them.
+- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
+  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
+  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
+  each into its table's Table reference.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -2067,16 +2076,19 @@ file, for the Python inside it.
 
 Its inputs:
 
-- NAME: the batch's name (for the last cell alone, a list of batches converted already).
+- NAME: the batch's name. For the `project.run_workflow(...)` cell, which runs every step
+  left, it may be a list of batches converted already.
 - FILES: the .hql files, saved in admin/workflows/convert/; or `FILES = []` and HIVE the
-  Hive as text. A query alone makes a Saved table too, named for its file or NAME.
+  Hive as text. A query that only SELECTs makes a Saved table too, named for its file or
+  NAME.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
-- RENAME: a dev copy's own name, with no database, by the table's full name (DATABASE when
-  the scripts give none): `{"mart.team_fails": "team_fails"}` makes mart_dev.team_fails.
-  Left `{}`, it is <table>_<its database>: team_fails_mart.
-- STAGING: each staging table convert's report names, made by one statement, read by a later
-  one: "fold", as `{"ops_reports.failed": "fold"}`, puts its query in each table reading it;
-  "keep" makes it a Saved table. Left out: folded if temporary or DROPped, else kept.
+- RENAME: a dev copy's own name, by the table's full name (DATABASE when the scripts give
+  none), the new name without a database: `{"mart.team_fails": "team_fails"}` makes
+  mart_dev.team_fails. Left `{}`, it is <table>_<its database>: mart_dev.team_fails_mart.
+- STAGING: a staging table is one a statement makes and a later one reads; convert's report
+  names each. Folded, its query goes inside each table that reads it, and it is never made;
+  kept, it is a Saved table: `{"ops_reports.failed": "fold"}` or "keep". Each one not named,
+  convert folds if temporary or DROPped, and keeps if not.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -2115,52 +2127,10 @@ Its inputs:
        project.compare_batch(NAME, query=query)
 
 
-## promote: dev tables to prod
-
-TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
-
-1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.promote(TABLES)
-
-2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
-   make).
-3. Write each answer into its prod table's Table reference (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.write_decisions(DECISIONS)
-
-4. Create each table in prod (it is a call to the warehouse, yours to run).
-
-       for table in project.promoted_tables(TABLES):
-           run_execute(project.load(table).create(), execute)
-
-5. Seed each prod table that reads itself, once, from its original (it is a call to the
-   warehouse, yours to run).
-
-       to_seed = project.promoted_tables(TABLES, seeded=True)
-       if not to_seed:
-           print("Seeded nothing: no prod copy reads itself.")
-       else:
-           run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in to_seed:
-               run_execute(project.load(table).seed(), execute)
-
-6. Write each table in prod (it is a call to the warehouse, yours to run).
-
-       project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
-
-7. Refresh the Reference sheet and the Database modules (it changes only files, so
-   project.do_next() runs it for you).
-
-       project.refresh_reference_sheet(project.promoted_tables(TABLES))
-
-
 ## Example
 
-The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The names
-cell, then step 1's cell:
+The user: "I have daily.hql and weekly.hql from the ops team; DEV is filled in." The
+convert notebook's names cell, then its first step's cell:
 
 ```python
 NAME = "ops_reports"
@@ -2180,7 +2150,7 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 - Each cell is one listed here, with the user's names in it.
 - Each later step is named in words, unless every cell was asked for.
 - Each Decision answered is in DECISIONS by the table's name; each other is named.
-- Each table promoted has a compare that passed.
+- Promoting is named as file 16's, never given here.
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
@@ -2193,7 +2163,7 @@ Objective: take the user through a job on their own Project, with sqlglot Compos
 writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
 Load this file when the user asks how to make a new Saved table, from a query or by hand, add
 Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
-File 13 is for converting Hive or promoting to prod; a step's own file, for the Python inside
+File 13 converts Hive, file 16 promotes to prod; a step's own file is for the Python inside
 it.
 
 ## Terms
@@ -2508,3 +2478,146 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 - Each step a final reads is a CTE inside that final's block, after each CTE it reads.
 - Each value typed over a formula is in a CASE, matched on its Keys row's columns.
 - Each mark, refusal, thing left alone and `<...>` is named in the map.
+
+===== 16_workflows_promote.txt =====
+
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.2)
+
+**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
+
+Objective: take the user through promoting tables from their Dev Database to their Prod
+Database, with sqlglot Composer 8.2, a Toolbox that writes Hive: the steps left, each its cell of the
+promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
+tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
+references, upgrades and changes to a Saved table; a step's own file, for the Python inside
+it.
+
+## Terms
+
+- **Workflow**: ordered steps to one end goal; each step is a cell of its notebook,
+  admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
+- **Decision**: one thing about one table only the user decides, such as its location, Key
+  or a column type, answered in the **decisions cell**, DECISIONS.
+- **Saved table**: a table the user's own code writes; its **Table reference** is the file
+  of its columns, partitions, Key and location.
+- **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
+  Database, where others read them; set once in admin/databases.py.
+- **prod copy**: the Saved table promote makes in PROD from a dev table: its own Table folder
+  and Table reference, named for the dev table with PROD for its database.
+- **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
+  notebook's first cell imports them with the Toolbox's names.
+
+## Names for this objective, with their arguments
+
+- project.check()
+- project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
+- project.promote(tables, *, rename=None)
+- project.promoted_tables(tables, seeded=False)
+- project.write_decisions(answers)
+
+## Steps
+
+1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
+   names the next step. Then step 2.
+2. **Write the names cell**, TABLES given the user's dev tables. Then step 3.
+3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
+   Then step 4.
+4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
+   step 5.
+5. **Check** the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- **Promote a table only once its compare has passed** in the convert Workflow, or it is
+  written by the new_table Workflow (file 14). If the user hasn't said so, say so before any
+  cell.
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- promote fills in a prod copy's location when it can: the one an earlier promote gave it,
+  or the dev location with PROD in place of the Dev Database's name, as
+  /data/team/mart_dev.db/x becomes /data/team/team_prod.db/x. Otherwise the location is a
+  Decision left open, which `project.check()` names. Write each answer the user gives, or a
+  location they want changed, in DECISIONS by the prod copy's name; if none is open, write
+  `DECISIONS = {}`. A Decision is the user's, never yours.
+- A prod copy is named for its dev table, in PROD. If the user wants another name, give
+  `project.promote(TABLES, rename={"mart_dev.daily_fails": "fails"})`.
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
+## How a Workflow runs
+
+- DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
+  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
+  `project.write_decisions(DECISIONS)` writes each into its prod copy's Table reference.
+- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
+  user can do; `dry_run=True` sends nothing.
+
+## promote: dev tables to prod
+
+Its input:
+
+- TABLES: the dev tables to promote, by their full names, such as
+  `["mart_dev.daily_job_runs"]`. Each prod copy reads the prod copies of the others
+  promoted with it.
+
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.promote(TABLES)
+
+2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+   make).
+3. Write each answer into its prod table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in prod (it is a call to the warehouse, yours to run).
+
+       for table in project.promoted_tables(TABLES):
+           run_execute(project.load(table).create(), execute)
+
+5. Seed each prod table that reads itself, once, from its original (it is a call to the
+   warehouse, yours to run).
+
+       to_seed = project.promoted_tables(TABLES, seeded=True)
+       if not to_seed:
+           print("Seeded nothing: no prod copy reads itself.")
+       else:
+           run_execute(hive_settings("dynamic_partitions"), execute)
+           for table in to_seed:
+               run_execute(project.load(table).seed(), execute)
+
+6. Write each table in prod (it is a call to the warehouse, yours to run).
+
+       project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(project.promoted_tables(TABLES))
+
+
+## Example
+
+The user: "mart_dev.daily_fails passed its compare. Promote it to prod: give the names cell
+and step 1's cell." Its location is left for promote to fill in.
+
+```python
+TABLES = ["mart_dev.daily_fails"]
+
+project.promote(TABLES)
+```
+
+## Self-check
+
+- The reply names the Workflow and the user's step.
+- Each cell is one listed here, with the user's names in it.
+- Each table promoted has a compare that passed, or the reply says to run it first.
+- Each later step is named in words, unless every cell was asked for.
+- Each Decision answered is in DECISIONS by the prod copy's name; each other is named.

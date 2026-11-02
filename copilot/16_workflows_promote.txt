@@ -1,0 +1,140 @@
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.2)
+
+**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
+
+Objective: take the user through promoting tables from their Dev Database to their Prod
+Database, with sqlglot Composer 8.2, a Toolbox that writes Hive: the steps left, each its cell of the
+promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
+tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
+references, upgrades and changes to a Saved table; a step's own file, for the Python inside
+it.
+
+## Terms
+
+- **Workflow**: ordered steps to one end goal; each step is a cell of its notebook,
+  admin/workflows/<name>/<name>.ipynb. Its **names cell** holds its inputs in capitals.
+- **Decision**: one thing about one table only the user decides, such as its location, Key
+  or a column type, answered in the **decisions cell**, DECISIONS.
+- **Saved table**: a table the user's own code writes; its **Table reference** is the file
+  of its columns, partitions, Key and location.
+- **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
+  Database, where others read them; set once in admin/databases.py.
+- **prod copy**: the Saved table promote makes in PROD from a dev table: its own Table folder
+  and Table reference, named for the dev table with PROD for its database.
+- **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
+  notebook's first cell imports them with the Toolbox's names.
+
+## Names for this objective, with their arguments
+
+- project.check()
+- project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
+- project.promote(tables, *, rename=None)
+- project.promoted_tables(tables, seeded=False)
+- project.write_decisions(answers)
+
+## Steps
+
+1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
+   names the next step. Then step 2.
+2. **Write the names cell**, TABLES given the user's dev tables. Then step 3.
+3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
+   Then step 4.
+4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
+   step 5.
+5. **Check** the Self-check; fix what it finds, then reply.
+
+## Decision rules
+
+- **Promote a table only once its compare has passed** in the convert Workflow, or it is
+  written by the new_table Workflow (file 14). If the user hasn't said so, say so before any
+  cell.
+- If the user asks for particular cells, give those: a step's cell runs only once the steps
+  before it are done.
+- If the user asks for every step's cell, give each one as listed, in order.
+- promote fills in a prod copy's location when it can: the one an earlier promote gave it,
+  or the dev location with PROD in place of the Dev Database's name, as
+  /data/team/mart_dev.db/x becomes /data/team/team_prod.db/x. Otherwise the location is a
+  Decision left open, which `project.check()` names. Write each answer the user gives, or a
+  location they want changed, in DECISIONS by the prod copy's name; if none is open, write
+  `DECISIONS = {}`. A Decision is the user's, never yours.
+- A prod copy is named for its dev table, in PROD. If the user wants another name, give
+  `project.promote(TABLES, rename={"mart_dev.daily_fails": "fails"})`.
+
+## Output
+
+1. The Workflow and the user's step, in one line.
+2. Each cell asked for in a ```python block, the names cell first.
+3. Each Decision left to the user, then each later step, in words.
+
+## How a Workflow runs
+
+- DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
+  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
+  `project.write_decisions(DECISIONS)` writes each into its prod copy's Table reference.
+- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
+  user can do; `dry_run=True` sends nothing.
+
+## promote: dev tables to prod
+
+Its input:
+
+- TABLES: the dev tables to promote, by their full names, such as
+  `["mart_dev.daily_job_runs"]`. Each prod copy reads the prod copies of the others
+  promoted with it.
+
+1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.promote(TABLES)
+
+2. Answer each prod table's open Decisions in the decisions cell (it is a decision, yours to
+   make).
+3. Write each answer into its prod table's Table reference (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.write_decisions(DECISIONS)
+
+4. Create each table in prod (it is a call to the warehouse, yours to run).
+
+       for table in project.promoted_tables(TABLES):
+           run_execute(project.load(table).create(), execute)
+
+5. Seed each prod table that reads itself, once, from its original (it is a call to the
+   warehouse, yours to run).
+
+       to_seed = project.promoted_tables(TABLES, seeded=True)
+       if not to_seed:
+           print("Seeded nothing: no prod copy reads itself.")
+       else:
+           run_execute(hive_settings("dynamic_partitions"), execute)
+           for table in to_seed:
+               run_execute(project.load(table).seed(), execute)
+
+6. Write each table in prod (it is a call to the warehouse, yours to run).
+
+       project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+
+7. Refresh the Reference sheet and the Database modules (it changes only files, so
+   project.do_next() runs it for you).
+
+       project.refresh_reference_sheet(project.promoted_tables(TABLES))
+
+
+## Example
+
+The user: "mart_dev.daily_fails passed its compare. Promote it to prod: give the names cell
+and step 1's cell." Its location is left for promote to fill in.
+
+```python
+TABLES = ["mart_dev.daily_fails"]
+
+project.promote(TABLES)
+```
+
+## Self-check
+
+- The reply names the Workflow and the user's step.
+- Each cell is one listed here, with the user's names in it.
+- Each table promoted has a compare that passed, or the reply says to run it first.
+- Each later step is named in words, unless every cell was asked for.
+- Each Decision answered is in DECISIONS by the prod copy's name; each other is named.

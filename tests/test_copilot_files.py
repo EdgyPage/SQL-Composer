@@ -88,7 +88,7 @@ def test_the_folder_holds_the_files_the_counter_the_workbooks_and_all_in_one() -
     assert all(path.suffix == ".xlsx" for path in (COPILOT / "examples").iterdir())
     assert ([path.name for path in (COPILOT / "all_in_one").iterdir()]
             == ["all_copilot_files.txt"])
-    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(16)]
+    assert [path.name[:2] for path in FILES] == [f"{n:02d}" for n in range(17)]
 
 
 def test_all_in_one_merges_every_file_in_order() -> None:
@@ -120,10 +120,10 @@ def test_each_objective_file_has_the_same_parts(path: Path) -> None:
     assert re.findall(r"^## (.+)$", text, re.MULTILINE)[-1] == "Self-check"
     for part in parts:
         assert part in text, part
-    # The Excel files write Hive, no Toolbox code; files 13 and 14 give steps, each a cell,
+    # The Excel files write Hive, no Toolbox code; files 13, 14 and 16 give steps, each a cell,
     # and the file of the step's objective the code.
     if path.name not in (*EXCEL_FILES, "13_workflows.txt",
-                         "14_workflows_new_tables_and_upkeep.txt"):
+                         "14_workflows_new_tables_and_upkeep.txt", "16_workflows_promote.txt"):
         assert copilot_files.ALWAYS.read_text(encoding="utf-8").strip() in text
 
 

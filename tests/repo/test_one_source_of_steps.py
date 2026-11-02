@@ -26,14 +26,13 @@ PAGES = (
     "docs/clean-branch-readme.md",
     "worked_examples/how_to/29_follow_a_workflow.py",
 )
-# The Workflows Copilot file 13 lists, Hive to prod: file 14 lists the rest.
-HIVE_TO_PROD = ("convert", "promote")
+# The Copilot file that lists each Workflow's steps: 13 convert's, 16 promote's, 14 the rest.
+COPILOT_FILE_OF = {"convert": "copilot/13_workflows.txt",
+                   "promote": "copilot/16_workflows_promote.txt"}
 
 
 def copilot_file_of(workflow: workflows.Workflow) -> str:
-    if workflow.name in HIVE_TO_PROD:
-        return "copilot/13_workflows.txt"
-    return "copilot/14_workflows_new_tables_and_upkeep.txt"
+    return COPILOT_FILE_OF.get(workflow.name, "copilot/14_workflows_new_tables_and_upkeep.txt")
 # A Workflow's step heading in its notebook, such as "## 3. Create each table in dev".
 STEP_HEADING = re.compile(r"^## (\d+)\. (.+)$")
 # A call of the project module a Copilot file quotes, such as project.convert(.

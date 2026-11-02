@@ -47,8 +47,9 @@ OBJECTIVES = {
     "08": "checking and comparing",
     "09": "fixing a refusal",
     "10": "hand-written Hive and other functions",
-    "13": "a Workflow: convert and promote",
+    "13": "a Workflow: convert",
     "14": "a Workflow: new tables and upkeep",
+    "16": "a Workflow: promote",
 }
 
 # What the answer must assign, by kind.
@@ -119,6 +120,31 @@ FROM ops.job_runs r
 WHERE r.dt = '2026-09-24' AND r.status = 'FAILED'
 GROUP BY r.job_id;
 """
+
+# T39's cells: daily_fails.hql converted as the batch fails, through its compare, as the
+# promote tasks run them before.
+FAILS_COMPARED = '''NAME = "fails"
+FILES = ["daily_fails.hql"]
+HIVE = None
+DATABASE = "default"
+STAGING = {}
+DECISIONS = {"mart_dev.daily_fails_mart": {"location": "/data/team/mart_dev.db/daily_fails"}}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                staging=STAGING)
+project.write_decisions(DECISIONS)
+for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)
+run_execute(hive_settings("dynamic_partitions"), execute)
+for table in project.batch_tables(NAME, seeded=True):
+    run_execute(project.load(table).seed(), execute)
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+project.compare_batch(NAME, query=query)
+'''
+# The same cells as a promote task runs them, from the promote Workflow's folder.
+PROMOTED_FROM = FAILS_COMPARED.replace('FILES = ["daily_fails.hql"]',
+                                       'FILES = ["../convert/daily_fails.hql"]')
+
 # A new table's query, as the user saved it.
 OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
@@ -656,7 +682,7 @@ s = statement(
     WHERE(equals(job_runs.dt, "2026-09-24")),
 )
 ''', tables=("job_runs",)),
-    # --- 13 a Workflow: convert and promote ------------------------------------------------
+    # --- 13 a Workflow: convert ------------------------------------------------------------
     Task("T31", "13", "dev",
          "I have two scripts from the ops team, daily_fails.hql and daily_alerts.hql, saved "
          "in admin/workflows/convert/. Convert them into my Dev Database as one batch named "
@@ -743,26 +769,67 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
          "Database as a batch named fails and take it all the way through the compare: "
          "give every step's cell, in order. convert will name the table "
          "mart_dev.daily_fails_mart, and its folder is /data/team/mart_dev.db/daily_fails.",
-         "workflow", '''NAME = "fails"
-FILES = ["daily_fails.hql"]
-HIVE = None
-DATABASE = "default"
-STAGING = {}
-DECISIONS = {"mart_dev.daily_fails_mart": {"location": "/data/team/mart_dev.db/daily_fails"}}
-
-project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
-                staging=STAGING)
-project.write_decisions(DECISIONS)
-for table in project.batch_tables(NAME):
-    run_execute(project.load(table).create(), execute)
-run_execute(hive_settings("dynamic_partitions"), execute)
-for table in project.batch_tables(NAME, seeded=True):
-    run_execute(project.load(table).seed(), execute)
-project.run_tables(tables=project.batch_tables(NAME), execute=execute)
-project.compare_batch(NAME, query=query)
-''', tables=("job_runs",), workflow="convert",
+         "workflow", FAILS_COMPARED, tables=("job_runs",), workflow="convert",
          files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
          originals=DAILY_FAILS_MADE),
+    # --- 16 a Workflow: promote --------------------------------------------------------------
+    Task("T40", "16", "dev",
+         "I converted daily_fails.hql as the batch named fails, and its compare passed, so "
+         "mart_dev.daily_fails_mart is in my Dev Database. Promote it to my Prod Database with "
+         "the promote Workflow: give its notebook's names cell and its first step's cell.",
+         "workflow", '''TABLES = ["mart_dev.daily_fails_mart"]
+
+project.promote(TABLES)
+''', tables=("job_runs",), workflow="promote",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
+         originals=DAILY_FAILS_MADE, before=PROMOTED_FROM),
+    Task("T41", "16", "dev",
+         "The batch fails passed its compare, so mart_dev.daily_fails_mart is in my Dev "
+         "Database. Promote it to my Prod Database and write it there, refreshing the "
+         "Reference sheet at the end: give every step's cell of the promote Workflow, in "
+         "order. project.check() names no Decision open for its prod copy.",
+         "workflow", '''TABLES = ["mart_dev.daily_fails_mart"]
+DECISIONS = {}
+
+project.promote(TABLES)
+project.write_decisions(DECISIONS)
+for table in project.promoted_tables(TABLES):
+    run_execute(project.load(table).create(), execute)
+to_seed = project.promoted_tables(TABLES, seeded=True)
+if not to_seed:
+    print("Seeded nothing: no prod copy reads itself.")
+else:
+    run_execute(hive_settings("dynamic_partitions"), execute)
+    for table in to_seed:
+        run_execute(project.load(table).seed(), execute)
+project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+project.refresh_reference_sheet(project.promoted_tables(TABLES))
+''', tables=("job_runs",), workflow="promote",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
+         originals=DAILY_FAILS_MADE, before=PROMOTED_FROM),
+    Task("T42", "16", "held_out",
+         "I promoted mart_dev.daily_fails_mart with the promote Workflow, TABLES = "
+         "[\"mart_dev.daily_fails_mart\"], and wrote its Decisions in: none was open. Give "
+         "only the cells that make its prod copy in my Prod Database and write it there, with "
+         "the names cell first. I'll refresh the Reference sheet myself.",
+         "workflow", '''TABLES = ["mart_dev.daily_fails_mart"]
+
+for table in project.promoted_tables(TABLES):
+    run_execute(project.load(table).create(), execute)
+to_seed = project.promoted_tables(TABLES, seeded=True)
+if not to_seed:
+    print("Seeded nothing: no prod copy reads itself.")
+else:
+    run_execute(hive_settings("dynamic_partitions"), execute)
+    for table in to_seed:
+        run_execute(project.load(table).seed(), execute)
+project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)
+''', tables=("job_runs",), workflow="promote",
+         files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
+         originals=DAILY_FAILS_MADE,
+         before=PROMOTED_FROM + '''project.promote(["mart_dev.daily_fails_mart"])
+project.write_decisions({})
+'''),
     # --- 14 a Workflow: new tables and upkeep -----------------------------------------------
     Task("T34", "14", "dev",
          "Add Table references for ops.jobs and ops.run_alerts with the references Workflow: "

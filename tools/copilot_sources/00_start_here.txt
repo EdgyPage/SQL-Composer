@@ -49,7 +49,8 @@ you can ask it in plain words.
   each as a message of its own), then attach the workbook and ask Copilot to convert
   it: a chat holds one file at a time, but for this one task.
 - If you want a query of Hive someone else wrote as Toolbox code, load file 07. If you want
-  their Hive made into Saved tables in your Project, end to end, load file 13.
+  their Hive made into Saved tables in your Project, end to end, load file 13. To carry
+  tables from dev to prod once compared, load file 16.
 - Otherwise, load the one file whose line under Which file names your task.
 - If you want something else after a task, start a new chat with that task's file.
 
@@ -66,7 +67,8 @@ you can ask it in plain words.
   of each group, the row before, running totals; subtotals; stacking Statements.
 - `06_save_a_table.txt`: write a Saved table: its Table notebook's logic cell, with
   create(), rows(), preview() and write().
-- `07_convert_hive.txt`: turn Hive someone else wrote into Toolbox code.
+- `07_convert_hive.txt`: turn one query of Hive someone else wrote into Toolbox code; for
+  their Hive made into tables, a whole job, file 13.
 - `08_check_and_compare.txt`: compare a Statement with the Hive it replaces, check a Key, see
   what is left to do in the Project, follow lineage.
 - `09_fix_a_refusal.txt`: fix code the Toolbox refused.
@@ -76,12 +78,14 @@ you can ask it in plain words.
   laid out as `formula_workbook.xlsx` shows, as Hive; loaded with files 15 and 12.
 - `12_excel_power_query.txt`: the same workbook's Power Query, whole-column totals and Total
   Rows as Hive; loaded with files 15 and 11.
-- `13_workflows.txt`: converting Hive and promoting it to prod, a whole job step by step,
-  from its Workflow notebook in admin/workflows/.
+- `13_workflows.txt`: converting Hive into Saved tables in dev, a whole job step by step,
+  from the convert Workflow's notebook in admin/workflows/.
 - `14_workflows_new_tables_and_upkeep.txt`: a new Saved table, from a query or by hand,
   Table references, an upgrade, a change to a Saved table, each a whole job step by step.
 - `15_excel_workbook_steps.txt`: turn a Formula workbook into Hive, step by step: which
   Tables and queries become which queries, and the reply; loaded with files 11 and 12.
+- `16_workflows_promote.txt`: promoting dev tables to prod, a whole job step by step, from
+  the promote Workflow's notebook.
 
 ## Fitting Copilot
 

@@ -19,8 +19,8 @@ def fenced(code: str) -> str:
 
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
-    assert len(BY_ID) == len(TASKS) == 39
-    assert Counter(task.split for task in TASKS) == {"dev": 26, "held_out": 13}
+    assert len(BY_ID) == len(TASKS) == 42
+    assert Counter(task.split for task in TASKS) == {"dev": 28, "held_out": 14}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
         # 13's held-out T33 and T37 were tuned on, so they are dev tasks; T38 is held out for
@@ -111,6 +111,12 @@ CONTROLS = [
     pytest.param("T33", fenced(BY_ID["T33"].reference.replace(
         "project.write_decisions(DECISIONS)\n", "")), "correct",
                  id="answers_without_writing_them_in"),
+    pytest.param("T40", fenced(BY_ID["T40"].reference.replace(
+        '"mart_dev.daily_fails_mart"', '"mart.daily_fails"')), "builds",
+                 id="promotes_the_original_not_the_dev_table"),
+    pytest.param("T42", fenced(BY_ID["T42"].reference.replace(
+        "project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)\n", "")),
+                 "correct", id="makes_the_prod_copy_but_never_writes_it"),
 ]
 
 

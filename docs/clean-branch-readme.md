@@ -1243,8 +1243,8 @@ And two more, for files beside the notebooks:
 `copilot/`, in the download's top folder beside `sqlglot_composer`, holds the Copilot files:
 plain text that teaches Microsoft Copilot the Toolbox, so you can ask it in plain words for a
 Statement, a Table reference, a Table notebook's logic cell or a Conversion, or for a whole
-job's steps: `copilot/13_workflows.txt` lists each Workflow's, from the steps its notebook
-runs.
+job's steps: `copilot/13_workflows.txt` and `copilot/16_workflows_promote.txt` list convert's
+and promote's, and file 14 the other Workflows', from the steps each notebook runs.
 
 1. **Pick the file.** Action: read `copilot/00_start_here.txt`, which says which file fits what
    you want to do. Done when you have its name; then step 2.
