@@ -11,9 +11,9 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
   hand.
 
 A `key=` line project.convert proposed from a table's query, or project.reference_from_logic
-from its logic, marked `# proposed`, is made, but an answer may still change it. Any other `TODO:` line, such as the docstring's first line or
-`does_not_add_up=`, is no Decision: it waits on nothing. You
-answer each in the decisions cell of a Workflow's notebook,
+from its logic, marked `# proposed`, is made, but an answer may still change it. Any other
+`TODO:` line, such as the docstring's first line or `does_not_add_up=`, is no Decision: it
+waits on nothing. You answer each in the decisions cell of a Workflow's notebook,
 `DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"}}}`,
 and `answered_text` gives the Table reference with each answer written into the line it
 answers. It never writes over any other line that is made already, as yours is once you

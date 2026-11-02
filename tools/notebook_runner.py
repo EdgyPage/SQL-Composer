@@ -9,9 +9,9 @@ each run's folder as `run_notebook.py`, and an agent runs a notebook with it:
 
 The second runs only the code cells it names, counted from 1, in order, as a user runs a
 Workflow's cells one at a time to stop at a decision. `--cells` and `--list` may come before
-the path too. Each run starts with nothing defined, as
-a kernel just started does, so name the cells a step needs with it: the imports cell and the
-names cell, and from the decisions on, the decisions cell, such as --cells 1-3,6.
+the path too. Each run starts with nothing defined, as a kernel just started does, so name the
+cells a step needs with it: the imports cell and the names cell, and from the decisions on,
+the decisions cell, such as --cells 1-3,6.
 
 Each code cell runs in turn, in one namespace, from the notebook's own folder and with it
 on sys.path, as a kernel started there runs it. What a cell prints is printed under its

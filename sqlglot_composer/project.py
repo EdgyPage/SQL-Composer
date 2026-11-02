@@ -1691,8 +1691,8 @@ def _stop_after(root: Path, step: workflows.Step, inputs: dict[str, object],
         return "    Stopped: it ran, and isn't done, as it says above: mend what it says."
     if step.done is None and not step.reads_only:
         # A step no file tells of is a check of what it printed, which only you make.
-        return ("    Stopped: read what it printed, and check it shows what you mean it to; then "
-                "run the next step's own cell, which only you start.")
+        return ("    Stopped: read what it printed, and check it shows what you mean it to; "
+                "then run the next step's own cell, which only you start.")
     return ""
 
 
