@@ -7,7 +7,7 @@ Objective: take the user through a job on their own Project, with {version}, a T
 writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
 Load this file when the user asks how to make a new Saved table, from a query or by hand, add
 Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
-File 13 is for converting Hive or promoting to prod; a step's own file, for the Python inside
+File 13 converts Hive, file 16 promotes to prod; a step's own file is for the Python inside
 it.
 
 ## Terms

@@ -135,6 +135,9 @@ those people found unsaid.
   partition= gives another; and the references Workflow says how to check a Key with
   `check_key` before you answer it, and that deleting `does_not_add_up=`'s TODO comment says
   no column is one.
+- **Copilot file 16, the promote Workflow.** Promoting dev tables to prod has a Copilot file of
+  its own, `copilot/16_workflows_promote.txt`, and file 13 holds convert alone, with room
+  for its wording again. File 00 routes promoting to file 16.
 - **Three queries stacked with UNION ALL convert.** `a UNION ALL b UNION ALL c` becomes one
   `UNION_ALL(a, b, c)`, where it wrote Python with a stray comma that `project.convert` stopped
   on.

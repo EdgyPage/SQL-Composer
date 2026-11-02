@@ -22,7 +22,7 @@ In each answers file, fill in its header: `date:`, `arm: A1` or `arm: C`,
   `<<<` and `>>>`, as the first message, and send it. Then send the task's prompt.
 - **C, with the file.** Open a new chat. Paste the task's objective file (or attach it: the
   task's prompt heading names its id, and `tools/copilot_eval_tasks.py` gives its objective,
-  `01` to `10`, `13` or `14`; the file is `copilot/<objective>_*.txt`) as the first message,
+  `01` to `10`, `13`, `14` or `16`; the file is `copilot/<objective>_*.txt`) as the first message,
   and send it. Then send the task's prompt.
 - **R, routing.** Open a new chat. Send `copilot/00_start_here.txt`, then ask which file to
   load for the task's prompt. Note the file it names under the task's heading.
@@ -42,7 +42,7 @@ invents no name, imports no name with `*`, adds no opt-out the task didn't need,
 run_query where the request asks to run it. The files help when C passes at least 20 points
 more of the held-out tasks than A1.
 
-A Workflow task, for files 13 and 14, asks for a Workflow notebook's cells. Every Python block
+A Workflow task, for files 13, 14 and 16, asks for a Workflow notebook's cells. Every Python block
 of its reply is one cell, run in order from the Workflow's folder, in a Project of its own:
 its Dev and Prod Databases filled in, the Table references of the tables the task names, its
 files and the cells the user ran before. Its warehouse.py sends to a warehouse of its own that
@@ -85,7 +85,7 @@ reads each workbook as text; in Copilot you attach the workbook itself.
 A proxy round gives each proxy model a few workbooks, as a person gives one to a fresh
 chat: `excel_eval.py proxy C --split dev --tasks X01,X02,X03,X04,X05`, one message per
 five tasks, each answered by its own proxy, the replies merged under one header to score.
-Given all 39 at once, a proxy reads its message in pieces and cuts its replies short.
+Given all 42 at once, a proxy reads its message in pieces and cuts its replies short.
 
 An answer passes when, once each `<...>` is filled in as you would, its Hive gives each final
 Table's rows, it says which Tables are the sources and which the finals, it names what the
