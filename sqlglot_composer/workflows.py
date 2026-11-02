@@ -796,8 +796,8 @@ def show_the_change(inputs: dict[str, object], calls: Calls) -> list[str]:
 
 # The check an Admin statement's Check first line names, such as
 # "Check first: SHOW PARTITIONS mart.daily_runs lists its Partitions: ...".
-CHECK_FIRST = re.compile(r"^Check first: (?P<hive>(SHOW PARTITIONS|DESCRIBE FORMATTED|DESCRIBE) "
-                         r"\S+) ")
+CHECK_FIRST = re.compile(
+    r"^Check first: (?P<check>(SHOW PARTITIONS|DESCRIBE FORMATTED|DESCRIBE) \S+) ")
 
 
 def check_first_hive(change: Statement) -> str | None:
@@ -806,7 +806,7 @@ def check_first_hive(change: Statement) -> str | None:
     for said in change._admin_about:
         found = CHECK_FIRST.match(said)
         if found:
-            return found["hive"]
+            return found["check"]
     return None
 
 
