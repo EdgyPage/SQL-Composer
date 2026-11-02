@@ -1,0 +1,1 @@
+DONE: I copied main/copilot/formula_workbook.xlsx, filled it in as its Steps sheet says (raw data as the job_runs Table with 'Copied from ops.job_runs' above, the per-job summary as the job_report Table with COUNTIFS and AVERAGEIFS, Parameters and Keys left empty), and saved it as my_work/run_report_formula.xlsx. Step 12: the data team converts it. No question.

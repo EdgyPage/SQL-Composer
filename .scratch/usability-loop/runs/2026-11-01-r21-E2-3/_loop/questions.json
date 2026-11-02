@@ -1,0 +1,3 @@
+[
+ "Convert this workbook. Each final table's query goes in its own block, with no `<...>` left unfilled in the names I can see from the sources (the workbook notes say they come from ops.job_runs and ops.jobs)."
+]

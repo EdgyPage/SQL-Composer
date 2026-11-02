@@ -1,0 +1,284 @@
+{
+ "mart.team_fails": {
+  "columns": {
+   "team": "string",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": null,
+  "rows": [
+   [
+    "data",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    14,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "mart.job_runs_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "runs": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": null,
+  "rows": [
+   [
+    1,
+    2,
+    "2026-09-23"
+   ],
+   [
+    1,
+    2,
+    "2026-09-24"
+   ],
+   [
+    2,
+    2,
+    "2026-09-23"
+   ],
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ],
+   [
+    3,
+    1,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "mart.job_fails_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": null,
+  "rows": [
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ]
+  ]
+ },
+ "mart_dev.team_fails": {
+  "columns": {
+   "team": "string",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/mart_dev.db/team_fails",
+  "rows": [
+   [
+    "data",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    14,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "mart_dev.job_runs_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "runs": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/mart_dev.db/job_runs_counted",
+  "rows": [
+   [
+    1,
+    2,
+    "2026-09-23"
+   ],
+   [
+    1,
+    2,
+    "2026-09-24"
+   ],
+   [
+    2,
+    2,
+    "2026-09-23"
+   ],
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ],
+   [
+    3,
+    1,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "mart_dev.job_fails_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/mart_dev.db/job_fails_counted",
+  "rows": [
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ]
+  ]
+ },
+ "team_prod.team_fails": {
+  "columns": {
+   "team": "string",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/team_prod.db/team_fails",
+  "rows": [
+   [
+    "data",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    7,
+    "2026-09-23"
+   ],
+   [
+    "finance",
+    14,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "team_prod.job_runs_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "runs": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/team_prod.db/job_runs_counted",
+  "rows": [
+   [
+    1,
+    2,
+    "2026-09-23"
+   ],
+   [
+    1,
+    2,
+    "2026-09-24"
+   ],
+   [
+    2,
+    2,
+    "2026-09-23"
+   ],
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ],
+   [
+    3,
+    1,
+    "2026-09-24"
+   ]
+  ]
+ },
+ "team_prod.job_fails_counted": {
+  "columns": {
+   "job_id": "bigint",
+   "fails": "bigint",
+   "dt": "string"
+  },
+  "partitioned_by": [
+   "dt"
+  ],
+  "location": "/data/team/team_prod.db/job_fails_counted",
+  "rows": [
+   [
+    2,
+    1,
+    "2026-09-24"
+   ],
+   [
+    3,
+    1,
+    "2026-09-23"
+   ]
+  ]
+ }
+}

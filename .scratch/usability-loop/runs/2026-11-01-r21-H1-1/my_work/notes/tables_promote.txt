@@ -1,0 +1,1 @@
+TABLES = ["mart_dev.team_fails", "mart_dev.job_runs_counted", "mart_dev.job_fails_counted"]  # the dev tables, by their names in your Dev Database, such as ["mart_dev.daily_job_runs"]

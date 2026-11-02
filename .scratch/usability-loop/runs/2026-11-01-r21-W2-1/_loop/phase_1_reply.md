@@ -1,0 +1,1 @@
+DONE: Made the Saved table mart_dev.runs_per_day (6 rows, partitioned by dt, location /data/team/mart_dev.db/runs_per_day) through the Toolbox's new_table Workflow and project.run_tables, with my own logic in its Table notebook (READS = between(...), GROUP BY job_id, dt, PARTITIONED_BY = ["dt"]), its lineage and Hive exported, and project.check() clean.

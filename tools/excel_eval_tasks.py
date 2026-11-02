@@ -58,6 +58,8 @@ COVERAGE = (
     "combination", "multi_source", "shared_step",
     # a query loads a Table, which adds a column, and another query reads the query
     "loaded_table_final",
+    # a query loads a Table, and another Table's formulas read it
+    "query_table_formula",
 )
 
 
@@ -851,7 +853,8 @@ in
          "top_runs": f"WITH {RUNS_PLACED} SELECT run_id, job_name, region FROM base ORDER BY "
                      "duration_mins DESC, run_id LIMIT 2"}),
     ExcelTask(
-        "X71", "dev", ("loaded_table_final", "query_reads_query", "several_finals"),
+        "X71", "dev", ("loaded_table_final", "query_reads_query", "several_finals",
+                       "query_table_formula"),
         FormulaWorkbook(
             (runs_table(),
              ExcelTable("ok_runs", ("run_id", "job_id", "duration_mins", "hours"),
@@ -860,7 +863,10 @@ in
                         loaded_by="ok_runs"),
              ExcelTable("ok_by_job", ("job_id", "total_mins"),
                         "SELECT job_id, SUM(duration_mins) FROM ops.job_runs WHERE status = "
-                        "'SUCCESS' GROUP BY job_id ORDER BY job_id", loaded_by="ok_by_job")),
+                        "'SUCCESS' GROUP BY job_id ORDER BY job_id", loaded_by="ok_by_job"),
+             ExcelTable("ok_hours", ("job_id", "hours"),
+                        "SELECT DISTINCT job_id FROM ops.job_runs ORDER BY job_id",
+                        {"hours": "=SUMIFS(ok_runs[hours],ok_runs[job_id],[@job_id])"})),
             queries=(("ok_runs", f"""let
     Source = {table("job_runs")},
     Ok = Table.SelectRows(Source, each [status] = "SUCCESS"),
@@ -871,10 +877,12 @@ in
         {"total_mins", each List.Sum([duration_mins]), type number}})
 in
     Grouped"""))),
-        {"ok_runs": f"WITH {OK_RUNS} SELECT run_id, job_id, duration_mins, duration_mins / 60 "
-                    "AS hours FROM ok",
-         "ok_by_job": f"WITH {OK_RUNS} SELECT job_id, SUM(duration_mins) AS total_mins FROM ok "
-                      "GROUP BY job_id"}),
+        {"ok_by_job": f"WITH {OK_RUNS} SELECT job_id, SUM(duration_mins) AS total_mins FROM ok "
+                      "GROUP BY job_id",
+         "ok_hours": f"WITH {OK_RUNS} SELECT j.job_id, COALESCE(s.hours, 0) AS hours FROM "
+                     "(SELECT DISTINCT job_id FROM ops.job_runs) j LEFT JOIN (SELECT job_id, "
+                     "SUM(duration_mins / 60) AS hours FROM ok GROUP BY job_id) s "
+                     "ON j.job_id = s.job_id"}),
     ExcelTask(
         "X72", "dev", ("shared_step", "chain", "multi_source", "several_finals",
                        "single_ifs"),
@@ -1869,7 +1877,7 @@ in
                          "dt"}),
     ExcelTask(
         "X78", "held_out", ("loaded_table_final", "query_reads_query", "several_finals",
-                            "total_row", "m_null_test"),
+                            "total_row", "m_null_test", "query_table_formula"),
         FormulaWorkbook(
             (COSTS_TABLE,
              ExcelTable("known_costs", ("job_id", "cost_cents", "dt", "dollars"),
@@ -1880,7 +1888,11 @@ in
                                 "cost_cents": "=SUBTOTAL(109,known_costs[cost_cents])"}),
              ExcelTable("cost_per_job", ("job_id", "total_cents"),
                         "SELECT job_id, SUM(cost_cents) FROM ops.region_costs GROUP BY job_id "
-                        "ORDER BY job_id", loaded_by="cost_per_job")),
+                        "ORDER BY job_id", loaded_by="cost_per_job"),
+             ExcelTable("job_dollars", ("job_id", "dollars"),
+                        "SELECT DISTINCT job_id FROM ops.region_costs ORDER BY job_id",
+                        {"dollars": "=SUMIFS(cost_per_job[total_cents],cost_per_job[job_id],"
+                                    "[@job_id])/100"})),
             queries=(("known_costs", f"""let
     Source = {table("region_costs")},
     Known = Table.SelectRows(Source, each [cost_cents] <> null),
@@ -1895,8 +1907,11 @@ in
                         "AS dollars FROM known",
          "known_costs (Total Row)": f"WITH {KNOWN_COSTS} SELECT SUM(cost_cents) AS cost_cents "
                                     "FROM known",
-         "cost_per_job": f"WITH {KNOWN_COSTS} SELECT job_id, SUM(cost_cents) AS total_cents "
-                         "FROM known GROUP BY job_id"}),
+         "job_dollars": f"WITH {KNOWN_COSTS}, per_job AS (SELECT job_id, SUM(cost_cents) AS "
+                        "total_cents FROM known GROUP BY job_id) SELECT j.job_id, "
+                        "COALESCE(p.total_cents, 0) / 100 AS dollars FROM (SELECT DISTINCT "
+                        "job_id FROM ops.region_costs) j LEFT JOIN per_job p ON j.job_id = "
+                        "p.job_id"}),
     ExcelTask(
         "X80", "held_out", ("if", "and_or"),
         FormulaWorkbook((runs_table(("run_id", "job_id", "duration_mins"), formulas={

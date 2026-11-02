@@ -1,0 +1,1 @@
+DONE: Saved the filled-in Formula workbook as my_work/team_report_formula.xlsx: jobs Table ('Copied from ops.jobs' above), job_runs Table with team as XLOOKUP into jobs[team], teams summary Table (COUNTIFS runs, SUMIFS total_duration_mins). Parameters and Keys empty. Step 12: the data team converts it. No question.

@@ -1,7 +1,7 @@
 # What ticket 20's usability round found, and the Excel dependency order made explicit
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 20
 Size: M
 
@@ -69,6 +69,65 @@ untested.
   example 03 in Excel, add its queries as its Power Query sheet says, save it, and attach it
   in a Copilot chat. Until then, the Steps sheet's Power Query sheet stays the way the M
   reaches Copilot.
+
+## Answer
+
+- **The dependency order.**
+  - File 15's step 1 reads each piece's line under `Order, each piece after every piece it
+    reads:`, from the workbook's text (ticket 22), or works it out the same way from the
+    workbook.
+  - Its step 4 puts each CTE after every CTE it reads.
+  - A loop is refused by the Decision rules, and the Self-check holds the order.
+  - File 12 says the same where it names a CTE, and its "## Order" is now "## Sorting".
+  - No Excel evaluation task had a formula read a query's Table: each such Table was a final.
+    X71 (dev) and X78 (held out) each gained one, `ok_hours` and `job_dollars`, under a new
+    kind, `query_table_formula`.
+- **TODO lines.**
+  - write_decisions' and reference_from_logic's messages name each TODO line left.
+  - new_table's step 3 says to fill them in.
+  - An empty decisions cell says it answers no table.
+  - The `key=None` question is answered under Review.
+- **change_a_saved_table step 2.** Its cell runs `SHOW PARTITIONS` and prints the rows. On the
+  Example database the check stops, which the step says.
+- **The runner.** `--list` and `--cells` work either side of the path.
+- **The README.**
+  - It names a one-file batch's table, says RENAME is optional, and gives the original's
+    database and why.
+  - Its references step says how `does_not_add_up=` is filled in.
+  - Its section endings say "section N, <its name>".
+- **new_table and promote.**
+  - new_table's step 2 says what to check when QUERIES wrote the logic.
+  - A table with no query has PROPOSED_FROM_LOGIC.
+  - Promote's decisions step says when there is nothing to answer.
+
+Everything was tested again, from main as 2109ed37 left it (`.scratch/copilot-eval/results.md`,
+`.scratch/usability-loop/results.md`, "The tickets 21 and 22 round"):
+
+| Check | Dev | Held out |
+|---|---|---|
+| Copilot evaluation | 88% of 26; 06 and 13 run again, 100% of 6 | 100% of 13 |
+| Excel evaluation | 100% of 42 | 98% of 42 |
+| Usability loop | every scenario 3/3 | each scenario 1/1 |
+
+X71 and X78, with their new chain (21chain-dev, 21chain-held), were scored after the round: both
+passed. The dependency order put the step's CTE before the formula Table reading it.
+
+- **The Copilot dev misses.**
+  - T16 and T17 wrote a static-partition INSERT. That is valid Hive, but the scorer wants the
+    reference's form.
+  - T37 put the Hive in its `query` variable.
+  - Files 06 and 13 didn't change, and their rerun passed every task.
+- **The Excel held-out miss.** X69 gave the date-held-as-text conversion to a dt passed
+  through unchanged.
+- **The usability loop.**
+  - Each Excel phase 2 ran `workbook_text.py` and attached its text. Each asked one question,
+    the convert itself.
+  - Each chain came back with its steps first.
+  - Two route proxies named file 15 alone, because the loop's route message asked for one
+    file. It now asks for any file file 00 says goes with it.
+
+What the round found, none failing a run, is listed in the results under "Found in the tickets
+21 and 22 round".
 
 ## Review
 

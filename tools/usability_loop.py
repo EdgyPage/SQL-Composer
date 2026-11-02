@@ -337,8 +337,9 @@ def route(run: Path, question: str) -> tuple[Path, Path]:
     to load next. The message's path, and its reply's."""
     questions = [*read_questions(run), question]
     write_questions(run, questions)
-    asked = ("Reply with the one Copilot file the user should load next, such as "
-             "07_convert_hive.txt, and nothing else.\n")
+    asked = ("Reply with the Copilot file the user should load next, such as "
+             "07_convert_hive.txt, with any file file 00 says goes with it, and nothing "
+             "else.\n")
     return write_copilot_message(run, len(questions), "route",
                                  chat_so_far(run, question) + asked)
 

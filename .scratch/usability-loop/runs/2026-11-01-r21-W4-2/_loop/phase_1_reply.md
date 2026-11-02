@@ -1,0 +1,2 @@
+DONE: Started a Project from the Toolbox and wrote Table references for ops.jobs and ops.run_alerts, with Keys job_id and alert_id, Dev Database mart_dev and Prod Database team_prod. warehouse.py from team_connection; references Workflow names and decisions cells; add_references, write_decisions, refresh; TODO lines filled; check_table_reference both match; check_key holds (ops.run_alerts on its latest partition); project.check() every step done; no TODO line left.
+Friction: notebook JSON edits error-prone; check named a pending refresh without saying why.

@@ -1,7 +1,7 @@
 # A workbook as text, in dependency order, with nothing but Python
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 Size: M
 
@@ -64,6 +64,59 @@ order each piece reads the others, and that text is what Copilot gets.
 - The fixture workbooks are committed files, under `tests/fixtures/`, so the user can open them
   in Excel: "Committed files". They need ALLOWED entries for their connections, query tables
   and `DataMashup`, and AUDITED entries for their base64.
+
+## Answer
+
+- **The script.** `copilot/workbook_text.py` ships on main and uses only Python's standard
+  library.
+  - `python copilot/workbook_text.py "my work/costs.xlsx"`, run from the download's top folder,
+    writes `costs.txt` beside the workbook. The beginner reader found the `%run` form
+    confusing, so the docs dropped it.
+  - It reads the M from `customXml/item1.xml`'s `DataMashup`, and what each query loads from the
+    connections and query tables.
+  - A workbook with no queries gives its M from its Power Query sheet.
+  - Its Order lists each piece after every piece it reads, in Excel's words.
+  - A loop writes nothing and names each link.
+- **Fixtures.**
+  - `tools/workbook_fixtures.py` builds three: a chain, a query reading a query, and a loop. It
+    uses the template and `tools/excel_queries.py`, which saves the queries as Excel does.
+  - Each fixture is committed under `tests/fixtures/workbook_text/` with its text.
+- **One view.**
+  - `tools/formula_workbook.as_text` is the script's text. The old openpyxl view is the test
+    oracle, and the two are equal for every Excel evaluation task.
+  - The evaluations and the loop give their stand-in that text.
+- **The docs.**
+  - README step 2 has a branch for running the script and one for not running it.
+  - The Steps sheet's step 12 says to run the script and attach the .txt.
+  - File 15 reads the Order (ticket 21).
+- **The checks.** The script's and the builder's base64, and the fixtures' DataMashup,
+  connections and query tables, are in AUDITED and ALLOWED, with the user's OKs above.
+
+Everything was tested again, from main as 2109ed37 left it (`.scratch/copilot-eval/results.md`,
+`.scratch/usability-loop/results.md`, "The tickets 21 and 22 round"):
+
+| Check | Dev | Held out |
+|---|---|---|
+| Copilot evaluation | 88% of 26; 06 and 13 run again, 100% of 6 | 100% of 13 |
+| Excel evaluation | 100% of 42 | 98% of 42 |
+| Usability loop | every scenario 3/3 | each scenario 1/1 |
+
+X71 and X78, with their new chain (21chain-dev, 21chain-held), were scored after the round: both
+passed. The dependency order put the step's CTE before the formula Table reading it.
+
+- **The Copilot dev misses.**
+  - T16 and T17 wrote a static-partition INSERT. That is valid Hive, but the scorer wants the
+    reference's form.
+  - T37 put the Hive in its `query` variable.
+  - Files 06 and 13 didn't change, and their rerun passed every task.
+- **The Excel held-out miss.** X69 gave the date-held-as-text conversion to a dt passed
+  through unchanged.
+- **The usability loop.**
+  - Each Excel phase 2 ran `workbook_text.py` and attached its text. Each asked one question,
+    the convert itself.
+  - Each chain came back with its steps first.
+  - Two route proxies named file 15 alone, because the loop's route message asked for one
+    file. It now asks for any file file 00 says goes with it.
 
 ## Review
 

@@ -1,0 +1,2 @@
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT OVERWRITE TABLE team_prod.job_fails_counted PARTITION(dt) SELECT r.job_id, COUNT(*) AS fails, r.dt FROM ops.job_runs AS r WHERE r.status = 'FAILED' GROUP BY r.job_id, r.dt

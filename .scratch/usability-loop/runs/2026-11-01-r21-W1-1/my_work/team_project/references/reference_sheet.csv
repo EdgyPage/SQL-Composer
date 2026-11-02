@@ -1,0 +1,4 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+mart_dev.team_fails,team,string,,yes,,,2026-11-01 19:48:25
+mart_dev.team_fails,fails,bigint,,,,,2026-11-01 19:48:25
+mart_dev.team_fails,dt,string,yes,yes,,,2026-11-01 19:48:25

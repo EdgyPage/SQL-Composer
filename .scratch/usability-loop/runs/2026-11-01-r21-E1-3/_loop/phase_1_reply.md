@@ -1,0 +1,1 @@
+DONE: Made the copy of main/copilot/formula_workbook.xlsx and filled it in as its Steps sheet says: my_work/run_report_formula.xlsx. Sheet job_runs (Table job_runs, 'Copied from ops.job_runs' above); Report rebuilt as summary Table job_report (COUNTIFS, COUNTIFS with "FAILED", AVERAGEIFS). Parameters and Keys empty. Step 12: the data team converts it. No question.

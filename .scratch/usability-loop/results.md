@@ -520,3 +520,110 @@ E3-3 asked three times before my relay answered it.
   but it reads as if something must be answered.
 - **The README (W4-1).** Its seven "then go on to N. <Section>" endings read as a stray
   sentence.
+| 2026-11-01 | W5 | dev | 2026-11-01-r21-W5-3 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; step 2's cell ran the SHOW PARTITIONS check itself |
+| 2026-11-01 | W5 | dev | 2026-11-01-r21-W5-2 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; step 2's cell ran the check |
+| 2026-11-01 | W5 | dev | 2026-11-01-r21-W5-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; project.check() refuses outside the Project, clearly |
+| 2026-11-01 | W4 | dev | 2026-11-01-r21-W4-2 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; a pending sheet refresh not said why |
+| 2026-11-01 | W4 | dev | 2026-11-01-r21-W4-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; Workflow step doesn't say deleting does_not_add_up's TODO means none (README does) |
+| 2026-11-01 | H2 | held_out | 2026-11-01-r21-H2-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; named DEV/PROD, old tables kept their names |
+| 2026-11-01 | W3 | dev | 2026-11-01-r21-W3-2 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; used the convert Workflow; check()'s Done-when line missing after convert |
+| 2026-11-01 | W4 | dev | 2026-11-01-r21-W4-3 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; check_key's where= refusal clear |
+| 2026-11-01 | W1 | dev | 2026-11-01-r21-W1-3 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; RENAME from the README; compared both Partitions |
+| 2026-11-01 | W1 | dev | 2026-11-01-r21-W1-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; seed step's SET cell when nothing reads itself |
+| 2026-11-01 | W1 | dev | 2026-11-01-r21-W1-2 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; compared both Partitions |
+| 2026-11-01 | W2 | dev | 2026-11-01-r21-W2-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions |
+| 2026-11-01 | W3 | dev | 2026-11-01-r21-W3-3 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; 0 questions; --cells numbering (code cells) not said in the README |
+| 2026-11-01 | W2 | dev | 2026-11-01-r21-W2-2 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; --cells counts code cells; Key of ops.job_runs unsaid in README |
+| 2026-11-01 | W2 | dev | 2026-11-01-r21-W2-3 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; new_table text could say references Workflow first; Key answered before checking uniqueness |
+| 2026-11-01 | W3 | dev | 2026-11-01-r21-W3-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; escaping quotes in a hand-edited decisions cell; CONVERSION opt-out reason unsaid |
+| 2026-11-01 | H1 | held_out | 2026-11-01-r21-H1-1 | pass | 0 | tickets 21 and 22 rerun, main 2109ed37; --cells counts code cells; compare checks only the latest Partition |
+| 2026-11-01 | E1 | dev | 2026-11-01-r21-E1-2 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; ran workbook_text.py, attached the .txt; 1 question |
+| 2026-11-01 | E1 | dev | 2026-11-01-r21-E1-1 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; workbook_text.py's .txt attached; Project folder's place unsaid; 1 question |
+| 2026-11-01 | E1 | dev | 2026-11-01-r21-E1-3 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; batch named for the target; CONVERSION note repeated three times; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r21-E2-1 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; step CTE with a lookup join; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r21-E2-3 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; typed groups hard-coded, as the workbook typed them; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r21-E3-1 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; query-to-Table-to-formula chain as one CTE; Total Row left out on ask; 1 question |
+| 2026-11-01 | E4 | held_out | 2026-11-01-r21-E4-1 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; Parameters value and typed-over value carried; held-out; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r21-E3-3 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; typed dates as groups miss later days, unsaid; Total Row dropped by the user; 1 question |
+| 2026-11-01 | E2 | dev | 2026-11-01-r21-E2-2 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; step CTE with a lookup join; 1 question |
+| 2026-11-01 | E3 | dev | 2026-11-01-r21-E3-2 | pass | 1 | tickets 21 and 22 rerun, main 2109ed37; query chain as one CTE; Total Row block dropped; 1 question |
+
+## The tickets 21 and 22 round, 2026-11-01: ticket 20's findings fixed, and the workbook as text
+
+Main's tree was built from 2109ed37, which holds tickets 21 and 22:
+- `copilot/workbook_text.py` writes a workbook as text, with its M, in dependency order. Step 12
+  of the Steps sheet and README step 2 say to attach that text in place of the workbook;
+- file 15 reads that order and writes each CTE after every CTE it reads;
+- the TODO lines left are named, and change_a_saved_table's step 2 runs its check;
+- the runner takes `--list` and `--cells` either side of the path;
+- the README's convert naming, RENAME and section endings are reworded.
+
+Each dev scenario ran three times and each held-out one once. Every phase had a fresh Haiku
+agent, and both Copilot steps ran on Haiku. The 27 rows are just above.
+
+| scenario | split | passed | questions | the ticket 20 round |
+|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 3/3, 0 |
+| W2 | dev | 3/3 | 0 | 3/3, 0 |
+| W3 | dev | 3/3 | 0 | 3/3, 0 |
+| W4 | dev | 3/3 | 0 | 3/3, 0 |
+| W5 | dev | 3/3 | 0 | 3/3, 0 |
+| E1 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E2 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| E3 | dev | 3/3 | 1 each, the convert | 3/3, 1 each |
+| H1 | held out | 1/1 | 0 | 1/1, 0 |
+| H2 | held out | 1/1 | 0 | 1/1, 0 |
+| E4 | held out | 1/1 | 1, the convert | 1/1, 1 |
+
+What the tickets did:
+- **The text.** Every Excel phase 2 ran `workbook_text.py` and attached the .txt with files 15,
+  11 and 12, as step 12 says. E2-3 and E3-2 also ran it in phase 1, as a check. No run met a
+  loop.
+- **The order.** Each chain came back with its steps first:
+  - E2 and E4 put job_runs, a step with a lookup column, in a CTE before the summaries that
+    read it.
+  - E3 put CleanRuns, a query feeding a Table, in a CTE before daily.
+  - Every compare passed.
+- **The fixes.**
+  - W5's step 2 cell ran SHOW PARTITIONS itself.
+  - The runner's flags worked either side of the path.
+  - The RENAME and naming text was followed (W1-3, H1).
+- E4's Parameters value (50) and its typed-over value (job 3, 1000) both came through.
+
+A slip on my side: E3-1's phase 1 was started twice. I stopped the second agent at once. The
+run's folder held only the first agent's workbook.
+
+A harness fault, now fixed: two of the ten route proxies (E3-1, E3-2) named file 15 alone. The
+route message asked for "the one Copilot file ... and nothing else", against file 00's
+three-file rule for a workbook. Those two runs were answered with files 15, 11 and 12, as file
+00 says. `route` now asks for the file "with any file file 00 says goes with it".
+
+### Found in the tickets 21 and 22 round, none failing a run
+
+- **The runner's cell numbers (W2-2, W2-3, W3-3, H1).** `--cells` counts code cells only. The
+  README and the Workflows' step text don't say so. H1 first ran `--cells 10` for create and
+  got do_next.
+- **A source's Key (W2-2, W2-3).** The references Workflow asks for the Key before anything
+  says how to check one is unique. check_key comes later.
+- **Hand-edited cells (W3-1).** With no Jupyter, a decisions cell is edited as JSON. Its quotes
+  need `\"`, which nothing shows.
+- **The CONVERSION opt-out (W3-1, E1-3).**
+  - The note doesn't say what the Toolbox would have refused.
+  - project.check()'s "Noted by ..., which blocks nothing" comes before the next step, so it
+    reads as a blocker.
+  - batch.md and checklist.md repeat one note three times.
+- **The convert Workflow.**
+  - The seed step's SET cell runs when nothing reads itself (W1-1).
+  - check()'s Done-when line is missing after convert (W3-2).
+  - Compare checks the latest Partition only, and another needs `partition=` (H1).
+- **References (W4-1, W4-2).** The Workflow step doesn't say deleting `does_not_add_up`'s TODO
+  means no column. check() names a pending Reference sheet refresh without saying why.
+- **The Project folder (E1-1, H1).** Nothing says where the Project folder goes or what to call
+  it.
+- **Excel.**
+  - Step 6 doesn't say whether a text literal in a formula, such as "FAILED", is a fixed value
+    for Parameters (E1-3, phase 1).
+  - A summary's typed groups become fixed values in the Hive, so a later day or team is left
+    out. Nothing tells the user (E3-3, E2-3).
+  - A Parameters value is typed into the Hive, so a changed rate won't reach the table
+    (E4-1). Neither point is said where the user reads the map.

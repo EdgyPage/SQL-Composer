@@ -1,0 +1,60 @@
+Sheet "Steps": the empty Formula workbook's steps, as it ships.
+Sheet "Parameters"
+  Excel Table "Parameters", A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP("tax_rate", Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet "Keys"
+  Excel Table "Keys", A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table's name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet "job_runs"
+  Excel Table "job_runs", A2:F11
+    Headers: run_id | job_id | status | duration_mins | avg_retry_secs | dt
+    Row 2: 95 | 1 | SUCCESS | 12 | 2 | 2026-09-23
+    Row 3: 96 | 2 | SUCCESS | 18 | 0 | 2026-09-23
+    Row 4: 97 | 3 | FAILED | 30 | 8 | 2026-09-23
+    Row 5: 98 | 2 |  | 15 |  | 2026-09-23
+    Row 6: 99 | 1 | TEST | 5 | 0 | 2026-09-23
+    Row 7: 101 | 1 | SUCCESS | 10 | 1 | 2026-09-24
+    Row 8: 102 | 2 | FAILED | 20 | 6 | 2026-09-24
+    Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24
+    Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24
+  A1: Copied from ops.job_runs in our warehouse.
+Sheet "Clean"
+  Excel Table "CleanRuns", A1:F8, loaded by Power Query "CleanRuns"
+    Headers: run_id | job_id | status | duration_mins | avg_retry_secs | dt
+    Row 2: 95 | 1 | SUCCESS | 12 | 2 | 2026-09-23
+    Row 3: 96 | 2 | SUCCESS | 18 | 0 | 2026-09-23
+    Row 4: 97 | 3 | FAILED | 30 | 8 | 2026-09-23
+    Row 5: 101 | 1 | SUCCESS | 10 | 1 | 2026-09-24
+    Row 6: 102 | 2 | FAILED | 20 | 6 | 2026-09-24
+    Row 7: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24
+    Row 8: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24
+  H1: Loaded by the Power Query "CleanRuns" from job_runs: runs with no status, and test runs, left out.
+Sheet "Power Query"
+  A1: This workbook's Power Query, which the tool that made this file can't add to it, so the Table CleanRuns on the Clean sheet holds the rows the query gives, typed in. To see the workbook as it should be, add the query in Excel: Data > Get Data > From Other Sources > Blank Query, Home > Advanced Editor, paste its M below, and name it CleanRuns. Then delete the typed-in Table on Clean, and Home > Close & Load To > Table, at A1 of Clean.
+Sheet "Daily"
+  Excel Table "daily", A1:C4
+    Headers: dt | runs | total_duration_mins
+    Row 2: 2026-09-23 | =COUNTIFS(CleanRuns[dt],[@dt]) | =SUMIFS(CleanRuns[duration_mins],CleanRuns[dt],[@dt])
+    Row 3: 2026-09-24 | =COUNTIFS(CleanRuns[dt],[@dt]) | =SUMIFS(CleanRuns[duration_mins],CleanRuns[dt],[@dt])
+    Total Row: Total | =SUBTOTAL(109,daily[runs]) | =SUBTOTAL(109,daily[total_duration_mins])
+  E1: One row per day of the clean runs, and a Total Row.
+Power Query "CleanRuns" (loads into Excel Table "CleanRuns"):
+    let
+        Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
+        Typed = Table.TransformColumnTypes(Source, {{"run_id", Int64.Type}, {"job_id", Int64.Type},
+            {"status", type text}, {"duration_mins", Int64.Type}, {"dt", type text}}),
+        Kept = Table.SelectRows(Typed, each [status] <> null and [status] <> "TEST")
+    in
+        Kept
+Order, each piece after every piece it reads:
+  1. Excel Table "Parameters"
+  2. Excel Table "Keys"
+  3. Excel Table "job_runs"
+  4. Power Query "CleanRuns", reads Excel Table "job_runs"
+  5. Excel Table "CleanRuns", loaded by Power Query "CleanRuns"
+  6. Excel Table "daily", its formulas read Excel Table "CleanRuns"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

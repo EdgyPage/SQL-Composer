@@ -1,0 +1,14 @@
+table,column,type,partition,in_key,aliases,description,exported_at
+mart_dev.team_fails,team,string,,yes,,,2026-11-01 19:48:17
+mart_dev.team_fails,fails,bigint,,,,,2026-11-01 19:48:17
+mart_dev.team_fails,dt,string,yes,yes,,,2026-11-01 19:48:17
+ops.job_owners,job_id,bigint,,,,,2026-11-01 19:48:17
+ops.job_owners,team,string,,,,,2026-11-01 19:48:17
+ops.job_owners,owner,string,,,,NULL when nobody owns the job,2026-11-01 19:48:17
+ops.job_owners,dt,string,yes,,,,2026-11-01 19:48:17
+ops.job_runs,run_id,bigint,,,,,2026-11-01 19:48:17
+ops.job_runs,job_id,bigint,,,,,2026-11-01 19:48:17
+ops.job_runs,status,string,,,,"SUCCESS / FAILED / TEST, NULL while running",2026-11-01 19:48:17
+ops.job_runs,duration_mins,int,,,,,2026-11-01 19:48:17
+ops.job_runs,avg_retry_secs,double,,,,,2026-11-01 19:48:17
+ops.job_runs,dt,string,yes,,,,2026-11-01 19:48:17

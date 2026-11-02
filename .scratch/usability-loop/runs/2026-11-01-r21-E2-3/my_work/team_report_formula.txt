@@ -1,0 +1,46 @@
+Sheet "Steps": the empty Formula workbook's steps, as it ships.
+Sheet "Parameters"
+  Excel Table "Parameters", A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP("tax_rate", Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet "Keys"
+  Excel Table "Keys", A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table's name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet "Jobs"
+  Excel Table "jobs", A2:D6
+    Headers: job_id | job_name | team | region
+    Row 2: 1 | nightly_load | data | LON
+    Row 3: 2 | invoice_sync | finance | PAR
+    Row 4: 3 | report_build | finance | NYC
+    Row 5: 4 | cache_warm | web | LON
+  A1: Copied from ops.jobs in our warehouse.
+Sheet "Runs"
+  Excel Table "job_runs", A2:G11
+    Headers: run_id | job_id | status | duration_mins | avg_retry_secs | dt | team
+    Row 2: 95 | 1 | SUCCESS | 12 | 2 | 2026-09-23 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 3: 96 | 2 | SUCCESS | 18 | 0 | 2026-09-23 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 4: 97 | 3 | FAILED | 30 | 8 | 2026-09-23 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 5: 98 | 2 |  | 15 |  | 2026-09-23 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 6: 99 | 1 | TEST | 5 | 0 | 2026-09-23 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 7: 101 | 1 | SUCCESS | 10 | 1 | 2026-09-24 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 8: 102 | 2 | FAILED | 20 | 6 | 2026-09-24 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 9: 103 | 3 | SUCCESS | 30 | 0 | 2026-09-24 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+    Row 10: 104 | 1 | SUCCESS | 40 | 3 | 2026-09-24 | =XLOOKUP([@job_id],jobs[job_id],jobs[team])
+  A1: Copied from ops.job_runs in our warehouse; team looked up from Jobs.
+Sheet "Teams"
+  Excel Table "teams", A1:C4
+    Headers: team | runs | total_duration_mins
+    Row 2: data | =COUNTIFS(job_runs[team],[@team]) | =SUMIFS(job_runs[duration_mins],job_runs[team],[@team])
+    Row 3: finance | =COUNTIFS(job_runs[team],[@team]) | =SUMIFS(job_runs[duration_mins],job_runs[team],[@team])
+    Row 4: web | =COUNTIFS(job_runs[team],[@team]) | =SUMIFS(job_runs[duration_mins],job_runs[team],[@team])
+  E1: One row per team: its runs, and their minutes added up.
+Order, each piece after every piece it reads:
+  1. Excel Table "Parameters"
+  2. Excel Table "Keys"
+  3. Excel Table "jobs"
+  4. Excel Table "job_runs", its formulas read Excel Table "jobs"
+  5. Excel Table "teams", its formulas read Excel Table "job_runs"
+Each final's query reads the steps it needs as CTEs in this order, each CTE after every CTE it reads.

@@ -1,0 +1,1 @@
+DONE: Made my_work/run_report_formula.xlsx from the empty Formula workbook, with the team's raw data as a job_runs Table ('Copied from ops.job_runs' above) and the Report as a run_report summary Table (COUNTIFS, COUNTIFS with "FAILED", AVERAGEIFS), following the Steps sheet. Parameters and Keys stay empty, and the file is ready for the data team to convert. No question.
