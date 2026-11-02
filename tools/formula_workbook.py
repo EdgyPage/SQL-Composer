@@ -45,6 +45,11 @@ from openpyxl.worksheet.table import Table, TableColumn, TableFormula, TableStyl
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
+sys.path[:0] = [str(ROOT / "copilot"), str(ROOT / "tools")]
+
+import excel_queries  # noqa: E402
+import workbook_text  # noqa: E402
+
 EMPTY = ROOT / "copilot" / "formula_workbook.xlsx"
 
 # The steps sheet, one paragraph a row. A heading is a line that ends with a colon.
@@ -162,8 +167,11 @@ STEPS = (
     "12. Hand it on. Goal: the Hive for your workbook. Action: go through the checks below, "
     "then save the workbook. If someone else converts it for you, such as your data team, "
     "send it to them: the rest of this step is theirs. Else attach it in a Copilot chat with "
-    "Copilot files 15, 11 and 12 loaded, and ask Copilot to convert it. Done when Copilot "
-    "replies with the Hive for your workbook, or the workbook is sent.",
+    "Copilot files 15, 11 and 12 loaded, and ask Copilot to convert it. If you can run "
+    "Python, first run workbook_text.py, in the copilot folder, on this workbook: it writes "
+    "a .txt of the same name beside it, which you attach in place of the workbook. The "
+    "README's section on handing over an Excel workbook says how. Done when Copilot replies "
+    "with the Hive for your workbook, or the workbook is sent.",
     "Check before you hand it on:",
     "Each table of raw data is a named Table on a sheet of its own, with one header row.",
     "Each calculation is a formula column in a Table, a Power Query loaded to a Table, a "
@@ -449,13 +457,35 @@ def row_label(table: Table, number: int, count: int) -> str:
     return f"Row {number}"
 
 
+def built(described: FormulaWorkbook) -> bytes:
+    """The file `build` saves of the filled-in Formula workbook `described`, which holds no
+    Power Query: openpyxl writes none."""
+    held = io.BytesIO()
+    build(described).save(held)
+    return held.getvalue()
+
+
+def saved(described: FormulaWorkbook) -> bytes:
+    """The filled-in Formula workbook `described`, saved as Excel saves it: the file `built`
+    gives, then its Power Queries saved in it, each loading the Table it loads."""
+    if not described.queries:
+        return built(described)
+    loads = {table.loaded_by: table.name for table in described.tables if table.loaded_by}
+    return excel_queries.with_queries(built(described), list(described.queries), loads)
+
+
 def as_text(described: FormulaWorkbook) -> str:
-    """What Copilot reads in the filled-in Formula workbook `described`, read back from the file
-    `build` saves: each sheet's Tables, row by row, and its other cells and charts, then the
-    Power Queries, the defined names, and the notes."""
-    saved = io.BytesIO()
-    build(described).save(saved)
-    workbook = openpyxl.load_workbook(io.BytesIO(saved.getvalue()))
+    """What Copilot reads in the filled-in Formula workbook `described`: the text
+    `copilot/workbook_text.py` writes of the file `saved` gives, formulas as the workbook's
+    `as_typed` says, then the notes."""
+    text = workbook_text.workbook_text(saved(described), typed=described.as_typed)
+    return text + "".join(f"Also in the workbook: {note}\n" for note in described.notes)
+
+
+def openpyxl_text(described: FormulaWorkbook) -> str:
+    """The same workbook's text, as openpyxl reads the file `build` saves, its queries and
+    their Tables from `described`, with no order: the view the script's tests hold it to."""
+    workbook = openpyxl.load_workbook(io.BytesIO(built(described)))
     loaded = {table.name: table.loaded_by for table in described.tables if table.loaded_by}
     lines = []
     for sheet in workbook.worksheets:

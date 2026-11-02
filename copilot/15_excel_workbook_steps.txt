@@ -3,8 +3,9 @@
 **Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
 the Output section gives.**
 
-Objective: turn the calculations of an Excel workbook the user attaches into one Hive query
-per final, for the user's convert Workflow to check and make Toolbox code of.
+Objective: turn the calculations of an Excel workbook the user attaches, or the text
+`workbook_text.py` writes of it, into one Hive query per final, for the user's convert
+Workflow to check and make Toolbox code of.
 Load this file when the user attaches a workbook and asks for its calculations as Hive, with
 file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and Total Rows).
 
@@ -28,8 +29,10 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 
 1. **Read.** Goal: see all of the workbook. Action: list each `Excel Table` with its typed
    and formula columns and Total Row, each defined name, and each `Power Query` listed after
-   the sheets. Done when every `Excel Table` and `Power Query` in the workbook is on your list.
-   Then step 2.
+   the sheets, with what each reads: its line under `Order, each piece after every piece it
+   reads:`, or else each Table and query its M or formulas name, and its loading query.
+   Done when every `Excel Table` and `Power Query` is on your list with what it reads. Then
+   step 2.
 2. **Decide each role.** Goal: know what each piece becomes. Action: give each Table and each
    query its role by the Decision rules, one rule per piece, a query apart from its Table.
    Done when each listed piece has a role. Then step 3.
@@ -37,8 +40,9 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
    from steps 1 and 2. Done when the map names each piece on your list. Then step 4.
 4. **Write each final's reads.** Goal: each final's query reads what its Table reads. Action:
    for each final, start its query: each source read as `<database>.<table>`, each step it
-   reads as a CTE in it (`WITH name AS (...)`). **A Table's typed columns are always read
-   from `<database>.<table>`, never typed in**; only a summary's typed groups are typed in.
+   reads as a CTE in it (`WITH name AS (...)`), each CTE after every CTE it reads. **A
+   Table's typed columns are always read from `<database>.<table>`, never typed in**; only a
+   summary's typed groups are typed in.
    Done when each final has its FROM and CTEs. Then step 5.
 5. **Write each final's columns.** Goal: each column gives the workbook's values. Action:
    write the columns in the Table's order, each formula by file 11, each query step and
@@ -67,6 +71,7 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 - If a Table has a Total Row, its Total Row is a final of its own, `<Table> (Total Row)`,
   with a column for each Total Row cell that holds a total, and no other column.
 - Parameters and Keys are never a source, step or final.
+- If pieces read each other in a loop, refuse each final in it, no block; name the loop.
 
 ## Output
 
@@ -107,24 +112,14 @@ SELECT job_id, COUNT(*) AS runs FROM ok_runs GROUP BY job_id
 ```
 
 Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) with a Total Row
-summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row). As a
-summary, by_job's typed job_ids, its groups, are typed in; job_runs is read:
+summing runs. Map: Sources job_runs. Finals by_job, a summary, and by_job (Total Row),
+file 12's second example. by_job's typed job_ids, its groups, are typed in:
 
 ```sql
 SELECT j.job_id, COALESCE(c.runs, 0) AS runs
 FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
 LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
   ON j.job_id = c.job_id
-```
-
-```sql
-WITH by_job AS (
-  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
-  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
-  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
-    ON j.job_id = c.job_id
-)
-SELECT SUM(runs) AS runs FROM by_job
 ```
 
 ## Self-check
@@ -135,6 +130,6 @@ SELECT SUM(runs) AS runs FROM by_job
 - Each source and each Table's typed columns are read from `<database>.<table>`; the only
   rows typed in are a summary's groups.
 - Each Total Row's block has a column only for each cell that holds a total.
-- Each step a final reads is a CTE inside that final's block.
+- Each step a final reads is a CTE inside that final's block, after each CTE it reads.
 - Each value typed over a formula is in a CASE, matched on its Keys row's columns.
 - Each mark, refusal, thing left alone and `<...>` is named in the map.

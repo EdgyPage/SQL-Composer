@@ -1,0 +1,107 @@
+Sheet "Steps": the empty Formula workbook's steps, as it ships.
+Sheet "Parameters"
+  Excel Table "Parameters", A1:B2
+    Headers: name | value
+    Row 2:  | 
+  D1: Parameters: the fixed values your formulas use, one row per value. Put its name under name and the value under value, such as tax_rate and 0.2 (a plain number, not 20%), then read it by name in a formula: XLOOKUP("tax_rate", Parameters[name], Parameters[value]). Leave the Table empty if no formula uses a fixed value. See step 6 on the Steps sheet.
+Sheet "Keys"
+  Excel Table "Keys", A1:B2
+    Headers: table | key_columns
+    Row 2:  | 
+  D1: Keys: only for a Table where a value was typed over a formula. Add one row for that Table, however many values were typed over in it: the Table's name under table, and under key_columns the typed column or columns that tell its rows apart, separated by commas, such as job_runs with run_id, or sales with region, month. Copilot uses them to find the row a typed value belongs to. If no column tells the rows apart, leave the Table out. A Table with no value typed over a formula needs no row here. See step 10 on the Steps sheet.
+Sheet "jobs"
+  Excel Table "jobs", A1:D5
+    Headers: job_id | job_name | team | region
+    Row 2: 1 | nightly_load | data | LON
+    Row 3: 2 | invoice_sync | finance | PAR
+    Row 4: 3 | report_build | finance | NYC
+    Row 5: 4 | cache_warm | web | LON
+Sheet "job_owners"
+  Excel Table "job_owners", A1:D57
+    Headers: job_id | team | owner | dt
+    Row 2: 1 | data | ana | 2026-09-11
+    Row 3: 2 | finance | ben | 2026-09-11
+    Row 4: 3 | data | ana | 2026-09-11
+    Row 5: 4 | web |  | 2026-09-11
+    Row 6: 1 | data | ana | 2026-09-12
+    Row 7: 2 | finance | ben | 2026-09-12
+    Row 8: 3 | data | ana | 2026-09-12
+    Row 9: 4 | web |  | 2026-09-12
+    Row 10: 1 | data | ana | 2026-09-13
+    Row 11: 2 | finance | ben | 2026-09-13
+    Row 12: 3 | data | ana | 2026-09-13
+    Row 13: 4 | web |  | 2026-09-13
+    Row 14: 1 | data | ana | 2026-09-14
+    Row 15: 2 | finance | ben | 2026-09-14
+    Row 16: 3 | data | ana | 2026-09-14
+    Row 17: 4 | web |  | 2026-09-14
+    Row 18: 1 | data | ana | 2026-09-15
+    Row 19: 2 | finance | ben | 2026-09-15
+    Row 20: 3 | data | ana | 2026-09-15
+    Row 21: 4 | web |  | 2026-09-15
+    Row 22: 1 | data | ana | 2026-09-16
+    Row 23: 2 | finance | ben | 2026-09-16
+    Row 24: 3 | data | ana | 2026-09-16
+    Row 25: 4 | web |  | 2026-09-16
+    Row 26: 1 | data | ana | 2026-09-17
+    Row 27: 2 | finance | ben | 2026-09-17
+    Row 28: 3 | data | ana | 2026-09-17
+    Row 29: 4 | web |  | 2026-09-17
+    Row 30: 1 | data | ana | 2026-09-18
+    Row 31: 2 | finance | ben | 2026-09-18
+    Row 32: 3 | finance | chloe | 2026-09-18
+    Row 33: 4 | web |  | 2026-09-18
+    Row 34: 1 | data | ana | 2026-09-19
+    Row 35: 2 | finance | ben | 2026-09-19
+    Row 36: 3 | finance | chloe | 2026-09-19
+    Row 37: 4 | web |  | 2026-09-19
+    Row 38: 1 | data | ana | 2026-09-20
+    Row 39: 2 | finance | ben | 2026-09-20
+    Row 40: 3 | finance | chloe | 2026-09-20
+    Row 41: 4 | web |  | 2026-09-20
+    Row 42: 1 | data | ana | 2026-09-21
+    Row 43: 2 | finance | ben | 2026-09-21
+    Row 44: 3 | finance | chloe | 2026-09-21
+    Row 45: 4 | web |  | 2026-09-21
+    Row 46: 1 | data | ana | 2026-09-22
+    Row 47: 2 | finance | ben | 2026-09-22
+    Row 48: 3 | finance | chloe | 2026-09-22
+    Row 49: 4 | web |  | 2026-09-22
+    Row 50: 1 | data | ana | 2026-09-23
+    Row 51: 2 | finance | ben | 2026-09-23
+    Row 52: 3 | finance | chloe | 2026-09-23
+    Row 53: 4 | web |  | 2026-09-23
+    Row 54: 1 | data | ana | 2026-09-24
+    Row 55: 2 | finance | ben | 2026-09-24
+    Row 56: 3 | finance | chloe | 2026-09-24
+    Row 57: 4 | web |  | 2026-09-24
+Sheet "owners_by_team"
+  Excel Table "owners_by_team", A1:B6, loaded by Power Query "owners_by_team"
+    Headers: team | owner
+    Row 2: data | ana
+    Row 3: finance | ana
+    Row 4: finance | ben
+    Row 5: finance | chloe
+    Row 6: web | 
+Power Query "staffed" (connection only):
+    let
+        Jobs = Excel.CurrentWorkbook(){[Name="jobs"]}[Content],
+        Owners = Excel.CurrentWorkbook(){[Name="job_owners"]}[Content],
+        Joined = Table.NestedJoin(Jobs, {"job_id"}, Owners, {"job_id"}, "o", JoinKind.Inner),
+        Expanded = Table.ExpandTableColumn(Joined, "o", {"owner"})
+    in
+        Expanded
+Power Query "owners_by_team" (loads into Excel Table "owners_by_team"):
+    let
+        Source = staffed,
+        Kept = Table.Distinct(Table.SelectColumns(Source, {"team", "owner"}))
+    in
+        Kept
+Order, each piece after every piece it reads:
+  1. Excel Table "Parameters"
+  2. Excel Table "Keys"
+  3. Excel Table "jobs"
+  4. Excel Table "job_owners"
+  5. Power Query "staffed", reads Excel Table "jobs", Excel Table "job_owners"
+  6. Power Query "owners_by_team", reads Power Query "staffed"
+  7. Excel Table "owners_by_team", reads Power Query "owners_by_team"

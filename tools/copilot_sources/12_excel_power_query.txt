@@ -21,8 +21,9 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 ## Reading a table and its rows
 
 - `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t, as `<database>.t`. Another
-  query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS (...)`. `#date(2026, 9, 1)`:
-  '2026-09-01'.
+  query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS (...)`, written
+  after each CTE q reads, each read by the next: a query, then the Table it loads, then a
+  formula column reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
 - Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's `<>`
   keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
   `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
@@ -77,7 +78,7 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 - Write the Table's own final query without its Total Row, so it holds only its rows: a Saved
   table holds no Subtotal row.
 
-## Order
+## Sorting
 
 - Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone: LIMIT.
 - Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY ...)
@@ -98,7 +99,7 @@ file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 Web.Contents or any web source (leave that query out); Table.AddIndexColumn with no Sort
 before it; Table.FillDown and FillUp; Table.Distinct with a column list; List.Median.
 
-## Example
+## Examples
 
 Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
 
@@ -119,6 +120,20 @@ FROM <database>.job_runs
 WHERE status IS NOT NULL AND status LIKE 'SUCC%'
 GROUP BY job_id
 HAVING COUNT(*) > 1
+```
+
+Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
+summing runs. As a summary, its typed job_ids, 1 and 2, are typed in (file 15). Its Total
+Row's block reads by_job's final query as a CTE:
+
+```sql
+WITH by_job AS (
+  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+    ON j.job_id = c.job_id
+)
+SELECT SUM(runs) AS runs FROM by_job
 ```
 
 ## Self-check

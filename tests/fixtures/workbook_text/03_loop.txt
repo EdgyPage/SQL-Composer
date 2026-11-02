@@ -1,0 +1,3 @@
+Refused: Its pieces read each other in a loop: Power Query "back" reads Excel Table "looped"; Power Query "back" loads Excel Table "back"; Excel Table "looped"'s formulas read Excel Table "back".
+Why: each piece must come after every piece it reads, and in a loop none can, so no Hive gives the same rows.
+Usual fix: in Excel, break one of these links, such as a query reading the raw data's Table in place of a Table in the loop; save the workbook, and run this again.

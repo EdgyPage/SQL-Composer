@@ -233,6 +233,24 @@ HOW_TO_STAND_INS = ("loads a how-to's own file from worked_examples/how_to/, to 
                     "pandas stand-ins")
 TRIES_UNDER_THE_TRAP = ("runs this same Python on the test's own script, which tries the "
                         "network under the offline trap and its backstop, so nothing is sent")
+# The workbooks tests/test_workbook_text.py reads, each with its Power Queries saved as Excel
+# saves them. The user's OK, 2026-11-01: the fixture workbooks committed, to open in Excel.
+QUERY_FIXTURES = "tests/fixtures/workbook_text"
+QUERY_FIXTURE = ("a Power Query saved as Excel saves one, which reads only the workbook's own "
+                 "Tables; the tests read its parts and nothing runs them")
+
+
+def _query_fixture_entries() -> list[Allowed]:
+    """An entry for each part each of those workbooks saves its Power Queries in."""
+    entries = []
+    for fixture in ("01_query_table_formula", "02_query_reads_query", "03_loop"):
+        for part in ("customXml/item1.xml", "xl/connections.xml",
+                     "xl/queryTables/queryTable1.xml"):
+            entries.append(Allowed(f"{QUERY_FIXTURES}/{fixture}.xlsx", "<module>", "network",
+                                   part, QUERY_FIXTURE))
+    return entries
+
+
 ALLOWED: tuple[Allowed, ...] = (
     # The Toolbox.
     Allowed("sqlglot_composer/project.py", "run_logic", "dynamic code", "exec",
@@ -367,6 +385,7 @@ ALLOWED: tuple[Allowed, ...] = (
             IMPORTS_PYTHON),
     Allowed("tests/repo/test_toolbox_checks.py", "test_ruff_passes_with_its_complexity_limit",
             "process", "subprocess.run", "runs ruff, in this same Python, on the repo"),
+    *_query_fixture_entries(),
 )
 
 
@@ -912,7 +931,7 @@ def stale_entries(root: Path = ROOT, allowed: tuple[Allowed, ...] = ALLOWED) -> 
     for entry in allowed:
         file = root / entry.file
         if entry.file not in read:
-            read[entry.file] = _all_findings(_text(file), entry.file) if file.is_file() else []
+            read[entry.file] = _entry_findings(file, entry.file)
         found = read[entry.file]
         if scope_of(entry.file) == "user-copied":
             why = "names user-copied code, where nothing is allowed"
@@ -924,6 +943,15 @@ def stale_entries(root: Path = ROOT, allowed: tuple[Allowed, ...] = ALLOWED) -> 
                              f"ALLOWED's {entry.kind} entry for {entry.name} in "
                              f"{entry.function} {why}", entry.function, entry.name))
     return stale
+
+
+def _entry_findings(file: Path, path: str) -> list[Finding]:
+    """Every finding in the file an entry names, none allowed: a workbook's by its parts."""
+    if not file.is_file():
+        return []
+    if path.lower().endswith(WORKBOOK_FILES):
+        return workbook_findings(file.read_bytes(), path, allowed=())
+    return _all_findings(_text(file), path)
 
 
 def _files(root: Path, paths: list[str | Path] | None) -> list[Path]:

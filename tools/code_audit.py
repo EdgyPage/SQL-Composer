@@ -122,6 +122,17 @@ AUDITED = (
             "the Copilot scorer's guard, which refuses a process, a socket or a file written "
             "outside its temporary folder while a model's answers run; it only blocks "
             "(the user's OK, 2026-10-27)"),
+    Audited("copilot/workbook_text.py", "encoded payload", "imports base64",
+            "decodes the DataMashup part Excel saves a workbook's Power Queries in, to read "
+            "their M as text; it runs nothing it reads (the user's OK, 2026-11-01)"),
+    Audited("tools/excel_queries.py", "encoded payload", "imports base64",
+            "writes the DataMashup part Excel saves Power Queries in, into dev's test and "
+            "evaluation workbooks (the user's OK, 2026-11-01)"),
+    *(Audited(f"tests/fixtures/workbook_text/{fixture}.xlsx/customXml/item1.xml",
+              "encoded payload", "a run of",
+              "the DataMashup Excel saves a workbook's Power Queries in, written by "
+              "tools/excel_queries.py (the user's OK, 2026-11-01)")
+      for fixture in ("01_query_table_formula", "02_query_reads_query", "03_loop")),
 )
 
 

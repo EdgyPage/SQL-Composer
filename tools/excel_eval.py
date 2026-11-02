@@ -13,9 +13,10 @@ replies against the tasks' reference Hive.
     python tools/excel_eval.py workbooks --split held_out --into <folder>
 
 An answers file is a copilot_eval answers file whose headings are the Excel tasks', `## X07`.
-Copilot reads an attached workbook; a proxy model can't be given a file, so its prompt holds
-the workbook as text, as `formula_workbook.as_text` reads it back from the saved file. The
-`workbooks` command writes the files themselves, for the manual round in Copilot.
+Copilot reads an attached workbook, or the text `copilot/workbook_text.py` writes of it; a
+proxy model can't be given a file, so its prompt holds that text, which
+`formula_workbook.as_text` writes from the saved file, its Power Queries saved as Excel saves
+them. The `workbooks` command writes the files themselves, for the manual round in Copilot.
 
 Each answer is scored on these checks, in order:
 
