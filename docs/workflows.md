@@ -36,12 +36,12 @@ flowchart TD
     s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
     s3[["4. Create each table in dev: for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s4[["5. Seed each table that reads itself, once, from its original: seeded = project.batch_tables(NAME, seeded=True)
-if not seeded:
+    s4[["5. Seed each table that reads itself, once, from its original: to_seed = project.batch_tables(NAME, seeded=True)
+if not to_seed:
     print(#quot;Seeded nothing: no table of the batch reads itself.#quot;)
 else:
     run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
-    for table in seeded:
+    for table in to_seed:
         run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
     s5[["6. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
     s6[["7. Compare each table with its original: project.compare_batch(NAME, query=query)"]]:::warehouse_call
@@ -94,12 +94,12 @@ flowchart TD
     s2["3. Write each answer into its prod table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
     s3[["4. Create each table in prod: for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
-    s4[["5. Seed each prod table that reads itself, once, from its original: seeded = project.promoted_tables(TABLES, seeded=True)
-if not seeded:
+    s4[["5. Seed each prod table that reads itself, once, from its original: to_seed = project.promoted_tables(TABLES, seeded=True)
+if not to_seed:
     print(#quot;Seeded nothing: no prod copy reads itself.#quot;)
 else:
     run_execute(hive_settings(#quot;dynamic_partitions#quot;), execute)
-    for table in seeded:
+    for table in to_seed:
         run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
     s5[["6. Write each table in prod: project.run_tables(tables=project.promoted_tables(TABLES), execute=execute)"]]:::warehouse_call
     s6["7. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(project.promoted_tables(TABLES))"]:::files_only

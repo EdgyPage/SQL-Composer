@@ -157,7 +157,7 @@ def test_a_project_has_no_todo_left_and_nothing_unregistered(
             "wrote passed its compare, and its folder is admin/workflows/convert/finished/"
             f"{folder.name}/." for folder in sorted(finished)]
     if done:
-        done.insert(0, "Done: every step of each Workflow below.")
+        done.insert(0, "Done: each convert batch below.")
     assert checked.split("\n")[1:] == done
 
 

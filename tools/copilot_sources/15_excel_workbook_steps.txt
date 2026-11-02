@@ -77,8 +77,9 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 
 Reply with these parts, in this order, and nothing else:
 
-1. **Map**: Sources, Steps and Finals, each with its columns; then each value typed over a
-   formula, each mark, each refusal, what was left alone, and each `<...>` to fill in.
+1. **Map**: Sources, Steps and Finals, each with its columns; then each value written in,
+   each value typed over a formula, each mark, each refusal, what was left alone, and
+   each `<...>` to fill in.
 2. **Hive**: a heading and one ```sql block per final, Total Rows included, nothing between.
 3. **Next**: "Take out what you don't want, fill in each `<...>`, save each query as a .hql
    file named for its final, and run the convert Workflow on them as one batch (file 13). It

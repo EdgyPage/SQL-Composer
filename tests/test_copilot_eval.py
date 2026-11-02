@@ -132,6 +132,21 @@ def test_a_wrong_answer_fails_on_the_check_meant_to_catch_it(
         assert all(getattr(result, one) for one in earlier), result
 
 
+# T16's reference with its day written as a static partition, as Hive also writes it.
+T16_STATIC = BY_ID["T16"].reference.replace(
+    "INSERT_OVERWRITE(job_day_runs)", 'INSERT_OVERWRITE(job_day_runs, partition={"dt": DAY})'
+).replace(", job_runs.dt),", "),").replace(
+    "s = statement(", 'DAY = "2026-09-24"\n\ns = statement(')
+
+
+def test_a_write_to_a_static_partition_passes_as_its_dynamic_form() -> None:
+    [right] = copilot_eval.scored({"T16": fenced(T16_STATIC)})
+    [wrong] = copilot_eval.scored({"T16": fenced(T16_STATIC.replace('DAY = "2026-09-24"',
+                                                                   'DAY = "2026-09-23"'))})
+    assert right.passed, right
+    assert wrong.runs and not wrong.correct, wrong
+
+
 def test_a_star_import_fails_though_its_statement_is_right() -> None:
     reply = fenced("from sqlglot_composer import *\n" + T07.split("\n", 1)[1])
     [result] = copilot_eval.scored({"T07": reply})

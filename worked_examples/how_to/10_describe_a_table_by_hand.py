@@ -129,13 +129,13 @@ Done when references/mart__job_day.py holds the call to `Table` above. Then step
 
 Goal: the Project knows the file. A file you write by hand isn't in the Project's Registry yet,
 the Project's list of every file a Project action made. `project.check()` lists it as made by
-hand, with the call that adopts it. Its last lines say a batch the Example project converted
-earlier is done, which needs nothing from you:
+hand, with the call that adopts it. Its last lines say a batch of Hive the Example project
+converted earlier is done, which needs nothing from you (how-to 29 says more):
 
 >>> project.check()  # -> a report, printed
 Not registered, made by hand. Adopt each with the call beside it:
   references/mart__job_day.py: project.register("mart.job_day")
-Done: every step of each Workflow below.
+Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 >>> project.register("mart.job_day")  # -> a report, printed
@@ -277,7 +277,7 @@ Project knows the file:
 >>> project.check()  # -> a report, printed
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.
-Done: every step of each Workflow below.
+Done: each convert batch below.
   admin/workflows/convert/convert.ipynb, team_failures: every table the batch wrote passed its
     compare, and its folder is admin/workflows/convert/finished/team_failures/.
 

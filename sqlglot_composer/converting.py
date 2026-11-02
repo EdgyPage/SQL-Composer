@@ -478,21 +478,26 @@ class _Converter:
 
     def stack(self, node: exp.Expression) -> str:
         """UNION ALL, UNION, INTERSECT or EXCEPT of whole queries."""
-        if node.args.get("order") or node.args.get("limit"):
-            raise Unconvertible("ORDER BY or LIMIT on a whole UNION, which no Stack takes")
         name = {exp.Intersect: "INTERSECT", exp.Except: "EXCEPT"}.get(
             type(node), "UNION" if node.args.get("distinct") else "UNION_ALL")
+        parts = self.stack_parts(node)
+        return (f"{self.use(name)}(\n"
+                + "".join(f"    {_indented(part, 4)},\n" for part in parts) + ")")
+
+    def stack_parts(self, node: exp.Expression) -> list[str]:
+        """The Python of each query a stack holds, a stack of the same kind inside it taken
+        apart, so UNION ALL of three queries is one UNION_ALL of three."""
+        if node.args.get("order") is not None or node.args.get("limit") is not None:
+            raise Unconvertible("ORDER BY or LIMIT on a whole UNION, which no Stack takes")
         parts = []
         for side in (node.this, node.expression):
             same = type(side) is type(node) and side.args.get("distinct") == node.args.get(
                 "distinct")
             if same:
-                # A stack of the same kind inside it: its parts, out of the Python just written.
-                parts += self.stack(side)[len(name) + 2:-2].split(",\n    ")
+                parts += self.stack_parts(side)
             else:
                 parts.append(self.query(side))
-        return (f"{self.use(name)}(\n"
-                + "".join(f"    {_indented(part, 4)},\n" for part in parts) + ")")
+        return parts
 
     def outputs(self, node: exp.Select, scope: dict[str, _Source]) -> list[tuple[str, str]]:
         """Each SELECT item's Python, with the name of the column it gives.

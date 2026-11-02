@@ -179,7 +179,8 @@ def test_the_opt_outs_the_original_took_are_added_and_marked(converted: Path,
     scan = conversion_file(started, "job_outcomes", "scan.md")
     assert "Opt-out added, marked # CONVERSION: at its line: JOIN(j, many_matches=True)" in scan
     checklist = conversion_file(started, "job_outcomes", "checklist.md")
-    assert "- The `# CONVERSION:` mark for JOIN(j, many_matches=True)" in checklist
+    assert ("- JOIN(j, many_matches=True), in the logic cell, keeps what the original did, as "
+            "its `# CONVERSION:` mark says") in checklist
     said = repr(project.check())
     assert "Noted by project.convert(...), which blocks nothing" in said
     assert "# CONVERSION: many_matches=True, as the original did; check it" in said
@@ -205,18 +206,19 @@ def test_a_checklist_note_says_what_the_toolbox_refused_beside_its_opt_out(
     # original did, not what the Toolbox would have refused without it.
     project.convert("thrice", READS_THRICE, query=example_database.query, database="ops")
     checklist = conversion_file(started, "thrice", "checklist.md")
-    assert ("- The `# CONVERSION:` mark for FROM(job_runs, reads_all_partitions=True), in the "
-            "logic cell, keeps what the original did. Without reads_all_partitions=True the "
-            "Toolbox refuses the logic, saying: FROM(job_runs) reads ops.job_runs, but filters "
-            "none of its partition columns: dt. Change what made it needed only if you want "
-            "to; the compare step checks the rows either way.") in checklist
+    assert ("- FROM(job_runs, reads_all_partitions=True), in the logic cell, keeps what the "
+            "original did, as its `# CONVERSION:` mark says until you delete it. Without "
+            "reads_all_partitions=True the Toolbox refuses the logic, saying: FROM(job_runs) "
+            "reads ops.job_runs, but filters none of its partition columns: dt. If you want "
+            "to, change what made it needed, such as a WHERE on the partition column, then "
+            "take the opt-out off; the compare step checks the rows either way.") in checklist
 
 
 def test_batch_md_and_the_checklist_say_each_note_once(started: Path) -> None:
     # Toolbox 8.2, 23: a run saw one note three times, for a query reading one table thrice.
     project.convert("thrice", READS_THRICE, query=example_database.query, database="ops")
     checklist = conversion_file(started, "thrice", "checklist.md")
-    assert checklist.count("mark for FROM(job_runs, reads_all_partitions=True)") == 1
+    assert checklist.count("- FROM(job_runs, reads_all_partitions=True), in the logic") == 1
     batch = (started / "admin" / "workflows" / "convert" / "thrice" / "batch.md").read_text(
         encoding="utf-8")
     assert batch.count("# CONVERSION: FROM(job_runs, reads_all_partitions=True)") == 1
@@ -348,6 +350,10 @@ ON j.job_id = r.job_id AND r.dt = '2026-09-24'""",
     "union_all": """\
 SELECT j.job_id FROM ops.jobs j UNION ALL
 SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",
+    "union_all_three_of_one_table": """\
+SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-23' UNION ALL
+SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-24' UNION ALL
+SELECT r.job_id FROM ops.job_runs r WHERE r.dt = '2026-09-25'""",
     "rows_frame": """\
 SELECT r.job_id, SUM(r.duration_mins) OVER (PARTITION BY r.job_id ORDER BY r.dt ASC
 ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS s FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",

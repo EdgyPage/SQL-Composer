@@ -49,7 +49,10 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1), 'MO') AS STRING)`.
 - XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b. XLOOKUP("rate", Parameters[name], Parameters[value]):
-  its value, typed in.
+  its value, written into the Hive. Say so in the map: change it in Parameters and the
+  table won't follow, so the Hive needs the new value too.
+- A summary's groups, written into the Hive (file 15): say so in the map, as a later day or
+  team won't be in the table.
 - SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
   END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
   FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
