@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.1 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.2 - copy it, then edit your copy -->
 # The intermediate Example project
 
 A Project made for the Example database's tables `ops.job_events`, `ops.job_owners`,
@@ -72,6 +72,7 @@ file, the Project action that made it, and what was filled in by hand.
 | `tables/mart__job_day_costs/mart__job_day_costs.ipynb`, and the same for each of the other five Saved tables | `project.new_table("mart.job_day_costs")`, and so on; `template="quality_checks"` for mart.job_events_checks | its `<...>` lines |
 | `tables/mart__team_failures/mart__team_failures.ipynb`, and `conversion/` beside it: the statement, the scan and the checklist | `project.convert("team_failures", ...)` | its `# CONVERSION:` mark, deleted once decided, and its Decisions, answered in the convert Workflow's decisions cell |
 | `lineage/` in each Table folder, the table's Lineage | its notebook's lineage cell | nothing |
+| `<db>__<table>.hql` in each Table folder, such as `tables/mart__job_day_costs/mart__job_day_costs.hql`, the table's Hive: each step its notebook's logic sends, in the order they are sent, to read at a glance and to commit | its notebook's `export_hive()` cell, the one after its lineage cell, which writes the file again each time it runs | nothing: never edit it. To change it, edit the notebook's logic, save the notebook, and run its `export_hive()` cell again |
 | `lineage/` at the Project's top, the Lineage of a Statement exported outside a Table notebook | `export_lineage(...)`, from a notebook in the Project's folder | nothing: every export here is a Table notebook's, so there is none |
 | `admin/workflows/convert/finished/team_failures/`, a finished batch | `project.convert("team_failures", ...)`, then `project.compare_batch(...)` | nothing: its scripts as given, `batch.md`, what each statement became, and `written.json`, moved here once its table passed its compare |
 

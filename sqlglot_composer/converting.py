@@ -25,7 +25,7 @@ import sqlglot
 from sqlglot import exp
 
 from .shared import in_words, python_literal, singular_or_plural, split_table_name
-from .writing import read_hive, sql_text
+from .writing import read_hive, sql_text, typed_hive
 
 # An IN list with at least this many values becomes a named constant.
 LONG_LIST = 4
@@ -39,6 +39,15 @@ _COMPARISONS = {
     exp.GTE: ("at_least", "at_most"),
     exp.LT: ("less_than", "more_than"),
     exp.LTE: ("at_most", "at_least"),
+}
+# Each comparison's opposite, which NOT of it is.
+_OPPOSITES: dict[type[exp.Expression], type[exp.Expression]] = {
+    exp.EQ: exp.NEQ,
+    exp.NEQ: exp.EQ,
+    exp.GT: exp.LTE,
+    exp.GTE: exp.LT,
+    exp.LT: exp.GTE,
+    exp.LTE: exp.GT,
 }
 # Its aggregates, by the sqlglot aggregate they write.
 _AGGREGATES = {exp.Sum: "sum_of", exp.Avg: "average_of", exp.Min: "min_of", exp.Max: "max_of"}
@@ -274,6 +283,14 @@ def _python_of_literal(node: exp.Expression) -> str | None:
     return None
 
 
+def _is_filled_with_zero(node: exp.Expression) -> bool:
+    """Whether `node` is the first value of a COALESCE(node, 0)."""
+    parent = node.parent
+    return (isinstance(parent, exp.Coalesce) and parent.this is node
+            and len(parent.expressions) == 1
+            and _python_of_literal(parent.expressions[0]) == "0")
+
+
 def _python_name(text: str) -> str:
     """A name made plain for Python: lower case, letters, digits and _."""
     name = re.sub(r"\W+", "_", text).strip("_").lower() or "t"
@@ -461,21 +478,26 @@ class _Converter:
 
     def stack(self, node: exp.Expression) -> str:
         """UNION ALL, UNION, INTERSECT or EXCEPT of whole queries."""
-        if node.args.get("order") or node.args.get("limit"):
-            raise Unconvertible("ORDER BY or LIMIT on a whole UNION, which no Stack takes")
         name = {exp.Intersect: "INTERSECT", exp.Except: "EXCEPT"}.get(
             type(node), "UNION" if node.args.get("distinct") else "UNION_ALL")
+        parts = self.stack_parts(node)
+        return (f"{self.use(name)}(\n"
+                + "".join(f"    {_indented(part, 4)},\n" for part in parts) + ")")
+
+    def stack_parts(self, node: exp.Expression) -> list[str]:
+        """The Python of each query a stack holds, a stack of the same kind inside it taken
+        apart, so UNION ALL of three queries is one UNION_ALL of three."""
+        if node.args.get("order") is not None or node.args.get("limit") is not None:
+            raise Unconvertible("ORDER BY or LIMIT on a whole UNION, which no Stack takes")
         parts = []
         for side in (node.this, node.expression):
             same = type(side) is type(node) and side.args.get("distinct") == node.args.get(
                 "distinct")
             if same:
-                # A stack of the same kind inside it: its parts, out of the Python just written.
-                parts += self.stack(side)[len(name) + 2:-2].split(",\n    ")
+                parts += self.stack_parts(side)
             else:
                 parts.append(self.query(side))
-        return (f"{self.use(name)}(\n"
-                + "".join(f"    {_indented(part, 4)},\n" for part in parts) + ")")
+        return parts
 
     def outputs(self, node: exp.Select, scope: dict[str, _Source]) -> list[tuple[str, str]]:
         """Each SELECT item's Python, with the name of the column it gives.
@@ -528,13 +550,22 @@ class _Converter:
             if not alias:
                 raise Unconvertible("a sub-query in FROM with no name")
             variable = self.fresh(alias)
-            query = self.query(node.this)
-            self.result.assignments.append(
-                (variable, f"{self.use('derived')}({python_literal(alias)}, {query})"))
-            scope[alias] = _Source(variable, self.columns_named(node.this))
-            self.note_finding(node, "changed", f"the sub-query {alias} becomes a Derived "
-                              f"table, which the Toolbox writes at the top, as WITH {alias} AS "
-                              "(...)")
+            columns = self.columns_named(node.this)
+            if _rows_typed_in(node.this) is not None and columns:
+                # Rows typed in, which no Statement lists: Hive alone, as a CTE of them is.
+                value = self.unchecked_derived_call(alias, node.this, columns)
+                self.note_finding(node, "unchecked", f"the sub-query {alias}, rows typed in, "
+                                  "stays Hive, in unchecked_derived(...), which the Toolbox "
+                                  f"writes at the top, as WITH {alias} AS (...): no Statement "
+                                  "lists rows typed in, and its Key is the one its rows show")
+            else:
+                query = self.query(node.this)
+                value = f"{self.use('derived')}({python_literal(alias)}, {query})"
+                self.note_finding(node, "changed", f"the sub-query {alias} becomes a Derived "
+                                  "table, which the Toolbox writes at the top, as WITH "
+                                  f"{alias} AS (...)")
+            self.result.assignments.append((variable, value))
+            scope[alias] = _Source(variable, columns)
             return variable
         if not isinstance(node, exp.Table):
             raise Unconvertible(f"{type(node).__name__.upper()} in FROM")
@@ -748,7 +779,8 @@ class _Converter:
                 f"{self.column_or_unchecked(node.args.get('false') or exp.Null(), scope)})")
 
     def count(self, node: exp.Count, scope: dict[str, _Source]) -> str:
-        """COUNT(*) as count_rows(), COUNT(DISTINCT x) as count_distinct(x)."""
+        """COUNT(*) as count_rows(), COUNT(CASE WHEN c THEN 1 END) as count_rows(where=c),
+        COUNT(DISTINCT x) as count_distinct(x), and any other COUNT as hive_function."""
         inner = node.this
         if isinstance(inner, exp.Star):
             return f"{self.use('count_rows')}()"
@@ -757,19 +789,36 @@ class _Converter:
                 raise Unconvertible("no Toolbox function counts the distinct values of more "
                                     "than one column")
             return f"{self.use('count_distinct')}({self.value(inner.expressions[0], scope)})"
+        counted = _counted_where(inner)
+        if counted is not None:
+            return self.count_rows_where(counted, scope)
         return f"{self.use('hive_function')}(\"count\", {self.value(inner, scope)})"
 
     def aggregate(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
         """sum_of, average_of, min_of or max_of; one over a CASE with one WHEN and no ELSE is
-        the aggregate's where=, as the Toolbox writes it."""
+        the aggregate's where=, as the Toolbox writes it, and a SUM of 1 there is a count."""
         inner = node.this
-        name = self.use(_AGGREGATES[type(node)])
         if (isinstance(inner, exp.Case) and len(inner.args.get("ifs") or []) == 1
                 and not inner.args.get("default") and not inner.this):
             branch = inner.args["ifs"][0]
+            where = self.condition_or_unchecked(branch.this, scope)
+            if isinstance(node, exp.Sum) and _python_of_literal(branch.args["true"]) == "1":
+                return self.count_where(node, where)
+            name = self.use(_AGGREGATES[type(node)])
             return (f"{name}({self.column_or_unchecked(branch.args['true'], scope)}, "
-                    f"where={self.condition_or_unchecked(branch.this, scope)})")
+                    f"where={where})")
+        name = self.use(_AGGREGATES[type(node)])
         return f"{name}({self.column_or_unchecked(inner, scope)})"
+
+    def count_where(self, node: exp.Sum, where: str) -> str:
+        """SUM(CASE WHEN c THEN 1 END), the number of rows where c holds, as
+        count_rows(where=c). Inside COALESCE(..., 0) it gives the same rows; bare, it gives 0
+        where the SUM gave NULL, for a group with no such row, and the scan says so."""
+        finding = f"{sql_text(node)} becomes count_rows(where=...), a count of those rows"
+        if not _is_filled_with_zero(node):
+            finding += ": it gives 0 where the SUM gave NULL, for a group with no such row"
+        self.note_finding(node, "changed", finding)
+        return f"{self.use('count_rows')}(where={where})"
 
     def case(self, node: exp.Case, scope: dict[str, _Source]) -> str:
         """CASE as mapped(...), if_else(...) or first_match(...).
@@ -872,8 +921,8 @@ class _Converter:
             if inner.args.get("default"):
                 raise Unconvertible(f"{name} doesn't take a default value yet")
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over}{far})"
-        if isinstance(inner, exp.Count) and isinstance(inner.this, exp.Star):
-            return f"{self.use('count_rows')}(over={over})"
+        if isinstance(inner, exp.Count):
+            return self.windowed_count(inner, over, scope)
         if type(inner) in _AGGREGATES:
             return (f"{self.use(_AGGREGATES[type(inner)])}({self.value(inner.this, scope)}, "
                     f"over={over})")
@@ -881,6 +930,26 @@ class _Converter:
             name = "first_value" if isinstance(inner, exp.FirstValue) else "last_value"
             return f"{self.use(name)}({self.value(inner.this, scope)}, over={over})"
         raise Unconvertible(f"no Toolbox function writes {_call_name(inner)} OVER (...) yet")
+
+    def windowed_count(self, node: exp.Count, over: str, scope: dict[str, _Source]) -> str:
+        """COUNT(*) OVER (...) as count_rows(over=...), and COUNT(CASE WHEN c THEN 1 END)
+        OVER (...), a count of the rows where c holds, as count_rows(where=c, over=...)."""
+        if isinstance(node.this, exp.Star):
+            return f"{self.use('count_rows')}(over={over})"
+        counted = _counted_where(node.this)
+        if counted is None:
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} OVER (...) yet")
+        return self.count_rows_where(counted, scope, over)
+
+    def count_rows_where(self, counted: exp.Expression, scope: dict[str, _Source],
+                         over: str = "") -> str:
+        """count_rows(where=...) of the condition `counted`, over `over`, a window(...), when
+        given."""
+        windowed = ""
+        if over:
+            windowed = f", over={over}"
+        return (f"{self.use('count_rows')}(where={self.condition_or_unchecked(counted, scope)}"
+                f"{windowed})")
 
     def window(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """The OVER (...) of a window function, as window(...)."""
@@ -973,15 +1042,29 @@ class _Converter:
         return f"{self.use(name)}({self.value(node.this, scope)}, {listed})"
 
     def negated(self, node: exp.Expression, scope: dict[str, _Source]) -> str:
-        """NOT IN, IS NOT NULL and NOT x = y, as the condition functions that say each."""
+        """NOT IN, IS NOT NULL, NOT of a comparison as its opposite, and NOT of AND or OR as
+        the opposite of each part, as the condition functions that say each. Each keeps the
+        rows NOT keeps, a NULL's too: NOT (a > b) and a <= b are both unknown for a NULL."""
         if isinstance(node, exp.Paren):
             return self.negated(node.this, scope)
+        if isinstance(node, exp.Not):
+            return self.condition(node.this, scope)
         if isinstance(node, exp.In):
             return self.in_list(node, scope, "is_not_in")
         if isinstance(node, exp.Is) and isinstance(node.expression, exp.Null):
             return f"{self.use('is_not_null')}({self.value(node.this, scope)})"
-        if isinstance(node, exp.EQ):
-            return self.comparison(exp.NEQ(this=node.this, expression=node.expression), scope)
+        if type(node) in _OPPOSITES:
+            opposite = _OPPOSITES[type(node)](this=node.this, expression=node.expression)
+            return self.comparison(opposite, scope)
+        if isinstance(node, (exp.And, exp.Or)):
+            # De Morgan: NOT (a AND b) is NOT a OR NOT b, and NOT (a OR b) NOT a AND NOT b; a
+            # part no function says NOT of stays Hive alone, as NOT of it.
+            name = "any_of" if isinstance(node, exp.And) else "all_of"
+            parts = [self.condition_or_unchecked(exp.Not(this=exp.Paren(this=part.copy())),
+                                                 scope)
+                     for part in node.flatten()]
+            return (f"{self.use(name)}(\n" + "".join(f"    {_indented(part, 4)},\n"
+                                                     for part in parts) + ")")
         raise Unconvertible("no condition function writes NOT of it yet")
 
     def like(self, node: exp.Like, scope: dict[str, _Source]) -> str:
@@ -1113,16 +1196,80 @@ class _Converter:
                 raise Unconvertible(f"the CTE {name} can't be a Statement ({why}), and a * "
                                     "of a table with no Table reference yet hides its "
                                     "columns") from why
-            text = sql_text(node.this, pretty=True)
-            listed = "{\n" + "".join(f"    {python_literal(column)}: None,\n"
-                                      for column in columns) + "}"
-            value = (f"{self.use('unchecked_derived')}({python_literal(name)}, "
-                     f"{python_literal(text)}, "
-                     f"columns={listed})")
+            value = self.unchecked_derived_call(name, node.this, columns)
             self.note_finding(node, "unchecked", f"the CTE {name} stays Hive, in "
                               f"unchecked_derived(...): {why}")
         self.result.assignments.append((variable, value))
         self.ctes[name] = _Source(variable, columns)
+
+    def unchecked_derived_call(self, name: str, query: exp.Expression,
+                               columns: list[str]) -> str:
+        """The Python of an Unchecked derived table holding a query's Hive: when it only lists
+        rows typed in, with the types and the Key its rows show."""
+        text = sql_text(query, pretty=True)
+        types = _types_of_rows_typed_in(query)
+        listed = "{\n" + "".join(
+            f"    {python_literal(column)}: {python_literal(types.get(column))},\n"
+            for column in columns) + "}"
+        key = [python_literal(each) for each in _key_of_rows_typed_in(query, columns)]
+        keyed = f", key={_python_list(key)}" if key else ""
+        return (f"{self.use('unchecked_derived')}({python_literal(name)}, "
+                f"{python_literal(text)}, columns={listed}{keyed})")
+
+
+def _rows_typed_in(query: exp.Expression) -> list[tuple[str, ...]] | None:
+    """Each row of a query that only lists values typed in, as SELECT 'a' AS team UNION ALL
+    SELECT 'b' does, each value as Python source, a number written one way, so 1 and 1.0 are
+    one value, as Hive compares them; None for any other query."""
+    if isinstance(query, exp.Union):
+        first, rest = _rows_typed_in(query.this), _rows_typed_in(query.expression)
+        return None if first is None or rest is None else first + rest
+    if not isinstance(query, exp.Select) or query.args.get("from_"):
+        return None
+    values = tuple(_compared_as_hive(_python_of_literal(item.unalias()))
+                   for item in query.expressions)
+    return None if None in values else [values]
+
+
+def _types_of_rows_typed_in(query: exp.Expression) -> dict[str, str | None]:
+    """Each column's type of a query that only lists rows typed in, such as {"team":
+    "string"}, as Hive types its values: None for a column whose rows' values differ in type,
+    such as 1 and 2.5; none for any other query."""
+    if _rows_typed_in(query) is None:
+        return {}
+    names = [item.alias_or_name for item in _rows_of(query)[0].expressions]
+    types: dict[str, str | None] = {}
+    for row in _rows_of(query):
+        typed = typed_hive(row.copy(), {})
+        for name, select in zip(names, typed.selects, strict=False):
+            found = _HIVE_TYPES.get(select.type.this) if select.type is not None else None
+            types[name] = found if types.get(name, found) == found else None
+    return types
+
+
+def _rows_of(query: exp.Expression) -> list[exp.Select]:
+    """Each SELECT of a UNION, as its rows are listed, or the one query."""
+    if isinstance(query, exp.Union):
+        return _rows_of(query.this) + _rows_of(query.expression)
+    return [query]
+
+
+def _compared_as_hive(value: str | None) -> str | None:
+    """A typed-in value's Python source as Hive compares it: a number's written one way."""
+    if value is None or value[0] in "'\"" or value in ("True", "False"):
+        return value
+    return repr(float(value))
+
+
+def _key_of_rows_typed_in(query: exp.Expression, columns: list[str]) -> list[str]:
+    """The Key of a CTE of rows typed in: its first column when no value of it repeats, else
+    every column when no row repeats; none for any other query, or rows that repeat."""
+    rows = _rows_typed_in(query)
+    if not rows or any(len(row) != len(columns) for row in rows):
+        return []
+    if len({row[0] for row in rows}) == len(rows):
+        return columns[:1]
+    return list(columns) if len(set(rows)) == len(rows) else []
 
 
 def _grouping_set_columns(each: exp.Expression) -> list[exp.Expression]:
@@ -1250,6 +1397,9 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
                                    f"{result.write}(...), with the same partitions"))
     return query
 
+
+# How the finding on a write's INSERT starts, which a scan of a query alone words again.
+WRITE_FINDING = "its INSERT"
 
 # Hive's FROM ... INSERT ... INSERT, which a Conversion refuses, saying what to do instead.
 _SEVERAL_INSERTS = ("it is one FROM with {count} INSERTs, into {targets}, and a Conversion "
@@ -1384,6 +1534,8 @@ INSERT = "insert"  # INSERT OVERWRITE or INTO: a Saved table, its logic the quer
 SETTING = "setting"  # SET: the Session settings of the writes after it in its script
 NOTHING = "nothing"  # DROP, TRUNCATE, ADD PARTITION, MSCK REPAIR: the Saved table does it
 OTHER = "other"  # anything else, or what sqlglot can't read: an Unchecked statement
+# The note of a statement sqlglot can't read, before what sqlglot found.
+UNREAD = "sqlglot can't read it: "
 QUERY = "query"  # a query alone: a Saved table named for the batch, or for its script
 WRITES = (CREATE_AS, INSERT, QUERY)
 # The kinds that make a table of the batch, and those that name one.
@@ -1531,12 +1683,17 @@ def _read_statements(script: str, line: int, text: str,
 
 def _read_statement(script: str, line: int, text: str, database: str) -> BatchStatement:
     """One statement, read by sqlglot where it can be, and sorted by what it does."""
+    unread = ""
     try:
         trees = read_hive(text)
-    except sqlglot.errors.ParseError:
+    except sqlglot.errors.ParseError as error:
         trees = []
+        # sqlglot's first line, its class path cut to the class: "Required keyword: 'this'
+        # missing for And. Line 2, Col: 51."
+        found = re.sub(r"<class '[\w.]*\.(\w+)'>", r"\1", str(error).splitlines()[0])
+        unread = UNREAD + found.rstrip(".")
     if len(trees) != 1:
-        return BatchStatement(script, line, text, None, OTHER)
+        return BatchStatement(script, line, text, None, OTHER, note=unread)
     tree = trees[0]
     statement = BatchStatement(script, line, text, tree, _kind(tree))
     if statement.kind in NAMES_A_TABLE:
@@ -1548,6 +1705,24 @@ def _read_statement(script: str, line: int, text: str, database: str) -> BatchSt
     if statement.kind == NOTHING:
         statement.note = _why_nothing(tree)
     return statement
+
+
+def _counted_where(counted: exp.Expression) -> exp.Expression | None:
+    """The condition c of COUNT(CASE WHEN c THEN 1 END), a count of the rows where c holds, as
+    count_rows(where=c) writes it: a CASE of one WHEN giving a value that isn't NULL, and no
+    ELSE but NULL; None for any other COUNT."""
+    if not isinstance(counted, exp.Case) or counted.this is not None:
+        return None
+    branches = counted.args.get("ifs")
+    default = counted.args.get("default")
+    if not branches or len(branches) != 1:
+        return None
+    if default is not None and not isinstance(default, exp.Null):
+        return None
+    given = branches[0].args["true"]
+    if not isinstance(given, exp.Literal):
+        return None
+    return branches[0].this
 
 
 def _kind(tree: exp.Expression) -> str:
@@ -1964,6 +2139,50 @@ def selected_columns(statement: BatchStatement) -> list[str]:
     if not isinstance(query, _QUERIES):
         return []
     return [name.lower() for name in query.named_selects]
+
+
+# Hive's names for the types sqlglot works out for a query's columns: one not here, such as a
+# decimal's, whose precision it would need, is left untold.
+_HIVE_TYPES = {
+    exp.DataType.Type.TINYINT: "tinyint", exp.DataType.Type.SMALLINT: "smallint",
+    exp.DataType.Type.INT: "int", exp.DataType.Type.BIGINT: "bigint",
+    exp.DataType.Type.FLOAT: "float", exp.DataType.Type.DOUBLE: "double",
+    exp.DataType.Type.VARCHAR: "string", exp.DataType.Type.TEXT: "string",
+    exp.DataType.Type.BOOLEAN: "boolean", exp.DataType.Type.DATE: "date",
+    exp.DataType.Type.TIMESTAMP: "timestamp",
+}
+
+
+def typed_selected_columns(statement: BatchStatement,
+                           types: dict[str, dict[str, str]]) -> dict[str, str]:
+    """The columns a write's query gives, as its SELECT names them, each with the type
+    sqlglot works out from the tables it reads, `types` each table's columns by its name, such
+    as {"ops.jobs": {"team": "string"}}: for a query kept whole as Hive, whose Statement gives
+    none. A column whose type it can't tell, or whose type has a size or precision, is "";
+    every column is "" when sqlglot can't read the query."""
+    columns = dict.fromkeys(selected_columns(statement), "")
+    if not columns:
+        return columns
+    query = (statement.tree if statement.kind == QUERY else statement.tree.expression).copy()
+    # A WITH written before INSERT hangs on the INSERT: its query reads it all the same.
+    if statement.kind != QUERY and statement.tree.args.get("with_"):
+        query.set("with_", statement.tree.args["with_"].copy())
+    schema: dict[str, dict[str, dict[str, str]]] = {}
+    for name, known in types.items():
+        database, table = split_table_name(name)
+        schema.setdefault(database, {})[table] = {column: kind for column, kind in known.items()
+                                                  if kind}
+    try:
+        typed = typed_hive(query, schema)
+    # Hive sqlglot reads but can't qualify, such as a column its schema lacks, may raise a
+    # KeyError or ValueError of its own: the types are then left untold, as for any error.
+    except (sqlglot.errors.SqlglotError, KeyError, ValueError):
+        return columns
+    for select in typed.selects:
+        name = select.alias_or_name.lower()
+        if name in columns and select.type is not None and not select.type.expressions:
+            columns[name] = _HIVE_TYPES.get(select.type.this, "")
+    return columns
 
 
 def insert_partitions(statement: BatchStatement) -> list[str]:

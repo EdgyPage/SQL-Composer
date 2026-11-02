@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.1: Example gallery</title>
+<title>sqlglot Composer 8.2: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,9 +23,9 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.1: Example gallery</h1>
+<h1>sqlglot Composer 8.2: Example gallery</h1>
 <p>Every Worked example on one page: 14 Worked examples on their own, and the
-141 examples from the Toolbox's docstrings. Each shows its Python and, for each
+142 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
 that ship inside the Toolbox, or computed in pandas where the Example database can't
 run it. Press Ctrl+F to search the page.</p>
@@ -74,7 +74,7 @@ number beside its fix:</p>
 <li><a href="#regrouping">Re-grouping: adding up each day&#x27;s count of jobs gives too many for the week.</a></li>
 <li><a href="#repeated_rows">Repeated rows: joining alerts onto runs makes the minutes come out too big.</a></li>
 </ul>
-<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#compare_hive"><code>compare_hive</code></a>, <a href="#compare_with_original"><code>compare_with_original</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.batch_tables"><code>project.batch_tables</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.compare_batch"><code>project.compare_batch</code></a>, <a href="#project.convert"><code>project.convert</code></a>, <a href="#project.do_next"><code>project.do_next</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.promote"><code>project.promote</code></a>, <a href="#project.promoted_tables"><code>project.promoted_tables</code></a>, <a href="#project.reference_from_logic"><code>project.reference_from_logic</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_conversion"><code>project.remove_conversion</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.run_workflow"><code>project.run_workflow</code></a>, <a href="#project.scan_hive"><code>project.scan_hive</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.table_reference"><code>project.table_reference</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a>, <a href="#project.write_decisions"><code>project.write_decisions</code></a></p>
+<p><b>Examples from the docstrings:</b> <a href="#TOOLBOX_VERSION"><code>TOOLBOX_VERSION and VERSION</code></a>, <a href="#Table"><code>Table</code></a>, <a href="#Column"><code>Column</code></a>, <a href="#write_table_reference"><code>write_table_reference</code></a>, <a href="#first_look"><code>first_look</code></a>, <a href="#check_key"><code>check_key</code></a>, <a href="#check_table_reference"><code>check_table_reference</code></a>, <a href="#Verdict"><code>Verdict</code></a>, <a href="#create_table"><code>create_table</code></a>, <a href="#all_columns"><code>all_columns</code></a>, <a href="#SELECT"><code>SELECT</code></a>, <a href="#SELECT_DISTINCT"><code>SELECT_DISTINCT</code></a>, <a href="#AS"><code>AS</code></a>, <a href="#FROM"><code>FROM</code></a>, <a href="#JOIN"><code>JOIN</code></a>, <a href="#LEFT_JOIN"><code>LEFT_JOIN</code></a>, <a href="#CROSS_JOIN"><code>CROSS_JOIN</code></a>, <a href="#SEMI_JOIN"><code>SEMI_JOIN</code></a>, <a href="#ANTI_JOIN"><code>ANTI_JOIN</code></a>, <a href="#FULL_JOIN"><code>FULL_JOIN</code></a>, <a href="#RIGHT_JOIN"><code>RIGHT_JOIN</code></a>, <a href="#WHERE"><code>WHERE</code></a>, <a href="#GROUP_BY"><code>GROUP_BY</code></a>, <a href="#HAVING"><code>HAVING</code></a>, <a href="#ORDER_BY"><code>ORDER_BY</code></a>, <a href="#LIMIT"><code>LIMIT</code></a>, <a href="#INSERT_OVERWRITE"><code>INSERT_OVERWRITE</code></a>, <a href="#INSERT_INTO"><code>INSERT_INTO</code></a>, <a href="#statement"><code>statement</code></a>, <a href="#Statement"><code>Statement</code></a>, <a href="#Clause"><code>Clause</code></a>, <a href="#Named"><code>Named</code></a>, <a href="#derived"><code>derived</code></a>, <a href="#UNION_ALL"><code>UNION_ALL</code></a>, <a href="#UNION"><code>UNION</code></a>, <a href="#INTERSECT"><code>INTERSECT</code></a>, <a href="#EXCEPT"><code>EXCEPT</code></a>, <a href="#rollup"><code>rollup</code></a>, <a href="#cube"><code>cube</code></a>, <a href="#grouping_sets"><code>grouping_sets</code></a>, <a href="#is_total"><code>is_total</code></a>, <a href="#Subtotals"><code>Subtotals</code></a>, <a href="#equals"><code>equals</code></a>, <a href="#not_equals"><code>not_equals</code></a>, <a href="#is_null"><code>is_null</code></a>, <a href="#is_not_null"><code>is_not_null</code></a>, <a href="#at_least"><code>at_least</code></a>, <a href="#at_most"><code>at_most</code></a>, <a href="#more_than"><code>more_than</code></a>, <a href="#less_than"><code>less_than</code></a>, <a href="#between"><code>between</code></a>, <a href="#last_n_days"><code>last_n_days</code></a>, <a href="#is_in"><code>is_in</code></a>, <a href="#is_not_in"><code>is_not_in</code></a>, <a href="#contains"><code>contains</code></a>, <a href="#starts_with"><code>starts_with</code></a>, <a href="#any_of"><code>any_of</code></a>, <a href="#all_of"><code>all_of</code></a>, <a href="#Condition"><code>Condition</code></a>, <a href="#count_rows"><code>count_rows</code></a>, <a href="#count_distinct"><code>count_distinct</code></a>, <a href="#sum_of"><code>sum_of</code></a>, <a href="#average_of"><code>average_of</code></a>, <a href="#min_of"><code>min_of</code></a>, <a href="#max_of"><code>max_of</code></a>, <a href="#if_else"><code>if_else</code></a>, <a href="#first_match"><code>first_match</code></a>, <a href="#mapped"><code>mapped</code></a>, <a href="#fill_null"><code>fill_null</code></a>, <a href="#week_start"><code>week_start</code></a>, <a href="#month_start"><code>month_start</code></a>, <a href="#descending"><code>descending</code></a>, <a href="#Ordering"><code>Ordering</code></a>, <a href="#hive_function"><code>hive_function</code></a>, <a href="#window"><code>window</code></a>, <a href="#Window"><code>Window</code></a>, <a href="#row_number"><code>row_number</code></a>, <a href="#rank"><code>rank</code></a>, <a href="#dense_rank"><code>dense_rank</code></a>, <a href="#ntile"><code>ntile</code></a>, <a href="#lag"><code>lag</code></a>, <a href="#lead"><code>lead</code></a>, <a href="#first_value"><code>first_value</code></a>, <a href="#last_value"><code>last_value</code></a>, <a href="#to_hive"><code>to_hive</code></a>, <a href="#show_hive"><code>show_hive</code></a>, <a href="#export_hive"><code>export_hive</code></a>, <a href="#run_query"><code>run_query</code></a>, <a href="#run_execute"><code>run_execute</code></a>, <a href="#set_load_limits"><code>set_load_limits</code></a>, <a href="#GuardRefused"><code>GuardRefused</code></a>, <a href="#LoadRefused"><code>LoadRefused</code></a>, <a href="#export_lineage"><code>export_lineage</code></a>, <a href="#python_step"><code>python_step</code></a>, <a href="#PythonStep"><code>PythonStep</code></a>, <a href="#hive_settings"><code>hive_settings</code></a>, <a href="#unchecked_hive"><code>unchecked_hive</code></a>, <a href="#unchecked_column"><code>unchecked_column</code></a>, <a href="#unchecked_condition"><code>unchecked_condition</code></a>, <a href="#unchecked_derived"><code>unchecked_derived</code></a>, <a href="#set_admin_log"><code>set_admin_log</code></a>, <a href="#SessionSettings"><code>SessionSettings</code></a>, <a href="#UncheckedStatement"><code>UncheckedStatement</code></a>, <a href="#compare_hive"><code>compare_hive</code></a>, <a href="#compare_with_original"><code>compare_with_original</code></a>, <a href="#repair_partitions"><code>repair_partitions</code></a>, <a href="#compute_statistics"><code>compute_statistics</code></a>, <a href="#explain"><code>explain</code></a>, <a href="#example_database"><code>example_database</code></a>, <a href="#admin.add_columns"><code>admin.add_columns</code></a>, <a href="#admin.check_the_copy"><code>admin.check_the_copy</code></a>, <a href="#admin.drop_partitions"><code>admin.drop_partitions</code></a>, <a href="#admin.drop_table"><code>admin.drop_table</code></a>, <a href="#admin.move_to_own_folder"><code>admin.move_to_own_folder</code></a>, <a href="#admin.set_properties"><code>admin.set_properties</code></a>, <a href="#example_database.execute"><code>example_database.execute</code></a>, <a href="#example_database.query"><code>example_database.query</code></a>, <a href="#project.add_references"><code>project.add_references</code></a>, <a href="#project.batch_tables"><code>project.batch_tables</code></a>, <a href="#project.check"><code>project.check</code></a>, <a href="#project.compare_batch"><code>project.compare_batch</code></a>, <a href="#project.convert"><code>project.convert</code></a>, <a href="#project.do_next"><code>project.do_next</code></a>, <a href="#project.load"><code>project.load</code></a>, <a href="#project.new_block"><code>project.new_block</code></a>, <a href="#project.new_table"><code>project.new_table</code></a>, <a href="#project.promote"><code>project.promote</code></a>, <a href="#project.promoted_tables"><code>project.promoted_tables</code></a>, <a href="#project.reference_from_logic"><code>project.reference_from_logic</code></a>, <a href="#project.refresh_reference_sheet"><code>project.refresh_reference_sheet</code></a>, <a href="#project.register"><code>project.register</code></a>, <a href="#project.remove_block"><code>project.remove_block</code></a>, <a href="#project.remove_conversion"><code>project.remove_conversion</code></a>, <a href="#project.remove_reference"><code>project.remove_reference</code></a>, <a href="#project.remove_table"><code>project.remove_table</code></a>, <a href="#project.run_tables"><code>project.run_tables</code></a>, <a href="#project.run_workflow"><code>project.run_workflow</code></a>, <a href="#project.scan_hive"><code>project.scan_hive</code></a>, <a href="#project.start"><code>project.start</code></a>, <a href="#project.table_reference"><code>project.table_reference</code></a>, <a href="#project.upgrade"><code>project.upgrade</code></a>, <a href="#project.write_decisions"><code>project.write_decisions</code></a></p>
 <h2 id="common-jobs">Worked examples of common jobs</h2>
 <section class="entry" id="groups_and_top_n">
 <h3>Distinct values, counts per group, groups kept by HAVING, and the top N.</h3>
@@ -1456,10 +1456,10 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported. Both are read from the folder&#x27;s version.txt, the one place the version is written.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;8.1&#x27;</pre>
+<pre class="output">&#x27;8.2&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 8.1, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 8.2, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -2623,9 +2623,17 @@ GROUP BY
     jobs.team,
     ()
   )</pre>
-<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total. Not every Example database makes subtotals; the how-to &quot;Rollups and subtotals&quot; shows their rows.</p>
+<p>GROUP_BY(rollup(jobs.team, jobs.job_name)) gives the usual row for each team and job, as GROUP_BY(jobs.team, jobs.job_name) does, and as well, a subtotal row for each team, which totals over every job_name, so job_name is NULL in it, and the grand total, one row over all the rows, with team NULL too. A plain column next to it, as in GROUP_BY(job_runs.dt, rollup(jobs.team)), is in every subtotal: a total for each day, never one across days. is_total(column) tells a subtotal row from a row whose column is really NULL. The Toolbox refuses to write subtotals into a Saved table, as they repeat the rows they total.</p>
 <p>Each line of GROUPING SETS is one set of rows: (jobs.team, jobs.job_name) the row of each job, jobs.team each team&#x27;s subtotal, and (), no column, the grand total. The Toolbox writes this form rather than ROLLUP, so the Hive names each set of rows it makes.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>job_name</th><th>runs</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>data</td><td>nightly_load</td><td>2</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>finance</td><td>invoice_sync</td><td>1</td></tr>
+<tr><td>finance</td><td>report_build</td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>rollup</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="cube">
@@ -2652,7 +2660,20 @@ GROUP BY
     ()
   )</pre>
 <p>GROUP_BY(cube(jobs.team, jobs.region)) gives a row for each team and region, a subtotal row for each team over every region, one for each region over every team, and one for all the rows. Two columns give 4 sets of rows, three give 8: each column doubles them. It works as rollup(...) does in every other way.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
+<tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
+<tr><td><i>NULL</i></td><td>PAR</td><td>1</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>data</td><td>LON</td><td>1</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>finance</td><td>NYC</td><td>1</td></tr>
+<tr><td>finance</td><td>PAR</td><td>1</td></tr>
+<tr><td>web</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>web</td><td>LON</td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>cube</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="grouping_sets">
@@ -2678,7 +2699,16 @@ GROUP BY
     ()
   )</pre>
 <p>Each set is a list of columns, or one column, and [] is the grand total, one row over all the rows. Its rows are those of a GROUP_BY over each set in turn, one set after another, with the columns a set leaves out NULL, as rollup(...) and cube(...) give; it works as they do in every other way.</p>
-<p class="note">No result here. The Example database can&#x27;t run this Hive: its executor has no GROUPING SETS, which rollup, cube and grouping_sets write.</p>
+<p class="label">Result on the Example database</p><div class="scroll"><table class="result">
+<tr><th>team</th><th>region</th><th>job_count</th></tr>
+<tr><td><i>NULL</i></td><td><i>NULL</i></td><td>4</td></tr>
+<tr><td><i>NULL</i></td><td>LON</td><td>2</td></tr>
+<tr><td><i>NULL</i></td><td>NYC</td><td>1</td></tr>
+<tr><td><i>NULL</i></td><td>PAR</td><td>1</td></tr>
+<tr><td>data</td><td><i>NULL</i></td><td>1</td></tr>
+<tr><td>finance</td><td><i>NULL</i></td><td>2</td></tr>
+<tr><td>web</td><td><i>NULL</i></td><td>1</td></tr>
+</table></div>
 <p class="names">Toolbox names used: <code>grouping_sets</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>count_rows</code>, <code>to_hive</code></p>
 </section>
 <section class="entry" id="is_total">
@@ -3384,6 +3414,61 @@ FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt = &#x27;2026-09-24&#x27;;</pre>
 <p class="names">Toolbox names used: <code>show_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code></p>
+</section>
+<section class="entry" id="export_hive">
+<h3><code>export_hive</code></h3>
+<p class="why">Write a Table notebook&#x27;s Hive, or one Statement&#x27;s, into a .hql file to read.</p>
+<p>Given nothing, in a cell of a Table notebook, it writes the Hive of the table&#x27;s steps into &lt;db&gt;__&lt;table&gt;.hql in the notebook&#x27;s own folder, such as tables/mart__daily_job_runs/mart__daily_job_runs.hql. Save the notebook first (Ctrl+S in Jupyter): it reads the notebook as last saved, as project.load does, so a change you haven&#x27;t saved isn&#x27;t in the file. The file holds each step the logic defines, in the order they are sent, each headed by its number and its step:</p>
+<p>1. create(), which a Workflow sends, to make the table; 2. hive_settings(&quot;dynamic_partitions&quot;), then seed(), which a Workflow sends once, before the table&#x27;s first write, when the logic has a seed(); 3. session_settings(), which project.run_tables sends before the table&#x27;s writes; 4. write(), which project.run_tables sends: each of several by its place, write()[0] first.</p>
+<p>Each step&#x27;s Hive is show_hive&#x27;s, so a write that fills Partitions from its rows has the SET lines it needs above it, and a Python step in write() shows as comment lines saying what it is, since nothing is sent for it. The file starts with lines saying it is generated: to change it, edit the notebook&#x27;s logic, save the notebook and run the cell again, which writes the file again, the same text when nothing changed. The file is to read and to commit, not to run top to bottom: send its steps as the Toolbox does, create() and seed() from the Workflow&#x27;s notebook and the rest with project.run_tables. A seed() is sent once; sent again, as running the file would, it fills the table again from what the seed reads, over the rows written since. Here a short Template stands in for a notebook of yours, and os.chdir for opening it, since Jupyter runs a notebook in its own folder:</p>
+<pre class="python">import os</pre>
+<pre class="python">from pathlib import Path</pre>
+<pre class="python">from sqlglot_composer import project</pre>
+<pre class="python">project.start()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Started a Project in the folder you&#x27;re working in: admin/, references/, building_blocks/,
+tables/ and warehouse.py.
+Next: set conn, your connection, in warehouse.py.</pre>
+<pre class="python">_ = Path(&quot;admin/templates/short.py&quot;).write_text(
+    &quot;# %%\n# logic\n&quot;
+    &quot;from sqlglot_composer import FROM, INSERT_OVERWRITE, SELECT, Table, statement\n&quot;
+    &quot;from sqlglot_composer.example_database import jobs\n&quot;
+    &quot;names = Table(&#x27;mart.job_teams&#x27;, columns={&#x27;job_id&#x27;: &#x27;bigint&#x27;, &#x27;team&#x27;: &#x27;string&#x27;},\n&quot;
+    &quot;              location=&#x27;/data/your_team/mart.db/job_teams&#x27;)\n&quot;
+    &quot;def write():\n&quot;
+    &quot;    return statement(INSERT_OVERWRITE(names), SELECT(jobs.job_id, jobs.team),\n&quot;
+    &quot;                     FROM(jobs))\n&quot;)</pre>
+<pre class="python">_ = project.new_table(&quot;mart.job_teams&quot;, template=&quot;short&quot;)</pre>
+<pre class="python">os.chdir(&quot;tables/mart__job_teams&quot;)</pre>
+<pre class="python">export_hive()</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote mart__job_teams.hql beside its notebook, the Hive of 1 step: write().</pre>
+<pre class="python">print(Path(&quot;mart__job_teams.hql&quot;).read_text())</pre>
+<p class="label">Python shows</p>
+<pre class="output">-- The Hive of mart.job_teams, generated by export_hive() from the logic cell of
+-- mart__job_teams.ipynb, beside this file. Edit the logic there, not this file: each
+-- export_hive() writes it again, from the notebook as last saved. It holds 1 step:
+-- write().
+
+-- 1 of 1: write()
+INSERT OVERWRITE TABLE mart.job_teams
+SELECT
+  jobs.job_id,
+  jobs.team
+FROM ops.jobs AS jobs;</pre>
+<p>Given a Statement, it writes its Hive, as show_hive shows it, into a file named for its variable, in the folder of the notebook or script that calls it: a notebook&#x27;s own folder, or a script&#x27;s. When Python can&#x27;t tell which file called it, the folder is the one you&#x27;re working in, Path.cwd(), where Jupyter starts a notebook. It takes what show_hive takes, one at a time: Session settings, an Unchecked statement, or a Python step too.</p>
+<pre class="python">failed_runs = statement(
+    SELECT(job_runs.run_id),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;), equals(job_runs.status, &quot;FAILED&quot;)),
+)</pre>
+<pre class="python">export_hive(failed_runs)</pre>
+<p class="label">Python shows</p>
+<pre class="output">Wrote failed_runs.hql, beside your notebook or script: the Hive of failed_runs, as
+show_hive shows it.</pre>
+<p>Put each Statement in a variable of its own and pass each in a call of its own: export_hive(daily), then export_hive(weekly), writes daily.hql and weekly.hql. One in no variable is written to statement.hql, over the one before. A list is refused, since a loop would write every Statement to the file of its one variable, each over the one before.</p>
+<p>Outside a Table notebook, export_hive() is refused: pass the Statement instead. Its write() is refused as project.run_tables refuses it, such as one that gives a read.</p>
+<p class="names">Toolbox names used: <code>export_hive</code>, <code>SELECT</code>, <code>FROM</code>, <code>WHERE</code>, <code>statement</code>, <code>equals</code>, <code>project.start</code>, <code>project.new_table</code></p>
 </section>
 <section class="entry" id="run_query">
 <h3><code>run_query</code></h3>
@@ -4238,7 +4323,7 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Not registered, made by hand. Adopt each with the call beside it:
   references/ops__jobs.py: project.register(&quot;ops.jobs&quot;)</pre>
-<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each <code># CONVERSION:</code> mark project.convert left for you, with its file and line; each file of a prod copy project.promote wrote that was changed or deleted by hand since; and the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can.</p>
+<p>It reports each Table folder, Table reference and Building block the registry doesn&#x27;t list, and each it lists that isn&#x27;t there, each with the call that mends it, and changes nothing. It also reports a send.py from before 7.0 with no warehouse.py beside it; a Project an older Toolbox last wrote, which project.upgrade() carries on to this one; a Project a newer Toolbox last wrote, which needs that newer Toolbox copied in; an admin/project_version.txt that holds no version; each <code># UPGRADE &lt;version&gt;:</code> mark an Upgrade left for you, with its file and line; each file of a prod copy project.promote wrote that was changed or deleted by hand since; the next step of each Workflow you have started, in admin/workflows/, with its call, which project.do_next() runs for you when it can, and why a step is due when its files can say, such as which Table reference changed after the Reference sheet was last written; each batch the convert Workflow finished, as done; and last, since they block nothing, each <code># CONVERSION:</code> mark project.convert left for you, with its file and line.</p>
 <p>One made by hand, such as a reference file copied in, is adopted with register(...). One moved or deleted by hand is put back, or has its registry row marked removed with remove_table, remove_reference or remove_block.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
@@ -4267,12 +4352,14 @@ has no table mart_dev.spare.</pre>
 
 Below, the Statement is mart_dev.spare&#x27;s rows, and the original its query&#x27;s.
 
+## Every row
+
 Passed: every row: it has no Partitions.
 Compared at 2026-10-31 09:30:00.
 
 The Statement and the original give the same rows: 4 rows each.</pre>
 <p>A table with a Key, such as one project.convert proposed, has its Key checked on the same rows once they match, a line of its own below: a Key they repeat fails it, naming each key that repeats. It is the convert Workflow&#x27;s last step. It compares the tables once written, not their queries: each dev table&#x27;s rows with the rows of the table it copies, its original, through your query, as compare_with_original compares them. A table partitioned by a column, such as dt, is compared on one Partition: the one partition= gives, such as {&quot;dt&quot;: &quot;2026-09-24&quot;}, when both tables hold it; else the latest both hold, of the Partitions Hive&#x27;s SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in common, or none you gave, the table fails, naming what each holds: write the dev copy for a Partition the original holds, or give one both hold. A table with no Partitions is compared on every row. A query alone, which convert made a Saved table named for the batch, or for its file in a batch of several scripts, has no original table: its rows are compared with the query&#x27;s, kept in its conversion/statement.hql. A partition= that names no column any of them is partitioned by is refused.</p>
-<p>Each result is written in the table&#x27;s conversion/compare.md, with the rows that differ, at most 5 from each, as compare_with_original gives them, where the Statement is the dev table&#x27;s rows. <code>tables</code> names which, by their names in dev, such as mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once every one has passed, the batch&#x27;s folder moves to admin/workflows/convert/finished/&lt;name&gt;/, and check no longer lists it; batch_tables still reads it, and compare_batch run on it again compares again, moving nothing. project.remove_conversion(name) archives a finished batch, which frees its name. It never needs your execute: it only reads.</p>
+<p>Each result is written in the table&#x27;s conversion/compare.md, under a heading naming the Partition it compared, such as ## dt = &#x27;2026-09-24&#x27;, or ## Every row: a compare of another Partition adds its own beside the others, one of the same Partition replaces its result, and one after the table was written again drops each from before. The table has passed when every result it keeps passed. Each holds the rows that differ, at most 5 from each, as compare_with_original gives them, where the Statement is the dev table&#x27;s rows. <code>tables</code> names which, by their names in dev, such as mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once every one has passed, the batch&#x27;s folder moves to admin/workflows/convert/finished/&lt;name&gt;/, and check names it done; batch_tables still reads it, and compare_batch run on it again compares again, moving nothing. project.remove_conversion(name) archives a finished batch, which frees its name. It never needs your execute: it only reads.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.convert</code></p>
 </section>
 <section class="entry" id="project.convert">
@@ -4333,7 +4420,7 @@ Next: set conn, your connection, in warehouse.py.</pre>
     notebook, and save it. It is a decision, yours to make: for table in
     [&quot;mart.daily_job_runs&quot;]:
     project.load(table).preview()  # says what stops it, if anything does</pre>
-<p>It runs each step that changes only files and has a call of its own, in order, up to the first it can&#x27;t run for you: a decision, a call to the warehouse, a step done by hand, or one only its cell runs. A Workflow is started once its notebook&#x27;s names cell, in admin/workflows/&lt;name&gt;/, names what it works on, such as TABLES = [&quot;mart.daily_job_runs&quot;]: save the notebook, then run this. A step whose done function, read from the Project&#x27;s files, says it is done is passed over, and so is each step before it, though the files can&#x27;t tell of some; a Workflow none of whose steps the files can tell of is named at its first step. So running it again does nothing more. It reports each step it ran, and the next step left for you, with its call; it never sends anything to the warehouse. <code>workflow</code> names one Workflow, such as &quot;new_table&quot;, to run only its steps.</p>
+<p>It runs each step that changes only files and has a call of its own, in order, up to the first it can&#x27;t run for you: a decision, a call to the warehouse, a step done by hand, or one only its cell runs. A Workflow is started once its notebook&#x27;s names cell, in admin/workflows/&lt;name&gt;/, names what it works on, such as TABLES = [&quot;mart.daily_job_runs&quot;]: save the notebook, then run this. A step whose done function, read from the Project&#x27;s files, says it is done is passed over, and so is each step before it, though the files can&#x27;t tell of some. A step of Decisions still open, such as a Table reference&#x27;s Key, is named until it is made, whatever ran after it. A Workflow none of whose steps the files can tell of is named at its first step. So running it again does nothing more. It reports each step it ran, and the next step left for you, with its call; it never sends anything to the warehouse. <code>workflow</code> names one Workflow, such as &quot;new_table&quot;, to run only its steps.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
 <section class="entry" id="project.load">
@@ -4471,10 +4558,15 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote references/mart_dev__daily_runs.py from its logic: job_id, runs and dt, partitioned by
 dt.
-Its Key, proposed from its query: job_id and dt.
+Its Key, proposed from its logic: job_id and dt.
+mart_dev.daily_runs: 2 TODO lines left in references/mart_dev__daily_runs.py, which wait
+on nothing: fill each in when you like.
+  line 1: mart_dev.daily_runs - TODO: say in one line what one row is.
+  line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+  counts
 Answer each open Decision in the new_table Workflow&#x27;s decisions cell: mart_dev.daily_runs:
 location: the folder its files go in.</pre>
-<p>It runs the table&#x27;s logic cell, as project.load does, and builds its preview(): the Table reference lists each column preview() gives, in its order, typed as the tables it reads type them (&quot;string&quot;, noted as a guess, where nothing tells); its partition columns, PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its query makes, proposed, as project.convert proposes one. location= is a Decision left to you, which the new_table Workflow&#x27;s decisions cell answers. It writes over only the file new_table wrote, whose columns are still &lt;COLUMNS&gt;: a Table reference whose columns you wrote is kept, and the report says so. It refuses a logic cell that doesn&#x27;t run, one that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming columns preview() doesn&#x27;t give last. <code>name</code> may be a list of tables&#x27; names, each written in turn.</p>
+<p>It runs the table&#x27;s logic cell, as project.load does, and builds its preview(): the Table reference lists each column preview() gives, in its order, typed as the tables it reads type them (&quot;string&quot;, noted as a guess, where nothing tells); its partition columns, PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic makes, proposed, as project.convert proposes one from a query. location= is a Decision left to you, which the new_table Workflow&#x27;s decisions cell answers. It writes over only the file new_table wrote, whose columns are still &lt;COLUMNS&gt;: a Table reference whose columns you wrote is kept, and the report says so. Either way, it names each TODO line the Table reference leaves, such as its docstring&#x27;s first line, which waits on nothing: fill each in by hand. It refuses a logic cell that doesn&#x27;t run, one that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming columns preview() doesn&#x27;t give last. <code>name</code> may be a list of tables&#x27; names, each written in turn.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.new_table</code>, <code>project.add_references</code></p>
 </section>
 <section class="entry" id="project.refresh_reference_sheet">
@@ -4650,15 +4742,18 @@ Next: set conn, your connection, in warehouse.py.</pre>
     skipped
   references: 3. Write each answer into its table&#x27;s Table reference
     Wrote 1 answer into references/ops__job_events.py.
-    ops.job_events: 1 TODO line left in references/ops__job_events.py, which waits on
-    nothing: fill it in when you like.
+    ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
+    nothing: fill each in when you like.
+      line 1: ops.job_events - TODO: say in one line what one row is.
+      line 15: does_not_add_up=[],  # TODO: columns that are averages, ratios or
+      distinct counts
     Each Decision of ops.job_events is made.
   references: 4. Refresh the Reference sheet and the Database modules
     Wrote references/reference_sheet.csv: 5 rows, 1 table.
   references: every step is done.</pre>
 <p>Its notebook&#x27;s last cell runs it, with your query and execute, in place of each step&#x27;s cell. It reads the notebook as you last saved it: fill in its names cell, and its decisions cell if you know the answers already, as above, and save it first. It runs each step the Project&#x27;s files don&#x27;t say is done, in order, as the step&#x27;s own cell runs it, its calls to the warehouse too, and reports each, a step done already as skipped. A step that only reads, such as new_table&#x27;s preview, it runs, printing what it reads, and goes on.</p>
 <p>It stops at the first step only you can do, and the steps after it don&#x27;t run:</p>
-<ul><li>a Decision open, which it names, as check() does: answer it in the decisions cell;</li><li>a check of what a step printed, such as change_a_saved_table&#x27;s Hive and its Check first line: make the check, then run the next step&#x27;s own cell, which only you start;</li><li>a refusal or the warehouse&#x27;s error, written in full: mend what it says;</li><li>a step that ran and isn&#x27;t done, such as a compare that failed: mend what it says.</li></ul>
+<ul><li>a Decision open, which it names, as check() does: answer it in the decisions cell;</li><li>a check of what a step printed, such as change_a_saved_table&#x27;s Hive and what the check its Check first line names reads, which it sends through your query: read them, then run the next step&#x27;s own cell, which only you start;</li><li>a refusal or the warehouse&#x27;s error, written in full: mend what it says;</li><li>a step that ran and isn&#x27;t done, such as a compare that failed: mend what it says.</li></ul>
 <p>Then save the notebook and run its last cell again: each step done is skipped, so it goes on where it stopped. <code>workflow</code> is one Workflow&#x27;s name, such as &quot;convert&quot;. The convert Workflow runs the batch its names cell&#x27;s NAME names, or, when NAME is a list, each batch it names in turn, each converted already: a stop in one stops the rest. It never runs a batch you didn&#x27;t name.</p>
 <p>With dry_run=True it sends nothing through your execute. Each step that would send says the Hive it would send, &quot;would send: ...&quot;, and a preview or a compare says what it would read. Some steps it runs for real, since the steps after them read their files:</p>
 <ul><li>convert, and the references Workflow&#x27;s first step, which read DESCRIBE through your query and write Table references;</li><li>each step that changes only files, such as promote&#x27;s first, which writes the prod Table folders, up to the first step that would send. After that, such a step is named with its call, &quot;would run: ...&quot;, and not run.</li></ul>
@@ -4681,10 +4776,10 @@ Next: set conn, your connection, in warehouse.py.</pre>
     WHERE r.dt = &#x27;2026-09-24&#x27; AND r.status IN (&#x27;FAILED&#x27;, &#x27;RETRY&#x27;, &#x27;SKIPPED&#x27;, &#x27;TEST&#x27;)
     GROUP BY r.job_id&#x27;&#x27;&#x27;))</pre>
 <p class="label">Python shows</p>
-<pre class="output">5 lines of Hive, one query reading ops.job_runs.
+<pre class="output">4 lines of Hive, one query reading ops.job_runs.
 No Table reference yet for ops.job_runs: project.convert(...) adds it through your query.
 Found:
-  line 4: the IN list of 4 values is the constant STATUS_VALUES</pre>
+  line 3: the IN list of 4 values is the constant STATUS_VALUES</pre>
 <p>Give it the Hive as text, pasted between triple quotes in admin/workflows/convert/convert.ipynb, or as file=, a .hql or .sql file&#x27;s path from the folder you&#x27;re working in. It reads the one query in it with sqlglot, the way project.convert(...) does, and reports, with the line of each: the tables it reads and which have no Table reference yet, each long IN list and lookup CASE that becomes a named constant, each piece no Toolbox function writes yet, which stays Hive (an Unchecked expression, an Unchecked derived table, or the whole query as an Unchecked statement), what becomes of its SET lines and its INSERT, if it has them, each ${...} such as ${hivevar:day}, kept as written for Hive to fill in from a SET line sent first, and each piece written another way: a * as its table&#x27;s columns, a CASE WHEN chain as first_match(...), a lookup as mapped(...), a function no Toolbox function wraps as hive_function(...), and the like. It changes no file and sends nothing. A table named without its database, such as job_runs, is taken to be in <code>database</code>.</p>
 <p>It reads one query: a script of several, which project.convert(...) takes as a batch, an INSERT ... VALUES, an INSERT into a folder, and a FROM with several INSERTs are refused, each saying what to do instead.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
@@ -4739,11 +4834,12 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
-<pre class="output">Upgraded the Project from 7.1 to 8.1.
+<pre class="output">Upgraded the Project from 7.1 to 8.2.
 7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
-8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.</pre>
+8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
+8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.</pre>
 <p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order. A step makes the changes that need no judgement, keeping each file it changes, as it was, in admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark; project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
 <p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
@@ -4761,10 +4857,13 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">print(project.write_decisions({&quot;ops.job_runs&quot;: {&quot;key&quot;: [&quot;run_id&quot;]}}))</pre>
 <p class="label">Python shows</p>
 <pre class="output">Wrote 1 answer into references/ops__job_runs.py.
-ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which waits on nothing: fill
-it in when you like.
+ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
+fill each in when you like.
+  line 1: ops.job_runs - TODO: say in one line what one row is.
+  line 16: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
+  counts
 Each Decision of ops.job_runs is made.</pre>
-<p>A Decision is one line of a table&#x27;s Table reference only you can fill in, open while it holds a TODO: or a &lt;...&gt;: its location=, the folder its files go in; its key=, the columns whose values name one row, or None when none do; and each column a Conversion wrote &quot;string&quot; because nothing told it the type. <code>answers</code> is the decisions cell, DECISIONS, of a Workflow&#x27;s notebook: by table, a dict holding &quot;location&quot;, &quot;key&quot; or &quot;types&quot;, such as {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;, &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}. Each answer is written into the open line it answers. A Decision made already, as yours is once you change its line, is kept, and an answer that differs from it is named; so is an answer for a table with no Table reference, or one that answers no Decision. A converted table&#x27;s conversion/checklist.md, which lists its open Decisions, is written again. Its Workflow&#x27;s next step names each Decision still open.</p>
+<p>A Decision is one line of a table&#x27;s Table reference only you can fill in, open while it holds a TODO: or a &lt;...&gt;: its location=, the folder its files go in; its key=, the columns whose values name one row, or None when none do; and each column a Conversion wrote &quot;string&quot; because nothing told it the type. A TODO: on any other line, such as the docstring&#x27;s first line or does_not_add_up=, is no Decision: it waits on nothing, as the two above do. <code>answers</code> is the decisions cell, DECISIONS, of a Workflow&#x27;s notebook: by table, a dict holding &quot;location&quot;, &quot;key&quot; or &quot;types&quot;, such as {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;, &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;}}}. Each answer is written into the open line it answers. A Decision made already, as yours is once you change its line, is kept, and an answer that differs from it is named; so is an answer for a table with no Table reference, or one that answers no Decision. A converted table&#x27;s conversion/checklist.md, which lists its open Decisions, is written again. Its Workflow&#x27;s next step names each Decision still open.</p>
 <p class="names">Toolbox names used: <code>example_database</code>, <code>project.start</code>, <code>project.add_references</code></p>
 </section>
 </main>

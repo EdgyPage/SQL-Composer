@@ -1,4 +1,6 @@
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.1)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.2)
+
+**Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
 Objective: work out a value from the rows around each row, keep the latest or top rows of
 each group, add subtotals, or stack Statements.
@@ -6,41 +8,45 @@ Load this file when the user asks for a rank, a row number, the latest row of ea
 top N per group, the row before or after, a running total, subtotals or a grand total, or
 the rows of several Statements together.
 
-You write Python for sqlglot Composer 8.1, a Toolbox that writes Hive. Answer with one Python code
-block the user can paste into a notebook cell, then a few plain sentences.
+## Terms
+
+- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Statement**: one Hive query; a **Condition**, a test on rows.
+- `t`: a table, as its Table reference describes it: `job_runs`.
+- **Derived table**: a named Statement, `derived(...)`, read like a table.
 
 ## Always
 
-1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`.
-   Never `import *`. Use only the Toolbox names this file shows; never make one up. Hive's
-   own words are Toolbox names only where this file writes them as functions, as SELECT and
+1. Import each name you use, by name: `from sqlglot_composer import FROM, SELECT, statement`,
+   never `import *`. Write only Toolbox names this file or the user's code shows. Hive's own
+   words are Toolbox names only where this file writes them as functions, as SELECT and
    FROM: there is no COUNT, SUM, AND, CASE or ALIAS.
 2. Build a Statement with `statement(...)`, its Clause functions in SQL order: a write's
    INSERT_OVERWRITE or INSERT_INTO first, then SELECT or SELECT_DISTINCT, FROM, the joins,
    WHERE, GROUP_BY, HAVING, ORDER_BY, LIMIT.
-3. Name every calculation with AS: `AS(count_rows(), "runs")`. A plain column needs none.
-   Arithmetic, `+ - * /`, works on Columns; comparisons don't (rule 4).
-4. Write each Condition with a function: equals, not_equals, more_than, less_than,
-   at_least, at_most, between, is_in, is_not_in, is_null, is_not_null, all_of, any_of. Never
-   Python's ==, <, >, and, or, not on a Column. WHERE(a, b) keeps rows where both hold.
-5. Bound every read of a partitioned table with a Condition giving a value for one of its
+3. Name every calculation with AS: `AS(count_rows(), "runs")`; a plain column needs none.
+   Arithmetic, `+ - * /`, works on Columns; write comparisons by rule 4.
+4. Write each Condition with a function, in place of Python's ==, <, >, and, or, not on a
+   Column: equals, not_equals, more_than, less_than, at_least, at_most, between, is_in,
+   is_not_in, is_null, is_not_null, all_of, any_of. WHERE(a, b) keeps rows where both hold.
+5. **Bound every read of a partitioned table** with a Condition giving a value for one of its
    partition columns, such as `equals(t.dt, "2026-09-24")`, `between(...)`, `is_in(...)` or
    `last_n_days(t.dt, 7)`: in WHERE for FROM, JOIN and CROSS_JOIN; inside ON= for LEFT_JOIN,
    SEMI_JOIN and ANTI_JOIN; for FULL_JOIN, in a Derived table it reads. Matching it to another
    table's column bounds nothing. A table with no partitions needs no bound.
-6. ORDER_BY needs LIMIT.
+6. Give every ORDER_BY a LIMIT.
 7. Run a read with `run_query(s, query)` and a write with `run_execute(s, execute)`, after
    `from warehouse import query, execute`. Never call query or execute yourself.
 8. Add an opt-out, such as `reads_all_partitions=True`, only when the user asks for what it
    allows, and say why in a comment.
 9. Reach a column as `table.column`, from the user's Table reference:
    `from references.ops__job_runs import job_runs`, then `job_runs.dt`.
-10. The user loads one Copilot file per chat, or for an Excel workbook 11 and 12 with 03,
-    04 and 05. When this one doesn't cover what is asked, say so and name the file that
+10. The user loads one Copilot file per chat, or for an Excel workbook files 15, 11 and
+    12. If this one doesn't cover what is asked, say so and name the file that
     does, to load in a new chat: 01 imports and the Project, 02 Table references, 03
     building a Statement, 04 joins, 05 windows and subtotals, 06 saving a table, 07
     converting Hive, 08 checking and comparing, 09 fixing a refusal, 10 labels, Hive
-    functions and Hive written by hand, 11 and 12 an Excel workbook into Hive, 13 and 14 a
+    functions and Hive written by hand, 15, 11 and 12 an Excel workbook into Hive, 13 and 14 a
     whole job's steps from its Workflow notebook.
 
 ## Names for this objective, with their arguments
@@ -68,32 +74,53 @@ block the user can paste into a notebook cell, then a few plain sentences.
 - INTERSECT(*statements, returns_all_rows=False)
 - EXCEPT(*statements, returns_all_rows=False)
 
+## Windows
+
+- A Window says which rows each row looks across:
+  `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`, the rows of each job, in order;
+  several columns as lists; `descending(t.minutes)` for largest first.
+  `rows=(-6, 0)` looks across the 6 rows before and the row itself; `rows=(None, 0)` every
+  row up to it.
+- Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
+  `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
+  `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
+  `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
+  rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
+- A window's value can't be tested in its own WHERE or HAVING.
+- Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
+- The Toolbox refuses adding up a window's value again.
+
+## Subtotals and stacks
+
+- Subtotal rows, totals over several groups or all rows, go inside GROUP_BY:
+  `GROUP_BY(rollup(t.dt))` adds a total of every day; `cube(a, b)` every combination;
+  `grouping_sets(...)` the sets named. `is_total(t.dt)` is a Condition true on a total's row.
+- A stack puts whole Statements' rows one after another: `UNION_ALL(s1, s2)` gives the rows
+  of both, each Statement giving the same columns in the same order; `UNION` drops repeated
+  rows; `INTERSECT` and `EXCEPT` as in SQL.
+
 ## Steps
 
-1. A Window says which rows each row looks across:
-   `window(PARTITION_BY=t.job_id, ORDER_BY=t.run_id)`, the rows of each job, in order;
-   several columns as lists; `descending(t.minutes)` for largest first.
-   `rows=(-6, 0)` looks across the 6 rows before and the row itself; `rows=(None, 0)` every
-   row up to it.
-2. Pass it as `over=`: `rank(over=w)`, `dense_rank(over=w)`, `ntile(4, over=w)`,
-   `lag(t.minutes, over=w)` (the row before), `lead(t.minutes, over=w)` (the row after),
-   `first_value(...)`, `last_value(...)`, `sum_of(t.minutes, over=w)`,
-   `count_rows(over=w)`. rank, lag and lead need ORDER_BY; a total with ORDER_BY needs
-   rows=. `row_number(PARTITION_BY=..., ORDER_BY=...)` numbers rows 1, 2, 3 in each group.
-3. Name each with AS, as any calculation.
-4. A window's value can't be tested in the same Statement. Work it out in a Derived table,
-   then keep rows in the Statement that reads it: the latest row of each group is the row
-   numbered 1 from the newest; a top 3 keeps `at_most(d.n, 3)`, where `n` is the number's
-   AS name.
-5. Ties: add a second ORDER_BY column, such as the row's id, so the order is one.
-6. Subtotals go inside GROUP_BY: `GROUP_BY(rollup(t.dt))` adds a total of every day;
-   `cube(a, b)` every combination; `grouping_sets(...)` the sets named. `is_total(t.dt)`
-   is a Condition true on a total's row.
-7. Stacking: `UNION_ALL(s1, s2)` gives the rows of both, each Statement giving the same
-   columns in the same order; `UNION` drops repeated rows; `INTERSECT` and `EXCEPT` as in
-   SQL. Each Statement is bounded on its own.
+1. **Read.** Goal: know what each row needs. Action: list each window value, subtotal or
+   stack. Done when listed; then step 2.
+2. **Write.** Action: write it by this file. Done when every name is imported; then step 3.
+3. **Check.** Action: run the Self-check; fix what fails, then reply.
 
-## Worked example
+## Decision rules
+
+- If the latest row of each group: row_number from the newest in a Derived table, keeping
+  row 1 in the Statement that reads it; never max_of on each column, which can mix values
+  from different rows.
+- If a top 3 of each group: the same, keeping `at_most(d.n, 3)`, `n` the number's AS name.
+
+## Output
+
+Reply with these parts, in this order, and nothing else:
+
+1. **Code**: one ```python block to paste into a notebook cell.
+2. **Notes**: a few plain sentences on what it gives.
+
+## Examples
 
 The latest run of each job over two days:
 
@@ -131,15 +158,7 @@ s = statement(
 )
 ```
 
-## Do and don't
-
-- Do keep the latest row with row_number in a Derived table; don't use max_of on each
-  column, which can mix values from different rows.
-- Do give rank, lag and lead an ORDER_BY.
-- Don't test a window's value in its own WHERE or HAVING.
-- Don't add up a window's value again; the Toolbox refuses it.
-
-## Before you answer
+## Self-check
 
 - Every window function has `over=` (or row_number its PARTITION_BY and ORDER_BY) and AS.
 - Rows are kept by a window's value only in the Statement that reads its Derived table.

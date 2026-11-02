@@ -1,33 +1,29 @@
-# Copilot file 12: a Formula workbook's Power Query and totals into Hive (sqlglot Composer 8.1)
+# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.2)
 
-Objective: turn the Power Query M, whole-column totals and Total Rows in an attached Excel
-workbook into Hive, with file 11.
-Load this file when the user attaches a workbook and asks for its calculations as Hive or
-Toolbox code, with files 11, 03, 04 and 05.
+**Use this file as reference while you follow file 15's steps: it says what each Power Query
+step, whole-column total and Total Row of an attached workbook becomes in Hive.**
 
-## Names for this objective, with their arguments
+Objective: write each Power Query, each whole-column total and each Total Row of an Excel
+workbook as the Hive that gives the same rows.
+Load this file when the user attaches a workbook and asks for its calculations as Hive, with
+file 15 (the steps, the map and the reply) and file 11 (each formula's Hive).
 
-- SEMI_JOIN(table, ON=None, reads_all_partitions=False, broadcast=False)
-- CROSS_JOIN(table, reads_all_partitions=False)
-- rollup(*columns)
-- row_number(*, PARTITION_BY=None, ORDER_BY=None, over=None)
-- count_distinct(column, where=None)
+## Terms
 
-## Steps
-
-1. Follow file 11's steps, its map to its batch for the convert Workflow, reading each
-   query's steps in order, as below.
-2. A query another query reads is a step, a CTE as file 11's step 5 says. A query and the
-   Table it loads are two things in the map, as a formula reads the Table, never the query:
-   the Table, its query's rows and any formula columns it adds, is a step when a formula reads
-   it, else a final. A connection-only query nothing reads is left out, and named.
-3. A step this file and file 11 don't list is refused: NULL for each column it makes, or the
-   query left out, and named, with why.
+- **M**: Power Query's language. A query is a `let` of named steps, each reading the one
+  before; `in` names the step it gives. Read the steps in order.
+- **Total Row**: the row Excel adds inside a Table's range, under its last row, each total a
+  SUBTOTAL(...) over a column: the workbook shows it as the Table's `Total Row`. It is the
+  Total Row, never a row of data.
+- A query step no section here lists is refused: NULL for each column it makes, or the query
+  left out, named with why.
 
 ## Reading a table and its rows
 
-- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t. `#date(2026, 9, 1)`:
-  '2026-09-01'.
+- `Excel.CurrentWorkbook(){[Name="t"]}[Content]` reads Table t, as `<database>.t`. Another
+  query's name, as in `Table.Sort(q, ...)`, reads query q: a CTE, `WITH q AS (...)`, written
+  after each CTE q reads, each read by the next: a query, then the Table it loads, then a
+  formula column reading that Table. `#date(2026, 9, 1)`: '2026-09-01'.
 - Table.SelectRows: WHERE; after a Table.Group, HAVING, repeating the aggregate. M's `<>`
   keeps a null, as Hive's doesn't: `(status <> 'TEST' OR status IS NULL)`. `[c] = null`:
   `c IS NULL`; `[c] <> null`: `c IS NOT NULL`.
@@ -54,7 +50,7 @@ Toolbox code, with files 11, 03, 04 and 05.
 - Table.Group: GROUP BY, Table.RowCount(_) as COUNT(*), List.Sum, List.Max, List.Min and
   List.Average as SUM, MAX, MIN and AVG, List.StandardDeviation as STDDEV_SAMP.
   List.Count(List.Distinct([c])): COUNT(DISTINCT c), which leaves out NULL where M counts it
-  as a value: say so where c has a blank in the sample.
+  as a value: name it where c has a blank in the sample.
 - NestedJoin then ExpandTableColumn, by JoinKind: LeftOuter: LEFT JOIN; Inner: JOIN;
   RightOuter: LEFT JOIN, the two tables swapped; FullOuter: FULL OUTER JOIN; LeftAnti: `LEFT
   JOIN u ON t.k = u.k WHERE u.k IS NULL`, t's columns only; RightAnti: the same, swapped.
@@ -70,40 +66,42 @@ Toolbox code, with files 11, 03, 04 and 05.
 
 ## A whole column, and the Total Row
 
-- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX: `SUM(v) OVER ()` and so on, COUNTA as
-  COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]): `SUM(a * b) OVER
-  ()`.
-- A Total Row, SUBTOTAL(109, ...) a SUM, 101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN: a
-  query of its own, one row, a column per total, in order, with no label; name it in the map
-  as `<Table> (Total Row)`.
-- But a summary Table's Total Row whose totals only add up SUMs or COUNTs, or take the MAX of
-  MAXes or MIN of MINs, needs no query of its own: the summary's query ends `GROUP BY a WITH
-  ROLLUP`, which adds the total as one more row, its a NULL (a Subtotal row).
+- SUM(t[v]), AVERAGE, COUNT, COUNTA, MIN, MAX in a formula column: `SUM(v) OVER ()` and so on,
+  COUNTA as COUNT(v); STDEV.S: STDDEV_SAMP; VAR.S: VAR_SAMP; SUMPRODUCT(t[a], t[b]):
+  `SUM(a * b) OVER ()`.
+- A Total Row is a final of its own, `<Table> (Total Row)`: one row, a column for each cell
+  that holds a total, in the Table's order, and no column for a cell that is empty or a label
+  such as "Total", reading the Table's final query as a CTE. SUBTOTAL(109, ...) is a SUM,
+  101 AVG, 102 or 103 COUNT, 104 MAX, 105 MIN.
+- If the user says no one needs a Total Row's total kept as a table, write no block for it,
+  and name it in the map as left out.
+- Write the Table's own final query without its Total Row, so it holds only its rows: a Saved
+  table holds no Subtotal row.
 
-## Order
+## Sorting
 
 - Table.Sort then FirstN: ORDER BY ... LIMIT, Order.Descending as DESC. FirstN alone: LIMIT.
 - Table.AddIndexColumn(t, "n", 1, 1) after a Table.Sort: `ROW_NUMBER() OVER (ORDER BY ...)
   AS n`; inside a Table.Group's `each`, PARTITION BY its keys.
-- A Table.Sort with no FirstN or index after it: no ORDER BY, as a Hive table holds no
-  order; say the order was dropped.
+- A Table.Sort with no FirstN or index after it: write no ORDER BY, as a Hive table holds no
+  order, and name the order as dropped.
 
-## Marks: convert, and say so
+## Marks: convert, and name
 
-- M reading Sql.Database or a non-workbook source: use the table it names; say which to check.
+- M reading Sql.Database or a source outside the workbook: read the table it names, and name
+  it, for the user to check.
 - Table.Pivot: a `SUM(CASE WHEN severity = 'high' THEN 1 END) AS high` column per value in
-  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; say
-  the pivot's columns are now fixed.
+  the sample, THEN 1 to count and THEN v to add up v, NULL where none, as M leaves it; name
+  the pivot's columns as now fixed.
 
 ## Refused, and named
 
 Web.Contents or any web source (leave that query out); Table.AddIndexColumn with no Sort
 before it; Table.FillDown and FillUp; Table.Distinct with a column list; List.Median.
 
-## Worked example
+## Examples
 
-Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs, loaded into Table
-busy_jobs:
+Table job_runs (run_id, job_id, status, duration_mins); query busy_jobs loads Table busy_jobs:
 
     let
         Source = Excel.CurrentWorkbook(){[Name="job_runs"]}[Content],
@@ -114,7 +112,7 @@ busy_jobs:
     in
         Busy
 
-Sources: job_runs. Finals: busy_jobs (job_id, runs). Fill in: `<database>`.
+Map: Sources job_runs. Finals busy_jobs (job_id, runs).
 
 ```sql
 SELECT job_id, COUNT(*) AS runs
@@ -124,36 +122,22 @@ GROUP BY job_id
 HAVING COUNT(*) > 1
 ```
 
-Toolbox code, with `<database>` as ops:
+Table by_job (job_id typed; runs `=COUNTIFS(job_runs[job_id],[@job_id])`) has a Total Row
+summing runs. As a summary, its typed job_ids, 1 and 2, are typed in (file 15). Its Total
+Row's block reads by_job's final query as a CTE:
 
-```python
-from sqlglot_composer import (AS, FROM, GROUP_BY, HAVING, SELECT, WHERE, count_rows,
-                              is_not_null, more_than, starts_with, statement)
-from references.ops__job_runs import job_runs
-
-s = statement(
-    SELECT(job_runs.job_id, AS(count_rows(), "runs")),
-    FROM(job_runs, reads_all_partitions=True),  # a workbook's query reads every row
-    WHERE(is_not_null(job_runs.status), starts_with(job_runs.status, "SUCC")),
-    GROUP_BY(job_runs.job_id),
-    HAVING(more_than(count_rows(), 1)),
+```sql
+WITH by_job AS (
+  SELECT j.job_id, COALESCE(c.runs, 0) AS runs
+  FROM (SELECT 1 AS job_id UNION ALL SELECT 2) j
+  LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job_id) c
+    ON j.job_id = c.job_id
 )
+SELECT SUM(runs) AS runs FROM by_job
 ```
 
-When query ok loads Table ok, which adds hours `=[@duration_mins]/60`, and query by_job reads
-query ok: Steps: query ok. Finals: Table ok, with hours, and Table by_job, each holding `WITH
-ok AS (...)`, Table ok's ending `SELECT ..., duration_mins / 60 AS hours FROM ok`.
+## Self-check
 
-A value typed over a formula, file 11's step 6, in Toolbox code: `AS(first_match([(equals(
-r.run_id, 103), 9)], otherwise=r.duration_mins / 60), "hours")`, `r` being `AS(job_runs, "r")`.
-
-## Do and don't
-
-- Do read each query's steps in order, and a query another reads as a CTE.
-- Don't keep an ORDER BY with no LIMIT, guess a source outside the workbook, or convert a
-  web query.
-
-## Before you answer
-
-- Each query mapped: a step as a CTE, a loaded one as its final's query.
-- Each mark and refusal named.
+- Each query's steps are read in order, each in its final's query or named as refused.
+- Each ORDER BY has a LIMIT after it.
+- Each Total Row is its own final, and its Table's final holds only the Table's rows.

@@ -1,4 +1,4 @@
-# sqlglot Composer 8.1 - copy it, then edit your copy
+# sqlglot Composer 8.2 - copy it, then edit your copy
 # %% [markdown]
 # # <DB>.<TABLE>
 #
@@ -17,13 +17,46 @@
 #     column, such as `dt` or `region`. If this table isn't partitioned, delete the two lines
 #     of rows() naming `<PARTITION_COLUMN>`, and write `PARTITIONED_BY = []`, instead.
 #
-# Then save it: `project.reference_from_logic("<DB>.<TABLE>")`, a new_table Workflow step,
-# writes its Table reference, `references/<NAME>.py`, from the logic, for you to answer.
-# It lists the columns write() saves, in the order its SELECT gives them: here
-# <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint", and
-# last its partition column, if it has one, as PARTITIONED_BY names it. Its Key, proposed from
-# the query, is the column each row is for, and the partition column if it has one, such as
-# key=["job_id", "region"].
+# ## Terms
+#
+# - **Logic**: the code cell that starts `# logic`, cell 2. It only imports and defines, so
+#   `project.load("<DB>.<TABLE>")` can run it from anywhere else, for lineage across your
+#   tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# - **Table reference**: `references/<NAME>.py`, the script describing this table: its
+#   columns and their types, its Partitions and its Key.
+# - **Partition**: the rows of a table that share one value of each column it is partitioned
+#   by.
+# - **Key**: the columns whose values name exactly one row of the table.
+# - **Decision**: one thing about this table that only you decide, such as its location; its
+#   Table reference says whether it is made.
+#
+# ## Steps
+#
+# 1. **Fill in each `<...>`.** Goal: logic that runs. Action: type over each one listed above,
+#    in the code cells. Done when no code cell holds a `<...>`; then step 2.
+# 2. **Save the notebook.** Goal: the logic its Table reference is written from. Action: save
+#    it. Done when it is saved; then step 3.
+# 3. **Write its Table reference.** Goal: a Table reference written from the logic. Action:
+#    run `project.reference_from_logic("<DB>.<TABLE>")`, a new_table Workflow step, which
+#    writes `references/<NAME>.py` from the logic, for you to answer.
+#    It lists the columns write() saves, in the order its SELECT gives them: here
+#    <GROUP_COLUMN>, typed as the table read types it, then <COUNT_NAME>, a count, "bigint",
+#    and last its partition column, if it has one, as PARTITIONED_BY names it. Its Key,
+#    proposed from the logic, is the column each row is for, and the partition column if it
+#    has one, such as key=["job_id", "region"].
+#    Done when `references/<NAME>.py` lists those columns; then step 4.
+# 4. **Answer its Decisions.** Goal: each Decision made. Action: answer each open Decision its
+#    Table reference leaves, such as its location, in the new_table Workflow's decisions
+#    cell. Done when its Table reference leaves no Decision open; then step 5.
+# 5. **Say what one row is.** Goal: a reader knows what the table holds. Action: write one
+#    line saying what one row of <DB>.<TABLE> is, in place of the TODO line below. Done when
+#    no TODO line is left in this cell; then step 6.
+# 6. **Run the cells.** Goal: the logic tried, its lineage and Hive written, and its rows in
+#    the Reference sheet. Action: run the code cells top to bottom, once its Table reference
+#    is written from the logic. Done when each runs with no error, and cell 3 shows the rows
+#    `preview()` gives.
+#
+# ## This table
 #
 # TODO: say in one line what one row of <DB>.<TABLE> is.
 #
@@ -32,12 +65,23 @@
 #
 # Made by `project.new_table("<DB>.<TABLE>")` from
 # `admin/templates/saved_table.py`, which filled in the database, the table and its file's name,
-# <NAME>. Run the cells top to bottom once its Table reference is written from the logic.
+# <NAME>.
 #
-# The code cells: 1 the Project and your query; 2 the logic, which starts `# logic`; 3 try it;
-# 4 its lineage; 5 its rows in the Reference sheet. The logic only imports and defines, so
-# `project.load("<DB>.<TABLE>")` can run it from anywhere else, for lineage across your
-# tables and for `admin/run_tables.ipynb`, which sends its `write()`.
+# ## The code cells
+#
+# - 1: the Project and your query.
+# - 2: the logic, which starts `# logic`.
+# - 3: try it.
+# - 4: its lineage.
+# - 5: its Hive, in <NAME>.hql.
+# - 6: its rows in the Reference sheet.
+#
+# ## Self-check
+#
+# - No code cell holds a `<...>`.
+# - `references/<NAME>.py` lists the columns `write()` saves, and leaves no Decision open.
+# - One line above says what one row is, and no TODO line is left.
+# - Each code cell runs top to bottom with no error.
 
 # %%
 # 1. The Project and your query
@@ -45,7 +89,7 @@ import pathlib
 import sys
 sys.path.insert(0, str(pathlib.Path.cwd().parents[1]))  # the Project folder: two up from here
 
-from sqlglot_composer import export_lineage, project, run_query, show_hive
+from sqlglot_composer import export_hive, export_lineage, project, run_query, show_hive
 from warehouse import query
 
 # %%
@@ -116,5 +160,9 @@ run_query(preview(), query)
 export_lineage(write())
 
 # %%
-# 5. The Reference sheet: this table's rows, from references/<NAME>.py
+# 5. Its Hive: <NAME>.hql beside this notebook, from the logic as last saved
+export_hive()
+
+# %%
+# 6. The Reference sheet: this table's rows, from references/<NAME>.py
 project.refresh_reference_sheet("<DB>.<TABLE>")

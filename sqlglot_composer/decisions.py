@@ -10,9 +10,10 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
 - placeholder: any other `<...>` left in its code, as a Template leaves them, filled in by
   hand.
 
-A `key=` line project.convert proposed, marked `# proposed`, is made, but an answer may
-still change it. Any other `TODO:` line, such as `does_not_add_up=`, waits on nothing. You
-answer each in the decisions cell of a Workflow's notebook,
+A `key=` line project.convert proposed from a table's query, or project.reference_from_logic
+from its logic, marked `# proposed`, is made, but an answer may still change it. Any other
+`TODO:` line, such as the docstring's first line or `does_not_add_up=`, is no Decision: it
+waits on nothing. You answer each in the decisions cell of a Workflow's notebook,
 `DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"}}}`,
 and `answered_text` gives the Table reference with each answer written into the line it
 answers. It never writes over any other line that is made already, as yours is once you
@@ -53,6 +54,10 @@ NO_LOCATION = "location=None,"
 # which an answer in the decisions cell may still change while the line keeps this mark.
 PROPOSED = ('  # proposed from its query; if it is wrong, answer "key" in the decisions '
             "cell")
+# The same, after the Key project.reference_from_logic worked out of a table's logic, for a
+# table new_table made with no query.
+PROPOSED_FROM_LOGIC = ('  # proposed from its logic; if it is wrong, answer "key" in the '
+                       "decisions cell")
 
 
 @dataclass(frozen=True)
@@ -158,11 +163,21 @@ def _subject_of(kind: str, line: str) -> str:
     return ""
 
 
-def todo_lines(text: str) -> list[str]:
-    """Each TODO: line of a Table reference's code that is no Decision, such as
-    does_not_add_up=: it waits on nothing."""
-    return [line.strip() for line in code_of(text).split("\n")
-            if "TODO:" in line and not kind_of(line) and not line.strip().startswith("#")]
+def todo_lines(text: str) -> list[tuple[int, str]]:
+    """Each TODO: line of a Table reference that is no Decision, such as its docstring's
+    first line or does_not_add_up=, by its number in the file, from 1, and its text, a
+    docstring's without its quote marks: it waits on nothing."""
+    # The lines before its code are its docstring's: a TODO there is never a Decision.
+    docstring_lines = text.count("\n") - code_of(text).count("\n")
+    found = []
+    for number, line in enumerate(text.split("\n"), 1):
+        if "TODO:" not in line:
+            continue
+        if number <= docstring_lines:
+            found.append((number, line.strip().strip('"').strip()))
+        elif not kind_of(line) and not line.strip().startswith("#"):
+            found.append((number, line.strip()))
+    return found
 
 
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
@@ -184,7 +199,7 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
                           if name not in ANSWERS.values()]
     lines = text.split("\n")
     for number, line in enumerate(lines):
-        if not is_open(line) and PROPOSED not in line:
+        if not is_open(line) and PROPOSED not in line and PROPOSED_FROM_LOGIC not in line:
             continue
         written, name = _answered_line(line, answer)
         if written is not None:

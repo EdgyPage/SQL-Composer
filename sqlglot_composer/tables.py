@@ -259,8 +259,12 @@ def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
                 fix="Use a number, such as job_runs.duration_mins / 60.",
                 given=side, call=symbol,
             )
-        sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False)))
+        sides.append(Column(literal(side, call=f"a {symbol} calculation", in_condition=False),
+                            type=literal_type(side)))
     left, right = sides
+    kind_of_both = shared_type([left._type, right._type])
+    if kind == "Div" and type_family(kind_of_both) == "number":
+        kind_of_both = "double"  # Hive's / gives a double, of two whole numbers too
     adds_up = left._adds_up and right._adds_up and kind != "Div"
     because = None
     if kind == "Div":
@@ -270,12 +274,52 @@ def arithmetic(left: object, right: object, kind: str, symbol: str) -> Column:
     return Column(
         Node(kind, this=_bracketed(left._tree.copy()),
              expression=_bracketed(right._tree.copy())),
+        type=kind_of_both,
         adds_up=adds_up,
         not_adding_up_because=because,
     )
 
 
 # --- Values ------------------------------------------------------------------------------
+
+
+# Hive's whole-number types, narrowest first, and its fractions: two whole numbers in one
+# calculation give the wider, a whole number and a fraction a double.
+WHOLE_NUMBERS = ("tinyint", "smallint", "int", "bigint")
+FRACTIONS = ("float", "double")
+
+
+def literal_type(value: object) -> str | None:
+    """The Hive type of a Python value written into the Hive as a literal: a whole number an
+    int, or a bigint past an int's range, a fraction a double, text a string, a date a date,
+    True or False a boolean; None for None, whose NULL has no type of its own."""
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, np.integer)):
+        return "int" if -(2**31) <= value < 2**31 else "bigint"
+    if isinstance(value, (float, np.floating)):
+        return "double"
+    if isinstance(value, datetime.date):
+        return "date"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
+def shared_type(types: list[str | None]) -> str | None:
+    """The one type values of `types` share, as Hive gives a CASE or a calculation of them:
+    whole numbers the widest of them, whole numbers and fractions a double, else their one type;
+    None when any is untold, or they share none."""
+    if not types or any(each is None for each in types):
+        return None
+    lowered = [each.strip().lower() for each in types]
+    if all(each in WHOLE_NUMBERS for each in lowered):
+        return max(lowered, key=WHOLE_NUMBERS.index)
+    if all(each in WHOLE_NUMBERS + FRACTIONS for each in lowered):
+        return "double"
+    if len(set(lowered)) == 1:
+        return lowered[0]
+    return None
 
 
 def type_family(hive_type: str | None) -> str | None:
@@ -1233,15 +1277,17 @@ ALIASES_HEADING = "# --- Aliases " + "-" * 78
 def table_reference_text(name: str, columns: dict[str, str], partitions: list[str],
                          module: str, stored_as: str | None = None,
                          location: str | None = None, guessed: tuple[str, ...] = (),
-                         proposed: tuple[list[str], ...] = ()) -> str:
+                         proposed: tuple[list[str], ...] = (),
+                         proposed_mark: str = PROPOSED) -> str:
     """A Table reference file's text for a table whose columns and types are known without
     DESCRIBE, as a batch's CREATE gives them: as write_table_reference writes one, with no
     descriptions, stored_as= when the CREATE gave it, and location=: the CREATE's, or None
     with a TODO to fill in. Each column `guessed` names, written "string" since nothing told
     its type, has a TODO saying so: a guessed-type Decision. `proposed`, each Key a Conversion
-    worked out of the table's query, writes key= as the first, marked # proposed, any other
-    named beside it: a Decision made, which an answer may still change. With none, key= is a
-    Decision to make."""
+    worked out of the table's query, writes key= as the first, marked with `proposed_mark`,
+    "# proposed from its query" unless it says another, any other named beside it: a
+    Decision made, which an answer may still change. With none, key= is a Decision to
+    make."""
     variable = _reference_variable(split_table_name(name)[1])
     storage = {}
     if stored_as is not None:
@@ -1251,7 +1297,7 @@ def table_reference_text(name: str, columns: dict[str, str], partitions: list[st
         line = f"        {escaped_literal(column)}: {escaped_literal(columns[column])},"
         text = text.replace(line + "\n", line + GUESSED + "\n", 1)
     if proposed:
-        line = f"    key={escaped_literal(proposed[0])},{PROPOSED}"
+        line = f"    key={escaped_literal(proposed[0])},{proposed_mark}"
         if proposed[1:]:
             line += "; another: " + ", ".join(escaped_literal(key) for key in proposed[1:])
         text = re.sub(r"^    key=None,  # TODO:.*$", line, text, count=1, flags=re.MULTILINE)
@@ -1834,8 +1880,11 @@ def _check_has_location(t: Table) -> None:
             what=f"create_table({t._alias}): its Table reference has no location=.",
             why="Each of your Saved tables is an external table, in a folder of its own: its "
             "location=.",
-            fix="Add location=... to its Table(...) call, its own folder, such as "
-            'location="/data/your_team/mart.db/daily_runs".',
+            fix="Answer its location in the decisions cell of the Workflow you are in, such "
+            f'as DECISIONS = {{"{t._name}": {{"location": "/data/your_team/'
+            f'{split_table_name(t._name)[0]}.db/{t._alias}"}}}}, '
+            "then run its step that writes each answer in; or add location=... to its "
+            "Table(...) call, its own folder, yourself.",
             error=ValueError,
         )
 
