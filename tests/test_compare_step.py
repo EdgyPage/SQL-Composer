@@ -108,7 +108,7 @@ def test_once_every_table_passes_the_batch_is_finished_and_check_says_it_is_done
     checked = repr(project.check())
     assert "convert.ipynb, failed: 7." not in checked
     assert checked.endswith(
-        "Done: every step of each Workflow below.\n"
+        "Done: each convert batch below.\n"
         "  admin/workflows/convert/convert.ipynb, failed: every table the batch wrote passed "
         "its compare, and its folder is admin/workflows/convert/finished/failed/.")
     # Its tables are still there to promote.

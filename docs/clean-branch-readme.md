@@ -72,9 +72,10 @@ which `requirements.txt`'s pins are for, as they are for 3.12. It is one folder,
      not, keep the line, so pip installs the one the Toolbox is tested on.
      `import sqlglot; print(sqlglot.__version__)` in a notebook shows which you have.
 3. **Make the Project's folder.** Goal: a folder holding the Toolbox. Action: make an empty
-   folder for your Project, and copy the whole `sqlglot_composer` folder into it. Keep your own
-   files beside it, never inside it. Done when your folder holds `sqlglot_composer` alone; then
-   step 4.
+   folder for your Project, wherever you keep your work, such as `team_project` in your
+   documents, and copy the whole `sqlglot_composer` folder into it. Any folder name will do,
+   and the download's folder can stay where it is. Keep your own files beside the
+   Toolbox, never inside it. Done when your folder holds `sqlglot_composer` alone; then step 4.
 4. **Lay the folder out.** Goal: every folder and file a Project starts with. Action: open a
    notebook in the Project's folder, such as start.ipynb, and run `project.start()`, as below.
    Done when it prints "Started a Project in the folder you're working in"; then step 5.
@@ -822,12 +823,12 @@ flowchart TD
 5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
 
-       seeded = project.batch_tables(NAME, seeded=True)
-       if not seeded:
+       to_seed = project.batch_tables(NAME, seeded=True)
+       if not to_seed:
            print("Seeded nothing: no table of the batch reads itself.")
        else:
            run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in seeded:
+           for table in to_seed:
                run_execute(project.load(table).seed(), execute)
 
 6. Write each table in dev (it is a call to the warehouse, yours to run).
@@ -904,12 +905,12 @@ flowchart TD
 5. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
 
-       seeded = project.promoted_tables(TABLES, seeded=True)
-       if not seeded:
+       to_seed = project.promoted_tables(TABLES, seeded=True)
+       if not to_seed:
            print("Seeded nothing: no prod copy reads itself.")
        else:
            run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in seeded:
+           for table in to_seed:
                run_execute(project.load(table).seed(), execute)
 
 6. Write each table in prod (it is a call to the warehouse, yours to run).

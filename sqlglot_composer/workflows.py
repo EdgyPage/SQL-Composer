@@ -709,15 +709,15 @@ def _send_creates(tables: list[str], calls: Calls) -> list[str]:
     return lines
 
 
-def _send_seeds(seeded: list[str], calls: Calls) -> list[str]:
+def _send_seeds(to_seed: list[str], calls: Calls) -> list[str]:
     """Send each seed() of the tables that read themselves, after the Session setting their
     Partitions need; nothing when none does."""
     from . import project  # project.py imports this file
 
-    if not seeded:
+    if not to_seed:
         return []
     lines = calls.send(hive_settings("dynamic_partitions"))
-    for table in seeded:
+    for table in to_seed:
         lines += calls.send(project.load(table).seed())
     return lines
 
@@ -976,12 +976,12 @@ CONVERT = Workflow(
              done_when="admin/sent.csv records a create of each table"),
         Step("Seed each table that reads itself, once, from its original", PERMISSION,
              ("each made in dev",), ("each seeded",),
-             "seeded = project.batch_tables(NAME, seeded=True)\n"
-             "if not seeded:\n"
+             "to_seed = project.batch_tables(NAME, seeded=True)\n"
+             "if not to_seed:\n"
              '    print("Seeded nothing: no table of the batch reads itself.")\n'
              "else:\n"
              '    run_execute(hive_settings("dynamic_partitions"), execute)\n'
-             "    for table in seeded:\n"
+             "    for table in to_seed:\n"
              "        run_execute(project.load(table).seed(), execute)", every_table_seeded,
              send=seed_the_batch,
              goal="each table that reads itself holding its original's rows, once",
@@ -1096,12 +1096,12 @@ PROMOTE = Workflow(
              done_when="admin/sent.csv records a create of each prod copy"),
         Step("Seed each prod table that reads itself, once, from its original", PERMISSION,
              ("each made in prod",), ("each seeded in prod",),
-             "seeded = project.promoted_tables(TABLES, seeded=True)\n"
-             "if not seeded:\n"
+             "to_seed = project.promoted_tables(TABLES, seeded=True)\n"
+             "if not to_seed:\n"
              '    print("Seeded nothing: no prod copy reads itself.")\n'
              "else:\n"
              '    run_execute(hive_settings("dynamic_partitions"), execute)\n'
-             "    for table in seeded:\n"
+             "    for table in to_seed:\n"
              "        run_execute(project.load(table).seed(), execute)",
              every_prod_table_seeded, send=seed_the_prod_copies,
              goal="each prod copy that reads itself holding its original's rows, once: a prod "
@@ -1276,16 +1276,18 @@ REFERENCES = Workflow(
              goal="an answer to each table's open Key: the columns whose values name exactly "
              "one row, or None when no columns do",
              action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook. If you want to check a "
-             "Key before you answer it, then run `check_key` on it in a new cell, as for "
-             "`run_id` of `ops.job_runs`, partitioned by `dt`: `from sqlglot_composer import "
-             "Table, check_key, equals`, then `runs = Table(\"ops.job_runs\", "
-             "columns={\"run_id\": None, \"dt\": None}, partitioned_by=[\"dt\"], "
-             "key=[\"run_id\"])`, then `print(check_key(runs, query=query, "
-             "where=equals(runs.dt, \"2026-09-24\")))`. A table with no Partitions leaves out "
-             "`partitioned_by=` and `where=`. If it says the key holds, then answer it; if it "
-             "says the key repeats, then add a column to the Key and check again, or answer "
-             "None.",
+             "as `project.check()` writes it, then save the notebook. To check a Key before "
+             "you answer it, run `check_key` in a new cell on a Table you make with that Key, "
+             "since the Table reference's Key is still open. Its `columns=` names each column "
+             "of the Key and the Partition column, each with None, which leaves its type out. "
+             "For `run_id` of `ops.job_runs`, partitioned by `dt`, the cell is three lines: "
+             "`from sqlglot_composer import Table, check_key, equals`; "
+             "`runs = Table(\"ops.job_runs\", columns={\"run_id\": None, \"dt\": None}, "
+             "partitioned_by=[\"dt\"], key=[\"run_id\"])`; "
+             "`print(check_key(runs, query=query, where=equals(runs.dt, \"2026-09-24\")))`. "
+             "A table with no Partitions leaves out `partitioned_by=` and `where=`. If it says "
+             "the key holds, then answer it. If it says the key repeats, then add another "
+             "column to `key=` and `columns=` and check again, or answer None.",
              done_when="the decisions cell answers each Key `project.check()` names for these "
              "tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
@@ -1294,10 +1296,11 @@ REFERENCES = Workflow(
              write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below. It names each TODO line the Table reference still "
-             "holds, which waits on nothing: fill each in by hand. On its "
-             "`does_not_add_up=[]` line, list each column that is an average, a ratio or a "
-             "distinct count, such as `does_not_add_up=[\"avg_retry_secs\"]`. If no column is "
-             "one, then delete only its `# TODO` comment, which says no column is one.",
+             "holds; no step waits on them, so fill each in by hand. On its "
+             "`does_not_add_up=[]` line, list each column whose values can't be added up "
+             "across rows, such as an average, a ratio or a distinct count: "
+             "`does_not_add_up=[\"avg_retry_secs\"]`. If no column is one, then delete only "
+             "its `# TODO` comment, and the empty list says no column is one.",
              done_when="each table's Table reference leaves no Key open"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("filled-in Table references",),

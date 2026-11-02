@@ -1384,7 +1384,7 @@ def _finished_batch_lines(root: Path) -> list[str]:
     if not names:
         return []
     where = workflows.notebook_path(root, workflows.CONVERT).relative_to(root).as_posix()
-    return ["Done: every step of each Workflow below.",
+    return ["Done: each convert batch below.",
             *[f"  {where}, {name}: every table the batch wrote passed its compare, and its "
               f"folder is {(BATCHES / FINISHED / name).as_posix()}/." for name in names]]
 
@@ -2726,10 +2726,12 @@ def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQu
     for opt_out, refused in opt_outs.items():
         # An opt-out is written as FROM(job_runs, reads_all_partitions=True): its keyword last.
         keyword = opt_out.rsplit(", ", 1)[-1].removesuffix(")")
-        notes.append(f"The `# CONVERSION:` mark for {opt_out}, in the logic cell, keeps what "
-                     f"the original did. Without {keyword} the Toolbox refuses the logic, "
-                     f"saying: {refused.rstrip('.')}. Change what made it needed only if you "
-                     "want to; the compare step checks the rows either way.")
+        notes.append(f"{opt_out}, in the logic cell, keeps what the original did, as its "
+                     f"`# CONVERSION:` mark says until you delete it. Without {keyword} the "
+                     f"Toolbox refuses the logic, saying: {refused.rstrip('.')}. If you want "
+                     "to, change what made it needed, such as a WHERE on the partition "
+                     "column, then take the opt-out off; the compare step checks the rows "
+                     "either way.")
     if any(finding.kind == "unchecked" for finding in hive_read.findings):
         notes.append("Make each unchecked_ piece a Toolbox function where you can.")
     if stopped is not None:

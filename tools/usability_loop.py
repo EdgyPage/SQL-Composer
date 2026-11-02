@@ -268,9 +268,11 @@ def what_you_have(phase: Phase, run: Path, python: Path, given: bool = True) -> 
         "not counted). Each run starts with nothing defined, as a kernel just restarted does, "
         "so name with each step the cells it needs: the imports cell and the names cell, and "
         "from the decisions on the decisions cell too, such as `--cells 1-3,6`. `--list` "
-        "prints each code cell's number and first line. To fill in a cell without Jupyter, "
-        "change its lines in the notebook's file, which is JSON: each code cell's lines are "
-        "its \"source\" list.",
+        "prints each code cell's number and first line: those are the numbers `--cells` "
+        "takes, and a step's own number may differ. To fill in a cell without Jupyter, change "
+        "its lines in the notebook's file, which is JSON: each code cell's lines are its "
+        "\"source\" list, each line a JSON string with its quotes escaped, such as "
+        "`\"DECISIONS = {\\\"mart_dev.t\\\": {\\\"location\\\": \\\"/data/t\\\"}}\\n\"`.",
     ]
     return lines
 

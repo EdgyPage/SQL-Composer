@@ -122,8 +122,9 @@ STEPS = (
     "name. Action: add each fixed value a formula uses to the Parameters Table, one row per "
     "value, whether it was typed in a cell such as $B$3 or inside a formula such as *0.2, and "
     "change the formula to read it by name: =XLOOKUP(\"tax_rate\", Parameters[name], "
-    "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%. Done when each "
-    "formula reads its fixed values from Parameters. Then step 7.",
+    "Parameters[value]). Write a value as a plain number or text: 0.2, not 20%. A value a "
+    "formula matches on, such as \"FAILED\" in a COUNTIFS, stays in the formula: it says which "
+    "rows count. Done when each formula reads its fixed values from Parameters. Then step 7.",
     "7. Use Power Query for a calculation, if you use Power Query. If you don't, go to step 8. "
     "Goal: a calculation done by Power Query in place of a formula, reading your Tables. "
     "Action: copy each query's M from your original workbook: Data > Queries & Connections, "

@@ -1772,7 +1772,10 @@ file 15 (the steps, the map and the reply) and file 12 (Power Query and totals).
   `CAST(NEXT_DAY(DATE_ADD(d, 7 * -1), 'MO') AS STRING)`.
 - XLOOKUP(k, t[a], t[b]), VLOOKUP(k, t, n, FALSE), INDEX(t[b], MATCH(k, t[a], 0)):
   `LEFT JOIN t ON k = t.a`, then t.b. XLOOKUP("rate", Parameters[name], Parameters[value]):
-  its value, typed in.
+  its value, written into the Hive. Say so in the map: change it in Parameters and the
+  table won't follow, so the Hive needs the new value too.
+- A summary's groups, written into the Hive (file 15): say so in the map, as a later day or
+  team won't be in the table.
 - SUMIFS(t[v], t[a], [@a], t[s], "x") over its own Table: `SUM(CASE WHEN s = 'x' THEN v
   END) OVER (PARTITION BY a)`. Over another Table: LEFT JOIN `(SELECT a, SUM(v) AS total
   FROM t WHERE s = 'x' GROUP BY a)`. Either way COALESCE(.., 0), as Excel gives 0 where
@@ -2056,7 +2059,7 @@ file, for the Python inside it.
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it:
   `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-  "types": {"fails": "bigint"}}}`; the step after writes each in.
+  "types": {"fails": "bigint"}}}`; write_decisions writes them.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -2095,12 +2098,12 @@ Its inputs:
 5. Seed each table that reads itself, once, from its original (it is a call to the warehouse,
    yours to run).
 
-       seeded = project.batch_tables(NAME, seeded=True)
-       if not seeded:
+       to_seed = project.batch_tables(NAME, seeded=True)
+       if not to_seed:
            print("Seeded nothing: no table of the batch reads itself.")
        else:
            run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in seeded:
+           for table in to_seed:
                run_execute(project.load(table).seed(), execute)
 
 6. Write each table in dev (it is a call to the warehouse, yours to run).
@@ -2136,12 +2139,12 @@ TABLES are the dev tables, such as ["mart_dev.daily_job_runs"].
 5. Seed each prod table that reads itself, once, from its original (it is a call to the
    warehouse, yours to run).
 
-       seeded = project.promoted_tables(TABLES, seeded=True)
-       if not seeded:
+       to_seed = project.promoted_tables(TABLES, seeded=True)
+       if not to_seed:
            print("Seeded nothing: no prod copy reads itself.")
        else:
            run_execute(hive_settings("dynamic_partitions"), execute)
-           for table in seeded:
+           for table in to_seed:
                run_execute(project.load(table).seed(), execute)
 
 6. Write each table in prod (it is a call to the warehouse, yours to run).
@@ -2448,8 +2451,9 @@ file 11 (each formula's Hive) and file 12 (Power Query, whole-column totals and 
 
 Reply with these parts, in this order, and nothing else:
 
-1. **Map**: Sources, Steps and Finals, each with its columns; then each value typed over a
-   formula, each mark, each refusal, what was left alone, and each `<...>` to fill in.
+1. **Map**: Sources, Steps and Finals, each with its columns; then each value written in,
+   each value typed over a formula, each mark, each refusal, what was left alone, and
+   each `<...>` to fill in.
 2. **Hive**: a heading and one ```sql block per final, Total Rows included, nothing between.
 3. **Next**: "Take out what you don't want, fill in each `<...>`, save each query as a .hql
    file named for its final, and run the convert Workflow on them as one batch (file 13). It

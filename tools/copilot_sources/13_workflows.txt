@@ -55,7 +55,7 @@ file, for the Python inside it.
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it:
   `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-  "types": {"fails": "bigint"}}}`; the step after writes each in.
+  "types": {"fails": "bigint"}}}`; write_decisions writes them.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 

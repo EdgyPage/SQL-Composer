@@ -135,6 +135,13 @@ those people found unsaid.
   partition= gives another; and the references Workflow says how to check a Key with
   `check_key` before you answer it, and that deleting `does_not_add_up=`'s TODO comment says
   no column is one.
+- **Three queries stacked with UNION ALL convert.** `a UNION ALL b UNION ALL c` becomes one
+  `UNION_ALL(a, b, c)`, where it wrote Python with a stray comma that `project.convert` stopped
+  on.
+- **The Steps sheet's step 6 keeps a value a formula matches on**, such as "FAILED" in a
+  COUNTIFS, in the formula. Copilot file 11 names in the map a Parameters value or a summary's
+  typed groups written into the Hive, since a changed value or a later day won't reach the
+  table. README step 3 of section 1 says where a Project's folder goes.
 - **`admin/check_references.ipynb` checks a partitioned table's Key** on its latest Partition,
   as SHOW PARTITIONS lists them, and prints the call for another, where it printed a call
   holding `<a value>`.

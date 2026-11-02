@@ -68,6 +68,9 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import sqlglot
+from sqlglot import exp
+
 ROOT = Path(__file__).resolve().parent.parent
 sys.path[:0] = [str(ROOT)]
 
@@ -598,16 +601,41 @@ def rows_of(s: Statement) -> tuple[list[str], list[tuple[object, ...]]]:
 
 
 def _insert_line(s: Statement) -> str:
-    """The INSERT line of a write's Hive, as compared: the table and the way it writes."""
+    """The INSERT line of a write's Hive, as compared: the table, the way it writes, and its
+    partition columns, a static partition's value left out, as Hive writes either form."""
     for line in to_hive(s).splitlines():
         if line.startswith("INSERT"):
-            return " ".join(line.split())
+            return re.sub(r"\s*=\s*'[^']*'", "", " ".join(line.split()))
     return ""
+
+
+def hive_with_dynamic_partition(hive: str) -> str | None:
+    """A write's Hive with each static partition value, such as PARTITION (dt = '...'), moved
+    to the end of its SELECT, the dynamic form Hive writes the same rows from; None when it
+    has no static value."""
+    for tree in sqlglot.parse(hive, read="hive"):
+        if not isinstance(tree, exp.Insert) or not isinstance(tree.expression, exp.Select):
+            continue
+        partition = tree.this.args.get("partition")
+        static = []
+        if partition:
+            static = [each for each in partition.expressions if isinstance(each, exp.EQ)]
+        if not static:
+            return None
+        for each in static:
+            each.replace(each.this.copy())
+            tree.expression.select(exp.alias_(each.expression, each.this.name), copy=False)
+        return tree.sql(dialect="hive")
+    return None
 
 
 def _same_write(answer: object, reference: Statement, task: Task) -> bool:
     if not isinstance(answer, Statement) or _insert_line(answer) != _insert_line(reference):
         return False
+    dynamic = hive_with_dynamic_partition(to_hive(answer))
+    if dynamic is not None:
+        return bool(compare_with_original(reference, dynamic, query=example_database.query,
+                                          partition=task.partition))
     return bool(compare_with_original(answer, to_hive(reference), query=example_database.query,
                                       partition=task.partition))
 
