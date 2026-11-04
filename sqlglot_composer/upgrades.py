@@ -760,7 +760,49 @@ def _write_workflow_notebooks_again(upgrade: Upgrade) -> None:
             upgrade.rewrite_notebook(path.relative_to(upgrade.root).as_posix(), cells)
 
 
+def to_8_3(upgrade: Upgrade) -> None:
+    """8.2 to 8.3: each Workflow notebook is written again, each name given and each step cell
+    you wrote in kept, for the convert notebook's PARTITION, which step 7's cell now passes on,
+    and step 2's and the decisions cell's text, which tell of the DECISIONS check() prints to
+    paste and of Script tags. A table converted before 8.3 is left as it is; each batch whose
+    scripts hold Script tags, which 8.2 couldn't read, is marked at the top of the convert
+    notebook: you convert it again yourself, as the mark and CHANGES.md's 8.3 say."""
+    _write_workflow_notebooks_again(upgrade)
+    convert = CONVERT_FOLDER / "convert.ipynb"
+    if not (upgrade.root / convert).is_file():
+        return
+    for scripts in _scripts_with_script_tags(upgrade.root):
+        upgrade.mark(convert.as_posix(), 1, _convert_again_said(scripts), cell=1)
+
+
+# Where the convert Workflow keeps its notebook and each batch's folder, in a Project.
+CONVERT_FOLDER = Path("admin") / "workflows" / "convert"
+
+
+def _scripts_with_script_tags(root: Path) -> list[Path]:
+    """The scripts/ folder of each batch, open or finished, whose kept scripts hold text
+    starting as a Script tag does, <PARM, relative to the Project."""
+    found = []
+    folder = root / CONVERT_FOLDER
+    for scripts in sorted([*folder.glob("*/scripts"), *folder.glob("finished/*/scripts")]):
+        texts = [path.read_text(encoding="utf-8", errors="replace")
+                 for path in sorted(scripts.glob("*")) if path.is_file()]
+        if any("<PARM" in text.upper() for text in texts):
+            found.append(scripts.relative_to(root))
+    return found
+
+
+def _convert_again_said(scripts: Path) -> str:
+    """What the mark for a batch whose scripts, in `scripts`, hold Script tags says to do."""
+    return (f"batch {scripts.parent.name}'s scripts, in {scripts.as_posix()}/, hold Script "
+            "tags, <PARM=\"NAME\"/>, which 8.2 couldn't read. Convert them again as a new "
+            "batch, giving each table a new name in RENAME, such as "
+            '{"mart.daily_close": "daily_close_v2"}; answer its tags in the decisions cell; '
+            "once the new table's compare passes, remove the old one with "
+            "project.remove_table(...)")
+
+
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds.
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
-                                               "8.2": to_8_2}
+                                               "8.2": to_8_2, "8.3": to_8_3}

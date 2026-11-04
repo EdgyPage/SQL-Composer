@@ -35,33 +35,13 @@ ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 
 
-def notebooks_and_hive(*stems: str) -> tuple[str, ...]:
-    """Each Table notebook a stem names, and the Hive file export_hive() writes beside it."""
-    paths: list[str] = []
-    for stem in stems:
-        paths += [f"tables/{stem}/{stem}.ipynb", f"tables/{stem}/{stem}.hql"]
-    return tuple(paths)
-
-
 # What each Example project gained by hand in this version, which no Upgrade makes, left out of
-# the comparison: 8.2's READMEs, naming each table's Hive file; each Table notebook, whose text
-# cell and import name its Hive cell, which the Upgrade adds bare, and the Hive file it writes,
-# which test_an_upgraded_notebooks_hive_cell_writes_the_example_projects_hive holds (ticket
-# 01); and the intermediate's Conversion, its scan counting the script's lines and its notebook
-# naming its Workflow's compare step (ticket 11), with its batch's record of their hashes.
-# Empty it when the next version's frozen copy holds them.
-GAINED_BY_HAND = {
-    "intermediate": ("README.md", "tables/mart__team_failures/",
-                     "admin/workflows/convert/finished/",
-                     *notebooks_and_hive("mart__budget_overruns", "mart__job_day_costs",
-                                         "mart__job_day_facts", "mart__job_events_checks",
-                                         "mart__job_notes", "mart__team_days")),
-    "starter": ("README.md",
-                *notebooks_and_hive("mart__alerts_per_job", "mart__alerts_per_severity",
-                                    "mart__daily_job_runs", "mart__team_day")),
-}
+# the comparison: nothing in 8.3, whose Example projects' changes are all the Upgrade's, the
+# Workflow notebooks written again. Fill it in when a version's Example projects gain a file by
+# hand.
+GAINED_BY_HAND: dict[str, tuple[str, ...]] = {"intermediate": (), "starter": ()}
 # What this version's Upgrade leaves as the version before wrote it, on purpose: nothing in
-# 8.2. Empty it with GAINED_BY_HAND.
+# 8.3.
 LEFT_AS_IT_WAS: tuple[str, ...] = ()
 upgrades = toolbox_module("upgrades")
 notebooks = toolbox_module("notebooks")
@@ -168,7 +148,8 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
         "7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did."]
     assert said[2].startswith("8.0: ")
     assert said[3].startswith("8.1: ")
-    assert said[4].startswith(f"{VERSION}: ")
+    assert said[4].startswith("8.2: ")
+    assert said[5].startswith(f"{VERSION}: ")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -665,3 +646,39 @@ def test_8_2_writes_check_references_again(
     project.upgrade()
     assert notebooks.read_cells(notebook) == project.admin_notebook_cells("check_references")
     assert (copy / "admin" / "removed").is_dir()
+
+
+# --- An upgrade from 8.2 ----------------------------------------------------------------------
+
+# The step that marks a batch whose scripts hold Script tags.
+STEP_8_3 = "8.3"
+
+
+def test_a_batch_whose_scripts_hold_script_tags_is_marked_to_convert_again(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.2" / "starter", copy)
+    scripts = copy / "admin" / "workflows" / "convert" / "closing" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "close.hql").write_text(
+        "INSERT OVERWRITE TABLE mart.daily_close SELECT * FROM ops.job_runs r "
+        'WHERE r.dt = <PARM="RUN_DAY"/>;\n', encoding="utf-8")
+    monkeypatch.chdir(copy)
+    said = repr(project.upgrade())
+    assert f"{STEP_8_3}: 1 change for you to make" in said
+    notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
+    first = notebooks.read_cells(notebook)[0][1]
+    assert first.startswith(f"# UPGRADE {STEP_8_3}: batch closing's scripts, in "
+                            "admin/workflows/convert/closing/scripts/, hold Script tags")
+    assert "giving each table a new name in RENAME" in first
+    checklist = (copy / "admin" / f"upgrade_{STEP_8_3}.md").read_text(encoding="utf-8")
+    assert "- [ ] admin/workflows/convert/convert.ipynb, cell 1, line 1: batch closing's" in (
+        checklist)
+
+
+def test_an_upgrade_from_8_2_with_no_script_tags_has_nothing_for_you_to_do(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "intermediate"
+    shutil.copytree(UPGRADE_FROM / "8.2" / "intermediate", copy)
+    monkeypatch.chdir(copy)
+    assert f"{STEP_8_3}: nothing to change by hand." in repr(project.upgrade())

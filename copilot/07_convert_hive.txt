@@ -1,4 +1,4 @@
-# Copilot file 07: converting Hive (sqlglot Composer 8.2)
+# Copilot file 07: converting Hive (sqlglot Composer 8.3)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 

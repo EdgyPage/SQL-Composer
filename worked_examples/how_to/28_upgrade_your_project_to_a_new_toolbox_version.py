@@ -39,7 +39,7 @@ Project 7.2 left:
 ...     Path(added).unlink()
 >>> shutil.rmtree("admin/workflows")
 >>> version = Path("admin/project_version.txt")  # -> Path
->>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.2", "7.2", 1),
+>>> _ = version.write_text(version.read_text(encoding="utf-8").replace("8.3", "7.2", 1),
 ...                        encoding="utf-8")
 
 admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has
@@ -56,7 +56,7 @@ Nothing is refused meanwhile: your notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.2, and this Toolbox is 8.2: run project.upgrade() in a
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run project.upgrade() in a
     new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the
     Project has one.
 
@@ -69,18 +69,19 @@ the Project: the first time, in a new cell of admin/check_project.ipynb, which i
 `project` already.
 
 >>> print(project.upgrade())
-Upgraded the Project from 7.2 to 8.2.
+Upgraded the Project from 7.2 to 8.3.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
+8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
 
-Done when it prints "Upgraded the Project from 7.2 to 8.2.". Then step 4.
+Done when it prints "Upgraded the Project from 7.2 to 8.3.". Then step 4.
 
 ### 4. Read each checklist
 
 Goal: know what the Upgrade did and what it left you. It ran the step from each version to the
-next, here three, and wrote a checklist for each:
+next, here four, and wrote a checklist for each:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
@@ -135,7 +136,7 @@ Every Table folder, Table reference and Building block is registered, and each o
 Run again, the Upgrade does nothing:
 
 >>> print(project.upgrade())
-The Project is at 8.2 already, as this Toolbox is: nothing to upgrade.
+The Project is at 8.3 already, as this Toolbox is: nothing to upgrade.
 
 Before you go on, check that:
 

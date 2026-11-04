@@ -781,9 +781,15 @@ def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
                  key=upgrades.version_numbers)
     root = tmp_path / "starter"
     shutil.copytree(ROOT / "tests" / "upgrade_from" / before / "starter", root)
-    # A Template the user changed, which the Upgrade can't write again, so it marks it.
+    # A Template the user changed, which an Upgrade that writes the Templates again marks; and
+    # a batch whose scripts hold a Script tag, which 8.3's marks for converting again.
     template = root / "admin" / "templates" / "quality_checks.py"
     template.write_text(template.read_text(encoding="utf-8") + "# mine\n", encoding="utf-8")
+    scripts = root / "admin" / "workflows" / "convert" / "closing" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts / "close.hql").write_text(
+        'SELECT r.run_id FROM ops.job_runs r WHERE r.dt = <PARM="RUN_DAY"/>;\n',
+        encoding="utf-8")
     hand_edits: dict[str, list[str]] = {}
     yield Started(root, monkeypatch, Warehouse(database="ops"), hand_edits)
     forget_the_projects_modules()
