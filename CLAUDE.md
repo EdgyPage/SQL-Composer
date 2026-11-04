@@ -50,7 +50,9 @@ folded) is charted through `.scratch/toolbox-8-1/map.md`; read its Notes before 
 its tickets. Toolbox 8.2 (`export_hive`, each table's SQL in a file beside its notebook, and the
 usability loop: zero-context agents run each Workflow and the Excel path from what main ships)
 is charted through `.scratch/toolbox-8-2/map.md`; read its Notes before working one of its
-tickets.
+tickets. Toolbox 8.3 (Script tags, `<PARM="NAME"/>` in someone else's Hive, read past by a
+Conversion and answered as Decisions in the convert notebook, which keeps the user in it) is
+charted through `.scratch/toolbox-8-3/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
