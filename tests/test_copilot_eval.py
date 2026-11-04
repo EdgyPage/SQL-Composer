@@ -19,14 +19,17 @@ def fenced(code: str) -> str:
 
 
 def test_three_tasks_for_each_objective_two_to_tune_on_and_one_held_out() -> None:
-    assert len(BY_ID) == len(TASKS) == 42
-    assert Counter(task.split for task in TASKS) == {"dev": 28, "held_out": 14}
+    assert len(BY_ID) == len(TASKS) == 46
+    assert Counter(task.split for task in TASKS) == {"dev": 30, "held_out": 16}
     for objective in OBJECTIVES:
         splits = sorted(task.split for task in TASKS if task.objective == objective)
         # 13's held-out T33 and T37 were tuned on, so they are dev tasks; T38 is held out for
-        # the cells asked for, and T39 for every step's cell.
+        # the cells asked for, and T39 for every step's cell. Toolbox 8.3 adds Script tag
+        # tasks to 07 and 13, one dev and one held out each: T43 to T46.
         if objective == "13":
-            assert splits == ["dev"] * 4 + ["held_out"] * 2
+            assert splits == ["dev"] * 5 + ["held_out"] * 3
+        elif objective == "07":
+            assert splits == ["dev"] * 3 + ["held_out"] * 2
         else:
             assert splits == ["dev", "dev", "held_out"], objective
     assert sum(task.trap for task in TASKS) == 6
