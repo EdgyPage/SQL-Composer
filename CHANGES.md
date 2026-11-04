@@ -5,7 +5,23 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 ## 8.3
 
 8.3 reads Script tags: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that
-ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
+ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`. Each is answered in the
+convert notebook, by table, which prints the open Decisions as a whole DECISIONS to paste, and
+compares another Partition through its names cell: the convert notebook keeps you in it.
+
+### To update from 8.2
+
+- **Copy in 8.3's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.3.md`.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`, so convert's names cell has PARTITION, which step 7's cell passes on, and
+  step 2's text and each decisions cell's tell of the DECISIONS to paste. Each name you gave
+  stays, and so does each step cell you wrote in.
+- **A batch converted before 8.3 whose scripts hold Script tags** is left as it is: its tagged
+  table is an Unchecked statement. Convert the batch again under a new name, answer its tags
+  in the decisions cell, and once the new copy's compare passes, remove the old one with
+  `project.remove_table(...)`.
 
 ### What's new
 
@@ -37,6 +53,10 @@ ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
   type's proposal `"string"`, a comment beside each saying what to write. An answer left
   `"<FILL IN>"`, or what is left of it, is no answer: step 2 isn't done, and step 3 writes
   nothing for it and names it.
+- **The convert notebook's names cell gains `PARTITION = None`**, which step 7 passes on,
+  `project.compare_batch(NAME, query=query, partition=PARTITION)`: to compare another Partition,
+  set it, such as `{"dt": "2026-09-23"}`, and run step 7 again, where you ran a call in a new
+  cell before. The runner passes it too.
 
 ## 8.2
 

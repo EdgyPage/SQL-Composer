@@ -1,0 +1,17 @@
+{
+ "id": "W6",
+ "split": "dev",
+ "title": "convert a script holding Script tags",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's script, from_your_team/daily_fails.hql, writes mart.daily_fails, a table in a database you can't write to. The scheduler that runs it puts a value in place of each <PARM=\"NAME\"/> before Hive reads it: this time it put 2026-09-24 for RUN_DAY and data for SKIP_TEAM, and the script has run, so mart.daily_fails holds its rows. Make your own copy of that table in your Dev Database, mart_dev.daily_fails, written there and checked against the original, with the Toolbox. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
+  }
+ ],
+ "hive_ran": [
+  "daily_fails_ran.hql"
+ ],
+ "given": {
+  "from_your_team/daily_fails.hql": "daily_fails.hql"
+ }
+}

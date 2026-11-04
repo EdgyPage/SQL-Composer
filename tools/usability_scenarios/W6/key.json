@@ -1,0 +1,32 @@
+{
+ "tables": {
+  "mart_dev.daily_fails": {
+   "columns": [
+    "team",
+    "fails",
+    "dt"
+   ],
+   "rows": [
+    [
+     "finance",
+     14,
+     "2026-09-24"
+    ]
+   ]
+  }
+ },
+ "files": [
+  {
+   "path": "tables/mart_dev__daily_fails/conversion/compare.md",
+   "holds": [
+    "Passed"
+   ]
+  },
+  {
+   "path": "references/mart_dev__daily_fails.py",
+   "holds": [
+    "'2026-09-24'"
+   ]
+  }
+ ]
+}

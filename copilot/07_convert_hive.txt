@@ -3,14 +3,12 @@
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
 Objective: turn Hive someone else wrote into Toolbox code that gives the same rows.
-Load this file when the user pastes Hive, a query or a .hql file's text, and asks for it
-as Toolbox code.
+Load this file when the user pastes Hive and asks for it as Toolbox code.
 
 ## Terms
 
 - **Saved table**: a table of the user's own; `project.convert` makes one of each table the
-  Hive writes, in the Dev Database, with its Table folder, Table reference and Decisions,
-  what only the user decides, such as a Key, in the decisions cell.
+  Hive writes, in the Dev Database, with its Decisions, what only the user decides.
 
 ## Always
 
@@ -83,8 +81,7 @@ as Toolbox code.
   statement(...))`, then `FROM(ev)`, `ev.job_id`. Keep the name after the bracket.
 - `a = 'x' AND b > 3`: `WHERE(equals(t.a, "x"), more_than(t.b, 3))`; `OR`: `any_of(...)`;
   `IS NULL`: `is_null(...)`; `<>`: `not_equals(...)`; `BETWEEN`: `between(...)`.
-- `IN ('a', 'b', 'c', 'd')`: a constant list, `STATUS_VALUES = [...]`, then
-  `is_in(t.status, STATUS_VALUES)`.
+- `IN ('a', 'b', 'c', 'd')`: a list, `STATUS_VALUES = [...]`, `is_in(t.status, STATUS_VALUES)`.
 - `COUNT(*)`: `count_rows()`; `COUNT(DISTINCT x)`: `count_distinct(x)`; `SUM`, `AVG`,
   `MIN`, `MAX`: `sum_of`, `average_of`, `min_of`, `max_of`; each named with AS.
 - `SUM(CASE WHEN c THEN 1 ELSE 0 END)`: `sum_of(if_else(c, 1, 0))`; `COALESCE(x, 0)`:
@@ -93,16 +90,17 @@ as Toolbox code.
   `mapped(t.x, {"a": "A"}, otherwise="O")`.
 - `CASE WHEN c1 THEN v1 WHEN c2 THEN v2 ELSE v END`:
   `first_match([(c1, v1), (c2, v2)], otherwise=v)`.
-- A function the Toolbox doesn't wrap, such as `UPPER(x)`: `hive_function("upper", t.x)`.
+- A function the Toolbox doesn't wrap, `UPPER(x)`: `hive_function("upper", t.x)`.
 - Anything else, such as `x DIV 60`: `unchecked_column("{m} DIV 60", m=t.minutes)`.
-- `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` inside ON=, with `all_of`.
+- `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` in ON=, by `all_of`.
 - `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)`:
   `row_number(PARTITION_BY=t.a, ORDER_BY=descending(t.b))` (file 05).
 - `ORDER BY ... LIMIT n`: `ORDER_BY(...)`, `LIMIT(n)`.
-- `SET k=v;` lines: `hive_settings("converted", sets={"converted": {"k": "v"}})`, sent with
-  run_execute before the query.
+- `SET k=v;`: `hive_settings("converted", sets={"converted": {"k": "v"}})`, run_execute first.
 - `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
   Saved table's logic cell (file 06).
+- `<PARM="NAME"/>`, Script tag, bare: `script_tag(TAGS["NAME"])`; `'<PARM="NAME"/>'`,
+  `TAGS["NAME"]`; TAGS is in its Table reference, its value the user's (file 13).
 
 ## Steps
 
@@ -114,7 +112,7 @@ as Toolbox code.
 
 ## Decision rules
 
-- If the user asks for code by hand, or to explain a piece: by hand.
+- If the user asks for code by hand, or to explain a part: by hand.
 - Otherwise, one query or a script: the convert Workflow's cells (file 13).
 - If the Hive reads a partitioned table whole: say so; `reads_all_partitions=True` only if
   the user wants every day.

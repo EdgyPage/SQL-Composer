@@ -87,6 +87,19 @@ INSERT OVERWRITE TABLE mart.job_fails_counted PARTITION (dt)
 SELECT r.job_id, COUNT(*) AS fails, r.dt WHERE r.status = 'FAILED' GROUP BY r.job_id, r.dt;
 DROP TABLE IF EXISTS failed_runs;
 """
+# Toolbox 8.3: a script holding Script tags, as the user's scheduler keeps it, and as it ran,
+# each tag filled in: RUN_DAY bare, SKIP_TEAM inside quotes.
+TAGGED_SCRIPT = """SET hive.exec.dynamic.partition.mode=nonstrict;
+CREATE TABLE IF NOT EXISTS mart.daily_fails (team STRING, fails BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt)
+SELECT o.team AS team, COUNT(*) AS fails, r.dt
+FROM ops.job_runs r JOIN ops.job_owners o ON r.job_id = o.job_id
+WHERE r.status = 'FAILED' AND r.dt = <PARM="RUN_DAY"/> AND o.team <> '<PARM="SKIP_TEAM"/>'
+GROUP BY o.team, r.dt;
+"""
+TAGGED_SCRIPT_RAN = (TAGGED_SCRIPT.replace('<PARM="RUN_DAY"/>', "'2026-09-24'")
+                     .replace('<PARM="SKIP_TEAM"/>', "data"))
 FAILED_RUNS = """SELECT r.job_id, COUNT(*) AS fails
 FROM ops.job_runs r
 WHERE r.status = 'FAILED'
@@ -373,6 +386,7 @@ def scenarios() -> dict[str, Built]:
 def workflow_scenarios() -> dict[str, Built]:
     """Each Workflow scenario, by its id."""
     team_fails = f"{DEV}.team_fails"
+    daily_fails = f"{DEV}.daily_fails"
     return {
         "W1": Built({
             "id": "W1", "split": "dev", "title": "convert one script with a CTE",
@@ -390,6 +404,25 @@ def workflow_scenarios() -> dict[str, Built]:
                 [ONE_SCRIPT], "SELECT team, fails, dt FROM mart.team_fails")},
                 "files": [{"path": COMPARED.format(stem="mart_dev__team_fails"),
                            "holds": ["Passed"]}]}),
+        "W6": Built({
+            "id": "W6", "split": "dev", "title": "convert a script holding Script tags",
+            "phases": [technical(
+                "Your team's script, from_your_team/daily_fails.hql, writes mart.daily_fails, "
+                "a table in a database you can't write to. The scheduler that runs it puts a "
+                'value in place of each <PARM="NAME"/> before Hive reads it: this time it put '
+                "2026-09-24 for RUN_DAY and data for SKIP_TEAM, and the script has run, so "
+                "mart.daily_fails holds its rows. Make your own copy of that table in your Dev "
+                f"Database, {daily_fails}, written there and checked against the original, "
+                f"with the Toolbox. {DATABASES_SAID}")],
+            "hive_ran": ["daily_fails_ran.hql"],
+            "given": {"from_your_team/daily_fails.hql": "daily_fails.hql"}},
+            {"daily_fails.hql": TAGGED_SCRIPT, "daily_fails_ran.hql": TAGGED_SCRIPT_RAN},
+            key=lambda: {"tables": {daily_fails: table_key(
+                [TAGGED_SCRIPT_RAN], "SELECT team, fails, dt FROM mart.daily_fails")},
+                "files": [{"path": COMPARED.format(stem="mart_dev__daily_fails"),
+                           "holds": ["Passed"]},
+                          {"path": "references/mart_dev__daily_fails.py",
+                           "holds": ["'2026-09-24'"]}]}),
         "W4": Built({
             "id": "W4", "split": "dev", "title": "Table references",
             "phases": [technical(
@@ -587,6 +620,20 @@ def reference_w1(root: Path, warehouse: SavedWarehouse) -> None:
     finish("convert", warehouse)
 
 
+def reference_w6(root: Path, warehouse: SavedWarehouse) -> None:
+    """W6's end: the tagged script converted, each tag answered in the decisions cell with
+    what the scheduler put there, a bare one with the day's own quotes."""
+    folder = root / "admin" / "workflows" / "convert"
+    shutil.copyfile(root.parent / "from_your_team" / "daily_fails.hql",
+                    folder / "daily_fails.hql")
+    table = f"{DEV}.daily_fails"
+    answers = where_each_goes([table])
+    answers[table]["tags"] = {"RUN_DAY": "'2026-09-24'", "SKIP_TEAM": "data"}
+    type_into(root, "convert", NAME="daily", FILES=["daily_fails.hql"], DATABASE="ops",
+              RENAME={"mart.daily_fails": "daily_fails"}, DECISIONS=answers)
+    finish("convert", warehouse)
+
+
 def fill_runs_per_day_logic(text: str) -> str:
     """The saved_table Template's logic, filled in for runs_per_day, as a user fills it in."""
     for placeholder, value in (
@@ -695,7 +742,7 @@ RUNS_KEY = {"ops.job_runs": ["run_id"]}
 JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
-    "W5": reference_w5, "H1": reference_h1, "H2": reference_h2,
+    "W5": reference_w5, "W6": reference_w6, "H1": reference_h1, "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),
     "E2": reference_excel([f"{DEV}.team_report"], JOINED_KEYS,

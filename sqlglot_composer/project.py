@@ -3458,7 +3458,8 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
-        lines += [f"{table}: {each}: if the table is written already, run steps 6 and 7 again."
+        lines += [f"{table}: {each}: if the table is written already, write it and compare it "
+                  "again."
                   for each in answered.changed]
         lines += [f"{table}: {each}." for each in answered.unwritten]
         lines += _hivevar_notes(root, table, answer)
