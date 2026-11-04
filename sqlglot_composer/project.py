@@ -3504,15 +3504,17 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
     with the nearest name where there is one."""
     problems = []
     references = {path.stem: path for path in table_references(root)}
-    columns_of = _reference_types(root)
+    # Each table's columns by its Table reference's file name, as `references` is keyed.
+    types_by_stem = {table_stem(name): types for name, types in _reference_types(root).items()}
     for table, answer in answers.items():
         path = references.get(table_stem(table))
         if path is None:
+            names = [REFERENCE.name_of(stem) for stem in references]
             problems.append(f"{table}: no table of the Project has that name"
-                            f"{_nearest(table, list(columns_of))}")
+                            f"{_nearest(table, names)}")
             continue
-        problems += _answer_matching_nothing(table, answer, path.read_text(encoding="utf-8"),
-                                             columns_of.get(table, {}))
+        problems += _unmatched_answers(table, answer, path.read_text(encoding="utf-8"),
+                                       types_by_stem.get(path.stem, {}))
     if not problems:
         return
     refuse(
@@ -3527,10 +3529,11 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
     )
 
 
-def _answer_matching_nothing(table: str, answer: dict[str, object], reference: str,
-                             columns: dict[str, str]) -> list[str]:
-    """What in one table's answer matches no Decision of it, `reference` being its Table
-    reference's text and `columns` its columns."""
+def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,
+                       columns: dict[str, str]) -> list[str]:
+    """A line naming each part of one table's answer that matches no Decision of it,
+    `reference_text` being its Table reference's text and `columns` its columns. A "types" or
+    "tags" that isn't a dict, decisions.answered_text names."""
     problems = []
     kinds = list(decisions.ANSWERS.values())
     for name in answer:
@@ -3541,14 +3544,14 @@ def _answer_matching_nothing(table: str, answer: dict[str, object], reference: s
     if isinstance(types, dict):
         for column in types:
             if column not in columns:
-                problems.append(f"{table}: types: {column} is no column of it"
+                problems.append(f"{table}: types: {column} is no column of {table}"
                                 f"{_nearest(column, list(columns))}")
     tags = answer.get(decisions.ANSWERS[decisions.TAG])
     if isinstance(tags, dict):
-        held = decisions.tag_names(reference)
+        held = decisions.tag_names(reference_text)
         for name in tags:
             if name not in held:
-                problems.append(f"{table}: tags: {name} is no Script tag of it"
+                problems.append(f"{table}: tags: {name} is no Script tag of {table}"
                                 f"{_nearest(name, held)}")
     return problems
 
