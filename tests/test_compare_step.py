@@ -133,6 +133,23 @@ def test_the_partition_you_give_is_the_one_compared(started: Path) -> None:
     assert "compared on dt = '2026-09-23', the Partition you gave" in compared(started)
 
 
+@pytest.mark.parametrize("given, said", [
+    ({"dt": "'2026-09-23'"}, "partition= gives dt in quotes of its own"),
+    ("2026-09-23", "partition= is '2026-09-23', not a dict of each partition column's value"),
+], ids=["quoted", "not a dict"])
+def test_a_partition_not_as_show_partitions_lists_it_is_refused(
+        started: Path, given: object, said: str) -> None:
+    # Toolbox 8.3: step 2 teaches a bare tag's own quotes; a Partition's value takes none.
+    with pytest.raises((ValueError, TypeError), match=said):
+        project.compare_batch("failed", query=SAME, partition=given)
+
+
+def test_the_compare_names_partition_to_compare_another(started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    assert ('to compare one, set PARTITION = {"dt": "..."} in the convert notebook\'s names '
+            "cell, run it, and run step 7 again") in compared(started)
+
+
 def test_a_compare_of_another_partition_keeps_the_first_result_beside_it(started: Path) -> None:
     project.compare_batch("failed", query=SAME)
     project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
@@ -248,7 +265,8 @@ def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_a
     # Toolbox 8.2, 23: H1 had to find partition= for itself.
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert "on the latest Partition both hold" in step.goal
-    assert "If you want another Partition compared too, then set `PARTITION`" in step.action
+    assert "If you want another Partition compared too, one your dev table holds" in step.action
+    assert "its value with no quotes of its own, run the names cell" in step.action
     # Toolbox 8.3, 06: set in the names cell, with no cell of your own.
     assert '`{"dt": "2026-09-23"}`' in step.action
     assert "in a new cell" not in step.action

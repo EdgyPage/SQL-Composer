@@ -114,8 +114,8 @@ def test_a_type_for_a_column_not_guessed_is_named() -> None:
     answered = decisions.answered_text(REFERENCE, {"types": {"fails": "int"}},
                                        "references/mart_dev__x.py")
     assert answered.unwritten == [
-        "types: fails is no type the Toolbox guessed in references/mart_dev__x.py; to change "
-        "it, edit its line there"]
+        "types: fails's type wasn't a guess: references/mart_dev__x.py gives it already; to "
+        "change it, edit its line there"]
 
 
 # --- write_decisions, in a Project -----------------------------------------------------------
@@ -150,16 +150,24 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
 
 @pytest.mark.parametrize("answers, said", [
     ({"ops.job_run": {"key": None}},
-     "ops.job_run: no table of the Project has that name, the nearest being ops.job_runs"),
+     "ops.job_run: no table of the Project has that name; did you mean ops.job_runs?"),
+    # Hive sets a name's case aside, and so does the name it may have meant.
+    ({"OPS.JOB_RUN": {"key": None}}, "; did you mean ops.job_runs?"),
     ({"ops.job_runs": {"keys": ["run_id"]}},
      "ops.job_runs: 'keys' is no kind of answer; the decisions cell answers location, key, "
-     "types and tags, the nearest being key"),
-    ({"ops.job_runs": {"tag": {"X": "1"}}}, "the nearest being tags"),
+     "types and tags; did you mean key?"),
+    ({"ops.job_runs": {"tag": {"X": "1"}}}, "; did you mean tags?"),
     ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
-     "ops.job_runs: types: run_idd is no column of ops.job_runs, the nearest being run_id"),
+     "ops.job_runs: types: run_idd is no column of ops.job_runs; did you mean run_id?"),
+    ({"ops.job_runs": {"types": {"amount": "bigint"}}},
+     "ops.job_runs: types: amount is no column of ops.job_runs; its columns are run_id, "),
+    ({"ops.job_runs": {"types": "bigint"}},
+     "ops.job_runs: types: give a dict of each answer by its name, such as "
+     "{\"fails\": \"bigint\"}, not 'bigint'"),
     ({"ops.job_runs": {"tags": {"PERIOD_ED": "1"}}},
-     "ops.job_runs: tags: PERIOD_ED is no Script tag of ops.job_runs"),
-], ids=["table", "kind", "tag for tags", "column", "tag"])
+     "ops.job_runs: tags: PERIOD_ED, but ops.job_runs holds no Script tag"),
+], ids=["table", "table in upper case", "kind", "tag for tags", "column", "column far off",
+        "types not a dict", "tag of a table with none"])
 def test_an_answer_that_matches_nothing_is_refused_writing_nothing(
         started: Path, answers: dict, said: str) -> None:
     reference = started / "references" / "ops__job_runs.py"
@@ -167,15 +175,15 @@ def test_an_answer_that_matches_nothing_is_refused_writing_nothing(
     # A right answer beside the wrong one, which isn't written either.
     with_key = {**answers,
                 "ops.job_runs": {"key": ["run_id"], **answers.get("ops.job_runs", {})}}
-    with pytest.raises(ValueError, match="wrote nothing: 1 answer of the decisions cell "
-                       "matches no Decision") as refused:
+    with pytest.raises(ValueError, match="wrote nothing: 1 mistake in the decisions cell, "
+                       "each an answer that matches no Decision") as refused:
         project.write_decisions(with_key)
     assert said in str(refused.value)
     assert reference.read_text(encoding="utf-8") == before
 
 
 def test_each_answer_that_matches_nothing_is_named_at_once(started: Path) -> None:
-    with pytest.raises(ValueError, match="2 answers of the decisions cell match no Decision"):
+    with pytest.raises(ValueError, match="2 mistakes in the decisions cell"):
         project.write_decisions({"ops.nothing": {}, "ops.job_runs": {"owner": "me"}})
 
 
@@ -318,3 +326,13 @@ def test_what_is_left_of_a_fill_in_is_no_answer_either() -> None:
     answered = decisions.answered_text(TAGGED, answer, "r.py")
     assert answered.written == []
     assert answered.text == TAGGED
+
+
+def test_a_tag_of_a_table_with_tags_names_them_when_none_is_close(started: Path) -> None:
+    reference = started / "references" / "ops__job_runs.py"
+    reference.write_text(reference.read_text(encoding="utf-8").replace(
+        "# --- Aliases", 'TAGS = {\n    "END": "\'2026-10-31\'",  # bare. Answer it ...\n}\n\n'
+        "# --- Aliases"), encoding="utf-8")
+    with pytest.raises(ValueError, match="tags: RUN_DAY is no Script tag of ops.job_runs; its "
+                       "Script tags are END"):
+        project.write_decisions({"ops.job_runs": {"tags": {"RUN_DAY": "'2026-10-31'"}}})

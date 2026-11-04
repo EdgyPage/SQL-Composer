@@ -31,3 +31,25 @@ Ticket 06, PARTITION and step 7:
 17. Once a batch is finished, the last cell compares nothing more, which the notebook doesn't say.
 
 Costliest: 10, 11, 7; then 13 and 6.
+
+## Done (2026-11-04, after the user chose to fix all and re-export)
+
+- 1: write_decisions' docstring gives the refusal its own paragraph, with an example line.
+- 2: the fix says to correct each "by the name each line says it meant", then run
+  project.write_decisions(DECISIONS) again.
+- 3, 6: the nearest name is asked, "; did you mean key?", found with case set aside.
+- 4, 5: a column or tag with no close match lists the table's columns or tags; a tag for a
+  table with none says it holds no Script tag.
+- 7: a "types" or "tags" that isn't a dict is refused, named with the shape to give.
+- 8: "types: status's type wasn't a guess: <reference> gives it already"; the docstring
+  names the case.
+- 9: "N mistakes in the decisions cell, each an answer that matches no Decision".
+- 10, 15: compare_batch refuses a partition that isn't a dict, or whose value is in quotes of
+  its own; the runner passes PARTITION as given, so it refuses there too.
+- 11, 12, 16, 17: step 7 says the dev table must hold the Partition, to run the names cell,
+  which tables it compares on it, that a failed result is replaced when compared again, and
+  that once the batch is finished this step's cell still compares.
+- 13: the compare's hint names PARTITION and step 7.
+- 14: PARTITION's comment: "a Partition for step 7 to compare besides the latest, ... its value
+  with no quotes of its own: None compares only the latest Partition your dev table and its
+  original both hold".
