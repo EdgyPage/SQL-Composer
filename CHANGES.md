@@ -2,6 +2,21 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.3
+
+8.3 reads Script tags: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that
+ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
+
+### What's new
+
+- **A Conversion reads past each Script tag** where a value goes, bare or inside quotes, so
+  the statement holding it becomes a Saved table like any other, where before a bare tag left
+  it an Unchecked statement. Its Table reference holds TAGS, what each tag stands for, and
+  its logic reads it there: `script_tag(TAGS["PERIOD_END"])` for a bare tag, a new function,
+  and `TAGS["PERIOD_END"]` for one inside quotes. A tag of another shape, or one where a
+  table's name, a column's name or a whole condition goes, stops the Conversion, naming its
+  line.
+
 ## 8.2
 
 8.2 puts each table's Hive in a file beside its notebook, and fixes what people new to the

@@ -1,7 +1,7 @@
 # Reading past a Script tag
 
 Type: task
-Status: open
+Status: claimed
 Blocked by: 01
 Size: L
 
