@@ -6499,23 +6499,24 @@ print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &qu
 Folded ops_reports.failed_runs, each a staging table, a Derived table in the tables that read it: batch.md says where.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
 Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, seed each that reads itself, write each, and compare each with its original.
-Paste this into the decisions cell, DECISIONS, and fill in each &lt;FILL IN&gt;:
+Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb, ops_reports&#x27;s decisions cell, or over a DECISIONS you pasted before (each answer step 3 wrote already is kept), then fill in each &lt;FILL IN&gt; and check each guessed type:
+
 DECISIONS = {
     &quot;mart.alerts_by_severity_ops_reports&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the folder its files go in
+        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/alerts_by_severity_ops_reports&quot;
         &quot;types&quot;: {
             &quot;dt&quot;: &quot;string&quot;,  # guessed: its type, if not string, such as &quot;bigint&quot;
         },
     },
     &quot;mart.alerted_runs_ops_reports&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the folder its files go in
+        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/alerted_runs_ops_reports&quot;
         &quot;types&quot;: {
             &quot;dt&quot;: &quot;string&quot;,  # guessed: its type, if not string, such as &quot;bigint&quot;
         },
     },
     &quot;mart.fail_history&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the folder its files go in
-        &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the columns that name one row, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when none do
+        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/fail_history&quot;
+        &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # a list, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when no columns name one row
     },
 }</pre>
 <p class="label">It writes 25 files</p>
@@ -17248,8 +17249,9 @@ STAGING = {}</pre>
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
-# it and step 1 print a whole DECISIONS to paste here: fill in each &lt;FILL IN&gt;. A Key
-# marked # proposed is made, but an answer here changes it</pre>
+# prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
+# Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+# answer &quot;key&quot; here.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
@@ -17330,8 +17332,9 @@ TABLES = []</pre>
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
-# it and step 1 print a whole DECISIONS to paste here: fill in each &lt;FILL IN&gt;. A Key
-# marked # proposed is made, but an answer here changes it</pre>
+# prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
+# Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+# answer &quot;key&quot; here.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.promote(TABLES)</pre>
@@ -17419,8 +17422,9 @@ QUERIES = {}</pre>
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
-# it and step 1 print a whole DECISIONS to paste here: fill in each &lt;FILL IN&gt;. A Key
-# marked # proposed is made, but an answer here changes it</pre>
+# prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
+# Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+# answer &quot;key&quot; here.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
@@ -17485,8 +17489,9 @@ TABLES = []</pre>
 #                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
-# it and step 1 print a whole DECISIONS to paste here: fill in each &lt;FILL IN&gt;. A Key
-# marked # proposed is made, but an answer here changes it</pre>
+# prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
+# Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+# answer &quot;key&quot; here.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.add_references(TABLES, query=query)</pre>

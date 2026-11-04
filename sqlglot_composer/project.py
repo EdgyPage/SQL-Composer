@@ -1474,18 +1474,20 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
                  "it is written here:")
     for decision in waited_on:
         said += f"\n    {decision.table}: {decision.question()}"
-    said += _paste_text(waited_on)
+    said += _paste_text(waited_on, where)
     return said
 
 
-def _paste_text(still_open: list[decisions.Decision]) -> str:
-    """The DECISIONS to paste into a decisions cell for the Decisions `still_open`, on lines of
-    its own, unindented, so it pastes into the cell as it is; or "" when the cell answers none
-    of them."""
+def _paste_text(still_open: list[decisions.Decision], notebook: str) -> str:
+    """The DECISIONS to paste into `notebook`'s decisions cell for the Decisions `still_open`,
+    between blank lines and unindented, so it pastes into the cell as it is; or "" when the
+    cell answers none of them."""
     if not any(decision.kind in decisions.ANSWERS for decision in still_open):
         return ""
-    return (f"\nPaste this into the decisions cell, DECISIONS, and fill in each "
-            f"{decisions.FILL_IN}:\n" + "\n".join(decisions.paste_lines(still_open)))
+    return (f"\nPaste this over the DECISIONS = ... line of {notebook}'s decisions cell, or "
+            "over a DECISIONS you pasted before (each answer step 3 wrote already is kept), "
+            f"then fill in each {decisions.FILL_IN} and check each guessed type:\n\n"
+            + "\n".join(decisions.paste_lines(still_open)) + "\n")
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
@@ -2019,14 +2021,17 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create
     each table in dev, seed each that reads itself, write each, and compare each with its
     original.
-    Paste this into the decisions cell, DECISIONS, and fill in each <FILL IN>:
+    Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb,
+    failed_runs's decisions cell, or over a DECISIONS you pasted before (each answer step 3
+    wrote already is kept), then fill in each <FILL IN> and check each guessed type:
+    <BLANKLINE>
     DECISIONS = {
         "mart_dev.failed_runs": {
-            "location": "<FILL IN>",  # the folder its files go in
-            "key": "<FILL IN>",  # the columns that name one row, such as ["job_id", "dt"],
-    or None when none do
+            "location": "<FILL IN>",  # its folder, such as "/data/your_team/mart_dev.db/..."
+            "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no columns...
         },
     }
+    <BLANKLINE>
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -3210,12 +3215,13 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         # A batch another Workflow made, as new_table makes a table from its query: its own.
         lines.append("Next: answer its open Decisions in the decisions cell of "
                      f"{_decisions_notebook(files.made_for)}, then run its next steps."
-                     + _paste_text(still_open))
+                     + _paste_text(still_open, _decisions_notebook(files.made_for)))
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "
-                 "each, and compare each with its original." + _paste_text(still_open))
+                 "each, and compare each with its original."
+                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}"))
     return lines
 
 
@@ -3423,8 +3429,10 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
     "'2026-10-31'"}}}. Each answer is written into the open line it answers. A tag's answer
-    is the Hive the program put where the tag stood, its quotes and all for a bare tag;
-    answering it again writes the new value over the old. Any other Decision made already,
+    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes;
+    answering it again writes the new value over the old. An answer left <FILL IN>, as
+    check() prints it to paste, is no answer: nothing is written for it, and the report names
+    it. Any other Decision made already,
     as yours is once you change its line, is kept, and an answer that differs from it is
     named. An answer that matches no Decision at all, for a table with no Table reference, a
     kind the cell doesn't take, such as "tag" for "tags", a column the table doesn't have or a
@@ -3448,7 +3456,8 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
-        lines += [f"{table}: {each}: run steps 6 and 7 again." for each in answered.changed]
+        lines += [f"{table}: {each}: if the table is written already, run steps 6 and 7 again."
+                  for each in answered.changed]
         lines += [f"{table}: {each}." for each in answered.unwritten]
         lines += _hivevar_notes(root, table, answer)
         _write_checklist_again(root, table)

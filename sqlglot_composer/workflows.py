@@ -957,8 +957,10 @@ CONVERT = Workflow(
              goal="an answer to each open Decision of the batch's tables, each Script tag's "
              "value among them",
              action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook. Each table's "
-             "`conversion/checklist.md`, in its Table folder, lists its open Decisions. A "
+             "as `project.check()` writes it, then save the notebook: step 1 and "
+             "`project.check()` print a `DECISIONS` to paste there, each answer to give "
+             "`<FILL IN>`. Each table's `conversion/checklist.md`, in its Table folder, lists "
+             "its open Decisions. A "
              'Script tag, a `<PARM="NAME"/>` the program that ran the scripts, such as a '
              'scheduler, replaced with a value before Hive read it, is answered under `"tags"` '
              "with that value as Hive. A tag standing alone, as in "
@@ -1454,8 +1456,9 @@ DECISIONS_CELL = (
     '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
     '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
-    "# it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key\n"
-    "# marked # proposed is made, but an answer here changes it")
+    "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
+    "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
+    '# answer "key" here.')
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
