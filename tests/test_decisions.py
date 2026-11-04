@@ -8,6 +8,7 @@ writes each answer into its line; a line made already is kept.
 
 from __future__ import annotations
 
+import ast
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -264,3 +265,45 @@ def test_a_tag_is_answered_by_its_name_under_tags() -> None:
     assert decisions.is_answered(tag, {"tags": {"team_2": "nobody"}})
     assert not decisions.is_answered(tag, {"tags": {"PERIOD_END": "x"}})
     assert not decisions.is_answered(tag, {"types": {"team_2": "x"}})
+
+
+# --- DECISIONS printed to paste (Toolbox 8.3, ticket 05) -------------------------------------
+
+
+def test_the_open_decisions_print_as_decisions_to_paste() -> None:
+    lines = decisions.paste_lines(decisions.open_decisions(TAGGED, "mart_dev.x"))
+    assert lines == [
+        "DECISIONS = {",
+        '    "mart_dev.x": {',
+        '        "location": "<FILL IN>",  # the folder its files go in',
+        '        "key": "<FILL IN>",  # the columns that name one row, such as ["job_id", '
+        '"dt"], or None when none do',
+        '        "types": {',
+        '            "team": "string",  # guessed: its type, if not string, such as "bigint"',
+        "        },",
+        '        "tags": {',
+        '            "PERIOD_END": "<FILL IN>",  # bare at daily.hql, line 4: answer the Hive '
+        '<PARM="PERIOD_END"/> stands for with its quotes, such as "\'2026-10-31\'", or a '
+        'number, such as "5"',
+        '            "team_2": "<FILL IN>",  # inside quotes: answer what <PARM="team_2"/> '
+        'stands for with no quotes, such as "2026-10-31" or "failed"',
+        "        },",
+        "    },",
+        "}"]
+    pasted = ast.literal_eval("\n".join(lines).removeprefix("DECISIONS = "))
+    assert pasted["mart_dev.x"]["tags"] == {"PERIOD_END": "<FILL IN>", "team_2": "<FILL IN>"}
+
+
+def test_a_fill_in_pasted_and_left_is_no_answer() -> None:
+    answer = {"location": "<FILL IN>", "key": "<FILL IN>", "types": {"team": "<FILL IN>"},
+              "tags": {"PERIOD_END": "<FILL IN>"}}
+    for decision in decisions.open_decisions(TAGGED, "mart_dev.x"):
+        assert not decisions.is_answered(decision, answer)
+    answered = decisions.answered_text(TAGGED, answer, "r.py")
+    assert answered.written == []
+    assert answered.text == TAGGED
+    assert answered.unwritten == [
+        "location is still <FILL IN>: write its answer there",
+        "key is still <FILL IN>: write its answer there",
+        "types: team is still <FILL IN>: write its type there",
+        "tags: PERIOD_END is still <FILL IN>: write its answer there"]

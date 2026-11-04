@@ -235,7 +235,7 @@ def reference_path(root: Path, table: str) -> Path:
 
 # The decisions cell's name, the code cell beside the names cell of a Workflow whose step
 # waits on Decisions.
-DECISIONS = "DECISIONS"
+DECISIONS = decisions.DECISIONS_NAME
 # The kinds of Decision each Workflow's decision step waits on.
 DEV_DECISIONS = decisions.ANSWERED_KINDS
 PROD_DECISIONS = (decisions.LOCATION,)
@@ -1453,8 +1453,9 @@ DECISIONS_CELL = (
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
     '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
     '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
-    '# "key": None says no columns name one row. project.check() names each one open;\n'
-    "# a Key marked # proposed is made, but an answer here changes it")
+    '# "key": None says no columns name one row. project.check() names each one open, and\n'
+    "# it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key\n"
+    "# marked # proposed is made, but an answer here changes it")
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",

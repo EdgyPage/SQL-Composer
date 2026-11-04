@@ -19,6 +19,7 @@ shrinks, as each 8.1 ticket takes a hand edit away.
 
 from __future__ import annotations
 
+import ast
 import csv
 import re
 import shutil
@@ -33,6 +34,8 @@ from conftest import forget_the_projects_modules, toolbox_module
 from workflow_warehouse import Warehouse
 
 from sqlglot_composer import project
+
+FILL_IN = toolbox_module("decisions").FILL_IN
 
 ROOT = Path(__file__).resolve().parents[2]
 notebooks = toolbox_module("notebooks")
@@ -127,6 +130,27 @@ class Journey:
             if kind == "code" and (number > self.cells_run or current in again):
                 exec(text, self.scope)
                 self.cells_run = max(self.cells_run, number)
+
+    def paste_decisions(self, filled: dict[str, dict[str, object]]) -> None:
+        """Paste the DECISIONS project.check() prints for this Workflow's next step into its
+        decisions cell, each <FILL IN> filled in from `filled`, by table and kind, a tag's or a
+        type's by its name too, as the user fills in what they pasted."""
+        printed = repr(project.check())
+        from_its_step = printed[printed.index(f"admin/workflows/{self.workflow}/"):]
+        # The block starts at "DECISIONS = {" and ends at the first line that is "}" alone.
+        block = from_its_step[from_its_step.index("\nDECISIONS = {") + 1:]
+        block = block[:block.index("\n}\n") + 2] if "\n}\n" in block else block
+        pasted = ast.literal_eval(block.removeprefix("DECISIONS = "))
+        for table, answer in pasted.items():
+            for kind, value in answer.items():
+                if isinstance(value, dict):
+                    for name, each in value.items():
+                        if each == FILL_IN:
+                            value[name] = filled[table][kind][name]
+                elif value == FILL_IN:
+                    answer[kind] = filled[table][kind]
+        assert FILL_IN not in repr(pasted), f"a <FILL IN> left unfilled: {pasted}"
+        self.type_names(DECISIONS=pasted)
 
     def run_again(self, *steps: int) -> None:
         """Run each code cell of each step in `steps` once more, in order."""
@@ -242,10 +266,10 @@ def _location(table: str) -> str:
 
 
 def _answer_each_decision(journey: Journey, tables: list[str]) -> None:
-    """The convert Workflow's decision step: each table's location, typed into the decisions
-    cell, which the next step writes into its Table reference. Its Key is the one convert
-    proposed."""
-    journey.type_names(DECISIONS={table: {"location": _location(table)} for table in tables})
+    """The convert Workflow's decision step: the DECISIONS project.check() prints pasted into
+    the decisions cell, each table's location filled in, which the next step writes into its
+    Table reference. Its Key is the one convert proposed."""
+    journey.paste_decisions({table: {"location": _location(table)} for table in tables})
 
 
 # --- convert, then promote --------------------------------------------------------------------
@@ -325,7 +349,8 @@ def _convert_through_the_runner(started: Started, script: str,
     journey = started.journey("convert")
     (journey.folder / "weekly.hql").write_text(script, encoding="utf-8")
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
-    _answer_each_decision(journey, list(keys))
+    # Before step 1 runs nothing is printed to paste, so each location is typed.
+    journey.type_names(DECISIONS={table: {"location": _location(table)} for table in keys})
     sent = list(started.warehouse.executed)
     dry_run = journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -487,7 +512,7 @@ def test_convert_a_script_with_script_tags(started: Started) -> None:
     assert ("mart_dev.monthly_fails_mart: tags: MinMins, bare at weekly.hql, line 7") in said
     assert ("mart_dev.monthly_fails_mart: tags: skip_team_2, inside quotes at weekly.hql, "
             "line 15: answer what") in said
-    journey.type_names(DECISIONS=_tag_answers(TAG_VALUES))
+    journey.paste_decisions(_tag_answers(TAG_VALUES))
     journey.run_to()
     _check_converted(started, tables, TAGGED_KEYS)
     _check_tagged_rows(started, tables)
@@ -561,8 +586,9 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
     (journey.folder / "weekly.hql").write_text(HIVEVAR_SCRIPT, encoding="utf-8")
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     table = "mart_dev.daily_close_mart"
-    journey.type_names(DECISIONS={table: {"location": _location(table),
-                                          "tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
+    journey.run_to(1)
+    journey.paste_decisions({table: {"location": _location(table),
+                                     "tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
     journey.run_to()
     _check_converted(started, [table], {table: ["job_id", "dt"]})
     assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
@@ -703,7 +729,7 @@ def _run_references(started: Started, table: str, key: list[str]) -> None:
     journey = started.journey("references")
     journey.type_names(TABLES=[table])
     journey.run_to(1)
-    journey.type_names(DECISIONS={table: {"key": key}})
+    journey.paste_decisions({table: {"key": key}})
     journey.run_to()
 
 

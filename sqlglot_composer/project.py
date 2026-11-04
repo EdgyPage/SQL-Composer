@@ -1474,7 +1474,18 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
                  "it is written here:")
     for decision in waited_on:
         said += f"\n    {decision.table}: {decision.question()}"
+    said += _paste_text(waited_on)
     return said
+
+
+def _paste_text(still_open: list[decisions.Decision]) -> str:
+    """The DECISIONS to paste into a decisions cell for the Decisions `still_open`, on lines of
+    its own, unindented, so it pastes into the cell as it is; or "" when the cell answers none
+    of them."""
+    if not any(decision.kind in decisions.ANSWERS for decision in still_open):
+        return ""
+    return (f"\nPaste this into the decisions cell, DECISIONS, and fill in each "
+            f"{decisions.FILL_IN}:\n" + "\n".join(decisions.paste_lines(still_open)))
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
@@ -2008,6 +2019,14 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create
     each table in dev, seed each that reads itself, write each, and compare each with its
     original.
+    Paste this into the decisions cell, DECISIONS, and fill in each <FILL IN>:
+    DECISIONS = {
+        "mart_dev.failed_runs": {
+            "location": "<FILL IN>",  # the folder its files go in
+            "key": "<FILL IN>",  # the columns that name one row, such as ["job_id", "dt"],
+    or None when none do
+        },
+    }
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -3186,15 +3205,17 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
+    still_open = workflows.open_decisions_of(files.root, made, workflows.DEV_DECISIONS)
     if files.made_for:
         # A batch another Workflow made, as new_table makes a table from its query: its own.
         lines.append("Next: answer its open Decisions in the decisions cell of "
-                     f"{_decisions_notebook(files.made_for)}, then run its next steps.")
+                     f"{_decisions_notebook(files.made_for)}, then run its next steps."
+                     + _paste_text(still_open))
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "
-                 "each, and compare each with its original.")
+                 "each, and compare each with its original." + _paste_text(still_open))
     return lines
 
 

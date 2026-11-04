@@ -177,7 +177,8 @@ def test_new_table_makes_a_table_from_its_query_a_batch_of_one_in_dev(started: P
     project.add_references(["ops.job_runs"], query=example_database.query)
     said = repr(project.new_table(f"{DEV}.failed_jobs", queries={"failed_jobs": QUERY}))
     assert f"into 1 Saved table in mart_dev: {DEV}.failed_jobs." in said
-    assert said.endswith("admin/workflows/new_table/new_table.ipynb, then run its next steps.")
+    assert ("admin/workflows/new_table/new_table.ipynb, then run its next steps.\n"
+            "Paste this into the decisions cell") in said
     assert (started / "tables" / f"{DEV}__failed_jobs" / f"{DEV}__failed_jobs.ipynb").is_file()
     # convert's Workflow passes it over: new_table's takes it on.
     assert "convert.ipynb, failed_jobs" not in repr(project.check())
