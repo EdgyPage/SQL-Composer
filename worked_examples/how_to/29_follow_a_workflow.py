@@ -125,7 +125,7 @@ flowchart TD
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
     t3("a dev Table folder per table the scripts write"):::thing
-    t4("a Table reference per table"):::thing
+    t4("a Table reference per table, each Script tag in its TAGS"):::thing
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing

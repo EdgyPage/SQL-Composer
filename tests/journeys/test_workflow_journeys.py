@@ -112,8 +112,10 @@ class Journey:
                                        if any(line.startswith(f"{name} =") for line in lines)})
         assert typed_names == set(values), f"no names cell holds {set(values) - typed_names}"
 
-    def run_to(self, step: int | None = None) -> None:
-        """Run each code cell not yet run, up to and including step `step`'s, or to the end."""
+    def run_to(self, step: int | None = None, again: tuple[int, ...] = ()) -> None:
+        """Run each code cell not yet run, up to and including step `step`'s, or to the end;
+        and each cell of the steps `again` names once more, though run before, as the user
+        runs a step's cell again after changing what it reads."""
         self.started.monkeypatch.chdir(self.folder)
         current = 0
         for number, (kind, text) in enumerate(notebooks.read_cells(self.notebook), 1):
@@ -122,9 +124,13 @@ class Journey:
                 current = int(heading.group(1))
             if step is not None and current > step:
                 return
-            if kind == "code" and number > self.cells_run:
+            if kind == "code" and (number > self.cells_run or current in again):
                 exec(text, self.scope)
-                self.cells_run = number
+                self.cells_run = max(self.cells_run, number)
+
+    def run_again(self, *steps: int) -> None:
+        """Run each code cell of each step in `steps` once more, in order."""
+        self.run_to(again=steps)
 
     def run_workflow(self, **given: object) -> str:
         """Run the cells before step 1, the paths, names and decisions, then the Workflow, as
@@ -447,9 +453,22 @@ def _filled_in_script() -> str:
     return "\n".join(filled) + "\n"
 
 
-@pytest.mark.xfail(strict=True, reason="8.3: a bare Script tag makes its statement an "
-                   "Unchecked statement, and no Decision asks for a tag's value; tickets 02 "
-                   "and 03 make this pass")
+TAGGED_KEYS = {"mart_dev.daily_close_mart": ["job_id", "dt"],
+               "mart_dev.monthly_fails_mart": ["team", "dt"]}
+
+
+def _tag_answers(values: dict[str, dict[str, str]]) -> dict[str, dict[str, object]]:
+    """The decisions cell for the tagged script: each table's location and its tags."""
+    return {table: {"location": _location(table), "tags": tags}
+            for table, tags in values.items()}
+
+
+def _check_tagged_rows(started: Started, tables: list[str]) -> None:
+    for table, original in zip(tables, ["mart.daily_close", "mart.monthly_fails"], strict=True):
+        assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
+                                                                      original)
+
+
 def test_convert_a_script_with_script_tags(started: Started) -> None:
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
@@ -460,14 +479,93 @@ def test_convert_a_script_with_script_tags(started: Started) -> None:
     assert tables == list(TAG_VALUES)
     for table in tables:
         assert _notebook(started.root, table).is_file(), f"no Table folder for {table}"
-    journey.type_names(DECISIONS={table: {"location": _location(table), "tags": tags}
-                                  for table, tags in TAG_VALUES.items()})
+    # Each tag is an open Decision, which step 2 waits on and create too.
+    said = repr(project.check())
+    assert ('mart_dev.daily_close_mart: tags: PERIOD_END, the value <PARM="PERIOD_END"/> '
+            "stands for, at weekly.hql, line 10") in said
+    # The staging table's tag is a Decision of the table it is folded into.
+    assert ('mart_dev.monthly_fails_mart: tags: MinMins, the value <PARM="MinMins"/> '
+            "stands for, at weekly.hql, line 7") in said
+    journey.type_names(DECISIONS=_tag_answers(TAG_VALUES))
     journey.run_to()
-    _check_converted(started, tables, {"mart_dev.daily_close_mart": ["job_id", "dt"],
-                                       "mart_dev.monthly_fails_mart": ["team", "dt"]})
-    for table, original in zip(tables, ["mart.daily_close", "mart.monthly_fails"], strict=True):
-        assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
-                                                                      original)
+    _check_converted(started, tables, TAGGED_KEYS)
+    _check_tagged_rows(started, tables)
+
+
+def test_convert_a_script_with_script_tags_through_the_runner(started: Started) -> None:
+    started.warehouse.execute(_filled_in_script())
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS=_tag_answers(TAG_VALUES))
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    tables = project.batch_tables("weekly")
+    _check_converted(started, tables, TAGGED_KEYS)
+    _check_tagged_rows(started, tables)
+
+
+def test_the_runner_creates_nothing_while_a_tag_is_open(started: Started) -> None:
+    started.warehouse.execute(_filled_in_script())
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       DECISIONS={table: {"location": _location(table)}
+                                  for table in TAG_VALUES})
+    said = journey.run_workflow()
+    assert "2. Answer each table's open Decisions" in said
+    assert 'tags: PERIOD_END, the value <PARM="PERIOD_END"/> stands for' in said
+    assert not [hive for hive in started.warehouse.executed if "mart_dev." in hive]
+
+
+def test_a_tag_answered_wrong_is_answered_again_in_the_decisions_cell(
+        started: Started) -> None:
+    started.warehouse.execute(_filled_in_script())
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    wrong = {**TAG_VALUES, "mart_dev.daily_close_mart": {"PERIOD_END": "'2026-09-24'"}}
+    journey.type_names(DECISIONS=_tag_answers(wrong))
+    journey.run_to()
+    compared = (started.root / "tables" / "mart_dev__daily_close_mart" / "conversion"
+                / "compare.md")
+    assert "Passed: " not in compared.read_text(encoding="utf-8")
+    # The date answered again in the decisions cell, then steps 3, 6 and 7 run again: no file
+    # is edited by hand.
+    journey.type_names(DECISIONS=_tag_answers(TAG_VALUES))
+    journey.run_again(3, 6, 7)
+    tables = project.batch_tables("weekly")
+    _check_converted(started, tables, TAGGED_KEYS)
+    # The first write's Partition, 2026-09-24, is still in dev, as an INSERT OVERWRITE leaves
+    # each Partition it doesn't write; the one the original holds is the same.
+    rows = started.warehouse.rows_of("mart_dev.daily_close_mart")
+    rows = rows[rows["dt"] == "2026-09-23"]
+    assert sorted(rows.astype(str).values.tolist()) == _sorted_rows(started.warehouse,
+                                                                    "mart.daily_close")
+
+
+HIVEVAR_SCRIPT = """SET hive.exec.dynamic.partition.mode=nonstrict;
+SET hivevar:period_end=2026-09-23;
+CREATE TABLE IF NOT EXISTS mart.daily_close (job_id BIGINT, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_close PARTITION (dt)
+SELECT r.job_id, COUNT(*) AS runs, r.dt FROM ops.job_runs r
+WHERE r.dt = <PARM="PERIOD_END"/>
+GROUP BY r.job_id, r.dt;
+"""
+
+
+def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -> None:
+    started.warehouse.execute(HIVEVAR_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-23'"))
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(HIVEVAR_SCRIPT, encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    table = "mart_dev.daily_close_mart"
+    journey.type_names(DECISIONS={table: {"location": _location(table),
+                                          "tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
+    journey.run_to()
+    _check_converted(started, [table], {table: ["job_id", "dt"]})
+    assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
+                                                                  "mart.daily_close")
 
 
 # --- new_table, then change_a_saved_table -----------------------------------------------------

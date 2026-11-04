@@ -141,11 +141,13 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   a name in backticks; its place in the logic is `script_tag(TAGS["NAME"])`, a new public
   name, and a quoted one's `TAGS["NAME"]` spliced into its string; TAGS lives in the Table
   reference; one name both bare and quoted in one table is refused.
+- [03 The tag Decision](issues/03-the-tag-decision.md): a fifth kind, "tag", a line of TAGS open
+  while it holds the tag itself, answered under `"tags"` and written again on a new answer; a
+  `${hivevar:...}` answer's value comes from a SET hivevar line of the scripts, kept as the
+  table's Session settings, and write_decisions says when none sets it.
 
 ## Not yet specified
 
-- Where a `${hivevar:...}` answer's value is sent from: no SET line of the original holds it,
-  so today the user sends one with `hive_settings(...)`, a hand step 03 removes if it can.
 - Whether the usability loop gains a convert scenario with Script tags: the user's call, asked
   at 07.
 

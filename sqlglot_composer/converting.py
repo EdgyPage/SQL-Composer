@@ -181,22 +181,28 @@ class ConvertedQuery:
 
 # The comment above a converted query's TAGS, which saved_table_logic moves into its Table
 # reference.
-TAGS_COMMENT = ("# What each Script tag stands for, as Hive. Until you write its value here, "
-                "it is the tag itself.")
+TAGS_COMMENT = ('# What each Script tag stands for, as Hive: the decisions cell\'s "tags" '
+                "answers, written here. Until then, the tag itself.")
 
 
-def tags_block(tag_is_quoted: dict[str, bool]) -> list[str]:
+def tags_block(tag_is_quoted: dict[str, bool],
+               where: dict[str, str] | None = None) -> list[str]:
     """The lines of TAGS, each Script tag of `tag_is_quoted` standing for itself, not answered
-    yet: a bare tag's answer brings its quotes, and a quoted one's doesn't. They are written
-    as a Table reference's are, since TAGS moves into one."""
+    yet: a bare tag's answer brings its quotes, and a quoted one's doesn't. Each names where
+    it is in the scripts, `where`'s, such as "daily.hql, line 4", when given. They are written
+    as a Table reference's are, since TAGS moves into one, and decisions.TAG_LINE reads
+    them."""
     lines = [TAGS_COMMENT, "TAGS = {"]
     for name, quoted in tag_is_quoted.items():
-        how = ("bare: its value as Hive, such as \"'2026-09-24'\" (text or a date, in "
-               'quotes) or "5"')
+        how = "inside quotes" if quoted else "bare"
+        if where and name in where:
+            how += f", at {where[name]}"
+        what = ("its value as Hive, such as \"'2026-09-24'\" (text or a date, in quotes) or "
+                '"5"')
         if quoted:
-            how = "inside quotes: its value with no quotes, such as \"2026-09-24\""
+            what = "its value with no quotes, such as \"2026-09-24\""
         tag = f'<PARM="{name}"/>'
-        lines.append(f"    {escaped_literal(name)}: {escaped_literal(tag)},  # {how}")
+        lines.append(f"    {escaped_literal(name)}: {escaped_literal(tag)},  # {how}: {what}")
     return [*lines, "}"]
 
 
@@ -379,8 +385,9 @@ def _is_plain_value(node: exp.Expression) -> bool:
 
 
 # What a finding on a Script tag says after the tag.
-TAG_FINDING = ("Write its value in TAGS, in the table's Table reference: until you do, TAGS "
-               "holds the tag itself, and the table's Hive won't do what the original did.")
+TAG_FINDING = ('Answer its value in the decisions cell, under "tags", and write the answers: '
+               "they go into TAGS, in the table's Table reference. Until then TAGS holds the "
+               "tag itself, and the table isn't created.")
 
 
 def _tags_found(query: exp.Expression) -> list[tuple[exp.Expression, str, bool]]:

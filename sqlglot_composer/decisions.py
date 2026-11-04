@@ -7,14 +7,18 @@ open while it holds a `TODO:` or a `<...>`, or, for `location=`, while it is Non
 - Key: its `key=` line, the columns whose values name one row, or None when none do;
 - guessed type: a column's line in `columns={...}` written "string" because nothing told the
   Toolbox its type;
+- tag: a Script tag's line in `TAGS = {...}`, open while it holds the tag itself, which a
+  Conversion writes for each <PARM="NAME"/> in the table's Hive;
 - placeholder: any other `<...>` left in its code, as a Template leaves them, filled in by
   hand.
 
 A `key=` line project.convert proposed from a table's query, or project.reference_from_logic
-from its logic, marked `# proposed`, is made, but an answer may still change it. Any other
+from its logic, marked `# proposed`, is made, but an answer may still change it; so may an
+answer change a tag's value again. Any other
 `TODO:` line, such as the docstring's first line or `does_not_add_up=`, is no Decision: it
 waits on nothing. You answer each in the decisions cell of a Workflow's notebook,
-`DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"}}}`,
+`DECISIONS = {"mart_dev.x": {"location": "/data/...", "key": ["a"], "types": {"b": "int"},
+"tags": {"PERIOD_END": "'2026-10-31'"}}}`,
 and `answered_text` gives the Table reference with each answer written into the line it
 answers. It never writes over any other line that is made already, as yours is once you
 change it: the answer is kept unwritten, to name.
@@ -31,18 +35,27 @@ from .shared import escaped_literal
 LOCATION = "location"
 KEY = "key"
 GUESSED_TYPE = "guessed type"
+TAG = "tag"
 PLACEHOLDER = "placeholder"
 # Every kind that waits for you, in the order check() names them.
-KINDS = (LOCATION, KEY, GUESSED_TYPE, PLACEHOLDER)
+KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, PLACEHOLDER)
 # The kinds the decisions cell answers, each by its name there; a placeholder is filled in by
 # hand.
-ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types"}
+ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
 ANSWERED_KINDS = tuple(ANSWERS)
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
 # A column's line in columns={...}, such as         "team": "string",
 COLUMN_LINE = re.compile(r'^        "(?P<column>[^"]+)": "(?P<type>[^"]*)",')
+# A Script tag's line in TAGS = {...}, as converting.tags_block writes it, such as
+#     "PERIOD_END": "'2026-10-31'",  # bare, at daily.hql, line 4: its value as Hive, ...
+# in three parts: its NAME and its value, each a Python string; and its comment, which says
+# whether the tag stands bare or inside quotes, and where it first stands in the scripts.
+_TAG_NAME = r'(?P<name>"(?:[^"\\]|\\.)*")'
+_TAG_VALUE = r"(?P<value>.*?)"
+_TAG_COMMENT = r"(?P<comment># (?:bare|inside quotes)(?:, at (?P<where>[^:]*))?:.*)"
+TAG_LINE = re.compile(f"^    {_TAG_NAME}: {_TAG_VALUE},  {_TAG_COMMENT}$")
 # What a Conversion writes after a column whose type nothing told it.
 GUESSED = "  # TODO: guessed: nothing told its type"
 # What new_table's Table reference holds for a Saved table's columns, until
@@ -63,11 +76,13 @@ PROPOSED_FROM_LOGIC = ('  # proposed from its logic; if it is wrong, answer "key
 @dataclass(frozen=True)
 class Decision:
     """One open Decision: its table, its kind, and what it is about: a guessed type's column,
-    or a placeholder's <...>."""
+    a tag's NAME, or a placeholder's <...>; and, for a tag, where it is in the scripts, such as
+    "daily.hql, line 4", when its line says."""
 
     table: str
     kind: str
     subject: str = ""
+    where: str = ""
 
     def question(self) -> str:
         """What it asks of you, as check() names it."""
@@ -77,6 +92,9 @@ class Decision:
             return "key: the columns whose values name one row, or None when none do"
         if self.kind == GUESSED_TYPE:
             return f'types: {self.subject}\'s type, written "string" as a guess'
+        if self.kind == TAG:
+            at = f", at {self.where}" if self.where else ""
+            return f'tags: {self.subject}, the value <PARM="{self.subject}"/> stands for{at}'
         if self.subject == COLUMNS:
             return (f"{COLUMNS}, which project.reference_from_logic writes from its logic, "
                     "once that runs")
@@ -130,6 +148,8 @@ def kind_of(line: str) -> str:
         return KEY
     if COLUMN_LINE.match(line) and "TODO: guessed" in line:
         return GUESSED_TYPE
+    if TAG_LINE.match(line):
+        return TAG
     if PLACEHOLDER_WORD.search(line):
         return PLACEHOLDER
     return ""
@@ -140,7 +160,28 @@ def is_open(line: str) -> bool:
     location= left None; a comment is none, as the Aliases' examples are."""
     if line.strip().startswith("#"):
         return False
+    if kind_of(line) == TAG:
+        return _tag_value_of(line) == f'<PARM="{_tag_name_of(line)}"/>'
     return bool(OPEN.search(line)) or line.strip().startswith(NO_LOCATION)
+
+
+def _tag_name_of(line: str) -> str:
+    """A tag line's NAME, as Python reads its string."""
+    return ast.literal_eval(TAG_LINE.match(line)["name"])
+
+
+def _tag_value_of(line: str) -> object:
+    """The value a tag line holds, as Python reads it, or None when it doesn't read."""
+    try:
+        return ast.literal_eval(TAG_LINE.match(line)["value"])
+    except (ValueError, SyntaxError):
+        return None
+
+
+def is_hive_text(value: object) -> bool:
+    """Whether a tag's answer is Hive text to write where the tag stood: a string, not
+    blank."""
+    return isinstance(value, str) and bool(value.strip())
 
 
 def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> list[Decision]:
@@ -149,7 +190,10 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
     for line in code_of(text).split("\n"):
         kind = kind_of(line)
         if kind in kinds and is_open(line):
-            still_open.append(Decision(table, kind, _subject_of(kind, line)))
+            where = ""
+            if kind == TAG:
+                where = TAG_LINE.match(line)["where"] or ""
+            still_open.append(Decision(table, kind, _subject_of(kind, line), where))
     return still_open
 
 
@@ -158,6 +202,8 @@ def _subject_of(kind: str, line: str) -> str:
     line holds first."""
     if kind == GUESSED_TYPE:
         return COLUMN_LINE.match(line)["column"]
+    if kind == TAG:
+        return _tag_name_of(line)
     if kind == PLACEHOLDER:
         return PLACEHOLDER_WORD.search(line).group()
     return ""
@@ -182,42 +228,62 @@ def todo_lines(text: str) -> list[tuple[int, str]]:
 
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
     """Whether a table's answer in the decisions cell answers this Decision."""
-    if decision.kind == GUESSED_TYPE:
-        types = answer.get(ANSWERS[GUESSED_TYPE])
-        return isinstance(types, dict) and decision.subject in types
+    if decision.kind in (GUESSED_TYPE, TAG):
+        answers = answer.get(ANSWERS[decision.kind])
+        return isinstance(answers, dict) and decision.subject in answers
     return decision.kind in ANSWERS and ANSWERS[decision.kind] in answer
 
 
 def answered_text(text: str, answer: dict[str, object], reference: str) -> Answered:
     """A Table reference's text, at `reference`, with each open Decision the answer answers
-    written into its line, and a key= line marked # proposed too, and each answer left
-    unwritten named: one for any other Decision made already, a type for a column that wasn't
-    guessed, or one that names no Decision."""
+    written into its line, a key= line marked # proposed and a tag's line too, answered or not,
+    and each answer left unwritten named: one for any other Decision made already, a type for
+    a column that wasn't guessed, a tag the table doesn't hold, or one that names no
+    Decision."""
     answered = Answered(text)
     answered.unwritten = [f"{name}: not a Decision a Table reference asks; the decisions cell "
-                          "answers location, key and types" for name in answer
+                          "answers location, key, types and tags" for name in answer
                           if name not in ANSWERS.values()]
     lines = text.split("\n")
     for number, line in enumerate(lines):
-        if not is_open(line) and PROPOSED not in line and PROPOSED_FROM_LOGIC not in line:
+        changeable = (PROPOSED in line or PROPOSED_FROM_LOGIC in line
+                      or kind_of(line) == TAG)
+        if not is_open(line) and not changeable:
             continue
         written, name = _answered_line(line, answer)
         if written is not None:
             lines[number] = written
             answered.written.append(name)
     answered.text = "\n".join(lines)
+    answered.unwritten += _unwritten(answer, answered.written, reference)
+    return answered
+
+
+def _unwritten(answer: dict[str, object], written: list[str], reference: str) -> list[str]:
+    """A line naming each answer `answer` gives that wasn't written into `reference`, and
+    why."""
+    unwritten = []
     for name in (ANSWERS[LOCATION], ANSWERS[KEY]):
-        if name in answer and name not in answered.written:
-            answered.unwritten.append(
+        if name in answer and name not in written:
+            unwritten.append(
                 f"{name}: kept as {reference} holds it, made already; to change it, edit its "
                 f"{name}= line there (the decisions cell says {escaped_literal(answer[name])})")
     types = answer.get(ANSWERS[GUESSED_TYPE])
     if isinstance(types, dict):
         for column in types:
-            if f"types: {column}" not in answered.written:
-                answered.unwritten.append(f"types: {column} is no type the Toolbox guessed in "
-                                          f"{reference}; to change it, edit its line there")
-    return answered
+            if f"types: {column}" not in written:
+                unwritten.append(f"types: {column} is no type the Toolbox guessed in "
+                                 f"{reference}; to change it, edit its line there")
+    tags = answer.get(ANSWERS[TAG])
+    if isinstance(tags, dict):
+        for name, value in tags.items():
+            if not is_hive_text(value):
+                unwritten.append(
+                    f"tags: {name} is given {value!r}, not Hive text: give it as a string, "
+                    "such as \"'2026-10-31'\" or \"5\"")
+            elif f"tags: {name}" not in written:
+                unwritten.append(f"tags: {name} is no Script tag of {reference}")
+    return unwritten
 
 
 def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, str]:
@@ -228,6 +294,8 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
         name = ANSWERS[named]
         if kind == named and name in answer:
             return f"    {name}={escaped_literal(answer[name])},", name
+    if kind == TAG:
+        return _answered_tag(line, answer.get(ANSWERS[TAG]))
     types = answer.get(ANSWERS[GUESSED_TYPE])
     if kind != GUESSED_TYPE or not isinstance(types, dict):
         return None, ""
@@ -236,3 +304,15 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
         return None, ""
     written = f"        {escaped_literal(column)}: {escaped_literal(types[column])},"
     return written, f"types: {column}"
+
+
+def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
+    """A tag's line written with its answer, its comment kept, and the answer's name, or None
+    when `tags` gives it no Hive text."""
+    name = _tag_name_of(line)
+    if not isinstance(tags, dict) or not is_hive_text(tags.get(name)):
+        return None, ""
+    value = tags[name]
+    found = TAG_LINE.match(line)
+    return (f"    {found['name']}: {escaped_literal(value)},  {found['comment']}",
+            f"tags: {name}")
