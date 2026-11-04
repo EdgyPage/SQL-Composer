@@ -182,6 +182,12 @@ def _tag_value_of(line: str) -> object:
         return None
 
 
+def tag_names(text: str) -> list[str]:
+    """The NAME of each Script tag a Table reference's text holds in its TAGS, answered or
+    not."""
+    return [_tag_name_of(line) for line in code_of(text).split("\n") if kind_of(line) == TAG]
+
+
 def _tag_is_quoted(line: str) -> bool:
     """Whether a tag line's comment says its tag stands inside quotes."""
     return TAG_LINE.match(line)["how"] == "inside quotes"
@@ -275,12 +281,10 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
     """A Table reference's text, at `reference`, with each open Decision the answer answers
     written into its line, a key= line marked # proposed and a tag's line too, answered or not,
     and each answer left unwritten named: one for any other Decision made already, a type for
-    a column that wasn't guessed, a tag the table doesn't hold, or one that names no
-    Decision."""
+    a column that wasn't guessed, or a tag's answer in a form that can't stand where the tag
+    stood. An answer that matches no Decision at all, project.write_decisions refuses before
+    this runs."""
     answered = Answered(text)
-    answered.unwritten = [f"{name}: not a Decision a Table reference asks; the decisions cell "
-                          "answers location, key, types and tags" for name in answer
-                          if name not in ANSWERS.values()]
     lines = text.split("\n")
     for number, line in enumerate(lines):
         changeable = (PROPOSED in line or PROPOSED_FROM_LOGIC in line
@@ -298,7 +302,7 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
         answered.written.append(name)
     answered.text = "\n".join(lines)
     answered.unwritten += _unwritten(answer, answered.written, reference)
-    answered.unwritten += _tags_unwritten(answer, text, reference)
+    answered.unwritten += _tags_unwritten(answer, text)
     return answered
 
 
@@ -320,10 +324,10 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
     return unwritten
 
 
-def _tags_unwritten(answer: dict[str, object], text: str, reference: str) -> list[str]:
-    """A line naming each tag answer left unwritten, and why: "tags" not a dict, a tag
-    `reference`, whose text is `text`, doesn't hold, or an answer in a form that can't stand
-    where its tag stood."""
+def _tags_unwritten(answer: dict[str, object], text: str) -> list[str]:
+    """A line naming each tag answer left unwritten, and why: "tags" not a dict, or an answer
+    in a form that can't stand where its tag stood, its line in the Table reference's text,
+    `text`."""
     tags = answer.get(ANSWERS[TAG])
     if ANSWERS[TAG] not in answer:
         return []
@@ -335,8 +339,7 @@ def _tags_unwritten(answer: dict[str, object], text: str, reference: str) -> lis
     unwritten = []
     for name, value in tags.items():
         if name not in tag_lines:
-            unwritten.append(f"tags: {name} is no Script tag of {reference}")
-            continue
+            continue  # project.write_decisions refuses it first
         problem = tag_answer_problem(value, _tag_is_quoted(tag_lines[name]))
         if problem is not None:
             unwritten.append(f"tags: {name} {problem}")

@@ -80,6 +80,7 @@ import ast
 import csv
 import dataclasses
 import datetime
+import difflib
 import hashlib
 import importlib
 import inspect
@@ -3404,22 +3405,21 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     is the Hive the program put where the tag stood, its quotes and all for a bare tag;
     answering it again writes the new value over the old. Any other Decision made already,
     as yours is once you change its line, is kept, and an answer that differs from it is
-    named; so is an answer for a table with no Table reference, or one that answers no
-    Decision. A converted table's conversion/checklist.md, which lists its open Decisions,
-    is written again. Its Workflow's next step names each Decision still open.
+    named. An answer that matches no Decision at all, for a table with no Table reference, a
+    kind the cell doesn't take, such as "tag" for "tags", a column the table doesn't have or a
+    tag it doesn't hold, is refused, and nothing is written; the refusal names each, with the
+    nearest name. A converted table's conversion/checklist.md, which lists its open
+    Decisions, is written again. Its Workflow's next step names each Decision still open.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
     root = _project_root(call)
     _refuse_answers_not_by_table(call, answers)
+    _refuse_answers_matching_nothing(call, root, answers)
     lines, files = [], []
     for table, answer in answers.items():
         stem = table_stem(table)
         path = REFERENCE.path(root, stem)
-        if not path.is_file():
-            lines.append(f"{table}: no Table reference, {REFERENCE.shown(stem)}, to write "
-                         "into.")
-            continue
         answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
                                            REFERENCE.shown(stem))
         if answered.written:
@@ -3494,6 +3494,70 @@ def _refuse_answers_not_by_table(call: str, answers: object) -> None:
         '["job_id"]}}, a table\'s name, then its answers.',
         given=answers, call=call,
     )
+
+
+def _refuse_answers_matching_nothing(call: str, root: Path,
+                                     answers: dict[str, dict[str, object]]) -> None:
+    """Refuse, before anything is written, a decisions cell holding an answer that matches no
+    Decision of the Project's tables: a table with no Table reference, a kind of answer the
+    cell doesn't take, a column the table doesn't have, or a tag it doesn't hold; each named,
+    with the nearest name where there is one."""
+    problems = []
+    references = {path.stem: path for path in table_references(root)}
+    columns_of = _reference_types(root)
+    for table, answer in answers.items():
+        path = references.get(table_stem(table))
+        if path is None:
+            problems.append(f"{table}: no table of the Project has that name"
+                            f"{_nearest(table, list(columns_of))}")
+            continue
+        problems += _answer_matching_nothing(table, answer, path.read_text(encoding="utf-8"),
+                                             columns_of.get(table, {}))
+    if not problems:
+        return
+    refuse(
+        what=f"{call} wrote nothing: {counted(len(problems), 'answer')} of the decisions "
+        "cell " + singular_or_plural(len(problems), "matches", "match") + " no Decision:\n"
+        + "\n".join(f"  {problem}" for problem in problems),
+        why="An answer that matches nothing would sit in the decisions cell unused, while "
+        "the Decision it was meant for stays open.",
+        fix="Correct each in the decisions cell, DECISIONS, by the names project.check() "
+        "writes, then run this step again.",
+        error=ValueError,
+    )
+
+
+def _answer_matching_nothing(table: str, answer: dict[str, object], reference: str,
+                             columns: dict[str, str]) -> list[str]:
+    """What in one table's answer matches no Decision of it, `reference` being its Table
+    reference's text and `columns` its columns."""
+    problems = []
+    kinds = list(decisions.ANSWERS.values())
+    for name in answer:
+        if name not in kinds:
+            problems.append(f"{table}: {name!r} is no kind of answer; the decisions cell "
+                            f"answers {in_words(kinds)}{_nearest(name, kinds)}")
+    types = answer.get(decisions.ANSWERS[decisions.GUESSED_TYPE])
+    if isinstance(types, dict):
+        for column in types:
+            if column not in columns:
+                problems.append(f"{table}: types: {column} is no column of it"
+                                f"{_nearest(column, list(columns))}")
+    tags = answer.get(decisions.ANSWERS[decisions.TAG])
+    if isinstance(tags, dict):
+        held = decisions.tag_names(reference)
+        for name in tags:
+            if name not in held:
+                problems.append(f"{table}: tags: {name} is no Script tag of it"
+                                f"{_nearest(name, held)}")
+    return problems
+
+
+def _nearest(name: str, names: list[str]) -> str:
+    """", the nearest being X" for the name closest to `name` among `names`, or "" when none is
+    close."""
+    close = difflib.get_close_matches(name, names, n=1)
+    return f", the nearest being {close[0]}" if close else ""
 
 
 def checklists_written_again(root: Path) -> dict[str, str]:
