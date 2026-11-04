@@ -17398,8 +17398,9 @@ RENAME = {}
 # each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
 # &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
 STAGING = {}
-# another Partition for step 7 to compare, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}: None
-# compares the latest Partition both tables hold
+# a Partition for step 7 to compare besides the latest, such as {&quot;dt&quot;:
+# &quot;2026-09-23&quot;}, its value with no quotes of its own: None compares only the latest
+# Partition your dev table and its original both hold
 PARTITION = None</pre>
 <p>Its decisions cell, beside it, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as

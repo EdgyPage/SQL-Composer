@@ -42,3 +42,5 @@ Built 2026-11-04.
   first run, the runner compares it, which a journey holds. In the same commit, D416: the
   block and the "still <FILL IN>" note named "step 3", which in new_table is step 5; they now
   name what the step does, writing the answers in, and `project.write_decisions(DECISIONS)`.
+- **Beginner reader**, run after the export: [its report](../reports/04-06-beginner-reader.md),
+  every stop fixed in a follow-up commit before 8.3 was exported again.

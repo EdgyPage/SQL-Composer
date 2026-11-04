@@ -351,8 +351,8 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
             if is_left_to_fill_in(value):
                 unwritten.append(f"types: {column} {still_to_fill_in('its type')}")
             elif f"types: {column}" not in written:
-                unwritten.append(f"types: {column} is no type the Toolbox guessed in "
-                                 f"{reference}; to change it, edit its line there")
+                unwritten.append(f"types: {column}'s type wasn't a guess: {reference} "
+                                 "gives it already; to change it, edit its line there")
     return unwritten
 
 

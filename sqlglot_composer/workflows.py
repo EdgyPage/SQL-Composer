@@ -781,10 +781,9 @@ def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
                 f"{in_words(batch_tables_of(inputs))}"]
-    partition = inputs.get("PARTITION")
+    # As given, so compare_batch refuses a PARTITION it can't use, as the cell's call does.
     return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
-                                 partition=partition if isinstance(partition, dict) else None
-                                 ).lines
+                                 partition=inputs.get("PARTITION")).lines
 
 
 def preview_each(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -1026,9 +1025,14 @@ CONVERT = Workflow(
              "and writes each table's result in its `conversion/compare.md`. A partitioned "
              "table is compared on the latest Partition both tables hold, which its line in "
              "the report names, such as `on dt = '2026-09-24'`. If you want another "
-             "Partition compared too, then set `PARTITION` in the names cell, such as "
-             "`{\"dt\": \"2026-09-23\"}`, dt being the table's partition column, and run "
-             "this step again: each result is kept beside the ones before.",
+             "Partition compared too, one your dev table holds as well as its original, then "
+             "set `PARTITION` in the names cell, such as `{\"dt\": \"2026-09-23\"}`, its "
+             "value with no quotes of its own, run the names cell, and run this step's cell "
+             "again: each table partitioned by dt is compared on it, the others on their "
+             "latest, and each result is kept beside the ones before; a result that failed "
+             "is replaced when that Partition is compared again. Once the batch is finished, "
+             "this step's cell still compares another Partition, though the last cell sees "
+             "step 7 done.",
              done_when="every result in each table's `conversion/compare.md` says Passed, "
              "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
              "with a result that failed is one promote refuses"),
@@ -1047,8 +1051,9 @@ CONVERT = Workflow(
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept"),
-            Input("PARTITION", None, 'another Partition for step 7 to compare, such as '
-                  '{"dt": "2026-09-23"}: None compares the latest Partition both tables '
+            Input("PARTITION", None, 'a Partition for step 7 to compare besides the latest, '
+                  'such as {"dt": "2026-09-23"}, its value with no quotes of its own: None '
+                  "compares only the latest Partition your dev table and its original both "
                   "hold")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "

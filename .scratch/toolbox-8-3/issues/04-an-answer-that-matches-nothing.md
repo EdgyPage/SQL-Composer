@@ -55,3 +55,5 @@ Built 2026-11-04.
   written, which the map's "a table that isn't in the batch" narrows to "a table not in the
   Project"; the spec's "a column with no guessed type" is met as "a column the table doesn't
   have", for the reason above, a column it has staying a note.
+- **Beginner reader**, run after the export: [its report](../reports/04-06-beginner-reader.md),
+  every stop fixed in a follow-up commit before 8.3 was exported again.

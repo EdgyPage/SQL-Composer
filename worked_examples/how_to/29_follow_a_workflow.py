@@ -173,8 +173,9 @@ Its names cell, which you fill in and save first:
     # each staging table convert names, kept or folded, such as {"ops_reports.failed":
     # "keep"}: left out, a temporary or DROPped one is folded, any other kept
     STAGING = {}
-    # another Partition for step 7 to compare, such as {"dt": "2026-09-23"}: None
-    # compares the latest Partition both tables hold
+    # a Partition for step 7 to compare besides the latest, such as {"dt":
+    # "2026-09-23"}, its value with no quotes of its own: None compares only the latest
+    # Partition your dev table and its original both hold
     PARTITION = None
 
 Its decisions cell, beside it, where you answer each open Decision:

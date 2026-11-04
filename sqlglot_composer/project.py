@@ -3364,6 +3364,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
+    _refuse_a_partition_not_as_listed(call, partition)
     _refuse_a_partition_no_table_has(call, partition, read)
     lines = []
     for dev in chosen:
@@ -3437,11 +3438,15 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     check() prints it to paste, is no answer: nothing is written for it, and the report names
     it. Any other Decision made already,
     as yours is once you change its line, is kept, and an answer that differs from it is
-    named. An answer that matches no Decision at all, for a table with no Table reference, a
-    kind the cell doesn't take, such as "tag" for "tags", a column the table doesn't have or a
-    tag it doesn't hold, is refused, and nothing is written; the refusal names each, with the
-    nearest name. A converted table's conversion/checklist.md, which lists its open
-    Decisions, is written again. Its Workflow's next step names each Decision still open.
+    named; so is a type for a column the table has whose type the Toolbox didn't guess. A
+    converted table's conversion/checklist.md, which lists its open Decisions, is written
+    again. Its Workflow's next step names each Decision still open.
+
+    Nothing is written if any answer matches no Decision: a table with no Table reference, a
+    kind other than location, key, types and tags, a "types" or "tags" that isn't a dict, a
+    column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
+    one, and the name it may have meant, as in
+    "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
@@ -3552,13 +3557,13 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
     if not problems:
         return
     refuse(
-        what=f"{call} wrote nothing: {counted(len(problems), 'answer')} of the decisions "
-        "cell " + singular_or_plural(len(problems), "matches", "match") + " no Decision:\n"
+        what=f"{call} wrote nothing: {counted(len(problems), 'mistake')} in the decisions "
+        "cell, each an answer that matches no Decision:\n"
         + "\n".join(f"  {problem}" for problem in problems),
         why="An answer that matches nothing would sit in the decisions cell unused, while "
         "the Decision it was meant for stays open.",
-        fix="Correct each in the decisions cell, DECISIONS, by the names project.check() "
-        "writes, then run this step again.",
+        fix="Correct each in DECISIONS, by the name each line says it meant where it says "
+        "one, then run project.write_decisions(DECISIONS) again.",
         error=ValueError,
     )
 
@@ -3566,35 +3571,57 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
 def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,
                        columns: dict[str, str]) -> list[str]:
     """A line naming each part of one table's answer that matches no Decision of it,
-    `reference_text` being its Table reference's text and `columns` its columns. A "types" or
-    "tags" that isn't a dict, decisions.answered_text names."""
-    problems = []
-    kinds = list(decisions.ANSWERS.values())
-    for name in answer:
-        if name not in kinds:
-            problems.append(f"{table}: {name!r} is no kind of answer; the decisions cell "
-                            f"answers {in_words(kinds)}{_nearest(name, kinds)}")
+    `reference_text` being its Table reference's text and `columns` its columns: a kind the
+    cell doesn't take, a "types" or "tags" that isn't a dict, a column the table doesn't have,
+    or a tag its TAGS doesn't hold."""
     types = answer.get(decisions.ANSWERS[decisions.GUESSED_TYPE])
-    if isinstance(types, dict):
-        for column in types:
-            if column not in columns:
-                problems.append(f"{table}: types: {column} is no column of {table}"
-                                f"{_nearest(column, list(columns))}")
     tags = answer.get(decisions.ANSWERS[decisions.TAG])
+    problems = _unmatched_kinds(table, answer)
+    if isinstance(types, dict):
+        problems += [f"{table}: types: {column} is no column of {table}"
+                     f"{_nearest_or_all(column, list(columns), 'columns')}"
+                     for column in types if column not in columns]
     if isinstance(tags, dict):
-        held = decisions.tag_names(reference_text)
-        for name in tags:
-            if name not in held:
-                problems.append(f"{table}: tags: {name} is no Script tag of {table}"
-                                f"{_nearest(name, held)}")
+        problems += _unmatched_tags(table, list(tags), decisions.tag_names(reference_text))
     return problems
 
 
+def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
+    """A line naming each kind of answer the decisions cell doesn't take, and each "types" or
+    "tags" that isn't a dict, in one table's answer."""
+    kinds = list(decisions.ANSWERS.values())
+    problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
+                f"{in_words(kinds)}{_nearest(name, kinds)}"
+                for name in answer if name not in kinds]
+    for kind, example in (("types", '{"fails": "bigint"}'),
+                          ("tags", '{"PERIOD_END": "\'2026-10-31\'"}')):
+        if kind in answer and not isinstance(answer[kind], dict):
+            problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
+                            f"as {example}, not {answer[kind]!r}")
+    return problems
+
+
+def _unmatched_tags(table: str, named: list[str], held: list[str]) -> list[str]:
+    """A line naming each tag `named` that the table's TAGS, holding `held`, doesn't hold."""
+    if not held:
+        return [f"{table}: tags: {name}, but {table} holds no Script tag" for name in named]
+    return [f"{table}: tags: {name} is no Script tag of {table}"
+            f"{_nearest_or_all(name, held, 'Script tags')}"
+            for name in named if name not in held]
+
+
 def _nearest(name: str, names: list[str]) -> str:
-    """", the nearest being X" for the name closest to `name` among `names`, or "" when none is
-    close."""
-    close = difflib.get_close_matches(name, names, n=1)
-    return f", the nearest being {close[0]}" if close else ""
+    """"; did you mean X?" for the name closest to `name` among `names`, case set aside, as
+    Hive sets it aside; or "" when none is close."""
+    by_lower = {each.lower(): each for each in names}
+    close = difflib.get_close_matches(name.lower(), list(by_lower), n=1)
+    return f"; did you mean {by_lower[close[0]]}?" if close else ""
+
+
+def _nearest_or_all(name: str, names: list[str], what: str) -> str:
+    """_nearest's question, or, when no name is close, each name of `names`, which are the
+    table's `what`."""
+    return _nearest(name, names) or f"; its {what} are {in_words(names)}"
 
 
 def checklists_written_again(root: Path) -> dict[str, str]:
@@ -3669,6 +3696,38 @@ def _table_in(root: Path, name: str) -> Table:
     short = split_table_name(name)[1]
     return run_logic(root, f"from references.{table_stem(name)} import {short}",
                      "table_reference")[short]
+
+
+def _refuse_a_partition_not_as_listed(call: str, partition: object) -> None:
+    """Refuse a partition= that isn't None or a dict of each partition column's value, or whose
+    value is written in quotes of its own: SHOW PARTITIONS lists dt=2026-09-24, so no Partition
+    is dt='2026-09-24', and the compare would fail on a Partition that is there."""
+    example = '{"dt": "2026-09-23"}'
+    if partition is not None and not isinstance(partition, dict):
+        refuse(
+            what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
+            "value.",
+            why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
+            fix=f"Give it as {example}, in the convert notebook's PARTITION, or None to "
+            "compare the latest Partition both tables hold.",
+            given=partition, call=call,
+        )
+    quoted = [column for column, value in (partition or {}).items()
+              if isinstance(value, str) and _in_quotes_of_its_own(value)]
+    if quoted:
+        refuse(
+            what=f"{call}: partition= gives {in_words(quoted)} in quotes of its own, "
+            f"{partition!r}.",
+            why="A Partition's value is written as SHOW PARTITIONS lists it, dt=2026-09-23, "
+            "with no quotes: one in quotes matches no Partition, and the table would fail.",
+            fix=f"Give it with no quotes of its own, as {example}.",
+            error=ValueError,
+        )
+
+
+def _in_quotes_of_its_own(value: str) -> bool:
+    """Whether a value is written in single quotes of its own, as '2026-09-23' is."""
+    return len(value) > 1 and value.startswith("'") and value.endswith("'")
 
 
 def _refuse_a_partition_no_table_has(call: str, partition: object,
@@ -3851,7 +3910,8 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
         others = len(common) - 1
         described += (f"; {counted(others, 'other Partition')} both tables hold "
                       f"{singular_or_plural(others, 'was', 'were')} not compared: to compare "
-                      f'one, give compare_batch partition={{"{next(iter(latest))}": "..."}}')
+                      f'one, set PARTITION = {{"{next(iter(latest))}": "..."}} in the convert '
+                      "notebook's names cell, run it, and run step 7 again")
     return latest, described
 
 
