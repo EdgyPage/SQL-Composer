@@ -394,6 +394,82 @@ def test_convert_then_promote_the_long_script(started: Started) -> None:
     _promote(started, tables)
 
 
+# The user's snag (Toolbox 8.3): a script whose program fills in each Script tag,
+# <PARM="NAME"/>, before Hive reads it. A tag stands for a value in one table's statements
+# alone, and its NAME is any name that program gave it. Each statement is paired with the dev
+# table its tags are a Decision of: the staging table is folded into monthly_fails, so its
+# tag is monthly_fails'.
+TAGGED_STATEMENTS = (
+    (None, "SET hive.exec.dynamic.partition.mode=nonstrict;"),
+    (None, "CREATE TABLE IF NOT EXISTS mart.daily_close (job_id BIGINT, runs BIGINT)\n"
+           "PARTITIONED BY (dt STRING);"),
+    (None, "CREATE TABLE IF NOT EXISTS mart.monthly_fails (team STRING, fails BIGINT)\n"
+           "PARTITIONED BY (dt STRING);"),
+    ("mart_dev.monthly_fails_mart",
+     "CREATE TEMPORARY TABLE long_runs AS\n"
+     'SELECT r.job_id, r.dt FROM ops.job_runs r WHERE r.duration_mins >= <PARM="MinMins"/>;'),
+    # A bare tag, twice in one table.
+    ("mart_dev.daily_close_mart",
+     "INSERT OVERWRITE TABLE mart.daily_close PARTITION (dt)\n"
+     "SELECT r.job_id, COUNT(*) AS runs, r.dt FROM ops.job_runs r\n"
+     'WHERE r.dt >= <PARM="PERIOD_END"/> AND r.dt <= <PARM="PERIOD_END"/>\n'
+     "GROUP BY r.job_id, r.dt;"),
+    # A quoted tag, the same name standing for another date in another table.
+    ("mart_dev.monthly_fails_mart",
+     "INSERT OVERWRITE TABLE mart.monthly_fails PARTITION (dt)\n"
+     "SELECT o.team AS team, COUNT(*) AS fails, l.dt\n"
+     "FROM long_runs l JOIN ops.job_owners o ON l.job_id = o.job_id AND l.dt = o.dt\n"
+     """WHERE l.dt <= '<PARM="PERIOD_END"/>' AND o.team <> '<PARM="skip_team_2"/>'\n"""
+     "GROUP BY o.team, l.dt;"),
+    (None, "DROP TABLE IF EXISTS long_runs;"),
+)
+# What each tag stands for, by table, as the program the user copies from fills it in: a bare
+# tag's value brings its quotes, a quoted tag's doesn't.
+TAG_VALUES = {
+    "mart_dev.daily_close_mart": {"PERIOD_END": "'2026-09-23'"},
+    "mart_dev.monthly_fails_mart": {"PERIOD_END": "2026-09-24", "MinMins": "5",
+                                    "skip_team_2": "nobody"},
+}
+
+
+def _tagged_script() -> str:
+    return "\n".join(text for _, text in TAGGED_STATEMENTS) + "\n"
+
+
+def _filled_in_script() -> str:
+    """The script as the program the user copies from runs it, each tag filled in with what it
+    stands for in its table."""
+    filled = []
+    for table, text in TAGGED_STATEMENTS:
+        for name, value in TAG_VALUES.get(table, {}).items():
+            text = text.replace(f'<PARM="{name}"/>', value)
+        filled.append(text)
+    return "\n".join(filled) + "\n"
+
+
+@pytest.mark.xfail(strict=True, reason="8.3: a bare Script tag makes its statement an "
+                   "Unchecked statement, and no Decision asks for a tag's value; tickets 02 "
+                   "and 03 make this pass")
+def test_convert_a_script_with_script_tags(started: Started) -> None:
+    started.warehouse.execute(_filled_in_script())
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.run_to(1)
+    tables = project.batch_tables("weekly")
+    assert tables == list(TAG_VALUES)
+    for table in tables:
+        assert _notebook(started.root, table).is_file(), f"no Table folder for {table}"
+    journey.type_names(DECISIONS={table: {"location": _location(table), "tags": tags}
+                                  for table, tags in TAG_VALUES.items()})
+    journey.run_to()
+    _check_converted(started, tables, {"mart_dev.daily_close_mart": ["job_id", "dt"],
+                                       "mart_dev.monthly_fails_mart": ["team", "dt"]})
+    for table, original in zip(tables, ["mart.daily_close", "mart.monthly_fails"], strict=True):
+        assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
+                                                                      original)
+
+
 # --- new_table, then change_a_saved_table -----------------------------------------------------
 
 
