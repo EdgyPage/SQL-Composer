@@ -411,6 +411,39 @@ def test_convert_then_promote_one_script(started: Started) -> None:
     _promote(started, tables)
 
 
+def test_convert_compares_another_partition_set_in_partition(started: Started) -> None:
+    # Toolbox 8.3, ticket 06: another Partition is compared by setting PARTITION in the names
+    # cell and running step 7 again, with no cell of the user's own.
+    started.warehouse.execute(ONE_SCRIPT)
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.run_to(1)
+    _answer_each_decision(journey, project.batch_tables("weekly"))
+    journey.run_to()
+    compared = (started.root / "tables" / "mart_dev__team_fails_mart" / "conversion"
+                / "compare.md")
+    assert "dt = '2026-09-23'" not in compared.read_text(encoding="utf-8")
+    journey.type_names(PARTITION={"dt": "2026-09-23"})
+    journey.run_again(7)
+    text = compared.read_text(encoding="utf-8")
+    assert "dt = '2026-09-23'" in text
+    assert text.count("Passed: ") == 2
+
+
+def test_the_runner_compares_the_partition_set_in_partition(started: Started) -> None:
+    started.warehouse.execute(ONE_SCRIPT)
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    table = "mart_dev.team_fails_mart"
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       PARTITION={"dt": "2026-09-23"},
+                       DECISIONS={table: {"location": _location(table)}})
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
+    assert "dt = '2026-09-23'" in compared.read_text(encoding="utf-8")
+
+
 def test_convert_then_promote_one_script_through_the_runner(started: Started) -> None:
     tables = _convert_through_the_runner(started, ONE_SCRIPT,
                                          {"mart_dev.team_fails_mart": ["team", "dt"]})

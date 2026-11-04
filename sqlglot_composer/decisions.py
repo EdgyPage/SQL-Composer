@@ -285,7 +285,7 @@ def still_to_fill_in(what: str) -> str:
     """What a report says of an answer left <FILL IN>, as check() printed it: `what`, such as
     "its answer", is still to write."""
     return (f"is still {FILL_IN}: write {what} in the decisions cell in its place, then run "
-            "step 3 again")
+            "project.write_decisions(DECISIONS) again")
 
 
 def is_left_to_fill_in(value: object) -> bool:

@@ -173,6 +173,9 @@ Its names cell, which you fill in and save first:
     # each staging table convert names, kept or folded, such as {"ops_reports.failed":
     # "keep"}: left out, a temporary or DROPped one is folded, any other kept
     STAGING = {}
+    # another Partition for step 7 to compare, such as {"dt": "2026-09-23"}: None
+    # compares the latest Partition both tables hold
+    PARTITION = None
 
 Its decisions cell, beside it, where you answer each open Decision:
 
@@ -222,7 +225,7 @@ Its steps, in order:
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-    project.compare_batch(NAME, query=query)
+    project.compare_batch(NAME, query=query, partition=PARTITION)
 
 
 Its last cell runs every step left, in place of their cells:

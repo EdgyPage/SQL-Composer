@@ -1485,7 +1485,8 @@ def _paste_text(still_open: list[decisions.Decision], notebook: str) -> str:
     if not any(decision.kind in decisions.ANSWERS for decision in still_open):
         return ""
     return (f"\nPaste this over the DECISIONS = ... line of {notebook}'s decisions cell, or "
-            "over a DECISIONS you pasted before (each answer step 3 wrote already is kept), "
+            "over a DECISIONS you pasted before (each answer written into a Table reference "
+            "already is kept), "
             f"then fill in each {decisions.FILL_IN} and check each guessed type:\n\n"
             + "\n".join(decisions.paste_lines(still_open)) + "\n")
 
@@ -2022,8 +2023,9 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     each table in dev, seed each that reads itself, write each, and compare each with its
     original.
     Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb,
-    failed_runs's decisions cell, or over a DECISIONS you pasted before (each answer step 3
-    wrote already is kept), then fill in each <FILL IN> and check each guessed type:
+    failed_runs's decisions cell, or over a DECISIONS you pasted before (each answer written
+    into a Table reference already is kept), then fill in each <FILL IN> and check each guessed
+    type:
     <BLANKLINE>
     DECISIONS = {
         "mart_dev.failed_runs": {

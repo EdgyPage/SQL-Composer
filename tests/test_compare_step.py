@@ -240,7 +240,7 @@ def test_a_batch_cant_be_named_finished(started: Path) -> None:
 def test_the_workflows_compare_step_calls_compare_batch(started: Path) -> None:
     assert "failed: 2. Answer each table's open Decisions" in repr(project.check())
     step = toolbox_module("workflows").CONVERT.steps[-1]
-    assert step.call == "project.compare_batch(NAME, query=query)"
+    assert step.call == "project.compare_batch(NAME, query=query, partition=PARTITION)"
 
 
 def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_another(
@@ -248,8 +248,10 @@ def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_a
     # Toolbox 8.2, 23: H1 had to find partition= for itself.
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert "on the latest Partition both hold" in step.goal
-    assert "If you want another Partition compared too, then" in step.action
-    assert 'partition={"dt": "2026-09-23"}' in step.action
+    assert "If you want another Partition compared too, then set `PARTITION`" in step.action
+    # Toolbox 8.3, 06: set in the names cell, with no cell of your own.
+    assert '`{"dt": "2026-09-23"}`' in step.action
+    assert "in a new cell" not in step.action
 
 
 def test_the_seed_step_says_it_seeded_nothing_when_no_table_reads_itself(
