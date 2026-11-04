@@ -31,6 +31,7 @@ import re
 from dataclasses import dataclass, field
 
 from .shared import escaped_literal
+from .writing import tag_value_problem
 
 LOCATION = "location"
 KEY = "key"
@@ -213,14 +214,10 @@ def tag_hint(quoted: bool, where: str = "") -> str:
             'such as "5"')
 
 
-# A date written with no quotes, which Hive reads as a subtraction: 2026-10-31 is 1985.
-_BARE_DATE = re.compile(r"\d{4}-\d{1,2}-\d{1,2}")
-
-
 def tag_answer_problem(value: object, quoted: bool) -> str | None:
     """Why a tag's answer can't be written where the tag stood, or None when it can: it must
-    be Python text, not <FILL IN>; a bare tag's date needs its quotes, and a quoted tag's
-    answer has none."""
+    be Python text, not <FILL IN>; a bare tag's answer is one value of a kind a program puts
+    there (writing.tag_value_problem), and a quoted tag's answer has no quotes of its own."""
     if is_left_to_fill_in(value):
         return still_to_fill_in("its answer")
     if not isinstance(value, str):
@@ -229,13 +226,21 @@ def tag_answer_problem(value: object, quoted: bool) -> str | None:
                 "a subtraction to Python)")
     if not value.strip():
         return "is given empty text: give the Hive the program put where the tag stood"
-    if not quoted and _BARE_DATE.fullmatch(value.strip()):
-        return (f"stands bare, so a date needs its own quotes, or Hive reads it as a "
-                f"subtraction: answer \"'{value.strip()}'\"")
-    if quoted and len(value) > 1 and value.startswith("'") and value.endswith("'"):
+    if not quoted:
+        return _bare_answer_problem(value)
+    if len(value) > 1 and value.startswith("'") and value.endswith("'"):
         return (f"stands inside quotes already, so its answer has none: answer "
                 f"{escaped_literal(value[1:-1])}")
     return None
+
+
+def _bare_answer_problem(value: str) -> str | None:
+    """Why a bare tag's answer, text not empty, can't stand where the tag stood, or None when
+    it can, as writing.tag_value_problem says."""
+    problem = tag_value_problem(value)
+    if problem is None:
+        return None
+    return f"stands bare, so {problem}"
 
 
 def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> list[Decision]:

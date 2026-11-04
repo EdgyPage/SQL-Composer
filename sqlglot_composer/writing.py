@@ -860,6 +860,55 @@ def _parsed_statements(text: str) -> list[exp.Expression]:
     return [tree.copy() for tree in _READ[text]]
 
 
+# A date written with no quotes, which Hive reads as a subtraction: 2026-10-31 is 1985.
+_BARE_DATE = re.compile(r"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}")
+# The kinds of value a program puts where a bare Script tag stood: text or a date in quotes,
+# a number, TRUE, FALSE or NULL; a negative number and a Hive variable are checked apart.
+_TAG_VALUES = (exp.Literal, exp.Boolean, exp.Null)
+
+
+def tag_value_problem(text: str) -> str | None:
+    """Why a bare Script tag's answer can't stand where the tag stood, or None when it can: it
+    must be one value of a kind a program puts there, text or a date in quotes, a number,
+    TRUE, FALSE, NULL or a Hive variable such as ${hivevar:period_end}, with no comment, so
+    that Hive reads it alone whatever stands beside the tag."""
+    if _BARE_DATE.fullmatch(text.strip()):
+        return (f"a date needs its own quotes, or Hive reads it as a subtraction: answer "
+                f"\"'{text.strip()}'\"")
+    value = _one_selected_value(text)
+    if value is None or not _is_tag_value(value, text):
+        return ("the answer must be one value of a kind a program puts there: text or a date "
+                "in quotes, a number, TRUE, FALSE, NULL or a Hive variable such as "
+                "${hivevar:period_end}")
+    return None
+
+
+def _one_selected_value(text: str) -> exp.Expression | None:
+    """The one value SELECT followed by `text` reads as, or None when sqlglot can't read it,
+    or reads more than one value or anything after it."""
+    try:
+        read = _parsed_statements("SELECT " + text)
+    except sqlglot.errors.SqlglotError:
+        return None
+    select = read[0] if len(read) == 1 else None
+    if not isinstance(select, exp.Select) or len(select.expressions) != 1:
+        return None
+    if any(value for part, value in select.args.items() if part != "expressions"):
+        return None
+    return select.expressions[0]
+
+
+def _is_tag_value(value: exp.Expression, text: str) -> bool:
+    """Whether a value sqlglot read from `text` is one a bare Script tag may stand for."""
+    if any(node.comments for node in value.walk()):
+        return False
+    if isinstance(value, exp.Neg):
+        return isinstance(value.this, exp.Literal) and value.this.is_number
+    if isinstance(value, exp.Parameter):
+        return text.strip().startswith("${")
+    return isinstance(value, _TAG_VALUES)
+
+
 def filled_text(node: Node) -> str:
     """An Unchecked expression's text, each {name} filled with its column's Hive."""
     filled = {}
@@ -875,8 +924,9 @@ def _sqlglot_unchecked(node: Node) -> exp.Expression:
 
 
 def _sqlglot_script_tag(node: Node) -> exp.Expression:
-    """What a Script tag stands for, its text written as it is."""
-    return exp.Var(this=node.parts["text"])
+    """What a Script tag stands for, its text as sqlglot reads it, so that to_hive writes it
+    as it writes any value: current_date() as CURRENT_DATE."""
+    return _parsed_statements("SELECT " + node.parts["text"])[0].expressions[0]
 
 
 def _sqlglot_unchecked_select(node: Node) -> exp.Expression:
