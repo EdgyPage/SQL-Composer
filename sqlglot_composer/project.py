@@ -78,6 +78,7 @@ from __future__ import annotations
 
 import ast
 import csv
+import dataclasses
 import datetime
 import hashlib
 import importlib
@@ -126,6 +127,7 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
+from .script_tags import tags_in
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
@@ -2403,11 +2405,12 @@ def _batch_statements(call: str, scripts: list[tuple[str, str]], database: str,
     except converting.ConversionRefused as why:
         refuse(
             what=f"{call} can't convert the batch: {why}.",
-            why='A Script tag, <PARM="NAME"/>, is a value the program that ran the scripts '
-            "filled in, which a Conversion leaves for you to answer in the decisions cell: "
-            "it can only stand where a value goes.",
-            fix="Change that line of the script so the tag stands where a value goes, or "
-            "write the value the program put there in its place, then run it again.",
+            why="A Script tag is a value the program that ran the scripts filled in, which a "
+            "Conversion leaves in TAGS for you to give; a table's name, a column's name or a "
+            "whole condition it can't leave there.",
+            fix='Edit that line of the script: write a tag as <PARM="NAME"/>, NAME in double '
+            "quotes, or, where a tag stands for a name or a condition, write in its place "
+            "what the program put there; then run it again.",
             error=ValueError,
         )
 
@@ -2586,7 +2589,8 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
-                           _guessed(columns), proposed=proposed, tags=hive_read.tags)
+                           _guessed(columns), proposed=proposed,
+                           tag_is_quoted=hive_read.tag_is_quoted)
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2615,8 +2619,31 @@ def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
     findings, a query's write said as one, and each opt-out it added."""
     first = pieces[0]
     written = _settings_before(first, ordered) + "".join(f"{each.text};\n" for each in pieces)
-    return _scan_lines(text, hive_read, written, first.kind == converting.QUERY) + [
+    # A tag is noted at its script's line, which the Hive the scan reads, folded, doesn't keep.
+    findings = [each for each in hive_read.findings if each.kind != "tag"]
+    without_tags = dataclasses.replace(hive_read, findings=findings)
+    lines = _scan_lines(text, without_tags, written, first.kind == converting.QUERY)
+    tags = _tags_at_their_lines(pieces)
+    if tags and "Found:" not in lines:
+        lines.append("Found:")
+    return lines + tags + [
         f"Opt-out added, marked # CONVERSION: at its line: {opt_out}" for opt_out in opt_outs]
+
+
+def _tags_at_their_lines(pieces: list[converting.BatchStatement]) -> list[str]:
+    """A scan's line for each Script tag in a batch table's statements and in each staging
+    table's folded into them, naming its script and its line there."""
+    statements = list(pieces)
+    for each in pieces:
+        statements += each.folded
+    lines = []
+    for read in statements:
+        for tag in tags_in(read.text):
+            how = "inside quotes" if tag.quoted else "bare"
+            lines.append(f"  {read.script}, line {read.line + tag.line - 1}: "
+                         f'<PARM="{tag.name}"/>, a Script tag, {how}. '
+                         f"{converting.TAG_FINDING}")
+    return lines
 
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
@@ -2716,7 +2743,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            partitions: list[str], storage: dict[str, str],
                            guessed: tuple[str, ...],
                            proposed: tuple[list[str], ...] = (),
-                           tags: dict[str, bool] | None = None) -> None:
+                           tag_is_quoted: dict[str, bool] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
     as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
     its Aliases; then the Database modules, which the next table's logic imports it
@@ -2724,9 +2751,10 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
-    if tags:
+    if tag_is_quoted:
         at = text.index(ALIASES_HEADING)
-        text = text[:at] + "\n".join(converting.tags_block(tags)) + "\n\n" + text[at:]
+        text = (text[:at] + "\n".join(converting.tags_block(tag_is_quoted)) + "\n\n"
+                + text[at:])
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
 

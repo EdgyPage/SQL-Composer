@@ -1423,7 +1423,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 110 names listed here before the admin module.
+- The star import brings the 111 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

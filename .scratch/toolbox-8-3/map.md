@@ -137,12 +137,13 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Decisions so far
 
-(none yet)
+- [02 Reading past a Script tag](issues/02-reading-past-a-script-tag.md): a bare tag is read as
+  a name in backticks; its place in the logic is `script_tag(TAGS["NAME"])`, a new public
+  name, and a quoted one's `TAGS["NAME"]` spliced into its string; TAGS lives in the Table
+  reference; one name both bare and quoted in one table is refused.
 
 ## Not yet specified
 
-- How a bare tag's stand-in reads, and so what Toolbox code the tag's place becomes in the
-  logic (02).
 - Where a `${hivevar:...}` answer's value is sent from: no SET line of the original holds it,
   so today the user sends one with `hive_settings(...)`, a hand step 03 removes if it can.
 - Whether the usability loop gains a convert scenario with Script tags: the user's call, asked
