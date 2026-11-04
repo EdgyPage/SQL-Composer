@@ -164,10 +164,14 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
     ({"ops.job_runs": {"types": "bigint"}},
      "ops.job_runs: types: give a dict of each answer by its name, such as "
      "{\"fails\": \"bigint\"}, not 'bigint'"),
+    ({"ops.job_runs": {"tags": "'2026-10-31'"}},
+     "ops.job_runs: tags: give a dict of each answer by its name, such as "
+     "{\"PERIOD_END\": \"'2026-10-31'\"}, not \"'2026-10-31'\""),
     ({"ops.job_runs": {"tags": {"PERIOD_ED": "1"}}},
-     "ops.job_runs: tags: PERIOD_ED, but ops.job_runs holds no Script tag"),
+     "ops.job_runs: tags: PERIOD_ED: ops.job_runs holds no Script tag, so none can be "
+     "answered"),
 ], ids=["table", "table in upper case", "kind", "tag for tags", "column", "column far off",
-        "types not a dict", "tag of a table with none"])
+        "types not a dict", "tags not a dict", "tag of a table with none"])
 def test_an_answer_that_matches_nothing_is_refused_writing_nothing(
         started: Path, answers: dict, said: str) -> None:
     reference = started / "references" / "ops__job_runs.py"
@@ -262,10 +266,10 @@ def test_a_tag_answer_in_a_form_that_cant_stand_there_is_named(tags: dict, said:
     assert [kind for kind, _ in kinds(answered.text)].count("tag") == 2
 
 
-def test_tags_that_arent_a_dict_are_named() -> None:
+def test_tags_that_arent_a_dict_write_nothing_here_as_write_decisions_refuses_them() -> None:
     answered = decisions.answered_text(TAGGED, {"tags": "'2026-10-31'"}, "r.py")
-    assert answered.unwritten == ["tags: give a dict of each tag's answer by its NAME, such as "
-                                  "{\"PERIOD_END\": \"'2026-10-31'\"}, not \"'2026-10-31'\""]
+    assert answered.written == []
+    assert answered.text == TAGGED
 
 
 def test_a_tag_is_answered_by_its_name_under_tags() -> None:

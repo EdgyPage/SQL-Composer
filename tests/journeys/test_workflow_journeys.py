@@ -444,6 +444,20 @@ def test_the_runner_compares_the_partition_set_in_partition(started: Started) ->
     assert "dt = '2026-09-23'" in compared.read_text(encoding="utf-8")
 
 
+def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
+    started.warehouse.execute(ONE_SCRIPT)
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    table = "mart_dev.team_fails_mart"
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
+                       PARTITION={"dt": "'2026-09-23'"},
+                       DECISIONS={table: {"location": _location(table)}})
+    said = journey.run_workflow()
+    # The runner stops at step 7 on its refusal, as the cell's call does.
+    assert "7. Compare each table with its original\n    Stopped by what this says" in said
+    assert "partition= gives dt in quotes of its own" in said
+
+
 def test_convert_then_promote_one_script_through_the_runner(started: Started) -> None:
     tables = _convert_through_the_runner(started, ONE_SCRIPT,
                                          {"mart_dev.team_fails_mart": ["team", "dt"]})

@@ -64,8 +64,9 @@ the notebook.
   nothing for it and names it.
 - **The convert notebook's names cell gains `PARTITION = None`**, which step 7 passes on,
   `project.compare_batch(NAME, query=query, partition=PARTITION)`: to compare another Partition,
-  set it, such as `{"dt": "2026-09-23"}`, and run step 7 again; before 8.3 you typed that call
-  in a new cell. The runner passes it too.
+  set it, such as `{"dt": "2026-09-23"}`, its value with no quotes of its own, and run step 7
+  again; before 8.3 you typed that call in a new cell. The runner passes it too. A value in
+  quotes of its own, or a PARTITION that isn't a dict, is refused, naming the fix.
 
 ## 8.2
 

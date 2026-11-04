@@ -135,8 +135,9 @@ def test_the_partition_you_give_is_the_one_compared(started: Path) -> None:
 
 @pytest.mark.parametrize("given, said", [
     ({"dt": "'2026-09-23'"}, "partition= gives dt in quotes of its own"),
+    ({"dt": '"2026-09-23"'}, "partition= gives dt in quotes of its own"),
     ("2026-09-23", "partition= is '2026-09-23', not a dict of each partition column's value"),
-], ids=["quoted", "not a dict"])
+], ids=["quoted", "double quoted", "not a dict"])
 def test_a_partition_not_as_show_partitions_lists_it_is_refused(
         started: Path, given: object, said: str) -> None:
     # Toolbox 8.3: step 2 teaches a bare tag's own quotes; a Partition's value takes none.

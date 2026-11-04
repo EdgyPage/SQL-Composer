@@ -1030,9 +1030,9 @@ CONVERT = Workflow(
              "value with no quotes of its own, run the names cell, and run this step's cell "
              "again: each table partitioned by dt is compared on it, the others on their "
              "latest, and each result is kept beside the ones before; a result that failed "
-             "is replaced when that Partition is compared again. Once the batch is finished, "
-             "this step's cell still compares another Partition, though the last cell sees "
-             "step 7 done.",
+             "is replaced when that Partition is compared again. If the batch is finished "
+             "already, then compare another Partition by running this step's cell: the last "
+             "cell sees step 7 done, and compares nothing more.",
              done_when="every result in each table's `conversion/compare.md` says Passed, "
              "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
              "with a result that failed is one promote refuses"),

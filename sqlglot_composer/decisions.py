@@ -357,15 +357,12 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
 
 
 def _tags_unwritten(answer: dict[str, object], text: str) -> list[str]:
-    """A line naming each tag answer left unwritten, and why: "tags" not a dict, or an answer
-    in a form that can't stand where its tag stood, its line in the Table reference's text,
-    `text`."""
+    """A line naming each tag answer left unwritten, and why: an answer in a form that can't
+    stand where its tag stood, its line in the Table reference's text, `text`. A "tags" that
+    isn't a dict, project.write_decisions refuses first."""
     tags = answer.get(ANSWERS[TAG])
-    if ANSWERS[TAG] not in answer:
-        return []
     if not isinstance(tags, dict):
-        return [f"tags: give a dict of each tag's answer by its NAME, such as "
-                f"{{\"PERIOD_END\": \"'2026-10-31'\"}}, not {tags!r}"]
+        return []
     tag_lines = {_tag_name_of(line): line for line in text.split("\n")
                  if kind_of(line) == TAG}
     unwritten = []
