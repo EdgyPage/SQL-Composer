@@ -1,7 +1,7 @@
 # The tag Decision: answered, written in, answered again
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: 02
 Size: L
 
