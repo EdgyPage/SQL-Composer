@@ -109,8 +109,8 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 
 **Decision**:
 One thing about one table that only the user decides, which the table's files show made or
-not: its location, its Key, a column type the Toolbox could only guess, or a `<...>` left to
-fill in. The user answers each in a Workflow's decisions cell, and a step writes each answer
+not: its location, its Key, a column type the Toolbox could only guess, the value a Script
+tag stands for, or a `<...>` left to fill in. The user answers each in a Workflow's decisions cell, and a step writes each answer
 into the table's Table reference. A `<...>` is filled in by hand. A new Saved table's
 `<COLUMNS>` is the one a step writes, from its logic. A Workflow's step that waits on Decisions
 is done once each is made. A Decision is never ticked by hand: the files say whether it is made.
@@ -153,6 +153,14 @@ A batch's index, in the convert Workflow's folder: its scripts as given, their o
 each statement became and the tables that came from them. What belongs to one table, the
 statements it came from, the scan and its checklist, is in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder
+
+**Script tag**:
+A `<PARM="NAME"/>` in Hive someone else wrote, NAME being whatever variable name that program
+used, such as `<PARM="PERIOD_END"/>`, which it filled in before Hive read it. It stands for something in one table's
+statements only: the same tag may stand for a different value in another table. A Conversion
+reads past each, where a value goes, and leaves it as a Decision of the table it ends up in;
+the Hive text the user answers stands in its place, and answering again changes it.
+_Avoid_: parameter, PARM, variable, placeholder
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
