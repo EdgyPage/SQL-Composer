@@ -17,6 +17,7 @@ import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import (
+    AS,
     FROM,
     SELECT,
     WHERE,
@@ -335,14 +336,41 @@ def test_script_tag_holds_a_partition_column_to_a_value() -> None:
     assert "dt <= '2026-09-23'" in to_hive(rows)
 
 
-@pytest.mark.parametrize("text, why", [
-    ("r.dt", "it names a column"),
-    ("1, 2", "it isn't one value"),
-    ("(SELECT 1)", "it isn't one value"),
+@pytest.mark.parametrize("text", [
+    "r.dt", "1, 2", "(SELECT 1)", "5-3", "1 = 1", "'a' LIKE 'b'", "NOT TRUE",
+    "5 BETWEEN 1 AND 9", "2026/09/24", "current_date()", "COUNT(1)", "*", "?", "@x",
+    "'2026-09-24' -- the day", "{'a': 1}",
 ])
-def test_script_tag_refuses_what_isnt_one_value(text: str, why: str) -> None:
-    with pytest.raises(ValueError, match=why):
+def test_script_tag_refuses_what_isnt_one_value_a_program_puts_there(text: str) -> None:
+    with pytest.raises(ValueError, match="the answer must be one value of a kind a program "
+                       "puts there"):
         script_tag(text)
+
+
+def test_script_tag_refuses_a_date_with_no_quotes_of_its_own() -> None:
+    with pytest.raises(ValueError, match="a date needs its own quotes, or Hive reads it as a "
+                       "subtraction") as refused:
+        script_tag("2026-09-24")
+    assert "answer \"'2026-09-24'\"" in str(refused.value)
+
+
+@pytest.mark.parametrize("text, written", [
+    ("'2026-09-24'", "'2026-09-24'"),
+    (" 5 ", "5"),
+    ("-5", "-5"),
+    ("5.5", "5.5"),
+    ("true", "TRUE"),
+    ("NULL", "NULL"),
+    ("'${hivevar:period_end}'", "'${hivevar:period_end}'"),
+])
+def test_script_tag_writes_a_value_as_to_hive_writes_it(text: str, written: str) -> None:
+    runs = example_database.job_runs
+    in_where = statement(SELECT(runs.run_id), FROM(runs),
+                         WHERE(at_most(runs.dt, script_tag(text))))
+    assert f"job_runs.dt <= {written}" in to_hive(in_where)
+    in_select = statement(SELECT(AS(script_tag(text), "picked")), FROM(runs),
+                          WHERE(at_most(runs.dt, "2026-09-24")))
+    assert f"{written} AS picked" in to_hive(in_select)
 
 
 def test_script_tag_refuses_what_isnt_text() -> None:
@@ -362,6 +390,16 @@ def test_a_hive_variable_no_set_line_sets_is_named_when_written(started: Path) -
     assert "Wrote 1 answer into references/mart_dev__daily_close_mart.py." in said
     assert ("tags: PERIOD_END is '${hivevar:period_end}': written, but no SET line of its "
             "scripts sets hivevar:period_end") in said
+
+
+def test_step_3_leaves_a_bare_tags_answer_an_operator_joins_unwritten(started: Path) -> None:
+    (started / "close.hql").write_text(BARE + "\n", encoding="utf-8")
+    project.convert("closing", files=["close.hql"], query=example_database.query,
+                    database="ops")
+    said = repr(project.write_decisions(
+        {"mart_dev.daily_close_mart": {"tags": {"PERIOD_END": "5-3"}}}))
+    assert ("tags: PERIOD_END stands bare, so the answer must be one value of a kind a program "
+            "puts there") in said
 
 
 def test_a_tag_answered_is_what_the_logic_writes_where_the_tag_stood(started: Path) -> None:

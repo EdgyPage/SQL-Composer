@@ -38,9 +38,13 @@ the notebook.
   the statement holding it becomes a Saved table like any other, where before a bare tag left
   it an Unchecked statement. Its Table reference holds TAGS, what each tag stands for, and
   its logic reads it there: a bare tag becomes `script_tag(TAGS["PERIOD_END"])`, `script_tag`
-  being new, and a tag inside quotes becomes `TAGS["PERIOD_END"]`. A tag of another shape, one
-  where a table's name, a column's name or a whole condition goes, or one name both bare and
-  inside quotes in one table, stops the Conversion, naming its line.
+  being new, and a tag inside quotes becomes `TAGS["PERIOD_END"]`. `script_tag`, and step 3
+  of the convert notebook, refuse a bare tag's answer that isn't one value of a kind a
+  program puts there, text or a date in quotes, a number, TRUE, FALSE, NULL or a Hive
+  variable: a date with no quotes, `2026-09-24`, Hive reads as a subtraction, and a sum such
+  as `5 - 3` it would read with what stands beside the tag. A tag of another
+  shape, one where a table's name, a column's name or a whole condition goes, or one name both
+  bare and inside quotes in one table, stops the Conversion, naming its line.
 - **A Script tag is a Decision, answered in the convert notebook's decisions cell** under
   `"tags"`, by the table's dev name: `{"mart_dev.daily_close": {"tags": {"PERIOD_END":
   "'2026-10-31'"}}}`, a bare tag's answer with its quotes, a quoted one's with none. Step 3,

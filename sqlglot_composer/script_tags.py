@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from .refusals import refuse
 from .tables import Column, python_text
 from .trees import Node
-from .writing import read_unchecked_expression
+from .writing import tag_value_problem
 
 # A Script tag, its NAME any text but a quote, a backtick or a line break.
 TAG = re.compile(r'<PARM="([^"`\n]+)"/>')
@@ -192,8 +192,11 @@ def script_tag(text: str) -> Column:
     Until then TAGS holds the tag itself, and the table isn't created: script_tag would write
     a bare one in backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run.
 
-    It is a value, never a condition or a column of a table: text that names a column, holds
-    more than one expression or reads a table of its own is refused. The Toolbox doesn't check
+    It is one value of a kind a program puts in a tag's place: text or a date in quotes, a
+    number, TRUE, FALSE, NULL or a Hive variable such as ${hivevar:period_end}. Anything else
+    is refused: a column, a condition, a sum such as 5 - 3, a function's call or a comment,
+    which Hive would read with what stands beside the tag, and a date with no quotes,
+    2026-09-24, which Hive reads as a subtraction. The Toolbox doesn't check
     the text inside it, but at_most(runs.dt, script_tag(...)) still filters dt, a partition
     column, as at_most(runs.dt, "2026-09-24") does.
     """
@@ -215,19 +218,17 @@ def script_tag(text: str) -> Column:
 
 
 def _check_tag_value(call: str, text: str) -> None:
-    """Refuse a Script tag's answer that isn't one value sqlglot reads as Hive."""
-    facts = read_unchecked_expression(text, [])
-    problem = facts.unreadable
-    if problem is None and (facts.count != 1 or facts.named or facts.reads_a_table):
-        problem = "it isn't one value"
-    if problem is None and facts.columns:
-        problem = f"it isn't one value: it names a column, {facts.columns[0]}"
+    """Refuse a Script tag's answer that can't stand where the tag stood, for the reason
+    writing.tag_value_problem gives."""
+    problem = tag_value_problem(text)
     if problem is not None:
         refuse(
-            what=f"{call}: {problem}.",
-            why="A Script tag stands for one value, such as a date or a number, written where "
-            "the tag stood.",
-            fix="Give TAGS the Hive the program put there, such as '2026-09-24' with its "
-            "quotes, 5, or ${hivevar:period_end}.",
+            what=f"{call} was refused: {problem}.",
+            why="A Script tag stands for one value, written where the tag stood: Hive reads "
+            "anything more with what stands beside the tag, and a date with no quotes as a "
+            "subtraction.",
+            fix="Give TAGS, or the convert notebook's decisions cell, the one value the "
+            "program put there, such as '2026-09-24' with its quotes, 5, or "
+            "'${hivevar:period_end}'.",
             error=ValueError,
         )
