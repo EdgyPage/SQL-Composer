@@ -939,7 +939,8 @@ CONVERT = Workflow(
     steps=(
         Step("Convert the scripts: each table they write a Saved table in dev", PERMISSION,
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
-             ("a dev Table folder per table the scripts write", "a Table reference per table"),
+             ("a dev Table folder per table the scripts write",
+              "a Table reference per table, each Script tag in its TAGS"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,\n"
              "                rename=RENAME, staging=STAGING)",
              every_batch_converted, send=convert_the_batch,
@@ -950,12 +951,19 @@ CONVERT = Workflow(
              done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
              "with its batch.md, which convert writes last"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
-             ("a Table reference per table",), ("each answer in the decisions cell",),
+             ("a Table reference per table, each Script tag in its TAGS",),
+             ("each answer in the decisions cell",),
              done=every_dev_decision_answered, decides=DEV_DECISIONS,
-             goal="an answer to each open Decision of the batch's tables",
+             goal="an answer to each open Decision of the batch's tables, each Script tag's "
+             "value among them",
              action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
              "as `project.check()` writes it, then save the notebook. Each table's "
-             "`conversion/checklist.md`, in its Table folder, lists its open Decisions.",
+             "`conversion/checklist.md`, in its Table folder, lists its open Decisions. A "
+             'Script tag, `<PARM="NAME"/>` in the scripts, is answered under `"tags"` as the '
+             "Hive the program put there: a bare tag with its quotes and all, as in "
+             """`{"tags": {"PERIOD_END": "'2026-10-31'"}}`, and one inside quotes with none, """
+             """as in `{"tags": {"team_2": "nobody"}}`. To change one, answer it again and """
+             "run steps 3, 6 and 7 again.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,

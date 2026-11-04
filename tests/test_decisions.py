@@ -114,7 +114,7 @@ def test_an_answer_that_answers_no_decision_is_named() -> None:
                                        "references/mart_dev__x.py")
     assert answered.unwritten == [
         "owner: not a Decision a Table reference asks; the decisions cell answers location, "
-        "key and types",
+        "key, types and tags",
         "types: fails is no type the Toolbox guessed in references/mart_dev__x.py; to change "
         "it, edit its line there"]
 
@@ -155,3 +155,60 @@ def test_a_table_with_no_table_reference_is_named(started: Path) -> None:
 def test_a_decisions_cell_not_by_table_is_refused(started: Path) -> None:
     with pytest.raises(TypeError, match="which isn't an answer per table"):
         project.write_decisions({"ops.job_runs": ["run_id"]})
+
+
+# --- Script tags (Toolbox 8.3, ticket 03) ----------------------------------------------------
+
+TAGGED = REFERENCE.replace("# --- Aliases", '''# What each Script tag stands for, as Hive.
+TAGS = {
+    "PERIOD_END": "<PARM=\\"PERIOD_END\\"/>",  # bare, at daily.hql, line 4: its value
+    "team_2": "<PARM=\\"team_2\\"/>",  # inside quotes: its value with no quotes
+}
+
+# --- Aliases''')
+
+
+def test_a_tag_holding_itself_is_an_open_decision_naming_where_it_stands() -> None:
+    tags = [each for each in decisions.open_decisions(TAGGED, "mart_dev.x")
+            if each.kind == decisions.TAG]
+    assert [(each.subject, each.where) for each in tags] == [
+        ("PERIOD_END", "daily.hql, line 4"), ("team_2", "")]
+    assert tags[0].question() == ('tags: PERIOD_END, the value <PARM="PERIOD_END"/> stands '
+                                  "for, at daily.hql, line 4")
+
+
+def test_a_tag_answered_is_written_into_its_line_its_comment_kept() -> None:
+    answered = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": "'2026-10-31'"}},
+                                       "references/mart_dev__x.py")
+    assert ('    "PERIOD_END": "\'2026-10-31\'",  # bare, at daily.hql, line 4: its value'
+            in answered.text)
+    assert answered.written == ["tags: PERIOD_END"]
+    assert ("tag", "PERIOD_END") not in kinds(answered.text)
+    assert ("tag", "team_2") in kinds(answered.text)
+
+
+def test_a_tag_answered_again_is_written_over_the_old_value() -> None:
+    first = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": "'2026-10-31'"}}, "r.py")
+    again = decisions.answered_text(first.text, {"tags": {"PERIOD_END": "'2026-09-30'"}},
+                                    "r.py")
+    assert "'2026-09-30'" in again.text
+    assert "'2026-10-31'" not in again.text
+    assert again.written == ["tags: PERIOD_END"]
+
+
+def test_a_tag_answer_that_isnt_hive_text_or_no_tag_is_named() -> None:
+    answered = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": 5, "OTHER": "1"}},
+                                       "r.py")
+    assert answered.written == []
+    assert answered.unwritten == [
+        'tags: PERIOD_END is given 5, not Hive text: give it as a string, such as '
+        "\"'2026-10-31'\" or \"5\"",
+        "tags: OTHER is no Script tag of r.py"]
+
+
+def test_a_tag_is_answered_by_its_name_under_tags() -> None:
+    (tag,) = [each for each in decisions.open_decisions(TAGGED, "mart_dev.x")
+              if each.subject == "team_2"]
+    assert decisions.is_answered(tag, {"tags": {"team_2": "nobody"}})
+    assert not decisions.is_answered(tag, {"tags": {"PERIOD_END": "x"}})
+    assert not decisions.is_answered(tag, {"types": {"team_2": "x"}})

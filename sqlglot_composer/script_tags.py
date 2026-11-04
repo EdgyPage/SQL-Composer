@@ -9,7 +9,7 @@ quotes, as in '<PARM="PERIOD_END"/>', is part of a string, which sqlglot reads a
 
 In a converted table's logic, a bare tag's place is script_tag(TAGS["PERIOD_END"]), and a quoted
 one's is TAGS["PERIOD_END"] itself, a string. TAGS, in the table's Table reference, holds what
-each tag stands for, which you write there.
+each tag stands for, a Decision answered in the decisions cell.
 """
 
 from __future__ import annotations
@@ -185,9 +185,11 @@ def script_tag(text: str) -> Column:
     tag stands for: the Hive the program put there, such as '2026-09-24' with its quotes, 5,
     or ${hivevar:period_end}, a Hive variable your warehouse fills in when the query runs.
 
-    Until you write a tag's value in TAGS, TAGS holds the tag itself. script_tag writes a bare
-    one in backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run. A tag inside quotes
-    stays in its string, which runs but matches nothing.
+    You answer each tag in the convert notebook's decisions cell, under "tags", as in
+    DECISIONS = {"mart_dev.daily_close": {"tags": {"PERIOD_END": "'2026-09-24'"}}}, and its
+    next step writes the answer into TAGS; answering again changes it. Until then TAGS holds
+    the tag itself, and the table isn't created: script_tag would write a bare one in
+    backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run.
 
     It is a value, never a condition or a column of a table: text that names a column, holds
     more than one expression or reads a table of its own is refused. The Toolbox doesn't check

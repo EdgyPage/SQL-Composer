@@ -127,7 +127,7 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
-from .script_tags import tags_in
+from .script_tags import FoundTag, tags_in
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
@@ -2590,7 +2590,8 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
                            _guessed(columns), proposed=proposed,
-                           tag_is_quoted=hive_read.tag_is_quoted)
+                           tag_is_quoted=hive_read.tag_is_quoted,
+                           tag_places=_first_place_of_each_tag(pieces))
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2630,20 +2631,36 @@ def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
         f"Opt-out added, marked # CONVERSION: at its line: {opt_out}" for opt_out in opt_outs]
 
 
-def _tags_at_their_lines(pieces: list[converting.BatchStatement]) -> list[str]:
-    """A scan's line for each Script tag in a batch table's statements and in each staging
-    table's folded into them, naming its script and its line there."""
+def _tag_places(pieces: list[converting.BatchStatement]) -> list[tuple[str, FoundTag]]:
+    """Each Script tag in a batch table's statements and in each staging table's folded into
+    them, with its place in the scripts, such as "daily.hql, line 4"."""
     statements = list(pieces)
     for each in pieces:
         statements += each.folded
-    lines = []
+    places = []
     for read in statements:
         for tag in tags_in(read.text):
-            how = "inside quotes" if tag.quoted else "bare"
-            lines.append(f"  {read.script}, line {read.line + tag.line - 1}: "
-                         f'<PARM="{tag.name}"/>, a Script tag, {how}. '
-                         f"{converting.TAG_FINDING}")
+            places.append((f"{read.script}, line {read.line + tag.line - 1}", tag))
+    return places
+
+
+def _tags_at_their_lines(pieces: list[converting.BatchStatement]) -> list[str]:
+    """A scan's line for each Script tag of a batch table, naming its script and its line
+    there."""
+    lines = []
+    for place, tag in _tag_places(pieces):
+        how = "inside quotes" if tag.quoted else "bare"
+        lines.append(f'  {place}: <PARM="{tag.name}"/>, a Script tag, {how}. '
+                     f"{converting.TAG_FINDING}")
     return lines
+
+
+def _first_place_of_each_tag(pieces: list[converting.BatchStatement]) -> dict[str, str]:
+    """Where each Script tag of a batch table first stands in the scripts, by its NAME."""
+    first: dict[str, str] = {}
+    for place, tag in _tag_places(pieces):
+        first.setdefault(tag.name, place)
+    return first
 
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
@@ -2743,7 +2760,8 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            partitions: list[str], storage: dict[str, str],
                            guessed: tuple[str, ...],
                            proposed: tuple[list[str], ...] = (),
-                           tag_is_quoted: dict[str, bool] | None = None) -> None:
+                           tag_is_quoted: dict[str, bool] | None = None,
+                           tag_places: dict[str, str] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
     as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
     its Aliases; then the Database modules, which the next table's logic imports it
@@ -2753,8 +2771,8 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                                 guessed=guessed, proposed=proposed, **storage)
     if tag_is_quoted:
         at = text.index(ALIASES_HEADING)
-        text = (text[:at] + "\n".join(converting.tags_block(tag_is_quoted)) + "\n\n"
-                + text[at:])
+        block = converting.tags_block(tag_is_quoted, tag_places)
+        text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
 
@@ -3373,18 +3391,22 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     Each Decision of ops.job_runs is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
-    holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the columns
-    whose values name one row, or None when none do; and each column a Conversion wrote
-    "string" because nothing told it the type. A TODO: on any other line, such as the
-    docstring's first line or does_not_add_up=, is no Decision: it waits on nothing, as the
-    two above do. `answers` is the decisions cell, DECISIONS, of
-    a Workflow's notebook: by table, a dict holding "location", "key" or "types", such as
-    {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-    "types": {"fails": "bigint"}}}. Each answer is written into the open line it answers. A
-    Decision made already, as yours is once you change its line, is kept, and an answer that
-    differs from it is named; so is an answer for a table with no Table reference, or one
-    that answers no Decision. A converted table's conversion/checklist.md, which lists its open
-    Decisions, is written again. Its Workflow's next step names each Decision still open.
+    holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the
+    columns whose values name one row, or None when none do; each column a Conversion wrote
+    "string" because nothing told it the type; and each Script tag's line in TAGS, the value
+    a <PARM="NAME"/> in the scripts stands for, open while it holds the tag itself. A TODO:
+    on any other line, such as the docstring's first line or does_not_add_up=, is no
+    Decision: it waits on nothing, as the two above do. `answers` is the decisions cell,
+    DECISIONS, of a Workflow's notebook: by table, a dict holding "location", "key", "types"
+    or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+    "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
+    "'2026-10-31'"}}}. Each answer is written into the open line it answers. A tag's answer
+    is the Hive the program put where the tag stood, its quotes and all for a bare tag;
+    answering it again writes the new value over the old. Any other Decision made already,
+    as yours is once you change its line, is kept, and an answer that differs from it is
+    named; so is an answer for a table with no Table reference, or one that answers no
+    Decision. A converted table's conversion/checklist.md, which lists its open Decisions,
+    is written again. Its Workflow's next step names each Decision still open.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
@@ -3406,6 +3428,7 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
         lines += [f"{table}: {each}." for each in answered.unwritten]
+        lines += _hivevar_notes(root, table, answer)
         _write_checklist_again(root, table)
         still_open = decisions.open_decisions(answered.text, table)
         lines += _todo_lines_report(table, answered.text)
@@ -3414,6 +3437,34 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             lines.append(f"Each Decision of {table} is made.")
     _log(root, call, list(answers), files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
+
+
+def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[str]:
+    """A line for each Script tag `answer` gives as a ${hivevar:NAME}, which Hive fills in from
+    a SET hivevar:NAME line sent first: whether the table's Session settings, the SET lines its
+    scripts sent before it, which project.run_tables sends before the write, set it."""
+    tags = answer.get(decisions.ANSWERS[decisions.TAG])
+    if not isinstance(tags, dict):
+        return []
+    stem = table_stem(table)
+    notebook = TABLE_FOLDER.path(root, stem) / f"{stem}.ipynb"
+    logic = ""
+    if notebook.is_file():
+        logic = "\n".join(text for _, text in read_cells(notebook))
+    notes = []
+    for name, value in tags.items():
+        for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
+            said = f"{table}: tags: {name} is ${{hivevar:{variable}}}"
+            # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
+            if f'"hivevar:{variable}": ' in logic:
+                notes.append(f"{said}, which Hive fills in from the SET hivevar:{variable} "
+                             "line of its scripts: its session_settings() holds it, and "
+                             "project.run_tables sends it before the write.")
+            else:
+                notes.append(f"{said}, but no SET line of its scripts sets hivevar:{variable}, "
+                             "so Hive has nothing to fill it in with: answer the value itself "
+                             "instead, such as \"'2026-10-31'\".")
+    return notes
 
 
 def _todo_lines_report(table: str, text: str) -> list[str]:

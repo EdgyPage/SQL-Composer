@@ -7,7 +7,8 @@ stand-in keeps each table's rows, runs each query on the Example database's own 
 answers the Hive a Workflow sends: CREATE TABLE (with its columns, or AS a query), INSERT
 OVERWRITE and INSERT INTO (a Partition given or filled from the rows, a FROM with several
 INSERTs, and Hive's WITH ... INSERT), DROP TABLE, TRUNCATE and ALTER TABLE ... DROP PARTITION;
-SET keeps a Session setting for the session's later statements; MSCK REPAIR or ANALYZE changes
+SET keeps a Session setting for the session's later statements, and each ${hivevar:name} a
+SET hivevar:name line set is filled in, as Hive fills it; MSCK REPAIR or ANALYZE changes
 nothing here. A table named without its database is in `database`.
 
 As Hive does, it refuses an INSERT that fills every Partition column from its rows unless
@@ -58,6 +59,8 @@ class Warehouse:
         for name, (table, rows) in example_database._TABLES.items():
             self.tables[f"ops.{name}"] = Stored(table, list(rows))
         self.settings: dict[str, str] = {}
+        # Each SET hivevar:NAME line's value, by NAME as written.
+        self.hivevars: dict[str, str] = {}
         # Each Hive execute was given, in turn: a dry run adds none.
         self.executed: list[str] = []
 
@@ -116,8 +119,26 @@ class Warehouse:
         # A Key, as Hive declares it: sqlglot can't read it, and the stand-in checks no Key.
         hive = re.sub(r",\s*PRIMARY KEY \([^)]*\) DISABLE NOVALIDATE", "", hive)
         for tree in sqlglot.parse(hive, read="hive"):
-            if tree is not None:
-                self._execute_one(tree)
+            if tree is None:
+                continue
+            if isinstance(tree, exp.Command) and tree.name.upper() == "SET":
+                # sqlglot reads SET hivevar:NAME=value as a Command: its NAME kept as written,
+                # since Hive's hivevar names are case-sensitive.
+                name, _, value = str(tree.expression).partition("=")
+                if name.strip().startswith("hivevar:"):
+                    self.hivevars[name.strip().removeprefix("hivevar:")] = value.strip()
+                continue
+            written = tree.sql(dialect="hive")
+            if "${hivevar:" in written:
+                tree = sqlglot.parse_one(self._filled_in(written), read="hive")
+            self._execute_one(tree)
+
+    def _filled_in(self, hive: str) -> str:
+        """`hive` with each ${hivevar:NAME} a SET hivevar:NAME line set filled in, as Hive
+        fills it; one no line set is left as written, as Hive leaves it."""
+        for name, value in self.hivevars.items():
+            hive = hive.replace(f"${{hivevar:{name}}}", value)
+        return hive
 
     def _execute_one(self, tree: exp.Expression) -> None:
         if isinstance(tree, exp.Query):
