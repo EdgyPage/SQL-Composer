@@ -39,6 +39,11 @@ TAG = "tag"
 PLACEHOLDER = "placeholder"
 # Every kind that waits for you, in the order check() names them.
 KINDS = (LOCATION, KEY, GUESSED_TYPE, TAG, PLACEHOLDER)
+# What check() and step 1's report write for each answer still to give, in the DECISIONS
+# they print to paste: an answer left so is no answer.
+FILL_IN = "<FILL IN>"
+# The decisions cell's name, as a Workflow's notebook holds it.
+DECISIONS_NAME = "DECISIONS"
 # The kinds the decisions cell answers, each by its name there; a placeholder is filled in by
 # hand.
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
@@ -194,14 +199,19 @@ def _tag_is_quoted(line: str) -> bool:
 
 
 def tag_question(name: str, quoted: bool, where: str = "") -> str:
-    """What a Script tag's Decision asks, saying how its answer is written: a bare tag's with
-    the value's own quotes, a quoted one's with none."""
+    """What a Script tag's Decision asks, as check() names it: its NAME, then tag_hint's."""
+    return f"tags: {name}, {tag_hint(name, quoted, where)}"
+
+
+def tag_hint(name: str, quoted: bool, where: str = "") -> str:
+    """How a Script tag's answer is written, saying where it stands: a bare tag's with the
+    value's own quotes, a quoted one's with none."""
     at = f" at {where}" if where else ""
     if quoted:
-        return (f'tags: {name}, inside quotes{at}: answer what <PARM="{name}"/> stands for '
-                'with no quotes, such as "2026-10-31" or "failed"')
-    return (f'tags: {name}, bare{at}: answer the Hive <PARM="{name}"/> stands for with its '
-            "quotes, such as \"'2026-10-31'\", or a number, such as \"5\"")
+        return (f'inside quotes{at}: answer what <PARM="{name}"/> stands for with no quotes, '
+                'such as "2026-10-31" or "failed"')
+    return (f'bare{at}: answer the Hive <PARM="{name}"/> stands for with its quotes, such as '
+            "\"'2026-10-31'\", or a number, such as \"5\"")
 
 
 # A date written with no quotes, which Hive reads as a subtraction: 2026-10-31 is 1985.
@@ -210,7 +220,10 @@ _BARE_DATE = re.compile(r"\d{4}-\d{1,2}-\d{1,2}")
 
 def tag_answer_problem(value: object, quoted: bool) -> str | None:
     """Why a tag's answer can't be written where the tag stood, or None when it can: it must
-    be Python text; a bare tag's date needs its quotes, and a quoted tag's answer has none."""
+    be Python text, not <FILL IN>; a bare tag's date needs its quotes, and a quoted tag's
+    answer has none."""
+    if value == FILL_IN:
+        return still_to_fill_in("its answer")
     if not isinstance(value, str):
         return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
                 "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
@@ -269,12 +282,21 @@ def todo_lines(text: str) -> list[tuple[int, str]]:
     return found
 
 
+def still_to_fill_in(what: str) -> str:
+    """What a report says of an answer left <FILL IN>, as check() printed it: `what`, such as
+    "its answer", is still to write."""
+    return f"is still {FILL_IN}: write {what} there"
+
+
 def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
-    """Whether a table's answer in the decisions cell answers this Decision."""
+    """Whether a table's answer in the decisions cell answers this Decision: one left
+    <FILL IN>, as check() prints it to paste, doesn't."""
     if decision.kind in (GUESSED_TYPE, TAG):
         answers = answer.get(ANSWERS[decision.kind])
-        return isinstance(answers, dict) and decision.subject in answers
-    return decision.kind in ANSWERS and ANSWERS[decision.kind] in answer
+        return (isinstance(answers, dict) and decision.subject in answers
+                and answers[decision.subject] != FILL_IN)
+    return (decision.kind in ANSWERS and ANSWERS[decision.kind] in answer
+            and answer[ANSWERS[decision.kind]] != FILL_IN)
 
 
 def answered_text(text: str, answer: dict[str, object], reference: str) -> Answered:
@@ -311,14 +333,18 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
     why."""
     unwritten = []
     for name in (ANSWERS[LOCATION], ANSWERS[KEY]):
-        if name in answer and name not in written:
+        if answer.get(name) == FILL_IN:
+            unwritten.append(f"{name} {still_to_fill_in('its answer')}")
+        elif name in answer and name not in written:
             unwritten.append(
                 f"{name}: kept as {reference} holds it, made already; to change it, edit its "
                 f"{name}= line there (the decisions cell says {escaped_literal(answer[name])})")
     types = answer.get(ANSWERS[GUESSED_TYPE])
     if isinstance(types, dict):
-        for column in types:
-            if f"types: {column}" not in written:
+        for column, value in types.items():
+            if value == FILL_IN:
+                unwritten.append(f"types: {column} {still_to_fill_in('its type')}")
+            elif f"types: {column}" not in written:
                 unwritten.append(f"types: {column} is no type the Toolbox guessed in "
                                  f"{reference}; to change it, edit its line there")
     return unwritten
@@ -352,7 +378,7 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
     kind = kind_of(line)
     for named in (LOCATION, KEY):
         name = ANSWERS[named]
-        if kind == named and name in answer:
+        if kind == named and name in answer and answer[name] != FILL_IN:
             return f"    {name}={escaped_literal(answer[name])},", name
     if kind == TAG:
         return _answered_tag(line, answer.get(ANSWERS[TAG]))
@@ -360,7 +386,7 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
     if kind != GUESSED_TYPE or not isinstance(types, dict):
         return None, ""
     column = _subject_of(kind, line)
-    if column not in types:
+    if column not in types or types[column] == FILL_IN:
         return None, ""
     written = f"        {escaped_literal(column)}: {escaped_literal(types[column])},"
     return written, f"types: {column}"
@@ -378,3 +404,50 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     found = TAG_LINE.match(line)
     return (f"    {found['name']}: {escaped_literal(value)},  {found['comment']}",
             f"tags: {name}")
+
+
+def paste_lines(still_open: list[Decision]) -> list[str]:
+    """The lines of a whole DECISIONS = {...} to paste into a decisions cell: each Decision of
+    `still_open` the cell answers, by its table, each value still to give <FILL IN>, a guessed
+    type's proposal "string", and a comment beside each saying what to write."""
+    by_table: dict[str, list[Decision]] = {}
+    for decision in still_open:
+        if decision.kind in ANSWERS:
+            by_table.setdefault(decision.table, []).append(decision)
+    lines = [f"{DECISIONS_NAME} = {{"]
+    for table, decided in by_table.items():
+        lines.append(f"    {escaped_literal(table)}: {{")
+        kinds = {decision.kind for decision in decided}
+        if LOCATION in kinds:
+            lines.append(f'        "location": "{FILL_IN}",  # the folder its files go in')
+        if KEY in kinds:
+            lines.append(f'        "key": "{FILL_IN}",  # the columns that name one row, such '
+                         'as ["job_id", "dt"], or None when none do')
+        lines += _types_lines([each for each in decided if each.kind == GUESSED_TYPE])
+        lines += _tags_lines([each for each in decided if each.kind == TAG])
+        lines.append("    },")
+    return [*lines, "}"]
+
+
+def _types_lines(guessed: list[Decision]) -> list[str]:
+    """The lines of one table's "types" in DECISIONS to paste: each guessed type's proposal,
+    "string"."""
+    if not guessed:
+        return []
+    lines = [f'        "{ANSWERS[GUESSED_TYPE]}": {{']
+    for decision in guessed:
+        lines.append(f"            {escaped_literal(decision.subject)}: \"string\",  # "
+                     'guessed: its type, if not string, such as "bigint"')
+    return [*lines, "        },"]
+
+
+def _tags_lines(tags: list[Decision]) -> list[str]:
+    """The lines of one table's "tags" in DECISIONS to paste: each tag's <FILL IN>, with how
+    its answer is written."""
+    if not tags:
+        return []
+    lines = [f'        "{ANSWERS[TAG]}": {{']
+    for decision in tags:
+        hint = tag_hint(decision.subject, decision.quoted, decision.where)
+        lines.append(f'            {escaped_literal(decision.subject)}: "{FILL_IN}",  # {hint}')
+    return [*lines, "        },"]

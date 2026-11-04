@@ -279,7 +279,9 @@ def test_a_staging_tables_tag_is_a_tag_of_each_table_it_is_folded_into(started: 
 def test_new_tables_query_with_a_tag_reads_it_too(started: Path) -> None:
     project.add_references(["ops.job_runs"], query=example_database.query)
     query = 'SELECT r.run_id, r.job_id\nFROM ops.job_runs r\nWHERE r.dt = <PARM="Day_1"/>'
-    project.new_table("mart_dev.failed_jobs", queries={"failed_jobs": query})
+    said = repr(project.new_table("mart_dev.failed_jobs", queries={"failed_jobs": query}))
+    # A query given as text is kept as hive.hql in the Conversion folder's scripts/.
+    assert '        "Day_1": "<FILL IN>",  # bare at hive.hql, line 3' in said
     reference = (started / "references" / "mart_dev__failed_jobs.py").read_text(
         encoding="utf-8")
     assert '    "Day_1": "<PARM=\\"Day_1\\"/>",  # bare' in reference
@@ -381,3 +383,19 @@ def test_a_hive_variable_a_set_line_sets_is_named_as_sent_first(started: Path) -
         {"mart_dev.daily_close_mart": {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}}))
     assert ("tags: PERIOD_END is '${hivevar:period_end}', which Hive fills in from the SET "
             "hivevar:period_end line its Table notebook's HIVE_SETTINGS keeps") in said
+
+
+# --- DECISIONS printed to paste (ticket 05) --------------------------------------------------
+
+
+def test_convert_and_check_print_the_decisions_to_paste(started: Path) -> None:
+    (started / "close.hql").write_text(QUOTED + "\n", encoding="utf-8")
+    said = repr(project.convert("closing", files=["close.hql"], query=example_database.query,
+                                database="ops"))
+    for printed in (said, repr(project.check())):
+        assert ("\nPaste this into the decisions cell, DECISIONS, and fill in each <FILL IN>:\n"
+                "DECISIONS = {\n"
+                '    "mart_dev.daily_close_mart": {\n'
+                '        "location": "<FILL IN>",') in printed
+        assert ('            "run_month_2": "<FILL IN>",  # inside quotes at close.hql, '
+                "line 3:") in printed

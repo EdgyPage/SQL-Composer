@@ -181,8 +181,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # "key": None says no columns name one row. project.check() names each one open;
-    # a Key marked # proposed is made, but an answer here changes it
+    # "key": None says no columns name one row. project.check() names each one open, and
+    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
+    # marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -290,8 +291,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # "key": None says no columns name one row. project.check() names each one open;
-    # a Key marked # proposed is made, but an answer here changes it
+    # "key": None says no columns name one row. project.check() names each one open, and
+    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
+    # marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -410,8 +412,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # "key": None says no columns name one row. project.check() names each one open;
-    # a Key marked # proposed is made, but an answer here changes it
+    # "key": None says no columns name one row. project.check() names each one open, and
+    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
+    # marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
@@ -508,8 +511,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # "key": None says no columns name one row. project.check() names each one open;
-    # a Key marked # proposed is made, but an answer here changes it
+    # "key": None says no columns name one row. project.check() names each one open, and
+    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
+    # marked # proposed is made, but an answer here changes it
 
 Its steps, in order:
 
