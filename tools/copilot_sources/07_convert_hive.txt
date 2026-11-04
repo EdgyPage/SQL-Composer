@@ -51,8 +51,8 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - `SET k=v;`: `hive_settings("converted", sets={"converted": {"k": "v"}})`, run_execute first.
 - `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
   Saved table's logic cell (file 06).
-- `<PARM="NAME"/>`, Script tag, bare: `script_tag(TAGS["NAME"])`; `'<PARM="NAME"/>'`,
-  `TAGS["NAME"]`; TAGS is in its Table reference, its value the user's (file 13).
+- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted, `TAGS["NAME"]`;
+  `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not imported.
 
 ## Steps
 
