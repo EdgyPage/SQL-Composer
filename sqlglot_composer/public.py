@@ -104,6 +104,7 @@ from .unchecked import (
     unchecked_derived,
     unchecked_hive,
 )
+from .script_tags import script_tag
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     Window,
@@ -233,6 +234,8 @@ __all__ = [
     "set_admin_log",
     "SessionSettings",
     "UncheckedStatement",
+    # script_tags.py
+    "script_tag",
     # comparisons.py
     "compare_hive",
     "compare_with_original",

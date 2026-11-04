@@ -2,6 +2,77 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.3
+
+8.3 reads Script tags: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that
+ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`. You answer each one in
+the convert notebook, table by table; `project.check()` prints the open Decisions as a whole
+DECISIONS to paste, and a names-cell setting compares another Partition, so you never leave
+the notebook.
+
+### To update from 8.2
+
+- **Copy in 8.3's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`** in a new cell of `admin/check_project.ipynb`, or of
+  `admin/workflows/upgrade/upgrade.ipynb`, and read `admin/upgrade_8.3.md`.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`: convert's names cell has PARTITION, which step 7's cell passes on, and
+  step 2 and each decisions cell now say to paste the DECISIONS `project.check()` prints. Each
+  name you gave stays, and so does each step cell you wrote in: if you wrote in convert's step
+  7, add `partition=PARTITION` to its call yourself.
+- **A batch converted before 8.3 whose scripts hold Script tags** is left as it is, and marked
+  `# UPGRADE 8.3:` at the top of the convert notebook, each one listed in
+  `admin/upgrade_8.3.md`: 8.2 couldn't read its tags, so a table with a bare tag is an
+  Unchecked statement, and one with a tag inside quotes compares its column with the tag's
+  own text, matching no row. For each, put its scripts, kept in the mark's `scripts/` folder,
+  beside the convert notebook, and convert them again as a new batch, with a new name for each
+  table in RENAME, such as `RENAME = {"mart.daily_close": "daily_close_v2"}`; answer its tags
+  in the decisions cell; once the new table's compare passes, remove the old one with
+  `project.remove_table(...)`, then delete the mark.
+- **Step 3 now refuses an answer that matches nothing**, writing nothing: if a DECISIONS you
+  pasted before 8.3 holds a stray name, correct it as the refusal says, then run step 3 again.
+
+### What's new
+
+- **A Conversion reads past each Script tag** where a value goes, bare or inside quotes, so
+  the statement holding it becomes a Saved table like any other, where before a bare tag left
+  it an Unchecked statement. Its Table reference holds TAGS, what each tag stands for, and
+  its logic reads it there: a bare tag becomes `script_tag(TAGS["PERIOD_END"])`, `script_tag`
+  being new, and a tag inside quotes becomes `TAGS["PERIOD_END"]`. `script_tag`, and step 3
+  of the convert notebook, refuse a bare tag's answer that isn't one value of a kind a
+  program puts there, text or a date in quotes, a number, TRUE, FALSE, NULL or a Hive
+  variable: a date with no quotes, `2026-09-24`, Hive reads as a subtraction, and a sum such
+  as `5 - 3` it would read with what stands beside the tag. A tag of another
+  shape, one where a table's name, a column's name or a whole condition goes, or one name both
+  bare and inside quotes in one table, stops the Conversion, naming its line.
+- **A Script tag is a Decision, answered in the convert notebook's decisions cell** under
+  `"tags"`, by the table's dev name: `{"mart_dev.daily_close": {"tags": {"PERIOD_END":
+  "'2026-10-31'"}}}`, a bare tag's answer with its quotes, a quoted one's with none. Step 3,
+  `project.write_decisions`, writes it into TAGS, and writes a new answer over the old, saying
+  what it replaced; an answer in a form that can't stand where its tag stood, such as a bare
+  date with no quotes, is named and left unwritten. `project.check()` and each table's
+  `conversion/checklist.md` name each open tag, whether it is bare or inside quotes, and its
+  script and line; step 2 waits on each, and no table is created while one is open. An
+  answer of `'${hivevar:NAME}'` takes its value from a `SET hivevar:NAME=...` line of the
+  scripts, which the table's Session settings keep; write_decisions says when none sets it.
+- **Step 3 refuses an answer that matches nothing**, in every Workflow with a decisions cell,
+  and writes nothing: a table the Project doesn't have, a kind of answer the cell doesn't take,
+  such as "tag" for "tags", a "types" or "tags" that isn't a dict, a column the table doesn't
+  have or a tag it doesn't hold. The refusal names each, asking "did you mean ...?" with case
+  set aside, or listing the table's columns or Script tags when no name is close. Before, it
+  wrote the rest and named the stray answer in its report.
+- **The open Decisions are printed as a whole `DECISIONS = {...}` to paste** into the decisions
+  cell, by `project.check()` in every Workflow, and by step 1's report in convert and in
+  new_table's step converting a query: each answer still to give `"<FILL IN>"`, a guessed
+  type's proposal `"string"`, a comment beside each saying what to write. An answer left
+  `"<FILL IN>"`, or what is left of it, is no answer: step 2 isn't done, and step 3 writes
+  nothing for it and names it.
+- **The convert notebook's names cell gains `PARTITION = None`**, which step 7 passes on,
+  `project.compare_batch(NAME, query=query, partition=PARTITION)`: to compare another Partition,
+  set it, such as `{"dt": "2026-09-23"}`, its value with no quotes of its own, and run step 7
+  again; before 8.3 you typed that call in a new cell. The runner passes it too. A value in
+  quotes of its own, or a PARTITION that isn't a dict, is refused, naming the fix.
+
 ## 8.2
 
 8.2 puts each table's Hive in a file beside its notebook, and fixes what people new to the

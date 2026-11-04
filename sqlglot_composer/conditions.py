@@ -22,6 +22,7 @@ from .tables import (
     python_text,
     type_family,
 )
+from .script_tags import is_script_tag
 from .trees import Node, combined, has_aggregate
 from .writing import hive_text
 
@@ -137,7 +138,8 @@ def _comparison(name: str, kind: str, column: object, value: object,
     tree = Node(kind, this=column._tree.copy(),
                 expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
-    if not bounds or isinstance(value, Column):
+    # A Script tag is one value, as a plain one is; any other Column holds nothing to a value.
+    if not bounds or (isinstance(value, Column) and not is_script_tag(value)):
         return Condition(tree)
     return Condition(tree, bounds=_bounds_of(column))
 
