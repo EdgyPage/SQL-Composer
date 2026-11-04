@@ -612,7 +612,10 @@ The convert Workflow, `admin/workflows/convert/convert.ipynb`, makes a **Convers
 **batch**, one or more scripts converted together. The scripts' order doesn't matter: a FROM
 with several INSERTs and an INSERT that reads its own table each come out as Saved tables, and
 a temporary table another statement reads, a **staging table**, is folded into the tables that
-read it.
+read it. A **Script tag**, a `<PARM="NAME"/>` the program that ran the scripts filled in before
+Hive read it, such as `WHERE dt <= <PARM="PERIOD_END"/>`, is read past where a value goes, and
+left for you to answer, once for each table it ends up in, since it may stand for a different
+value in each.
 
 1. **Save the scripts.** Goal: the Workflow can read them. Action: save them beside it, in
    `admin/workflows/convert/`, where it reads them. Done when each script is there; then
@@ -642,17 +645,25 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 ```
 
 4. **Answer each Decision.** Goal: what only you can decide. Action: answer each table's
-   Decisions, such as its folder, in the notebook's decisions cell, and save it. Done when each
-   table's Decisions are answered; then step 5.
+   Decisions, such as its folder and each Script tag's value, in the notebook's decisions cell,
+   and save it: the convert step and `project.check()` print a whole `DECISIONS = {...}` to
+   paste there, each answer to give `"<FILL IN>"`. A bare tag is answered with the value's own
+   quotes, `{"tags": {"PERIOD_END": "'2026-10-31'"}}`, and one inside quotes,
+   `'<PARM="STATUS"/>'`, with none, `{"tags": {"STATUS": "failed"}}`. A day that changes each
+   run is answered `"'${hivevar:period_end}'"`, with a `SET hivevar:period_end=...` line kept
+   in the script. To change an answer, answer it again, then run step 5's steps again: write
+   the answers in, write each table, and compare each. Done when each table's Decisions are
+   answered; then step 5.
 5. **Build each table in dev.** Goal: each table written in dev and compared. Action: run the
    Workflow's next steps: they write your answers in, create each table in dev, seed each whose
    write reads its own table (copy its **original**'s rows in once, the original being the
    table the script writes, so its first write doesn't start from nothing), write each, and
    compare each with the table it copies, `project.compare_batch`. A partitioned table is
    compared on the latest Partition both tables hold. If you want another Partition compared
-   too, then run `project.compare_batch("ops_reports", query=query, partition={"dt":
-   "2026-09-23"})`, with your batch's name, and its `conversion/compare.md` keeps each
-   Partition's result. Done when every result of each table has passed; then step 6.
+   too, once your dev table holds it, then set `PARTITION` in the names cell, such as
+   `PARTITION = {"dt": "2026-09-23"}`, and run the compare step again: its
+   `conversion/compare.md` keeps each Partition's result. Done when every result of each table
+   has passed; then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: run the promote Workflow,
    which carries them to your Prod Database, PROD, `project.promote`, each keeping its name
    unless `rename=` gives it another. Done when each is written in prod.

@@ -182,8 +182,8 @@ class ConvertedQuery:
 # The comment above a converted query's TAGS, which saved_table_logic moves into its Table
 # reference.
 TAGS_COMMENT = ('# What each Script tag stands for, as Hive. Answer each under "tags" in the '
-                "convert notebook's decisions cell: its step 3 writes it here, over what is "
-                "here. A line still holding the tag itself is unanswered.")
+                "convert notebook's decisions cell: project.write_decisions writes it here, "
+                "over what is here. A line still holding the tag itself is unanswered.")
 
 
 def tags_block(tag_is_quoted: dict[str, bool],
@@ -387,8 +387,8 @@ def _is_plain_value(node: exp.Expression) -> bool:
 
 # What a finding on a Script tag says after the tag.
 TAG_FINDING = ('Answer it under "tags" in the decisions cell of '
-               "admin/workflows/convert/convert.ipynb: step 3 writes it into TAGS, in the "
-               "table's Table reference, and until then step 4 won't create the table.")
+               "admin/workflows/convert/convert.ipynb: project.write_decisions writes it into "
+               "TAGS, in the table's Table reference, and until then the table isn't created.")
 
 
 def _tags_found(query: exp.Expression) -> list[tuple[exp.Expression, str, bool]]:

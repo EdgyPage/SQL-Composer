@@ -5,15 +5,15 @@ For: Getting started
 ## Goal
 
 Turn scripts of Hive someone else wrote, with their temporary tables, their FROMs with several
-INSERTs and their incremental INSERTs, into your own code. Hive is the SQL your warehouse runs.
-You end with a Saved table, a real table your own Statements write, in your Dev Database for
-each table the scripts write; your Dev Database is the database where you may create and write
-tables of your own. Each Saved table's notebook builds the same query from the Toolbox's
-functions, is compared with the table it copies, its original, and is then promoted to your
-Prod Database, the database others read your finished tables from. That is a Conversion, and
-the convert Workflow, an ordered list of steps in a notebook of its own, takes you through it,
-step by step. What no Toolbox function writes yet stays Hive, at the smallest size it can, so
-you get the rest converted rather than none of it.
+INSERTs, their incremental INSERTs and their Script tags, into your own code. Hive is the SQL
+your warehouse runs. You end with a Saved table, a real table your own Statements write, in your
+Dev Database for each table the scripts write; your Dev Database is the database where you may
+create and write tables of your own. Each Saved table's notebook builds the same query from the
+Toolbox's functions, is compared with the table it copies, its original, and is then promoted to
+your Prod Database, the database others read your finished tables from. That is a Conversion,
+and the convert Workflow, an ordered list of steps in a notebook of its own, takes you through
+it, step by step. What no Toolbox function writes yet stays Hive, at the smallest size it can,
+so you get the rest converted rather than none of it.
 
 ## When you'd use it
 
@@ -51,7 +51,9 @@ Goal: the scripts where the convert Workflow reads them. Save each script as it 
 file beside the convert Workflow's notebook, in admin/workflows/convert/. Here the ops team's
 two: the nightly one keeps the day's failed runs in a temporary table, then counts the day's
 alerts two ways from one FROM; the weekly one adds each failed job to a history the job reads
-itself:
+itself. The nightly one holds a Script tag, `<PARM="RUN_DAY"/>`: the scheduler that runs the
+script puts the day in its place before Hive reads it. Its author tagged only that one day; the
+others are typed in, and the converted code keeps them as they are:
 
 The file `admin/workflows/convert/daily.hql`, after you save it:
 
@@ -63,7 +65,7 @@ The file `admin/workflows/convert/daily.hql`, after you save it:
     WHERE r.dt = '2026-09-24' AND r.status = 'FAILED';
     FROM ops.run_alerts a
     INSERT OVERWRITE TABLE ops_reports.alerts_by_severity PARTITION (dt='2026-09-24')
-      SELECT a.severity, COUNT(*) AS alerts WHERE a.dt = '2026-09-24' GROUP BY a.severity
+      SELECT a.severity, COUNT(*) AS alerts WHERE a.dt = <PARM="RUN_DAY"/> GROUP BY a.severity
     INSERT OVERWRITE TABLE ops_reports.alerted_runs PARTITION (dt='2026-09-24')
       SELECT a.run_id, COUNT(*) AS alerts WHERE a.dt = '2026-09-24' GROUP BY a.run_id;
 
@@ -110,7 +112,10 @@ folded into fail_history, its query a Derived table there, a named query that li
 inside the Statement that reads it, and never made a table of its own. To keep it a table
 instead, give staging={"ops_reports.failed_runs": "keep"}. The FROM with two INSERTs gives each
 target a Saved table of its own. The DROP becomes nothing, and the SET line becomes the Session
-settings of the writes after it: a Session setting is a Hive SET sent before a Statement.
+settings of the writes after it: a Session setting is a Hive SET sent before a Statement. The
+Script tag is read past, as if a day stood there: alerts_by_severity's WHERE becomes
+WHERE(equals(a.dt, script_tag(TAGS["RUN_DAY"]))), and TAGS, in its Table reference, says
+<PARM="RUN_DAY"/> until you answer it.
 admin/workflows/convert/ops_reports/batch.md lists what each statement became:
 
 >>> print(Path("admin/workflows/convert/ops_reports/batch.md").read_text(encoding="utf-8"))
@@ -142,13 +147,27 @@ open Decisions, and project.check() names each one:
   references/mart__fail_history.py
 - location: the folder its files go in, in references/mart__fail_history.py
 
+Each Script tag is a Decision of the table it ends up in, named RUN_DAY, as the tag is.
+project.check() says where it stands and how to answer it. A tag that stands alone, as
+`= <PARM="RUN_DAY"/>` does here, is a bare tag, answered with the value's own quotes:
+
+>>> said = repr(project.check())  # -> str
+>>> print(next(line.strip() for line in said.splitlines() if "tags:" in line))
+mart.alerts_by_severity_ops_reports: tags: RUN_DAY, bare at daily.hql, line 9: the value with its own quotes, such as "'2026-10-31'", or a number, such as "5"
+
 Done when you have the list of each table's open Decisions. Then step 6.
 
 ### 6. Answer each Decision in the decisions cell
 
 Goal: an answer for each open Decision. Write each answer in the convert Workflow notebook's
-decisions cell, DECISIONS, by each table's name as project.check() writes it. You open no Table
-reference, and tick nothing. "key": None says no columns name one row. A Key project.convert
+decisions cell, DECISIONS, by each table's name as project.check() writes it. Step 3's report
+and project.check() print a whole DECISIONS to paste there, each answer still to give
+"<FILL IN>": paste it, and fill each in. The tag's line of it reads:
+
+>>> print(next(line.strip() for line in said.splitlines() if '"RUN_DAY":' in line))
+"RUN_DAY": "<FILL IN>",  # bare at daily.hql, line 9: the value with its own quotes, such as "'2026-10-31'", or a number, such as "5"
+
+You open no Table reference, and tick nothing. "key": None says no columns name one row. A Key project.convert
 could work out of a table's query, as GROUP BY a.severity gives one, is proposed in its Table
 reference already, marked # proposed, and its checklist says so: answer "key" only where one is
 open or wrong. A TODO line left, such as does_not_add_up=, waits on nothing. This page stands in
@@ -163,14 +182,21 @@ open. Here the answer is that no columns name one row of it.
 >>> DECISIONS["mart.fail_history"]["key"] = None
 
 Two tables write the Partition dt from a query that doesn't say its type, so each one's dt is
-a guessed type to answer too: the day as text, "string". A Partition is a slice of a table: the
+a guessed type, "string" in the block: keep it, or give its type. Here it is kept, the day as
+text. A Partition is a slice of a table: the
 rows that share one value of each column it is partitioned by.
 
 >>> for table in ["mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"]:
 ...     DECISIONS[table]["types"] = {"dt": "string"}
 
-Done when DECISIONS holds a location for each table, a key for mart.fail_history, and a dt
-type for the other two. Then step 7.
+The Script tag's answer is the Hive the scheduler put in its place, under "tags". A bare tag's
+answer is the day with its own quotes, "'2026-09-24'". Here it is answered with the wrong day,
+2026-09-23, to show in step 7 how an answer is changed:
+
+>>> DECISIONS["mart.alerts_by_severity_ops_reports"]["tags"] = {"RUN_DAY": "'2026-09-23'"}
+
+Done when DECISIONS holds a location for each table, a key for mart.fail_history, a dt type
+for the other two, and RUN_DAY's day. Then step 7.
 
 ### 7. Write each answer into its Table reference
 
@@ -178,7 +204,7 @@ Goal: each Decision made in the table's files. Run the Workflow's next step, whi
 answer into the table's Table reference:
 
 >>> print(project.write_decisions(DECISIONS))
-Wrote 2 answers into references/mart__alerts_by_severity_ops_reports.py.
+Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.alerts_by_severity_ops_reports - TODO: say in one line what one row is.
@@ -197,6 +223,17 @@ on nothing: fill each in when you like.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
 
+An answer is changed by answering it again in the decisions cell and running this step
+again: no file is edited by hand. Here RUN_DAY's day, 2026-09-23, was wrong: the scheduler's
+job, or whoever runs it, says the day it put there, 2026-09-24, and a compare in step 11 would
+show rows that differ from the original's. Write the right day in DECISIONS and run the step
+again; it writes the new day over the old, and says so:
+
+>>> DECISIONS["mart.alerts_by_severity_ops_reports"]["tags"] = {"RUN_DAY": "'2026-09-24'"}
+>>> said = repr(project.write_decisions(DECISIONS))  # -> str
+>>> print(next(line for line in said.splitlines() if "in place of" in line))
+mart.alerts_by_severity_ops_reports: tags: RUN_DAY is '2026-09-24' now, in place of '2026-09-23': if the table is written already, write it and compare it again.
+
 `project.check()` names the batch's next step in the Workflow, the first call to the
 warehouse:
 
@@ -204,8 +241,8 @@ warehouse:
 The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
   admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. ...
 
-Done when each table says `Each Decision of ... is made.` and `project.check()` names
-`4. Create each table in dev`. Then step 8.
+Done when each table says `Each Decision of ... is made.`, RUN_DAY holds the right day, and
+`project.check()` names `4. Create each table in dev`. Then step 8.
 
 ### 8. Create each table in dev
 
@@ -306,7 +343,23 @@ in one batch. Give the scripts together, with `files=`.
 ### Leaving a Decision open
 
 The Workflow waits on each table's open Decisions, each one only you can make, such as a
-table's folder. Answer each one project.check() names in the decisions cell.
+table's folder or a Script tag's value. Answer each one project.check() names in the decisions
+cell: paste the DECISIONS it prints, and fill in each "<FILL IN>".
+
+### Answering a bare Script tag without its quotes
+
+A bare tag's answer is put exactly where the tag stood, so a date needs its own quotes,
+"'2026-09-24'": written 2026-09-24, Hive reads it as a subtraction, 2026 - 9 - 24.
+project.write_decisions names that answer and writes nothing for it. A tag inside quotes,
+'<PARM="NAME"/>', is answered with no quotes.
+
+### Answering a nightly tag with one day
+
+A day answered in the decisions cell is the day the table is written for, every night after,
+until you answer it again. For a day that changes each run, answer "'${hivevar:run_day}'", a
+Hive variable, and keep a line that sets it, SET hivevar:run_day=..., at the top of the script
+you convert: the table's session_settings() keeps it and project.run_tables sends it before
+each write, and project.write_decisions says whether a line sets it.
 
 ### Promoting before comparing
 
