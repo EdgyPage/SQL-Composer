@@ -26,6 +26,11 @@ ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
   script and line; step 2 waits on each, and no table is created while one is open. An
   answer of `'${hivevar:NAME}'` takes its value from a `SET hivevar:NAME=...` line of the
   scripts, which the table's Session settings keep; write_decisions says when none sets it.
+- **Step 3 refuses an answer that matches nothing**, in every Workflow with a decisions cell,
+  and writes nothing: a table the Project doesn't have, a kind of answer the cell doesn't take,
+  such as "tag" for "tags", a column the table doesn't have or a tag it doesn't hold. The
+  refusal names each, with the nearest name. Before, it wrote the rest and named the stray
+  answer in its report.
 
 ## 8.2
 

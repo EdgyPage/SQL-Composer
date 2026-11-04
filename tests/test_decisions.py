@@ -155,9 +155,9 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
      "types and tags, the nearest being key"),
     ({"ops.job_runs": {"tag": {"X": "1"}}}, "the nearest being tags"),
     ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
-     "ops.job_runs: types: run_idd is no column of it, the nearest being run_id"),
+     "ops.job_runs: types: run_idd is no column of ops.job_runs, the nearest being run_id"),
     ({"ops.job_runs": {"tags": {"PERIOD_ED": "1"}}},
-     "ops.job_runs: tags: PERIOD_ED is no Script tag of it"),
+     "ops.job_runs: tags: PERIOD_ED is no Script tag of ops.job_runs"),
 ], ids=["table", "kind", "tag for tags", "column", "tag"])
 def test_an_answer_that_matches_nothing_is_refused_writing_nothing(
         started: Path, answers: dict, said: str) -> None:

@@ -44,3 +44,14 @@ Built 2026-11-04.
 - Tests: `tests/test_decisions.py`, a table, a kind, "tag" for "tags", a column and a tag
   refused with the right answer beside it unwritten too; two at once; a tag answered before is
   a match.
+- **Code review** (review-standards, review-spec, on sonnet). Fixed in a second commit: a
+  table's columns are looked up by its Table reference's file name, the same key that finds
+  the reference, so a reference found is never read as having no columns; the nearest table
+  is named from every reference's file; `types_by_stem`, `reference_text` and
+  `_unmatched_answers` for names that said less; the refusal names the table in place of
+  "it". Answered: the spec's "the instance's tables" is met as the Project's tables, since
+  write_decisions takes the decisions cell alone and every Workflow calls it so; an answer
+  for a real table of the Project outside the batch has a Decision to answer there, and is
+  written, which the map's "a table that isn't in the batch" narrows to "a table not in the
+  Project"; the spec's "a column with no guessed type" is met as "a column the table doesn't
+  have", for the reason above, a column it has staying a note.
