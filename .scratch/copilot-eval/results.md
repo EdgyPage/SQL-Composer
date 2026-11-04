@@ -293,3 +293,17 @@ PARTITION; each measured on haiku, one objective a proxy, arm C.
 - 13: held-out 100% (T46 passed), dev 80% (T45 failed). T45 answered RUN_DAY "<FILL IN>" though
   the user gave the day: file 13's "a day changing each run" hivevar option and its "Never guess
   its value: ask" read as overriding a value the user had given.
+| 2026-11-04 | 1224d14 | haiku | C | held_out | 50 | 100 | 100 | 100 | 50 | 50 | 0 | 0 | 0 | 0 | 07:50 |
+| 2026-11-04 | 1224d14 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-04 | 1224d14 | haiku | C | dev | 67 | 100 | 100 | 100 | 67 | 67 | 0 | 0 | 0 | 0 | 07:67 |
+| 2026-11-04 | 1224d14 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-04 | 9ef648f | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 07:100 |
+| 2026-11-04 | 9ef648f | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 07:100 |
+
+Then (same day) file 07's tag line said to write TAGS above the statement, not import it, and
+file 13's to answer a tag with the value the user gives, hivevar only if asked: 13 at 100%
+held out and 100% dev (r2, files 1224d14). 07 still failed T43 and T44 (r2): TAGS was written
+in place but RUN_DAY without its quotes, "2026-09-24", which the Toolbox read back otherwise and
+called a bug of its own. The line now shows `TAGS = {"NAME": "'2026-09-24'"}`, quotes kept: 07
+at 100% held out and 100% dev (r3, files 9ef648f). Each of these is a second or third look after
+a fix its failure showed, not a clean score.
