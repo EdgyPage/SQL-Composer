@@ -137,7 +137,8 @@ def _comparison(name: str, kind: str, column: object, value: object,
     tree = Node(kind, this=column._tree.copy(),
                 expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
-    if not bounds or isinstance(value, Column):
+    # A Script tag is one value, as a plain one is; any other Column holds nothing to a value.
+    if not bounds or (isinstance(value, Column) and value._tree.kind != "ScriptTag"):
         return Condition(tree)
     return Condition(tree, bounds=_bounds_of(column))
 

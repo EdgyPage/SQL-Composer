@@ -29,7 +29,8 @@ PYTHON_FILES = ("__init__.py", "admin.py", "calculations.py", "checks.py", "clau
                 "example_database.py", "joins.py",
                 "keys.py", "kinds.py", "lineage.py", "notebooks.py", "project.py",
                 "project_files.py", "project_templates.py", "public.py", "python_steps.py",
-                "refusals.py", "running.py", "shared.py", "stacking.py", "tables.py",
+                "refusals.py", "running.py", "script_tags.py", "shared.py", "stacking.py",
+                "tables.py",
                 "trees.py",
                 "unchecked.py", "upgrades.py", "upkeep.py", "windows.py", "workflows.py",
                 "writing.py")

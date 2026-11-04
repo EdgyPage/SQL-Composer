@@ -874,6 +874,11 @@ def _sqlglot_unchecked(node: Node) -> exp.Expression:
     return _parsed_statements("SELECT " + filled_text(node))[0].expressions[0]
 
 
+def _sqlglot_script_tag(node: Node) -> exp.Expression:
+    """What a Script tag stands for, its text written as it is."""
+    return exp.Var(this=node.parts["text"])
+
+
 def _sqlglot_unchecked_select(node: Node) -> exp.Expression:
     """An Unchecked derived table's SELECT, as sqlglot reads its text."""
     return _parsed_statements(node.parts["text"])[0]
@@ -1131,6 +1136,7 @@ _REPLAY = {
     "Call": _sqlglot_call,
     "HiveFunction": _sqlglot_hive_function,
     "Unchecked": _sqlglot_unchecked,
+    "ScriptTag": _sqlglot_script_tag,
     "UncheckedSelect": _sqlglot_unchecked_select,
     "Select": _sqlglot_select,
     "Stack": _sqlglot_stack,

@@ -129,8 +129,8 @@ from .running import to_hive
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
-from .tables import (TABLE_NAME, Table, Verdict, all_columns, check_key, table_reference_text,
-                     write_table_reference)
+from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
+                     table_reference_text, write_table_reference)
 from .unchecked import (
     SessionSettings,
     UncheckedStatement,
@@ -651,8 +651,8 @@ def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file:
                "its query there, and promoted to prod, as a Conversion's tables are.",
                fix=f"Name it {dev}.{table}: project.promote makes its prod copy.",
                error=ValueError)
-    statements = converting.batch_statements(_query_scripts(call, query_or_file), "default",
-                                             f"default.{table}")
+    statements = _batch_statements(call, _query_scripts(call, query_or_file), "default",
+                                   f"default.{table}")
     kinds = [each.kind for each in statements if each.kind != converting.SETTING]
     if kinds != [converting.QUERY]:
         refuse(what=f"{call}: the Hive for {table} isn't one query.",
@@ -2243,7 +2243,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     dev = _dev_database(root, call)
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
-    statements = converting.batch_statements(scripts, database, f"{database}.{name}")
+    statements = _batch_statements(call, scripts, database, f"{database}.{name}")
     staging_found = converting.staging_tables(statements)
     folded, unfoldable = converting.fold_staging(
         statements, _staging_choices(call, staging_found, staging, database), database)
@@ -2391,6 +2391,25 @@ def _refuse_a_query_named_like_another(call: str,
         fix=f"{fix}, then run it again.",
         error=ValueError,
     )
+
+
+def _batch_statements(call: str, scripts: list[tuple[str, str]], database: str,
+                      query_table: str) -> list[converting.BatchStatement]:
+    """Each statement of the batch's scripts, as converting.batch_statements reads them;
+    refused, before anything is written, where a Script tag's shape isn't the one a
+    Conversion reads, or a tag stands where no value goes."""
+    try:
+        return converting.batch_statements(scripts, database, query_table)
+    except converting.ConversionRefused as why:
+        refuse(
+            what=f"{call} can't convert the batch: {why}.",
+            why='A Script tag, <PARM="NAME"/>, is a value the program that ran the scripts '
+            "filled in, which a Conversion leaves for you to answer in the decisions cell: "
+            "it can only stand where a value goes.",
+            fix="Change that line of the script so the tag stands where a value goes, or "
+            "write the value the program put there in its place, then run it again.",
+            error=ValueError,
+        )
 
 
 def _batch_plan(call: str, statements: list[converting.BatchStatement], dev: str,
@@ -2567,7 +2586,7 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
-                           _guessed(columns), proposed=proposed)
+                           _guessed(columns), proposed=proposed, tags=hive_read.tags)
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2696,15 +2715,19 @@ def _storage_from_create(table: str,
 def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str],
                            partitions: list[str], storage: dict[str, str],
                            guessed: tuple[str, ...],
-                           proposed: tuple[list[str], ...] = ()) -> None:
+                           proposed: tuple[list[str], ...] = (),
+                           tags: dict[str, bool] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
-    as a Decision, then the Database modules, which the next table's logic imports it
+    as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
+    its Aliases; then the Database modules, which the next table's logic imports it
     through."""
     stem = REFERENCE.stem(dev)
-    files.write_text(REFERENCE.shown(stem),
-                     table_reference_text(dev, columns, partitions,
-                                          f"{REFERENCE.folder}.{stem}", guessed=guessed,
-                                          proposed=proposed, **storage))
+    text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
+                                guessed=guessed, proposed=proposed, **storage)
+    if tags:
+        at = text.index(ALIASES_HEADING)
+        text = text[:at] + "\n".join(converting.tags_block(tags)) + "\n\n" + text[at:]
+    files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
 
 
