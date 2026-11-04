@@ -23,8 +23,8 @@ placeholder (map, "Script tags are Decisions", Q17 to Q21).
   each table's `conversion/checklist.md` name each open tag, its script and its line.
 - An answer of `${hivevar:...}` works end to end. Settled here and recorded below: where its
   value is sent from (map, "Not yet specified"), with no step done by hand if it can be helped.
-- 01's journey passes, its tags answered in the decisions cell alone; `KNOWN_FIDDLING` loses
-  what this removes. A further journey answers a date wrong, sees the compare fail, answers
+- 01's journey passes, its tags answered in the decisions cell alone, its xfail taken off; a
+  `_through_the_runner` twin of it passes too (01's Answer). A further journey answers a date wrong, sees the compare fail, answers
   again and passes.
 - The Workflow graph and `docs/workflows.md` show convert's step 2 waiting on tags.
 

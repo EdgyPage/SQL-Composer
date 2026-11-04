@@ -1,7 +1,7 @@
 # A journey through Script tags, and the hand edits it needs today
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: M
 
@@ -30,3 +30,29 @@ bottom, on scripts holding Script tags (map, "What a Script tag does to a Conver
 - A unit test per tag shape holds what `batch_statements` does with it today, for 02 to change.
 
 ## Answer
+Built 2026-11-04.
+
+- **The journey**, `test_convert_a_script_with_script_tags` in
+  `tests/journeys/test_workflow_journeys.py`: `TAGGED_STATEMENTS` pairs each statement with the
+  dev table its tags are a Decision of, and `TAG_VALUES` says what each tag stands for there,
+  so the originals are written by the script with each tag filled in (`_filled_in_script`), as
+  the program the user copies from fills them. It holds a bare `PERIOD_END` twice in
+  daily_close, a quoted `PERIOD_END` standing for another date in monthly_fails, a bare
+  `MinMins` in a staging table folded into monthly_fails, and a quoted `skip_team_2`. It is
+  written as it runs once 03 lands: the tags answered under `"tags"` in the decisions cell, the
+  end goal each table compared and holding its original's rows.
+- **Today** it is `xfail(strict=True)`, failing at the user's snag: right after step 1, "no
+  Table folder for mart_dev.daily_close_mart", the bare-tag table left an Unchecked statement.
+- **KNOWN_FIDDLING stays `()` for convert.** No hand edit inside the Project gets this batch to
+  its end goal today: the bare-tag statement never becomes a Table folder to fix, so the only
+  way through is rewriting the script itself before convert, which is the user's snag, not a
+  step. Once 03 lands, the journey makes none.
+- **What the batch reader does today**, `tests/test_script_tags.py`: a bare tag, in an INSERT,
+  in a staging CREATE ... AS, or twice, leaves its statement OTHER, naming no table, reading
+  nothing, its note sqlglot's; a quoted one reads as a string, the tag kept in it. 02 changes
+  these.
+- **Code review:** Standards: a helper named `_read` that reads no file (now
+  `_statement_of`), and the journey's comment made two plain sentences. Spec: the xfail now
+  fails at step 1's missing Table folder, not later; unit tests added for the staging and
+  twice shapes. Left, settled: no `_through_the_runner` twin yet, since a runner journey adds
+  nothing while the plain one can't pass; 03 adds it with the tags answered.
