@@ -145,6 +145,18 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
   while it holds the tag itself, answered under `"tags"` and written again on a new answer; a
   `${hivevar:...}` answer's value comes from a SET hivevar line of the scripts, kept as the
   table's Session settings, and write_decisions says when none sets it.
+- [04 An answer that matches nothing](issues/04-an-answer-that-matches-nothing.md): refused,
+  writing nothing, against the Project's tables, with the nearest name; a column the table
+  has but whose type wasn't guessed stays a note, as step 3 runs again with the same cell.
+- [05 Decisions printed to paste](issues/05-decisions-printed-to-paste.md): a whole DECISIONS,
+  unindented, from check() in every Workflow and from step 1 in convert and new_table; any
+  answer holding "fill in" is no answer.
+- [06 PARTITION](issues/06-partition-in-the-names-cell.md): the convert names cell's last
+  input, passed by step 7's cell and the runner.
+- [07 The docs](issues/07-the-docs.md): how-to 09, the README, Copilot 07 and 13; the user
+  chose a usability scenario, W6; messages name what a step does, not its number.
+- [08 8.3](issues/08-eight-point-three.md): to_8_3 writes the Workflow notebooks again and
+  marks each batch whose scripts hold a Script tag, to convert again with RENAME.
 
 ## Not yet specified
 
