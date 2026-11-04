@@ -925,7 +925,7 @@ def _sqlglot_unchecked(node: Node) -> exp.Expression:
 
 def _sqlglot_script_tag(node: Node) -> exp.Expression:
     """What a Script tag stands for, its text as sqlglot reads it, so that to_hive writes it
-    as it writes any value: current_date() as CURRENT_DATE."""
+    as it writes any value: true as TRUE."""
     return _parsed_statements("SELECT " + node.parts["text"])[0].expressions[0]
 
 
