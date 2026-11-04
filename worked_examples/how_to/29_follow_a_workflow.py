@@ -182,8 +182,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
-    # marked # proposed is made, but an answer here changes it
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
+    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+    # answer "key" here.
 
 Its steps, in order:
 
@@ -292,8 +293,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
-    # marked # proposed is made, but an answer here changes it
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
+    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+    # answer "key" here.
 
 Its steps, in order:
 
@@ -413,8 +415,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
-    # marked # proposed is made, but an answer here changes it
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
+    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+    # answer "key" here.
 
 Its steps, in order:
 
@@ -512,8 +515,9 @@ Its decisions cell, beside it, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # it and step 1 print a whole DECISIONS to paste here: fill in each <FILL IN>. A Key
-    # marked # proposed is made, but an answer here changes it
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
+    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
+    # answer "key" here.
 
 Its steps, in order:
 

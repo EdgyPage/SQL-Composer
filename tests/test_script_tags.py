@@ -393,7 +393,9 @@ def test_convert_and_check_print_the_decisions_to_paste(started: Path) -> None:
     said = repr(project.convert("closing", files=["close.hql"], query=example_database.query,
                                 database="ops"))
     for printed in (said, repr(project.check())):
-        assert ("\nPaste this into the decisions cell, DECISIONS, and fill in each <FILL IN>:\n"
+        assert ("\nPaste this over the DECISIONS = ... line of "
+                "admin/workflows/convert/convert.ipynb, closing's decisions cell") in printed
+        assert ("then fill in each <FILL IN> and check each guessed type:\n\n"
                 "DECISIONS = {\n"
                 '    "mart_dev.daily_close_mart": {\n'
                 '        "location": "<FILL IN>",') in printed

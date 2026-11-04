@@ -58,3 +58,9 @@ Built 2026-11-04.
   promote's block is keyed by each prod copy's name, as promote's decision step asks, which
   is the name check() writes there; the runner journeys and the answer-again ones type, as
   the user does in those cases; `paste_lines` is a function of decisions.py, no public name.
+- **Beginner reader**: [its report](../reports/05-beginner-reader.md); fixed in a second
+  commit, the costliest first: where the block is pasted, and that a later one keeps what step
+  3 wrote; what is left of a `<FILL IN>`, such as "FILL IN", is no answer either; the cell says
+  a proposed Key is kept unless answered; shorter hints, a location example, a key's list.
+  D414 (CHANGES.md) and D415 (the shared cell's comment said step 1 prints the block, which
+  only convert's and new_table's do) are fixed there.

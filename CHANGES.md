@@ -31,6 +31,12 @@ ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
   such as "tag" for "tags", a column the table doesn't have or a tag it doesn't hold. The
   refusal names each, with the nearest name. Before, it wrote the rest and named the stray
   answer in its report.
+- **The open Decisions are printed as a whole `DECISIONS = {...}` to paste** into the decisions
+  cell, by `project.check()` in every Workflow, and by step 1's report in convert and in
+  new_table's step converting a query: each answer still to give `"<FILL IN>"`, a guessed
+  type's proposal `"string"`, a comment beside each saying what to write. An answer left
+  `"<FILL IN>"`, or what is left of it, is no answer: step 2 isn't done, and step 3 writes
+  nothing for it and names it.
 
 ## 8.2
 

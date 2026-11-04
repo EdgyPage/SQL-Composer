@@ -210,9 +210,10 @@ def test_a_tag_holding_itself_is_an_open_decision_naming_where_it_stands() -> No
     assert [(each.subject, each.where, each.quoted) for each in tags] == [
         ("PERIOD_END", "daily.hql, line 4", False), ("team_2", "", True)]
     assert tags[0].question() == (
-        'tags: PERIOD_END, bare at daily.hql, line 4: answer the Hive <PARM="PERIOD_END"/> '
-        "stands for with its quotes, such as \"'2026-10-31'\", or a number, such as \"5\"")
-    assert tags[1].question().startswith("tags: team_2, inside quotes: answer what")
+        "tags: PERIOD_END, bare at daily.hql, line 4: the value with its own quotes, such as "
+        "\"'2026-10-31'\", or a number, such as \"5\"")
+    assert tags[1].question() == ("tags: team_2, inside quotes: the value with no quotes, "
+                                  'such as "failed"')
 
 
 def test_a_tag_answered_is_written_into_its_line_its_comment_kept() -> None:
@@ -275,23 +276,26 @@ def test_the_open_decisions_print_as_decisions_to_paste() -> None:
     assert lines == [
         "DECISIONS = {",
         '    "mart_dev.x": {',
-        '        "location": "<FILL IN>",  # the folder its files go in',
-        '        "key": "<FILL IN>",  # the columns that name one row, such as ["job_id", '
-        '"dt"], or None when none do',
+        '        "location": "<FILL IN>",  # its folder, such as '
+        '"/data/your_team/mart_dev.db/x"',
+        '        "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no '
+        "columns name one row",
         '        "types": {',
         '            "team": "string",  # guessed: its type, if not string, such as "bigint"',
         "        },",
         '        "tags": {',
-        '            "PERIOD_END": "<FILL IN>",  # bare at daily.hql, line 4: answer the Hive '
-        '<PARM="PERIOD_END"/> stands for with its quotes, such as "\'2026-10-31\'", or a '
-        'number, such as "5"',
-        '            "team_2": "<FILL IN>",  # inside quotes: answer what <PARM="team_2"/> '
-        'stands for with no quotes, such as "2026-10-31" or "failed"',
+        '            "PERIOD_END": "<FILL IN>",  # bare at daily.hql, line 4: the value with '
+        'its own quotes, such as "\'2026-10-31\'", or a number, such as "5"',
+        '            "team_2": "<FILL IN>",  # inside quotes: the value with no quotes, such '
+        'as "failed"',
         "        },",
         "    },",
         "}"]
     pasted = ast.literal_eval("\n".join(lines).removeprefix("DECISIONS = "))
     assert pasted["mart_dev.x"]["tags"] == {"PERIOD_END": "<FILL IN>", "team_2": "<FILL IN>"}
+
+
+THEN = "in the decisions cell in its place, then run step 3 again"
 
 
 def test_a_fill_in_pasted_and_left_is_no_answer() -> None:
@@ -303,7 +307,14 @@ def test_a_fill_in_pasted_and_left_is_no_answer() -> None:
     assert answered.written == []
     assert answered.text == TAGGED
     assert answered.unwritten == [
-        "location is still <FILL IN>: write its answer there",
-        "key is still <FILL IN>: write its answer there",
-        "types: team is still <FILL IN>: write its type there",
-        "tags: PERIOD_END is still <FILL IN>: write its answer there"]
+        f"location is still <FILL IN>: write its answer {THEN}",
+        f"key is still <FILL IN>: write its answer {THEN}",
+        f"types: team is still <FILL IN>: write its type {THEN}",
+        f"tags: PERIOD_END is still <FILL IN>: write its answer {THEN}"]
+
+
+def test_what_is_left_of_a_fill_in_is_no_answer_either() -> None:
+    answer = {"tags": {"PERIOD_END": "FILL IN", "team_2": "<fill in>"}}
+    answered = decisions.answered_text(TAGGED, answer, "r.py")
+    assert answered.written == []
+    assert answered.text == TAGGED

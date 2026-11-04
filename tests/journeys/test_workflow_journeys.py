@@ -507,11 +507,11 @@ def test_convert_a_script_with_script_tags(started: Started) -> None:
     # Each tag is an open Decision, which step 2 waits on and create too.
     said = repr(project.check())
     assert ("mart_dev.daily_close_mart: tags: PERIOD_END, bare at weekly.hql, line 10: "
-            'answer the Hive <PARM="PERIOD_END"/> stands for with its quotes') in said
+            "the value with its own quotes") in said
     # The staging table's tag is a Decision of the table it is folded into.
     assert ("mart_dev.monthly_fails_mart: tags: MinMins, bare at weekly.hql, line 7") in said
     assert ("mart_dev.monthly_fails_mart: tags: skip_team_2, inside quotes at weekly.hql, "
-            "line 15: answer what") in said
+            "line 15: the value with no quotes") in said
     journey.paste_decisions(_tag_answers(TAG_VALUES))
     journey.run_to()
     _check_converted(started, tables, TAGGED_KEYS)
