@@ -53,3 +53,12 @@ Costliest: 10, 11, 7; then 13 and 6.
 - 14: PARTITION's comment: "a Partition for step 7 to compare besides the latest, ... its value
   with no quotes of its own: None compares only the latest Partition your dev table and its
   original both hold".
+
+Code review of the fixes (review-standards, with the spec, on sonnet): fixed, a test of the
+runner stopping at step 7 on a quoted PARTITION; the refusal split into
+`_refuse_a_partition_not_a_dict` and `_refuse_a_partition_in_quotes`, double quotes caught
+too; compare_batch's docstring names both refusals; a "tags" that isn't a dict refused in one
+place, write_decisions, and tested; `_unmatched_kinds` keyed by decisions.ANSWERS;
+`table_tags`, and "holds no Script tag, so none can be answered"; step 7's finished-batch
+sentence its own. Answered: a dry run names what it would read and checks no PARTITION, as it
+checks no other input; the live run refuses it at step 7.

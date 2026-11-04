@@ -3338,8 +3338,9 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     Partition the original holds, or give one both hold. A table with no Partitions is compared
     on every row. A query alone, which convert made a Saved table named for the batch, or for
     its file in a batch of several scripts, has no original table: its rows are compared with
-    the query's, kept in its conversion/statement.hql. A partition= that names no column any of
-    them is partitioned by is refused.
+    the query's, kept in its conversion/statement.hql. A partition= is refused when it isn't a
+    dict, when a value is in quotes of its own, as '2026-09-23' (SHOW PARTITIONS lists
+    dt=2026-09-23), or when it names no column any of them is partitioned by.
 
     Each result is written in the table's conversion/compare.md, under a heading naming the
     Partition it compared, such as ## dt = '2026-09-24', or ## Every row: a compare of another
@@ -3364,7 +3365,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
-    _refuse_a_partition_not_as_listed(call, partition)
+    _refuse_a_partition_not_a_dict(call, partition)
+    _refuse_a_partition_in_quotes(call, partition)
     _refuse_a_partition_no_table_has(call, partition, read)
     lines = []
     for dev in chosen:
@@ -3593,21 +3595,24 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
     problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
                 f"{in_words(kinds)}{_nearest(name, kinds)}"
                 for name in answer if name not in kinds]
-    for kind, example in (("types", '{"fails": "bigint"}'),
-                          ("tags", '{"PERIOD_END": "\'2026-10-31\'"}')):
+    types, tags = decisions.ANSWERS[decisions.GUESSED_TYPE], decisions.ANSWERS[decisions.TAG]
+    for kind, example in ((types, '{"fails": "bigint"}'),
+                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}')):
         if kind in answer and not isinstance(answer[kind], dict):
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
                             f"as {example}, not {answer[kind]!r}")
     return problems
 
 
-def _unmatched_tags(table: str, named: list[str], held: list[str]) -> list[str]:
-    """A line naming each tag `named` that the table's TAGS, holding `held`, doesn't hold."""
-    if not held:
-        return [f"{table}: tags: {name}, but {table} holds no Script tag" for name in named]
+def _unmatched_tags(table: str, named: list[str], table_tags: list[str]) -> list[str]:
+    """A line naming each tag `named` that the table's TAGS, holding `table_tags`, doesn't
+    hold."""
+    if not table_tags:
+        return [f"{table}: tags: {name}: {table} holds no Script tag, so none can be answered"
+                for name in named]
     return [f"{table}: tags: {name} is no Script tag of {table}"
-            f"{_nearest_or_all(name, held, 'Script tags')}"
-            for name in named if name not in held]
+            f"{_nearest_or_all(name, table_tags, 'Script tags')}"
+            for name in named if name not in table_tags]
 
 
 def _nearest(name: str, names: list[str]) -> str:
@@ -3698,21 +3703,27 @@ def _table_in(root: Path, name: str) -> Table:
                      "table_reference")[short]
 
 
-def _refuse_a_partition_not_as_listed(call: str, partition: object) -> None:
-    """Refuse a partition= that isn't None or a dict of each partition column's value, or whose
-    value is written in quotes of its own: SHOW PARTITIONS lists dt=2026-09-24, so no Partition
-    is dt='2026-09-24', and the compare would fail on a Partition that is there."""
-    example = '{"dt": "2026-09-23"}'
-    if partition is not None and not isinstance(partition, dict):
-        refuse(
-            what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
-            "value.",
-            why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
-            fix=f"Give it as {example}, in the convert notebook's PARTITION, or None to "
-            "compare the latest Partition both tables hold.",
-            given=partition, call=call,
-        )
-    quoted = [column for column, value in (partition or {}).items()
+def _refuse_a_partition_not_a_dict(call: str, partition: object) -> None:
+    """Refuse a partition= that is neither None nor a dict of each partition column's value."""
+    if partition is None or isinstance(partition, dict):
+        return
+    refuse(
+        what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
+        "value.",
+        why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
+        fix=f"Give it as {PARTITION_EXAMPLE}, in the convert notebook's PARTITION, or None to "
+        "compare the latest Partition both tables hold.",
+        given=partition, call=call,
+    )
+
+
+def _refuse_a_partition_in_quotes(call: str, partition: object) -> None:
+    """Refuse a partition= whose value is written in quotes of its own: SHOW PARTITIONS lists
+    dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would fail on a
+    Partition that is there."""
+    if not isinstance(partition, dict):
+        return
+    quoted = [column for column, value in partition.items()
               if isinstance(value, str) and _in_quotes_of_its_own(value)]
     if quoted:
         refuse(
@@ -3720,14 +3731,19 @@ def _refuse_a_partition_not_as_listed(call: str, partition: object) -> None:
             f"{partition!r}.",
             why="A Partition's value is written as SHOW PARTITIONS lists it, dt=2026-09-23, "
             "with no quotes: one in quotes matches no Partition, and the table would fail.",
-            fix=f"Give it with no quotes of its own, as {example}.",
+            fix=f"Give it with no quotes of its own, as {PARTITION_EXAMPLE}.",
             error=ValueError,
         )
 
 
+# A partition= as a refusal shows it.
+PARTITION_EXAMPLE = '{"dt": "2026-09-23"}'
+
+
 def _in_quotes_of_its_own(value: str) -> bool:
-    """Whether a value is written in single quotes of its own, as '2026-09-23' is."""
-    return len(value) > 1 and value.startswith("'") and value.endswith("'")
+    """Whether a value is written in quotes of its own, single or double, as '2026-09-23'
+    is."""
+    return len(value) > 1 and value[0] in "'\"" and value[-1] == value[0]
 
 
 def _refuse_a_partition_no_table_has(call: str, partition: object,
