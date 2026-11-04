@@ -9,7 +9,8 @@ There are three tasks for each of the twelve objectives of the Copilot files (`0
 `13` and `14`, as `copilot/00_start_here.txt` lists them; `11` and `12`, an Excel workbook, are
 `tools/excel_eval.py`'s): two on the dev split, which the files may be tuned on, and one held
 out, scored once per version of the files. Six are traps, where the answer most people write
-first is refused by a Guard or a Load limit.
+first is refused by a Guard or a Load limit. Toolbox 8.3 adds two Script tag tasks each to 07
+and 13, one dev and one held out, a <PARM="NAME"/> its value given by the user.
 
 A task's kind says what its answer gives and how it is checked:
 
@@ -144,6 +145,37 @@ project.compare_batch(NAME, query=query)
 # The same cells as a promote task runs them, from the promote Workflow's folder.
 PROMOTED_FROM = FAILS_COMPARED.replace('FILES = ["daily_fails.hql"]',
                                        'FILES = ["../convert/daily_fails.hql"]')
+
+# Toolbox 8.3: a script holding a Script tag, <PARM="RUN_DAY"/>, which the user's scheduler
+# fills in with the day before Hive reads it; and one holding a bare tag and a quoted one,
+# STATUS, which the team's job ran, each tag filled in.
+TAGGED_FAILS = """INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS fails
+FROM ops.job_runs r
+WHERE r.dt = <PARM="RUN_DAY"/> AND r.status = 'FAILED'
+GROUP BY r.job_id;
+"""
+TWO_TAGS_FAILS_MADE = """\
+CREATE TABLE IF NOT EXISTS mart.daily_fails (job_id BIGINT, fails BIGINT)
+PARTITIONED BY (dt STRING);
+
+INSERT OVERWRITE TABLE mart.daily_fails PARTITION (dt = '2026-09-24')
+SELECT r.job_id, COUNT(*) AS fails
+FROM ops.job_runs r
+WHERE r.dt = <PARM="RUN_DAY"/> AND r.status = '<PARM="STATUS"/>'
+GROUP BY r.job_id;
+"""
+TWO_TAGS_FAILS_RAN = (TWO_TAGS_FAILS_MADE.replace('<PARM="RUN_DAY"/>', "'2026-09-24'")
+                      .replace('<PARM="STATUS"/>', "FAILED"))
+# T46's cells: the two-tag script converted as the batch fails, each tag answered, through its
+# compare.
+TAGS_COMPARED = FAILS_COMPARED.replace(
+    'DECISIONS = {"mart_dev.daily_fails_mart": '
+    '{"location": "/data/team/mart_dev.db/daily_fails"}}',
+    'DECISIONS = {"mart_dev.daily_fails_mart": {\n'
+    '    "location": "/data/team/mart_dev.db/daily_fails",\n'
+    '    "tags": {"RUN_DAY": "\'2026-09-24\'", "STATUS": "FAILED"},\n'
+    '}}')
 
 # A new table's query, as the user saved it.
 OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
@@ -540,6 +572,50 @@ s = statement(
     LEFT_JOIN(r, ON=all_of(equals(r.job_id, j.job_id), equals(r.dt, "2026-09-24"))),
 )
 ''', tables=("jobs", "job_runs")),
+    # Toolbox 8.3: Script tags, each one's value given, converted by hand.
+    Task("T43", "07", "dev",
+         "Show me this Hive as Toolbox code. <PARM=\"RUN_DAY\"/> is a Script tag: our "
+         "scheduler puts the day in its place before Hive reads it, and this time it put "
+         "'2026-09-24'.\n\n"
+         "SELECT r.run_id, r.status\n"
+         "FROM ops.job_runs r\n"
+         "WHERE r.dt = <PARM=\"RUN_DAY\"/> AND r.duration_mins > 30",
+         "convert", '''\
+from sqlglot_composer import (AS, FROM, SELECT, WHERE, equals, more_than, script_tag,
+                              statement)
+from references.ops__job_runs import job_runs
+
+TAGS = {"RUN_DAY": "'2026-09-24'"}
+
+r = AS(job_runs, "r")
+s = statement(
+    SELECT(r.run_id, r.status),
+    FROM(r),
+    WHERE(equals(r.dt, script_tag(TAGS["RUN_DAY"])), more_than(r.duration_mins, 30)),
+)
+''', tables=("job_runs",)),
+    Task("T44", "07", "held_out",
+         "Turn this Hive into Toolbox code. Our scheduler fills in each <PARM=\"NAME\"/> "
+         "before Hive reads it: RUN_DAY with '2026-09-24', and STATUS with FAILED.\n\n"
+         "SELECT r.job_id, COUNT(*) AS runs\n"
+         "FROM ops.job_runs r\n"
+         "WHERE r.dt = <PARM=\"RUN_DAY\"/> AND r.status = '<PARM=\"STATUS\"/>'\n"
+         "GROUP BY r.job_id",
+         "convert", '''\
+from sqlglot_composer import (AS, FROM, GROUP_BY, SELECT, WHERE, count_rows, equals,
+                              script_tag, statement)
+from references.ops__job_runs import job_runs
+
+TAGS = {"RUN_DAY": "'2026-09-24'", "STATUS": "FAILED"}
+
+r = AS(job_runs, "r")
+s = statement(
+    SELECT(r.job_id, AS(count_rows(), "runs")),
+    FROM(r),
+    WHERE(equals(r.dt, script_tag(TAGS["RUN_DAY"])), equals(r.status, TAGS["STATUS"])),
+    GROUP_BY(r.job_id),
+)
+''', tables=("job_runs",)),
     # --- 08 checking and comparing ----------------------------------------------------------
     Task("T22", "08", "dev",
          "My team's Hive was\n\n"
@@ -772,6 +848,40 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
          "workflow", FAILS_COMPARED, tables=("job_runs",), workflow="convert",
          files={"admin/workflows/convert/daily_fails.hql": DAILY_FAILS_MADE},
          originals=DAILY_FAILS_MADE),
+    # Toolbox 8.3: a converted batch's Script tags answered in the decisions cell.
+    Task("T45", "13", "dev",
+         "I converted daily_fails.hql as the batch named fails (NAME = \"fails\"). Its "
+         "scheduler puts the day in place of <PARM=\"RUN_DAY\"/>, and this run's day was "
+         "2026-09-24. project.check() says:\n"
+         "    mart_dev.daily_fails_mart: types: dt's type, written \"string\" as a guess\n"
+         "    mart_dev.daily_fails_mart: location: the folder its files go in\n"
+         "    mart_dev.daily_fails_mart: tags: RUN_DAY, bare at daily_fails.hql, line 4: the "
+         "value with its own quotes, such as \"'2026-10-31'\", or a number, such as \"5\"\n"
+         "dt is a string, and its folder is /data/team/mart_dev.db/daily_fails. Give only the "
+         "convert notebook's decisions cell, answered, and the cell that writes the answers "
+         "in: I'll run the steps after them myself.",
+         "workflow", '''DECISIONS = {"mart_dev.daily_fails_mart": {
+    "types": {"dt": "string"},
+    "location": "/data/team/mart_dev.db/daily_fails",
+    "tags": {"RUN_DAY": "'2026-09-24'"},
+}}
+
+project.write_decisions(DECISIONS)
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": TAGGED_FAILS},
+         before='''project.convert("fails", None, files=["daily_fails.hql"], query=query)
+'''),
+    Task("T46", "13", "held_out",
+         "I have daily_fails.hql from the ops team, saved in admin/workflows/convert/. Their "
+         "scheduler fills in each <PARM=\"NAME\"/> in it before Hive reads it: this run, "
+         "RUN_DAY with '2026-09-24' and STATUS with FAILED, and the job has run, so "
+         "mart.daily_fails holds its rows. Convert it into my Dev Database as a batch named "
+         "fails and take it all the way through the compare: give every step's cell, in "
+         "order. convert will name the table mart_dev.daily_fails_mart, and its folder is "
+         "/data/team/mart_dev.db/daily_fails.",
+         "workflow", TAGS_COMPARED, tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": TWO_TAGS_FAILS_MADE},
+         originals=TWO_TAGS_FAILS_RAN),
     # --- 16 a Workflow: promote --------------------------------------------------------------
     Task("T40", "16", "dev",
          "I converted daily_fails.hql as the batch named fails, and its compare passed, so "

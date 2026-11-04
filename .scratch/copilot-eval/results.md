@@ -278,3 +278,18 @@ PARTITION; each measured on haiku, one objective a proxy, arm C.
   not a clean one.
 - No task of either split holds a Script tag yet, so these rounds hold the files' other rules
   as 8.3 rewrote them, not the tag rules themselves.
+| 2026-11-04 | 22aa474 | haiku | C | held_out | 50 | 100 | 100 | 50 | 50 | 50 | 0 | 0 | 0 | 0 | 07:50 |
+| 2026-11-04 | 22aa474 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-04 | 22aa474 | haiku | C | dev | 67 | 100 | 100 | 67 | 67 | 67 | 0 | 0 | 0 | 0 | 07:67 |
+| 2026-11-04 | 22aa474 | haiku | C | dev | 80 | 100 | 100 | 100 | 100 | 80 | 0 | 0 | 0 | 0 | 13:80 |
+
+8.3 Script tag tasks (2026-11-04): T43 and T45 (dev) and T44 and T46 (held out) added, each a
+`<PARM="NAME"/>` whose value the user gives; files 22aa474, haiku, arm C, the four rows above.
+
+- 07: held-out 50% (T44 failed), dev 67% (T43 failed). Both failed the same way: file 07 says
+  "TAGS is in its Table reference", so the proxy imported TAGS (T43, from the source table's
+  reference) or left it unimported (T44), where a by-hand conversion writes TAGS above the
+  statement with the user's values.
+- 13: held-out 100% (T46 passed), dev 80% (T45 failed). T45 answered RUN_DAY "<FILL IN>" though
+  the user gave the day: file 13's "a day changing each run" hivevar option and its "Never guess
+  its value: ask" read as overriding a value the user had given.
