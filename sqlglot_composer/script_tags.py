@@ -183,13 +183,14 @@ def script_tag(text: str) -> Column:
     it gives back a Column, the type any value in a Statement has, as
     job_runs.duration_mins / 60 does. TAGS, in the table's Table reference, holds what each
     tag stands for: the Hive the program put there, such as '2026-09-24' with its quotes, 5,
-    or ${hivevar:period_end}, a Hive variable your warehouse fills in when the query runs.
+    or '${hivevar:period_end}', a Hive variable your warehouse fills in when the query runs,
+    in quotes when it holds a date.
 
     You answer each tag in the convert notebook's decisions cell, under "tags", as in
-    DECISIONS = {"mart_dev.daily_close": {"tags": {"PERIOD_END": "'2026-09-24'"}}}, and its
-    next step writes the answer into TAGS; answering again changes it. Until then TAGS holds
-    the tag itself, and the table isn't created: script_tag would write a bare one in
-    backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run.
+    DECISIONS = {"mart_dev.daily_close": {"tags": {"PERIOD_END": "'2026-09-24'"}}}, and step
+    3, project.write_decisions, writes the answer into TAGS; answering again changes it.
+    Until then TAGS holds the tag itself, and the table isn't created: script_tag would write
+    a bare one in backticks, `<PARM="PERIOD_END"/>`, which Hive refuses to run.
 
     It is a value, never a condition or a column of a table: text that names a column, holds
     more than one expression or reads a table of its own is refused. The Toolbox doesn't check

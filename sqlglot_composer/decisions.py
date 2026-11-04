@@ -49,12 +49,13 @@ PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
 # A column's line in columns={...}, such as         "team": "string",
 COLUMN_LINE = re.compile(r'^        "(?P<column>[^"]+)": "(?P<type>[^"]*)",')
 # A Script tag's line in TAGS = {...}, as converting.tags_block writes it, such as
-#     "PERIOD_END": "'2026-10-31'",  # bare, at daily.hql, line 4: its value as Hive, ...
+#     "PERIOD_END": "'2026-10-31'",  # bare, at daily.hql, line 4. Answer it with ...
 # in three parts: its NAME and its value, each a Python string; and its comment, which says
 # whether the tag stands bare or inside quotes, and where it first stands in the scripts.
 _TAG_NAME = r'(?P<name>"(?:[^"\\]|\\.)*")'
 _TAG_VALUE = r"(?P<value>.*?)"
-_TAG_COMMENT = r"(?P<comment># (?:bare|inside quotes)(?:, at (?P<where>[^:]*))?:.*)"
+_TAG_COMMENT = (r"(?P<comment># (?P<how>bare|inside quotes)(?:, at (?P<where>.*?))?\. "
+                r"Answer .*)")
 TAG_LINE = re.compile(f"^    {_TAG_NAME}: {_TAG_VALUE},  {_TAG_COMMENT}$")
 # What a Conversion writes after a column whose type nothing told it.
 GUESSED = "  # TODO: guessed: nothing told its type"
@@ -77,12 +78,13 @@ PROPOSED_FROM_LOGIC = ('  # proposed from its logic; if it is wrong, answer "key
 class Decision:
     """One open Decision: its table, its kind, and what it is about: a guessed type's column,
     a tag's NAME, or a placeholder's <...>; and, for a tag, where it is in the scripts, such as
-    "daily.hql, line 4", when its line says."""
+    "daily.hql, line 4", when its line says, and whether it stands inside quotes."""
 
     table: str
     kind: str
     subject: str = ""
     where: str = ""
+    quoted: bool = False
 
     def question(self) -> str:
         """What it asks of you, as check() names it."""
@@ -93,8 +95,7 @@ class Decision:
         if self.kind == GUESSED_TYPE:
             return f'types: {self.subject}\'s type, written "string" as a guess'
         if self.kind == TAG:
-            at = f", at {self.where}" if self.where else ""
-            return f'tags: {self.subject}, the value <PARM="{self.subject}"/> stands for{at}'
+            return tag_question(self.subject, self.quoted, self.where)
         if self.subject == COLUMNS:
             return (f"{COLUMNS}, which project.reference_from_logic writes from its logic, "
                     "once that runs")
@@ -109,6 +110,8 @@ class Answered:
     text: str
     written: list[str] = field(default_factory=list)
     unwritten: list[str] = field(default_factory=list)
+    # A line for each tag answered before whose answer this one changed.
+    changed: list[str] = field(default_factory=list)
 
 
 def has_columns_written(text: str) -> bool:
@@ -156,8 +159,9 @@ def kind_of(line: str) -> str:
 
 
 def is_open(line: str) -> bool:
-    """Whether a line is a Decision still to make: it holds a TODO: or a <...>, or it is a
-    location= left None; a comment is none, as the Aliases' examples are."""
+    """Whether a line is a Decision still to make: it holds a TODO: or a <...>, it is a
+    location= left None, or it is a Script tag's line in TAGS still holding the tag itself,
+    <PARM="NAME"/>; a comment is none, as the Aliases' examples are."""
     if line.strip().startswith("#"):
         return False
     if kind_of(line) == TAG:
@@ -178,10 +182,42 @@ def _tag_value_of(line: str) -> object:
         return None
 
 
-def is_hive_text(value: object) -> bool:
-    """Whether a tag's answer is Hive text to write where the tag stood: a string, not
-    blank."""
-    return isinstance(value, str) and bool(value.strip())
+def _tag_is_quoted(line: str) -> bool:
+    """Whether a tag line's comment says its tag stands inside quotes."""
+    return TAG_LINE.match(line)["how"] == "inside quotes"
+
+
+def tag_question(name: str, quoted: bool, where: str = "") -> str:
+    """What a Script tag's Decision asks, saying how its answer is written: a bare tag's with
+    the value's own quotes, a quoted one's with none."""
+    at = f" at {where}" if where else ""
+    if quoted:
+        return (f'tags: {name}, inside quotes{at}: answer what <PARM="{name}"/> stands for '
+                'with no quotes, such as "2026-10-31" or "failed"')
+    return (f'tags: {name}, bare{at}: answer the Hive <PARM="{name}"/> stands for with its '
+            "quotes, such as \"'2026-10-31'\", or a number, such as \"5\"")
+
+
+# A date written with no quotes, which Hive reads as a subtraction: 2026-10-31 is 1985.
+_BARE_DATE = re.compile(r"\d{4}-\d{1,2}-\d{1,2}")
+
+
+def tag_answer_problem(value: object, quoted: bool) -> str | None:
+    """Why a tag's answer can't be written where the tag stood, or None when it can: it must
+    be Python text; a bare tag's date needs its quotes, and a quoted tag's answer has none."""
+    if not isinstance(value, str):
+        return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
+                "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
+                "a subtraction to Python)")
+    if not value.strip():
+        return "is given empty text: give the Hive the program put where the tag stood"
+    if not quoted and _BARE_DATE.fullmatch(value.strip()):
+        return (f"stands bare, so a date needs its own quotes, or Hive reads it as a "
+                f"subtraction: answer \"'{value.strip()}'\"")
+    if quoted and len(value) > 1 and value.startswith("'") and value.endswith("'"):
+        return (f"stands inside quotes already, so its answer has none: answer "
+                f"{escaped_literal(value[1:-1])}")
+    return None
 
 
 def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> list[Decision]:
@@ -190,10 +226,11 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
     for line in code_of(text).split("\n"):
         kind = kind_of(line)
         if kind in kinds and is_open(line):
-            where = ""
+            where, quoted = "", False
             if kind == TAG:
                 where = TAG_LINE.match(line)["where"] or ""
-            still_open.append(Decision(table, kind, _subject_of(kind, line), where))
+                quoted = _tag_is_quoted(line)
+            still_open.append(Decision(table, kind, _subject_of(kind, line), where, quoted))
     return still_open
 
 
@@ -251,11 +288,17 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
         if not is_open(line) and not changeable:
             continue
         written, name = _answered_line(line, answer)
-        if written is not None:
-            lines[number] = written
-            answered.written.append(name)
+        if written is None:
+            continue
+        if kind_of(line) == TAG and not is_open(line) and written != line:
+            answered.changed.append(f"tags: {_tag_name_of(line)} is "
+                                    f"{_tag_value_of(written)} now, in place of "
+                                    f"{_tag_value_of(line)}")
+        lines[number] = written
+        answered.written.append(name)
     answered.text = "\n".join(lines)
     answered.unwritten += _unwritten(answer, answered.written, reference)
+    answered.unwritten += _tags_unwritten(answer, text, reference)
     return answered
 
 
@@ -274,15 +317,29 @@ def _unwritten(answer: dict[str, object], written: list[str], reference: str) ->
             if f"types: {column}" not in written:
                 unwritten.append(f"types: {column} is no type the Toolbox guessed in "
                                  f"{reference}; to change it, edit its line there")
+    return unwritten
+
+
+def _tags_unwritten(answer: dict[str, object], text: str, reference: str) -> list[str]:
+    """A line naming each tag answer left unwritten, and why: "tags" not a dict, a tag
+    `reference`, whose text is `text`, doesn't hold, or an answer in a form that can't stand
+    where its tag stood."""
     tags = answer.get(ANSWERS[TAG])
-    if isinstance(tags, dict):
-        for name, value in tags.items():
-            if not is_hive_text(value):
-                unwritten.append(
-                    f"tags: {name} is given {value!r}, not Hive text: give it as a string, "
-                    "such as \"'2026-10-31'\" or \"5\"")
-            elif f"tags: {name}" not in written:
-                unwritten.append(f"tags: {name} is no Script tag of {reference}")
+    if ANSWERS[TAG] not in answer:
+        return []
+    if not isinstance(tags, dict):
+        return [f"tags: give a dict of each tag's answer by its NAME, such as "
+                f"{{\"PERIOD_END\": \"'2026-10-31'\"}}, not {tags!r}"]
+    tag_lines = {_tag_name_of(line): line for line in text.split("\n")
+                 if kind_of(line) == TAG}
+    unwritten = []
+    for name, value in tags.items():
+        if name not in tag_lines:
+            unwritten.append(f"tags: {name} is no Script tag of {reference}")
+            continue
+        problem = tag_answer_problem(value, _tag_is_quoted(tag_lines[name]))
+        if problem is not None:
+            unwritten.append(f"tags: {name} {problem}")
     return unwritten
 
 
@@ -308,11 +365,13 @@ def _answered_line(line: str, answer: dict[str, object]) -> tuple[str | None, st
 
 def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     """A tag's line written with its answer, its comment kept, and the answer's name, or None
-    when `tags` gives it no Hive text."""
+    when `tags` gives it none, or one in a form that can't stand where the tag stood."""
     name = _tag_name_of(line)
-    if not isinstance(tags, dict) or not is_hive_text(tags.get(name)):
+    if not isinstance(tags, dict) or name not in tags:
         return None, ""
     value = tags[name]
+    if tag_answer_problem(value, _tag_is_quoted(line)) is not None:
+        return None, ""
     found = TAG_LINE.match(line)
     return (f"    {found['name']}: {escaped_literal(value)},  {found['comment']}",
             f"tags: {name}")

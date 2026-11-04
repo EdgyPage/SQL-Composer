@@ -181,8 +181,9 @@ class ConvertedQuery:
 
 # The comment above a converted query's TAGS, which saved_table_logic moves into its Table
 # reference.
-TAGS_COMMENT = ('# What each Script tag stands for, as Hive: the decisions cell\'s "tags" '
-                "answers, written here. Until then, the tag itself.")
+TAGS_COMMENT = ('# What each Script tag stands for, as Hive. Answer each under "tags" in the '
+                "convert notebook's decisions cell: its step 3 writes it here, over what is "
+                "here. A line still holding the tag itself is unanswered.")
 
 
 def tags_block(tag_is_quoted: dict[str, bool],
@@ -197,12 +198,12 @@ def tags_block(tag_is_quoted: dict[str, bool],
         how = "inside quotes" if quoted else "bare"
         if where and name in where:
             how += f", at {where[name]}"
-        what = ("its value as Hive, such as \"'2026-09-24'\" (text or a date, in quotes) or "
-                '"5"')
+        what = ("Answer it with its quotes, such as \"'2026-09-24'\", or a number, such as "
+                '"5".')
         if quoted:
-            what = "its value with no quotes, such as \"2026-09-24\""
+            what = 'Answer it with no quotes, such as "2026-09-24".'
         tag = f'<PARM="{name}"/>'
-        lines.append(f"    {escaped_literal(name)}: {escaped_literal(tag)},  # {how}: {what}")
+        lines.append(f"    {escaped_literal(name)}: {escaped_literal(tag)},  # {how}. {what}")
     return [*lines, "}"]
 
 
@@ -385,9 +386,9 @@ def _is_plain_value(node: exp.Expression) -> bool:
 
 
 # What a finding on a Script tag says after the tag.
-TAG_FINDING = ('Answer its value in the decisions cell, under "tags", and write the answers: '
-               "they go into TAGS, in the table's Table reference. Until then TAGS holds the "
-               "tag itself, and the table isn't created.")
+TAG_FINDING = ('Answer it under "tags" in the decisions cell of '
+               "admin/workflows/convert/convert.ipynb: step 3 writes it into TAGS, in the "
+               "table's Table reference, and until then step 4 won't create the table.")
 
 
 def _tags_found(query: exp.Expression) -> list[tuple[exp.Expression, str, bool]]:

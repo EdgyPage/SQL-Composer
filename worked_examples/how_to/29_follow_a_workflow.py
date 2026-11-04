@@ -179,7 +179,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key marked # proposed is made, but an answer here changes it
 
@@ -287,7 +288,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key marked # proposed is made, but an answer here changes it
 
@@ -406,7 +408,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key marked # proposed is made, but an answer here changes it
 
@@ -503,7 +506,8 @@ Its decisions cell, beside it, where you answer each open Decision:
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
     # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"}}}
+    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open;
     # a Key marked # proposed is made, but an answer here changes it
 
