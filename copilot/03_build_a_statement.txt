@@ -1,4 +1,4 @@
-# Copilot file 03: building a Statement (sqlglot Composer 8.2)
+# Copilot file 03: building a Statement (sqlglot Composer 8.3)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -7,7 +7,7 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.2, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.3, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
 - `t`: a table, as its Table reference describes it: `job_runs`.

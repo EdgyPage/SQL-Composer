@@ -1,4 +1,4 @@
-# sqlglot Composer 8.2 - copy it, then edit your copy
+# sqlglot Composer 8.3 - copy it, then edit your copy
 """mart.team_day - one row per team and day: runs, failed runs and minutes.
 
 Why: its notebook saves each team's day here, made from what mart.daily_job_runs saved, so a

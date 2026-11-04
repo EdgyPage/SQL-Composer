@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 8.2, exported 2026-11-02 05:11 - generated from dev, do not edit -->
+<!-- sqlglot Composer 8.3, exported 2026-11-04 22:23 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 8.2, exported 2026-11-02 05:11.
+This is version 8.3, exported 2026-11-04 22:23.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. **It refuses a Statement that would silently
@@ -613,7 +613,10 @@ The convert Workflow, `admin/workflows/convert/convert.ipynb`, makes a **Convers
 **batch**, one or more scripts converted together. The scripts' order doesn't matter: a FROM
 with several INSERTs and an INSERT that reads its own table each come out as Saved tables, and
 a temporary table another statement reads, a **staging table**, is folded into the tables that
-read it.
+read it. A **Script tag**, a `<PARM="NAME"/>` the program that ran the scripts filled in before
+Hive read it, such as `WHERE dt <= <PARM="PERIOD_END"/>`, is read past where a value goes, and
+left for you to answer, once for each table it ends up in, since it may stand for a different
+value in each.
 
 1. **Save the scripts.** Goal: the Workflow can read them. Action: save them beside it, in
    `admin/workflows/convert/`, where it reads them. Done when each script is there; then
@@ -643,17 +646,25 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 ```
 
 4. **Answer each Decision.** Goal: what only you can decide. Action: answer each table's
-   Decisions, such as its folder, in the notebook's decisions cell, and save it. Done when each
-   table's Decisions are answered; then step 5.
+   Decisions, such as its folder and each Script tag's value, in the notebook's decisions cell,
+   and save it: the convert step and `project.check()` print a whole `DECISIONS = {...}` to
+   paste there, each answer to give `"<FILL IN>"`. A bare tag is answered with the value's own
+   quotes, `{"tags": {"PERIOD_END": "'2026-10-31'"}}`, and one inside quotes,
+   `'<PARM="STATUS"/>'`, with none, `{"tags": {"STATUS": "failed"}}`. A day that changes each
+   run is answered `"'${hivevar:period_end}'"`, with a `SET hivevar:period_end=...` line kept
+   in the script. To change an answer, answer it again, then run step 5's steps again: write
+   the answers in, write each table, and compare each. Done when each table's Decisions are
+   answered; then step 5.
 5. **Build each table in dev.** Goal: each table written in dev and compared. Action: run the
    Workflow's next steps: they write your answers in, create each table in dev, seed each whose
    write reads its own table (copy its **original**'s rows in once, the original being the
    table the script writes, so its first write doesn't start from nothing), write each, and
    compare each with the table it copies, `project.compare_batch`. A partitioned table is
    compared on the latest Partition both tables hold. If you want another Partition compared
-   too, then run `project.compare_batch("ops_reports", query=query, partition={"dt":
-   "2026-09-23"})`, with your batch's name, and its `conversion/compare.md` keeps each
-   Partition's result. Done when every result of each table has passed; then step 6.
+   too, once your dev table holds it, then set `PARTITION` in the names cell, such as
+   `PARTITION = {"dt": "2026-09-23"}`, and run the compare step again: its
+   `conversion/compare.md` keeps each Partition's result. Done when every result of each table
+   has passed; then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: run the promote Workflow,
    which carries them to your Prod Database, PROD, `project.promote`, each keeping its name
    unless `rename=` gives it another. Done when each is written in prod.
@@ -774,7 +785,7 @@ flowchart TD
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing
     t3("a dev Table folder per table the scripts write"):::thing
-    t4("a Table reference per table"):::thing
+    t4("a Table reference per table, each Script tag in its TAGS"):::thing
     t5("each answer in the decisions cell"):::thing
     t6("each answer written in"):::thing
     t7("each made in dev"):::thing
@@ -838,7 +849,7 @@ flowchart TD
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query)
+       project.compare_batch(NAME, query=query, partition=PARTITION)
 
 <!-- /chart -->
 
@@ -1457,7 +1468,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 110 names listed here before the admin module.
+- The star import brings the 111 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,
@@ -1467,8 +1478,8 @@ lives in.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'8.2'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 8.2, exported 2026-11-02 05:11'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'8.3'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 8.3, exported 2026-11-04 22:23'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -1626,6 +1637,12 @@ Session settings, Hive written by hand, and the Admin log: Hive sent as you chos
 - `set_admin_log` - Set where the Admin log is written, such as "logs/admin_log.md".
 - `SessionSettings` - The SET lines of one or more named sets, made by hive_settings(...).
 - `UncheckedStatement` - Hive written by hand, made by unchecked_hive(...).
+
+### `script_tags.py`
+
+Script tags: a <PARM="NAME"/> in Hive someone else wrote, which the program that ran it
+
+- `script_tag` - The value a Script tag stands for, written where the tag stood, as a Column.
 
 ### `comparisons.py`
 

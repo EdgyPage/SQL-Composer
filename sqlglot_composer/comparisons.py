@@ -26,6 +26,7 @@ from .refusals import (
 )
 from .running import (hive_without_automatic_limit, need_statement, send_logged,
                       statement_tree, statements_within)
+from .script_tags import readable_tags
 from .shared import counted, in_words, singular_or_plural
 from .tables import Column, Table, Verdict, literal, python_text
 from .trees import unchecked_calls
@@ -91,7 +92,9 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     star_columns = _star_columns_by_table(statement)
     ours = normalised_query(hive_without_automatic_limit(statement), call,
                             "the Statement's Hive", star_columns)
-    theirs = normalised_query(original, call, "the original", star_columns)
+    # The original's bare Script tags are put in backticks so sqlglot can read them: the same
+    # shape script_tag writes for a tag not answered yet, so the two Hives match.
+    theirs = normalised_query(readable_tags(original), call, "the original", star_columns)
     if ours == theirs:
         return Verdict(True, [f"The Statement's Hive and the original are the same query, "
                               f"{_THE_SAME}."])

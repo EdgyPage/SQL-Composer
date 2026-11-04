@@ -1,4 +1,4 @@
-# sqlglot Composer 8.2 - copy it, then edit your copy
+# sqlglot Composer 8.3 - copy it, then edit your copy
 """warehouse - your connection to the warehouse, conn, and its two calls.
 
 Why: every notebook in the Project reaches the warehouse through query and execute, so a change

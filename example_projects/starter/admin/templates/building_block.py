@@ -1,4 +1,4 @@
-# sqlglot Composer 8.2 - copy it, then edit your copy
+# sqlglot Composer 8.3 - copy it, then edit your copy
 """<BLOCK> - TODO: say in one line what one row of it is.
 
 Fill in every <...> in the code below this text, brackets and all: Python stops at one left

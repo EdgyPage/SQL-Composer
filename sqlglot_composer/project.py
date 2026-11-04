@@ -78,7 +78,9 @@ from __future__ import annotations
 
 import ast
 import csv
+import dataclasses
 import datetime
+import difflib
 import hashlib
 import importlib
 import inspect
@@ -126,11 +128,12 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
+from .script_tags import FoundTag, tags_in
 from .shared import (counted, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
-from .tables import (TABLE_NAME, Table, Verdict, all_columns, check_key, table_reference_text,
-                     write_table_reference)
+from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
+                     table_reference_text, write_table_reference)
 from .unchecked import (
     SessionSettings,
     UncheckedStatement,
@@ -651,8 +654,8 @@ def _refuse_a_query_it_cant_make(root: Path, dev: str, name: str, query_or_file:
                "its query there, and promoted to prod, as a Conversion's tables are.",
                fix=f"Name it {dev}.{table}: project.promote makes its prod copy.",
                error=ValueError)
-    statements = converting.batch_statements(_query_scripts(call, query_or_file), "default",
-                                             f"default.{table}")
+    statements = _batch_statements(call, _query_scripts(call, query_or_file), "default",
+                                   f"default.{table}")
     kinds = [each.kind for each in statements if each.kind != converting.SETTING]
     if kinds != [converting.QUERY]:
         refuse(what=f"{call}: the Hive for {table} isn't one query.",
@@ -1471,7 +1474,21 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
                  "it is written here:")
     for decision in waited_on:
         said += f"\n    {decision.table}: {decision.question()}"
+    said += _paste_text(waited_on, where)
     return said
+
+
+def _paste_text(still_open: list[decisions.Decision], notebook: str) -> str:
+    """The DECISIONS to paste into `notebook`'s decisions cell for the Decisions `still_open`,
+    between blank lines and unindented, so it pastes into the cell as it is; or "" when the
+    cell answers none of them."""
+    if not any(decision.kind in decisions.ANSWERS for decision in still_open):
+        return ""
+    return (f"\nPaste this over the DECISIONS = ... line of {notebook}'s decisions cell, or "
+            "over a DECISIONS you pasted before (each answer written into a Table reference "
+            "already is kept), "
+            f"then fill in each {decisions.FILL_IN} and check each guessed type:\n\n"
+            + "\n".join(decisions.paste_lines(still_open)) + "\n")
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
@@ -1761,12 +1778,13 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.2.
+    Upgraded the Project from 7.1 to 8.3.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
+    8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
     cell of admin/check_project.ipynb, which imports project already, or of
@@ -2005,6 +2023,18 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create
     each table in dev, seed each that reads itself, write each, and compare each with its
     original.
+    Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb,
+    failed_runs's decisions cell, or over a DECISIONS you pasted before (each answer written
+    into a Table reference already is kept), then fill in each <FILL IN> and check each guessed
+    type:
+    <BLANKLINE>
+    DECISIONS = {
+        "mart_dev.failed_runs": {
+            "location": "<FILL IN>",  # its folder, such as "/data/your_team/mart_dev.db/..."
+            "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no columns...
+        },
+    }
+    <BLANKLINE>
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
@@ -2243,7 +2273,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
     dev = _dev_database(root, call)
     index = CONVERSION_FOLDER.path(root, name)
     _refuse_a_finished_name(root, name, call)
-    statements = converting.batch_statements(scripts, database, f"{database}.{name}")
+    statements = _batch_statements(call, scripts, database, f"{database}.{name}")
     staging_found = converting.staging_tables(statements)
     folded, unfoldable = converting.fold_staging(
         statements, _staging_choices(call, staging_found, staging, database), database)
@@ -2391,6 +2421,26 @@ def _refuse_a_query_named_like_another(call: str,
         fix=f"{fix}, then run it again.",
         error=ValueError,
     )
+
+
+def _batch_statements(call: str, scripts: list[tuple[str, str]], database: str,
+                      query_table: str) -> list[converting.BatchStatement]:
+    """Each statement of the batch's scripts, as converting.batch_statements reads them;
+    refused, before anything is written, where a Script tag's shape isn't the one a
+    Conversion reads, or a tag stands where no value goes."""
+    try:
+        return converting.batch_statements(scripts, database, query_table)
+    except converting.ConversionRefused as why:
+        refuse(
+            what=f"{call} can't convert the batch: {why}.",
+            why="A Script tag is a value the program that ran the scripts filled in, which a "
+            "Conversion leaves in TAGS for you to give; a table's name, a column's name or a "
+            "whole condition it can't leave there.",
+            fix='Edit that line of the script: write a tag as <PARM="NAME"/>, NAME in double '
+            "quotes, or, where a tag stands for a name or a condition, write in its place "
+            "what the program put there; then run it again.",
+            error=ValueError,
+        )
 
 
 def _batch_plan(call: str, statements: list[converting.BatchStatement], dev: str,
@@ -2567,7 +2617,9 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     proposed = _proposed_keys(built, partitions)
     storage = _storage_from_create(table, ordered)
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
-                           _guessed(columns), proposed=proposed)
+                           _guessed(columns), proposed=proposed,
+                           tag_is_quoted=hive_read.tag_is_quoted,
+                           tag_places=_first_place_of_each_tag(pieces))
     seed_hive = None
     if seeded:
         seed_hive = _seed_hive(table, dev, partitions)
@@ -2596,8 +2648,47 @@ def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
     findings, a query's write said as one, and each opt-out it added."""
     first = pieces[0]
     written = _settings_before(first, ordered) + "".join(f"{each.text};\n" for each in pieces)
-    return _scan_lines(text, hive_read, written, first.kind == converting.QUERY) + [
+    # A tag is noted at its script's line, which the Hive the scan reads, folded, doesn't keep.
+    findings = [each for each in hive_read.findings if each.kind != "tag"]
+    without_tags = dataclasses.replace(hive_read, findings=findings)
+    lines = _scan_lines(text, without_tags, written, first.kind == converting.QUERY)
+    tags = _tags_at_their_lines(pieces)
+    if tags and "Found:" not in lines:
+        lines.append("Found:")
+    return lines + tags + [
         f"Opt-out added, marked # CONVERSION: at its line: {opt_out}" for opt_out in opt_outs]
+
+
+def _tag_places(pieces: list[converting.BatchStatement]) -> list[tuple[str, FoundTag]]:
+    """Each Script tag in a batch table's statements and in each staging table's folded into
+    them, with its place in the scripts, such as "daily.hql, line 4"."""
+    statements = list(pieces)
+    for each in pieces:
+        statements += each.folded
+    places = []
+    for read in statements:
+        for tag in tags_in(read.text):
+            places.append((f"{read.script}, line {read.line + tag.line - 1}", tag))
+    return places
+
+
+def _tags_at_their_lines(pieces: list[converting.BatchStatement]) -> list[str]:
+    """A scan's line for each Script tag of a batch table, naming its script and its line
+    there."""
+    lines = []
+    for place, tag in _tag_places(pieces):
+        how = "inside quotes" if tag.quoted else "bare"
+        lines.append(f'  {place}: <PARM="{tag.name}"/>, a Script tag, {how}. '
+                     f"{converting.TAG_FINDING}")
+    return lines
+
+
+def _first_place_of_each_tag(pieces: list[converting.BatchStatement]) -> dict[str, str]:
+    """Where each Script tag of a batch table first stands in the scripts, by its NAME."""
+    first: dict[str, str] = {}
+    for place, tag in _tag_places(pieces):
+        first.setdefault(tag.name, place)
+    return first
 
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
@@ -2696,15 +2787,21 @@ def _storage_from_create(table: str,
 def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str],
                            partitions: list[str], storage: dict[str, str],
                            guessed: tuple[str, ...],
-                           proposed: tuple[list[str], ...] = ()) -> None:
+                           proposed: tuple[list[str], ...] = (),
+                           tag_is_quoted: dict[str, bool] | None = None,
+                           tag_places: dict[str, str] | None = None) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
-    as a Decision, then the Database modules, which the next table's logic imports it
+    as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
+    its Aliases; then the Database modules, which the next table's logic imports it
     through."""
     stem = REFERENCE.stem(dev)
-    files.write_text(REFERENCE.shown(stem),
-                     table_reference_text(dev, columns, partitions,
-                                          f"{REFERENCE.folder}.{stem}", guessed=guessed,
-                                          proposed=proposed, **storage))
+    text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
+                                guessed=guessed, proposed=proposed, **storage)
+    if tag_is_quoted:
+        at = text.index(ALIASES_HEADING)
+        block = converting.tags_block(tag_is_quoted, tag_places)
+        text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
+    files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
 
 
@@ -3116,15 +3213,18 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
         lines.append("Skipped, each with why: " + "; ".join(skipped) + ".")
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
+    still_open = workflows.open_decisions_of(files.root, made, workflows.DEV_DECISIONS)
     if files.made_for:
         # A batch another Workflow made, as new_table makes a table from its query: its own.
         lines.append("Next: answer its open Decisions in the decisions cell of "
-                     f"{_decisions_notebook(files.made_for)}, then run its next steps.")
+                     f"{_decisions_notebook(files.made_for)}, then run its next steps."
+                     + _paste_text(still_open, _decisions_notebook(files.made_for)))
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "
-                 "each, and compare each with its original.")
+                 "each, and compare each with its original."
+                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}"))
     return lines
 
 
@@ -3238,8 +3338,9 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     Partition the original holds, or give one both hold. A table with no Partitions is compared
     on every row. A query alone, which convert made a Saved table named for the batch, or for
     its file in a batch of several scripts, has no original table: its rows are compared with
-    the query's, kept in its conversion/statement.hql. A partition= that names no column any of
-    them is partitioned by is refused.
+    the query's, kept in its conversion/statement.hql. A partition= is refused when it isn't a
+    dict, when a value is in quotes of its own, as '2026-09-23' (SHOW PARTITIONS lists
+    dt=2026-09-23), or when it names no column any of them is partitioned by.
 
     Each result is written in the table's conversion/compare.md, under a heading naming the
     Partition it compared, such as ## dt = '2026-09-24', or ## Every row: a compare of another
@@ -3264,6 +3365,8 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
+    _refuse_a_partition_not_a_dict(call, partition)
+    _refuse_a_partition_in_quotes(call, partition)
     _refuse_a_partition_no_table_has(call, partition, read)
     lines = []
     for dev in chosen:
@@ -3322,31 +3425,40 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     Each Decision of ops.job_runs is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
-    holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the columns
-    whose values name one row, or None when none do; and each column a Conversion wrote
-    "string" because nothing told it the type. A TODO: on any other line, such as the
-    docstring's first line or does_not_add_up=, is no Decision: it waits on nothing, as the
-    two above do. `answers` is the decisions cell, DECISIONS, of
-    a Workflow's notebook: by table, a dict holding "location", "key" or "types", such as
-    {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"],
-    "types": {"fails": "bigint"}}}. Each answer is written into the open line it answers. A
-    Decision made already, as yours is once you change its line, is kept, and an answer that
-    differs from it is named; so is an answer for a table with no Table reference, or one
-    that answers no Decision. A converted table's conversion/checklist.md, which lists its open
-    Decisions, is written again. Its Workflow's next step names each Decision still open.
+    holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the
+    columns whose values name one row, or None when none do; each column a Conversion wrote
+    "string" because nothing told it the type; and each Script tag's line in TAGS, the value
+    a <PARM="NAME"/> in the scripts stands for, open while it holds the tag itself. A TODO:
+    on any other line, such as the docstring's first line or does_not_add_up=, is no
+    Decision: it waits on nothing, as the two above do. `answers` is the decisions cell,
+    DECISIONS, of a Workflow's notebook: by table, a dict holding "location", "key", "types"
+    or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
+    "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
+    "'2026-10-31'"}}}. Each answer is written into the open line it answers. A tag's answer
+    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes;
+    answering it again writes the new value over the old. An answer left <FILL IN>, as
+    check() prints it to paste, is no answer: nothing is written for it, and the report names
+    it. Any other Decision made already,
+    as yours is once you change its line, is kept, and an answer that differs from it is
+    named; so is a type for a column the table has whose type the Toolbox didn't guess. A
+    converted table's conversion/checklist.md, which lists its open Decisions, is written
+    again. Its Workflow's next step names each Decision still open.
+
+    Nothing is written if any answer matches no Decision: a table with no Table reference, a
+    kind other than location, key, types and tags, a "types" or "tags" that isn't a dict, a
+    column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
+    one, and the name it may have meant, as in
+    "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
     root = _project_root(call)
     _refuse_answers_not_by_table(call, answers)
+    _refuse_answers_matching_nothing(call, root, answers)
     lines, files = [], []
     for table, answer in answers.items():
         stem = table_stem(table)
         path = REFERENCE.path(root, stem)
-        if not path.is_file():
-            lines.append(f"{table}: no Table reference, {REFERENCE.shown(stem)}, to write "
-                         "into.")
-            continue
         answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
                                            REFERENCE.shown(stem))
         if answered.written:
@@ -3354,7 +3466,11 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
+        lines += [f"{table}: {each}: if the table is written already, write it and compare it "
+                  "again."
+                  for each in answered.changed]
         lines += [f"{table}: {each}." for each in answered.unwritten]
+        lines += _hivevar_notes(root, table, answer)
         _write_checklist_again(root, table)
         still_open = decisions.open_decisions(answered.text, table)
         lines += _todo_lines_report(table, answered.text)
@@ -3363,6 +3479,34 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             lines.append(f"Each Decision of {table} is made.")
     _log(root, call, list(answers), files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
+
+
+def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[str]:
+    """A line for each Script tag `answer` gives as a ${hivevar:NAME}, which Hive fills in from
+    a SET hivevar:NAME line sent first: whether the table's Session settings, the SET lines its
+    scripts sent before it, which project.run_tables sends before the write, set it."""
+    tags = answer.get(decisions.ANSWERS[decisions.TAG])
+    if not isinstance(tags, dict):
+        return []
+    stem = table_stem(table)
+    notebook = TABLE_FOLDER.path(root, stem) / f"{stem}.ipynb"
+    logic = ""
+    if notebook.is_file():
+        logic = "\n".join(text for _, text in read_cells(notebook))
+    notes = []
+    for name, value in tags.items():
+        for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
+            said = f"{table}: tags: {name} is {value}"
+            # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
+            if f'"hivevar:{variable}": ' in logic:
+                notes.append(f"{said}, which Hive fills in from the SET hivevar:{variable} "
+                             "line its Table notebook's HIVE_SETTINGS keeps, which "
+                             "project.run_tables sends before the write.")
+            else:
+                notes.append(f"{said}: written, but no SET line of its scripts sets "
+                             f"hivevar:{variable}, so the write would send it as it is: "
+                             "answer again with the value itself, such as \"'2026-10-31'\".")
+    return notes
 
 
 def _todo_lines_report(table: str, text: str) -> list[str]:
@@ -3391,6 +3535,98 @@ def _refuse_answers_not_by_table(call: str, answers: object) -> None:
         '["job_id"]}}, a table\'s name, then its answers.',
         given=answers, call=call,
     )
+
+
+def _refuse_answers_matching_nothing(call: str, root: Path,
+                                     answers: dict[str, dict[str, object]]) -> None:
+    """Refuse, before anything is written, a decisions cell holding an answer that matches no
+    Decision of the Project's tables: a table with no Table reference, a kind of answer the
+    cell doesn't take, a column the table doesn't have, or a tag it doesn't hold; each named,
+    with the nearest name where there is one."""
+    problems = []
+    references = {path.stem: path for path in table_references(root)}
+    # Each table's columns by its Table reference's file name, as `references` is keyed.
+    types_by_stem = {table_stem(name): types for name, types in _reference_types(root).items()}
+    for table, answer in answers.items():
+        path = references.get(table_stem(table))
+        if path is None:
+            names = [REFERENCE.name_of(stem) for stem in references]
+            problems.append(f"{table}: no table of the Project has that name"
+                            f"{_nearest(table, names)}")
+            continue
+        problems += _unmatched_answers(table, answer, path.read_text(encoding="utf-8"),
+                                       types_by_stem.get(path.stem, {}))
+    if not problems:
+        return
+    refuse(
+        what=f"{call} wrote nothing: {counted(len(problems), 'mistake')} in the decisions "
+        "cell, each an answer that matches no Decision:\n"
+        + "\n".join(f"  {problem}" for problem in problems),
+        why="An answer that matches nothing would sit in the decisions cell unused, while "
+        "the Decision it was meant for stays open.",
+        fix="Correct each in DECISIONS, by the name each line says it meant where it says "
+        "one, then run project.write_decisions(DECISIONS) again.",
+        error=ValueError,
+    )
+
+
+def _unmatched_answers(table: str, answer: dict[str, object], reference_text: str,
+                       columns: dict[str, str]) -> list[str]:
+    """A line naming each part of one table's answer that matches no Decision of it,
+    `reference_text` being its Table reference's text and `columns` its columns: a kind the
+    cell doesn't take, a "types" or "tags" that isn't a dict, a column the table doesn't have,
+    or a tag its TAGS doesn't hold."""
+    types = answer.get(decisions.ANSWERS[decisions.GUESSED_TYPE])
+    tags = answer.get(decisions.ANSWERS[decisions.TAG])
+    problems = _unmatched_kinds(table, answer)
+    if isinstance(types, dict):
+        problems += [f"{table}: types: {column} is no column of {table}"
+                     f"{_nearest_or_all(column, list(columns), 'columns')}"
+                     for column in types if column not in columns]
+    if isinstance(tags, dict):
+        problems += _unmatched_tags(table, list(tags), decisions.tag_names(reference_text))
+    return problems
+
+
+def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
+    """A line naming each kind of answer the decisions cell doesn't take, and each "types" or
+    "tags" that isn't a dict, in one table's answer."""
+    kinds = list(decisions.ANSWERS.values())
+    problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
+                f"{in_words(kinds)}{_nearest(name, kinds)}"
+                for name in answer if name not in kinds]
+    types, tags = decisions.ANSWERS[decisions.GUESSED_TYPE], decisions.ANSWERS[decisions.TAG]
+    for kind, example in ((types, '{"fails": "bigint"}'),
+                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}')):
+        if kind in answer and not isinstance(answer[kind], dict):
+            problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
+                            f"as {example}, not {answer[kind]!r}")
+    return problems
+
+
+def _unmatched_tags(table: str, named: list[str], table_tags: list[str]) -> list[str]:
+    """A line naming each tag `named` that the table's TAGS, holding `table_tags`, doesn't
+    hold."""
+    if not table_tags:
+        return [f"{table}: tags: {name}: {table} holds no Script tag, so none can be answered"
+                for name in named]
+    return [f"{table}: tags: {name} is no Script tag of {table}"
+            f"{_nearest_or_all(name, table_tags, 'Script tags')}"
+            for name in named if name not in table_tags]
+
+
+def _nearest(name: str, names: list[str]) -> str:
+    """"; did you mean X?" for the name closest to `name` among `names`, case set aside, as
+    Hive sets it aside; or "" when none is close."""
+    by_lower = {each.lower(): each for each in names}
+    close = difflib.get_close_matches(name.lower(), list(by_lower), n=1)
+    return f"; did you mean {by_lower[close[0]]}?" if close else ""
+
+
+def _nearest_or_all(name: str, names: list[str], what: str) -> str:
+    """_nearest's question, or, when no name is close, each name of `names`, which are the
+    table's `what`."""
+    return _nearest(name, names) or f"; its {what} are {in_words(names)}"
 
 
 def checklists_written_again(root: Path) -> dict[str, str]:
@@ -3465,6 +3701,49 @@ def _table_in(root: Path, name: str) -> Table:
     short = split_table_name(name)[1]
     return run_logic(root, f"from references.{table_stem(name)} import {short}",
                      "table_reference")[short]
+
+
+def _refuse_a_partition_not_a_dict(call: str, partition: object) -> None:
+    """Refuse a partition= that is neither None nor a dict of each partition column's value."""
+    if partition is None or isinstance(partition, dict):
+        return
+    refuse(
+        what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
+        "value.",
+        why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
+        fix=f"Give it as {PARTITION_EXAMPLE}, in the convert notebook's PARTITION, or None to "
+        "compare the latest Partition both tables hold.",
+        given=partition, call=call,
+    )
+
+
+def _refuse_a_partition_in_quotes(call: str, partition: object) -> None:
+    """Refuse a partition= whose value is written in quotes of its own: SHOW PARTITIONS lists
+    dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would fail on a
+    Partition that is there."""
+    if not isinstance(partition, dict):
+        return
+    quoted = [column for column, value in partition.items()
+              if isinstance(value, str) and _in_quotes_of_its_own(value)]
+    if quoted:
+        refuse(
+            what=f"{call}: partition= gives {in_words(quoted)} in quotes of its own, "
+            f"{partition!r}.",
+            why="A Partition's value is written as SHOW PARTITIONS lists it, dt=2026-09-23, "
+            "with no quotes: one in quotes matches no Partition, and the table would fail.",
+            fix=f"Give it with no quotes of its own, as {PARTITION_EXAMPLE}.",
+            error=ValueError,
+        )
+
+
+# A partition= as a refusal shows it.
+PARTITION_EXAMPLE = '{"dt": "2026-09-23"}'
+
+
+def _in_quotes_of_its_own(value: str) -> bool:
+    """Whether a value is written in quotes of its own, single or double, as '2026-09-23'
+    is."""
+    return len(value) > 1 and value[0] in "'\"" and value[-1] == value[0]
 
 
 def _refuse_a_partition_no_table_has(call: str, partition: object,
@@ -3647,7 +3926,8 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
         others = len(common) - 1
         described += (f"; {counted(others, 'other Partition')} both tables hold "
                       f"{singular_or_plural(others, 'was', 'were')} not compared: to compare "
-                      f'one, give compare_batch partition={{"{next(iter(latest))}": "..."}}')
+                      f'one, set PARTITION = {{"{next(iter(latest))}": "..."}} in the convert '
+                      "notebook's names cell, run it, and run step 7 again")
     return latest, described
 
 

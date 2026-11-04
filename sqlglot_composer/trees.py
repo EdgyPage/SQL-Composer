@@ -253,6 +253,8 @@ KINDS = {
     "Boolean": ("this",),
     "Star": (),
     "Var": ("this",),
+    # What a Script tag stands for, from script_tag: its text, written as it is.
+    "ScriptTag": ("text",),
     "RowNumber": (),
     # Two sides: comparisons, arithmetic, and AND and OR.
     "EQ": ("this", "expression"),

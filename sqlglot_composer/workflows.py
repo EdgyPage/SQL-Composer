@@ -235,7 +235,7 @@ def reference_path(root: Path, table: str) -> Path:
 
 # The decisions cell's name, the code cell beside the names cell of a Workflow whose step
 # waits on Decisions.
-DECISIONS = "DECISIONS"
+DECISIONS = decisions.DECISIONS_NAME
 # The kinds of Decision each Workflow's decision step waits on.
 DEV_DECISIONS = decisions.ANSWERED_KINDS
 PROD_DECISIONS = (decisions.LOCATION,)
@@ -774,13 +774,16 @@ def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list
 
 
 def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """project.compare_batch for the batch NAME names; a dry run names what it would read."""
+    """project.compare_batch for the batch NAME names, on the Partition PARTITION names when
+    it names one; a dry run names what it would read."""
     from . import project  # project.py imports this file
 
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
                 f"{in_words(batch_tables_of(inputs))}"]
-    return project.compare_batch(str(inputs.get("NAME")), query=calls.query).lines
+    # As given, so compare_batch refuses a PARTITION it can't use, as the cell's call does.
+    return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
+                                 partition=inputs.get("PARTITION")).lines
 
 
 def preview_each(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -939,7 +942,8 @@ CONVERT = Workflow(
     steps=(
         Step("Convert the scripts: each table they write a Saved table in dev", PERMISSION,
              ("Hive scripts", "your Dev Database's name", "read access to the sources"),
-             ("a dev Table folder per table the scripts write", "a Table reference per table"),
+             ("a dev Table folder per table the scripts write",
+              "a Table reference per table, each Script tag in its TAGS"),
              "project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,\n"
              "                rename=RENAME, staging=STAGING)",
              every_batch_converted, send=convert_the_batch,
@@ -950,12 +954,25 @@ CONVERT = Workflow(
              done_when="admin/workflows/convert/ holds the batch's folder, under its name, "
              "with its batch.md, which convert writes last"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
-             ("a Table reference per table",), ("each answer in the decisions cell",),
+             ("a Table reference per table, each Script tag in its TAGS",),
+             ("each answer in the decisions cell",),
              done=every_dev_decision_answered, decides=DEV_DECISIONS,
-             goal="an answer to each open Decision of the batch's tables",
+             goal="an answer to each open Decision of the batch's tables, each Script tag's "
+             "value among them",
              action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook. Each table's "
-             "`conversion/checklist.md`, in its Table folder, lists its open Decisions.",
+             "as `project.check()` writes it, then save the notebook: step 1 and "
+             "`project.check()` print a `DECISIONS` to paste there, each answer to give "
+             "`<FILL IN>`. Each table's `conversion/checklist.md`, in its Table folder, lists "
+             "its open Decisions. A "
+             'Script tag, a `<PARM="NAME"/>` the program that ran the scripts, such as a '
+             'scheduler, replaced with a value before Hive read it, is answered under `"tags"` '
+             "with that value as Hive. A tag standing alone, as in "
+             '`dt <= <PARM="PERIOD_END"/>`, is answered with the value\'s own quotes: '
+             """`{"tags": {"PERIOD_END": "'2026-10-31'"}}`. A tag already inside quotes, as """
+             "in "
+             """`'<PARM="SKIP_TEAM"/>'`, is answered without them: """
+             """`{"tags": {"SKIP_TEAM": "nobody"}}`. To change one, answer it again and run """
+             "steps 3, 6 and 7 again: the table is made already, so 4 and 5 stay done.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
@@ -999,7 +1016,8 @@ CONVERT = Workflow(
              done_when="admin/sent.csv records each table written"),
         Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
-             "project.compare_batch(NAME, query=query)", every_table_compared,
+             "project.compare_batch(NAME, query=query, partition=PARTITION)",
+             every_table_compared,
              send=compare_the_batch,
              goal="each table's rows checked against its original's: a partitioned table's "
              "on the latest Partition both hold, and only that one unless you give another",
@@ -1007,10 +1025,14 @@ CONVERT = Workflow(
              "and writes each table's result in its `conversion/compare.md`. A partitioned "
              "table is compared on the latest Partition both tables hold, which its line in "
              "the report names, such as `on dt = '2026-09-24'`. If you want another "
-             "Partition compared too, then run `print(project.compare_batch(NAME, "
-             "query=query, partition={\"dt\": \"2026-09-23\"}))` in a new cell, NAME being "
-             "the names cell's and dt the table's partition column: its result is kept "
-             "beside the first.",
+             "Partition compared too, one your dev table holds as well as its original, then "
+             "set `PARTITION` in the names cell, such as `{\"dt\": \"2026-09-23\"}`, its "
+             "value with no quotes of its own, run the names cell, and run this step's cell "
+             "again: each table partitioned by dt is compared on it, the others on their "
+             "latest, and each result is kept beside the ones before; a result that failed "
+             "is replaced when that Partition is compared again. If the batch is finished "
+             "already, then compare another Partition by running this step's cell: the last "
+             "cell sees step 7 done, and compares nothing more.",
              done_when="every result in each table's `conversion/compare.md` says Passed, "
              "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
              "with a result that failed is one promote refuses"),
@@ -1028,7 +1050,11 @@ CONVERT = Workflow(
                   "mart_dev.team_fails_mart"),
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
-                  "folded, any other kept")),
+                  "folded, any other kept"),
+            Input("PARTITION", None, 'a Partition for step 7 to compare besides the latest, '
+                  'such as {"dt": "2026-09-23"}, its value with no quotes of its own: None '
+                  "compares only the latest Partition your dev table and its original both "
+                  "hold")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
     "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",
@@ -1439,9 +1465,12 @@ DECISIONS_CELL = (
     f"{DECISIONS} = {{}}  # your answer to each open Decision, by the table's name as\n"
     "# project.check() writes it, such as\n"
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
-    '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
-    '# "key": None says no columns name one row. project.check() names each one open;\n'
-    "# a Key marked # proposed is made, but an answer here changes it")
+    '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
+    '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
+    '# "key": None says no columns name one row. project.check() names each one open, and\n'
+    "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
+    "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
+    '# answer "key" here.')
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",

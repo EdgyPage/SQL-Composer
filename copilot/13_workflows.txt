@@ -1,9 +1,9 @@
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.2)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.3)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.2, a Toolbox that writes Hive: the steps left, each its cell of the convert
+with sqlglot Composer 8.3, a Toolbox that writes Hive: the steps left, each its cell of the convert
 Workflow's notebook, in order. Load this file when the user asks how to turn Hive into their
 own tables end to end. File 16 is for promoting dev tables to prod; file 14 for new tables,
 Table references, upgrades and changes to a Saved table; a step's own file, for the Python
@@ -63,8 +63,17 @@ inside it.
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
   its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
-  each into its table's Table reference.
+  ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END": "'2026-10-31'"}}}`;
+  `project.write_decisions(DECISIONS)` writes each into its table's Table reference.
+- `project.check()`, and convert's step 1, print a whole DECISIONS to paste, each answer
+  still to give `"<FILL IN>"`, which is no answer until filled in.
+- A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
+  Decision of its table under "tags": a bare one is answered with the value's own quotes,
+  `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
+  user gives; only if they ask for one changing each run, `"'${hivevar:run_day}'"`, a SET
+  hivevar line kept in the script. If they give none, never guess: ask.
+- Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
+  then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -120,7 +129,7 @@ Its inputs:
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query)
+       project.compare_batch(NAME, query=query, partition=PARTITION)
 
 
 ## Example
