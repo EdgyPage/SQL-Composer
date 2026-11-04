@@ -16,6 +16,16 @@ ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
   being new, and a tag inside quotes becomes `TAGS["PERIOD_END"]`. A tag of another shape, one
   where a table's name, a column's name or a whole condition goes, or one name both bare and
   inside quotes in one table, stops the Conversion, naming its line.
+- **A Script tag is a Decision, answered in the convert notebook's decisions cell** under
+  `"tags"`, by the table's dev name: `{"mart_dev.daily_close": {"tags": {"PERIOD_END":
+  "'2026-10-31'"}}}`, a bare tag's answer with its quotes, a quoted one's with none. Step 3,
+  `project.write_decisions`, writes it into TAGS, and writes a new answer over the old, saying
+  what it replaced; an answer in a form that can't stand where its tag stood, such as a bare
+  date with no quotes, is named and left unwritten. `project.check()` and each table's
+  `conversion/checklist.md` name each open tag, whether it is bare or inside quotes, and its
+  script and line; step 2 waits on each, and no table is created while one is open. An
+  answer of `'${hivevar:NAME}'` takes its value from a `SET hivevar:NAME=...` line of the
+  scripts, which the table's Session settings keep; write_decisions says when none sets it.
 
 ## 8.2
 

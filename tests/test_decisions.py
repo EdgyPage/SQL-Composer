@@ -161,8 +161,8 @@ def test_a_decisions_cell_not_by_table_is_refused(started: Path) -> None:
 
 TAGGED = REFERENCE.replace("# --- Aliases", '''# What each Script tag stands for, as Hive.
 TAGS = {
-    "PERIOD_END": "<PARM=\\"PERIOD_END\\"/>",  # bare, at daily.hql, line 4: its value
-    "team_2": "<PARM=\\"team_2\\"/>",  # inside quotes: its value with no quotes
+    "PERIOD_END": "<PARM=\\"PERIOD_END\\"/>",  # bare, at daily.hql, line 4. Answer it ...
+    "team_2": "<PARM=\\"team_2\\"/>",  # inside quotes. Answer it with no quotes.
 }
 
 # --- Aliases''')
@@ -171,39 +171,57 @@ TAGS = {
 def test_a_tag_holding_itself_is_an_open_decision_naming_where_it_stands() -> None:
     tags = [each for each in decisions.open_decisions(TAGGED, "mart_dev.x")
             if each.kind == decisions.TAG]
-    assert [(each.subject, each.where) for each in tags] == [
-        ("PERIOD_END", "daily.hql, line 4"), ("team_2", "")]
-    assert tags[0].question() == ('tags: PERIOD_END, the value <PARM="PERIOD_END"/> stands '
-                                  "for, at daily.hql, line 4")
+    assert [(each.subject, each.where, each.quoted) for each in tags] == [
+        ("PERIOD_END", "daily.hql, line 4", False), ("team_2", "", True)]
+    assert tags[0].question() == (
+        'tags: PERIOD_END, bare at daily.hql, line 4: answer the Hive <PARM="PERIOD_END"/> '
+        "stands for with its quotes, such as \"'2026-10-31'\", or a number, such as \"5\"")
+    assert tags[1].question().startswith("tags: team_2, inside quotes: answer what")
 
 
 def test_a_tag_answered_is_written_into_its_line_its_comment_kept() -> None:
     answered = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": "'2026-10-31'"}},
                                        "references/mart_dev__x.py")
-    assert ('    "PERIOD_END": "\'2026-10-31\'",  # bare, at daily.hql, line 4: its value'
+    assert ('    "PERIOD_END": "\'2026-10-31\'",  # bare, at daily.hql, line 4. Answer it'
             in answered.text)
     assert answered.written == ["tags: PERIOD_END"]
+    assert answered.changed == []
     assert ("tag", "PERIOD_END") not in kinds(answered.text)
     assert ("tag", "team_2") in kinds(answered.text)
 
 
-def test_a_tag_answered_again_is_written_over_the_old_value() -> None:
+def test_a_tag_answered_again_is_written_over_the_old_value_and_said() -> None:
     first = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": "'2026-10-31'"}}, "r.py")
     again = decisions.answered_text(first.text, {"tags": {"PERIOD_END": "'2026-09-30'"}},
                                     "r.py")
     assert "'2026-09-30'" in again.text
     assert "'2026-10-31'" not in again.text
     assert again.written == ["tags: PERIOD_END"]
+    assert again.changed == ["tags: PERIOD_END is '2026-09-30' now, in place of '2026-10-31'"]
 
 
-def test_a_tag_answer_that_isnt_hive_text_or_no_tag_is_named() -> None:
-    answered = decisions.answered_text(TAGGED, {"tags": {"PERIOD_END": 5, "OTHER": "1"}},
-                                       "r.py")
+@pytest.mark.parametrize("tags, said", [
+    ({"PERIOD_END": 5}, "tags: PERIOD_END is given 5, a Python int: give the Hive as Python "
+     "text"),
+    ({"PERIOD_END": " "}, "tags: PERIOD_END is given empty text"),
+    ({"PERIOD_END": "2026-10-31"}, "tags: PERIOD_END stands bare, so a date needs its own "
+     "quotes, or Hive reads it as a subtraction: answer \"'2026-10-31'\""),
+    ({"team_2": "'nobody'"}, "tags: team_2 stands inside quotes already, so its answer has "
+     'none: answer "nobody"'),
+    ({"OTHER": "1"}, "tags: OTHER is no Script tag of r.py"),
+], ids=["number", "blank", "bare date", "quoted twice", "no such tag"])
+def test_a_tag_answer_in_a_form_that_cant_stand_there_is_named(tags: dict, said: str) -> None:
+    answered = decisions.answered_text(TAGGED, {"tags": tags}, "r.py")
     assert answered.written == []
-    assert answered.unwritten == [
-        'tags: PERIOD_END is given 5, not Hive text: give it as a string, such as '
-        "\"'2026-10-31'\" or \"5\"",
-        "tags: OTHER is no Script tag of r.py"]
+    (unwritten,) = answered.unwritten
+    assert unwritten.startswith(said)
+    assert [kind for kind, _ in kinds(answered.text)].count("tag") == 2
+
+
+def test_tags_that_arent_a_dict_are_named() -> None:
+    answered = decisions.answered_text(TAGGED, {"tags": "'2026-10-31'"}, "r.py")
+    assert answered.unwritten == ["tags: give a dict of each tag's answer by its NAME, such as "
+                                  "{\"PERIOD_END\": \"'2026-10-31'\"}, not \"'2026-10-31'\""]
 
 
 def test_a_tag_is_answered_by_its_name_under_tags() -> None:

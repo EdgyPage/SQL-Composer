@@ -80,3 +80,10 @@ Built 2026-11-04.
   runner, check() and do_next() all stop at step 3 first; a corrected answer is applied by
   running steps 3, 6 and 7 again, as Q21 says, since the runner sees them done, which the
   step's text says; a `"<FILL IN>"` answer is 05's.
+- **Beginner reader**: [its report](../reports/03-beginner-reader.md). Fixed in a second
+  commit: an answer in a form that can't stand where its tag stood (a bare date with no
+  quotes, a quoted tag's answer quoted again, a number, blank, "tags" not a dict) is named and
+  left unwritten, the tag still open (`decisions.tag_answer_problem`); the question says bare
+  or inside quotes and how to answer; an answer given again says what it replaced; step 2,
+  the decisions cell's example, TAGS' comment, the scan line and the hivevar notes reworded.
+  D411 (CHANGES.md) and D412 (is_open's docstring) closed there.

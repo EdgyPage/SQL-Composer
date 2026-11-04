@@ -3427,6 +3427,7 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
+        lines += [f"{table}: {each}: run steps 6 and 7 again." for each in answered.changed]
         lines += [f"{table}: {each}." for each in answered.unwritten]
         lines += _hivevar_notes(root, table, answer)
         _write_checklist_again(root, table)
@@ -3454,16 +3455,16 @@ def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[st
     notes = []
     for name, value in tags.items():
         for variable in re.findall(r"\$\{hivevar:([^}]+)\}", str(value)):
-            said = f"{table}: tags: {name} is ${{hivevar:{variable}}}"
+            said = f"{table}: tags: {name} is {value}"
             # Its Session settings' key in the notebook's logic, as HIVE_SETTINGS holds it.
             if f'"hivevar:{variable}": ' in logic:
                 notes.append(f"{said}, which Hive fills in from the SET hivevar:{variable} "
-                             "line of its scripts: its session_settings() holds it, and "
-                             "project.run_tables sends it before the write.")
+                             "line its Table notebook's HIVE_SETTINGS keeps, which "
+                             "project.run_tables sends before the write.")
             else:
-                notes.append(f"{said}, but no SET line of its scripts sets hivevar:{variable}, "
-                             "so Hive has nothing to fill it in with: answer the value itself "
-                             "instead, such as \"'2026-10-31'\".")
+                notes.append(f"{said}: written, but no SET line of its scripts sets "
+                             f"hivevar:{variable}, so the write would send it as it is: "
+                             "answer again with the value itself, such as \"'2026-10-31'\".")
     return notes
 
 

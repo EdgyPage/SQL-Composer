@@ -254,7 +254,7 @@ def test_a_batch_with_tags_makes_each_table_reading_tags_from_its_reference(
     assert f"from references.{stem} import daily_close_mart, TAGS" in logic
     scan = (started / "tables" / stem / "conversion" / "scan.md").read_text(encoding="utf-8")
     # Each tag at its script's line: the staging table's on line 3, the reader's on line 6.
-    assert 'close.hql, line 3: <PARM="MinMins"/>, a Script tag, bare. Answer its value' in scan
+    assert 'close.hql, line 3: <PARM="MinMins"/>, a Script tag, bare. Answer it under' in scan
     assert 'close.hql, line 6: <PARM="PERIOD_END"/>, a Script tag, bare.' in scan
     assert "the same query" in scan
     in_dev = (started / "tables" / stem / "conversion" / "in_dev.hql").read_text(
@@ -358,8 +358,8 @@ def test_a_hive_variable_no_set_line_sets_is_named_when_written(started: Path) -
     said = repr(project.write_decisions(
         {"mart_dev.daily_close_mart": {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}}))
     assert "Wrote 1 answer into references/mart_dev__daily_close_mart.py." in said
-    assert ("tags: PERIOD_END is ${hivevar:period_end}, but no SET line of its scripts sets "
-            "hivevar:period_end") in said
+    assert ("tags: PERIOD_END is '${hivevar:period_end}': written, but no SET line of its "
+            "scripts sets hivevar:period_end") in said
 
 
 def test_a_tag_answered_is_what_the_logic_writes_where_the_tag_stood(started: Path) -> None:
@@ -379,5 +379,5 @@ def test_a_hive_variable_a_set_line_sets_is_named_as_sent_first(started: Path) -
                     database="ops")
     said = repr(project.write_decisions(
         {"mart_dev.daily_close_mart": {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}}))
-    assert ("tags: PERIOD_END is ${hivevar:period_end}, which Hive fills in from the SET "
-            "hivevar:period_end line of its scripts") in said
+    assert ("tags: PERIOD_END is '${hivevar:period_end}', which Hive fills in from the SET "
+            "hivevar:period_end line its Table notebook's HIVE_SETTINGS keeps") in said

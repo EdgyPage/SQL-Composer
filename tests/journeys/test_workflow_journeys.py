@@ -481,11 +481,12 @@ def test_convert_a_script_with_script_tags(started: Started) -> None:
         assert _notebook(started.root, table).is_file(), f"no Table folder for {table}"
     # Each tag is an open Decision, which step 2 waits on and create too.
     said = repr(project.check())
-    assert ('mart_dev.daily_close_mart: tags: PERIOD_END, the value <PARM="PERIOD_END"/> '
-            "stands for, at weekly.hql, line 10") in said
+    assert ("mart_dev.daily_close_mart: tags: PERIOD_END, bare at weekly.hql, line 10: "
+            'answer the Hive <PARM="PERIOD_END"/> stands for with its quotes') in said
     # The staging table's tag is a Decision of the table it is folded into.
-    assert ('mart_dev.monthly_fails_mart: tags: MinMins, the value <PARM="MinMins"/> '
-            "stands for, at weekly.hql, line 7") in said
+    assert ("mart_dev.monthly_fails_mart: tags: MinMins, bare at weekly.hql, line 7") in said
+    assert ("mart_dev.monthly_fails_mart: tags: skip_team_2, inside quotes at weekly.hql, "
+            "line 15: answer what") in said
     journey.type_names(DECISIONS=_tag_answers(TAG_VALUES))
     journey.run_to()
     _check_converted(started, tables, TAGGED_KEYS)
@@ -513,7 +514,7 @@ def test_the_runner_creates_nothing_while_a_tag_is_open(started: Started) -> Non
                                   for table in TAG_VALUES})
     said = journey.run_workflow()
     assert "2. Answer each table's open Decisions" in said
-    assert 'tags: PERIOD_END, the value <PARM="PERIOD_END"/> stands for' in said
+    assert "tags: PERIOD_END, bare at weekly.hql, line 10" in said
     assert not [hive for hive in started.warehouse.executed if "mart_dev." in hive]
 
 

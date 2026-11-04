@@ -959,11 +959,15 @@ CONVERT = Workflow(
              action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
              "as `project.check()` writes it, then save the notebook. Each table's "
              "`conversion/checklist.md`, in its Table folder, lists its open Decisions. A "
-             'Script tag, `<PARM="NAME"/>` in the scripts, is answered under `"tags"` as the '
-             "Hive the program put there: a bare tag with its quotes and all, as in "
-             """`{"tags": {"PERIOD_END": "'2026-10-31'"}}`, and one inside quotes with none, """
-             """as in `{"tags": {"team_2": "nobody"}}`. To change one, answer it again and """
-             "run steps 3, 6 and 7 again.",
+             'Script tag, a `<PARM="NAME"/>` the program that ran the scripts, such as a '
+             'scheduler, replaced with a value before Hive read it, is answered under `"tags"` '
+             "with that value as Hive. A tag standing alone, as in "
+             '`dt <= <PARM="PERIOD_END"/>`, is answered with the value\'s own quotes: '
+             """`{"tags": {"PERIOD_END": "'2026-10-31'"}}`. A tag already inside quotes, as """
+             "in "
+             """`'<PARM="SKIP_TEAM"/>'`, is answered without them: """
+             """`{"tags": {"SKIP_TEAM": "nobody"}}`. To change one, answer it again and run """
+             "steps 3, 6 and 7 again: the table is made already, so 4 and 5 stay done.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
@@ -1447,7 +1451,8 @@ DECISIONS_CELL = (
     f"{DECISIONS} = {{}}  # your answer to each open Decision, by the table's name as\n"
     "# project.check() writes it, such as\n"
     '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
-    '#                          "key": ["job_id"], "types": {"fails": "bigint"}}}\n'
+    '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
+    '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open;\n'
     "# a Key marked # proposed is made, but an answer here changes it")
 
