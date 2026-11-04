@@ -92,7 +92,8 @@ def compare_hive(statement: Statement, original: str) -> Verdict:
     star_columns = _star_columns_by_table(statement)
     ours = normalised_query(hive_without_automatic_limit(statement), call,
                             "the Statement's Hive", star_columns)
-    # A bare Script tag is read as a name in backticks, as script_tag writes one not answered.
+    # The original's bare Script tags are put in backticks so sqlglot can read them: the same
+    # shape script_tag writes for a tag not answered yet, so the two Hives match.
     theirs = normalised_query(readable_tags(original), call, "the original", star_columns)
     if ours == theirs:
         return Verdict(True, [f"The Statement's Hive and the original are the same query, "

@@ -12,10 +12,10 @@ ran it filled in before Hive read it, such as `<PARM="PERIOD_END"/>`.
 - **A Conversion reads past each Script tag** where a value goes, bare or inside quotes, so
   the statement holding it becomes a Saved table like any other, where before a bare tag left
   it an Unchecked statement. Its Table reference holds TAGS, what each tag stands for, and
-  its logic reads it there: `script_tag(TAGS["PERIOD_END"])` for a bare tag, a new function,
-  and `TAGS["PERIOD_END"]` for one inside quotes. A tag of another shape, or one where a
-  table's name, a column's name or a whole condition goes, stops the Conversion, naming its
-  line.
+  its logic reads it there: a bare tag becomes `script_tag(TAGS["PERIOD_END"])`, `script_tag`
+  being new, and a tag inside quotes becomes `TAGS["PERIOD_END"]`. A tag of another shape, one
+  where a table's name, a column's name or a whole condition goes, or one name both bare and
+  inside quotes in one table, stops the Conversion, naming its line.
 
 ## 8.2
 

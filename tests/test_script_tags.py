@@ -78,10 +78,10 @@ def test_a_staging_tables_tag_reads_too() -> None:
 
 
 @pytest.mark.parametrize("text, where", [
-    ('SELECT * FROM <PARM="SRC"/>', "where a name goes"),
-    ('SELECT * FROM ops.<PARM="SRC"/>', "where a name goes"),
-    ('SELECT r.<PARM="COL"/> FROM ops.job_runs r', "where a name goes"),
-    ('SELECT r.run_id AS <PARM="OUT"/> FROM ops.job_runs r', "where a name goes"),
+    ('SELECT * FROM <PARM="SRC"/>', "where a table's name goes"),
+    ('SELECT * FROM ops.<PARM="SRC"/>', "where a table's name goes"),
+    ('SELECT r.<PARM="COL"/> FROM ops.job_runs r', "where a column's name goes"),
+    ('SELECT r.run_id AS <PARM="OUT"/> FROM ops.job_runs r', "where a column's name goes"),
     ('SELECT r.run_id FROM ops.job_runs r WHERE <PARM="COND"/>',
      "where a whole condition goes"),
     ('SELECT r.run_id FROM ops.job_runs r WHERE r.dt = 1 AND (<PARM="COND"/>)',
@@ -101,7 +101,8 @@ def test_a_tag_where_no_value_goes_is_refused_naming_its_line(text: str, where: 
     "SELECT * FROM ops.job_runs r WHERE r.dt <= '<PARM NAME=\"X\"/>'",
 ], ids=["single quotes", "spaces", "lower case", "another shape inside quotes"])
 def test_text_that_starts_as_a_tag_but_isnt_one_is_refused(text: str) -> None:
-    with pytest.raises(converting.ConversionRefused, match="daily.hql, line 1 holds <PARM"):
+    with pytest.raises(converting.ConversionRefused,
+                       match="daily.hql, line 1 has text starting <PARM"):
         converting.batch_statements([("daily.hql", text)], "ops")
 
 
@@ -141,14 +142,14 @@ def test_a_tags_name_keeps_its_case() -> None:
     converted = converting.convert_query(
         'SELECT r.run_id FROM ops.job_runs r WHERE r.duration_mins >= <PARM="MinMins_2"/>',
         COLUMNS.get, "ops")
-    assert converted.tags == {"MinMins_2": False}
+    assert converted.tag_is_quoted == {"MinMins_2": False}
 
 
 def test_each_tag_is_a_finding_at_its_line() -> None:
     converted = converting.convert_query(TWICE.rstrip(";"), COLUMNS.get, "ops")
     found = [finding for finding in converted.findings if finding.kind == "tag"]
     assert [finding.line for finding in found] == [3]
-    assert '<PARM="PERIOD_END"/> is a Script tag' in found[0].text
+    assert '<PARM="PERIOD_END"/>, a Script tag, bare.' in found[0].text
 
 
 def test_one_name_bare_and_inside_quotes_in_one_table_is_refused() -> None:
@@ -158,11 +159,47 @@ def test_one_name_bare_and_inside_quotes_in_one_table_is_refused() -> None:
                                  COLUMNS.get, "ops")
 
 
-def test_a_quoted_tag_in_a_piece_kept_as_hive_is_refused() -> None:
-    with pytest.raises(converting.ConversionRefused, match="inside quotes in"):
-        converting.convert_query("SELECT r.run_id FROM ops.job_runs r "
-                                 """WHERE r.status RLIKE '<PARM="PATTERN"/>'""",
-                                 COLUMNS.get, "ops")
+def test_a_quoted_tag_in_a_piece_kept_as_hive_reads_its_tags_entry_into_the_text() -> None:
+    logic = _logic_of("SELECT r.run_id FROM ops.job_runs r "
+                      """WHERE r.status RLIKE '<PARM="PATTERN"/>'""")
+    assert """unchecked_condition("{status} RLIKE '" + TAGS["PATTERN"] + "'",""" in logic
+
+
+def test_a_bare_tag_in_an_in_list_binds_its_column_as_a_value_there_would() -> None:
+    # is_in takes plain values, so the list stays Hive, an Unchecked condition binding the same
+    # column: the table, what it reads, its Key and its Lineage are as with a value.
+    converted = converting.convert_query(
+        'SELECT r.job_id FROM ops.job_runs r WHERE r.job_id IN (1, <PARM="Job_2"/>)',
+        COLUMNS.get, "ops")
+    logic = converted.logic()
+    assert ('unchecked_condition("{job_id} IN (1, {parm_job_2})", job_id=r.job_id, '
+            'parm_job_2=script_tag(TAGS["Job_2"]))') in logic
+    assert converted.tables == ["ops.job_runs"]
+
+
+@pytest.mark.parametrize("where", [
+    'r.duration_mins >= COALESCE(<PARM="Job_2"/>, 0)',
+    'r.duration_mins >= <PARM="Job_2"/> + 1',
+], ids=["function", "arithmetic"])
+def test_a_bare_tag_among_values_converts_as_a_value_there_would(where: str) -> None:
+    text = ("INSERT OVERWRITE TABLE mart.daily_close PARTITION (dt)\n"
+            "SELECT r.job_id, COUNT(*) AS runs, r.dt FROM ops.job_runs r\n"
+            f"WHERE {where} GROUP BY r.job_id, r.dt")
+    with_value = converting.convert_query(text.replace('<PARM="Job_2"/>', "7"), COLUMNS.get,
+                                          "ops")
+    with_tag = converting.convert_query(text, COLUMNS.get, "ops")
+    assert with_tag.logic().replace('script_tag(TAGS["Job_2"])', "7").split("def rows")[1] \
+        == with_value.logic().split("def rows")[1]
+    assert with_tag.tables == with_value.tables
+
+
+@pytest.mark.parametrize("text", [
+    "-- <PARM was here\n" + BARE,
+    "/* <parm notes */\n" + BARE,
+    BARE.replace("r.dt <= ", "r.duration_mins < parm_count AND r.dt <= "),
+], ids=["line comment", "block comment", "a less than"])
+def test_text_like_a_tag_in_a_comment_or_a_less_than_is_no_tag(text: str) -> None:
+    assert _statement_of(text).table == "mart.daily_close"
 
 
 def test_a_bare_tag_in_a_piece_kept_as_hive_is_its_placeholder() -> None:
@@ -216,7 +253,9 @@ def test_a_batch_with_tags_makes_each_table_reading_tags_from_its_reference(
     logic = next(text for kind, text in cells if kind == "code" and text.startswith("# logic"))
     assert f"from references.{stem} import daily_close_mart, TAGS" in logic
     scan = (started / "tables" / stem / "conversion" / "scan.md").read_text(encoding="utf-8")
-    assert '<PARM="MinMins"/> is a Script tag' in scan
+    # Each tag at its script's line: the staging table's on line 3, the reader's on line 6.
+    assert 'close.hql, line 3: <PARM="MinMins"/>, a Script tag, bare. Write its value' in scan
+    assert 'close.hql, line 6: <PARM="PERIOD_END"/>, a Script tag, bare.' in scan
     assert "the same query" in scan
     in_dev = (started / "tables" / stem / "conversion" / "in_dev.hql").read_text(
         encoding="utf-8")
@@ -225,11 +264,36 @@ def test_a_batch_with_tags_makes_each_table_reading_tags_from_its_reference(
     assert '<PARM="MinMins"/>' in script.read_text(encoding="utf-8")
 
 
+def test_a_staging_tables_tag_is_a_tag_of_each_table_it_is_folded_into(started: Path) -> None:
+    second = TWICE.replace("mart.daily_close", "mart.weekly_close")
+    (started / "close.hql").write_text(
+        STAGING + "\n" + TWICE.replace("FROM ops.job_runs r", "FROM long_runs r") + "\n"
+        + second.replace("FROM ops.job_runs r", "FROM long_runs r") + "\n", encoding="utf-8")
+    project.convert("closing", files=["close.hql"], query=example_database.query,
+                    database="ops")
+    for stem in ("mart_dev__daily_close_mart", "mart_dev__weekly_close_mart"):
+        reference = (started / "references" / f"{stem}.py").read_text(encoding="utf-8")
+        assert '    "MinMins": "<PARM=\\"MinMins\\"/>",  # bare' in reference
+
+
+def test_new_tables_query_with_a_tag_reads_it_too(started: Path) -> None:
+    project.add_references(["ops.job_runs"], query=example_database.query)
+    query = 'SELECT r.run_id, r.job_id\nFROM ops.job_runs r\nWHERE r.dt = <PARM="Day_1"/>'
+    project.new_table("mart_dev.failed_jobs", queries={"failed_jobs": query})
+    reference = (started / "references" / "mart_dev__failed_jobs.py").read_text(
+        encoding="utf-8")
+    assert '    "Day_1": "<PARM=\\"Day_1\\"/>",  # bare' in reference
+    scan = (started / "tables" / "mart_dev__failed_jobs" / "conversion" / "scan.md").read_text(
+        encoding="utf-8")
+    assert 'line 3: <PARM="Day_1"/>, a Script tag, bare.' in scan
+
+
 def test_a_tag_where_no_value_goes_stops_the_batch_naming_its_line(started: Path) -> None:
     (started / "close.hql").write_text(
         'INSERT OVERWRITE TABLE mart.daily_close SELECT * FROM <PARM="SRC"/>;',
         encoding="utf-8")
-    with pytest.raises(ValueError, match=r"close.hql, line 1 has <PARM=\"SRC\"/> where a name"):
+    with pytest.raises(ValueError,
+                       match=r"close.hql, line 1 has <PARM=\"SRC\"/> where a table's name"):
         project.convert("closing", files=["close.hql"], query=example_database.query,
                         database="ops")
 

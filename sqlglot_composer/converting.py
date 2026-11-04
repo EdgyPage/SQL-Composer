@@ -32,6 +32,7 @@ from .script_tags import (
     misshapen_tag_line,
     readable_tags,
     tag_name,
+    tag_pieces,
     tags_as_written,
 )
 from .shared import (
@@ -125,8 +126,8 @@ class ConvertedQuery:
     databases: set[str] = field(default_factory=set)  # the Databases it imports
     findings: list[Finding] = field(default_factory=list)
     kept_whole: bool = False  # the whole query stayed an Unchecked statement
-    # Each Script tag it holds, by its NAME: whether it sits inside quotes, part of a string.
-    tags: dict[str, bool] = field(default_factory=dict)
+    # Each Script tag it holds, by its NAME: True when it sits inside quotes, part of a string.
+    tag_is_quoted: dict[str, bool] = field(default_factory=dict)
 
     def logic(self) -> str:
         """The Python of the whole Conversion, as its notebook's logic cell holds it: its
@@ -170,28 +171,30 @@ class ConvertedQuery:
                       '    """The query, as the Hive this Conversion was made from writes '
                       'it."""',
                       f"    return {_indented(self.query, 4)}"]
-        if not self.tags:
+        if not self.tag_is_quoted:
             return "\n".join(lines) + "\n"
         lines = _with_tags_read("\n".join(lines)).split("\n")
         at = _after_imports(lines)
-        lines[at:at] = ["", *tags_block(self.tags)]
+        lines[at:at] = ["", *tags_block(self.tag_is_quoted)]
         return "\n".join(lines) + "\n"
 
 
 # The comment above a converted query's TAGS, which saved_table_logic moves into its Table
 # reference.
-TAGS_COMMENT = "# What each Script tag stands for, as Hive: until answered, the tag itself"
+TAGS_COMMENT = ("# What each Script tag stands for, as Hive. Until you write its value here, "
+                "it is the tag itself.")
 
 
-def tags_block(tags: dict[str, bool]) -> list[str]:
-    """The lines of TAGS, each Script tag of `tags` standing for itself, not answered yet: a
-    bare tag's answer brings its quotes, and a quoted one's doesn't. They are written as a
-    Table reference's are, since TAGS moves into one."""
+def tags_block(tag_is_quoted: dict[str, bool]) -> list[str]:
+    """The lines of TAGS, each Script tag of `tag_is_quoted` standing for itself, not answered
+    yet: a bare tag's answer brings its quotes, and a quoted one's doesn't. They are written
+    as a Table reference's are, since TAGS moves into one."""
     lines = [TAGS_COMMENT, "TAGS = {"]
-    for name, quoted in tags.items():
-        how = "bare: answer it with its quotes, if it is a string"
+    for name, quoted in tag_is_quoted.items():
+        how = ("bare: its value as Hive, such as \"'2026-09-24'\" (text or a date, in "
+               'quotes) or "5"')
         if quoted:
-            how = "inside quotes: answer it with no quotes"
+            how = "inside quotes: its value with no quotes, such as \"2026-09-24\""
         tag = f'<PARM="{name}"/>'
         lines.append(f"    {escaped_literal(name)}: {escaped_literal(tag)},  # {how}")
     return [*lines, "}"]
@@ -223,11 +226,10 @@ def _with_tags_read(source: str) -> str:
 def _tags_read(value: str) -> str:
     """A string holding Script tags, as Python that reads each tag's place from TAGS."""
     parts = []
-    for piece in re.split(r'(`?<PARM="[^"`\n]+"/>`?)', value):
-        name = tag_name(piece.strip("`"))
+    for piece, name in tag_pieces(value):
         if name is not None:
             parts.append(f"TAGS[{python_literal(name)}]")
-        elif piece:
+        else:
             parts.append(python_literal(piece))
     return " + ".join(parts)
 
@@ -245,9 +247,11 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
     lines = logic.rstrip("\n").split("\n")
     own = f"from references.{stem} import {short}  # the Saved table's own Table reference"
     if TAGS_COMMENT in lines:
-        # TAGS moves into the Table reference, where the decisions cell's answers are written.
-        start = lines.index(TAGS_COMMENT)
-        del lines[start - 1:lines.index("}", start) + 1]
+        # TAGS moves into the Table reference, where the decisions cell's answers are written:
+        # its lines go, from the blank line logic() puts above its comment to its closing }.
+        blank_above = lines.index(TAGS_COMMENT) - 1
+        closing = lines.index("}", blank_above)
+        del lines[blank_above:closing + 1]
         own = (f"from references.{stem} import {short}, TAGS  "
                "# its Table reference, and its Script tags")
     imports = ["from sqlglot_composer import create_table  # for create()", own]
@@ -372,6 +376,25 @@ def _is_plain_value(node: exp.Expression) -> bool:
     """Whether `node` is a plain value: a literal, or a bare Script tag, standing for one."""
     return (_python_of_literal(node) is not None
             or (isinstance(node, exp.Column) and tag_name(node.name) is not None))
+
+
+# What a finding on a Script tag says after the tag.
+TAG_FINDING = ("Write its value in TAGS, in the table's Table reference: until you do, TAGS "
+               "holds the tag itself, and the table's Hive won't do what the original did.")
+
+
+def _tags_found(query: exp.Expression) -> list[tuple[exp.Expression, str, bool]]:
+    """Each Script tag in a query sqlglot read: the node it is in, its NAME, and whether it
+    sits inside quotes, part of a string, or bare, read as a name in backticks."""
+    found = []
+    for node in query.find_all(exp.Column):
+        name = tag_name(node.name)
+        if name is not None:
+            found.append((node, name, False))
+    for literal in query.find_all(exp.Literal):
+        if literal.is_string:
+            found += [(literal, match.group(1), True) for match in TAG.finditer(literal.this)]
+    return found
 
 
 def _is_filled_with_zero(node: exp.Expression) -> bool:
@@ -513,22 +536,17 @@ class _Converter:
         """Note each Script tag in the query, bare or inside quotes, by its NAME, with a
         finding at its line; refused when one NAME is both, as one answer can't be written
         both with its quotes and without them."""
-        found = [(node, tag_name(node.name), False) for node in query.find_all(exp.Column)]
-        for literal in query.find_all(exp.Literal):
-            if literal.is_string:
-                found += [(literal, one.group(1), True) for one in TAG.finditer(literal.this)]
-        for node, name, quoted in found:
-            if name is None:
-                continue
-            if self.result.tags.get(name, quoted) != quoted:
+        for node, name, quoted in _tags_found(query):
+            if self.result.tag_is_quoted.get(name, quoted) != quoted:
                 raise ConversionRefused(
                     f'<PARM="{name}"/> stands both bare and inside quotes in one table\'s '
-                    "Hive, and one answer can't be written both with its quotes and without "
-                    "them")
-            self.result.tags[name] = quoted
-            self.note_finding(node, "tag", f'<PARM="{name}"/> is a Script tag: TAGS, in the '
-                              "Table reference, holds what it stands for, answered in the "
-                              'decisions cell under "tags"')
+                    "Hive, and one value can't be written both with its quotes and without "
+                    "them: in your copy of the script, write the value in place of the quoted "
+                    "one, then convert again")
+            self.result.tag_is_quoted[name] = quoted
+            how = "inside quotes" if quoted else "bare"
+            self.note_finding(node, "tag", f'<PARM="{name}"/>, a Script tag, {how}. '
+                              f"{TAG_FINDING}")
 
     # --- Queries ----------------------------------------------------------------------------
 
@@ -824,11 +842,6 @@ class _Converter:
         if any(isinstance(part, (exp.Select, exp.Subquery)) for part in node.walk()):
             raise Unconvertible(f"{why}; and an Unchecked expression can't hold it, as it "
                                 "reads a table of its own")
-        if any(TAG.search(part.this) for part in node.find_all(exp.Literal) if part.is_string):
-            raise ConversionRefused(
-                f"line {_hive_line(node, self.text)} has a Script tag inside quotes in "
-                f"{sql_text(node)}, which stays Hive, as no Toolbox function writes it yet: "
-                "its answer couldn't be written where the tag stood")
         piece = node.copy()
         bound: dict[str, str] = {}
         for number, column in enumerate(list(piece.find_all(exp.Column))):
@@ -1536,15 +1549,17 @@ def _trees_of(text: str, script: str = "", first_line: int = 1) -> list[exp.Expr
     misshapen = misshapen_tag_line(text)
     if misshapen is not None:
         raise ConversionRefused(
-            f"{_line_named(script, first_line + misshapen - 1)} holds <PARM that isn't a "
-            'whole Script tag: <PARM="NAME"/> is the one shape a Conversion reads')
+            f"{_line_named(script, first_line + misshapen - 1)} has text starting <PARM that "
+            'isn\'t a Script tag as a Conversion reads one: <PARM="NAME"/>, NAME in double '
+            'quotes, closed by "/>"')
     readable = readable_tags(text)
     trees = read_hive(readable)
     for tree in trees:
         for identifier in tree.find_all(exp.Identifier):
             why = _why_a_tag_cant_stand_there(identifier)
             if why is not None:
-                line = first_line + (_hive_line(identifier, readable) or 1) - 1
+                line_in_text = _hive_line(identifier, readable) or 1
+                line = first_line + line_in_text - 1
                 raise ConversionRefused(
                     f"{_line_named(script, line)} has {identifier.name} {why}: a Script tag "
                     "stands for a value only, such as a date or a number, and a Conversion "
@@ -1564,8 +1579,10 @@ def _why_a_tag_cant_stand_there(identifier: exp.Identifier) -> str | None:
     if tag_name(identifier.name) is None:
         return None
     column = identifier.parent
+    if isinstance(column, exp.Table):
+        return "where a table's name goes"
     if not isinstance(column, exp.Column) or column.this is not identifier or column.table:
-        return "where a name goes"
+        return "where a column's name goes"
     child, parent = column, column.parent
     while isinstance(parent, exp.Paren):
         child, parent = parent, parent.parent
@@ -1743,6 +1760,8 @@ class BatchStatement:
     table: str | None = None
     reads: list[str] = field(default_factory=list)
     note: str = ""
+    # Each staging table's CREATE ... AS folded into it, whose query it now holds as a CTE.
+    folded: list[BatchStatement] = field(default_factory=list)
 
     def where(self) -> str:
         """Its script and its line there, such as "daily.hql line 3"."""
@@ -2433,6 +2452,7 @@ def fold_staging(statements: list[BatchStatement], choices: dict[str, str],
             continue
         for reader in readers:
             _fold_into(reader, table, query, database)
+            reader.folded.append(writer)
         read_by = [reader.table or "a query" for reader in readers]
         note = FOLDED.format(readers=in_words(read_by))
         # Its DROPs too, before its CREATE as well as after: it has no Saved table to make new.
