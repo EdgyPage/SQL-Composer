@@ -264,3 +264,17 @@ re-scored with it.
 | 2026-11-04 | 3c096cf | haiku | C | held_out | 50 | 100 | 100 | 100 | 100 | 50 | 0 | 0 | 0 | 0 | 13:50 |
 | 2026-11-04 | 3c096cf | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 07:100 |
 | 2026-11-04 | 3c096cf | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-04 | 22aa474 | haiku | C | held_out | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+| 2026-11-04 | 22aa474 | haiku | C | dev | 100 | 100 | 100 | 100 | 100 | 100 | 0 | 0 | 0 | 0 | 13:100 |
+
+8.3 (2026-11-04): Copilot files 07 and 13 changed for Script tags, the printed DECISIONS and
+PARTITION; each measured on haiku, one objective a proxy, arm C.
+
+- 07: held-out 100% (T21), dev 100% (T19, T20).
+- 13: dev 100% (T31, T32, T33, T37); held-out 50% first (T39 set PARTITION unasked, from the
+  bullet saying what it does, and so wrote a compare.md other than the reference's). The bullet
+  now says to leave PARTITION None unless a Partition is asked for by name; then dev 100% and
+  held-out 100% (13-r2). That held-out score is a second look after a fix its failure showed,
+  not a clean one.
+- No task of either split holds a Script tag yet, so these rounds hold the files' other rules
+  as 8.3 rewrote them, not the tag rules themselves.
