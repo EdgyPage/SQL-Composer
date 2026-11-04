@@ -109,12 +109,10 @@ def test_a_line_made_already_is_kept_and_a_different_answer_named() -> None:
         'its key= line there (the decisions cell says ["team"])']
 
 
-def test_an_answer_that_answers_no_decision_is_named() -> None:
-    answered = decisions.answered_text(REFERENCE, {"owner": "me", "types": {"fails": "int"}},
+def test_a_type_for_a_column_not_guessed_is_named() -> None:
+    answered = decisions.answered_text(REFERENCE, {"types": {"fails": "int"}},
                                        "references/mart_dev__x.py")
     assert answered.unwritten == [
-        "owner: not a Decision a Table reference asks; the decisions cell answers location, "
-        "key, types and tags",
         "types: fails is no type the Toolbox guessed in references/mart_dev__x.py; to change "
         "it, edit its line there"]
 
@@ -146,10 +144,47 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
     assert '    key=["run_id"],' in reference
 
 
-def test_a_table_with_no_table_reference_is_named(started: Path) -> None:
-    report = repr(project.write_decisions({"ops.nothing": {"key": None}}))
-    assert ("ops.nothing: no Table reference, references/ops__nothing.py, to write "
-            "into.") in report
+# --- An answer that matches nothing (Toolbox 8.3, ticket 04) ---------------------------------
+
+
+@pytest.mark.parametrize("answers, said", [
+    ({"ops.job_run": {"key": None}},
+     "ops.job_run: no table of the Project has that name, the nearest being ops.job_runs"),
+    ({"ops.job_runs": {"keys": ["run_id"]}},
+     "ops.job_runs: 'keys' is no kind of answer; the decisions cell answers location, key, "
+     "types and tags, the nearest being key"),
+    ({"ops.job_runs": {"tag": {"X": "1"}}}, "the nearest being tags"),
+    ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
+     "ops.job_runs: types: run_idd is no column of it, the nearest being run_id"),
+    ({"ops.job_runs": {"tags": {"PERIOD_ED": "1"}}},
+     "ops.job_runs: tags: PERIOD_ED is no Script tag of it"),
+], ids=["table", "kind", "tag for tags", "column", "tag"])
+def test_an_answer_that_matches_nothing_is_refused_writing_nothing(
+        started: Path, answers: dict, said: str) -> None:
+    reference = started / "references" / "ops__job_runs.py"
+    before = reference.read_text(encoding="utf-8")
+    # A right answer beside the wrong one, which isn't written either.
+    with_key = {**answers,
+                "ops.job_runs": {"key": ["run_id"], **answers.get("ops.job_runs", {})}}
+    with pytest.raises(ValueError, match="wrote nothing: 1 answer of the decisions cell "
+                       "matches no Decision") as refused:
+        project.write_decisions(with_key)
+    assert said in str(refused.value)
+    assert reference.read_text(encoding="utf-8") == before
+
+
+def test_each_answer_that_matches_nothing_is_named_at_once(started: Path) -> None:
+    with pytest.raises(ValueError, match="2 answers of the decisions cell match no Decision"):
+        project.write_decisions({"ops.nothing": {}, "ops.job_runs": {"owner": "me"}})
+
+
+def test_a_tag_answered_already_is_a_match_for_its_new_answer(started: Path) -> None:
+    reference = started / "references" / "ops__job_runs.py"
+    reference.write_text(reference.read_text(encoding="utf-8").replace(
+        "# --- Aliases", 'TAGS = {\n    "END": "\'2026-10-31\'",  # bare. Answer it ...\n}\n\n'
+        "# --- Aliases"), encoding="utf-8")
+    said = repr(project.write_decisions({"ops.job_runs": {"tags": {"END": "'2026-09-30'"}}}))
+    assert "tags: END is '2026-09-30' now, in place of '2026-10-31'" in said
 
 
 def test_a_decisions_cell_not_by_table_is_refused(started: Path) -> None:
@@ -208,8 +243,7 @@ def test_a_tag_answered_again_is_written_over_the_old_value_and_said() -> None:
      "quotes, or Hive reads it as a subtraction: answer \"'2026-10-31'\""),
     ({"team_2": "'nobody'"}, "tags: team_2 stands inside quotes already, so its answer has "
      'none: answer "nobody"'),
-    ({"OTHER": "1"}, "tags: OTHER is no Script tag of r.py"),
-], ids=["number", "blank", "bare date", "quoted twice", "no such tag"])
+], ids=["number", "blank", "bare date", "quoted twice"])
 def test_a_tag_answer_in_a_form_that_cant_stand_there_is_named(tags: dict, said: str) -> None:
     answered = decisions.answered_text(TAGGED, {"tags": tags}, "r.py")
     assert answered.written == []

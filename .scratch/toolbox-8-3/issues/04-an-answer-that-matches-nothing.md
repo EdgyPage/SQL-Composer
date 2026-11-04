@@ -1,7 +1,7 @@
 # Step 3 names an answer that matches nothing
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03
 Size: S
 
@@ -23,3 +23,24 @@ your own").
   others are.
 
 ## Answer
+Built 2026-11-04.
+
+- **The refusal**: `project.write_decisions` checks every answer first
+  (`_refuse_answers_matching_nothing`) and refuses, writing nothing, naming each answer that
+  matches no Decision of the Project's tables, with the nearest name (difflib): a table with no
+  Table reference, a kind the cell doesn't take (`"tag"` for `"tags"`, `"keys"` for `"key"`), a
+  column the table doesn't have, a tag its TAGS doesn't hold (`PERIOD_ED`). Every such answer
+  is named at once, as "2 answers of the decisions cell match no Decision:", then one per
+  line. Through `refusals.py`, as the others are.
+- **A match**: a tag answered before, a Key marked `# proposed`, any column the table has.
+  A column the table has whose type wasn't guessed stays a note, kept unwritten, not a
+  refusal: step 3 runs again with the same DECISIONS after a tag is answered again (03), and
+  a type written by an earlier run is no longer marked guessed, so refusing it would refuse
+  every second run. A location or Key made already stays a note too, as before.
+- **Every Workflow**: convert, promote, new_table and references all write their decisions
+  cell through `write_decisions`, so the refusal holds in each.
+- **Moved**: `decisions.answered_text` no longer names an unknown kind or a tag the table
+  doesn't hold, since the refusal does; `decisions.tag_names` gives a reference's tags for it.
+- Tests: `tests/test_decisions.py`, a table, a kind, "tag" for "tags", a column and a tag
+  refused with the right answer beside it unwritten too; two at once; a tag answered before is
+  a match.
