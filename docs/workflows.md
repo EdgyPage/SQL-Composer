@@ -44,7 +44,7 @@ else:
     for table in to_seed:
         run_execute(project.load(table).seed(), execute)"]]:::warehouse_call
     s5[["6. Write each table in dev: project.run_tables(tables=project.batch_tables(NAME), execute=execute)"]]:::warehouse_call
-    s6[["7. Compare each table with its original: project.compare_batch(NAME, query=query)"]]:::warehouse_call
+    s6[["7. Compare each table with its original: project.compare_batch(NAME, query=query, partition=PARTITION)"]]:::warehouse_call
     t0("Hive scripts"):::thing
     t1("your Dev Database's name"):::thing
     t2("read access to the sources"):::thing

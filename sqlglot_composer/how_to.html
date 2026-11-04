@@ -6499,7 +6499,7 @@ print(project.convert(&quot;ops_reports&quot;, files=[&quot;daily.hql&quot;, &qu
 Folded ops_reports.failed_runs, each a staging table, a Derived table in the tables that read it: batch.md says where.
 admin/workflows/convert/ops_reports/batch.md lists each statement, in the order they run, and what it became.
 Next: answer each table&#x27;s open Decisions in the decisions cell of admin/workflows/convert/convert.ipynb, then run its next steps: write the answers in, create each table in dev, seed each that reads itself, write each, and compare each with its original.
-Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb, ops_reports&#x27;s decisions cell, or over a DECISIONS you pasted before (each answer step 3 wrote already is kept), then fill in each &lt;FILL IN&gt; and check each guessed type:
+Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb, ops_reports&#x27;s decisions cell, or over a DECISIONS you pasted before (each answer written into a Table reference already is kept), then fill in each &lt;FILL IN&gt; and check each guessed type:
 
 DECISIONS = {
     &quot;mart.alerts_by_severity_ops_reports&quot;: {
@@ -17241,7 +17241,10 @@ DATABASE = &#x27;default&#x27;
 RENAME = {}
 # each staging table convert names, kept or folded, such as {&quot;ops_reports.failed&quot;:
 # &quot;keep&quot;}: left out, a temporary or DROPped one is folded, any other kept
-STAGING = {}</pre>
+STAGING = {}
+# another Partition for step 7 to compare, such as {&quot;dt&quot;: &quot;2026-09-23&quot;}: None
+# compares the latest Partition both tables hold
+PARTITION = None</pre>
 <p>Its decisions cell, beside it, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
@@ -17272,7 +17275,7 @@ else:
 <ol start="6"><li>Write each table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.run_tables(tables=project.batch_tables(NAME), execute=execute)</pre>
 <ol start="7"><li>Compare each table with its original (it is a call to the warehouse, yours to run).</li></ol>
-<pre class="python">project.compare_batch(NAME, query=query)</pre>
+<pre class="python">project.compare_batch(NAME, query=query, partition=PARTITION)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>
 <pre class="python"># Every step left, in place of their cells, up to the first only you can do.
 # Add dry_run=True to see the Hive it would send, sending nothing through your

@@ -837,7 +837,7 @@ flowchart TD
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query)
+       project.compare_batch(NAME, query=query, partition=PARTITION)
 
 <!-- /chart -->
 

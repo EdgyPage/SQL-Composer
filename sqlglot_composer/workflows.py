@@ -774,13 +774,17 @@ def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list
 
 
 def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """project.compare_batch for the batch NAME names; a dry run names what it would read."""
+    """project.compare_batch for the batch NAME names, on the Partition PARTITION names when
+    it names one; a dry run names what it would read."""
     from . import project  # project.py imports this file
 
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
                 f"{in_words(batch_tables_of(inputs))}"]
-    return project.compare_batch(str(inputs.get("NAME")), query=calls.query).lines
+    partition = inputs.get("PARTITION")
+    return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
+                                 partition=partition if isinstance(partition, dict) else None
+                                 ).lines
 
 
 def preview_each(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -1013,7 +1017,8 @@ CONVERT = Workflow(
              done_when="admin/sent.csv records each table written"),
         Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
-             "project.compare_batch(NAME, query=query)", every_table_compared,
+             "project.compare_batch(NAME, query=query, partition=PARTITION)",
+             every_table_compared,
              send=compare_the_batch,
              goal="each table's rows checked against its original's: a partitioned table's "
              "on the latest Partition both hold, and only that one unless you give another",
@@ -1021,10 +1026,9 @@ CONVERT = Workflow(
              "and writes each table's result in its `conversion/compare.md`. A partitioned "
              "table is compared on the latest Partition both tables hold, which its line in "
              "the report names, such as `on dt = '2026-09-24'`. If you want another "
-             "Partition compared too, then run `print(project.compare_batch(NAME, "
-             "query=query, partition={\"dt\": \"2026-09-23\"}))` in a new cell, NAME being "
-             "the names cell's and dt the table's partition column: its result is kept "
-             "beside the first.",
+             "Partition compared too, then set `PARTITION` in the names cell, such as "
+             "`{\"dt\": \"2026-09-23\"}`, dt being the table's partition column, and run "
+             "this step again: each result is kept beside the ones before.",
              done_when="every result in each table's `conversion/compare.md` says Passed, "
              "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
              "with a result that failed is one promote refuses"),
@@ -1042,7 +1046,10 @@ CONVERT = Workflow(
                   "mart_dev.team_fails_mart"),
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
-                  "folded, any other kept")),
+                  "folded, any other kept"),
+            Input("PARTITION", None, 'another Partition for step 7 to compare, such as '
+                  '{"dt": "2026-09-23"}: None compares the latest Partition both tables '
+                  "hold")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
     "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",

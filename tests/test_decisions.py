@@ -295,7 +295,7 @@ def test_the_open_decisions_print_as_decisions_to_paste() -> None:
     assert pasted["mart_dev.x"]["tags"] == {"PERIOD_END": "<FILL IN>", "team_2": "<FILL IN>"}
 
 
-THEN = "in the decisions cell in its place, then run step 3 again"
+THEN = "in the decisions cell in its place, then run project.write_decisions(DECISIONS) again"
 
 
 def test_a_fill_in_pasted_and_left_is_no_answer() -> None:
