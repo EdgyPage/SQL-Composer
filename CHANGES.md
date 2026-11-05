@@ -12,6 +12,12 @@ Being built: what each ticket changes is listed here as it lands.
   `hive_function("date_add", day, 1)`, the Hive the original wrote. Before, a Conversion wrote
   a third argument, `unchecked_column("DAY")`, which the Toolbox refused, even on a plain
   date; the Example database runs both functions too.
+- **A partition read bounded by values works out its own Partitions**: `between(dt,
+  date_sub(PERIOD_END, 14), PERIOD_END)`, or any condition holding a partition column to a
+  Script tag, a literal, or `date_sub`/`date_add` of them, bounds the Partitions read, as a
+  plain date does. Before, `between` refused it, and a date moved by days bounded nothing, so
+  a reporting window ending at a Script tag needed `reads_all_partitions=True`. Which end comes
+  first is then Hive's to say: only two plain values are refused as backwards.
 
 ## 8.3
 
