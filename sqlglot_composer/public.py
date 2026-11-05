@@ -105,7 +105,8 @@ from .unchecked import (
     unchecked_derived,
     unchecked_hive,
 )
-from .script_tags import hive_date, latest_partition, run_value, script_tag, tag_text
+from .run_values import hive_date, latest_partition, run_value, tag_text
+from .script_tags import script_tag
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     Window,
@@ -237,10 +238,11 @@ __all__ = [
     "SessionSettings",
     "UncheckedStatement",
     # script_tags.py
+    "script_tag",
+    # run_values.py
     "hive_date",
     "latest_partition",
     "run_value",
-    "script_tag",
     "tag_text",
     # comparisons.py
     "compare_hive",

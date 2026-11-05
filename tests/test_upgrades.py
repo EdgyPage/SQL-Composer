@@ -196,7 +196,7 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[3].startswith("8.1: ")
     assert said[4].startswith("8.2: ")
     assert said[5].startswith(f"{VERSION}: ")
-    assert said[6] == ("Read each step's report, in order: admin/upgrade_7.2.md, "
+    assert said[6] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
                        "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md and "
                        f"admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
@@ -255,7 +255,7 @@ def test_each_step_is_logged_and_recorded_as_it_runs(started: Path,
         "Upgraded the Project from 7.2 to 7.4.",
         "7.3: nothing to change by hand. admin/upgrade_7.3.md lists what it did.",
         "7.4: nothing to change by hand. admin/upgrade_7.4.md lists what it did.",
-        "Read each step's report, in order: admin/upgrade_7.3.md and admin/upgrade_7.4.md."]
+        "Read each step's checklist, in order: admin/upgrade_7.3.md and admin/upgrade_7.4.md."]
     log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
     assert log.count("- Call: `project.upgrade()`") == 2
     assert "wrote admin/project_version.txt: 7.3" in log
@@ -289,7 +289,7 @@ def test_an_upgrade_of_one_step_names_its_report_last(started: Path,
     monkeypatch.setattr(upgrades, "STEPS", {"7.3": lambda step: None})
     upgrades.write_project_version(started, "7.2")
     assert repr(project.upgrade()).splitlines()[-1] == (
-        "Read the step's report: admin/upgrade_7.3.md.")
+        "Read the step's checklist: admin/upgrade_7.3.md.")
 
 
 def test_a_project_a_newer_toolbox_wrote_is_refused(started: Path) -> None:

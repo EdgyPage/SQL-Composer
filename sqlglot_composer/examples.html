@@ -2835,11 +2835,10 @@ GROUP BY
 <section class="entry" id="today">
 <h3><code>today</code></h3>
 <p class="why">Today&#x27;s date in UTC, or utc_offset_hours from it, as last_n_days sees it.</p>
-<pre class="python">import datetime</pre>
-<pre class="python">today() == datetime.datetime.now(datetime.timezone.utc).date()</pre>
+<pre class="python">today(utc_offset_hours=-6) &lt;= today() &lt;= today(utc_offset_hours=14)</pre>
 <p class="label">Python shows</p>
 <pre class="output">True</pre>
-<p>Write utc_offset_hours=-6 for a warehouse that keeps its days six hours behind UTC, such as Central Standard Time, or 5.5 for India&#x27;s: the offset stays as given all year, as no zone&#x27;s name is read. It is the usual start of a Run value&#x27;s function, which works out a day each time a table is written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1) for yesterday where the warehouse is. The tests replace it with a fixed day.</p>
+<p>Write utc_offset_hours=-6 for a warehouse that keeps its days six hours behind UTC, such as Central Standard Time, or 5.5 for India&#x27;s: the offset stays as given all year, as no zone&#x27;s name is read. It is the usual start of a Run value&#x27;s function, which works out a day each time a table is written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1) for yesterday where the warehouse is.</p>
 <p class="names">Toolbox names used: <code>today</code></p>
 </section>
 <section class="entry" id="is_in">
@@ -4982,9 +4981,9 @@ Next: set conn, your connection, in warehouse.py.</pre>
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
-Read each step&#x27;s report, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
+Read each step&#x27;s checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
     admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.</pre>
-<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark; the report&#x27;s last line names each one, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
+<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark: its checklist, which the last line names, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
 <p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>

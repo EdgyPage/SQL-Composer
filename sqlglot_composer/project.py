@@ -1785,7 +1785,7 @@ def upgrade() -> ProjectReport:
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
-    Read each step's report, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
+    Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
         admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
@@ -1797,7 +1797,7 @@ def upgrade() -> ProjectReport:
     makes the changes that need no judgement, keeping each file it changes, as it was, in its
     own folder of admin/removed/, and marks each change that needs you with a
     `# UPGRADE <version>: <what to change>` comment at the line. admin/upgrade_<version>.md
-    lists what each step did, and a box for each mark; the report's last line names each one,
+    lists what each step did, and a box for each mark: its checklist, which the last line names,
     in order, and project.check() lists the marks left. It changes only files, never the
     warehouse, and logs what it did in the Admin log. Run again, it does nothing.
 
@@ -1831,15 +1831,15 @@ def upgrade() -> ProjectReport:
                               f"wrote {upgrades.PROJECT_VERSION.as_posix()}: {version}"], frame)
         lines.append(step.report_line())
         reports.append(step.checklist_path)
-    lines.append(_reports_line(reports))
+    lines.append(_checklists_line(reports))
     return ProjectReport(lines)
 
 
-def _reports_line(reports: list[str]) -> str:
+def _checklists_line(reports: list[str]) -> str:
     """project.upgrade()'s last line: each step's admin/upgrade_<version>.md, in order."""
     if len(reports) == 1:
-        return f"Read the step's report: {reports[0]}."
-    return f"Read each step's report, in order: {in_words(reports)}."
+        return f"Read the step's checklist: {reports[0]}."
+    return f"Read each step's checklist, in order: {in_words(reports)}."
 
 
 def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:

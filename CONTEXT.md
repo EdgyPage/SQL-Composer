@@ -170,8 +170,9 @@ The value a Python function gives each time a Statement is built, any function, 
 user's own or a library's, filled in where a value goes, where a Script tag stood or where a
 seed's limit goes, such as the latest Partition the warehouse holds. The Toolbox writes it
 into the Hive as plain text, so the Hive it sends, and the Hive a dry run shows, hold the
-value itself, and the Statement's lineage traces it: the function, what it was given, the
-value it gave, and each table the Toolbox read for it while it ran.
+value itself, and the Statement's lineage traces each one standing as a value: the
+function, what it was given, the value it gave, and each table the Toolbox read for it while it
+ran.
 _Avoid_: parameter, variable, runtime param, Hive variable
 
 **Reference sheet**:

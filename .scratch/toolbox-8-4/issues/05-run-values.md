@@ -66,3 +66,28 @@ Built 2026-11-05.
   and never sent, `tag_text`, and a Project's step 3 writing the function into a reference,
   bare and quoted, then answered again with text, and one made in the notebook left
   unwritten. 01's journey now fails only where 06's `latest_partition` is missing.
+
+## Review
+
+Code review (review-standards and review-spec, sonnet), of 05 to 07 together:
+
+- **Fixed:**
+  - Run values have a file of their own, `run_values.py`, out of `script_tags.py`, which keeps
+    reading Script tags: tracing, `run_value`, `tag_text`, the date helpers and the refusal to
+    send a failed one. One traced call, `_traced_column`, serves `run_value` and a tag's
+    function; `tag_text` traces through `_traced_call` too. One date writer, `hive_date`.
+  - `script_tag`'s hint says it takes a function; `run_value_import`'s takes a Callable; the
+    import lines are matched by one pattern, `RUN_VALUE_IMPORT`, not by splitting text; plain
+    `if`s where a conditional expression held a comprehension.
+  - The failure's Warning is `refusals.warning_run_value_failed`, beside the other Warnings.
+  - A failed tag's placeholder names the tag where TAGS holds it, `` `<PERIOD_END failed>` ``.
+  - `describe.printed_answer`, renamed from `send_describe`, says what it gives.
+  - `running.tables_read_by` names the reads run_query notes.
+- **Answered, left as is:**
+  - The compare: `compare_batch` compares the tables once written, not their queries, so no
+    tag is filled there (as above).
+  - `tag_text` is a public name because a converted logic's string needs one call that gives
+    text, a Run value's or not; a tag inside quotes answered with a function needs it. A
+    datetime written with its time and TRUE/FALSE are the values a function may give.
+  - Refusing before sending is in `send_logged`, which every send of a Statement passes
+    through: run_query, run_execute, run_tables (through run_execute) and the compares.

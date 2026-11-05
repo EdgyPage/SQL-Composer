@@ -178,7 +178,7 @@ def _teach_date_add() -> None:
     from sqlglot.executor import env
 
     # `unit`, DAY, is what sqlglot's executor passes beside the two arguments; a day it is.
-    def date_add(day: object, days: object, unit: object | None = None) -> str | None:
+    def date_add(day: object, days: object, unit: object = None) -> str | None:
         if day is None or days is None:
             return None
         start = datetime.date.fromisoformat(str(day)[:10])

@@ -50,3 +50,15 @@ Built 2026-11-05.
   value, and an arrow from the column `latest_partition` read; one of a plain function drawn
   alone; `run_value` with arguments; a function running a query of its own drawn from the
   table it read; and `run_value`'s refusals.
+
+## Review
+
+Code review, with 05 and 06 (05's Review lists the fixes they share):
+
+- **Fixed:** a read is a `TracedRead`, its table's name, its Table reference when it has one,
+  and its column, so lineage draws a column's box or the whole table's without guessing; a tag
+  inside quotes gives text, part of a string, which lineage doesn't draw, and CHANGES.md and
+  CONTEXT.md now say so (D426).
+- **Answered:** a function that reads by anything but the Toolbox's `latest_partition` and
+  `run_query` is drawn with its name, arguments and value alone: the Toolbox can only note the
+  reads it makes. The Example projects' Run value is 12's.
