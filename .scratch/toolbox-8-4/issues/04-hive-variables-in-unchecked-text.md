@@ -18,3 +18,23 @@ writes and a person doesn't know to (map, Q9).
 - A `${{...}}` the Conversion wrote before 8.4 gives the same Hive as before.
 - The Conversion writes `${...}` plainly from now on.
 - The docstrings of the `unchecked_*` functions say it, with an example.
+
+## Answer
+
+- `unchecked_column` and `unchecked_condition` read each `${...}`, such as
+  `${hivevar:run_day}`, as Hive, written as it is: before the text's `{name}` placeholders are
+  read, each Hive variable's braces are doubled (`_with_hive_variables_doubled`), so
+  `str.format` keeps it. `{name}` is still a placeholder and `{{`/`}}` still a brace.
+- A `${{...}}` written before 8.4 is left as it is, so it gives the same Hive.
+- The Hive variable is one pattern, `shared.HIVE_VARIABLE`, and Hive written as an Unchecked
+  expression's text is one function, `shared.unchecked_expression_text` (a new row in
+  `docs/agents/standards.md`'s "One way per job"): each brace doubled, a Hive variable as it is.
+  The Conversion (`converting.py`) and the fix for a column named directly (`with_placeholders`
+  in `writing.py`) both call it, so both write `${hivevar:day}` plainly.
+- `unchecked_hive` and `unchecked_derived` take no placeholders and always kept `${...}`; a
+  test now holds each.
+- The docstrings of `unchecked_column`, `unchecked_condition` and `unchecked_hive` show a
+  Hive variable in an example; `unchecked_derived`'s says it in its text. CONTEXT.md's
+  Unchecked expression says it. The Example gallery is written again.
+- Tests: `tests/test_unchecked_expressions.py`, `tests/test_unchecked_statements.py`,
+  `tests/test_converting.py`, and a case in `tests/test_conversions.py`'s `SAME_QUERY`.

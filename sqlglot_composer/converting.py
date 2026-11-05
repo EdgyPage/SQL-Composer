@@ -41,6 +41,7 @@ from .shared import (
     python_literal,
     singular_or_plural,
     split_table_name,
+    unchecked_expression_text,
 )
 from .writing import read_hive, sql_text, typed_hive
 
@@ -871,7 +872,7 @@ class _Converter:
             bound[name] = self.column(column, scope)
             marker = "__placeholder_" + name + "__"
             column.replace(exp.Var(this=marker))
-        text = sql_text(piece).replace("{", "{{").replace("}", "}}")
+        text = unchecked_expression_text(sql_text(piece))
         text = re.sub(r"__placeholder_(\w+?)__", r"{\1}", text)
         self.note_finding(node, "unchecked",
                           f"{sql_text(node)} stays Hive, in {function}(...): {why}")

@@ -370,6 +370,9 @@ SELECT r.run_id,
   END AS label
 FROM ops.job_runs r WHERE r.dt = '2026-09-24'""",
     "hive_variable": "SELECT r.run_id FROM ops.job_runs r WHERE r.dt = '${hivevar:run_date}'",
+    "hive_variable_in_an_unchecked_condition": """\
+SELECT r.run_id FROM ops.job_runs r
+WHERE r.dt = '2026-09-24' AND r.status RLIKE concat('^', ${hivevar:prefix})""",
     "in_sub_query_in_a_cte": """\
 WITH a AS (SELECT r.run_id, r.job_id FROM ops.job_runs r
 WHERE r.dt = '2026-09-24' AND r.job_id IN (SELECT j.job_id FROM ops.jobs j))

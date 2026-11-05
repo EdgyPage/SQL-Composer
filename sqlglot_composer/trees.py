@@ -308,7 +308,8 @@ KINDS = {
     # whether the function adds rows up.
     "HiveFunction": ("name", "args", "aggregate"),
     # An Unchecked expression, from unchecked_column or unchecked_condition: its text as
-    # written, with a {name} placeholder for each column; the placeholders' names, and the
+    # written, with a {name} placeholder for each column and each Hive variable's braces
+    # doubled, ${{hivevar:day}}, as str.format reads it; the placeholders' names, and the
     # column each is filled with, in the same order; and whether the text adds rows up, and
     # whether it looks across rows through a window (OVER).
     "Unchecked": ("text", "names", "columns", "aggregate", "window"),

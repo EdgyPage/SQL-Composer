@@ -59,6 +59,12 @@ def test_its_hive_is_the_text_as_written_without_a_last_semicolon() -> None:
     assert to_hive(no_note(f"  {text} ;\n")) == text
 
 
+def test_a_hive_variable_and_braces_are_kept_as_written() -> None:
+    text = ("SELECT run_id FROM ops.job_runs "
+            "WHERE dt <= ${hivevar:run_day} AND status RLIKE 'F{2}'")
+    assert to_hive(no_note(text)) == text
+
+
 def test_no_load_limit_looks_inside_it() -> None:
     set_load_limits(rows=10)
     text = "SELECT * FROM ops.job_runs"
