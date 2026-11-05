@@ -26,7 +26,7 @@ from . import kinds
 from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
-from .shared import in_words, python_literal
+from .shared import HIVE_VARIABLE, in_words, python_literal
 from .tables import Column, Table, UncheckedSelect, python_text
 from .trees import SIMPLE_NAME, Node
 from .writing import (
@@ -354,6 +354,14 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
     since after the comment it would be part of it.
 
+    A Hive variable, such as ${hivevar:run_day}, is sent as written, for Hive to fill in from a
+    SET line sent first, as run_execute(hive_settings(...), execute) sends one:
+
+    >>> text = show_hive(unchecked_hive(
+    ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '${hivevar:run_day}'"))
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '${hivevar:run_day}';
+
     A Table reference's text drops into the Hive you write, in an f-string, so the names are
     spelt as the Table reference spells them. A table's text is its name as FROM writes it,
     ops.jobs AS jobs, for after FROM or JOIN; DESCRIBE and SHOW PARTITIONS take the name
@@ -529,6 +537,16 @@ def unchecked_column(text: str, /, **columns: Column) -> Column:
     "regexp_extract({job_name}, '[a-z]{{2}}', 0)". A column passed as a calculation, such as
     job_runs.duration_mins + 1, is put in round brackets.
 
+    A Hive variable, such as ${hivevar:bucket_mins}, is Hive, never a placeholder: it is
+    written as it is, for Hive to fill in from a SET line sent first, as
+    run_execute(hive_settings(...), execute) sends one (help(hive_settings)).
+
+    >>> unchecked_column("{minutes} DIV ${hivevar:bucket_mins}", minutes=job_runs.duration_mins)
+    job_runs.duration_mins DIV ${hivevar:bucket_mins}
+
+    Written with its braces doubled, ${{hivevar:bucket_mins}}, as a Conversion before 8.4
+    wrote it, it gives the same Hive.
+
     It gives back a Column, used like any other: give it a name with AS. For a condition, in
     WHERE, HAVING or ON=, use unchecked_condition(...). Text that adds rows up, such as
     percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other
@@ -587,9 +605,14 @@ def unchecked_condition(text: str, /, **columns: Column) -> Condition:
     It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...).
     Its text is written as unchecked_column's is: each column it reads as a placeholder in
     braces, such as {status}, with the column itself passed by that name, a brace you mean
-    doubled, and the same refusals; help(unchecked_column) says more. The Toolbox doesn't check
-    that the text is a condition, one that is true or false for each row: Hive refuses one
-    that isn't when it runs.
+    doubled, a Hive variable written as it is, and the same refusals; help(unchecked_column)
+    says more:
+
+    >>> unchecked_condition("{status} RLIKE '${hivevar:pattern}'", status=job_runs.status)
+    job_runs.status RLIKE '${hivevar:pattern}'
+
+    The Toolbox doesn't check that the text is a condition, one that is true or false for
+    each row: Hive refuses one that isn't when it runs.
 
     The Guards and Load limits check the rest of the Statement, and say so where they can't
     tell what the text does. A read of a partitioned table whose partition columns are
@@ -606,10 +629,11 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
     """An Unchecked expression's Node, once its text and columns are checked. `call` is the
     function it is made by, unchecked_column or unchecked_condition."""
     written = _hive_written(call, text)
-    names = _placeholders(call, written)
+    template = _with_hive_variables_doubled(written)
+    names = _placeholders(call, template, written)
     _check_columns(call, written, names, columns)
     stand_ins = [f"unchecked_placeholder_{number}" for number in range(len(names))]
-    filled = written.format(**dict(zip(names, stand_ins)))
+    filled = template.format(**dict(zip(names, stand_ins)))
     facts = read_unchecked_expression(filled, stand_ins)
     _check_expression(call, written, facts)
     _check_columns_named(call, written, facts, filled, dict(zip(stand_ins, names)), columns)
@@ -624,7 +648,7 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
             f"{{{missing[0]}}}).",
             error=ValueError,
         )
-    tree = Node("Unchecked", text=written, names=names,
+    tree = Node("Unchecked", text=template, names=names,
                 columns=[columns[name]._tree.copy() for name in names],
                 aggregate=facts.aggregate, window=facts.window)
     passed = "".join(f", {name}={python_text(columns[name])}" for name in names)
@@ -664,11 +688,19 @@ def _hive_written(call: str, text: object) -> str:
     return written
 
 
-def _placeholders(call: str, text: str) -> list[str]:
-    """The name of each {name} placeholder in the text, each once, in the order written; a
-    refusal of braces str.format can't read, and of a placeholder with no plain name."""
+def _with_hive_variables_doubled(written: str) -> str:
+    """The text as str.format reads it: each Hive variable's braces doubled, ${{hivevar:day}},
+    so it is kept as written, never read as a placeholder. One already doubled, as the
+    Conversion wrote it before 8.4, is left as it is."""
+    return HIVE_VARIABLE.sub(r"${{\1\2}}", written)
+
+
+def _placeholders(call: str, template: str, text: str) -> list[str]:
+    """The name of each {name} placeholder in the template, the text with each Hive
+    variable's braces doubled, each once, in the order written; a refusal of braces
+    str.format can't read, and of a placeholder with no plain name, showing the text."""
     try:
-        parsed = list(string.Formatter().parse(text))
+        parsed = list(string.Formatter().parse(template))
     except ValueError as error:
         refuse(
             what=f"{call}({python_text(text)}, ...) has braces it can't read: {error}.",
@@ -862,7 +894,8 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     can tell the names of the columns the SELECT gives, they must be the ones declared. The
     text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct,
     as {'k': 1}, is refused, since it can't write that back as Hive; one inside quotes, as in a
-    regular expression's '[a-z]{2}', is kept.
+    regular expression's '[a-z]{2}', is kept, and so is a Hive variable, as in
+    WHERE r.dt = '${hivevar:run_day}', for Hive to fill in from a SET line sent first.
 
     No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can
     see unless you name one: key=["run_id"] says one row has each run_id, as a GROUP BY
