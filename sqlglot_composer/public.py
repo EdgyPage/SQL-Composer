@@ -99,6 +99,7 @@ from .unchecked import (
     SessionSettings,
     UncheckedStatement,
     hive_settings,
+    seed_copy,
     set_admin_log,
     unchecked_column,
     unchecked_condition,
@@ -230,6 +231,7 @@ __all__ = [
     "PythonStep",
     # unchecked.py
     "hive_settings",
+    "seed_copy",
     "unchecked_hive",
     "unchecked_column",
     "unchecked_condition",

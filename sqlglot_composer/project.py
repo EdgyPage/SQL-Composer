@@ -2633,15 +2633,14 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     _write_table_reference(files, dev, _untyped_as_string(columns), partitions, storage,
                            _guessed(columns), proposed=proposed,
                            tag_is_quoted=hive_read.tag_is_quoted,
-                           tag_places=_first_place_of_each_tag(pieces))
-    seed_hive = None
+                           tag_places=_first_place_of_each_tag(pieces), seeded=seeded)
     if seeded:
-        seed_hive = _seed_hive(table, dev, partitions)
         files.seeded.append(dev)
     whole_hive = None
     if hive_read.kept_whole:
         whole_hive = write_hive
-    _write_table_files(files, dev, batch, hive_read, logic, seed_hive, whole_hive)
+    _write_table_files(files, dev, batch, hive_read, logic, table if seeded else None,
+                       whole_hive)
     scan = _batch_scan_lines(text, hive_read, pieces, ordered, list(opt_outs))
     scan += _hive_compared(built, text, stopped)
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
@@ -2707,16 +2706,16 @@ def _first_place_of_each_tag(pieces: list[converting.BatchStatement]) -> dict[st
 
 def _write_table_files(files: _BatchFiles, dev: str, batch: str,
                        hive_read: converting.ConvertedQuery, logic: str,
-                       seed_hive: str | None, whole_hive: str | None) -> None:
-    """Write a dev table's notebook, its logic a Saved table's, with seed() running
-    `seed_hive` when it reads itself, and write() kept as Hive, `whole_hive`, when its query
-    is; and its lineage/ folder."""
+                       seeded_from: str | None, whole_hive: str | None) -> None:
+    """Write a dev table's notebook, its logic a Saved table's, with seed() copying the rows
+    of `seeded_from`, its original, when it reads itself, and write() kept as Hive,
+    `whole_hive`, when its query is; and its lineage/ folder."""
     stem = TABLE_FOLDER.stem(dev)
     short = split_table_name(dev)[1]
     table_logic = converting.saved_table_logic(logic, dev, short, hive_read.write,
                                                hive_read.static_partition, whole_hive)
-    if seed_hive is not None:
-        table_logic = converting.with_seed(table_logic, seed_hive)
+    if seeded_from is not None:
+        table_logic = converting.with_seed(table_logic, short, seeded_from)
     files.write_notebook(table_notebook(stem),
                          _converted_table_cells(dev, batch, table_logic, hive_read,
                                                 files.made_for))
@@ -2803,17 +2802,22 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
                            guessed: tuple[str, ...],
                            proposed: tuple[list[str], ...] = (),
                            tag_is_quoted: dict[str, bool] | None = None,
-                           tag_places: dict[str, str] | None = None) -> None:
+                           tag_places: dict[str, str] | None = None,
+                           seeded: bool = False) -> None:
     """Write a dev table's Table reference, each column whose type it could only guess marked
-    as a Decision, and TAGS, what each of its Script tags stands for, when it has any, before
-    its Aliases; then the Database modules, which the next table's logic imports it
-    through."""
+    as a Decision, TAGS, what each of its Script tags stands for, when it has any, and SEED,
+    its seed's limits, when it reads itself, before its Aliases; then the Database modules,
+    which the next table's logic imports it through."""
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
+    blocks = []
     if tag_is_quoted:
+        blocks.append(converting.tags_block(tag_is_quoted, tag_places))
+    if seeded:
+        blocks.append([*decisions.SEED_COMMENT, decisions.SEED_START + "}"])
+    for block in blocks:
         at = text.index(ALIASES_HEADING)
-        block = converting.tags_block(tag_is_quoted, tag_places)
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
@@ -3198,14 +3202,6 @@ def _untyped_as_string(columns: dict[str, str]) -> dict[str, str]:
         if kind == "":
             typed[column] = "string"
     return typed
-
-
-def _seed_hive(table: str, dev: str, partitions: list[str]) -> str:
-    """The Hive that copies the original's rows into its dev copy, every column as it is."""
-    partition = ""
-    if partitions:
-        partition = f" PARTITION ({', '.join(partitions)})"
-    return f"INSERT OVERWRITE TABLE {dev}{partition} SELECT * FROM {table}"
 
 
 def _write_reference_of_a_create_alone(files: _BatchFiles, table: str,

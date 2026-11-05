@@ -2291,21 +2291,25 @@ def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
     return values
 
 
-def with_seed(logic: str, seed_hive: str) -> str:
-    """A Table notebook's logic with seed(): the Hive that copies the original's rows into
-    the dev copy once, before the first write, for a table that reads itself."""
+def with_seed(logic: str, short: str, original: str) -> str:
+    """A Table notebook's logic with seed(): the original's rows copied into the dev copy once,
+    before the first write, for a table that reads itself, limited by SEED, its Table
+    reference's seed limits, which the logic imports from there with the table."""
     lines = logic.rstrip("\n").split("\n")
-    imported = "from sqlglot_composer import UncheckedStatement, unchecked_hive"
+    imported = "from sqlglot_composer import UncheckedStatement, seed_copy"
     if not any(line.startswith(imported) for line in lines):
         at = _after_imports(lines)
         lines[at:at] = [f"{imported}  # for seed()"]
+    own = re.compile(rf"^(from references\.\w+ import {re.escape(short)}(?:, TAGS)?)(\s|$)")
+    lines = [own.sub(r"\1, SEED\2", line, count=1) for line in lines]
     return "\n".join(lines + [
         "",
         "",
         "def seed() -> UncheckedStatement:",
         '    """Copy the original\'s rows into this table once, before its first write():',
-        '    its write reads its own table, which starts empty."""',
-        f"    return unchecked_hive({python_literal(seed_hive)})",
+        "    its write reads its own table, which starts empty. SEED, in its Table reference,",
+        '    limits the Partitions it copies."""',
+        f"    return seed_copy({short}, {python_literal(original)}, SEED)",
     ]) + "\n"
 
 

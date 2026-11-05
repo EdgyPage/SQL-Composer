@@ -27,11 +27,12 @@ from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
 from .shared import HIVE_VARIABLE, in_words, python_literal
-from .tables import Column, Table, UncheckedSelect, python_text
+from .tables import Column, Table, UncheckedSelect, literal, python_text, type_family
 from .trees import SIMPLE_NAME, Node
 from .writing import (
     ExpressionFacts,
     SelectFacts,
+    hive_text,
     read_unchecked_expression,
     read_unchecked_select,
     with_placeholders,
@@ -400,6 +401,98 @@ def unchecked_hive(text: str) -> UncheckedStatement:
         )
     _note_a_change(written)
     return UncheckedStatement(written)
+
+
+def seed_copy(table: Table, original: str,
+              limits: dict[str, object] | None = None) -> UncheckedStatement:
+    """A converted table's Seed: its original's rows copied in once, limited by Partition.
+
+    >>> runs = example_database.job_runs
+    >>> text = show_hive(seed_copy(runs, "mart.job_runs", {"dt": {"from": "2026-09-24"}}))
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    INSERT OVERWRITE TABLE ops.job_runs PARTITION (dt) SELECT * FROM mart.job_runs WHERE dt >= '2026-09-24';
+
+    A Conversion writes it as a table's seed(), for a table whose write reads its own table,
+    as an incremental INSERT does: its copy starts empty, so its first write would start from
+    nothing. `limits` is the table's SEED, in its Table reference, which the decisions cell
+    answers under "seed": by partition column, a value, that value or later, as above; a
+    range, {"from": ..., "to": ...}, either end left out as you like; or a list, those values
+    alone, as {"region": ["US", "CA"]}. A value may be a Run value's function, called each
+    time seed() is built. A partition column it leaves out is copied whole, and with no limits
+    every Partition is. Each value is written as the column's type in the Table reference
+    says: text and dates in quotes, numbers as they are. It refuses a column that isn't one of
+    the table's partition columns, and a value that doesn't fit its column's type.
+    """  # noqa: E501 - its example's Hive is one line
+    call = f"seed_copy({python_text(table)}, ...)"
+    partitions = table._partitioned_by
+    partition = f" PARTITION ({', '.join(partitions)})" if partitions else ""
+    conditions = []
+    for column, limit in (limits or {}).items():
+        if column not in partitions:
+            refuse(
+                what=f"{call}: {column} isn't a partition column of {table._name}"
+                + (f"; its partition columns are {', '.join(partitions)}." if partitions
+                   else ", which has none."),
+                why="A seed is limited by Partition alone: a limit on another column would "
+                "still read every Partition, which is what it saves you.",
+                fix=f"Name one of {table._name}'s partition columns in its seed limits, or "
+                "take the limit out.",
+                error=ValueError,
+            )
+        conditions += _seed_conditions(call, column, table._columns.get(column), limit)
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+    return UncheckedStatement(
+        f"INSERT OVERWRITE TABLE {table._name}{partition} SELECT * FROM {original}{where}")
+
+
+def _seed_conditions(call: str, column: str, hive_type: str | None,
+                     limit: object) -> list[str]:
+    """The conditions of one partition column's seed limit: a value, >=; a range, >= and
+    <=; or a list, IN."""
+    if isinstance(limit, dict):
+        unknown = set(limit) - {"from", "to"}
+        if unknown or not limit:
+            refuse(
+                what=f"{call}: {column}'s limit {limit!r} isn't a range.",
+                why='A range is {"from": ..., "to": ...}, either end left out as you like.',
+                fix='Write it as {"from": "2026-01-01"} or {"from": ..., "to": ...}.',
+                error=ValueError,
+            )
+        found = []
+        if "from" in limit:
+            found.append(f"{column} >= {_seed_value(call, column, hive_type, limit['from'])}")
+        if "to" in limit:
+            found.append(f"{column} <= {_seed_value(call, column, hive_type, limit['to'])}")
+        return found
+    if isinstance(limit, (list, tuple)):
+        values = ", ".join(_seed_value(call, column, hive_type, each) for each in limit)
+        return [f"{column} IN ({values})"]
+    return [f"{column} >= {_seed_value(call, column, hive_type, limit)}"]
+
+
+def _seed_value(call: str, column: str, hive_type: str | None, value: object) -> str:
+    """One value of a seed limit, written as its column's type says: a number as it is, text
+    and dates in quotes; a Run value's function called first."""
+    if callable(value):
+        value = value()
+    family = type_family(hive_type)
+    if family == "number":
+        if isinstance(value, str) and re.fullmatch(r"-?\d+(\.\d+)?", value.strip()):
+            return value.strip()
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return repr(value)
+    elif isinstance(value, datetime.date):
+        return hive_text(literal(value.isoformat(), call=call))
+    elif isinstance(value, (str, int)) and not isinstance(value, bool):
+        return hive_text(literal(str(value), call=call))
+    refuse(
+        what=f"{call}: {column}'s limit {value!r} doesn't fit its type, {hive_type}.",
+        why="Each value of a seed limit is compared with the partition column, so it is "
+        "written as that column's type.",
+        fix=f"Give {column} a {family or 'text'} value, such as "
+        + ("400." if family == "number" else '"2026-01-01".'),
+        error=ValueError,
+    )
 
 
 def unchecked_text(unchecked: UncheckedStatement) -> str:
