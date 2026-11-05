@@ -21,6 +21,17 @@ Being built: what each ticket changes is listed here as it lands.
   plain date does. Before, the Load limit refused it, as such an end bounded nothing, so
   a reporting window ending at a Script tag needed `reads_all_partitions=True`. Which end comes
   first is then Hive's to say: only two plain values are refused as backwards.
+- **Run values**: a Script tag may be answered with a function of your own, written in the
+  Project, such as `building_blocks/run_values.py`'s `period_end()`, which gives the latest day
+  your warehouse holds. Import it in the decisions cell and answer with it, as in
+  `{"tags": {"PERIOD_END": period_end}}`: step 3 writes the import and the function's name into
+  TAGS, and each time the table's write is built the function is called and what it gives is
+  written into the Hive as plain text, a date as `'2026-10-31'`. A dry run shows the value; a
+  function that fails leaves `<period_end() failed>` in its place, with a Warning saying why,
+  and `run_query` and `run_execute` refuse to send it.
+- **`tag_text(TAGS["NAME"])`** is a tag inside quotes' place in a converted table's logic, where
+  8.3 wrote `TAGS["NAME"]` itself: it calls a Run value's function too, and gives text as it
+  is.
 
 ## 8.3
 

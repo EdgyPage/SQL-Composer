@@ -8,16 +8,20 @@ sqlglot reads as a column, and `tags_as_written` takes the backticks off again. 
 quotes, as in '<PARM="PERIOD_END"/>', is part of a string, which sqlglot reads as it is.
 
 In a converted table's logic, a bare tag's place is script_tag(TAGS["PERIOD_END"]), and a quoted
-one's is TAGS["PERIOD_END"] itself, a string. TAGS, in the table's Table reference, holds what
-each tag stands for, a Decision answered in the decisions cell.
+one's is tag_text(TAGS["PERIOD_END"]), a string. TAGS, in the table's Table reference, holds what
+each tag stands for, a Decision answered in the decisions cell: Hive text, or a Run value's
+function (Toolbox 8.4), which script_tag and tag_text call each time the Statement is built.
 """
 
 from __future__ import annotations
 
+import datetime
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from .refusals import refuse
+from . import _four_part_message as four_part_message
+from .refusals import RunValueWarning, refuse, warn_at_callers_line
 from .tables import Column, python_text
 from .trees import Node
 from .writing import tag_value_problem
@@ -225,6 +229,8 @@ def script_tag(text: str) -> Column:
     column, as at_most(runs.dt, "2026-09-24") does.
     """
     call = f"script_tag({python_text(text)})"
+    if callable(text):
+        return _run_value_column(text)
     if not isinstance(text, str) or not text.strip():
         refuse(
             what=f"{call} was given {text!r}, not the Hive a Script tag stands for.",
@@ -239,6 +245,122 @@ def script_tag(text: str) -> Column:
         node = Node(SCRIPT_TAG, text=text)
     node.meta["call"] = call
     return Column(node)
+
+
+def run_value_name(function: Callable[[], object]) -> str:
+    """A Run value's function by its module and name, such as
+    building_blocks.run_values.period_end."""
+    return f"{function.__module__}.{function.__qualname__}"
+
+
+def _run_value_column(function: Callable[[], object]) -> Column:
+    """The Column of a bare Script tag answered with a Run value's function: the function
+    called now, each time the Statement is built, and what it gives written as Hive. A
+    function that fails leaves its name in backticks in the value's place, with a Warning
+    saying why, so a dry run still shows the Hive; run_query and run_execute refuse it."""
+    name = run_value_name(function)
+    call = f"script_tag({function.__qualname__})"
+    try:
+        given = function()
+    except Exception as error:  # the user's own function: whatever it raises is reported
+        failed = (f"{name}() raised {type(error).__name__}: {error}")
+        node = Node(SCRIPT_TAG, text=f"`<{function.__qualname__}() failed>`")
+        node.meta.update(call=call, run_value=name, failed=failed)
+        warn_at_callers_line(four_part_message(
+            what=f"{call}: {failed}.",
+            why="A Run value is worked out each time the Statement is built: with none, the "
+            f"Hive holds `<{function.__qualname__}() failed>` in its place, which run_query "
+            "and run_execute refuse to send.",
+            fix=f"Fix {name}, or what it reads, and build the Statement again.",
+            opt_out="none - this one can't be switched off.",
+        ), RunValueWarning)
+        return Column(node)
+    text = _hive_of_run_value(call, name, given)
+    node = Node(SCRIPT_TAG, text=text)
+    node.meta.update(call=call, run_value=name, value=text)
+    return Column(node)
+
+
+def _hive_of_run_value(call: str, name: str, given: object) -> str:
+    """The Hive a Run value's function's result is written as: a date in quotes, a number as
+    it is, TRUE or FALSE, and text as Hive, held to what a Script tag's answer is."""
+    if isinstance(given, bool):
+        return "TRUE" if given else "FALSE"
+    if isinstance(given, datetime.datetime):
+        return f"'{given:%Y-%m-%d %H:%M:%S}'"
+    if isinstance(given, datetime.date):
+        return f"'{given.isoformat()}'"
+    if isinstance(given, (int, float)):
+        return repr(given)
+    if isinstance(given, str) and given.strip():
+        _check_tag_value(call, given)
+        return given
+    refuse(
+        what=f"{call}: {name}() gave {given!r}, a {type(given).__name__}.",
+        why="A Run value is written where the Script tag stood, as one value: a date, a "
+        "number, TRUE or FALSE, or text that is Hive.",
+        fix=f"Have {name} give back a datetime.date, a number, or the Hive text, such as "
+        "\"'2026-10-31'\" with its quotes.",
+        error=TypeError,
+    )
+
+
+def tag_text(value: str | Callable[[], object]) -> str:
+    """The text a Script tag inside quotes stands for, as a Conversion writes its place in a
+    string: tag_text(TAGS["RUN_MONTH"]).
+
+    >>> TAGS = {"RUN_MONTH": "2026-09"}
+    >>> "month " + tag_text(TAGS["RUN_MONTH"])
+    'month 2026-09'
+
+    TAGS, in the table's Table reference, holds what each tag stands for: for a tag inside
+    quotes, the text with no quotes of its own, or a Run value's function, which tag_text calls
+    each time the Statement is built. A date it gives is written as 2026-10-31, a number as it
+    is, and text as it is. A function that fails is refused, naming it.
+    """
+    if not callable(value):
+        return value
+    name = run_value_name(value)
+    call = f"tag_text({value.__qualname__})"
+    try:
+        given = value()
+    except Exception as error:  # the user's own function: whatever it raises is reported
+        refuse(
+            what=f"{call}: {name}() raised {type(error).__name__}: {error}.",
+            why="A Run value is worked out each time the Statement is built, and a tag inside "
+            "quotes has no place to show one that failed.",
+            fix=f"Fix {name}, or what it reads, and build the Statement again.",
+            error=ValueError,
+        )
+    if isinstance(given, datetime.datetime):
+        return f"{given:%Y-%m-%d %H:%M:%S}"
+    if isinstance(given, datetime.date):
+        return given.isoformat()
+    if isinstance(given, (int, float, str)) and not isinstance(given, bool):
+        return str(given)
+    refuse(
+        what=f"{call}: {name}() gave {given!r}, a {type(given).__name__}.",
+        why="A tag inside quotes stands for text: a date, a number or text.",
+        fix=f"Have {name} give back a datetime.date, a number or text.",
+        error=TypeError,
+    )
+
+
+def refuse_failed_run_values(tree: Node) -> None:
+    """Refuse to send a Statement whose tree holds a Run value whose function failed as it was
+    built, naming why, before anything is sent."""
+    failed = [node.meta["failed"] for node in tree.find_all(SCRIPT_TAG)
+              if "failed" in node.meta]
+    if failed:
+        refuse(
+            what="Nothing was sent: the Statement holds a Run value that failed, "
+            + "; ".join(failed) + ".",
+            why="Its Hive holds the function's name in the value's place, which no warehouse "
+            "can run.",
+            fix="Fix the function, or what it reads, then build the Statement again and send "
+            "it.",
+            error=ValueError,
+        )
 
 
 def _check_tag_value(call: str, text: str) -> None:

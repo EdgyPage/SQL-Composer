@@ -31,3 +31,38 @@ Python and written into plain Hive (map, "Run values").
 - A quoted tag's Run value is spliced into its string, as a text answer is.
 - 01's journey answers `PERIOD_END` with a function of the Project's and passes past create
   and write.
+
+## Answer
+Built 2026-11-05.
+
+- **Answered with a function**: `decisions.tag_answer_problem` takes a function a Table
+  reference can import (`run_value_problem`: not one made in the notebook, a lambda or a nested
+  one, which are left unwritten, named). `_answered_tag` writes its name into the tag's line,
+  `"PERIOD_END": period_end,`, and `_with_run_value_imports` its import above TAGS and its
+  comment, `from building_blocks.run_values import period_end  # a Run value, for TAGS`,
+  dropping an import no tag names once it is answered again with text. A changed answer is
+  said with the function's name.
+- **Called each time the Statement is built**: `script_tag` given a function calls it
+  (`_run_value_column`) and writes what it gives: a date as `'2026-09-24'`, a datetime with its
+  time, a number as it is, TRUE or FALSE, and text as Hive, held to what a tag's answer is
+  held to; anything else is refused naming the function. The node keeps the function's name and
+  value in its notes, for 07.
+- **A tag inside quotes**: the Conversion now writes `tag_text(TAGS["NAME"])`, a new public
+  name, where 8.3 wrote `TAGS["NAME"]` itself; it gives text as it is and calls a function,
+  a date as `2026-09-24`. A failing one is refused at once: a string has no place to show it.
+  A table converted under 8.3 still reads `TAGS["NAME"]`, so its quoted tags take text only;
+  13's Upgrade step writes `tag_text(...)` around them.
+- **A failing function**: its place holds `` `<period_end() failed>` `` (the function's name:
+  script_tag is given the function, not the tag's NAME), and a `RunValueWarning` says what it
+  raised, so a dry run and `show_hive` still show the Hive. `running.send_logged`, which
+  `run_query`, `run_execute` and every compare send through, refuses before sending
+  (`script_tags.refuse_failed_run_values`).
+- **The Guards**: a Run value is a Script tag's node, so 03's `is_value` counts it.
+- **The compare**: `compare_batch` reads the tables once written, the dev table's rows and the
+  original's, not their queries, so no tag is filled there: the dev rows hold the value the
+  write's run gave. Left as it is.
+- **Tests**, `tests/test_run_values.py`: each kind of value written, a window bounded by one
+  and run, the function called at each build, values that aren't one refused, a failure shown
+  and never sent, `tag_text`, and a Project's step 3 writing the function into a reference,
+  bare and quoted, then answered again with text, and one made in the notebook left
+  unwritten. 01's journey now fails only where 06's `latest_partition` is missing.
