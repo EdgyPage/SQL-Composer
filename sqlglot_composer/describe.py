@@ -107,12 +107,12 @@ def describe_table(name: str, query: object, call: str, formatted: bool = False)
 
     command = "DESCRIBE FORMATTED" if formatted else "DESCRIBE"
     hive = f"{command} {hive_text(table_node(name))}"
-    return description_from_printed(name, send_describe(query, hive, call))
+    return description_from_printed(name, printed_answer(query, hive, call))
 
 
-def send_describe(query: object, hive: str, call: str) -> pd.DataFrame:
-    """Send `hive`, a DESCRIBE or a SHOW, through `query`, and refuse an answer that can't be
-    read."""
+def printed_answer(query: object, hive: str, call: str) -> pd.DataFrame:
+    """What the warehouse prints for `hive`, a DESCRIBE or a SHOW, sent through `query`: an
+    answer that can't be read is refused."""
     need_warehouse_call(call, "query", query, f"It sends {hive.split()[0]} to the warehouse, "
                         "and reads what the warehouse prints back.")
     frame = query(hive)

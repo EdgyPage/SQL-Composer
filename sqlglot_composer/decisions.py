@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .shared import escaped_literal
@@ -72,6 +73,8 @@ COLUMNS = "<COLUMNS>"
 # a Run value's function for it (Toolbox 8.4).
 TAGS_START = "TAGS = {"
 RUN_VALUE_MARK = "  # a Run value, for TAGS"
+RUN_VALUE_IMPORT = re.compile(
+    rf"from [\w.]+ import (?P<function>\w+){re.escape(RUN_VALUE_MARK)}")
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
 # What a Conversion writes after the Key it worked out of a table's query: a Decision made,
@@ -196,12 +199,12 @@ def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
     """A Table reference's text with an import above TAGS for each Run value's function its
     TAGS names, and none for one it no longer names."""
     tags = answer.get(ANSWERS[TAG])
-    functions = [value for value in tags.values() if callable(value)] if isinstance(
-        tags, dict) else []
+    functions = []
+    if isinstance(tags, dict):
+        functions = [value for value in tags.values() if callable(value)]
     lines = text.split("\n")
     named = {_tag_value_text(line) for line in lines if kind_of(line) == TAG}
-    lines = [line for line in lines if not line.endswith(RUN_VALUE_MARK)
-             or line.split(" import ")[1].removesuffix(RUN_VALUE_MARK) in named]
+    lines = [line for line in lines if not _is_unused_run_value_import(line, named)]
     for function in functions:
         imported = run_value_import(function)
         if imported not in lines and TAGS_START in lines:
@@ -210,6 +213,13 @@ def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
                 at -= 1
             lines.insert(at, imported)
     return "\n".join(lines)
+
+
+def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
+    """Whether a line is an import run_value_import wrote of a function TAGS no longer
+    names."""
+    found = RUN_VALUE_IMPORT.fullmatch(line)
+    return found is not None and found["function"] not in named
 
 
 def _tag_name_of(line: str) -> str:
@@ -294,7 +304,7 @@ def run_value_problem(function: object) -> str | None:
     return None
 
 
-def run_value_import(function: object) -> str:
+def run_value_import(function: Callable[..., object]) -> str:
     """The line a Table reference imports a Run value's function by, marked as one."""
     return f"from {function.__module__} import {function.__qualname__}{RUN_VALUE_MARK}"
 

@@ -145,12 +145,12 @@ def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
         key = graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
                         name=shown, full=f"{RUN_VALUES}.{shown}", type=gave, formula="",
                         calculated=False, in_key=False)
-        for table, column in traced.reads:
-            if isinstance(table, str) or column is None:
-                read = _whole_table_box(graph, table if isinstance(table, str) else table._name)
+        for read in traced.reads:
+            if read.table is not None and read.column is not None:
+                box = _table_box(graph, read.table, read.column)
             else:
-                read = _table_box(graph, table, column)
-            graph.arrow(read, key, "value")
+                box = _whole_table_box(graph, read.name)
+            graph.arrow(box, key, "value")
         keys.append(key)
     return keys
 

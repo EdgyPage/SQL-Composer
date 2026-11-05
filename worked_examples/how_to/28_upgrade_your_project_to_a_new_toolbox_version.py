@@ -77,7 +77,7 @@ Upgraded the Project from 7.2 to 8.3.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
-Read each step's report, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md,
+Read each step's checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md,
     admin/upgrade_8.2.md and admin/upgrade_8.3.md.
 
 Done when it prints "Upgraded the Project from 7.2 to 8.3.". Then step 4.

@@ -35,15 +35,25 @@ Being built: what each ticket changes is listed here as it lands.
 - **`run_value(function, *args)`** puts what any Python function gives into a Statement, a
   date as `'2026-10-31'`, worked out each time the Statement is built, as a Script tag's Run
   value is. A partition column held to it is bounded.
-- **Lineage traces each Run value**: a box naming the function, what it was given, the
-  Script tag it answers and what it gave, with an arrow into it from each table the Toolbox
-  read for it while it ran: the partition column `latest_partition` read, and each table a
-  Statement it sent through `run_query` read.
+- **Lineage traces each Run value that stands as a value**, `run_value`'s and a bare Script
+  tag's: a box naming the function, what it was given, the Script tag it answers and what it
+  gave, with an arrow into it from each table the Toolbox read for it while it ran, the
+  partition column `latest_partition` read and each table a Statement it sent through
+  `run_query` read. A tag inside quotes gives text, part of a string, which lineage doesn't
+  draw.
 - **`today(utc_offset_hours=0)`**, **`latest_partition(column, query)`** and
   **`hive_date(day)`** help write a Run value's function: today's date in UTC or at an
   offset; the newest value of a partition column, from SHOW PARTITIONS, reading no row; and a
   date as Hive writes it, in quotes. `last_n_days` now counts its days from UTC's today, where
   it counted from this computer's.
+- **A Hive variable in Unchecked text is Hive**: in `unchecked_column` and
+  `unchecked_condition`, `${hivevar:run_day}` is written as it is, no longer read as a
+  `{name}` placeholder, so it needs no doubled braces. A `${{...}}` written before 8.4 gives
+  the same Hive, and a Conversion now writes `${...}` plainly.
+- **Upgrade from any version since 8.3 straight to the newest**: `project.upgrade()` runs each
+  version's step in turn, as before, and now ends by naming each step's
+  `admin/upgrade_<version>.md`, in order. A test upgrades the Example projects of every
+  version from 8.3 on straight to the newest, so you can skip versions.
 
 ## 8.3
 

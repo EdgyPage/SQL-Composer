@@ -43,3 +43,10 @@ Built 2026-11-05.
 - **Tests**, `tests/test_run_values.py`: today's offsets and refusals, `latest_partition` on
   the Example database and on stand-in listings by a team, a batch number and an escaped
   region, its refusals, and `hive_date`.
+
+## Review
+
+Code review, with 05 and 07 (05's Review lists the fixes they share): `latest_partition`
+passes over `__HIVE_DEFAULT_PARTITION__`, Hive's Partition for rows with no value, which sorted
+after every date (D427); its refusal's message is built with plain `if`s; `hive_date` is the one
+date writer.
