@@ -2,6 +2,17 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.4
+
+Being built: what each ticket changes is listed here as it lands.
+
+### What's new
+
+- **date_sub and date_add convert** to `hive_function("date_sub", day, 14)` and
+  `hive_function("date_add", day, 1)`, the Hive the original wrote. Before, a Conversion wrote
+  a third argument, `unchecked_column("DAY")`, which the Toolbox refused, even on a plain
+  date; the Example database runs both functions too.
+
 ## 8.3
 
 8.3 reads Script tags: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that

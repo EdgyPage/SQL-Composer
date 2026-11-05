@@ -1014,6 +1014,8 @@ class _Converter:
     def function(self, node: exp.Func, scope: dict[str, _Source]) -> str:
         """A Hive function the Toolbox doesn't wrap, as hive_function(...), when its call
         writes back to the same Hive; else it stays an Unchecked expression."""
+        if isinstance(node, exp.TsOrDsAdd):
+            return self.days_moved(node, scope)
         written = sql_text(node)
         called = re.match(r"(\w+)\(", written)
         if isinstance(node, exp.Anonymous):
@@ -1044,6 +1046,26 @@ class _Converter:
                           f'function wraps: hive_function("{name}", ...) writes it')
         arguments = "".join(", " + v for v in values)
         return f"{self.use('hive_function')}({python_literal(name)}{arguments})"
+
+    def days_moved(self, node: exp.TsOrDsAdd, scope: dict[str, _Source]) -> str:
+        """Hive's date_add(day, n) or date_sub(day, n), which sqlglot reads as one function
+        with a unit, DAY, beside its two arguments, date_sub's n as n * -1: written as the
+        two-argument Hive call it was, through hive_function(...)."""
+        unit = node.args.get("unit")
+        if unit is not None and unit.name.upper() != "DAY":
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} in "
+                                f"{unit.name} yet")
+        days = node.expression
+        name = "date_add"
+        negated = (isinstance(days, exp.Mul) and isinstance(days.expression, exp.Neg)
+                   and days.expression.this == exp.Literal.number(1))
+        if negated:
+            name, days = "date_sub", days.this
+        values = [self.column_or_unchecked(node.this, scope),
+                  self.column_or_unchecked(days, scope)]
+        self.note_finding(node, "changed", f"{name}(...) is a Hive function no Toolbox "
+                          f'function wraps: hive_function("{name}", ...) writes it')
+        return f"{self.use('hive_function')}({python_literal(name)}, {', '.join(values)})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """A function OVER (...): the Toolbox's own, with over=window(...)."""

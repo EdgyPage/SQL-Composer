@@ -2,9 +2,10 @@
 days ending at a Script tag, such as dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 14) AND
 <PARM="PERIOD_END"/>. Toolbox 8.4.
 
-Ticket 01 holds what a Conversion writes today, for 02 and 03 to change: sqlglot reads Hive's
-date_sub(x, 14) as DATE_ADD(x, 14 * -1, DAY), whose DAY the Conversion writes as an Unchecked
-column; and between bounds no Partition once an end is a Column.
+Ticket 01 held what a Conversion wrote, for 02 and 03 to change. Ticket 02: sqlglot reads
+Hive's date_sub(x, 14) as DATE_ADD(x, 14 * -1, DAY), whose DAY the Conversion wrote as an
+Unchecked column; it now writes Hive's two-argument call through hive_function. Ticket 03:
+between bounded no Partition once an end was a Column.
 """
 
 from __future__ import annotations
@@ -13,12 +14,16 @@ import pytest
 from conftest import toolbox_module
 
 from sqlglot_composer import (
+    AS,
     FROM,
     SELECT,
     WHERE,
     LoadRefused,
     between,
+    compare_hive,
+    equals,
     example_database,
+    hive_function,
     script_tag,
     statement,
     to_hive,
@@ -39,14 +44,34 @@ def _converted(where: str) -> str:
     return converting.convert_query(_query(where), COLUMNS.get, "ops").query
 
 
-@pytest.mark.parametrize("where", [
-    "r.dt BETWEEN date_sub('2026-09-24', 14) AND '2026-09-24'",
-    'r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 14) AND <PARM="PERIOD_END"/>',
-    "r.dt >= date_add('2026-09-10', 1)",
+@pytest.mark.parametrize(("where", "written"), [
+    ("r.dt BETWEEN date_sub('2026-09-24', 14) AND '2026-09-24'",
+     'between(r.dt, hive_function("date_sub", "2026-09-24", 14), "2026-09-24")'),
+    ('r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 14) AND <PARM="PERIOD_END"/>',
+     'between(r.dt, hive_function("date_sub", script_tag(TAGS["PERIOD_END"]), 14), '
+     'script_tag(TAGS["PERIOD_END"]))'),
+    ("r.dt >= date_add('2026-09-10', 1)",
+     'at_least(r.dt, hive_function("date_add", "2026-09-10", 1))'),
+    ("date_sub(r.dt, r.job_id) = '2026-09-01'",
+     'equals(hive_function("date_sub", r.dt, r.job_id), "2026-09-01")'),
 ])
-def test_date_sub_and_date_add_convert_with_an_unchecked_day_today(where: str) -> None:
-    # Ticket 02 changes this: Hive's date_add takes two arguments, and DAY is no column.
-    assert 'unchecked_column("DAY")' in _converted(where)
+def test_date_sub_and_date_add_convert_to_hives_two_arguments(where: str, written: str) -> None:
+    # Ticket 02: sqlglot reads date_sub(x, 14) as DATE_ADD(x, 14 * -1, DAY), and DAY is no
+    # column, nor a third argument Hive's date_add takes.
+    converted = _converted(where)
+    assert written in converted
+    assert "unchecked" not in converted
+
+
+def test_a_converted_date_sub_writes_the_originals_hive() -> None:
+    original = ("SELECT date_sub(r.dt, 1) AS day_before FROM ops.job_runs r "
+                "WHERE r.dt = '2026-09-24'")
+    converted = converting.convert_query(original, COLUMNS.get, "ops").query
+    assert 'AS(hive_function("date_sub", r.dt, 1), "day_before")' in converted
+    rebuilt = statement(SELECT(AS(hive_function("date_sub", runs.dt, 1), "day_before")),
+                        FROM(runs), WHERE(equals(runs.dt, "2026-09-24")))
+    assert compare_hive(rebuilt, original).ok
+    assert set(example_database.query(to_hive(rebuilt))["day_before"]) == {"2026-09-23"}
 
 
 def test_the_example_database_runs_date_sub_and_date_add() -> None:
