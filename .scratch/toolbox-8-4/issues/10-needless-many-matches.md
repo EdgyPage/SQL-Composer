@@ -50,3 +50,16 @@ Built 2026-11-05.
   stays) and `tests/test_converting.py` (`marked_opt_outs` undoes `with_opt_out` in both forms;
   no mark, no opt-out). 01's journey asserts the mark goes once `mart_dev.job_teams_mart`'s Key
   is answered; it stays xfail for tickets 05 to 09.
+
+## Review
+
+Code review, with 04 and 11:
+
+- **Fixed:** the loop's index is `next_to_try` and the count `warning_count`, from
+  `_repeated_rows_warning_count`; the place an opt-out's note names, `OPT_OUT_NOTE_PLACE`, is
+  written once, for `_checklist_notes` and `_take_out_notes` both.
+- **Answered:** it builds every Table folder holding a mark, not only the batch's: a Key
+  written for one table can make a join in another needless, as a source table's Key answered
+  in the references Workflow does. Each mark is tried in turn with the others still in place,
+  and one still needed is kept, so the order changes nothing a Warning would say. 01's journey
+  holds the mark's going once the journey passes, with 09.
