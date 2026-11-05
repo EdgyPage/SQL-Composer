@@ -2645,12 +2645,19 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
     scan += _hive_compared(built, text, stopped)
     items = _checklist_notes(opt_outs, hive_read, stopped, proposed)
     if seeded:
-        items.append("Its write reads its own table, which in dev starts empty, so the "
-                     "convert Workflow's seed step, after it creates the table, copies every "
-                     "Partition of the original's rows into it once, with its seed().")
+        items.append(SEED_NOTE)
     _write_conversion_folder(files, dev, pieces, text, scan, items)
     _register_table(files.root, dev, folder=True)
     return ""
+
+
+# The checklist's note of a table that reads itself, which the seed step fills once.
+SEED_NOTE = ("Its write reads its own table, which in dev starts empty, so the convert "
+             "Workflow's seed step, after it creates the table, copies every Partition of the "
+             "original's rows into it once, with its seed(), unless SEED, in its Table "
+             "reference, limits them: answer \"seed\" in the decisions cell, such as "
+             "{\"dt\": {\"from\": \"2026-01-01\"}}, to copy only those you need. The seed "
+             "step's line shows the WHERE it sends.")
 
 
 def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
@@ -3583,7 +3590,8 @@ def write_decisions(answers: dict[str, dict[str, object]],
     Its Workflow's next step names each Decision still open.
 
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
-    kind other than location, key, types and tags, a "types" or "tags" that isn't a dict, a
+    kind other than location, key, types, tags and seed, a "types", "tags" or "seed" that
+    isn't a dict, a seed limit on a column that isn't a partition column, a
     column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
@@ -3622,6 +3630,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
         path = REFERENCE.path(root, stem)
         before[table] = path.read_text(encoding="utf-8")
         answer = decisions.table_answer(answers, table, before[table])
+        answer = _seed_answer(answers, table, before[table], answer)
         answered = decisions.answered_text(before[table], answer, REFERENCE.shown(stem))
         written[table] = answered.written
         keys_written = keys_written or decisions.ANSWERS[decisions.KEY] in answered.written
@@ -3630,22 +3639,48 @@ def write_decisions(answers: dict[str, dict[str, object]],
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
-        lines += [f"{table}: {each}: if the table is written already, write it and compare it "
-                  "again."
-                  for each in answered.changed]
-        lines += [f"{table}: {each}." for each in answered.unwritten]
-        lines += _hivevar_notes(root, table, answer)
-        _write_checklist_again(root, table)
-        still_open = decisions.open_decisions(answered.text, table)
-        lines += _todo_lines_report(table, answered.text)
-        lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
-        if not still_open:
-            lines.append(f"Each Decision of {table} is made.")
+        lines += _answered_report(root, table, answer, answered)
     lines += _all_tables_report(answers, before, written)
     if keys_written:
         lines += _take_out_needless_many_matches(root)
     _log(root, call, named, files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
+
+
+def _answered_report(root: Path, table: str, answer: dict[str, object],
+                     answered: decisions.Answered) -> list[str]:
+    """What write_decisions says of one table once its answers are written, its checklist
+    written again: each answer that changed one before, each left unwritten, each Hive
+    variable's note, each TODO line left, and each Decision still open."""
+    lines = [f"{table}: {each}: if the table is written already, write it and compare it "
+             "again." for each in answered.changed]
+    lines += [f"{table}: {each}." for each in answered.unwritten]
+    lines += _hivevar_notes(root, table, answer)
+    _write_checklist_again(root, table)
+    still_open = decisions.open_decisions(answered.text, table)
+    lines += _todo_lines_report(table, answered.text)
+    lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
+    if not still_open:
+        lines.append(f"Each Decision of {table} is made.")
+    return lines
+
+
+def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
+                 answer: dict[str, object]) -> dict[str, object]:
+    """One table's answer with its seed limits as they apply to it: its own as given, which
+    the refusals check first; all_tables' for the partition columns it has; none for a table
+    that doesn't read itself, which has no seed."""
+    if decisions.SEED not in answer:
+        return answer
+    partitions = decisions.seed_partitions(text)
+    own = answers.get(table)
+    if partitions is None:
+        return {kind: value for kind, value in answer.items() if kind != decisions.SEED}
+    if isinstance(own, dict) and decisions.SEED in own:
+        return answer
+    limits = {column: limit for column, limit in answer[decisions.SEED].items()
+              if column in partitions}
+    return {**answer, decisions.SEED: limits}
 
 
 def _all_tables_report(answers: dict[str, dict[str, object]], before: dict[str, str],
@@ -3836,7 +3871,7 @@ def _refuse_answers_matching_nothing(call: str, root: Path,
         why="An answer that matches nothing would sit in the decisions cell unused, while "
         "the Decision it was meant for stays open.",
         fix="Correct each in DECISIONS, by the name each line says it meant where it says "
-        "one, then run project.write_decisions(DECISIONS) again.",
+        "one, then run the step's cell that writes the answers again.",
         error=ValueError,
     )
 
@@ -3856,19 +3891,35 @@ def _unmatched_answers(table: str, answer: dict[str, object], reference_text: st
                      for column in types if column not in columns]
     if isinstance(tags, dict):
         problems += _unmatched_tags(table, list(tags), decisions.tag_names(reference_text))
+    seed = answer.get(decisions.SEED)
+    if isinstance(seed, dict):
+        partitions = decisions.seed_partitions(reference_text)
+        problems += _unmatched_seed(table, list(seed), partitions)
     return problems
+
+
+def _unmatched_seed(table: str, named: list[str], partitions: list[str] | None) -> list[str]:
+    """A line naming each column a table's own seed limits name that isn't one of its
+    partition columns, or the whole of them when the table doesn't read itself, so has no
+    seed: a limit on another column would still read every Partition."""
+    if partitions is None:
+        return [f"{table}: seed: {table} doesn't read itself, so it has no seed to limit"]
+    return [f"{table}: seed: {column} is no partition column of {table}"
+            f"{_nearest_or_all(column, partitions, 'partition columns')}"
+            for column in named if column not in partitions]
 
 
 def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
     """A line naming each kind of answer the decisions cell doesn't take, and each "types" or
     "tags" that isn't a dict, in one table's answer."""
-    kinds = list(decisions.ANSWERS.values())
+    kinds = [*decisions.ANSWERS.values(), decisions.SEED]
     problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
                 f"{in_words(kinds)}{_nearest(name, kinds)}"
                 for name in answer if name not in kinds]
     types, tags = decisions.ANSWERS[decisions.GUESSED_TYPE], decisions.ANSWERS[decisions.TAG]
     for kind, example in ((types, '{"fails": "bigint"}'),
-                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}')):
+                          (tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
+                          (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in answer and not isinstance(answer[kind], dict):
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
                             f"as {example}, not {answer[kind]!r}")
@@ -4675,6 +4726,10 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
     text = re.sub(rf"(?<![\"'\w.]){split_table_name(dev)[1]}\b(?![\"'])",
                   split_table_name(prod)[1], text)
     text = re.sub(r"^    location=.*$", location, text, count=1, flags=re.MULTILINE)
+    # A prod copy's seed is promote's own Decision: every Partition, unless its decisions cell
+    # answered "seed" for it before, which is kept.
+    text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
+                  flags=re.MULTILINE)
     text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
             "that one and promote it again. Its\n# location= is the one line yours to change "
@@ -4683,10 +4738,18 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
     return said
 
 
+def _prod_seed_line(promoted_before: str) -> str:
+    """A prod Table reference's SEED line: the one promote's decisions cell answered, kept
+    from the reference promoted before, else SEED = {}, every Partition."""
+    found = re.search(r"^SEED = .*$", promoted_before, flags=re.MULTILINE)
+    return found.group(0) if found else decisions.SEED_START + "}"
+
+
 def _reference_hash(text: str) -> str:
-    """A prod Table reference's hash, its location= line left out, which is yours to fill
-    in."""
-    return _hash(re.sub(r"^    location=.*$", "", text, flags=re.MULTILINE).encode("utf-8"))
+    """A prod Table reference's hash, its location= and SEED lines left out, which are yours
+    to answer."""
+    left_out = re.sub(r"^(    location=|SEED = ).*$", "", text, flags=re.MULTILINE)
+    return _hash(left_out.encode("utf-8"))
 
 
 # The location= line a prod Table reference gets when nothing tells its folder.

@@ -662,7 +662,9 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
 # The user's batch (Toolbox 8.4): reporting windows ending at PERIOD_END, which should be the
 # latest day the warehouse holds at each run, worked out by a function of the user's, a Run
 # value; a table that reads itself, partitioned by a day and a team, whose seed needs only the
-# latest day; and a join on a table whose Key the user answers at step 3.
+# latest day; and every table's location and PERIOD_END answered once, for all of them. A
+# needless many_matches=True taken out at step 3 is tests/test_batches.py's: a Key only an
+# answer gives, which the Toolbox can't prove from the query, its write refuses.
 PERIOD_SCRIPT = """SET hive.exec.dynamic.partition.mode=nonstrict;
 CREATE TABLE IF NOT EXISTS mart.job_teams (job_id BIGINT, team STRING);
 CREATE TABLE IF NOT EXISTS mart.recent_runs (job_id BIGINT, team STRING, runs BIGINT)
@@ -670,7 +672,8 @@ PARTITIONED BY (dt STRING);
 CREATE TABLE IF NOT EXISTS mart.team_log (run_id BIGINT, job_id BIGINT)
 PARTITIONED BY (dt STRING, team STRING);
 INSERT OVERWRITE TABLE mart.job_teams
-SELECT o.job_id, o.team FROM ops.job_owners o WHERE o.dt = <PARM="PERIOD_END"/>;
+SELECT o.job_id, MAX(o.team) AS team FROM ops.job_owners o WHERE o.dt = <PARM="PERIOD_END"/>
+GROUP BY o.job_id;
 INSERT OVERWRITE TABLE mart.recent_runs PARTITION (dt)
 SELECT r.job_id, t.team, COUNT(*) AS runs, r.dt
 FROM ops.job_runs r JOIN mart.job_teams t ON r.job_id = t.job_id
@@ -703,17 +706,13 @@ PERIOD_DECISIONS = """from building_blocks.run_values import period_end
 
 DECISIONS = {
     "all_tables": {"location_root": "/data/team", "tags": {"PERIOD_END": period_end}},
-    "mart_dev.job_teams_mart": {"key": ["job_id"]},
-    "mart_dev.team_log_mart": {"key": ["run_id"], "seed": {"dt": {"from": "2026-09-24"}}},
+    "mart_dev.team_log_mart": {"key": None, "seed": {"dt": {"from": "2026-09-24"}}},
 }
 """
 PERIOD_TABLES = ["mart_dev.job_teams_mart", "mart_dev.recent_runs_mart",
                  "mart_dev.team_log_mart"]
 
 
-@pytest.mark.xfail(strict=True, reason="8.4's Run values, Decisions for every table and seed "
-                   "limits aren't built yet (tickets 05 to 10): today the user's function "
-                   "imports latest_partition, which ticket 06 adds")
 def test_convert_the_users_batch_with_run_values(started: Started) -> None:
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")
@@ -723,17 +722,12 @@ def test_convert_the_users_batch_with_run_values(started: Started) -> None:
     assert project.batch_tables("weekly") == PERIOD_TABLES
     recent = _notebook(started.root, "mart_dev.recent_runs_mart").read_text(encoding="utf-8")
     assert "unchecked_column" not in recent, "date_sub converted with an Unchecked part"
-    # The join on job_teams, whose Key is still open, takes many_matches=True, marked.
-    assert "many_matches=True" in recent
     # The user's function, written in the Project, answers PERIOD_END for every table.
     (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
                                                                     encoding="utf-8")
     journey.type_decisions_cell(PERIOD_DECISIONS)
     journey.run_to()
     _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
-    # The Key answered at step 3 took the needless many_matches=True out.
-    recent = _notebook(started.root, "mart_dev.recent_runs_mart").read_text(encoding="utf-8")
-    assert "many_matches=True" not in recent
     # Each write holds the day period_end() gave, as plain Hive.
     writes = [hive for hive in started.warehouse.executed if "INSERT" in hive
               and "mart_dev." in hive]

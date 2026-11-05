@@ -405,7 +405,7 @@ def unchecked_hive(text: str) -> UncheckedStatement:
 
 def seed_copy(table: Table, original: str,
               limits: dict[str, object] | None = None) -> UncheckedStatement:
-    """A converted table's Seed: its original's rows copied in once, limited by Partition.
+    """A converted table's Seed: its original's rows, copied in once, by Partition.
 
     >>> runs = example_database.job_runs
     >>> text = show_hive(seed_copy(runs, "mart.job_runs", {"dt": {"from": "2026-09-24"}}))

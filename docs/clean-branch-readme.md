@@ -824,7 +824,7 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -906,7 +906,7 @@ flowchart TD
 3. Write each answer into its prod table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 4. Create each table in prod (it is a call to the warehouse, yours to run).
 
@@ -1002,7 +1002,7 @@ flowchart TD
 5. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
@@ -1062,7 +1062,7 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 4. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
