@@ -2,7 +2,7 @@
 
 Type: task
 Status: open
-Blocked by: 12
+Blocked by: 12, 14
 Size: M
 
 ## Question

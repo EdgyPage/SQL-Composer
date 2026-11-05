@@ -3900,18 +3900,21 @@ def _unmatched_answers(table: str, answer: dict[str, object], reference_text: st
 
 def _unmatched_seed(table: str, named: list[str], partitions: list[str] | None) -> list[str]:
     """A line naming each column a table's own seed limits name that isn't one of its
-    partition columns, or the whole of them when the table doesn't read itself, so has no
-    seed: a limit on another column would still read every Partition."""
+    partition columns, or the whole of them when its Table reference has no SEED, as one that
+    doesn't read itself, or was converted before 8.4, has none: a limit on another column would
+    still read every Partition."""
     if partitions is None:
-        return [f"{table}: seed: {table} doesn't read itself, so it has no seed to limit"]
+        return [f"{table}: seed: {table}'s Table reference has no SEED to limit: a table "
+                "that doesn't read itself has no seed, and one converted before 8.4 keeps its "
+                "seed() copying everything; convert it again to limit it"]
     return [f"{table}: seed: {column} is no partition column of {table}"
             f"{_nearest_or_all(column, partitions, 'partition columns')}"
             for column in named if column not in partitions]
 
 
 def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
-    """A line naming each kind of answer the decisions cell doesn't take, and each "types" or
-    "tags" that isn't a dict, in one table's answer."""
+    """A line naming each kind of answer the decisions cell doesn't take, and each "types",
+    "tags" or "seed" that isn't a dict, in one table's answer."""
     kinds = [*decisions.ANSWERS.values(), decisions.SEED]
     problems = [f"{table}: {name!r} is no kind of answer; the decisions cell answers "
                 f"{in_words(kinds)}{_nearest(name, kinds)}"
@@ -4400,8 +4403,9 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
     promote it again, which archives the prod copy into admin/removed/ first, and the one under
     its old name when rename= gives it a new one. project.check()
-    reports a prod copy edited by hand, its notebook or its Table reference but its location=,
-    as promote would write over it. `tables` is one name or a list, each a dev table's.
+    reports a prod copy edited by hand, its notebook or its Table reference but its location=
+    and SEED, as promote would write over it. `tables` is one name or a list, each a dev
+    table's.
     """
     frame = callers_frame()
     call = _action_call("promote", tables)
@@ -4732,8 +4736,8 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
                   flags=re.MULTILINE)
     text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
-            "that one and promote it again. Its\n# location= is the one line yours to change "
-            "here.\n" + text)
+            "that one and promote it again. Its\n# location= and SEED are the lines yours to "
+            "change here.\n" + text)
     REFERENCE.path(root, table_stem(prod)).write_text(text, encoding="utf-8")
     return said
 
@@ -4840,7 +4844,8 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
         dev_folder = TABLE_FOLDER.shown(table_stem(entry["dev"]))
         if _reference_hash(reference) != entry.get("reference"):
             lines.append(f"Edited by hand, which project.promote writes over: "
-                         f"{REFERENCE.shown(table_stem(prod))}, but its location= (change "
+                         f"{REFERENCE.shown(table_stem(prod))}, but its location= and SEED "
+                         "(change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
         if not has_folder:
             continue

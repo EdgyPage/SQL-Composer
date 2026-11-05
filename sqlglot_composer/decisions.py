@@ -84,8 +84,8 @@ GUESSED = "  # TODO: guessed: nothing told its type"
 # What new_table's Table reference holds for a Saved table's columns, until
 # project.reference_from_logic writes them from its logic.
 COLUMNS = "<COLUMNS>"
-# The line TAGS starts on in a Table reference, and the mark on the line above it that imports
-# a Run value's function for it (Toolbox 8.4).
+# The line TAGS starts on in a Table reference, and the mark on the line above TAGS or SEED
+# that imports a Run value's function for them (Toolbox 8.4).
 TAGS_START = "TAGS = {"
 # A Table reference's seed limits, SEED, as a Conversion writes them for a table that reads
 # itself, and the line they start on: the Partitions its seed() copies (Toolbox 8.4).
@@ -94,7 +94,7 @@ SEED_COMMENT = (
     "# The Partitions seed() copies from the original, by partition column: {} copies them",
     '# all. Answer "seed" in the decisions cell, such as {"dt": {"from": "2026-01-01"}}.',
 )
-RUN_VALUE_MARK = "  # a Run value, for TAGS"
+RUN_VALUE_MARK = "  # a Run value, for TAGS or SEED"
 RUN_VALUE_IMPORT = re.compile(
     rf"from [\w.]+ import (?P<function>\w+){re.escape(RUN_VALUE_MARK)}")
 # A location= line no one has filled in, its TODO taken off or not.
@@ -301,8 +301,8 @@ def seed_partitions(text: str) -> list[str] | None:
 
 
 def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
-    """Whether a line is an import run_value_import wrote of a function TAGS no longer
-    names."""
+    """Whether a line is an import run_value_import wrote of a function neither TAGS nor
+    SEED names any more."""
     found = RUN_VALUE_IMPORT.fullmatch(line)
     return found is not None and found["function"] not in named
 

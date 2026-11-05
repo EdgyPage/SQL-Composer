@@ -184,7 +184,7 @@ def test_a_tag_answered_with_a_function_is_written_into_its_reference(
         "tags": {"PERIOD_END": _users_period_end()}}}))
     assert f"Each Decision of {TABLE} is made." in said
     reference = REFERENCE.read_text(encoding="utf-8")
-    assert ("from building_blocks.run_values import period_end  # a Run value, for TAGS"
+    assert ("from building_blocks.run_values import period_end  # a Run value, for TAGS or SEED"
             in reference)
     assert '    "PERIOD_END": period_end,  #' in reference
     assert written in to_hive(project.load(TABLE).write())

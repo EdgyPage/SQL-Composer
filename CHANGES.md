@@ -31,12 +31,13 @@ Being built: what each ticket changes is listed here as it lands.
   and `run_query` and `run_execute` refuse to send it.
 - **`tag_text(TAGS["NAME"])`** is a tag inside quotes' place in a converted table's logic, where
   8.3 wrote `TAGS["NAME"]` itself: it calls a Run value's function too, and gives text as it
-  is.
+  is. A bare tag in Hive kept whole, an Unchecked statement, is
+  `tag_text(TAGS["NAME"], quoted=False)`, which gives Hive, a date with its quotes.
 - **`run_value(function, *args)`** puts what any Python function gives into a Statement, a
   date as `'2026-10-31'`, worked out each time the Statement is built, as a Script tag's Run
   value is. A partition column held to it is bounded.
 - **Lineage traces each Run value that stands as a value**, `run_value`'s and a bare Script
-  tag's: a box naming the function, what it was given, the Script tag it answers and what it
+  tag's in a Statement: a box naming the function, what it was given, the Script tag it answers and what it
   gave, with an arrow into it from each table the Toolbox read for it while it ran, the
   partition column `latest_partition` read and each table a Statement it sent through
   `run_query` read. A tag inside quotes gives text, part of a string, which lineage doesn't
