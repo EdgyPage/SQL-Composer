@@ -104,7 +104,7 @@ from .unchecked import (
     unchecked_derived,
     unchecked_hive,
 )
-from .script_tags import script_tag
+from .script_tags import script_tag, tag_text
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     Window,
@@ -236,6 +236,7 @@ __all__ = [
     "UncheckedStatement",
     # script_tags.py
     "script_tag",
+    "tag_text",
     # comparisons.py
     "compare_hive",
     "compare_with_original",

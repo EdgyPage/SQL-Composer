@@ -68,6 +68,10 @@ GUESSED = "  # TODO: guessed: nothing told its type"
 # What new_table's Table reference holds for a Saved table's columns, until
 # project.reference_from_logic writes them from its logic.
 COLUMNS = "<COLUMNS>"
+# The line TAGS starts on in a Table reference, and the mark on the line above it that imports
+# a Run value's function for it (Toolbox 8.4).
+TAGS_START = "TAGS = {"
+RUN_VALUE_MARK = "  # a Run value, for TAGS"
 # A location= line no one has filled in, its TODO taken off or not.
 NO_LOCATION = "location=None,"
 # What a Conversion writes after the Key it worked out of a table's query: a Decision made,
@@ -175,6 +179,39 @@ def is_open(line: str) -> bool:
     return bool(OPEN.search(line)) or line.strip().startswith(NO_LOCATION)
 
 
+def _tag_value_text(line: str) -> str:
+    """A tag line's value as written: Hive text in quotes, or a Run value's function's
+    name."""
+    return TAG_LINE.match(line)["value"]
+
+
+def _tag_answer_shown(line: str) -> str:
+    """A tag line's answer as a report says it: the Hive text, or a Run value's function's
+    name."""
+    value = _tag_value_of(line)
+    return value if isinstance(value, str) else _tag_value_text(line)
+
+
+def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
+    """A Table reference's text with an import above TAGS for each Run value's function its
+    TAGS names, and none for one it no longer names."""
+    tags = answer.get(ANSWERS[TAG])
+    functions = [value for value in tags.values() if callable(value)] if isinstance(
+        tags, dict) else []
+    lines = text.split("\n")
+    named = {_tag_value_text(line) for line in lines if kind_of(line) == TAG}
+    lines = [line for line in lines if not line.endswith(RUN_VALUE_MARK)
+             or line.split(" import ")[1].removesuffix(RUN_VALUE_MARK) in named]
+    for function in functions:
+        imported = run_value_import(function)
+        if imported not in lines and TAGS_START in lines:
+            at = lines.index(TAGS_START)
+            while at > 0 and lines[at - 1].startswith("#"):  # above TAGS' own comment
+                at -= 1
+            lines.insert(at, imported)
+    return "\n".join(lines)
+
+
 def _tag_name_of(line: str) -> str:
     """A tag line's NAME, as Python reads its string."""
     return ast.literal_eval(TAG_LINE.match(line)["name"])
@@ -220,6 +257,8 @@ def tag_answer_problem(value: object, quoted: bool) -> str | None:
     there (writing.tag_value_problem), and a quoted tag's answer has no quotes of its own."""
     if is_left_to_fill_in(value):
         return still_to_fill_in("its answer")
+    if callable(value):
+        return run_value_problem(value)
     if not isinstance(value, str):
         return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
                 "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
@@ -232,6 +271,25 @@ def tag_answer_problem(value: object, quoted: bool) -> str | None:
         return (f"stands inside quotes already, so its answer has none: answer "
                 f"{escaped_literal(value[1:-1])}")
     return None
+
+
+def run_value_problem(function: object) -> str | None:
+    """Why a function can't answer a Decision as a Run value, or None when it can: it must be
+    a function of a file of the Project's, such as building_blocks/run_values.py, so a Table
+    reference can import it by its module and name."""
+    module = getattr(function, "__module__", None) or ""
+    name = getattr(function, "__qualname__", "") or ""
+    if module in ("__main__", "builtins") or not module or "<" in name or "." in name:
+        shown = name or repr(function)
+        return (f"is given {shown}, a function a Table reference can't import: write it in a "
+                "file of the Project's, such as building_blocks/run_values.py, import it in "
+                "the decisions cell, and answer with it")
+    return None
+
+
+def run_value_import(function: object) -> str:
+    """The line a Table reference imports a Run value's function by, marked as one."""
+    return f"from {function.__module__} import {function.__qualname__}{RUN_VALUE_MARK}"
 
 
 def _bare_answer_problem(value: str) -> str | None:
@@ -329,11 +387,11 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
             continue
         if kind_of(line) == TAG and not is_open(line) and written != line:
             answered.changed.append(f"tags: {_tag_name_of(line)} is "
-                                    f"{_tag_value_of(written)} now, in place of "
-                                    f"{_tag_value_of(line)}")
+                                    f"{_tag_answer_shown(written)} now, in place of "
+                                    f"{_tag_answer_shown(line)}")
         lines[number] = written
         answered.written.append(name)
-    answered.text = "\n".join(lines)
+    answered.text = _with_run_value_imports("\n".join(lines), answer)
     answered.unwritten += _unwritten(answer, answered.written, reference)
     answered.unwritten += _tags_unwritten(answer, text)
     return answered
@@ -410,8 +468,8 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     if tag_answer_problem(value, _tag_is_quoted(line)) is not None:
         return None, ""
     found = TAG_LINE.match(line)
-    return (f"    {found['name']}: {escaped_literal(value)},  {found['comment']}",
-            f"tags: {name}")
+    written = value.__qualname__ if callable(value) else escaped_literal(value)
+    return f"    {found['name']}: {written},  {found['comment']}", f"tags: {name}"
 
 
 def paste_lines(still_open: list[Decision]) -> list[str]:

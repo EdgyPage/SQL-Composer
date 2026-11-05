@@ -3,7 +3,7 @@ it gave it, which that program filled in before Hive read it. Toolbox 8.3.
 
 Ticket 02: a Conversion reads past each tag where a value goes, bare or inside quotes, and the
 tag's place in the logic reads TAGS, what each tag stands for: script_tag(TAGS["NAME"]) for a
-bare one, TAGS["NAME"] itself for one inside quotes. A tag of another shape, or where no value
+bare one, tag_text(TAGS["NAME"]) for one inside quotes (TAGS["NAME"] itself in 8.3). A tag of another shape, or where no value
 goes, stops the Conversion, naming its line.
 """
 
@@ -124,14 +124,14 @@ def test_a_bare_tags_place_is_script_tag_of_its_tags_entry() -> None:
 
 def test_a_quoted_tags_place_is_its_tags_entry_as_a_string() -> None:
     logic = _logic_of(QUOTED)
-    assert 'at_most(r.dt, TAGS["run_month_2"])' in logic
+    assert 'at_most(r.dt, tag_text(TAGS["run_month_2"]))' in logic
     assert '    "run_month_2": "<PARM=\\"run_month_2\\"/>",  # inside quotes' in logic
 
 
 def test_a_tag_inside_a_longer_string_is_read_into_it() -> None:
     logic = _logic_of("SELECT r.run_id FROM ops.job_runs r "
                       """WHERE r.dt = '2026-<PARM="Month"/>-01'""")
-    assert 'equals(r.dt, "2026-" + TAGS["Month"] + "-01")' in logic
+    assert 'equals(r.dt, "2026-" + tag_text(TAGS["Month"]) + "-01")' in logic
 
 
 def test_a_tag_compared_first_is_compared_as_its_column_is() -> None:
@@ -163,7 +163,7 @@ def test_one_name_bare_and_inside_quotes_in_one_table_is_refused() -> None:
 def test_a_quoted_tag_in_a_piece_kept_as_hive_reads_its_tags_entry_into_the_text() -> None:
     logic = _logic_of("SELECT r.run_id FROM ops.job_runs r "
                       """WHERE r.status RLIKE '<PARM="PATTERN"/>'""")
-    assert """unchecked_condition("{status} RLIKE '" + TAGS["PATTERN"] + "'",""" in logic
+    assert """unchecked_condition("{status} RLIKE '" + tag_text(TAGS["PATTERN"]) + "'",""" in logic
 
 
 def test_a_bare_tag_in_an_in_list_binds_its_column_as_a_value_there_would() -> None:

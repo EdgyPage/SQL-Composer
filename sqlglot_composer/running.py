@@ -34,6 +34,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .project_files import TABLE_FOLDER
+from .script_tags import refuse_failed_run_values
 from .shared import counted, in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
@@ -851,6 +852,7 @@ def send_logged(s: Statement, text: str, warehouse_call: Callable[[str], object]
     other Hive than the Statement's own was sent, as "compared with the original by
     compare_with_original"."""
     tree = statement_tree(s) if kinds.is_a_query(s) else Node("Null")
+    refuse_failed_run_values(tree)
     calls = unchecked_calls(tree)
     if not calls:
         return warehouse_call(text)

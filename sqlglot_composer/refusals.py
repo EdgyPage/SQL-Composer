@@ -76,6 +76,11 @@ class RepeatedRowsWarning(UserWarning):
     """A join may repeat rows, so sums and counts over them may come out too big."""
 
 
+class RunValueWarning(UserWarning):
+    """A Run value's function failed as a Statement was built, so its Hive holds the
+    function's name in the value's place, which run_query and run_execute refuse to send."""
+
+
 class UncheckedWarning(UserWarning):
     """A Guard or a Load limit couldn't look inside an Unchecked expression or an Unchecked
     derived table, so it lets the Statement through and says what to check by hand."""
