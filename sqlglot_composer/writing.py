@@ -19,7 +19,7 @@ from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
 
 from .refusals import four_part_message, refuse
-from .shared import singular_or_plural
+from .shared import singular_or_plural, unchecked_expression_text
 from .trees import (
     ARITHMETIC,
     CONNECTORS,
@@ -1006,8 +1006,8 @@ def with_placeholders(text: str, stand_ins: dict[str, str]
     """An Unchecked expression's text with each column it names itself made a placeholder,
     as sqlglot writes it. `text` has each placeholder filled with its stand-in, and
     `stand_ins` gives each stand-in's placeholder name. Gives back the text, a brace meant as
-    a brace doubled, and for each placeholder added, its name, the column's table as written
-    (or "" for none) and the column's name.
+    a brace doubled and a Hive variable as it is, and for each placeholder added, its name,
+    the column's table as written (or "" for none) and the column's name.
 
     A placeholder is named by its column's plain name, without backticks, made a name Python
     takes as an argument, and numbered where that name is taken already: {status_2}. A
@@ -1032,7 +1032,7 @@ def with_placeholders(text: str, stand_ins: dict[str, str]
     names = dict(stand_ins)
     for stand_in, (name, _, _) in zip(by_column.values(), added):
         names[stand_in] = name
-    written = sql_text(expression).replace("{", "{{").replace("}", "}}")
+    written = unchecked_expression_text(sql_text(expression))
     pattern = "|".join(re.escape(stand_in) for stand_in in sorted(names, key=len, reverse=True))
 
     def placeholder(found: re.Match[str]) -> str:

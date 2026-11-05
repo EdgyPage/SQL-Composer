@@ -348,7 +348,8 @@ _Avoid_: raw SQL, passthrough, custom query
 Hive text the user, or a Conversion, writes in place of one Column or Condition that no Toolbox
 function writes yet, inside an otherwise checked Statement. The Toolbox reads which columns it
 names, each written as a `{name}` placeholder and passed as the Column itself, so Lineage
-traces it, but no Guard looks inside it. In Python, `unchecked_column(...)` and
+traces it, but no Guard looks inside it. A Hive variable in it, such as `${hivevar:day}`, is
+Hive, kept as written, never a placeholder. In Python, `unchecked_column(...)` and
 `unchecked_condition(...)` give one back.
 _Avoid_: raw expression, SQL snippet, passthrough
 

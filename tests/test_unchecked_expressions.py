@@ -108,6 +108,46 @@ def test_a_literal_brace_is_doubled_as_str_format_reads_it() -> None:
     assert "'^([a-z]{2,})_'" in repr(first)
 
 
+@pytest.mark.parametrize("make", [
+    pytest.param(lambda: unchecked_condition("{dt} <= ${hivevar:run_day}", dt=job_runs.dt),
+                 id="condition"),
+    pytest.param(lambda: unchecked_column("{dt} <= ${hivevar:run_day}", dt=job_runs.dt),
+                 id="column"),
+])
+def test_a_hive_variable_is_hive_never_a_placeholder(make: Callable[[], object]) -> None:
+    assert repr(make()) == "job_runs.dt <= ${hivevar:run_day}"
+
+
+def test_a_hive_variable_with_its_braces_doubled_gives_the_same_hive() -> None:
+    # As the Conversion wrote it before 8.4.
+    doubled = unchecked_condition("{dt} <= ${{hivevar:run_day}}", dt=job_runs.dt)
+    assert repr(doubled) == "job_runs.dt <= ${hivevar:run_day}"
+
+
+def test_a_hive_variable_beside_placeholders_and_braces_keeps_each_as_it_was() -> None:
+    first = unchecked_column(
+        "concat(regexp_extract({name}, '^([a-z]{{2,}})_', 1), '${hivevar:suffix}', {team})",
+        name=jobs.job_name, team=jobs.team)
+    assert repr(first) == ("CONCAT(REGEXP_EXTRACT(jobs.job_name, '^([a-z]{2,})_'), "
+                           "'${hivevar:suffix}', jobs.team)")
+
+
+def test_a_hive_variable_in_an_unchecked_derived_tables_text_is_kept() -> None:
+    days = unchecked_derived("days", "SELECT r.run_id FROM ops.job_runs r "
+                             "WHERE r.dt <= ${hivevar:run_day}", columns={"run_id": "bigint"})
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        hive = to_hive(statement(SELECT(days.run_id), FROM(days, reads_all_partitions=True)))
+    assert "r.dt <= ${hivevar:run_day}" in hive
+
+
+def test_the_fix_for_a_column_named_directly_keeps_a_hive_variable_as_written() -> None:
+    with pytest.raises(ValueError) as refused:
+        unchecked_condition("job_runs.dt <= ${hivevar:run_day}")
+    fix = 'unchecked_condition("{dt} <= ${hivevar:run_day}", dt=job_runs.dt)'
+    assert fix in str(refused.value)
+
+
 def test_a_renamed_table_writes_its_own_name() -> None:
     earlier = AS(jobs, "earlier")
     assert repr(unchecked_column("upper({t})", t=earlier.team)) == "UPPER(earlier.team)"
