@@ -824,7 +824,7 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -906,7 +906,7 @@ flowchart TD
 3. Write each answer into its prod table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 4. Create each table in prod (it is a call to the warehouse, yours to run).
 
@@ -1002,7 +1002,7 @@ flowchart TD
 5. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
@@ -1062,7 +1062,7 @@ flowchart TD
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 4. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).
@@ -1434,7 +1434,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 111 names listed here before the admin module.
+- The star import brings the 112 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,

@@ -129,7 +129,7 @@ from .refusals import (GuardRefused, LoadRefused, callers_frame,
                        warn_upgrade_needed)
 from .running import to_hive
 from .script_tags import FoundTag, tags_in
-from .shared import (counted, in_words, python_literal, singular_or_plural,
+from .shared import (counted, escaped_literal, in_words, python_literal, singular_or_plural,
                      split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
@@ -3406,7 +3406,8 @@ def _tables_compared(call: str, tables: str | list[str] | None,
     return list(tables)
 
 
-def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
+def write_decisions(answers: dict[str, dict[str, object]],
+                    tables: str | list[str] | None = None) -> ProjectReport:
     """Write each answer of a decisions cell into its table's Table reference.
 
     >>> from sqlglot_composer import example_database, project
@@ -3449,18 +3450,42 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     column the table doesn't have, or a tag its TAGS doesn't hold. The refusal names each
     one, and the name it may have meant, as in
     "ops.job_runs: 'keys' is no kind of answer; ...; did you mean key?".
+
+    DECISIONS["all_tables"] answers for every table the Workflow's notebook names, which
+    `tables` gives, as each Workflow's step cell does: project.batch_tables(NAME) in convert's
+    notebook, project.promoted_tables(TABLES) in promote's, and TABLES in the others. It takes
+    "location_root", the folder each table's own goes under, which gives a table whose
+    location is still open "<root>/<db>.db/<table>": "/data/team" gives mart_dev.weekly_ops
+    "/data/team/mart_dev.db/weekly_ops"; "tags", each written into each table that holds it;
+    and "seed", the limits of the seed's copy. It loads first, and a table's own answer
+    overwrites it, kind by kind and, for tags, tag by tag: {"all_tables": {"location_root":
+    "/data/team", "tags": {"PERIOD_END": "'2026-10-31'"}}, "mart_dev.weekly_ops": {"tags":
+    {"PERIOD_END": "'2026-10-25'"}}}. The report says which tables each of its answers was
+    written into. A Key or a type is each table's own: under all_tables it is refused, naming
+    the tables to answer it for; so is a tag no table of `tables` holds, and all_tables with
+    no `tables`.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
     root = _project_root(call)
     _refuse_answers_not_by_table(call, answers)
-    _refuse_answers_matching_nothing(call, root, answers)
+    if isinstance(tables, str):
+        tables = [tables]
+    _refuse_all_tables_with_no_tables(call, answers, tables)
+    tables = tables or []
+    _refuse_answers_matching_nothing(call, root, answers, tables)
+    named = [table for table in answers if table != decisions.ALL_TABLES]
+    if decisions.ALL_TABLES in answers:
+        named = list(dict.fromkeys([*tables, *named]))
     lines, files = [], []
-    for table, answer in answers.items():
+    before, written = {}, {}
+    for table in named:
         stem = table_stem(table)
         path = REFERENCE.path(root, stem)
-        answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
-                                           REFERENCE.shown(stem))
+        before[table] = path.read_text(encoding="utf-8")
+        answer = decisions.table_answer(answers, table, before[table])
+        answered = decisions.answered_text(before[table], answer, REFERENCE.shown(stem))
+        written[table] = answered.written
         if answered.written:
             path.write_text(answered.text, encoding="utf-8")
             files.append(f"wrote {REFERENCE.shown(stem)}")
@@ -3477,8 +3502,80 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
         lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
         if not still_open:
             lines.append(f"Each Decision of {table} is made.")
-    _log(root, call, list(answers), files, frame)
+    lines += _all_tables_report(answers, before, written)
+    _log(root, call, named, files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
+
+
+def _all_tables_report(answers: dict[str, dict[str, object]], before: dict[str, str],
+                       written: dict[str, list[str]]) -> list[str]:
+    """What write_decisions says of each answer of DECISIONS["all_tables"]: which tables it
+    was written into, and which kept their own; `before` holding each table's Table reference
+    as it was, and `written` the name of each answer written into it."""
+    every = answers.get(decisions.ALL_TABLES)
+    if not isinstance(every, dict):
+        return []
+    lines = []
+    if decisions.LOCATION_ROOT in every:
+        lines.append(_location_root_report(answers, before, written))
+    for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
+        lines.append(_all_tables_tag_report(name, answers, before, written))
+    return lines
+
+
+def _all_tables_tag_report(name: str, answers: dict[str, dict[str, object]],
+                           before: dict[str, str], written: dict[str, list[str]]) -> str:
+    """What write_decisions says of one tag of DECISIONS["all_tables"], by its NAME: each table
+    it was written into, each that keeps its own answer, and each that holds no such tag."""
+    if decisions.is_left_to_fill_in(answers[decisions.ALL_TABLES]["tags"][name]):
+        return f"all_tables: tags: {name} {decisions.still_to_fill_in('its answer')}."
+    own = [table for table in written if name in _own_tags(answers, table)]
+    into = [table for table in written
+            if f"tags: {name}" in written[table] and table not in own]
+    missing = [table for table in written if name not in decisions.tag_names(before[table])]
+    said = (f"all_tables: tags: {name}: written into {in_words(into) or 'no table'}."
+            f"{_keep_their_own(own, 'answer')}")
+    if missing:
+        said += (f" {in_words(missing)} {singular_or_plural(len(missing), 'holds', 'hold')}"
+                 f" no {name}, so {singular_or_plural(len(missing), 'is', 'are')} passed "
+                 "over.")
+    return said
+
+
+def _keep_their_own(tables: list[str], what: str) -> str:
+    """" a and b keep their own location.", naming the tables that keep their own `what`, or ""
+    when none does."""
+    if not tables:
+        return ""
+    keep = singular_or_plural(len(tables), "keeps its", "keep their")
+    return f" {in_words(tables)} {keep} own {what}."
+
+
+def _location_root_report(answers: dict[str, dict[str, object]], before: dict[str, str],
+                          written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s location_root: each table it
+    gave a location, under it, and each that keeps its own."""
+    root = answers[decisions.ALL_TABLES][decisions.LOCATION_ROOT]
+    if decisions.is_left_to_fill_in(root):
+        return (f"all_tables: {decisions.LOCATION_ROOT} "
+                f"{decisions.still_to_fill_in('its answer')}.")
+    location = decisions.ANSWERS[decisions.LOCATION]
+    own = [table for table in written
+           if location in answers.get(table, {})
+           or not decisions.open_decisions(before[table], table, (decisions.LOCATION,))]
+    into = [table for table in written if location in written[table] and table not in own]
+    said = (f"all_tables: {decisions.LOCATION_ROOT} {escaped_literal(root)}: written into "
+            f"{in_words(into) or 'no table'}")
+    if into:
+        each = singular_or_plural(len(into), "in its", "each in its")
+        said += f", {each} own folder under it"
+    return f"{said}.{_keep_their_own(own, 'location')}"
+
+
+def _own_tags(answers: dict[str, dict[str, object]], table: str) -> dict[str, object]:
+    """The tags a table's own answer in the decisions cell gives, by their NAME."""
+    tags = answers.get(table, {}).get(decisions.ANSWERS[decisions.TAG])
+    return tags if isinstance(tags, dict) else {}
 
 
 def _hivevar_notes(root: Path, table: str, answer: dict[str, object]) -> list[str]:
@@ -3537,25 +3634,58 @@ def _refuse_answers_not_by_table(call: str, answers: object) -> None:
     )
 
 
+def _refuse_all_tables_with_no_tables(call: str, answers: dict[str, dict[str, object]],
+                                      tables: list[str] | None) -> None:
+    """Refuse DECISIONS["all_tables"] when write_decisions isn't given the tables it answers
+    for."""
+    if decisions.ALL_TABLES not in answers or tables:
+        return
+    refuse(
+        what=f"{call}: all_tables answers for every table the notebook names, but tables= "
+        "names none.",
+        why="The decisions cell alone doesn't say which tables its Workflow's notebook names, "
+        "so write_decisions can't tell which tables all_tables' answers go into.",
+        fix="Run it as the Workflow's step cell does: project.write_decisions(DECISIONS, "
+        "tables=project.batch_tables(NAME)) in convert's notebook, "
+        "tables=project.promoted_tables(TABLES) in promote's, and tables=TABLES in the others.",
+        error=ValueError,
+    )
+
+
 def _refuse_answers_matching_nothing(call: str, root: Path,
-                                     answers: dict[str, dict[str, object]]) -> None:
+                                     answers: dict[str, dict[str, object]],
+                                     tables: list[str]) -> None:
     """Refuse, before anything is written, a decisions cell holding an answer that matches no
-    Decision of the Project's tables: a table with no Table reference, a kind of answer the
-    cell doesn't take, a column the table doesn't have, or a tag it doesn't hold; each named,
-    with the nearest name where there is one."""
+    Decision of the Project's tables: a table with no Table reference, among them one of
+    `tables`, a kind of answer the cell doesn't take, a column the table doesn't have, or a tag
+    it doesn't hold, or, under "all_tables", that no table of `tables` holds; each named, with
+    the nearest name where there is one."""
     problems = []
     references = {path.stem: path for path in table_references(root)}
+    names = [REFERENCE.name_of(stem) for stem in references]
     # Each table's columns by its Table reference's file name, as `references` is keyed.
     types_by_stem = {table_stem(name): types for name, types in _reference_types(root).items()}
+    texts = {}
+    for table in tables:
+        if table_stem(table) not in references:
+            problems.append(f"tables: {table}: no table of the Project has that name"
+                            f"{_nearest(table, names)}")
     for table, answer in answers.items():
+        if table == decisions.ALL_TABLES:
+            continue
         path = references.get(table_stem(table))
         if path is None:
-            names = [REFERENCE.name_of(stem) for stem in references]
             problems.append(f"{table}: no table of the Project has that name"
                             f"{_nearest(table, names)}")
             continue
-        problems += _unmatched_answers(table, answer, path.read_text(encoding="utf-8"),
+        texts[table] = path.read_text(encoding="utf-8")
+        problems += _unmatched_answers(table, answer, texts[table],
                                        types_by_stem.get(path.stem, {}))
+    if decisions.ALL_TABLES in answers:
+        for table in tables:
+            if table_stem(table) in references:
+                texts[table] = references[table_stem(table)].read_text(encoding="utf-8")
+        problems += _unmatched_all_tables(answers[decisions.ALL_TABLES], texts)
     if not problems:
         return
     refuse(
@@ -3602,6 +3732,68 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
             problems.append(f"{table}: {kind}: give a dict of each answer by its name, such "
                             f"as {example}, not {answer[kind]!r}")
     return problems
+
+
+def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> list[str]:
+    """A line naming each part of DECISIONS["all_tables"], `every`, that matches no Decision
+    of the tables it answers for, `texts` holding each one's Table reference by its name: a
+    Key or a type, which are each table's own, any other kind it doesn't take, a location_root
+    that isn't text, a "tags" or "seed" that isn't a dict, or a tag no table holds."""
+    kinds = list(decisions.ALL_TABLES_ANSWERS)
+    tags = decisions.ANSWERS[decisions.TAG]
+    # A Key and a type, which each table answers itself.
+    each_tables_own = (decisions.ANSWERS[decisions.KEY],
+                       decisions.ANSWERS[decisions.GUESSED_TYPE])
+    problems = []
+    for name in every:
+        if name in each_tables_own:
+            tables = in_words(_tables_to_answer(name, texts))
+            problems.append(f"all_tables: {name} is each table's own: answer it under the name "
+                            f"of each table it is for, {tables}")
+        elif name not in kinds:
+            problems.append(f"all_tables: {name!r} is no kind of answer for every table; "
+                            f"all_tables answers {in_words(kinds)}{_nearest(name, kinds)}")
+    root = every.get(decisions.LOCATION_ROOT)
+    if decisions.LOCATION_ROOT in every and not isinstance(root, str):
+        problems.append(f"all_tables: {decisions.LOCATION_ROOT}: give the folder as text, such "
+                        f"as \"/data/your_team\", not {root!r}")
+    for kind, example in ((tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
+                          (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
+        if kind in every and not isinstance(every[kind], dict):
+            problems.append(f"all_tables: {kind}: give a dict of each answer by its name, such "
+                            f"as {example}, not {every[kind]!r}")
+    if isinstance(every.get(tags), dict):
+        problems += _tags_no_table_holds(list(every[tags]), texts)
+    return problems
+
+
+def _tags_no_table_holds(named: list[str], texts: dict[str, str]) -> list[str]:
+    """A line naming each tag `named` under all_tables that no table it answers for holds,
+    `texts` holding each one's Table reference by its name."""
+    held: list[str] = []
+    for text in texts.values():
+        held += decisions.tag_names(text)
+    held = list(dict.fromkeys(held))
+    return [f"all_tables: tags: {name} is no Script tag of any table it answers for"
+            f"{_nearest(name, held) or _their_tags(held)}"
+            for name in named if name not in held]
+
+
+def _tables_to_answer(name: str, texts: dict[str, str]) -> list[str]:
+    """The tables a Key or a type given under all_tables is for, by `name`, "key" or "types":
+    each of `texts`' tables that leaves one open, or every one of them when none does."""
+    kind = decisions.KEY if name == decisions.ANSWERS[decisions.KEY] else decisions.GUESSED_TYPE
+    still_open = [table for table, text in texts.items()
+                  if decisions.open_decisions(text, table, (kind,))]
+    return still_open or list(texts)
+
+
+def _their_tags(held: list[str]) -> str:
+    """What a refusal of a tag under all_tables adds when no tag is close: the tags the
+    tables hold, or that they hold none."""
+    if not held:
+        return "; they hold no Script tag"
+    return f"; their Script tags are {in_words(held)}"
 
 
 def _unmatched_tags(table: str, named: list[str], table_tags: list[str]) -> list[str]:

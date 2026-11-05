@@ -134,7 +134,9 @@ class Journey:
     def paste_decisions(self, filled: dict[str, dict[str, object]]) -> None:
         """Paste the DECISIONS project.check() prints for this Workflow's next step into its
         decisions cell, each <FILL IN> filled in from `filled`, by table and kind, a tag's or a
-        type's by its name too, as the user fills in what they pasted."""
+        type's by its name too, as the user fills in what they pasted. A location offered
+        under "all_tables" (8.4) is filled in as the folder _location's are under."""
+        filled = {"all_tables": {"location_root": LOCATION_ROOT}, **filled}
         printed = repr(project.check())
         from_its_step = printed[printed.index(f"admin/workflows/{self.workflow}/"):]
         # The block starts at "DECISIONS = {" and ends at the first line that is "}" alone.
@@ -273,8 +275,11 @@ def _notebook(root: Path, table: str) -> Path:
     return root / "tables" / _stem(table) / f"{_stem(table)}.ipynb"
 
 
+LOCATION_ROOT = "/data/team"
+
+
 def _location(table: str) -> str:
-    return "/data/team/" + table.replace(".", ".db/", 1)
+    return f"{LOCATION_ROOT}/" + table.replace(".", ".db/", 1)
 
 
 def _answer_each_decision(journey: Journey, tables: list[str]) -> None:

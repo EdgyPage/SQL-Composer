@@ -467,6 +467,20 @@ def warning_unchecked_derived_read(call: str, name: str,
     warn_at_callers_line(message, UncheckedWarning)
 
 
+def warn_run_value_failed(call: str, failed: str, in_its_place: str, name: str) -> None:
+    """Warn that a Run value's function, `name`, failed as its Statement was built, saying
+    what it raised, `failed`, and what the Hive holds in its place: a dry run still shows the
+    Hive, and run_query and run_execute refuse to send it."""
+    message = four_part_message(
+        what=f"{call}: {failed}.",
+        why="A Run value is worked out each time the Statement is built: with none, the Hive "
+        f"holds {in_its_place} in its place, which run_query and run_execute refuse to send.",
+        fix=f"Fix {name}, or what it reads, and build the Statement again.",
+        opt_out="none - this one can't be switched off.",
+    )
+    warn_at_callers_line(message, RunValueWarning)
+
+
 def warn_upgrade_needed(have: str, toolbox: str) -> None:
     """Warn, as the Toolbox is imported in a Project an older Toolbox last wrote, that the
     Project needs an Upgrade. It only warns: a Statement run in a notebook harms nothing."""

@@ -6502,8 +6502,10 @@ Next: answer each table&#x27;s open Decisions in the decisions cell of admin/wor
 Paste this over the DECISIONS = ... line of admin/workflows/convert/convert.ipynb, ops_reports&#x27;s decisions cell, or over a DECISIONS you pasted before (each answer written into a Table reference already is kept), then fill in each &lt;FILL IN&gt; and check each guessed type:
 
 DECISIONS = {
+    &quot;all_tables&quot;: {  # answers for every table of this notebook; a table&#x27;s own answer, under its name, overrides it
+        &quot;location_root&quot;: &quot;&lt;FILL IN&gt;&quot;,  # the folder each table&#x27;s own goes under, such as &quot;/data/your_team&quot;, which gives mart.alerts_by_severity_ops_reports &quot;/data/your_team/mart.db/alerts_by_severity_ops_reports&quot;
+    },
     &quot;mart.alerts_by_severity_ops_reports&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/alerts_by_severity_ops_reports&quot;
         &quot;types&quot;: {
             &quot;dt&quot;: &quot;string&quot;,  # guessed: its type, if not string, such as &quot;bigint&quot;
         },
@@ -6512,13 +6514,11 @@ DECISIONS = {
         },
     },
     &quot;mart.alerted_runs_ops_reports&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/alerted_runs_ops_reports&quot;
         &quot;types&quot;: {
             &quot;dt&quot;: &quot;string&quot;,  # guessed: its type, if not string, such as &quot;bigint&quot;
         },
     },
     &quot;mart.fail_history&quot;: {
-        &quot;location&quot;: &quot;&lt;FILL IN&gt;&quot;,  # its folder, such as &quot;/data/your_team/mart.db/fail_history&quot;
         &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # a list, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when no columns name one row
     },
 }</pre>
@@ -17411,13 +17411,18 @@ PARTITION = None</pre>
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
 # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-# answer &quot;key&quot; here.</pre>
+# answer &quot;key&quot; here. &quot;all_tables&quot; answers for every table of this notebook, and a
+# table&#x27;s own answer overwrites it, kind by kind and tag by tag:
+# {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
+#                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
+# gives each table with no location its own folder, such as
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)</pre>
 <ol start="2"><li>Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
-<pre class="python">project.write_decisions(DECISIONS)</pre>
+<pre class="python">project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))</pre>
 <ol start="4"><li>Create each table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)</pre>
@@ -17494,12 +17499,17 @@ TABLES = []</pre>
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
 # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-# answer &quot;key&quot; here.</pre>
+# answer &quot;key&quot; here. &quot;all_tables&quot; answers for every table of this notebook, and a
+# table&#x27;s own answer overwrites it, kind by kind and tag by tag:
+# {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
+#                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
+# gives each table with no location its own folder, such as
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.promote(TABLES)</pre>
 <ol start="2"><li>Answer each prod table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>Write each answer into its prod table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
-<pre class="python">project.write_decisions(DECISIONS)</pre>
+<pre class="python">project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))</pre>
 <ol start="4"><li>Create each table in prod (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)</pre>
@@ -17584,7 +17594,12 @@ QUERIES = {}</pre>
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
 # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-# answer &quot;key&quot; here.</pre>
+# answer &quot;key&quot; here. &quot;all_tables&quot; answers for every table of this notebook, and a
+# table&#x27;s own answer overwrites it, kind by kind and tag by tag:
+# {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
+#                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
+# gives each table with no location its own folder, such as
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
@@ -17594,7 +17609,7 @@ QUERIES = {}</pre>
 <ol start="3"><li>Write each Table reference from its logic (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.reference_from_logic(TABLES)</pre>
 <ol start="4"><li>Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
-<pre class="python">project.write_decisions(DECISIONS)</pre>
+<pre class="python">project.write_decisions(DECISIONS, tables=TABLES)</pre>
 <ol start="6"><li>Check each table&#x27;s rows with preview(), which writes nothing (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">for table in TABLES:
     print(run_query(project.load(table).preview(), query))</pre>
@@ -17651,12 +17666,17 @@ TABLES = []</pre>
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key the
 # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-# answer &quot;key&quot; here.</pre>
+# answer &quot;key&quot; here. &quot;all_tables&quot; answers for every table of this notebook, and a
+# table&#x27;s own answer overwrites it, kind by kind and tag by tag:
+# {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
+#                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
+# gives each table with no location its own folder, such as
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.add_references(TABLES, query=query)</pre>
 <ol start="2"><li>Answer each table&#x27;s open Decisions in the decisions cell (it is a decision, yours to make).</li><li>Write each answer into its table&#x27;s Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
-<pre class="python">project.write_decisions(DECISIONS)</pre>
+<pre class="python">project.write_decisions(DECISIONS, tables=TABLES)</pre>
 <ol start="4"><li>Refresh the Reference sheet and the Database modules (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.refresh_reference_sheet(TABLES)</pre>
 <p>Its last cell runs every step left, in place of their cells:</p>

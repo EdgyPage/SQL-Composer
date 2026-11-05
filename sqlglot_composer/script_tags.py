@@ -7,9 +7,10 @@ WHERE dt <= <PARM="PERIOD_END"/>, so `readable_tags` writes each one in backtick
 sqlglot reads as a column, and `tags_as_written` takes the backticks off again. A tag inside
 quotes, as in '<PARM="PERIOD_END"/>', is part of a string, which sqlglot reads as it is.
 
-In a converted table's logic, a bare tag's place is script_tag(TAGS["PERIOD_END"]), and a quoted
-one's is tag_text(TAGS["PERIOD_END"]), a string. TAGS, in the table's Table reference, holds what
-each tag stands for, a Decision answered in the decisions cell: Hive text, or a Run value's
+In a converted table's logic, a bare tag's place is script_tag(TAGS["PERIOD_END"]), and a
+quoted one's is tag_text(TAGS["PERIOD_END"]), a string. TAGS, in the table's Table reference,
+holds what each tag stands for, a Decision answered in the decisions cell: Hive text, or a Run
+value's
 function (Toolbox 8.4), which script_tag and tag_text call each time the Statement is built.
 """
 
@@ -20,8 +21,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from . import _four_part_message as four_part_message
-from .refusals import RunValueWarning, refuse, warn_at_callers_line
+from .refusals import refuse, warn_run_value_failed
 from .tables import Column, python_text
 from .trees import Node
 from .writing import tag_value_problem
@@ -159,11 +159,6 @@ def tag_name(text: str) -> str | None:
     return found.group(1) if found else None
 
 
-def is_script_tag(value: object) -> bool:
-    """Whether `value` is a Column script_tag made."""
-    return isinstance(value, Column) and value._tree.kind == SCRIPT_TAG
-
-
 # The kinds of Node a value is built of: values, and sums of them in brackets.
 _VALUE_KINDS = {"Literal", "Null", "Boolean", SCRIPT_TAG, "Paren", "Add", "Sub", "Mul"}
 # The Hive functions that move a day by a number of days, whose call on values is a value.
@@ -264,16 +259,11 @@ def _run_value_column(function: Callable[[], object]) -> Column:
         given = function()
     except Exception as error:  # the user's own function: whatever it raises is reported
         failed = (f"{name}() raised {type(error).__name__}: {error}")
-        node = Node(SCRIPT_TAG, text=f"`<{function.__qualname__}() failed>`")
+        # The Toolbox's own mark, never a value: run_query and run_execute refuse it.
+        in_its_place = f"`<{function.__qualname__}() failed>`"
+        node = Node(SCRIPT_TAG, text=in_its_place)
         node.meta.update(call=call, run_value=name, failed=failed)
-        warn_at_callers_line(four_part_message(
-            what=f"{call}: {failed}.",
-            why="A Run value is worked out each time the Statement is built: with none, the "
-            f"Hive holds `<{function.__qualname__}() failed>` in its place, which run_query "
-            "and run_execute refuse to send.",
-            fix=f"Fix {name}, or what it reads, and build the Statement again.",
-            opt_out="none - this one can't be switched off.",
-        ), RunValueWarning)
+        warn_run_value_failed(call, failed, in_its_place, name)
         return Column(node)
     text = _hive_of_run_value(call, name, given)
     node = Node(SCRIPT_TAG, text=text)
@@ -306,8 +296,9 @@ def _hive_of_run_value(call: str, name: str, given: object) -> str:
 
 
 def tag_text(value: str | Callable[[], object]) -> str:
-    """The text a Script tag inside quotes stands for, as a Conversion writes its place in a
-    string: tag_text(TAGS["RUN_MONTH"]).
+    """The text a Script tag inside quotes stands for, to put in a string.
+
+    A Conversion writes the tag's place in a string as tag_text(TAGS["RUN_MONTH"]).
 
     >>> TAGS = {"RUN_MONTH": "2026-09"}
     >>> "month " + tag_text(TAGS["RUN_MONTH"])
