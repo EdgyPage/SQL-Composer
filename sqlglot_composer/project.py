@@ -2652,12 +2652,12 @@ def _convert_one_table(files: _BatchFiles, table: str, batch: str,
 
 
 # The checklist's note of a table that reads itself, which the seed step fills once.
-SEED_NOTE = ("Its write reads its own table, which in dev starts empty, so the convert "
-             "Workflow's seed step, after it creates the table, copies every Partition of the "
-             "original's rows into it once, with its seed(), unless SEED, in its Table "
-             "reference, limits them: answer \"seed\" in the decisions cell, such as "
-             "{\"dt\": {\"from\": \"2026-01-01\"}}, to copy only those you need. The seed "
-             "step's line shows the WHERE it sends.")
+SEED_NOTE = ("Its write reads its own table, which in dev starts empty. So the convert "
+             "Workflow's seed step, after it creates the table, copies the original's rows "
+             "into it once, with its seed(). It copies every Partition unless SEED, in its "
+             "Table reference, limits them. To copy only those you need, answer \"seed\" in "
+             "the decisions cell, such as {\"dt\": {\"from\": \"2026-01-01\"}}. A table with "
+             "no Partitions copies every row. The seed step's line shows the WHERE it sends.")
 
 
 def _batch_scan_lines(text: str, hive_read: converting.ConvertedQuery,
@@ -3639,15 +3639,15 @@ def write_decisions(answers: dict[str, dict[str, object]],
             files.append(f"wrote {REFERENCE.shown(stem)}")
             lines.append(f"Wrote {counted(len(answered.written), 'answer')} into "
                          f"{REFERENCE.shown(stem)}.")
-        lines += _answered_report(root, table, answer, answered)
-    lines += _all_tables_report(answers, before, written)
+        lines += _answered_lines(root, table, answer, answered)
+    lines += _all_tables_report_lines(answers, before, written)
     if keys_written:
         lines += _take_out_needless_many_matches(root)
     _log(root, call, named, files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
 
 
-def _answered_report(root: Path, table: str, answer: dict[str, object],
+def _answered_lines(root: Path, table: str, answer: dict[str, object],
                      answered: decisions.Answered) -> list[str]:
     """What write_decisions says of one table once its answers are written, its checklist
     written again: each answer that changed one before, each left unwritten, each Hive
@@ -3670,7 +3670,7 @@ def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
     """One table's answer with its seed limits as they apply to it: its own as given, which
     the refusals check first; all_tables' for the partition columns it has; none for a table
     that doesn't read itself, which has no seed."""
-    if decisions.SEED not in answer:
+    if not isinstance(answer.get(decisions.SEED), dict):
         return answer
     partitions = decisions.seed_partitions(text)
     own = answers.get(table)
@@ -3683,7 +3683,7 @@ def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
     return {**answer, decisions.SEED: limits}
 
 
-def _all_tables_report(answers: dict[str, dict[str, object]], before: dict[str, str],
+def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict[str, str],
                        written: dict[str, list[str]]) -> list[str]:
     """What write_decisions says of each answer of DECISIONS["all_tables"]: which tables it
     was written into, and which kept their own; `before` holding each table's Table reference
@@ -3693,13 +3693,29 @@ def _all_tables_report(answers: dict[str, dict[str, object]], before: dict[str, 
         return []
     lines = []
     if decisions.LOCATION_ROOT in every:
-        lines.append(_location_root_report(answers, before, written))
+        lines.append(_location_root_line(answers, before, written))
     for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
-        lines.append(_all_tables_tag_report(name, answers, before, written))
+        lines.append(_all_tables_tag_line(name, answers, before, written))
+    if decisions.SEED in every:
+        lines.append(_all_tables_seed_line(answers, written))
     return lines
 
 
-def _all_tables_tag_report(name: str, answers: dict[str, dict[str, object]],
+def _all_tables_seed_line(answers: dict[str, dict[str, object]],
+                          written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s seed limits: each table they
+    were written into, for the partition columns it has, and each that keeps its own."""
+    into = [table for table, names in written.items()
+            if decisions.SEED in names and decisions.SEED not in answers.get(table, {})]
+    own = [table for table in written if decisions.SEED in answers.get(table, {})]
+    said = (f"all_tables: seed: written into {in_words(into) or 'no table'}, each for the "
+            "partition columns it has; a table that doesn't read itself has no seed")
+    if own:
+        said += f". {in_words(own)} {'keeps' if len(own) == 1 else 'keep'} its own"
+    return said + "."
+
+
+def _all_tables_tag_line(name: str, answers: dict[str, dict[str, object]],
                            before: dict[str, str], written: dict[str, list[str]]) -> str:
     """What write_decisions says of one tag of DECISIONS["all_tables"], by its NAME: each table
     it was written into, each that keeps its own answer, and each that holds no such tag."""
@@ -3710,7 +3726,7 @@ def _all_tables_tag_report(name: str, answers: dict[str, dict[str, object]],
             if f"tags: {name}" in written[table] and table not in own]
     missing = [table for table in written if name not in decisions.tag_names(before[table])]
     said = (f"all_tables: tags: {name}: written into {in_words(into) or 'no table'}."
-            f"{_keep_their_own(own, 'answer')}")
+            f"{_kept_their_own_text(own, 'answer')}")
     if missing:
         said += (f" {in_words(missing)} {singular_or_plural(len(missing), 'holds', 'hold')}"
                  f" no {name}, so {singular_or_plural(len(missing), 'is', 'are')} passed "
@@ -3718,7 +3734,7 @@ def _all_tables_tag_report(name: str, answers: dict[str, dict[str, object]],
     return said
 
 
-def _keep_their_own(tables: list[str], what: str) -> str:
+def _kept_their_own_text(tables: list[str], what: str) -> str:
     """" a and b keep their own location.", naming the tables that keep their own `what`, or ""
     when none does."""
     if not tables:
@@ -3727,7 +3743,7 @@ def _keep_their_own(tables: list[str], what: str) -> str:
     return f" {in_words(tables)} {keep} own {what}."
 
 
-def _location_root_report(answers: dict[str, dict[str, object]], before: dict[str, str],
+def _location_root_line(answers: dict[str, dict[str, object]], before: dict[str, str],
                           written: dict[str, list[str]]) -> str:
     """What write_decisions says of DECISIONS["all_tables"]'s location_root: each table it
     gave a location, under it, and each that keeps its own."""
@@ -3745,7 +3761,7 @@ def _location_root_report(answers: dict[str, dict[str, object]], before: dict[st
     if into:
         each = singular_or_plural(len(into), "in its", "each in its")
         said += f", {each} own folder under it"
-    return f"{said}.{_keep_their_own(own, 'location')}"
+    return f"{said}.{_kept_their_own_text(own, 'location')}"
 
 
 def _own_tags(answers: dict[str, dict[str, object]], table: str) -> dict[str, object]:
@@ -3959,7 +3975,24 @@ def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> li
                             f"as {example}, not {every[kind]!r}")
     if isinstance(every.get(tags), dict):
         problems += _tags_no_table_holds(list(every[tags]), texts)
+    if isinstance(every.get(decisions.SEED), dict):
+        problems += _seed_columns_no_table_has(list(every[decisions.SEED]), texts)
     return problems
+
+
+def _seed_columns_no_table_has(named: list[str], texts: dict[str, str]) -> list[str]:
+    """A line naming each partition column a seed limit under all_tables names that no table
+    with a seed has, `texts` holding each one's Table reference by its name."""
+    partitions: list[str] = []
+    for text in texts.values():
+        partitions += decisions.seed_partitions(text) or []
+    partitions = list(dict.fromkeys(partitions))
+    if not partitions:
+        return ["all_tables: seed: no table it answers for reads itself, so none has a seed "
+                "to limit"]
+    return [f"all_tables: seed: {column} is no partition column of any table with a seed"
+            f"{_nearest_or_all(column, partitions, 'partition columns')}"
+            for column in named if column not in partitions]
 
 
 def _tags_no_table_holds(named: list[str], texts: dict[str, str]) -> list[str]:
@@ -4718,9 +4751,9 @@ def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[st
 def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str, str],
                           promoted_before: str) -> str:
     """Write a prod copy's Table reference, `databases` the Dev and Prod Database: the dev one
-    naming prod, its location= kept from `promoted_before`, the text of the one promoted
-    before, when you filled it in, else made from the dev one. Gives what promote's report
-    says of its location=, or nothing when it was kept."""
+    naming prod, its location= and its SEED kept from `promoted_before`, the text of the one
+    promoted before, when you answered them, else made from the dev one, with SEED = {}.
+    Gives what promote's report says of its location=, or nothing when it was kept."""
     dev_db, prod_db = databases
     dev_text = REFERENCE.path(root, table_stem(dev)).read_text(encoding="utf-8")
     location, said = _prod_location(promoted_before, dev_text, dev, prod, databases)
@@ -4734,6 +4767,7 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
     # answered "seed" for it before, which is kept.
     text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
                   flags=re.MULTILINE)
+    text = decisions.with_run_value_imports_kept(text, promoted_before)
     text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
             "that one and promote it again. Its\n# location= and SEED are the lines yours to "
@@ -4745,8 +4779,10 @@ def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str,
 def _prod_seed_line(promoted_before: str) -> str:
     """A prod Table reference's SEED line: the one promote's decisions cell answered, kept
     from the reference promoted before, else SEED = {}, every Partition."""
-    found = re.search(r"^SEED = .*$", promoted_before, flags=re.MULTILINE)
-    return found.group(0) if found else decisions.SEED_START + "}"
+    kept = decisions.seed_line(promoted_before)
+    if kept is None:
+        return decisions.SEED_START + "}"
+    return kept
 
 
 def _reference_hash(text: str) -> str:

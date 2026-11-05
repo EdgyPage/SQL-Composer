@@ -154,3 +154,26 @@ def test_a_run_value_limits_a_seed(converted: Path) -> None:
     assert 'SEED = {"dt": {"from": seed_start}}' in reference
     assert to_hive(project.load(LOG_DEV).seed()).endswith("WHERE dt >= '2026-09-20'")
     sys.modules.pop("building_blocks.run_values", None)
+
+
+def test_an_empty_list_or_a_number_that_isnt_one_is_refused() -> None:
+    with pytest.raises(ValueError, match="team's limit is an empty list"):
+        seed_copy(LOG, "mart.team_log", {"team": []})
+    with pytest.raises(ValueError, match="doesn't fit its type, int"):
+        seed_copy(LOG, "mart.team_log", {"batch_no": float("nan")})
+
+
+def test_all_tables_seed_naming_no_tables_column_is_refused(converted: Path) -> None:
+    with pytest.raises(ValueError, match="all_tables: seed: region is no partition column of "
+                                         "any table with a seed"):
+        project.write_decisions({"all_tables": {"seed": {"region": ["US"]}}},
+                                tables=[LOG_DEV, DAYS_DEV])
+
+
+def test_all_tables_seed_says_which_tables_it_was_written_into(converted: Path) -> None:
+    said = repr(project.write_decisions(
+        {"all_tables": {"seed": {"dt": "2026-09-01"}},
+         DAYS_DEV: {"seed": {"dt": "2026-09-20"}}}, tables=[LOG_DEV, DAYS_DEV, FLAT_DEV]))
+    assert (f"all_tables: seed: written into {LOG_DEV}, each for the partition columns it "
+            f"has; a table that doesn't read itself has no seed. {DAYS_DEV} keeps its own."
+            in said)
