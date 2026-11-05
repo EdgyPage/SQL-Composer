@@ -103,7 +103,8 @@ from .workflows import (BATCH_LIST, BATCH_RECORD, BATCHES, CHECKLIST, COMPARED, 
                         CONVERSION, FAILED, FINISHED, PASSED, REFERENCE_SHEET)
 from .clauses import FROM, SELECT, Statement, statement
 from .comparisons import compare_hive, compare_with_original
-from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells, template_cells,
+from .notebooks import (LOGIC, logic_cell, notebook_bytes, read_cells,
+                        read_cells_if_readable, template_cells, write_cell_text,
                         write_notebook)
 from .project_files import (
     BUILDING_BLOCK,
@@ -124,7 +125,7 @@ from .project_files import (
 )
 from .project_templates import TEMPLATES
 from .python_steps import PythonStep
-from .refusals import (GuardRefused, LoadRefused, callers_frame,
+from .refusals import (GuardRefused, LoadRefused, RepeatedRowsWarning, callers_frame,
                        need_warehouse_call, refuse, refuse_removed_arguments,
                        warn_upgrade_needed)
 from .running import to_hive
@@ -2840,6 +2841,119 @@ def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQu
     return notes
 
 
+# --- Step 3 takes out the needless many_matches=True (Toolbox 8.4, ticket 10) ---------------
+# Step 1 builds each table's logic before step 3 writes the Keys, so a join on a table whose Key
+# is still open takes many_matches=True, marked. Once a Key is written, the join may need it no
+# more.
+
+_MANY_MATCHES = "many_matches"
+
+
+def _take_out_needless_many_matches(root: Path) -> list[str]:
+    """Take each many_matches=True a Conversion added, with its `# CONVERSION:` mark, out of
+    each Table folder's logic cell where its Repeated-rows Warning no longer fires, as once
+    step 3 writes the Keys, and its note out of the table's checklist.md and batch.md: a line
+    for each taken out. One whose Warning still fires stays, as do yours and every other
+    mark."""
+    lines = []
+    for stem in TABLE_FOLDER.found(root):
+        notebook = TABLE_FOLDER.path(root, stem) / f"{stem}.ipynb"
+        found = _logic_cell_of(notebook)
+        if found is None:
+            continue
+        number, logic = found
+        if not converting.marked_opt_outs(logic, _MANY_MATCHES):
+            continue
+        table = TABLE_FOLDER.name_of(stem)
+        logic, taken = _logic_without_needless_many_matches(root, table, logic)
+        if not taken:
+            continue
+        write_cell_text(notebook, number, logic)
+        # A note stays while a mark it notes is left, as when one table is joined twice.
+        left = converting.marked_opt_outs(logic, _MANY_MATCHES)
+        _take_out_notes(root, table, set(taken) - {opt_out for opt_out, _ in left})
+        lines += [f"{table}: took {opt_out} out of {table_notebook(stem)}, with its "
+                  "# CONVERSION: mark and its checklist note: with the Keys written, the join "
+                  "no longer repeats rows." for opt_out in dict.fromkeys(taken)]
+    return lines
+
+
+def _logic_cell_of(notebook: Path) -> tuple[int, str] | None:
+    """A Table notebook's logic cell: its number, counted from 1, every cell counted, and its
+    text; None when the notebook isn't there, Jupyter couldn't open it, or it has no logic
+    cell."""
+    cells = None
+    if notebook.is_file():
+        cells = read_cells_if_readable(notebook)
+    for number, (kind, text) in enumerate(cells or [], 1):
+        if kind == "code" and text.strip().splitlines()[:1] == [LOGIC]:
+            return number, text
+    return None
+
+
+def _logic_without_needless_many_matches(root: Path, table: str,
+                                         logic: str) -> tuple[str, list[str]]:
+    """A table's logic cell, each many_matches=True a Conversion added taken out, with its
+    mark, where building it without shows no Repeated-rows Warning more than with it; and
+    each taken out. Logic that doesn't build, as yours may not yet, is kept as it is."""
+    warned = _repeated_rows_warnings(root, table, logic)
+    if warned is None:
+        return logic, []
+    taken: list[str] = []
+    kept = 0
+    marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
+    while kept < len(marked):
+        opt_out, without = marked[kept]
+        if _repeated_rows_warnings(root, table, without) == warned:
+            logic = without
+            taken.append(opt_out)
+        else:
+            kept += 1  # it is still needed: the next one is tried
+        marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
+    return logic, taken
+
+
+def _repeated_rows_warnings(root: Path, table: str, logic: str) -> int | None:
+    """How many Repeated-rows Warnings building a converted table's preview() shows, the query
+    its write() saves, which builds before its location= is answered; None when it doesn't
+    build."""
+    with warnings.catch_warnings(record=True) as shown:
+        warnings.simplefilter("always")
+        try:
+            run_logic(root, logic, f"{LOGIC_OF}{table}")["preview"]()
+        # Whatever stops it building, its logic is left as it is.
+        except Exception:  # noqa: BLE001
+            return None
+    return len([each for each in shown if issubclass(each.category, RepeatedRowsWarning)])
+
+
+def _take_out_notes(root: Path, table: str, opt_outs: set[str]) -> None:
+    """Take each opt-out's note out of a converted table's checklist.md, and its line out of
+    the batch.md that lists it under the table, its batch's or a finished one's."""
+    checklist = TABLE_FOLDER.path(root, table_stem(table)) / CONVERSION / CHECKLIST
+    if checklist.is_file():
+        text = checklist.read_text(encoding="utf-8")
+        notes = [note for note in _notes_of(text)
+                 if note.split(", in the logic cell", 1)[0] not in opt_outs]
+        checklist.write_text(_checklist_text(root, table, notes, _decisions_notebook_of(text)),
+                             encoding="utf-8")
+    mark_lines = {_batch_md_mark_line(opt_out) for opt_out in opt_outs}
+    batch_lists = [*(root / BATCHES).glob(f"*/{BATCH_LIST}"),
+                   *(root / BATCHES / FINISHED).glob(f"*/{BATCH_LIST}")]
+    for batch_list in batch_lists:
+        text = batch_list.read_text(encoding="utf-8")
+        lines, entry = [], ""
+        for line in text.split("\n"):
+            if line.startswith("- "):
+                entry = line
+            # A table's entry names its copy in dev, after its original or first.
+            is_the_tables = entry.startswith(f"- {table}, ") or f": {table}, " in entry
+            if not (is_the_tables and line in mark_lines):
+                lines.append(line)
+        if "\n".join(lines) != text:
+            batch_list.write_text("\n".join(lines), encoding="utf-8")
+
+
 def _decisions_notebook(made_for: str = "") -> str:
     """The notebook whose decisions cell answers a batch's Decisions: the Workflow's that made
     it, new_table's for a table made from its query, else convert's."""
@@ -3177,13 +3291,18 @@ def _table_lines(files: _BatchFiles, table: str, ordered: list[converting.BatchS
         made_as = f"its Table reference alone, {REFERENCE.shown(REFERENCE.stem(copy))}"
     elif copy not in made:
         made_as = "not made: convert's report says why"
-    notes = [f"  - # CONVERSION: {opt_out}, a note on its checklist"
-             for opt_out in files.marks.get(copy, [])]
+    notes = [_batch_md_mark_line(opt_out) for opt_out in files.marks.get(copy, [])]
     writes = _writes_to(ordered, table)
     if writes and all(each.kind == converting.QUERY for each in writes):
         # Its query names no table to write: the name it was given is only the batch's.
         return [f"- {copy}, from its query: {made_as}", *notes]
     return [f"- {table}: {copy}, {made_as}", *notes]
+
+
+def _batch_md_mark_line(opt_out: str) -> str:
+    """batch.md's line for a `# CONVERSION:` mark, under its table's: the opt-out added, such
+    as JOIN(t, many_matches=True)."""
+    return f"  - # CONVERSION: {opt_out}, a note on its checklist"
 
 
 def _batch_report(name: str, scripts: list[tuple[str, str]],
@@ -3442,7 +3561,10 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     as yours is once you change its line, is kept, and an answer that differs from it is
     named; so is a type for a column the table has whose type the Toolbox didn't guess. A
     converted table's conversion/checklist.md, which lists its open Decisions, is written
-    again. Its Workflow's next step names each Decision still open.
+    again. Once a Key is written, each many_matches=True a Conversion added to a join, marked
+    `# CONVERSION:`, is taken out, with its mark and its checklist note, wherever the join
+    no longer repeats rows without it, and the report names each one; one still needed stays.
+    Its Workflow's next step names each Decision still open.
 
     Nothing is written if any answer matches no Decision: a table with no Table reference, a
     kind other than location, key, types and tags, a "types" or "tags" that isn't a dict, a
@@ -3456,11 +3578,13 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     _refuse_answers_not_by_table(call, answers)
     _refuse_answers_matching_nothing(call, root, answers)
     lines, files = [], []
+    keys_written = False
     for table, answer in answers.items():
         stem = table_stem(table)
         path = REFERENCE.path(root, stem)
         answered = decisions.answered_text(path.read_text(encoding="utf-8"), answer,
                                            REFERENCE.shown(stem))
+        keys_written = keys_written or decisions.ANSWERS[decisions.KEY] in answered.written
         if answered.written:
             path.write_text(answered.text, encoding="utf-8")
             files.append(f"wrote {REFERENCE.shown(stem)}")
@@ -3477,6 +3601,8 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
         lines += [f"Still open in {table}: {decision.question()}." for decision in still_open]
         if not still_open:
             lines.append(f"Each Decision of {table} is made.")
+    if keys_written:
+        lines += _take_out_needless_many_matches(root)
     _log(root, call, list(answers), files, frame)
     return ProjectReport(lines or ["Wrote no answer: the decisions cell answers no table."])
 

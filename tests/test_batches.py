@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime
 import re
 import sys
+import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -514,6 +515,86 @@ def test_batch_md_lists_each_tables_marks(started: Path) -> None:
     index = (started / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
         encoding="utf-8")
     assert "  - # CONVERSION: JOIN(j, many_matches=True), a note on its checklist" in index
+
+
+# --- Step 3 takes out the needless many_matches=True (Toolbox 8.4, ticket 10) ----------------
+
+# A join on a table the batch makes, whose Key is open until step 3 writes it: step 1 adds
+# many_matches=True, marked, as the original took that chance.
+TEAMS = """\
+CREATE TABLE ops_reports.teams AS SELECT o.job_id, o.team FROM ops.jobs o;
+CREATE TABLE ops_reports.both AS SELECT r.run_id, t.team
+FROM ops.job_runs r JOIN ops_reports.teams t ON r.job_id = t.job_id
+WHERE r.dt = '2026-09-24';
+"""
+BOTH = "mart_dev.both_ops_reports"
+MANY_MATCHES_MARK = "# CONVERSION: many_matches=True, as the original did; check it"
+
+
+def script_batch_md(root: Path) -> str:
+    return (root / "admin" / "workflows" / "convert" / "script" / "batch.md").read_text(
+        encoding="utf-8")
+
+
+def test_a_key_written_takes_out_the_many_matches_it_makes_needless(started: Path) -> None:
+    convert_script(started, TEAMS)
+    assert MANY_MATCHES_MARK in logic(started, BOTH)
+    said = repr(project.write_decisions({"mart_dev.teams_ops_reports": {"key": ["job_id"]}}))
+    assert (f"{BOTH}: took JOIN(t, many_matches=True) out of "
+            "tables/mart_dev__both_ops_reports/mart_dev__both_ops_reports.ipynb, with its "
+            "# CONVERSION: mark and its checklist note: with the Keys written, the join no "
+            "longer repeats rows.") in said
+    written = logic(started, BOTH)
+    assert "many_matches=True" not in written and "# CONVERSION:" not in written
+    assert "        JOIN(t, ON=equals(r.job_id, t.job_id)),\n" in written
+    assert "JOIN(t, many_matches=True)" not in checklist(started, BOTH)
+    assert "# CONVERSION: JOIN(t" not in script_batch_md(started)
+    # Built again, it warns of nothing.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        project.load(BOTH).preview()
+
+
+def test_a_many_matches_whose_warning_still_fires_stays(started: Path) -> None:
+    convert_script(started, TEAMS)
+    # A Key of two columns, of which the join matches one: a row can still match several.
+    said = repr(project.write_decisions({"mart_dev.teams_ops_reports":
+                                         {"key": ["job_id", "team"]}}))
+    assert "took JOIN" not in said
+    assert MANY_MATCHES_MARK in logic(started, BOTH)
+    assert "JOIN(t, many_matches=True), in the logic cell" in checklist(started, BOTH)
+    assert "# CONVERSION: JOIN(t, many_matches=True)" in script_batch_md(started)
+
+
+def test_a_join_on_a_table_with_no_key_keeps_its_many_matches(started: Path) -> None:
+    convert_script(started, TEAMS)
+    said = repr(project.write_decisions({"mart_dev.teams_ops_reports": {"key": None}}))
+    assert "took JOIN" not in said
+    assert MANY_MATCHES_MARK in logic(started, BOTH)
+
+
+def test_a_many_matches_with_no_mark_is_yours_and_stays(started: Path) -> None:
+    convert_script(started, TEAMS)
+    stem = "mart_dev__both_ops_reports"
+    notebook = started / "tables" / stem / f"{stem}.ipynb"
+    notebook.write_text(notebook.read_text(encoding="utf-8").replace(
+        f"        {MANY_MATCHES_MARK}\\n", ""), encoding="utf-8")
+    said = repr(project.write_decisions({"mart_dev.teams_ops_reports": {"key": ["job_id"]}}))
+    assert "took JOIN" not in said
+    assert "JOIN(t, ON=equals(r.job_id, t.job_id), many_matches=True)" in logic(started, BOTH)
+
+
+def test_every_other_opt_out_and_mark_stays(started: Path) -> None:
+    # No WHERE on ops.job_runs's dt: reads_all_partitions=True is added too, and marked.
+    convert_script(started, TEAMS.replace("\nWHERE r.dt = '2026-09-24'", ""))
+    project.write_decisions({"mart_dev.teams_ops_reports": {"key": ["job_id"]}})
+    written = logic(started, BOTH)
+    assert "many_matches=True" not in written
+    assert "# CONVERSION: reads_all_partitions=True, as the original did" in written
+    assert "FROM(r, reads_all_partitions=True)" in written
+    assert ("FROM(r, reads_all_partitions=True), in the logic cell"
+            in checklist(started, BOTH))
+    assert "# CONVERSION: FROM(r, reads_all_partitions=True)" in script_batch_md(started)
 
 
 # --- Many in, many out (ticket 15) -----------------------------------------------------------
