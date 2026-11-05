@@ -17067,7 +17067,7 @@ SELECT COUNT(*) AS events FROM ops.job_events AS job_events
 <h4>Goal</h4>
 <p>Carry your Project&#x27;s files, its Table references, Building blocks, Table notebooks and the rest, to a newer Toolbox you copied in, so you never redo by hand what a Project action made once. A Project is your folder of scripts at work, in the Toolbox&#x27;s fixed layout; a Project action is a one-time change to its files, such as starting it or adding a Table reference. An Upgrade is the Project action that carries the files from one Toolbox version to the next: it makes each change that needs no judgement itself, and marks each one it leaves for you at its line.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If you copied in a newer <code>sqlglot_composer</code> download, upgrade the Project: after deleting the old folder, copying in the new one and restarting the kernel, as the README&#x27;s Update says.</li><li>If the Project was made by Toolbox 7.1 or later, <code>project.upgrade()</code> carries it: from 7.1 on, every Toolbox version ships the step that carries a Project to it from the version before.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first, and read <a href="#keep_the_project_in_order">Keep the Project in order</a> for <code>project.check()</code>.</li></ul>
+<ul><li>If you copied in a newer <code>sqlglot_composer</code> download, upgrade the Project: after deleting the old folder, copying in the new one and restarting the kernel, as the README&#x27;s Update says.</li><li>If the Project was made by Toolbox 7.1 or later, <code>project.upgrade()</code> carries it: from 7.1 on, every Toolbox version ships the step that carries a Project to it from the version before.</li><li>If you skipped versions, copy in the newest and upgrade once: <code>project.upgrade()</code> runs each version&#x27;s step in turn, from the Project&#x27;s version to the Toolbox&#x27;s.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first, and read <a href="#keep_the_project_in_order">Keep the Project in order</a> for <code>project.check()</code>.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start from a Project an older Toolbox wrote</h5>
 <p>Goal: a Project to upgrade. Work in your own Project. This page makes one: a copy of the Intermediate Example project, with the files and the folder 8.0&#x27;s Upgrade adds taken out, and 7.2 recorded as the version that last wrote it, so it looks to <code>project.upgrade()</code> like a Project 7.2 left:</p>
@@ -17177,7 +17177,8 @@ print(project.check())</pre>
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
-8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.</pre>
+8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+Read each step&#x27;s report, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.</pre>
 <p class="label">It writes 36 files</p>
 <pre class="file">admin/admin_log.md
 admin/databases.py
@@ -17217,7 +17218,7 @@ admin/workflows/references/references.ipynb
 admin/workflows/upgrade/upgrade.ipynb</pre>
 <p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.3.&quot;. Then step 4.</p>
 <h5>4. Read each checklist</h5>
-<p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here four, and wrote a checklist for each:</p>
+<p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here four, and wrote a checklist for each, which its last line names in order:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 for line in checklist.splitlines():
     if line.startswith(&quot;- &quot;):

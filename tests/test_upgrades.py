@@ -6,7 +6,8 @@ admin/project_version.txt's version to the Toolbox's. A step makes the changes t
 judgement, keeping each file as it was in admin/removed/, and marks each one that needs you
 with `# UPGRADE <version>:` at its line and a box in admin/upgrade_<version>.md. Every version
 ships its step, and the Example projects as the version before left them, in
-tests/upgrade_from/, upgrade into the current ones.
+tests/upgrade_from/. From 8.3 on (Toolbox 8.4's ticket 11), the Example projects of every
+version frozen there upgrade straight into the current ones, so a Project may skip versions.
 """
 
 from __future__ import annotations
@@ -35,16 +36,22 @@ ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
 
 
-# What each Example project gained by hand in this version, which no Upgrade makes, left out of
-# the comparison: nothing in 8.3, whose Example projects' changes are all the Upgrade's, the
-# Workflow notebooks written again. Fill it in when a version's Example projects gain a file by
-# hand.
-GAINED_BY_HAND: dict[str, tuple[str, ...]] = {"intermediate": (), "starter": ()}
-# What this version's Upgrade leaves as the version before wrote it, on purpose: nothing in
-# 8.3.
-LEFT_AS_IT_WAS: tuple[str, ...] = ()
+# What each Example project gained by hand in a version, which no Upgrade makes, by the version
+# and the Example project, such as {"8.4": {"starter": ("admin/notes.md",)}}: left out of the
+# comparison of a Project upgraded from any version before it. Nothing yet: 8.3's Example
+# projects' changes are all the Upgrade's. Add a version's entry when its Example projects gain
+# a file by hand, and keep it once the version ships, since an upgrade from before it still
+# lacks the file.
+GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {}
+# What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
+# such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
+# way. Nothing yet.
+LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {}
+# The first version whose frozen Example projects are upgraded straight to this one.
+CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
 notebooks = toolbox_module("notebooks")
+in_words = toolbox_module("shared").in_words
 
 
 @pytest.fixture
@@ -107,15 +114,13 @@ def test_the_example_projects_of_the_version_before_are_kept_frozen() -> None:
             == sorted(path.name for path in (ROOT / "example_projects").iterdir()))
 
 
-def files_of(folder: Path, name: str) -> dict[str, bytes]:
-    """Each file of an Example project, by its path, leaving out the history an Upgrade keeps
-    as it was or adds to: Lineage pages, the Admin log and the Upgrade's own checklists; and
-    what the project gained by hand in this version, GAINED_BY_HAND, and what its Upgrade
-    leaves as it was, LEFT_AS_IT_WAS."""
+def files_of(folder: Path, left_out: tuple[str, ...] = ()) -> dict[str, bytes]:
+    """Each file of a Project, by its path, leaving out the history an Upgrade keeps as it was
+    or adds to: Lineage pages, the Admin log and the Upgrade's own checklists; and each path
+    starting with one of `left_out`."""
     def kept(relative: str) -> bool:
         return not ("/lineage/" in f"/{relative}" or relative == "admin/admin_log.md"
-                    or relative.startswith(("admin/upgrade_", "admin/removed/",
-                                            *GAINED_BY_HAND.get(name, ()), *LEFT_AS_IT_WAS)))
+                    or relative.startswith(("admin/upgrade_", "admin/removed/", *left_out)))
 
     return {path.relative_to(folder).as_posix(): path.read_bytes().replace(b"\r\n", b"\n")
             for path in sorted(folder.rglob("*"))
@@ -123,18 +128,59 @@ def files_of(folder: Path, name: str) -> dict[str, bytes]:
             and kept(path.relative_to(folder).as_posix())}
 
 
-@pytest.mark.parametrize(
-    "name", sorted(path.name for path in (ROOT / "example_projects").iterdir()))
-def test_the_example_projects_of_the_version_before_upgrade_into_this_ones(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, name: str) -> None:
+def left_out_since(start_from: str, name: str) -> tuple[str, ...]:
+    """What the comparison leaves out of the Example project `name` upgraded from `start_from`:
+    what it gained by hand in each later version, GAINED_BY_HAND, and what each later version's
+    Upgrade left as it was, LEFT_AS_IT_WAS."""
+    left_out: list[str] = []
+    for version in upgrades.steps_between(start_from, VERSION):
+        left_out += GAINED_BY_HAND.get(version, {}).get(name, ())
+        left_out += LEFT_AS_IT_WAS.get(version, ())
+    return tuple(left_out)
+
+
+def upgraded_to_this_one() -> list[tuple[str, str]]:
+    """Each frozen Example project upgraded straight to this version, as (its version, its
+    name): those of every version from CHAINS_START_AT on that tests/upgrade_from/ holds, and
+    those of the version before, which is 8.2 until 8.3's are frozen."""
+    versions = {previous_version()}
+    for folder in UPGRADE_FROM.iterdir():
+        if (not upgrades.is_older(folder.name, than=CHAINS_START_AT)
+                and upgrades.is_older(folder.name, than=VERSION)):
+            versions.add(folder.name)
+    names = sorted(path.name for path in (ROOT / "example_projects").iterdir())
+    pairs = []
+    for version in sorted(versions, key=upgrades.version_numbers):
+        pairs += [(version, name) for name in names]
+    return pairs
+
+
+UPGRADED_TO_THIS_ONE = upgraded_to_this_one()
+
+
+@pytest.mark.parametrize(("start_from", "name"), UPGRADED_TO_THIS_ONE,
+                         ids=[f"{version}-{name}" for version, name in UPGRADED_TO_THIS_ONE])
+def test_the_example_projects_of_each_version_since_8_3_upgrade_straight_into_this_ones(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None, start_from: str,
+        name: str) -> None:
+    """A Project may skip versions: one any version from 8.3 on wrote upgrades straight to this
+    one, each step in turn. So an Upgrade step may not assume the Project was written by the
+    version just before it, only that each earlier step ran: it reads the files as the steps
+    before it left them, never as one version's start() wrote them."""
     copy = tmp_path / name
-    shutil.copytree(UPGRADE_FROM / previous_version() / name, copy)
+    shutil.copytree(UPGRADE_FROM / start_from / name, copy)
     monkeypatch.chdir(copy)
-    project.upgrade()
-    upgraded, current = files_of(copy, name), files_of(ROOT / "example_projects" / name, name)
+    said = repr(project.upgrade()).splitlines()
+    left_out = left_out_since(start_from, name)
+    upgraded = files_of(copy, left_out)
+    current = files_of(ROOT / "example_projects" / name, left_out)
     assert sorted(upgraded) == sorted(current)
     assert [path for path in upgraded if upgraded[path] != current[path]] == []
-    assert (copy / "admin" / f"upgrade_{VERSION}.md").is_file()
+    steps = upgrades.steps_between(start_from, VERSION)
+    assert [line.split(":")[0] for line in said[1:-1]] == steps
+    reports = [f"admin/upgrade_{version}.md" for version in steps]
+    assert [report for report in reports if not (copy / report).is_file()] == []
+    assert said[-1].endswith(f"{in_words(reports)}.")
 
 
 # --- An upgrade from 7.1 ----------------------------------------------------------------------
@@ -150,6 +196,9 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[3].startswith("8.1: ")
     assert said[4].startswith("8.2: ")
     assert said[5].startswith(f"{VERSION}: ")
+    assert said[6] == ("Read each step's report, in order: admin/upgrade_7.2.md, "
+                       "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md and "
+                       f"admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -170,9 +219,9 @@ def test_an_upgrade_is_logged_as_a_project_action(started: Path) -> None:
 def test_an_upgrade_run_again_does_nothing(started: Path) -> None:
     made_by_7_1(started)
     project.upgrade()
-    before = files_of(started, "")
+    before = files_of(started)
     assert "nothing to upgrade" in repr(project.upgrade())
-    assert files_of(started, "") == before
+    assert files_of(started) == before
 
 
 # --- What an Upgrade refuses ------------------------------------------------------------------
@@ -205,13 +254,42 @@ def test_each_step_is_logged_and_recorded_as_it_runs(started: Path,
     assert repr(project.upgrade()).splitlines() == [
         "Upgraded the Project from 7.2 to 7.4.",
         "7.3: nothing to change by hand. admin/upgrade_7.3.md lists what it did.",
-        "7.4: nothing to change by hand. admin/upgrade_7.4.md lists what it did."]
+        "7.4: nothing to change by hand. admin/upgrade_7.4.md lists what it did.",
+        "Read each step's report, in order: admin/upgrade_7.3.md and admin/upgrade_7.4.md."]
     log = (started / "admin" / "admin_log.md").read_text(encoding="utf-8")
     assert log.count("- Call: `project.upgrade()`") == 2
     assert "wrote admin/project_version.txt: 7.3" in log
     assert upgrades.project_version(started) == "7.4"
     assert "from 7.3 to 7.4" in (started / "admin" / "upgrade_7.4.md").read_text(
         encoding="utf-8")
+
+
+def test_each_step_keeps_its_own_report_and_archive(started: Path,
+                                                   monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two steps, 7.3 then 7.4, each rewriting warehouse.py: each keeps it as it found it."""
+    monkeypatch.setattr(sqlglot_composer, "TOOLBOX_VERSION", "7.4")
+    monkeypatch.setattr(upgrades, "STEPS", {
+        "7.3": lambda step: step.rewrite("warehouse.py", "# 7.3\n"),
+        "7.4": lambda step: step.rewrite("warehouse.py", "# 7.4\n")})
+    upgrades.write_project_version(started, "7.2")
+    project.upgrade()
+    removed = started / "admin" / "removed"
+    assert (removed / "20261026-093000-upgrade_7.3" / "warehouse.py").read_text(
+        encoding="utf-8").startswith('"""warehouse')
+    assert (removed / "20261026-093000-upgrade_7.4" / "warehouse.py").read_text(
+        encoding="utf-8") == "# 7.3\n"
+    admin = started / "admin"
+    assert "from 7.2 to 7.3" in (admin / "upgrade_7.3.md").read_text(encoding="utf-8")
+    assert "from 7.3 to 7.4" in (admin / "upgrade_7.4.md").read_text(encoding="utf-8")
+
+
+def test_an_upgrade_of_one_step_names_its_report_last(started: Path,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sqlglot_composer, "TOOLBOX_VERSION", "7.3")
+    monkeypatch.setattr(upgrades, "STEPS", {"7.3": lambda step: None})
+    upgrades.write_project_version(started, "7.2")
+    assert repr(project.upgrade()).splitlines()[-1] == (
+        "Read the step's report: admin/upgrade_7.3.md.")
 
 
 def test_a_project_a_newer_toolbox_wrote_is_refused(started: Path) -> None:
