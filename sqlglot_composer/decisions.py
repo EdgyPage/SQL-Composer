@@ -34,6 +34,7 @@ table's own.
 from __future__ import annotations
 
 import ast
+import datetime
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
@@ -217,23 +218,86 @@ def _tag_answer_shown(line: str) -> str:
 
 
 def _with_run_value_imports(text: str, answer: dict[str, object]) -> str:
-    """A Table reference's text with an import above TAGS for each Run value's function its
-    TAGS names, and none for one it no longer names."""
-    tags = answer.get(ANSWERS[TAG])
-    functions = []
-    if isinstance(tags, dict):
-        functions = [value for value in tags.values() if callable(value)]
+    """A Table reference's text with an import above TAGS, or above SEED, for each Run value's
+    function its TAGS or SEED names, and none for one they no longer name."""
+    functions = [*_functions_in(answer.get(ANSWERS[TAG])), *_functions_in(answer.get(SEED))]
     lines = text.split("\n")
     named = {_tag_value_text(line) for line in lines if kind_of(line) == TAG}
+    seed_line = _seed_line_number(lines)
+    if seed_line is not None:
+        named |= set(re.findall(r"\w+", lines[seed_line]))
     lines = [line for line in lines if not _is_unused_run_value_import(line, named)]
     for function in functions:
         imported = run_value_import(function)
-        if imported not in lines and TAGS_START in lines:
-            at = lines.index(TAGS_START)
+        starts = [number for number, line in enumerate(lines)
+                  if line.startswith((TAGS_START, SEED_START.removesuffix("{")))]
+        if imported not in lines and starts:
+            at = starts[0]
             while at > 0 and lines[at - 1].startswith("#"):  # above TAGS' own comment
                 at -= 1
             lines.insert(at, imported)
     return "\n".join(lines)
+
+
+def _functions_in(value: object) -> list[Callable[..., object]]:
+    """Each function an answer holds, however deep in its dicts and lists."""
+    if callable(value):
+        return [value]
+    parts: list[object] = []
+    if isinstance(value, dict):
+        parts = list(value.values())
+    elif isinstance(value, (list, tuple)):
+        parts = list(value)
+    functions = []
+    for part in parts:
+        functions += _functions_in(part)
+    return functions
+
+
+def _seed_line_number(lines: list[str]) -> int | None:
+    """Where a Table reference's SEED line is among its lines, or None when it has none."""
+    for number, line in enumerate(lines):
+        if line.startswith(SEED_START.removesuffix("{")):
+            return number
+    return None
+
+
+def _with_seed_written(text: str, answer: dict[str, object]) -> tuple[str, bool]:
+    """A Table reference's text with its SEED line holding the answer's seed limits, and
+    whether it was written: a table that doesn't read itself has no SEED line."""
+    limits = answer.get(SEED)
+    lines = text.split("\n")
+    at = _seed_line_number(lines)
+    if not isinstance(limits, dict) or at is None:
+        return text, False
+    lines[at] = SEED_START.removesuffix("{") + seed_python(limits)
+    return "\n".join(lines), True
+
+
+def seed_python(value: object) -> str:
+    """Seed limits as a Table reference writes them: text and dates in quotes, numbers as they
+    are, and a Run value's function by its name, which an import above SEED brings in."""
+    if callable(value):
+        return value.__qualname__
+    if isinstance(value, dict):
+        return "{" + ", ".join(f"{escaped_literal(str(key))}: {seed_python(each)}"
+                               for key, each in value.items()) + "}"
+    if isinstance(value, (list, tuple)):
+        return "[" + ", ".join(seed_python(each) for each in value) + "]"
+    if isinstance(value, datetime.date):
+        return escaped_literal(value.isoformat())
+    if isinstance(value, str):
+        return escaped_literal(value)
+    return repr(value)
+
+
+def seed_partitions(text: str) -> list[str] | None:
+    """The partition columns a Table reference's text names, for its seed limits; None when
+    it has no SEED, as a table that doesn't read itself has none."""
+    if not any(line.startswith(SEED_START.removesuffix("{")) for line in text.split("\n")):
+        return None
+    found = re.search(r"partitioned_by=\[([^\]]*)\]", text)
+    return re.findall(r'"([^"]+)"', found.group(1)) if found else []
 
 
 def _is_unused_run_value_import(line: str, named: set[str]) -> bool:
@@ -392,7 +456,7 @@ def still_to_fill_in(what: str) -> str:
     """What a report says of an answer left <FILL IN>, as check() printed it: `what`, such as
     "its answer", is still to write."""
     return (f"is still {FILL_IN}: write {what} in the decisions cell in its place, then run "
-            "project.write_decisions(DECISIONS) again")
+            "the step's cell that writes the answers again")
 
 
 def is_left_to_fill_in(value: object) -> bool:
@@ -481,7 +545,10 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
                                     f"{_tag_answer_shown(line)}")
         lines[number] = written
         answered.written.append(name)
-    answered.text = _with_run_value_imports("\n".join(lines), answer)
+    seeded, wrote_seed = _with_seed_written("\n".join(lines), answer)
+    if wrote_seed:
+        answered.written.append(SEED)
+    answered.text = _with_run_value_imports(seeded, answer)
     answered.unwritten += _unwritten(answer, answered.written, reference)
     answered.unwritten += _tags_unwritten(answer, text)
     return answered

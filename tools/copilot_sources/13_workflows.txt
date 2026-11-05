@@ -60,7 +60,7 @@ inside it.
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
   its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
   ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END": "'2026-10-31'"}}}`;
-  `project.write_decisions(DECISIONS)` writes each into its table's Table reference.
+  the next step writes each into its table's Table reference.
 - `project.check()`, and convert's step 1, print a whole DECISIONS to paste, each answer
   still to give `"<FILL IN>"`, which is no answer until filled in.
 - A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a

@@ -60,6 +60,22 @@ Being built: what each ticket changes is listed here as it lands.
   Key, each marked one whose Repeated-rows Warning no longer fires is taken out, with its mark,
   its checklist note and its batch.md line, and the report names each. One you wrote yourself,
   with no mark, stays; a join on a table with no Key still only warns.
+- **Decisions for every table**: `DECISIONS["all_tables"]` answers `location_root`, `tags` and
+  `seed` for every table a Workflow's notebook names, each table's own answer over it, kind by
+  kind and tag by tag. `location_root` gives each table with no location of its own
+  `<root>/<db>.db/<table>`. `project.write_decisions` takes the notebook's tables with
+  `tables=`, as each Workflow's step cell now gives them, and `project.check()` offers
+  `all_tables` for each Decision several tables share. A Key or a type stays each table's own.
+- **The seed's limits**: a converted table that reads itself has `SEED` in its Table
+  reference, and its `seed()` is `seed_copy(table, original, SEED)`. Answer `"seed"` in the
+  decisions cell, per table or under `all_tables`, to copy only the Partitions you need: by
+  partition column, a value, that value or later; `{"from": ..., "to": ...}`; or a list, those
+  values alone, as `{"dt": {"from": "2026-01-01"}, "region": ["US", "CA"]}`. Any value may be
+  a Run value's function. An `all_tables` limit applies to the tables with that column; a
+  column that isn't a partition column is refused. With no limit, every Partition is copied,
+  as before. A prod copy's seed is promote's own answer, every Partition until you give one.
+  A table converted before 8.4 keeps its seed() copying everything: convert it again to limit
+  it.
 
 ## 8.3
 

@@ -174,7 +174,7 @@ class ConvertedQuery:
                       f"    return {_indented(self.query, 4)}"]
         if not self.tag_is_quoted:
             return "\n".join(lines) + "\n"
-        lines = _with_tags_read("\n".join(lines)).split("\n")
+        lines = _with_tags_read("\n".join(lines), self.tag_is_quoted).split("\n")
         at = _after_imports(lines)
         lines[at:at] = ["", *tags_block(self.tag_is_quoted)]
         return "\n".join(lines) + "\n"
@@ -208,7 +208,7 @@ def tags_block(tag_is_quoted: dict[str, bool],
     return [*lines, "}"]
 
 
-def _with_tags_read(source: str) -> str:
+def _with_tags_read(source: str, tag_is_quoted: dict[str, bool]) -> str:
     """Python source with each string that holds a Script tag made to read TAGS in the tag's
     place: '<PARM="X"/>' becomes tag_text(TAGS["X"]), and 'a <PARM="X"/> b' becomes
     "a " + tag_text(TAGS["X"]) + " b", tag_text calling a Run value's function each time.
@@ -226,7 +226,7 @@ def _with_tags_read(source: str) -> str:
             continue
         begin = starts[token.start[0] - 1] + token.start[1]
         end = starts[token.end[0] - 1] + token.end[1]
-        swaps.append((begin, end, _tags_read(value)))
+        swaps.append((begin, end, _tags_read(value, tag_is_quoted)))
     for begin, end, written in reversed(swaps):
         source = source[:begin] + written + source[end:]
     if swaps and TAG_TEXT_IMPORT not in source:
@@ -241,15 +241,27 @@ def _with_tags_read(source: str) -> str:
 TAG_TEXT_IMPORT = "from sqlglot_composer import tag_text  # for each Script tag in a string"
 
 
-def _tags_read(value: str) -> str:
-    """A string holding Script tags, as Python that reads each tag's place from TAGS."""
+def _tags_read(value: str, tag_is_quoted: dict[str, bool]) -> str:
+    """A string holding Script tags, as Python that reads each tag's place from TAGS: a tag
+    inside quotes as its text, and a bare one, in Hive kept whole, as Hive, its value's own
+    quotes and all, as `tag_is_quoted` says of each."""
     parts = []
     for piece, name in tag_pieces(value):
-        if name is not None:
+        if name is not None and not tag_is_quoted.get(name, True):
+            parts.append(f"tag_text(TAGS[{python_literal(name)}], quoted=False)")
+        elif name is not None:
             parts.append(f"tag_text(TAGS[{python_literal(name)}])")
         else:
             parts.append(python_literal(piece))
     return " + ".join(parts)
+
+
+def _tags_quoted(lines: list[str]) -> dict[str, bool]:
+    """Whether each Script tag of TAGS' lines, as tags_block writes them, stands inside
+    quotes, by its NAME, as each line's comment says."""
+    found = (re.match(r'^    "((?:[^"\\]|\\.)*)": .*?#\s*(bare|inside quotes)', line)
+             for line in lines)
+    return {match.group(1): match.group(2) == "inside quotes" for match in found if match}
 
 
 def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
@@ -264,11 +276,13 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
     stem = saved_table.replace(".", "__", 1)
     lines = logic.rstrip("\n").split("\n")
     own = f"from references.{stem} import {short}  # the Saved table's own Table reference"
+    tag_is_quoted: dict[str, bool] = {}
     if TAGS_COMMENT in lines:
         # TAGS moves into the Table reference, where the decisions cell's answers are written:
         # its lines go, from the blank line logic() puts above its comment to its closing }.
         blank_above = lines.index(TAGS_COMMENT) - 1
         closing = lines.index("}", blank_above)
+        tag_is_quoted = _tags_quoted(lines[blank_above:closing])
         del lines[blank_above:closing + 1]
         own = (f"from references.{stem} import {short}, TAGS  "
                "# its Table reference, and its Script tags")
@@ -302,7 +316,7 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         f"def write() -> {returns[0]}:",
         f'    """{docstring}"""',
         *body,
-    ])) + "\n"
+    ]), tag_is_quoted) + "\n"
 
 
 def _write_body(logic: str, short: str, write: str | None, static_partition: dict[str, str],

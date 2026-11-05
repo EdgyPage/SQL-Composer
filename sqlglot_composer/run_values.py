@@ -205,19 +205,23 @@ def _tag_value(given: object, call: str, function: str) -> Node:
     )
 
 
-def tag_text(value: str | Callable[[], object]) -> str:
-    """The text a Script tag inside quotes stands for, as its place in a string.
+def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
+    """The text a Script tag stands for, as its place in a string.
 
-    >>> TAGS = {"RUN_MONTH": "2026-09"}
+    >>> TAGS = {"RUN_MONTH": "2026-09", "PERIOD_END": "'2026-09-24'"}
     >>> "month " + tag_text(TAGS["RUN_MONTH"])
     'month 2026-09'
+    >>> "dt <= " + tag_text(TAGS["PERIOD_END"], quoted=False)
+    "dt <= '2026-09-24'"
 
-    A Conversion writes it where a tag inside quotes stood: tag_text(TAGS["RUN_MONTH"]).
-    TAGS, in the table's Table reference, holds what each tag stands for: for a tag inside
-    quotes, the text with no quotes of its own, or a Run value's function, which tag_text calls
-    each time the Statement is built. A date it gives is written as 2026-10-31, a number as it
-    is, and text as it is. A function that fails is refused, naming it. What it gives is text
-    inside a string, so the Statement's lineage, which traces each value, doesn't draw it.
+    A Conversion writes it where a tag stood in text it keeps: tag_text(TAGS["RUN_MONTH"]) for
+    one inside quotes, as above, and tag_text(TAGS["PERIOD_END"], quoted=False) for a bare one
+    in Hive kept whole, which stands for Hive, its value's own quotes and all. TAGS, in the
+    table's Table reference, holds what each tag stands for: text, or a Run value's function,
+    which tag_text calls each time the Statement is built. A date it gives is written as
+    2026-10-31 inside quotes and as '2026-10-31' bare, a number as it is, and text as it is. A
+    function that fails is refused, naming it. What it gives is text inside a string, so the
+    Statement's lineage, which traces each value, doesn't draw it.
     """
     if not callable(value):
         return value
@@ -232,7 +236,12 @@ def tag_text(value: str | Callable[[], object]) -> str:
             error=ValueError,
         )
     if isinstance(given, datetime.date):
-        return hive_date(given)[1:-1]
+        return hive_date(given)[1:-1] if quoted else hive_date(given)
+    if isinstance(given, bool) and not quoted:
+        return "TRUE" if given else "FALSE"
+    if isinstance(given, str) and not quoted:
+        check_tag_value(call, given)
+        return given
     if isinstance(given, (int, float, str)) and not isinstance(given, bool):
         return str(given)
     refuse(

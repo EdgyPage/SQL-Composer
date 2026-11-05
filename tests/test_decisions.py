@@ -155,7 +155,7 @@ def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path)
     ({"OPS.JOB_RUN": {"key": None}}, "; did you mean ops.job_runs?"),
     ({"ops.job_runs": {"keys": ["run_id"]}},
      "ops.job_runs: 'keys' is no kind of answer; the decisions cell answers location, key, "
-     "types and tags; did you mean key?"),
+     "types, tags and seed; did you mean key?"),
     ({"ops.job_runs": {"tag": {"X": "1"}}}, "; did you mean tags?"),
     ({"ops.job_runs": {"types": {"run_idd": "bigint"}}},
      "ops.job_runs: types: run_idd is no column of ops.job_runs; did you mean run_id?"),
@@ -307,7 +307,8 @@ def test_the_open_decisions_print_as_decisions_to_paste() -> None:
     assert pasted["mart_dev.x"]["tags"] == {"PERIOD_END": "<FILL IN>", "team_2": "<FILL IN>"}
 
 
-THEN = "in the decisions cell in its place, then run project.write_decisions(DECISIONS) again"
+THEN = ("in the decisions cell in its place, then run the step's cell that writes the answers "
+        "again")
 
 
 def test_a_fill_in_pasted_and_left_is_no_answer() -> None:
