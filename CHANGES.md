@@ -54,6 +54,12 @@ Being built: what each ticket changes is listed here as it lands.
   version's step in turn, as before, and now ends by naming each step's
   `admin/upgrade_<version>.md`, in order. A test upgrades the Example projects of every
   version from 8.3 on straight to the newest, so you can skip versions.
+- **Step 3 takes out the needless `many_matches=True`**: a Conversion builds each table
+  before its Keys are answered, so it marks each join that might repeat rows with
+  `many_matches=True` and a `# CONVERSION:` mark. Once `project.write_decisions` writes a
+  Key, each marked one whose Repeated-rows Warning no longer fires is taken out, with its mark,
+  its checklist note and its batch.md line, and the report names each. One you wrote yourself,
+  with no mark, stays; a join on a table with no Key still only warns.
 
 ## 8.3
 
