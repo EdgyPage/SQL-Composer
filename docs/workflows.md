@@ -33,7 +33,7 @@ flowchart TD
     s0[["1. Convert the scripts: each table they write a Saved table in dev: project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)"]]:::warehouse_call
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
-    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))"]:::files_only
     s3[["4. Create each table in dev: for table in project.batch_tables(NAME):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
     s4[["5. Seed each table that reads itself, once, from its original: to_seed = project.batch_tables(NAME, seeded=True)
@@ -91,7 +91,7 @@ Ends with: prod Table folders, each written in prod, each in the Reference sheet
 flowchart TD
     s0["1. Promote each table: a prod copy of its folder and Table reference: project.promote(TABLES)"]:::files_only
     s1{"2. Answer each prod table's open Decisions in the decisions cell"}:::your_decision
-    s2["3. Write each answer into its prod table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s2["3. Write each answer into its prod table's Table reference: project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))"]:::files_only
     s3[["4. Create each table in prod: for table in project.promoted_tables(TABLES):
     run_execute(project.load(table).create(), execute)"]]:::warehouse_call
     s4[["5. Seed each prod table that reads itself, once, from its original: to_seed = project.promoted_tables(TABLES, seeded=True)
@@ -150,7 +150,7 @@ flowchart TD
     project.load(table).preview()  #35; says what stops it, if anything does"}:::your_decision
     s2["3. Write each Table reference from its logic: project.reference_from_logic(TABLES)"]:::files_only
     s3{"4. Answer each table's open Decisions in the decisions cell"}:::your_decision
-    s4["5. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s4["5. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=TABLES)"]:::files_only
     s5[["6. Check each table's rows with preview(), which writes nothing: for table in TABLES:
     print(run_query(project.load(table).preview(), query))"]]:::warehouse_call
     s6[["7. Create and write each in dev: for table in TABLES:
@@ -204,7 +204,7 @@ Ends with: filled-in Table references, the Reference sheet, the Database modules
 flowchart TD
     s0[["1. Write the Table references from DESCRIBE: project.add_references(TABLES, query=query)"]]:::warehouse_call
     s1{"2. Answer each table's open Decisions in the decisions cell"}:::your_decision
-    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS)"]:::files_only
+    s2["3. Write each answer into its table's Table reference: project.write_decisions(DECISIONS, tables=TABLES)"]:::files_only
     s3["4. Refresh the Reference sheet and the Database modules: project.refresh_reference_sheet(TABLES)"]:::files_only
     t0("table names your query can DESCRIBE"):::thing
     t1("Table references with TODO lines"):::thing

@@ -22,15 +22,22 @@ waits on nothing. You answer each in the decisions cell of a Workflow's notebook
 and `answered_text` gives the Table reference with each answer written into the line it
 answers. It never writes over any other line that is made already, as yours is once you
 change it: the answer is kept unwritten, to name.
+
+`DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
+"seed", the limits of the seed's copy; "location_root", the folder each table's own goes
+under, as <root>/<db>.db/<table>, for a table whose location is still open; and "tags", each
+for the tables that hold it. `table_answer` gives one table's answer: all_tables' first, then
+the table's own over it, kind by kind and, for tags, tag by tag. A Key and a type are each
+table's own.
 """
 
 from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
-from .shared import escaped_literal
+from .shared import escaped_literal, split_table_name
 from .writing import tag_value_problem
 
 LOCATION = "location"
@@ -49,6 +56,13 @@ DECISIONS_NAME = "DECISIONS"
 # hand.
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
 ANSWERED_KINDS = tuple(ANSWERS)
+# The decisions cell's answer for every table its Workflow's notebook names, beside each
+# table's own (Toolbox 8.4), and the kinds it answers, each by its name there: the limits of
+# the seed's copy, the folder each table's own goes under, and Script tags.
+ALL_TABLES = "all_tables"
+SEED = "seed"
+LOCATION_ROOT = "location_root"
+ALL_TABLES_ANSWERS = (SEED, LOCATION_ROOT, ANSWERS[TAG])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -267,6 +281,12 @@ def tag_answer_problem(value: object, quoted: bool) -> str | None:
         return "is given empty text: give the Hive the program put where the tag stood"
     if not quoted:
         return _bare_answer_problem(value)
+    return _quoted_answer_problem(value)
+
+
+def _quoted_answer_problem(value: str) -> str | None:
+    """Why a quoted tag's answer, text not empty, can't stand where the tag stood, or None when
+    it can: it has no quotes of its own."""
     if len(value) > 1 and value.startswith("'") and value.endswith("'"):
         return (f"stands inside quotes already, so its answer has none: answer "
                 f"{escaped_literal(value[1:-1])}")
@@ -366,6 +386,52 @@ def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
                 and not is_left_to_fill_in(answers[decision.subject]))
     return (decision.kind in ANSWERS and ANSWERS[decision.kind] in answer
             and not is_left_to_fill_in(answer[ANSWERS[decision.kind]]))
+
+
+def table_answer(answers: dict[str, object], table: str, text: str) -> dict[str, object]:
+    """One table's answer in a decisions cell, `answers`, its Table reference's text being
+    `text`: what "all_tables" answers for it first, then the table's own answer over that, kind
+    by kind and, for tags, tag by tag."""
+    own = answers.get(table)
+    if not isinstance(own, dict):
+        own = {}
+    every = answers.get(ALL_TABLES)
+    if not isinstance(every, dict):
+        return dict(own)
+    answer = all_tables_answer(every, table, text)
+    for kind, value in own.items():
+        if kind == ANSWERS[TAG] and isinstance(value, dict) and kind in answer:
+            answer[kind] = {**answer[kind], **value}
+        else:
+            answer[kind] = value
+    return answer
+
+
+def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
+    """What "all_tables", `every`, answers for one table, its Table reference's text being
+    `text`: its seed limits as they are, for the seed to read; its location under
+    "location_root" while its location= is still open; and each tag of "tags" the table holds.
+    An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
+    answer: dict[str, object] = {}
+    if SEED in every:
+        answer[SEED] = every[SEED]
+    root = every.get(LOCATION_ROOT)
+    if (isinstance(root, str) and not is_left_to_fill_in(root)
+            and open_decisions(text, table, (LOCATION,))):
+        answer[ANSWERS[LOCATION]] = location_under(root, table)
+    tags = every.get(ANSWERS[TAG])
+    if isinstance(tags, dict):
+        held = tag_names(text)
+        answer[ANSWERS[TAG]] = {name: value for name, value in tags.items()
+                                if name in held and not is_left_to_fill_in(value)}
+    return answer
+
+
+def location_under(root: str, table: str) -> str:
+    """A table's own folder under a location_root, <root>/<db>.db/<table>: "/data/team" gives
+    mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
+    database, short = split_table_name(table)
+    return f"{root.rstrip('/')}/{database}.db/{short}"
 
 
 def answered_text(text: str, answer: dict[str, object], reference: str) -> Answered:
@@ -475,12 +541,17 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
 def paste_lines(still_open: list[Decision]) -> list[str]:
     """The lines of a whole DECISIONS = {...} to paste into a decisions cell: each Decision of
     `still_open` the cell answers, by its table, each value still to give <FILL IN>, a guessed
-    type's proposal "string", and a comment beside each saying what to write."""
+    type's proposal "string", and a comment beside each saying what to write. A Decision more
+    than one table holds is offered once, under "all_tables": a location as location_root, and
+    a tag by its NAME, where it stands bare in each or inside quotes in each."""
+    answered = [decision for decision in still_open if decision.kind in ANSWERS]
+    shared = _shared_decisions(answered)
+    shared_kinds = [_shared_kind(decision) for decision in shared]
     by_table: dict[str, list[Decision]] = {}
-    for decision in still_open:
-        if decision.kind in ANSWERS:
+    for decision in answered:
+        if _shared_kind(decision) not in shared_kinds:
             by_table.setdefault(decision.table, []).append(decision)
-    lines = [f"{DECISIONS_NAME} = {{"]
+    lines = [f"{DECISIONS_NAME} = {{", *_all_tables_lines(shared)]
     for table, decided in by_table.items():
         lines.append(f"    {escaped_literal(table)}: {{")
         kinds = {decision.kind for decision in decided}
@@ -495,6 +566,52 @@ def paste_lines(still_open: list[Decision]) -> list[str]:
         lines += _tags_lines([each for each in decided if each.kind == TAG])
         lines.append("    },")
     return [*lines, "}"]
+
+
+def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
+    """What a Decision answered for several tables at once has in common: a location, or a
+    tag by its NAME and whether it stands inside quotes; None for a Key or a type, which each
+    table answers itself."""
+    if decision.kind == LOCATION:
+        return (LOCATION, "", False)
+    if decision.kind == TAG:
+        return (TAG, decision.subject, decision.quoted)
+    return None
+
+
+def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
+    """The first of each Decision of `still_open` that more than one table holds, which
+    paste_lines offers under "all_tables"."""
+    tables_of: dict[tuple[str, str, bool], list[Decision]] = {}
+    for decision in still_open:
+        kind = _shared_kind(decision)
+        if kind is not None:
+            tables_of.setdefault(kind, []).append(decision)
+    shared = []
+    for found in tables_of.values():
+        tables = {decision.table for decision in found}
+        if len(tables) > 1:
+            shared.append(found[0])
+    return shared
+
+
+def _all_tables_lines(shared: list[Decision]) -> list[str]:
+    """The lines of "all_tables" in DECISIONS to paste: its location_root, when the location
+    is shared, and each shared tag's <FILL IN>, with how its answer is written."""
+    if not shared:
+        return []
+    lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
+             "own answer, under its name, overrides it"]
+    for decision in shared:
+        if decision.kind == LOCATION:
+            example = location_under("/data/your_team", decision.table)
+            lines.append(f'        "{LOCATION_ROOT}": "{FILL_IN}",  # the folder each '
+                         f"table's own goes under, such as \"/data/your_team\", which gives "
+                         f'{decision.table} "{example}"')
+    # Where a shared tag stands differs from table to table, so its hint names no place.
+    lines += _tags_lines([replace(decision, where="") for decision in shared
+                          if decision.kind == TAG])
+    return [*lines, "    },"]
 
 
 def _types_lines(guessed: list[Decision]) -> list[str]:
