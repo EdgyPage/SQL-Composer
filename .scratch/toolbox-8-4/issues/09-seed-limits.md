@@ -67,3 +67,17 @@ Built 2026-11-05.
   with no Partitions; in a Project, SEED written for a table that reads itself and not for one
   that doesn't, a table's own answer, all_tables applying by column, the refusals, and a Run
   value with its import.
+
+## Review
+
+Code review, with 08 (08's Review lists the fixes they share):
+
+- **Fixed:** promoting again a prod copy whose SEED names a Run value kept the SEED line but
+  not its import, so its Table reference failed; `decisions.with_run_value_imports_kept`
+  carries the import with it, and drops the dev copy's that no prod line names. An empty list,
+  which Hive refuses as `IN ()`, and a number that isn't one, NaN or infinity, are refused.
+  `SEED_NOTE` is plain sentences, and says a table with no Partitions copies every row. One
+  way finds SEED's line (`decisions.seed_line`). `tag_text`'s date is an `if`.
+- **Answered:** a partition column whose type the Table reference doesn't give is written as
+  text, in quotes, as Hive compares a partition's value; Run values are called each time
+  seed() is built, so the WHERE the seed step sends is the one its line prints.

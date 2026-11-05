@@ -237,8 +237,10 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
             fix=f"Fix {traced.function}, or what it reads, and build the Statement again.",
             error=ValueError,
         )
+    if isinstance(given, datetime.date) and not quoted:
+        return hive_date(given)
     if isinstance(given, datetime.date):
-        return hive_date(given)[1:-1] if quoted else hive_date(given)
+        return hive_date(given).strip("'")
     if isinstance(given, bool) and not quoted:
         return "TRUE" if given else "FALSE"
     if isinstance(given, str) and not quoted:

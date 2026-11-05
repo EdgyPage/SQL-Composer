@@ -254,6 +254,25 @@ def _functions_in(value: object) -> list[Callable[..., object]]:
     return functions
 
 
+def seed_line(text: str) -> str | None:
+    """A Table reference's SEED line, or None when it has none."""
+    lines = text.split("\n")
+    number = _seed_line_number(lines)
+    return None if number is None else lines[number]
+
+
+def with_run_value_imports_kept(text: str, kept_from: str) -> str:
+    """A prod copy's Table reference text with each Run value's import of `kept_from`, the one
+    promoted before, whose function its TAGS or SEED names, and none it no longer names."""
+    lines = text.split("\n")
+    imported = [line for line in kept_from.split("\n") if line.endswith(RUN_VALUE_MARK)]
+    starts = [number for number, line in enumerate(lines)
+              if line.startswith((TAGS_START, SEED_START.removesuffix("{")))]
+    if starts:
+        lines[starts[0]:starts[0]] = [line for line in imported if line not in lines]
+    return _with_run_value_imports("\n".join(lines), {})
+
+
 def _seed_line_number(lines: list[str]) -> int | None:
     """Where a Table reference's SEED line is among its lines, or None when it has none."""
     for number, line in enumerate(lines):

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import datetime
+import math
 import os
 import re
 import string
@@ -465,6 +466,15 @@ def _seed_conditions(call: str, column: str, hive_type: str | None,
             found.append(f"{column} <= {_seed_value(call, column, hive_type, limit['to'])}")
         return found
     if isinstance(limit, (list, tuple)):
+        if not limit:
+            refuse(
+                what=f"{call}: {column}'s limit is an empty list.",
+                why="A list limits the seed to those values alone, so an empty one would copy "
+                "nothing, and Hive refuses IN ().",
+                fix=f"Name the values to copy, such as {{{column!r}: [\"US\", \"CA\"]}}, or "
+                "take the limit out to copy every one.",
+                error=ValueError,
+            )
         values = ", ".join(_seed_value(call, column, hive_type, each) for each in limit)
         return [f"{column} IN ({values})"]
     return [f"{column} >= {_seed_value(call, column, hive_type, limit)}"]
@@ -479,7 +489,9 @@ def _seed_value(call: str, column: str, hive_type: str | None, value: object) ->
     if family == "number":
         if isinstance(value, str) and re.fullmatch(r"-?\d+(\.\d+)?", value.strip()):
             return value.strip()
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if isinstance(value, int) and not isinstance(value, bool):
+            return repr(value)
+        if isinstance(value, float) and math.isfinite(value):
             return repr(value)
     elif isinstance(value, datetime.date):
         return hive_text(literal(value.isoformat(), call=call))

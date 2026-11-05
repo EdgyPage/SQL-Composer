@@ -77,3 +77,17 @@ Built 2026-11-05.
   (`warn_run_value_failed`), its mark kept in a name before the Node takes it;
   `is_script_tag`, used nowhere, is gone; `tag_answer_problem` hands a quoted answer to
   `_quoted_answer_problem` (ruff's PLR0911); and three long lines are wrapped.
+
+## Review
+
+Code review (review-standards and review-spec, sonnet), with 09:
+
+- **Fixed:** the report's helpers are named for what they give (`_all_tables_report_lines`,
+  `_all_tables_tag_line`, `_location_root_line`, `_answered_lines`, `_kept_their_own_text`);
+  `all_tables`' seed has its report line too, which tables it was written into and which kept
+  their own; a seed limit under `all_tables` naming a column no table with a seed has is
+  refused, as a tag no table holds is.
+- **Answered:** a table's own seed takes the place of `all_tables`' whole, kind by kind as the
+  ticket says, where tags merge tag by tag: a seed's columns are one limit. `seed` is no
+  Decision, so check() offers no `all_tables` for it. The `x or default` forms are each on
+  purpose: an empty list or text means the default.

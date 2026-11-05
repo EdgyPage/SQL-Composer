@@ -52,6 +52,9 @@ if TYPE_CHECKING:  # project.py imports this file, so its name is for the hints 
 FILE_STEP = "file step"
 PERMISSION = "permission"
 DECISION = "decision"
+# How a decision step's text opens: run the cell under it, which says what to answer.
+RUN_THE_CHECK_CELL = ("Run the cell below, `project.check()`: it names each open Decision and "
+                      "prints a whole `DECISIONS` to paste over the decisions cell's")
 FIDDLING = "fiddling"
 KINDS = (FILE_STEP, PERMISSION, DECISION, FIDDLING)
 
@@ -974,11 +977,10 @@ CONVERT = Workflow(
              done=every_dev_decision_answered, decides=DEV_DECISIONS,
              goal="an answer to each open Decision of the batch's tables, each Script tag's "
              "value among them",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook: step 1 and "
-             "`project.check()` print a `DECISIONS` to paste there, each answer to give "
-             "`<FILL IN>`. Each table's `conversion/checklist.md`, in its Table folder, lists "
-             "its open Decisions. A "
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, each "
+             "`<FILL IN>` given its answer, then save the notebook. Each table's "
+             "`conversion/checklist.md`, in its Table folder, lists its open Decisions. A "
              'Script tag, a `<PARM="NAME"/>` the program that ran the scripts, such as a '
              'scheduler, replaced with a value before Hive read it, is answered under `"tags"` '
              "with that value as Hive. A tag standing alone, as in "
@@ -1110,7 +1112,7 @@ PROMOTE = Workflow(
              done=every_prod_decision_answered, decides=PROD_DECISIONS,
              goal="an answer to each prod copy's open Decision: its location, the folder its "
              "files go in",
-             action="read what step 1 printed, or run `project.check()`. If neither names an "
+             action=RUN_THE_CHECK_CELL + ". If it names no "
              "open Decision of a prod copy, there is nothing to answer: step 1 filled in each "
              "prod copy's `location=` from its dev one, its folder named for your Prod "
              "Database, or from the one it had when promoted before. Leave the decisions cell "
@@ -1235,8 +1237,9 @@ NEW_TABLE = Workflow(
              ("its Table reference",), ("each answer in the decisions cell",),
              done=every_new_table_decision_answered, decides=DEV_DECISIONS,
              goal="an answer to each open Decision of the new tables",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook.",
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, then save the "
+             "notebook.",
              done_when="the decisions cell answers each Decision `project.check()` names for "
              "these tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
@@ -1316,12 +1319,13 @@ REFERENCES = Workflow(
              done=every_source_decision_answered, decides=SOURCE_DECISIONS,
              goal="an answer to each table's open Key: the columns whose values name exactly "
              "one row, or None when no columns do",
-             action="write each answer in the decisions cell, `DECISIONS`, by the table's name "
-             "as `project.check()` writes it, then save the notebook. To check a Key before "
-             "you answer it, run `check_key` in a new cell on a Table you make with that Key, "
-             "since the Table reference's Key is still open. Its `columns=` names each column "
-             "of the Key and the Partition column, each with None, which leaves its type out. "
-             "For `run_id` of `ops.job_runs`, partitioned by `dt`, the cell is three lines: "
+             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
+             "`DECISIONS`, by the table's name as `project.check()` writes it, then save the "
+             "notebook. To check a Key before you answer it, which how-to 21 shows, check_key "
+             "reads a Table you make with that Key, since the Table reference's Key is still "
+             "open. Its `columns=` names each column of the Key and the Partition column, "
+             "each with None, which leaves its type out. For `run_id` of `ops.job_runs`, "
+             "partitioned by `dt`, the code is three lines: "
              "`from sqlglot_composer import Table, check_key, equals`; "
              "`runs = Table(\"ops.job_runs\", columns={\"run_id\": None, \"dt\": None}, "
              "partitioned_by=[\"dt\"], key=[\"run_id\"])`; "
@@ -1640,6 +1644,11 @@ def step_name_of(cell: str) -> str | None:
     return cell.split("\n")[0].split(". ", 1)[-1]
 
 
+# The cell under a decision step, which names each Decision open and prints a whole DECISIONS
+# to paste into the decisions cell, so no step asks for a cell of your own (Toolbox 8.4).
+DECISIONS_TO_ANSWER_CELL = "project.check()"
+
+
 def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str, str]]:
     """A Workflow's notebook, as (kind, text) cells: what it is for, the lines that find the
     Project, its inputs, then each step and its call, and the cell that runs what is next."""
@@ -1652,6 +1661,8 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
         cells.append(("markdown", step_cell(number, workflow, step)))
         if step.call:
             cells.append(("code", step.call))
+        elif step.decides:
+            cells.append(("code", DECISIONS_TO_ANSWER_CELL))
     if workflow.inputs:
         cells.append(("code", "project.do_next()"))
     cells.append(("code", run_cell_text(workflow)))
