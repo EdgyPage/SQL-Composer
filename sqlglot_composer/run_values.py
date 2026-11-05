@@ -20,7 +20,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from .describe import printed_answer
-from .refusals import callers_frame, refuse, warning_run_value_failed
+from .refusals import callers_frame, refuse, warn_run_value_failed
 from .script_tags import SCRIPT_TAG, check_tag_value
 from .tables import Column, Table, literal, python_text
 from .trees import Node
@@ -102,7 +102,7 @@ def _traced_column(call: str, function: Callable[..., object], arguments: tuple[
     placeholder = f"`<{tag or function.__qualname__ + '()'} failed>`"
     node = Node(SCRIPT_TAG, text=placeholder)
     node.meta.update(call=call, traced=traced, failed=failed)
-    warning_run_value_failed(call, failed, placeholder, traced.function)
+    warn_run_value_failed(call, failed, placeholder, traced.function)
     return Column(node)
 
 

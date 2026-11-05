@@ -188,7 +188,12 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
     # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here.
+    # answer "key" here. "all_tables" answers for every table of this notebook, and a
+    # table's own answer overwrites it, kind by kind and tag by tag:
+    # {"all_tables": {"location_root": "/data/team",
+    #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
+    # gives each table with no location its own folder, such as
+    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
 
 Its steps, in order:
 
@@ -202,7 +207,7 @@ Its steps, in order:
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS)
+    project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 
@@ -299,7 +304,12 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
     # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here.
+    # answer "key" here. "all_tables" answers for every table of this notebook, and a
+    # table's own answer overwrites it, kind by kind and tag by tag:
+    # {"all_tables": {"location_root": "/data/team",
+    #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
+    # gives each table with no location its own folder, such as
+    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
 
 Its steps, in order:
 
@@ -313,7 +323,7 @@ Its steps, in order:
 3. Write each answer into its prod table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS)
+    project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))
 
 4. Create each table in prod (it is a call to the warehouse, yours to run).
 
@@ -421,7 +431,12 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
     # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here.
+    # answer "key" here. "all_tables" answers for every table of this notebook, and a
+    # table's own answer overwrites it, kind by kind and tag by tag:
+    # {"all_tables": {"location_root": "/data/team",
+    #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
+    # gives each table with no location its own folder, such as
+    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
 
 Its steps, in order:
 
@@ -445,7 +460,7 @@ Its steps, in order:
 5. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS)
+    project.write_decisions(DECISIONS, tables=TABLES)
 
 6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
@@ -521,7 +536,12 @@ Its decisions cell, beside it, where you answer each open Decision:
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
     # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here.
+    # answer "key" here. "all_tables" answers for every table of this notebook, and a
+    # table's own answer overwrites it, kind by kind and tag by tag:
+    # {"all_tables": {"location_root": "/data/team",
+    #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
+    # gives each table with no location its own folder, such as
+    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
 
 Its steps, in order:
 
@@ -533,7 +553,7 @@ Its steps, in order:
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-    project.write_decisions(DECISIONS)
+    project.write_decisions(DECISIONS, tables=TABLES)
 
 4. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).

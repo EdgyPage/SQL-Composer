@@ -66,8 +66,8 @@ it.
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
   its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}}}`; `project.write_decisions(DECISIONS)` writes
-  each into its table's Table reference.
+  ["job_id"], "types": {"fails": "bigint"}}}`; the next step writes each into its table's
+  Table reference.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 
@@ -93,7 +93,7 @@ it.
 5. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 6. Check each table's rows with preview(), which writes nothing (it is a call to the warehouse,
    yours to run).
@@ -124,7 +124,7 @@ it.
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=TABLES)
 
 4. Refresh the Reference sheet and the Database modules (it changes only files, so
    project.do_next() runs it for you).

@@ -261,10 +261,13 @@ def _every_decision_answered(root: Path, tables: list[str], kinds: tuple[str, ..
     answers = inputs.get(DECISIONS)
     if not isinstance(answers, dict):
         answers = {}
-    for decision in open_decisions_of(root, tables, kinds):
-        answer = answers.get(decision.table)
-        if not isinstance(answer, dict) or not decisions.is_answered(decision, answer):
-            return False
+    for table in tables:
+        text = file_text(reference_path(root, table))
+        # all_tables' answer first, then the table's own over it.
+        answer = decisions.table_answer(answers, table, text)
+        for decision in decisions.open_decisions(text, table, kinds):
+            if not decisions.is_answered(decision, answer):
+                return False
     return True
 
 
@@ -323,11 +326,23 @@ def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object
 
 def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
-    reference."""
+    reference, all_tables' into each table TABLES names: a convert batch's own tables."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
-    return project.write_decisions(answers if isinstance(answers, dict) else {})
+    return project.write_decisions(answers if isinstance(answers, dict) else {},
+                                   tables=names_in(inputs, "TABLES"))
+
+
+def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
+    """The step that writes each answer of promote's decisions cell into its prod copy's Table
+    reference, all_tables' into the prod copy of each table TABLES names."""
+    from . import project  # project.py imports this file
+
+    answers = inputs.get(DECISIONS)
+    return project.write_decisions(
+        answers if isinstance(answers, dict) else {},
+        tables=project.promoted_tables(names_in(inputs, "TABLES")))
 
 
 def every_preview_builds(root: Path, inputs: dict[str, object]) -> bool:
@@ -977,8 +992,8 @@ CONVERT = Workflow(
              "this batch"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each answer written in",),
-             "project.write_decisions(DECISIONS)", every_dev_decision_made,
-             write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))",
+             every_dev_decision_made, write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below.",
              done_when="each table's `conversion/checklist.md` says None under Open Decisions"),
@@ -1105,8 +1120,8 @@ PROMOTE = Workflow(
              "the prod copies, or it names none"),
         Step("Write each answer into its prod table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("each with its location=",),
-             "project.write_decisions(DECISIONS)", every_prod_decision_made,
-             write_the_decisions,
+             "project.write_decisions(DECISIONS, tables=project.promoted_tables(TABLES))",
+             every_prod_decision_made, write_the_prod_decisions,
              goal="each answer written into its prod copy's Table reference, which then has "
              "its `location=`",
              action="run the cell below.",
@@ -1226,7 +1241,7 @@ NEW_TABLE = Workflow(
              "these tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("a dev Table folder whose logic loads",),
-             "project.write_decisions(DECISIONS)", every_new_table_decision_made,
+             "project.write_decisions(DECISIONS, tables=TABLES)", every_new_table_decision_made,
              write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below.",
@@ -1318,7 +1333,7 @@ REFERENCES = Workflow(
              "tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
              ("each answer in the decisions cell",), ("filled-in Table references",),
-             "project.write_decisions(DECISIONS)", every_source_decision_made,
+             "project.write_decisions(DECISIONS, tables=TABLES)", every_source_decision_made,
              write_the_decisions,
              goal="each answer written into its table's Table reference",
              action="run the cell below. It names each TODO line the Table reference still "
@@ -1470,7 +1485,12 @@ DECISIONS_CELL = (
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
     "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
     "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
-    '# answer "key" here.')
+    '# answer "key" here. "all_tables" answers for every table of this notebook, and a\n'
+    "# table's own answer overwrites it, kind by kind and tag by tag:\n"
+    '# {"all_tables": {"location_root": "/data/team",\n'
+    '#                 "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
+    "# gives each table with no location its own folder, such as\n"
+    '# "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.')
 
 # Each kind of step as the user reads it, in a step's cell and in check()'s next step.
 KIND_SAID = {FILE_STEP: "changes only files, or only prints: run its cell",
