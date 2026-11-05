@@ -519,6 +519,27 @@ def test_an_opt_out_already_there_or_named_by_no_refusal_is_none() -> None:
                                    "Opt-out:        none - it can't be switched off.") is None
 
 
+# A join whose closing bracket is on a line of its own: the opt-out goes on a line before it.
+LOGIC_ON_LINES = ("y = statement(\n    FROM(p),\n    JOIN(\n        j,\n"
+                  "        ON=equals(p.job_id, j.job_id),\n    ),\n)\n")
+
+
+@pytest.mark.parametrize("logic", [LOGIC, LOGIC_ON_LINES], ids=["on_its_line", "on_lines"])
+def test_a_marked_opt_out_comes_out_as_it_went_in(logic: str) -> None:
+    # Toolbox 8.4, 10: step 3 takes out the many_matches=True a Key makes needless.
+    refusal = "Opt-out:        JOIN(j, ON=..., many_matches=True)"
+    added, said = converting.with_opt_out(logic, refusal)
+    assert converting.marked_opt_outs(added, "many_matches") == [(said, logic)]
+    assert converting.marked_opt_outs(added, "reads_all_partitions") == []
+
+
+def test_a_many_matches_with_no_mark_is_no_marked_opt_out() -> None:
+    added, _ = converting.with_opt_out(LOGIC,
+                                       "Opt-out:        JOIN(j, ON=..., many_matches=True)")
+    yours = "\n".join(line for line in added.split("\n") if "# CONVERSION:" not in line)
+    assert converting.marked_opt_outs(yours, "many_matches") == []
+
+
 # --- What no Clause function writes, and why ------------------------------------------------
 
 

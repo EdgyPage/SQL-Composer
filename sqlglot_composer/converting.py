@@ -1509,6 +1509,36 @@ def with_opt_out(logic: str, refusal: str) -> tuple[str, str] | None:
     return None
 
 
+def marked_opt_outs(logic: str, keyword: str) -> list[tuple[str, str]]:
+    """Each opt-out `keyword`=True that with_opt_out added to the logic and marked, in order:
+    what was added, as with_opt_out names it, such as JOIN(t, many_matches=True), and the
+    logic with it and its `# CONVERSION:` mark taken out. A `keyword`=True with no mark above
+    its call's line is yours, and isn't one."""
+    marks = re.finditer(rf"^[ \t]*{re.escape(CONVERSION_MARK.format(keyword=keyword))}\n",
+                        logic, re.MULTILINE)
+    found = []
+    for mark in marks:
+        line_end = logic.find("\n", mark.end())
+        if line_end == -1:
+            line_end = len(logic)
+        # The call the mark is above starts on the line after it.
+        for call in re.finditer(r"\b(\w+)\(", logic[mark.end():line_end]):
+            opening = mark.end() + call.end() - 1
+            given = logic[opening + 1:_closing(logic, opening)]
+            # Added on a line of its own, before a closing bracket on the next, or after a
+            # comma.
+            opt_out = (re.search(rf"^[ \t]*{keyword}=True,[ \t]*\n", given, re.MULTILINE)
+                       or re.search(rf",\s*{keyword}=True\b", given))
+            if opt_out is None:
+                continue
+            start, end = opening + 1 + opt_out.start(), opening + 1 + opt_out.end()
+            without = logic[:mark.start()] + logic[mark.end():start] + logic[end:]
+            first = re.match(r"\s*([^,)\n]*)", given)[1].strip()
+            found.append((f"{call[1]}({first}, {keyword}=True)", without))
+            break
+    return found
+
+
 def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
     """Note what an INSERT wrote, and how, and give back the query it wrote: INSERT INTO or
     INSERT OVERWRITE, with or without TABLE, PARTITION(...) with values or without, and a
