@@ -34,7 +34,7 @@ from .refusals import (
     refuse_what_isnt_a_dataframe,
 )
 from .project_files import TABLE_FOLDER
-from .script_tags import refuse_failed_run_values
+from .script_tags import note_read, refuse_failed_run_values
 from .shared import counted, in_words
 from .stacking import STACK_HOW
 from .tables import Column, Table, is_unchecked, python_text, source, table_node
@@ -47,6 +47,7 @@ from .unchecked import (
     logged_run,
     record_sent,
     settings_text,
+    tables_read_and_written,
     unchecked_call,
     unchecked_text,
 )
@@ -782,12 +783,19 @@ def run_query(s: Statement | UncheckedStatement,
     if kinds.kind(s) == kinds.UNCHECKED:
         # No row Load limit: the Toolbox adds no LIMIT to text you wrote, so a full result
         # is a result, not one cut short.
+        for name, how in tables_read_and_written(s._text):
+            if how == "reads":
+                note_read(name)
         rows = logged_run("Unchecked statement", unchecked_call(s), s._text, query)
         refuse_what_isnt_a_dataframe(rows)
         return rows
     text = to_hive(s)
     if kinds.kind(s) == kinds.PLAN:
         return _plan(query(text))
+    for step in statements_within(s):
+        for read in step._reads:
+            if read.table._statement is None and not is_unchecked(read.table):
+                note_read(read.table)
     result = send_logged(s, text, query)
     refuse_what_isnt_a_dataframe(result)
     limit = automatic_limit(s)

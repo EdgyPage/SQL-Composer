@@ -106,7 +106,7 @@ def _read(condition: Condition) -> str:
     lambda: at_least(runs.dt, hive_function("date_add", script_tag(TAGS["PERIOD_START"]), 1)),
     lambda: equals(runs.dt, hive_function("date_sub", script_tag(TAGS["PERIOD_END"]), 0)),
 ])
-def test_an_end_built_of_values_bounds_the_partitions_read(condition: Callable) -> None:
+def test_an_end_is_built_of_values_bounds_the_partitions_read(condition: Callable) -> None:
     # Ticket 03: Script tags, literals, and date_sub or date_add of them read no column.
     assert "job_runs.dt" in _read(condition())
 

@@ -177,13 +177,14 @@ def _teach_date_add() -> None:
 
     from sqlglot.executor import env
 
-    def date_add(day: object, days: object, unit: object = None) -> str | None:
+    # `unit`, DAY, is what sqlglot's executor passes beside the two arguments; a day it is.
+    def date_add(day: object, days: object, unit: object | None = None) -> str | None:
         if day is None or days is None:
             return None
         start = datetime.date.fromisoformat(str(day)[:10])
         return (start + datetime.timedelta(days=int(days))).isoformat()
 
-    env.ENV.setdefault("TSORDSADD", date_add)
+    env.ENV.setdefault("TSORDSADD", date_add)  # once: each later call keeps the first
 
 
 def _spell_out_likes(tree: exp.Expression) -> exp.Expression:

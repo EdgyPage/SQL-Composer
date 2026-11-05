@@ -67,6 +67,7 @@ from .conditions import (
     more_than,
     not_equals,
     starts_with,
+    today,
 )
 from .lineage import export_lineage
 from .python_steps import PythonStep, python_step
@@ -104,7 +105,7 @@ from .unchecked import (
     unchecked_derived,
     unchecked_hive,
 )
-from .script_tags import script_tag, tag_text
+from .script_tags import hive_date, latest_partition, run_value, script_tag, tag_text
 from .upkeep import compute_statistics, explain, repair_partitions
 from .windows import (
     Window,
@@ -176,6 +177,7 @@ __all__ = [
     "less_than",
     "between",
     "last_n_days",
+    "today",
     "is_in",
     "is_not_in",
     "contains",
@@ -235,6 +237,9 @@ __all__ = [
     "SessionSettings",
     "UncheckedStatement",
     # script_tags.py
+    "hive_date",
+    "latest_partition",
+    "run_value",
     "script_tag",
     "tag_text",
     # comparisons.py
