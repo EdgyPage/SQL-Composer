@@ -53,6 +53,10 @@ is charted through `.scratch/toolbox-8-2/map.md`; read its Notes before working 
 tickets. Toolbox 8.3 (Script tags, `<PARM="NAME"/>` in someone else's Hive, read past by a
 Conversion and answered as Decisions in the convert notebook, which keeps the user in it) is
 charted through `.scratch/toolbox-8-3/map.md`; read its Notes before working one of its tickets.
+Toolbox 8.4 (Run values, a function of the user's filling a Script tag's place each time a
+table is written; Decisions for every table; the seed limited by Partition; the conversion
+fixes the user's batch needed; and Upgrades straight from any version since 8.3) is charted
+through `.scratch/toolbox-8-4/map.md`; read its Notes before working one of its tickets.
 
 ## Checks
 
