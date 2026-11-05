@@ -219,8 +219,10 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
     in Hive kept whole, which stands for Hive, its value's own quotes and all. TAGS, in the
     table's Table reference, holds what each tag stands for: text, or a Run value's function,
     which tag_text calls each time the Statement is built. A date it gives is written as
-    2026-10-31 inside quotes and as '2026-10-31' bare, a number as it is, and text as it is. A
-    function that fails is refused, naming it. What it gives is text inside a string, so the
+    2026-10-31 inside quotes and as '2026-10-31' bare, a number as it is, True or False bare as
+    TRUE or FALSE, and text as it is: bare, it must be one value of a kind a program puts in a
+    tag's place, as script_tag holds its answer to. A function that fails is refused, naming
+    it. What it gives is text inside a string, so the
     Statement's lineage, which traces each value, doesn't draw it.
     """
     if not callable(value):
@@ -230,8 +232,8 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
     if failed is not None:
         refuse(
             what=f"{call}: {failed}.",
-            why="A Run value is worked out each time the Statement is built, and a tag inside "
-            "quotes has no place to show one that failed.",
+            why="A Run value is worked out each time the Statement is built, and a tag in "
+            "text kept as it is has no place to show one that failed.",
             fix=f"Fix {traced.function}, or what it reads, and build the Statement again.",
             error=ValueError,
         )
@@ -246,7 +248,8 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
         return str(given)
     refuse(
         what=f"{call}: {traced.function}() gave {given!r}, a {type(given).__name__}.",
-        why="A tag inside quotes stands for text: a date, a number or text.",
+        why="A tag in text kept as it is stands for one value: a date, a number or text, "
+        "and, standing bare, TRUE or FALSE too.",
         fix=f"Have {traced.function} give back a datetime.date, a number or text.",
         error=TypeError,
     )

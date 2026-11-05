@@ -212,8 +212,10 @@ def _with_tags_read(source: str, tag_is_quoted: dict[str, bool]) -> str:
     """Python source with each string that holds a Script tag made to read TAGS in the tag's
     place: '<PARM="X"/>' becomes tag_text(TAGS["X"]), and 'a <PARM="X"/> b' becomes
     "a " + tag_text(TAGS["X"]) + " b", tag_text calling a Run value's function each time.
-    A tag in backticks, as a bare one is read, is read so too, its
-    backticks dropped, as the answer is written where the tag stood."""
+    A tag that stood bare, as `tag_is_quoted` says, in Hive kept whole, becomes
+    tag_text(TAGS["X"], quoted=False), Hive, its value's own quotes and all. A tag in
+    backticks, as a bare one is read, is read so too, its backticks dropped, as the answer is
+    written where the tag stood."""
     starts = [0]
     for line in source.split("\n"):
         starts.append(starts[-1] + len(line) + 1)

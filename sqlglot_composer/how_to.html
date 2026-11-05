@@ -6822,7 +6822,7 @@ None: each Decision in references/mart__fail_history.py is made.
 ## Notes, which block nothing
 
 - Make each unchecked_ piece a Toolbox function where you can.
-- Its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s seed step, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed().</pre>
+- Its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s seed step, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(), unless SEED, in its Table reference, limits them: answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, to copy only those you need. The seed step&#x27;s line shows the WHERE it sends.</pre>
 <p>An answer is changed by answering it again in the decisions cell and running this step again: no file is edited by hand. Here RUN_DAY&#x27;s day, 2026-09-23, was wrong: the scheduler&#x27;s job, or whoever runs it, says the day it put there, 2026-09-24, and a compare in step 11 would show rows that differ from the original&#x27;s. Write the right day in DECISIONS and run the step again; it writes the new day over the old, and says so:</p>
 <pre class="python">DECISIONS[&quot;mart.alerts_by_severity_ops_reports&quot;][&quot;tags&quot;] = {&quot;RUN_DAY&quot;: &quot;&#x27;2026-09-24&#x27;&quot;}
 said = repr(project.write_decisions(DECISIONS))  # -&gt; str</pre>

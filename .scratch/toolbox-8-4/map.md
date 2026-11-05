@@ -169,6 +169,7 @@ before that ticket.
 - [11 Upgrades from any version since 8.3](issues/11-upgrades-from-any-version.md)
 - [12 The docs and the Copilot files](issues/12-the-docs.md)
 - [13 8.4: the Upgrade step and the raise](issues/13-eight-point-four.md)
+- [14 No cell of your own: workflow and usability tests](issues/14-no-cell-of-your-own.md)
 
 One at a time, by number, the user's habit. The real dependencies are in each ticket's
 `Blocked by:`.
@@ -189,8 +190,8 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Not yet specified
 
-- Whether the usability loop gains a scenario with Run values and a seed limit: the user's
-  call, asked at 12.
+- Whether the usability loop gains a scenario with Run values and a seed limit: answered by the
+  user partway through (ticket 14): new usability and workflow tests, and no cell of your own.
 
 ## Out of scope
 

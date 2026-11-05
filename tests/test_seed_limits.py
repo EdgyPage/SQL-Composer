@@ -139,8 +139,7 @@ def test_a_seed_answer_that_matches_nothing_is_refused(converted: Path) -> None:
                                  FLAT_DEV: {"seed": {"dt": "2026-09-24"}}})
     said = str(refused.value)
     assert f"{LOG_DEV}: seed: run_id is no partition column of {LOG_DEV}" in said
-    assert (f"{FLAT_DEV}: seed: {FLAT_DEV} doesn't read itself, so it has no seed to limit"
-            in said)
+    assert f"{FLAT_DEV}: seed: {FLAT_DEV}'s Table reference has no SEED to limit" in said
     assert "SEED = {}" in _reference(converted, LOG_DEV)
 
 
