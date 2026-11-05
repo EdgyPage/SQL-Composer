@@ -1785,18 +1785,21 @@ def upgrade() -> ProjectReport:
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+    Read each step's report, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
+        admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
     cell of admin/check_project.ipynb, which imports project already, or of
     admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which start()
     writes and an Upgrade adds. It reads the version that last wrote the Project from
     admin/project_version.txt, and runs each version's step from there to this Toolbox's, in
-    order. A step makes the changes that need no judgement, keeping each file it changes, as it
-    was, in admin/removed/, and marks each change that needs you with a
+    order, so you may skip versions: copy in the newest, and every step between runs. A step
+    makes the changes that need no judgement, keeping each file it changes, as it was, in its
+    own folder of admin/removed/, and marks each change that needs you with a
     `# UPGRADE <version>: <what to change>` comment at the line. admin/upgrade_<version>.md
-    lists what each step did, and a box for each mark; project.check() lists the marks left.
-    It changes only files, never the warehouse, and logs what it did in the Admin log. Run
-    again, it does nothing.
+    lists what each step did, and a box for each mark; the report's last line names each one,
+    in order, and project.check() lists the marks left. It changes only files, never the
+    warehouse, and logs what it did in the Admin log. Run again, it does nothing.
 
     A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made
     by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it
@@ -1814,6 +1817,7 @@ def upgrade() -> ProjectReport:
                               "nothing to upgrade."])
     when = unchecked.now()
     lines = [f"Upgraded the Project from {start_from} to {toolbox}."]
+    reports: list[str] = []
     for upgraded_from, version in zip([start_from, *versions], versions):
         archive = root / "admin" / "removed" / (
             f"{when.strftime(unchecked.TIME_IN_A_NAME)}-upgrade_{version}")
@@ -1826,7 +1830,16 @@ def upgrade() -> ProjectReport:
                               f"wrote {step.checklist_path}",
                               f"wrote {upgrades.PROJECT_VERSION.as_posix()}: {version}"], frame)
         lines.append(step.report_line())
+        reports.append(step.checklist_path)
+    lines.append(_reports_line(reports))
     return ProjectReport(lines)
+
+
+def _reports_line(reports: list[str]) -> str:
+    """project.upgrade()'s last line: each step's admin/upgrade_<version>.md, in order."""
+    if len(reports) == 1:
+        return f"Read the step's report: {reports[0]}."
+    return f"Read each step's report, in order: {in_words(reports)}."
 
 
 def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
