@@ -72,6 +72,13 @@ COLUMNS = "<COLUMNS>"
 # The line TAGS starts on in a Table reference, and the mark on the line above it that imports
 # a Run value's function for it (Toolbox 8.4).
 TAGS_START = "TAGS = {"
+# A Table reference's seed limits, SEED, as a Conversion writes them for a table that reads
+# itself, and the line they start on: the Partitions its seed() copies (Toolbox 8.4).
+SEED_START = "SEED = {"
+SEED_COMMENT = (
+    "# The Partitions seed() copies from the original, by partition column: {} copies them",
+    '# all. Answer "seed" in the decisions cell, such as {"dt": {"from": "2026-01-01"}}.',
+)
 RUN_VALUE_MARK = "  # a Run value, for TAGS"
 RUN_VALUE_IMPORT = re.compile(
     rf"from [\w.]+ import (?P<function>\w+){re.escape(RUN_VALUE_MARK)}")
