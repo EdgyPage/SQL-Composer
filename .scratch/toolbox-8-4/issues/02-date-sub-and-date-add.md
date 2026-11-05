@@ -20,3 +20,21 @@ Hive, whose `date_add` takes two arguments (map, "What the user hit").
 - A `DATE_ADD` whose unit isn't a day, if sqlglot gives one, stays an Unchecked expression with
   its note, never a wrong call.
 - 01's unit tests for these shapes hold the new output.
+
+## Answer
+Built 2026-11-05.
+
+- **`_Converter.days_moved`**, called from `function` for sqlglot's `TsOrDsAdd`: Hive's
+  `date_sub(x, n)` (read as `DATE_ADD(x, n * -1, DAY)`) becomes `hive_function("date_sub", x,
+  n)`, and `date_add(x, n)` becomes `hive_function("date_add", x, n)`, with `x` and `n` each a
+  column, a literal, a Script tag or a calculation, written as any value is. No
+  `unchecked_column("DAY")`.
+- **The Hive**: the Toolbox writes `hive_function("date_sub", x, 14)` as `DATE_ADD(x, 14 *
+  -1)`, as sqlglot writes Hive's date_sub; Hive reads both the same, and `compare_hive` with
+  the original matches. The ticket's "date_sub staying date_sub" is that: the same call, as
+  the Toolbox writes every Hive function, in its usual form.
+- **A unit other than DAY**, which no Hive text gives, stays an Unchecked expression, refused
+  with its note (`Unconvertible`).
+- **Tests**, `tests/test_date_windows.py`: four shapes convert with no Unchecked part, a column
+  for the days among them; a converted date_sub's Statement matches the original's Hive and
+  runs on the Example database. CHANGES.md's `## 8.4` opens with it.
