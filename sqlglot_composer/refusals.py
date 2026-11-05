@@ -380,19 +380,6 @@ def warning_repeated_rows(call: str, table: str, matched: list[str], key: list[s
     warn_at_callers_line(message, RepeatedRowsWarning)
 
 
-def warning_run_value_failed(call: str, failed: str, placeholder: str, function: str) -> None:
-    """A Run value's function failed as its Statement was built: warn, and leave
-    `placeholder` in its place, which run_query and run_execute refuse to send."""
-    message = four_part_message(
-        what=f"{call}: {failed}.",
-        why="A Run value is worked out each time the Statement is built: with none, the Hive "
-        f"holds {placeholder} in its place, which run_query and run_execute refuse to send.",
-        fix=f"Fix {function}, or what it reads, and build the Statement again.",
-        opt_out="none - this one can't be switched off.",
-    )
-    warn_at_callers_line(message, RunValueWarning)
-
-
 # --- Where a Guard or a Load limit can't look inside Unchecked Hive ------------------------
 # An Unchecked expression or derived table is Hive written by hand. Where a check would turn
 # on what that Hive does, it can't tell, so it neither refuses nor passes in silence: it warns,
@@ -478,6 +465,20 @@ def warning_unchecked_derived_read(call: str, name: str,
         f"that {whose} Hive bounds them.",
     )
     warn_at_callers_line(message, UncheckedWarning)
+
+
+def warn_run_value_failed(call: str, failed: str, in_its_place: str, name: str) -> None:
+    """Warn that a Run value's function, `name`, failed as its Statement was built, saying
+    what it raised, `failed`, and what the Hive holds in its place: a dry run still shows the
+    Hive, and run_query and run_execute refuse to send it."""
+    message = four_part_message(
+        what=f"{call}: {failed}.",
+        why="A Run value is worked out each time the Statement is built: with none, the Hive "
+        f"holds {in_its_place} in its place, which run_query and run_execute refuse to send.",
+        fix=f"Fix {name}, or what it reads, and build the Statement again.",
+        opt_out="none - this one can't be switched off.",
+    )
+    warn_at_callers_line(message, RunValueWarning)
 
 
 def warn_upgrade_needed(have: str, toolbox: str) -> None:
