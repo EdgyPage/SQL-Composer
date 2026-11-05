@@ -22,7 +22,7 @@ from .tables import (
     python_text,
     type_family,
 )
-from .script_tags import is_script_tag
+from .script_tags import is_value
 from .trees import Node, combined, has_aggregate
 from .writing import hive_text
 
@@ -138,8 +138,9 @@ def _comparison(name: str, kind: str, column: object, value: object,
     tree = Node(kind, this=column._tree.copy(),
                 expression=literal(value, call=call, column=column))
     made_by(tree, name, column, value)
-    # A Script tag is one value, as a plain one is; any other Column holds nothing to a value.
-    if not bounds or (isinstance(value, Column) and not is_script_tag(value)):
+    # A Script tag, or a day moved from one, is a value, as a plain one is; any other Column
+    # holds nothing to a value.
+    if not bounds or (isinstance(value, Column) and not is_value(value)):
         return Condition(tree)
     return Condition(tree, bounds=_bounds_of(column))
 
@@ -233,7 +234,12 @@ def between(column: Column, low: str | int | float | bool | datetime.date | Colu
         high=literal(high, call=call, column=column, position="the high end"),
     )
     made_by(tree, "between", column, low, high)
-    if isinstance(low, Column) or isinstance(high, Column):
+    ends = [end for end in (low, high) if isinstance(end, Column)]
+    if ends:
+        # Ends built of values alone, such as date_sub(PERIOD_END, 14) and PERIOD_END, still
+        # bound the column, though only Hive knows which comes first.
+        if all(is_value(end) for end in ends):
+            return Condition(tree, bounds=_bounds_of(column))
         return Condition(tree)
     if _is_comparable_pair(low, high) and low > high:
         refuse(

@@ -160,6 +160,30 @@ def is_script_tag(value: object) -> bool:
     return isinstance(value, Column) and value._tree.kind == SCRIPT_TAG
 
 
+# The kinds of Node a value is built of: values, and sums of them in brackets.
+_VALUE_KINDS = {"Literal", "Null", "Boolean", SCRIPT_TAG, "Paren", "Add", "Sub", "Mul"}
+# The Hive functions that move a day by a number of days, whose call on values is a value.
+DAYS_MOVED = ("date_add", "date_sub")
+
+
+def is_value(value: object) -> bool:
+    """Whether `value` is a Column built of values alone: Script tags, literals, and sums or
+    date_add or date_sub of them, such as date_sub(PERIOD_END, 14). It reads no column, so a
+    condition holding a partition column to it bounds the Partitions read, as one holding it to
+    a plain value does."""
+    return isinstance(value, Column) and _built_of_values(value._tree)
+
+
+def _built_of_values(node: Node) -> bool:
+    if node.kind == "HiveFunction":
+        return node.parts["name"] in DAYS_MOVED and all(
+            _built_of_values(arg) for arg in node.parts["args"])
+    if node.kind not in _VALUE_KINDS:
+        return False
+    return all(_built_of_values(part) for part in node.parts.values()
+               if isinstance(part, Node))
+
+
 def script_tag(text: str) -> Column:
     """The value a Script tag stands for, written where the tag stood, as a Column.
 

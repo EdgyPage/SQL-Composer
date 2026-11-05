@@ -707,8 +707,8 @@ PERIOD_TABLES = ["mart_dev.job_teams_mart", "mart_dev.recent_runs_mart",
 
 
 @pytest.mark.xfail(strict=True, reason="8.4's Run values, Decisions for every table and seed "
-                   "limits aren't built yet (tickets 02 to 10): today step 1 converts "
-                   "date_sub with an Unchecked DAY")
+                   "limits aren't built yet (tickets 05 to 10): today the user's function "
+                   "imports latest_partition, which ticket 06 adds")
 def test_convert_the_users_batch_with_run_values(started: Started) -> None:
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")

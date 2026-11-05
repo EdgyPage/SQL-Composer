@@ -10,6 +10,8 @@ between bounded no Partition once an end was a Column.
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import pytest
 from conftest import toolbox_module
 
@@ -18,7 +20,10 @@ from sqlglot_composer import (
     FROM,
     SELECT,
     WHERE,
+    Condition,
     LoadRefused,
+    at_least,
+    at_most,
     between,
     compare_hive,
     equals,
@@ -27,6 +32,7 @@ from sqlglot_composer import (
     script_tag,
     statement,
     to_hive,
+    unchecked_column,
 )
 
 converting = toolbox_module("converting")
@@ -85,13 +91,41 @@ def test_the_example_database_runs_date_sub_and_date_add() -> None:
         ("2026-09-24", "2026-09-10", "2026-09-25")}
 
 
-def test_between_two_script_tags_bounds_no_partition_today() -> None:
-    # Ticket 03 changes this: at_most(runs.dt, script_tag(...)) already bounds dt.
-    tags = {"PERIOD_START": "'2026-09-23'", "PERIOD_END": "'2026-09-24'"}
+TAGS = {"PERIOD_START": "'2026-09-23'", "PERIOD_END": "'2026-09-24'"}
+
+
+def _read(condition: Condition) -> str:
+    return to_hive(statement(SELECT(runs.run_id), FROM(runs), WHERE(condition)))
+
+
+@pytest.mark.parametrize("condition", [
+    lambda: between(runs.dt, script_tag(TAGS["PERIOD_START"]), script_tag(TAGS["PERIOD_END"])),
+    lambda: between(runs.dt, hive_function("date_sub", script_tag(TAGS["PERIOD_END"]), 14),
+                    script_tag(TAGS["PERIOD_END"])),
+    lambda: between(runs.dt, hive_function("date_sub", "2026-09-24", 1), "2026-09-24"),
+    lambda: at_least(runs.dt, hive_function("date_add", script_tag(TAGS["PERIOD_START"]), 1)),
+    lambda: equals(runs.dt, hive_function("date_sub", script_tag(TAGS["PERIOD_END"]), 0)),
+])
+def test_an_end_built_of_values_bounds_the_partitions_read(condition: Callable) -> None:
+    # Ticket 03: Script tags, literals, and date_sub or date_add of them read no column.
+    assert "job_runs.dt" in _read(condition())
+
+
+@pytest.mark.parametrize("condition", [
+    lambda: between(runs.dt, hive_function("date_sub", runs.dt, 1), "2026-09-24"),
+    lambda: at_least(runs.dt, hive_function("upper", script_tag(TAGS["PERIOD_END"]))),
+    lambda: at_most(runs.dt, unchecked_column("current_date")),
+])
+def test_an_end_that_reads_a_column_or_unchecked_hive_bounds_nothing(
+        condition: Callable) -> None:
     with pytest.raises(LoadRefused):
-        to_hive(statement(
-            SELECT(runs.run_id),
-            FROM(runs),
-            WHERE(between(runs.dt, script_tag(tags["PERIOD_START"]),
-                          script_tag(tags["PERIOD_END"]))),
-        ))
+        _read(condition())
+
+
+def test_ends_whose_order_only_hive_knows_are_not_refused_as_backwards() -> None:
+    # A Script tag's value is Hive text: which end comes first is for Hive to say.
+    later_first = between(runs.dt, script_tag(TAGS["PERIOD_END"]),
+                          script_tag(TAGS["PERIOD_START"]))
+    assert "BETWEEN '2026-09-24' AND '2026-09-23'" in _read(later_first)
+    with pytest.raises(ValueError, match="starts after it ends"):
+        between(runs.dt, "2026-09-24", "2026-09-23")
