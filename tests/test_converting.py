@@ -389,6 +389,15 @@ def test_a_hive_variable_stays_as_text_and_a_finding_says_so() -> None:
         "put the value in"]
 
 
+def test_a_hive_variable_in_an_unchecked_expression_is_written_as_it_is() -> None:
+    done = convert_query("SELECT run_id FROM ops.job_runs\n"
+                         "WHERE dt <= ${hivevar:day} AND status RLIKE '^F{2}'")
+    assert 'unchecked_condition("{dt} <= ${hivevar:day}", dt=job_runs.dt)' in done.query
+    # A brace meant as a brace is still doubled.
+    assert "unchecked_condition(\"{status} RLIKE '^F{{2}}'\", status=job_runs.status)" in (
+        done.query)
+
+
 # --- Every table read, and the line each finding is on ----------------------------------------
 
 
