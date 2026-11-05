@@ -110,8 +110,11 @@ _Avoid_: wizard, menu, pipeline, recipe, playbook
 **Decision**:
 One thing about one table that only the user decides, which the table's files show made or
 not: its location, its Key, a column type the Toolbox could only guess, the value a Script
-tag stands for, or a `<...>` left to fill in. The user answers each in a Workflow's decisions cell, and a step writes each answer
-into the table's Table reference. A `<...>` is filled in by hand. A new Saved table's
+tag stands for, the Partitions its Seed copies, or a `<...>` left to fill in. The user answers
+each in a Workflow's decisions cell, and a step writes each answer into the table's Table
+reference. An answer may be given once for every table of a batch, and a table's own answer
+overrides it; an answer may also be a Run value's function, called each time the table is
+written. A `<...>` is filled in by hand. A new Saved table's
 `<COLUMNS>` is the one a step writes, from its logic. A Workflow's step that waits on Decisions
 is done once each is made. A Decision is never ticked by hand: the files say whether it is made.
 _Avoid_: box, checklist item, TODO
@@ -161,6 +164,14 @@ statements only: the same tag may stand for a different value in another table. 
 reads past each, where a value goes, and leaves it as a Decision of the table it ends up in;
 the Hive text the user answers stands in its place, and answering again changes it.
 _Avoid_: parameter, PARM, variable, placeholder
+
+**Run value**:
+The value a function of the user's own gives each time a table's write is built, filled in
+where a Script tag stood or where a seed's limit goes, such as the latest Partition the
+warehouse holds. The Toolbox writes it into the Hive as plain text, so the Hive it sends, and
+the Hive a dry run shows, hold the value itself, and the table's lineage names the function
+and the value it gave.
+_Avoid_: parameter, variable, runtime param, Hive variable
 
 **Reference sheet**:
 One table listing every column of every table the Project has a Table reference for, with its
@@ -315,7 +326,9 @@ _Avoid_: materialized view, cache, temp table, output table
 The one-time copy of an original table's rows into its copy, in dev or in prod, for a Saved
 table a Conversion made whose write reads its own table, as an incremental INSERT does: the
 copy starts empty, so its first write would start from nothing. It runs once, before that
-first write; a write runs every time. In Python, `seed()` in its Table notebook, an Unchecked
+first write; a write runs every time. It copies every Partition unless the table's Decision
+limits it, by a value, a range or a list for each partition column, so years of rows the
+table doesn't need are left behind. In Python, `seed()` in its Table notebook, an Unchecked
 statement.
 _Avoid_: backfill, preload, bootstrap
 
