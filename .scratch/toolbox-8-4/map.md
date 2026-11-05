@@ -76,6 +76,14 @@ the latest `event_d` the warehouse holds at each run. Checked against the code:
 - **Lineage catches it** (Q16, Q20): a table's Lineage page draws a Run value box naming the
   tag, the function by module and name, and the value it gave when the page was made; a
   function that used `latest_partition(...)` draws a line from that column's table too.
+- **Tracing any Python function** (the user, 2026-11-05, during ticket 07: "Make sure the
+  function tracing in the lineage is in a general family of functions that can be used to
+  trace any python function."): `run_value(function, *args, **kwargs)` calls any function as
+  the Statement is built and writes what it gives as a value; a Script tag answered with a
+  function is the same call. While a traced function runs, each read the Toolbox makes for it
+  (`latest_partition`'s partition column, each table a `run_query` Statement reads) is noted,
+  and lineage draws one Run value box per call, the function, its arguments, the tag it
+  answers and what it gave, with an arrow from each read.
 - **Helpers** (Q13): `today(utc_offset_hours=0)`, UTC unless given an offset, which
   `last_n_days` follows; `latest_partition(column, query)`, from `SHOW PARTITIONS`, no rows
   read, the newest value as a date; `hive_date(day)`, `'2026-10-31'`, for text written by hand.

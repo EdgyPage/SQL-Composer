@@ -166,11 +166,12 @@ the Hive text the user answers stands in its place, and answering again changes 
 _Avoid_: parameter, PARM, variable, placeholder
 
 **Run value**:
-The value a function of the user's own gives each time a table's write is built, filled in
-where a Script tag stood or where a seed's limit goes, such as the latest Partition the
-warehouse holds. The Toolbox writes it into the Hive as plain text, so the Hive it sends, and
-the Hive a dry run shows, hold the value itself, and the table's lineage names the function
-and the value it gave.
+The value a Python function gives each time a Statement is built, any function, the
+user's own or a library's, filled in where a value goes, where a Script tag stood or where a
+seed's limit goes, such as the latest Partition the warehouse holds. The Toolbox writes it
+into the Hive as plain text, so the Hive it sends, and the Hive a dry run shows, hold the
+value itself, and the Statement's lineage traces it: the function, what it was given, the
+value it gave, and each table the Toolbox read for it while it ran.
 _Avoid_: parameter, variable, runtime param, Hive variable
 
 **Reference sheet**:

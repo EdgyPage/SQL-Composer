@@ -136,8 +136,7 @@ class ConvertedQuery:
         With Script tags, TAGS after the imports holds each, and each place a tag stood reads
         it from there."""
         lines = []
-        quoted = {"tag_text"} if any(self.tag_is_quoted.values()) else set()
-        names = sorted(self.names | {"Statement"} | quoted
+        names = sorted(self.names | {"Statement"}
                        | ({"Clause"} if self.clauses is not None else set())
                        | ({"SessionSettings", "hive_settings"} if self.settings else set()))
         lines.append("from sqlglot_composer import (\n"
@@ -229,7 +228,16 @@ def _with_tags_read(source: str) -> str:
         swaps.append((begin, end, _tags_read(value)))
     for begin, end, written in reversed(swaps):
         source = source[:begin] + written + source[end:]
+    if swaps and TAG_TEXT_IMPORT not in source:
+        lines = source.split("\n")
+        at = _after_imports(lines)
+        lines[at:at] = [TAG_TEXT_IMPORT]
+        source = "\n".join(lines)
     return source
+
+
+# The import of tag_text, for a string a Script tag stands in: each its place.
+TAG_TEXT_IMPORT = "from sqlglot_composer import tag_text  # for each Script tag in a string"
 
 
 def _tags_read(value: str) -> str:
@@ -1066,7 +1074,8 @@ class _Converter:
         values = [self.column_or_unchecked(node.this, scope),
                   self.column_or_unchecked(days, scope)]
         self.note_finding(node, "changed", f"{name}(...) is a Hive function no Toolbox "
-                          f'function wraps: hive_function("{name}", ...) writes it')
+                          f"function wraps: hive_function({python_literal(name)}, ...) "
+                          "writes it")
         return f"{self.use('hive_function')}({python_literal(name)}, {', '.join(values)})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:

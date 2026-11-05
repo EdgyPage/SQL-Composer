@@ -55,3 +55,18 @@ Built 2026-11-05.
   an Unchecked DAY (02 changes it); between two Script tags bounds no Partition (03 changes
   it). `${...}` in hand-written Unchecked text is ticket 04's, built beside this one, which
   holds it in its own tests.
+
+## Review
+
+Code review (review-standards and review-spec, sonnet), of 01 to 03 together:
+
+- **Fixed:** the journey asserted `date_sub('2026-09-24', 14)` in the Hive sent, which the
+  Toolbox writes as `DATE_ADD('2026-09-24', 14 * -1)` (02's Answer): the assertion now says
+  so. The xfail's reason names its first failure as it moves: 06's `latest_partition` once 02
+  and 03 landed. The "Today" line above is what it was at 01.
+- **Answered:** the unit tests for today's `between` with a tag at an end and for
+  `${hivevar:...}` by hand: the first was written (`test_between_two_script_tags_...`) and
+  turned to 03's behaviour when 03 landed in the same file; the second is 04's, built in its
+  own worktree at the same time. `engine._teach_date_add` and `Journey.type_decisions_cell` are
+  what the journey needs to run: the originals use date_sub, and the decisions cell imports a
+  function. KNOWN_FIDDLING stays `()`: the function is the user's own code.

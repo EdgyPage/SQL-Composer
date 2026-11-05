@@ -38,3 +38,16 @@ Built 2026-11-05.
 - **Tests**, `tests/test_date_windows.py`: four shapes convert with no Unchecked part, a column
   for the days among them; a converted date_sub's Statement matches the original's Hive and
   runs on the Example database. CHANGES.md's `## 8.4` opens with it.
+
+## Review
+
+Code review (with 01 and 03):
+
+- **Fixed:** `days_moved`'s note writes the function's name with `python_literal`, as its
+  return line does; `_teach_date_add`'s unused `unit` is hinted `object | None`, with a
+  comment, and its `setdefault` says it keeps the first.
+- **Answered:** a unit other than DAY: no Hive text gives one (Hive's date_add and date_sub
+  take days), so no test makes one; the path raises `Unconvertible`, which
+  `column_or_unchecked` turns into an Unchecked expression with its note, as any value no
+  Toolbox function writes is. `date_add(x, n * -1)` read as `date_sub(x, n)` is the same call
+  to Hive. "date_sub staying date_sub" is the Hive Hive reads the same, as above.

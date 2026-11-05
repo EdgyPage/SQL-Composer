@@ -15,23 +15,34 @@ import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from conftest import forget_the_projects_modules, toolbox_module
 
 from sqlglot_composer import (
+    AS,
     FROM,
+    GROUP_BY,
     SELECT,
     WHERE,
+    Table,
+    at_least,
     at_most,
     between,
+    count_rows,
+    equals,
     example_database,
+    hive_date,
     hive_function,
+    latest_partition,
     project,
     run_query,
+    run_value,
     script_tag,
     statement,
     tag_text,
     to_hive,
+    today,
 )
 
 decisions = toolbox_module("decisions")
@@ -201,3 +212,126 @@ def test_a_function_made_in_the_notebook_is_left_unwritten(started: Path) -> Non
     assert "a function a Table reference can't import: write it in a file of the Project's" \
         in said
     assert "import" not in REFERENCE.read_text(encoding="utf-8").split("TAGS = {")[0][-200:]
+
+
+# --- today, latest_partition and hive_date (ticket 06) ----------------------------------------
+
+
+def test_today_is_utc_or_an_offset_from_it() -> None:
+    # The tests' clock stands at noon, UTC, on 2026-09-25.
+    assert today() == datetime.date(2026, 9, 25)
+    assert today(utc_offset_hours=14) == datetime.date(2026, 9, 26)
+    assert today(utc_offset_hours=-12.5) == datetime.date(2026, 9, 24)
+    for wrong in (30, "-6", True):
+        with pytest.raises(ValueError, match="isn't an offset from UTC"):
+            today(utc_offset_hours=wrong)
+
+
+def test_latest_partition_reads_show_partitions() -> None:
+    assert latest_partition(runs.dt, example_database.query) == datetime.date(2026, 9, 24)
+
+
+@pytest.mark.parametrize(("listed", "column", "latest"), [
+    (["dt=2026-09-23/team=data", "dt=2026-09-24/team=web"], "team", "web"),
+    (["batch_no=9", "batch_no=10"], "batch_no", 10),
+    (["region=north%2Fwest", "region=east"], "region", "north/west"),
+])
+def test_latest_partition_reads_any_partition_column(listed: list[str], column: str,
+                                                     latest: object) -> None:
+    table = Table("ops.parts", columns={column: "string", "dt": "string", "team": "string"},
+                  partitioned_by=[column])
+
+    def query(hive: str) -> pd.DataFrame:
+        assert hive == "SHOW PARTITIONS ops.parts"
+        return pd.DataFrame({"partition": listed})
+    assert latest_partition(getattr(table, column), query) == latest
+
+
+def test_latest_partition_refuses_what_it_cant_read() -> None:
+    with pytest.raises(ValueError, match="isn't a partition column of ops.job_runs"):
+        latest_partition(runs.job_id, example_database.query)
+    with pytest.raises(ValueError, match="holds no Partition yet"):
+        latest_partition(runs.dt, lambda hive: pd.DataFrame({"partition": []}))
+
+
+def test_hive_date_writes_a_date_in_quotes() -> None:
+    assert hive_date(datetime.date(2026, 10, 31)) == "'2026-10-31'"
+    with pytest.raises(TypeError, match="not a date"):
+        hive_date("2026-10-31")
+
+
+# --- Run values in lineage (ticket 07) --------------------------------------------------------
+
+lineage = toolbox_module("lineage")
+
+
+def latest_day() -> datetime.date:
+    """The latest day ops.job_runs holds, as a Run value's function in a Project reads it."""
+    return latest_partition(runs.dt, example_database.query)
+
+
+def test_a_run_value_is_drawn_with_its_tag_its_function_and_its_value() -> None:
+    TAGS = {"PERIOD_END": latest_day}  # noqa: N806 - as a converted table's logic names it
+    built = statement(SELECT(runs.run_id), FROM(runs),
+                      WHERE(at_most(runs.dt, script_tag(TAGS["PERIOD_END"]))))
+    graph = lineage.build_graph([(built, "recent")])
+    (box,) = [box for box in graph.boxes.values() if box["group"] == lineage.RUN_VALUES]
+    assert box["name"] == "PERIOD_END = test_run_values.latest_day()"
+    assert box["type"] == "gave '2026-09-24'"
+    key = next(key for key, each in graph.boxes.items() if each is box)
+    # The lookup read ops.job_runs.dt, so the page draws it into the Run value, and the Run
+    # value into the condition it is part of.
+    assert ("table:ops.job_runs.dt", key, "value") in graph.arrows
+    assert any(source == key and graph.boxes[target]["kind"] == "condition"
+               for source, target, _ in graph.arrows)
+
+
+def test_a_run_value_of_a_statement_of_its_own_shows_its_name_and_value() -> None:
+    built = statement(SELECT(runs.run_id), FROM(runs),
+                      WHERE(at_most(runs.dt, script_tag(period_end))))
+    graph = lineage.build_graph([(built, "recent")])
+    (box,) = [box for box in graph.boxes.values() if box["group"] == lineage.RUN_VALUES]
+    assert box["name"] == "test_run_values.period_end()"
+    assert not [arrow for arrow in graph.arrows if arrow[1] in graph.boxes
+                and graph.boxes[arrow[1]] is box]
+
+
+# --- run_value: any function, traced ----------------------------------------------------------
+
+
+def days_before(day: datetime.date, days: int) -> datetime.date:
+    return day - datetime.timedelta(days=days)
+
+
+def busiest_day() -> datetime.date:
+    """The day of the most runs, from a Statement of its own."""
+    rows = run_query(statement(SELECT(runs.dt, AS(count_rows(), "runs")), FROM(runs),
+                               WHERE(between(runs.dt, "2026-09-23", "2026-09-24")),
+                               GROUP_BY(runs.dt)), example_database.query)
+    return datetime.date.fromisoformat(rows.sort_values("runs").iloc[-1]["dt"])
+
+
+def test_run_value_writes_what_any_function_gives_and_bounds_a_partition() -> None:
+    built = statement(SELECT(runs.run_id), FROM(runs),
+                      WHERE(at_least(runs.dt, run_value(days_before, period_end(), 1))))
+    assert "job_runs.dt >= '2026-09-23'" in to_hive(built)
+    graph = lineage.build_graph([(built, "recent")])
+    (box,) = [box for box in graph.boxes.values() if box["group"] == lineage.RUN_VALUES]
+    assert box["name"] == ("test_run_values.days_before(datetime.date(2026, 9, 24), 1)")
+    assert box["type"] == "gave '2026-09-23'"
+
+
+def test_a_traced_function_that_runs_a_query_draws_the_tables_it_read() -> None:
+    built = statement(SELECT(runs.run_id), FROM(runs),
+                      WHERE(equals(runs.dt, run_value(busiest_day))))
+    assert "job_runs.dt = '2026-09-23'" in to_hive(built)
+    graph = lineage.build_graph([(built, "busiest")])
+    key = next(key for key, box in graph.boxes.items() if box["group"] == lineage.RUN_VALUES)
+    assert ("whole:ops.job_runs", key, "value") in graph.arrows
+
+
+def test_run_value_refuses_what_isnt_a_function_or_gives_none() -> None:
+    with pytest.raises(TypeError, match="not a function"):
+        run_value(period_end())
+    with pytest.raises(TypeError, match="gave None"):
+        run_value(lambda: None)

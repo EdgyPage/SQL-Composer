@@ -733,7 +733,8 @@ def test_convert_the_users_batch_with_run_values(started: Started) -> None:
     writes = [hive for hive in started.warehouse.executed if "INSERT" in hive
               and "mart_dev." in hive]
     assert writes and not [hive for hive in writes if "<PARM" in hive]
-    assert any("date_sub('2026-09-24', 14)" in hive for hive in writes)
+    # date_sub as the Toolbox writes it, DATE_ADD(day, 14 * -1), which Hive reads the same.
+    assert any("DATE_ADD('2026-09-24', 14 * -1)" in hive for hive in writes)
     # The seed copied only the latest day's Partitions of the original.
     seeds = [hive for hive in started.warehouse.executed
              if "SELECT * FROM mart.team_log" in hive]

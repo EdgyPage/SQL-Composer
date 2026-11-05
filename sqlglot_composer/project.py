@@ -3435,8 +3435,10 @@ def write_decisions(answers: dict[str, dict[str, object]]) -> ProjectReport:
     or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
     "'2026-10-31'"}}}. Each answer is written into the open line it answers. A tag's answer
-    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes;
-    answering it again writes the new value over the old. An answer left <FILL IN>, as
+    is the Hive the program put where the tag stood, a bare tag's with the value's own quotes,
+    or a Run value's function, imported in the decisions cell from a file of your Project's,
+    which is written into TAGS with its import; answering it again writes the new value over
+    the old. An answer left <FILL IN>, as
     check() prints it to paste, is no answer: nothing is written for it, and the report names
     it. Any other Decision made already,
     as yours is once you change its line, is kept, and an answer that differs from it is

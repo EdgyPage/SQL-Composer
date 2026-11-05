@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import html
 import inspect
+import itertools
 import json
 import os
 import re
@@ -123,6 +124,37 @@ def _table_box(graph: Graph, table: Table, column: str) -> str:
                      in_key=column in (table._key or []))
 
 
+# The group a Run value's box is drawn in, as a table's column is: where a value comes from.
+RUN_VALUES = "Run values"
+
+
+def _run_value_boxes(graph: Graph, tree: Node) -> list[str]:
+    """The key of the box of each Run value a calculation or condition holds, a value a
+    function of yours gave as the Statement was built, run_value's or a Script tag's: its
+    function, what it was given, the tag it answers and what it gave, with an arrow into it
+    from each table, or column, the Toolbox read for it while it ran."""
+    keys = []
+    for node in tree.walk():
+        traced = node.meta.get("traced")
+        if traced is None:
+            continue
+        shown = f"{traced.function}({traced.arguments})"
+        if traced.tag:
+            shown = f"{traced.tag} = {shown}"
+        gave = f"gave {node.meta['value']}" if "value" in node.meta else "failed"
+        key = graph.add(_box_key("runvalue", shown), kind="table", group=RUN_VALUES,
+                        name=shown, full=f"{RUN_VALUES}.{shown}", type=gave, formula="",
+                        calculated=False, in_key=False)
+        for table, column in traced.reads:
+            if isinstance(table, str) or column is None:
+                read = _whole_table_box(graph, table if isinstance(table, str) else table._name)
+            else:
+                read = _table_box(graph, table, column)
+            graph.arrow(read, key, "value")
+        keys.append(key)
+    return keys
+
+
 def _resolver(graph: Graph, step: Statement, index: int) -> Callable[[Node], str | None]:
     """A function from a column in `step` to the key of the box it reads."""
     tables = {read.table._alias: read.table for read in step._reads}
@@ -198,6 +230,7 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
     for column, name in step._outputs:
         tree = column._tree
         sources = [resolve(used) for used in tree.find_all("Column")]
+        sources += _run_value_boxes(graph, tree)
         key, shown = _output_box(index, kind, group, table, name)
         group_by = []
         if column._aggregate:
@@ -218,7 +251,8 @@ def _add_step(graph: Graph, step: Statement, index: int, kind: str, group: str,
         # once the condition's box is added, so that it comes before the table boxes it reads.
         joined = []
         _add_condition(graph, index, group, number, _badged(clause, tree), sql, formula, made,
-                       (resolve(used) for used in tree.find_all("Column")),
+                       itertools.chain((resolve(used) for used in tree.find_all("Column")),
+                                       _run_value_boxes(graph, tree)),
                        joined=joined, kept=kept, reads=_aliases_read(tree))
         if kept is not None:
             joined += [resolve(used) for used in tree.find_all("Column") if used.table == kept]

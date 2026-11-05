@@ -253,8 +253,9 @@ def tag_hint(quoted: bool, where: str = "") -> str:
 
 def tag_answer_problem(value: object, quoted: bool) -> str | None:
     """Why a tag's answer can't be written where the tag stood, or None when it can: it must
-    be Python text, not <FILL IN>; a bare tag's answer is one value of a kind a program puts
-    there (writing.tag_value_problem), and a quoted tag's answer has no quotes of its own."""
+    be Python text, not <FILL IN>, or a Run value's function a Table reference can import
+    (run_value_problem); a bare tag's text is one value of a kind a program puts there
+    (writing.tag_value_problem), and a quoted tag's has no quotes of its own."""
     if is_left_to_fill_in(value):
         return still_to_fill_in("its answer")
     if callable(value):
@@ -263,6 +264,12 @@ def tag_answer_problem(value: object, quoted: bool) -> str | None:
         return (f"is given {value!r}, a Python {type(value).__name__}: give the Hive as Python "
                 "text, such as \"'2026-10-31'\" or \"5\" (a date typed with no quotes is "
                 "a subtraction to Python)")
+    return _text_answer_problem(value, quoted)
+
+
+def _text_answer_problem(value: str, quoted: bool) -> str | None:
+    """Why a tag's answer given as text can't be written where the tag stood, or None when it
+    can."""
     if not value.strip():
         return "is given empty text: give the Hive the program put where the tag stood"
     if not quoted:

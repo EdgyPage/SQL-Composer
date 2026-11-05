@@ -299,7 +299,8 @@ def gallery_entries() -> dict[str, tuple[str, str]]:
 
 @pytest.fixture(autouse=True)
 def fixed_today(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(toolbox_module("conditions"), "today", lambda: TODAY)
+    noon = datetime.datetime.combine(TODAY, datetime.time(12), datetime.timezone.utc)
+    monkeypatch.setattr(toolbox_module("conditions"), "utc_now", lambda: noon)
 
 
 @pytest.fixture(autouse=True)
