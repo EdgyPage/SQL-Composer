@@ -803,6 +803,7 @@ def _convert_again_said(scripts: Path) -> str:
 
 
 # Each version's step from the version before it: every Toolbox version has one, which a test
-# holds.
+# holds. A Project may skip versions, so a step may not assume the version just before it wrote
+# the Project, only that each earlier step ran.
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
                                                "8.2": to_8_2, "8.3": to_8_3}

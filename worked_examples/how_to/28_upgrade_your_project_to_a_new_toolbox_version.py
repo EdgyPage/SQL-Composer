@@ -18,6 +18,8 @@ line.
   old folder, copying in the new one and restarting the kernel, as the README's Update says.
 - If the Project was made by Toolbox 7.1 or later, `project.upgrade()` carries it: from 7.1 on,
   every Toolbox version ships the step that carries a Project to it from the version before.
+- If you skipped versions, copy in the newest and upgrade once: `project.upgrade()` runs each
+  version's step in turn, from the Project's version to the Toolbox's.
 - If you have no Project yet, do [Start a Project](#start_a_project) first, and read
   [Keep the Project in order](#keep_the_project_in_order) for `project.check()`.
 
@@ -75,13 +77,15 @@ Upgraded the Project from 7.2 to 8.3.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+Read each step's report, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md,
+    admin/upgrade_8.2.md and admin/upgrade_8.3.md.
 
 Done when it prints "Upgraded the Project from 7.2 to 8.3.". Then step 4.
 
 ### 4. Read each checklist
 
 Goal: know what the Upgrade did and what it left you. It ran the step from each version to the
-next, here four, and wrote a checklist for each:
+next, here four, and wrote a checklist for each, which its last line names in order:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():
