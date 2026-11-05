@@ -169,6 +169,23 @@ def _check_executor() -> None:
     )
 
 
+def _teach_date_add() -> None:
+    """Give sqlglot's executor Hive's date_add and date_sub, which it reads as one function,
+    TsOrDsAdd, and has no Python for: a day as text, such as '2026-09-24', moved on by a
+    number of days, given back as text, as the Example database holds a day."""
+    import datetime
+
+    from sqlglot.executor import env
+
+    def date_add(day: object, days: object, unit: object = None) -> str | None:
+        if day is None or days is None:
+            return None
+        start = datetime.date.fromisoformat(str(day)[:10])
+        return (start + datetime.timedelta(days=int(days))).isoformat()
+
+    env.ENV.setdefault("TSORDSADD", date_add)
+
+
 def _spell_out_likes(tree: exp.Expression) -> exp.Expression:
     """Rewrite each escaped LIKE, since sqlglot's executor ignores LIKE's backslash.
 
@@ -1022,6 +1039,7 @@ def run_query(text: str, tables: dict[str, tuple[Table, list[tuple[object, ...]]
         _refuse_hive_it_cant_run(_reason_without_place(error), tables, error)
     _check_example_tables(tree, tables)
     _check_executor()
+    _teach_date_add()
     from sqlglot.executor import execute  # only when a query runs, as in _check_executor
 
     schema = {"ops": {name: dict(table._columns) for name, (table, _) in tables.items()}}
