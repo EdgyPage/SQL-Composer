@@ -30,3 +30,28 @@ bottom, on scripts shaped like theirs (map, "What the user hit").
 - A unit test per shape holds what the Conversion writes today, for 02 to 04 to change:
   `date_sub` and `date_add`, `between` with a tag or a calculation at an end, and
   `${hivevar:...}` written by hand in `unchecked_column`.
+
+## Answer
+Built 2026-11-05.
+
+- **The journey**, `test_convert_the_users_batch_with_run_values` in
+  `tests/journeys/test_workflow_journeys.py`, on `PERIOD_SCRIPT`: mart.job_teams, read on
+  the latest day; mart.recent_runs, a 14-day window `BETWEEN date_sub(<PARM="PERIOD_END"/>,
+  14) AND <PARM="PERIOD_END"/>`, joined to job_teams, whose Key the user answers at step 3;
+  and mart.team_log, partitioned by dt and team, an INSERT INTO that reads itself, so it is
+  seeded. The user's function, `building_blocks/run_values.py`'s `period_end()`, gives the
+  latest day through `latest_partition`, and the decisions cell, typed whole with
+  `Journey.type_decisions_cell`, imports it and answers under `"all_tables"`, with a seed
+  limit for team_log. It ends on the end goal: each table compared and holding its
+  original's rows, each write holding the day as plain Hive, the seed copying only
+  `dt >= '2026-09-24'`, and the needless `many_matches=True` gone.
+- **Today** it is `xfail(strict=True)`, failing at step 1: `date_sub` converted with
+  `unchecked_column("DAY")`.
+- **KNOWN_FIDDLING stays `()` for convert**: writing the function is the user's own code, as
+  their scripts are, and the decisions cell is typing.
+- **The Example database runs date_sub and date_add**, which sqlglot's executor had no Python
+  for (`engine._teach_date_add`), so the originals of the journey's scripts can be written.
+- **What a Conversion writes today**, `tests/test_date_windows.py`: date_sub and date_add with
+  an Unchecked DAY (02 changes it); between two Script tags bounds no Partition (03 changes
+  it). `${...}` in hand-written Unchecked text is ticket 04's, built beside this one, which
+  holds it in its own tests.
