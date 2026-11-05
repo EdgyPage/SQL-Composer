@@ -2828,6 +2828,10 @@ def _register_table(root: Path, dev: str, folder: bool) -> None:
     registry.add(new, unchecked.now())
 
 
+# What follows an opt-out's name in its checklist note: where it is.
+OPT_OUT_NOTE_PLACE = ", in the logic cell"
+
+
 def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQuery,
                      stopped: str | None, proposed: tuple[list[str], ...]) -> list[str]:
     """What a converted table's checklist notes, which blocks nothing: each mark, with what
@@ -2837,7 +2841,7 @@ def _checklist_notes(opt_outs: dict[str, str], hive_read: converting.ConvertedQu
     for opt_out, refused in opt_outs.items():
         # An opt-out is written as FROM(job_runs, reads_all_partitions=True): its keyword last.
         keyword = opt_out.rsplit(", ", 1)[-1].removesuffix(")")
-        notes.append(f"{opt_out}, in the logic cell, keeps what the original did, as its "
+        notes.append(f"{opt_out}{OPT_OUT_NOTE_PLACE}, keeps what the original did, as its "
                      f"`# CONVERSION:` mark says until you delete it. Without {keyword} the "
                      f"Toolbox refuses the logic, saying: {refused.rstrip('.')}. If you want "
                      "to, change what made it needed, such as a WHERE on the partition "
@@ -2909,24 +2913,24 @@ def _logic_without_needless_many_matches(root: Path, table: str,
     """A table's logic cell, each many_matches=True a Conversion added taken out, with its
     mark, where building it without shows no Repeated-rows Warning more than with it; and
     each taken out. Logic that doesn't build, as yours may not yet, is kept as it is."""
-    warned = _repeated_rows_warnings(root, table, logic)
-    if warned is None:
+    warning_count = _repeated_rows_warning_count(root, table, logic)
+    if warning_count is None:
         return logic, []
     taken: list[str] = []
-    kept = 0
+    next_to_try = 0
     marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
-    while kept < len(marked):
-        opt_out, without = marked[kept]
-        if _repeated_rows_warnings(root, table, without) == warned:
+    while next_to_try < len(marked):
+        opt_out, without = marked[next_to_try]
+        if _repeated_rows_warning_count(root, table, without) == warning_count:
             logic = without
             taken.append(opt_out)
         else:
-            kept += 1  # it is still needed: the next one is tried
+            next_to_try += 1  # it is still needed: the next one is tried
         marked = converting.marked_opt_outs(logic, _MANY_MATCHES)
     return logic, taken
 
 
-def _repeated_rows_warnings(root: Path, table: str, logic: str) -> int | None:
+def _repeated_rows_warning_count(root: Path, table: str, logic: str) -> int | None:
     """How many Repeated-rows Warnings building a converted table's preview() shows, the query
     its write() saves, which builds before its location= is answered; None when it doesn't
     build."""
@@ -2947,7 +2951,7 @@ def _take_out_notes(root: Path, table: str, opt_outs: set[str]) -> None:
     if checklist.is_file():
         text = checklist.read_text(encoding="utf-8")
         notes = [note for note in _notes_of(text)
-                 if note.split(", in the logic cell", 1)[0] not in opt_outs]
+                 if note.split(OPT_OUT_NOTE_PLACE, 1)[0] not in opt_outs]
         checklist.write_text(_checklist_text(root, table, notes, _decisions_notebook_of(text)),
                              encoding="utf-8")
     mark_lines = {_batch_md_mark_line(opt_out) for opt_out in opt_outs}

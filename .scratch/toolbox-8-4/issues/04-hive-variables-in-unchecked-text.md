@@ -38,3 +38,18 @@ writes and a person doesn't know to (map, Q9).
   Unchecked expression says it. The Example gallery is written again.
 - Tests: `tests/test_unchecked_expressions.py`, `tests/test_unchecked_statements.py`,
   `tests/test_converting.py`, and a case in `tests/test_conversions.py`'s `SAME_QUERY`.
+
+## Review
+
+Code review (review-standards and review-spec, sonnet), with 10 and 11:
+
+- **Answered, left as is:**
+  - The Node's text keeps each Hive variable's braces doubled, so `str.format` gives it back
+    plain: every reader of it formats it first. Checked: `to_hive`, the Column's repr and the
+    lineage condition box each show `${hivevar:x}` as written.
+  - `unchecked_derived` keeps its one example, of a Derived table with a GROUP BY; its text says
+    a `${...}` is Hive, as the other three show by example.
+  - `${{name}}`, which before 8.4 could only mean a Hive variable written with doubled braces,
+    stays one: the rule that keeps 8.3's Conversions giving the same Hive.
+  - `writing.with_placeholders`, the fix a refusal suggests, goes through the same
+    `unchecked_expression_text`, so it writes `${...}` plainly too: one way to write the job.

@@ -48,3 +48,14 @@ Built 2026-11-05.
   how-to 28 shows the line, gains "If you skipped versions", and its page and the Example
   gallery are written again with their tools.
 - Projects from 7.1 to 8.2 upgrade as before: no step changed.
+
+## Review
+
+Code review, with 04 and 10, and the drift review:
+
+- **Fixed (D425):** the last line says "checklist", as the glossary and how-to 28 name
+  admin/upgrade_<version>.md: "Read each step's checklist, in order: ...".
+- **Answered:** the chain test runs from 8.2 alone until 13 freezes 8.3; its name says what
+  it is for from then on. `GAINED_BY_HAND` and `LEFT_AS_IT_WAS` are empty, so their by-version
+  path waits for a version that needs them. The docstring's example starts from 7.1 and is
+  written again by each raise, as before.
