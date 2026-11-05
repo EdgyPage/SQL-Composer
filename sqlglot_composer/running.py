@@ -212,8 +212,11 @@ def statements_within(s: Statement) -> list[Statement]:
 def tables_read_by(s: Statement) -> list[Table]:
     """Each table `s` reads that has a Table reference: of each of its steps, every read
     but a Derived table and an Unchecked derived table."""
-    return [read.table for step in statements_within(s) for read in step._reads
-            if read.table._statement is None and not is_unchecked(read.table)]
+    tables = []
+    for step in statements_within(s):
+        tables += [read.table for read in step._reads
+                   if read.table._statement is None and not is_unchecked(read.table)]
+    return tables
 
 
 def _write_tree(s: Statement) -> Node:
