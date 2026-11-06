@@ -1,4 +1,4 @@
-# sqlglot Composer 8.4 - copy it, then edit your copy
+# sqlglot Composer 8.5 - copy it, then edit your copy
 """Count the characters of each Copilot file, against the 8,000 Copilot takes at once.
 
     python count_characters.py                    counts the .txt files beside this script

@@ -24,11 +24,11 @@ answers. It never writes over any other line that is made already, as yours is o
 change it: the answer is kept unwritten, to name.
 
 `DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
-"seed", the limits of the seed's copy; "location_root", the folder each table's own goes
-under, as <root>/<db>.db/<table>, for a table whose location is still open; and "tags", each
-for the tables that hold it. `table_answer` gives one table's answer: all_tables' first, then
-the table's own over it, kind by kind and, for tags, tag by tag. A Key and a type are each
-table's own.
+"seed", the limits of the seed's copy, and "tags", each for the tables that hold it.
+`table_answer` gives one table's answer: all_tables' first, then the table's own over it, kind
+by kind and, for tags, tag by tag. A Key, a type and a location are each table's own: the
+folder every table's own goes under is a Database setting since 8.5, "location_root" in
+admin/databases.py, which places a table with no location of its own as it is written.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field, replace
 
-from .shared import escaped_literal, split_table_name
+from .shared import escaped_literal, in_words, split_table_name
 from .writing import tag_value_problem
 
 LOCATION = "location"
@@ -59,12 +59,12 @@ DECISIONS_NAME = "DECISIONS"
 ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
 ANSWERED_KINDS = tuple(ANSWERS)
 # The decisions cell's answer for every table its Workflow's notebook names, beside each
-# table's own (Toolbox 8.4), and the kinds it answers, each by its name there: the limits of
-# the seed's copy, the folder each table's own goes under, and Script tags.
+# table's own (Toolbox 8.4), and the kinds it answers, each by its name there: "proposed" for
+# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, and Script
+# tags. A location is placed under its Database's location_root, a Database setting (8.5).
 ALL_TABLES = "all_tables"
 SEED = "seed"
-LOCATION_ROOT = "location_root"
-ALL_TABLES_ANSWERS = (SEED, LOCATION_ROOT, ANSWERS[TAG])
+ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -107,13 +107,32 @@ PROPOSED = ('  # proposed from its query; if it is wrong, answer "key" in the de
 # table new_table made with no query.
 PROPOSED_FROM_LOGIC = ('  # proposed from its logic; if it is wrong, answer "key" in the '
                        "decisions cell")
+# What project.add_references writes on a key= line for the Key it worked out of a table's
+# rows and checked with check_key (Toolbox 8.5): a Decision still open, its proposal in the
+# comment, until an answer accepts it, as in
+#     key=None,  # TODO: proposed ["run_id"], checked: accept it in the decisions cell
+PROPOSED_FROM_ROWS = "  # TODO: proposed "
+_PROPOSED_IN_COMMENT = re.compile(r"# TODO: proposed (?P<key>\[[^\]]*\])")
+_KEY_VALUE = re.compile(r"^\s*key=(?P<value>.*?),  #")
+# A line the Toolbox proposed and that is made, which check() names until it is accepted: a
+# Key from a table's query or its logic, or a Table reference's first line or does_not_add_up=
+# that project.add_references proposed (Toolbox 8.5).
+PROPOSED_MARK = re.compile(r"#\s*proposed\b")
+# The answer, under "all_tables" or a table's own name, that accepts each table's proposed
+# Key as it is, written as if typed.
+ACCEPT_PROPOSED = "proposed"
+# A Table reference's first line, what one row is, as write_table_reference leaves it to
+# fill in, and the mark after it once project.add_references proposed it from the Key.
+ROW_TODO = "TODO: say in one line what one row is."
+PROPOSED_ROW = "  # proposed from its Key"
 
 
 @dataclass(frozen=True)
 class Decision:
     """One open Decision: its table, its kind, and what it is about: a guessed type's column,
-    a tag's NAME, or a placeholder's <...>; and, for a tag, where it is in the scripts, such as
-    "daily.hql, line 4", when its line says, and whether it stands inside quotes."""
+    a tag's NAME, a placeholder's <...>, or a Key's proposal; and, for a tag, where it is in
+    the scripts, such as "daily.hql, line 4", when its line says, and whether it stands inside
+    quotes."""
 
     table: str
     kind: str
@@ -126,7 +145,7 @@ class Decision:
         if self.kind == LOCATION:
             return "location: the folder its files go in"
         if self.kind == KEY:
-            return "key: the columns whose values name one row, or None when none do"
+            return key_question(self.subject)
         if self.kind == GUESSED_TYPE:
             return f'types: {self.subject}\'s type, written "string" as a guess'
         if self.kind == TAG:
@@ -135,6 +154,16 @@ class Decision:
             return (f"{COLUMNS}, which project.reference_from_logic writes from its logic, "
                     "once that runs")
         return f"{self.subject}, to fill in by hand"
+
+
+def key_question(proposal: str) -> str:
+    """What an open Key's Decision asks, as check() names it: to accept its proposal, as
+    Python, when the Toolbox proposed one, or else to answer it."""
+    answer = "the columns whose values name one row, or None when none do"
+    if proposal:
+        return (f"key: proposed {proposal}, which check_key found holds: accept it, or "
+                f"answer {answer}")
+    return f"key: {answer}"
 
 
 @dataclass
@@ -310,6 +339,24 @@ def seed_python(value: object) -> str:
     return repr(value)
 
 
+def seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
+                answer: dict[str, object]) -> dict[str, object]:
+    """One table's answer with its seed limits as they apply to it: its own as given, which
+    the refusals check first; all_tables' for the partition columns it has; none for a table
+    that doesn't read itself, which has no seed."""
+    if not isinstance(answer.get(SEED), dict):
+        return answer
+    partitions = seed_partitions(text)
+    own = answers.get(table)
+    if partitions is None:
+        return {kind: value for kind, value in answer.items() if kind != SEED}
+    if isinstance(own, dict) and SEED in own:
+        return answer
+    limits = {column: limit for column, limit in answer[SEED].items()
+              if column in partitions}
+    return {**answer, SEED: limits}
+
+
 def seed_partitions(text: str) -> list[str] | None:
     """The partition columns a Table reference's text names, for its seed limits; None when
     it has no SEED, as a table that doesn't read itself has none."""
@@ -443,14 +490,18 @@ def open_decisions(text: str, table: str, kinds: tuple[str, ...] = KINDS) -> lis
 
 
 def _subject_of(kind: str, line: str) -> str:
-    """What a Decision's line is about: a guessed type's column, or the <...> a placeholder's
-    line holds first."""
+    """What a Decision's line is about: a guessed type's column, a tag's NAME, the <...> a
+    placeholder's line holds first, or the Key proposed on an open key= line, as Python, such
+    as '["run_id"]'."""
     if kind == GUESSED_TYPE:
         return COLUMN_LINE.match(line)["column"]
     if kind == TAG:
         return _tag_name_of(line)
     if kind == PLACEHOLDER:
         return PLACEHOLDER_WORD.search(line).group()
+    if kind == KEY:
+        proposal = _PROPOSED_IN_COMMENT.search(line)
+        return proposal["key"] if proposal else ""
     return ""
 
 
@@ -498,34 +549,55 @@ def is_answered(decision: Decision, answer: dict[str, object]) -> bool:
 def table_answer(answers: dict[str, object], table: str, text: str) -> dict[str, object]:
     """One table's answer in a decisions cell, `answers`, its Table reference's text being
     `text`: what "all_tables" answers for it first, then the table's own answer over that, kind
-    by kind and, for tags, tag by tag."""
+    by kind and, for tags, tag by tag. A "key" of "proposed" is the table's proposed Key, or
+    no answer when it has none."""
     own = answers.get(table)
     if not isinstance(own, dict):
         own = {}
     every = answers.get(ALL_TABLES)
-    if not isinstance(every, dict):
-        return dict(own)
-    answer = all_tables_answer(every, table, text)
+    answer = {}
+    if isinstance(every, dict):
+        answer = all_tables_answer(every, table, text)
     for kind, value in own.items():
         if kind == ANSWERS[TAG] and isinstance(value, dict) and kind in answer:
             answer[kind] = {**answer[kind], **value}
         else:
             answer[kind] = value
+    if answer.get(ANSWERS[KEY]) == ACCEPT_PROPOSED:
+        del answer[ANSWERS[KEY]]
+        proposed = proposed_key(text)
+        if proposed is not None:
+            answer[ANSWERS[KEY]] = proposed
     return answer
+
+
+def proposed_key(text: str) -> list[str] | None:
+    """The Key a Table reference's key= line holds as proposed, which an answer of "proposed"
+    accepts: one worked out of its query or its logic, made already, or one worked out of its
+    rows, still open with the proposal in its comment; None when its Key is no proposal."""
+    for line in code_of(text).split("\n"):
+        if kind_of(line) != KEY:
+            continue
+        in_comment = _PROPOSED_IN_COMMENT.search(line)
+        if in_comment:
+            return ast.literal_eval(in_comment["key"])
+        written = _KEY_VALUE.match(line)
+        if written and (PROPOSED in line or PROPOSED_FROM_LOGIC in line):
+            return ast.literal_eval(written["value"])
+    return None
 
 
 def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
     """What "all_tables", `every`, answers for one table, its Table reference's text being
-    `text`: its seed limits as they are, for the seed to read; its location under
-    "location_root" while its location= is still open; and each tag of "tags" the table holds.
+    `text`: its seed limits as they are, for the seed to read; each tag of "tags" the table
+    holds; and, for a "key" of "proposed", "proposed", which table_answer turns into its
+    proposed Key.
     An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
     answer: dict[str, object] = {}
+    if every.get(ANSWERS[KEY]) == ACCEPT_PROPOSED:
+        answer[ANSWERS[KEY]] = ACCEPT_PROPOSED
     if SEED in every:
         answer[SEED] = every[SEED]
-    root = every.get(LOCATION_ROOT)
-    if (isinstance(root, str) and not is_left_to_fill_in(root)
-            and open_decisions(text, table, (LOCATION,))):
-        answer[ANSWERS[LOCATION]] = location_under(root, table)
     tags = every.get(ANSWERS[TAG])
     if isinstance(tags, dict):
         held = tag_names(text)
@@ -534,9 +606,67 @@ def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[s
     return answer
 
 
+def with_proposals(text: str, table: str, columns: dict[str, str],
+                   key: list[str] | None) -> str:
+    """A Table reference's text, as write_table_reference wrote it, with what
+    project.add_references proposes written in (Toolbox 8.5): its first line, what one row is,
+    from `key`, the Key it worked out of the table's rows, such as "One row per run_id.", and
+    its key= line holding that Key, still open, to accept; and its does_not_add_up= from its
+    columns' names and types. Each is marked proposed. With no Key, its first line and key=
+    stay TODO lines."""
+    lines = text.split("\n")
+    for number, line in enumerate(lines):
+        if key is not None and line == f'"""{table} - {ROW_TODO}"""':
+            lines[number] = f'"""{table} - One row per {in_words(key)}."""{PROPOSED_ROW}'
+        elif key is not None and line.startswith("    key=None,  # TODO:"):
+            lines[number] = (f"    key=None,{PROPOSED_FROM_ROWS}{escaped_literal(key)}, "
+                             "checked: accept it in the decisions cell")
+        elif line.startswith("    does_not_add_up=[],  # TODO:"):
+            lines[number] = _does_not_add_up_line(proposed_does_not_add_up(columns))
+    return "\n".join(lines)
+
+
+def _with_row_line_proposed_again(text: str, key: object) -> str:
+    """A Table reference's text with its first line, what one row is, proposed again from the
+    Key just written, `key`, while it is still the one project.add_references proposed: a TODO
+    again for a Key of None. Any other first line is kept, as yours."""
+    lines = text.split("\n")
+    found = re.fullmatch(r'"""(?P<table>\S+) - One row per .*\."""' + re.escape(PROPOSED_ROW),
+                         lines[0])
+    if found is None:
+        return text
+    if isinstance(key, list) and key:
+        lines[0] = f'"""{found["table"]} - One row per {in_words(key)}."""{PROPOSED_ROW}'
+    else:
+        lines[0] = f'"""{found["table"]} - {ROW_TODO}"""'
+    return "\n".join(lines)
+
+
+def _does_not_add_up_line(proposed: list[str]) -> str:
+    """A Table reference's does_not_add_up= line holding the columns proposed, marked so."""
+    if not proposed:
+        return ("    does_not_add_up=[],  # proposed: no name says average, ratio, percent or "
+                "rate")
+    return (f"    does_not_add_up={escaped_literal(proposed)},  # proposed from its columns' "
+            "names")
+
+
+def proposed_does_not_add_up(columns: dict[str, str]) -> list[str]:
+    """The columns, of `columns` by name and type, whose names say their values don't add up
+    across rows: an average, avg_*; a ratio, a percent or a rate, *_ratio, *_pct or *_rate;
+    and a double named *_per_*, such as runs_per_day."""
+    proposed = []
+    for column, kind in columns.items():
+        name = column.lower()
+        if (name.startswith("avg_") or name.endswith(("_ratio", "_pct", "_rate"))
+                or ("_per_" in name and str(kind).lower() == "double")):
+            proposed.append(column)
+    return proposed
+
+
 def location_under(root: str, table: str) -> str:
-    """A table's own folder under a location_root, <root>/<db>.db/<table>: "/data/team" gives
-    mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
+    """A table's own folder under its Database's location_root, <root>/<db>.db/<table>:
+    "/data/team" gives mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
     database, short = split_table_name(table)
     return f"{root.rstrip('/')}/{database}.db/{short}"
 
@@ -567,6 +697,8 @@ def answered_text(text: str, answer: dict[str, object], reference: str) -> Answe
     seeded, wrote_seed = _with_seed_written("\n".join(lines), answer)
     if wrote_seed:
         answered.written.append(SEED)
+    if ANSWERS[KEY] in answered.written:
+        seeded = _with_row_line_proposed_again(seeded, answer[ANSWERS[KEY]])
     answered.text = _with_run_value_imports(seeded, answer)
     answered.unwritten += _unwritten(answer, answered.written, reference)
     answered.unwritten += _tags_unwritten(answer, text)
@@ -648,20 +780,24 @@ def _answered_tag(line: str, tags: object) -> tuple[str | None, str]:
     return f"    {found['name']}: {written},  {found['comment']}", f"tags: {name}"
 
 
-def paste_lines(still_open: list[Decision]) -> list[str]:
+def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -> list[str]:
     """The lines of a whole DECISIONS = {...} to paste into a decisions cell: each Decision of
     `still_open` the cell answers, by its table, each value still to give <FILL IN>, a guessed
-    type's proposal "string", and a comment beside each saying what to write. A Decision more
-    than one table holds is offered once, under "all_tables": a location as location_root, and
-    a tag by its NAME, where it stands bare in each or inside quotes in each."""
-    answered = [decision for decision in still_open if decision.kind in ANSWERS]
+    type's proposal "string", an open Key's proposal, and a comment beside each saying what to
+    write. A tag more than one table holds is offered once, under "all_tables", by its NAME,
+    where it stands bare in each or inside quotes in each. When `proposed`, the tables whose
+    Key the Toolbox proposed, names two or more, "all_tables" offers "key": "proposed", which
+    accepts each, in place of each table's own."""
+    accepts_every_key = len(set(proposed or [])) > 1
+    answered = [decision for decision in still_open if decision.kind in ANSWERS
+                and not (accepts_every_key and decision.kind == KEY and decision.subject)]
     shared = _shared_decisions(answered)
     shared_kinds = [_shared_kind(decision) for decision in shared]
     by_table: dict[str, list[Decision]] = {}
     for decision in answered:
         if _shared_kind(decision) not in shared_kinds:
             by_table.setdefault(decision.table, []).append(decision)
-    lines = [f"{DECISIONS_NAME} = {{", *_all_tables_lines(shared)]
+    lines = [f"{DECISIONS_NAME} = {{", *_all_tables_lines(shared, accepts_every_key)]
     for table, decided in by_table.items():
         lines.append(f"    {escaped_literal(table)}: {{")
         kinds = {decision.kind for decision in decided}
@@ -669,9 +805,7 @@ def paste_lines(still_open: list[Decision]) -> list[str]:
         if LOCATION in kinds:
             lines.append(f'        "location": "{FILL_IN}",  # its folder, such as '
                          f'"/data/your_team/{database}.db/{short}"')
-        if KEY in kinds:
-            lines.append(f'        "key": "{FILL_IN}",  # a list, such as ["job_id", "dt"], or '
-                         "None when no columns name one row")
+        lines += _key_lines([each for each in decided if each.kind == KEY])
         lines += _types_lines([each for each in decided if each.kind == GUESSED_TYPE])
         lines += _tags_lines([each for each in decided if each.kind == TAG])
         lines.append("    },")
@@ -679,11 +813,9 @@ def paste_lines(still_open: list[Decision]) -> list[str]:
 
 
 def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
-    """What a Decision answered for several tables at once has in common: a location, or a
-    tag by its NAME and whether it stands inside quotes; None for a Key or a type, which each
-    table answers itself."""
-    if decision.kind == LOCATION:
-        return (LOCATION, "", False)
+    """What a Decision answered for several tables at once has in common: a tag's NAME and
+    whether it stands inside quotes; None for a location, a Key or a type, which each table
+    answers itself."""
     if decision.kind == TAG:
         return (TAG, decision.subject, decision.quoted)
     return None
@@ -705,23 +837,32 @@ def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
     return shared
 
 
-def _all_tables_lines(shared: list[Decision]) -> list[str]:
-    """The lines of "all_tables" in DECISIONS to paste: its location_root, when the location
-    is shared, and each shared tag's <FILL IN>, with how its answer is written."""
-    if not shared:
+def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[str]:
+    """The lines of "all_tables" in DECISIONS to paste: "key": "proposed" when it
+    `accepts_every_key`, and each shared tag's <FILL IN>, with how its answer is written."""
+    if not shared and not accepts_every_key:
         return []
     lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
              "own answer, under its name, overrides it"]
-    for decision in shared:
-        if decision.kind == LOCATION:
-            example = location_under("/data/your_team", decision.table)
-            lines.append(f'        "{LOCATION_ROOT}": "{FILL_IN}",  # the folder each '
-                         f"table's own goes under, such as \"/data/your_team\", which gives "
-                         f'{decision.table} "{example}"')
+    if accepts_every_key:
+        lines.append(f'        "{ANSWERS[KEY]}": "{ACCEPT_PROPOSED}",  # accepts each table\'s '
+                     "proposed Key, marked # proposed in its Table reference, as if typed")
     # Where a shared tag stands differs from table to table, so its hint names no place.
     lines += _tags_lines([replace(decision, where="") for decision in shared
                           if decision.kind == TAG])
     return [*lines, "    },"]
+
+
+def _key_lines(keys: list[Decision]) -> list[str]:
+    """The line of one table's "key" in DECISIONS to paste, for its open Key: its proposal,
+    when the Toolbox proposed one, else <FILL IN>."""
+    if not keys:
+        return []
+    if keys[0].subject:
+        return [f'        "{ANSWERS[KEY]}": {keys[0].subject},  # proposed, and check_key '
+                "found it holds: keep it to accept it, or write another, or None"]
+    return [f'        "{ANSWERS[KEY]}": "{FILL_IN}",  # a list, such as ["job_id", "dt"], or '
+            "None when no columns name one row"]
 
 
 def _types_lines(guessed: list[Decision]) -> list[str]:

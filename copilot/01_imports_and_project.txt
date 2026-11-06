@@ -1,4 +1,4 @@
-# Copilot file 01: imports and the Project (sqlglot Composer 8.4)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -8,7 +8,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -80,7 +80,8 @@ something and see its rows.
 - Each table read needs a Table reference: the references Workflow,
   admin/workflows/references/references.ipynb, runs
   `project.add_references(["ops.job_runs"], query=query)`, which writes
-  references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
+  references/ops__job_runs.py from the table's own description, its Key proposed: the user
+  accepts it in the decisions cell.
 - A Saved table: the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
   `project.new_table("mart.job_day_runs")`, which writes its notebook and Table reference:
   file 06 says what goes in them.

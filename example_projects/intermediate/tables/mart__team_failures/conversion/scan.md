@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.4 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
 # Conversion mart.team_failures
 
 - 20 lines of Hive, one query reading ops.job_events and ops.job_owners.

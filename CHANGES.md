@@ -2,6 +2,110 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.5
+
+8.5 takes away steps you do by hand in the Workflows, each doing what it did before: the
+Workflow notebooks read top to bottom, the names cell fills in what the code knows, proposals
+are accepted at once, and a Run value is written for you. `admin/databases.py` holds each
+Database's settings, its tables placed under its own folder, and promote gives prod its own
+copies of your Building blocks.
+
+### To update from 8.4
+
+- **Copy in 8.5's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.5.md`. A Project 8.3 last wrote upgrades straight to 8.5 the same
+  way, each step in turn.
+- **`admin/databases.py` is written again**, DEV and PROD each a dict of Database settings
+  holding the name you gave: fill in each `"location_root"` its `# UPGRADE 8.5:` mark asks
+  for, the folder that Database's tables go under. As an example of the folder you use
+  today, the mark names one Table reference whose location is in that Database, and the
+  folder its location starts with. Until you do, each new table's location is a Decision, as
+  in 8.4.
+- **Each Workflow notebook is written again top to bottom**, each name and answer you gave
+  kept. convert's `PARTITION` is carried into `PARTITIONS`, a list of it.
+- **Marked for you**: a `"location_root"` under `"all_tables"` in a decisions cell, now a
+  Database setting; and, in a table you promoted before 8.5, its prod copy's notebook, at
+  the first line importing a Building block from building_blocks/, which is dev's copy of it:
+  promote its dev table again, and the prod table imports prod's own copy, in
+  building_blocks/prod/; and each call of yours giving `compare_batch` 8.4's `partition=`,
+  which 8.5 refuses: give `partitions=`, a list, instead.
+- **A batch finished before 8.5 keeps its copy of its scripts**, as 8.4 wrote it.
+
+### What's new
+
+- **The convert, promote, new_table and references notebooks read top to bottom.** Each opens
+  with its names cell, then "Run up to your Decisions", which runs every step up to the first
+  only you can do and prints the DECISIONS to paste; the decisions cell, under it; and "Run
+  the rest", which goes on from there. Each step's own cell is below, under "Step by step",
+  and `project.do_next()` is the last cell. change_a_saved_table and upgrade keep their last
+  cell, `project.run_workflow(...)`. Before, the decisions cell sat at the top, under the
+  names cell, and `project.check()`, which prints what to paste into it, under the step that
+  asks for the Decisions.
+- **`project.new_run_value(name, latest_partition="ops.job_runs.dt")`** writes a Run value's
+  function into `building_blocks/run_values.py`, the latest Partition of a table, with its
+  imports, and registers the file: import it at the top of the decisions cell, by the line it
+  prints. Run again as it was, it changes nothing. Any other kind of Run value is a function
+  you write in the file, as before. The decisions cell's comment names it.
+- **convert compares each Partition you list**: `PARTITIONS`, a list, takes the place of
+  `PARTITION` in its names cell, and step 7, `project.compare_batch(..., partitions=...)`,
+  compares the latest Partition and each you list, a compare.md section each. A finished batch
+  compares again through the same cell, with no script of your own. `compare_batch`'s
+  `partition=` is refused, naming `partitions=`.
+- **convert's FILES left [] reads every .hql file beside the notebook**, in name order, and
+  its report names each; none there is refused. FILES may name a script anywhere, by its
+  path. Each script is read where it is, never copied into the batch's `scripts/`, and
+  batch.md names its path; Hive pasted into HIVE is still kept in `scripts/hive.hql`.
+- **`EACH_SCRIPT_ITS_OWN_BATCH = True`**, in convert's names cell, makes each file of FILES a
+  batch of its own, named for its file without .hql, for simple, unrelated scripts: the run
+  cells run each in turn and print one DECISIONS for them all, where `"all_tables"` spans
+  every batch. Two scripts where one reads a table the other writes are refused, naming the
+  pair, as are two files of one name.
+- **promote's TABLES left [] promotes every finished table** not promoted yet, or changed in
+  dev since, and each dev table one of those reads, naming each and why. The names cell's
+  `[]` is read by the run cells, `project.run_workflow`, which work out those tables;
+  `project.promote` itself takes the tables by name, so `project.promote([])` is refused,
+  naming the run cells.
+- **`"key": "proposed"` accepts each proposed Key as if typed**, under `"all_tables"` or a
+  table's own name, where 8.4 refused any "key" under `"all_tables"`. A table's own Key
+  wins; one with no proposal stays open, named. The DECISIONS to paste offer it for two
+  tables or more, and `project.check()` names each line still marked `# proposed`. A type is
+  still each table's own.
+- **The references Workflow proposes each table's Key and checks it**: `project.add_references`
+  counts each id column's values on the latest Partition through your query, proposes the
+  one that names every row, and checks it with `check_key` on the latest two, printing each
+  Verdict and the DECISIONS line that accepts it. The Key waits for that answer. It also
+  writes what one row is ("One row per run_id.") and `does_not_add_up=`, from names such as
+  `avg_*` and `*_ratio`, each marked `# proposed`, so you type no `check_key` line and edit no
+  TODO to get started.
+- **Database settings**: `DEV` and `PROD` in `admin/databases.py` are a dict each, such as
+  `{"database": "mart_dev", "location_root": "/data/team/dev"}`, under the same names in
+  both. A table with no folder of its own is placed in `<location_root>/<database>.db/<table>`
+  by convert, new_table and promote, DEV's root for dev tables and PROD's for prod copies, so
+  its location is no Decision; a table's own location is never written over. Any other
+  setting is yours, read by your code through `database_settings(name)`, a new public name.
+  A setting in one and not the other is refused, naming it. 8.4's two strings still read,
+  placing nothing.
+- **`"all_tables"`'s `"location_root"` is refused**, saying to give it in admin/databases.py,
+  and promote no longer renames a dev location's `.db` folder: a prod copy keeps the
+  location an earlier promote gave it, else is placed under PROD's root, else its location
+  is a Decision.
+- **promote copies each Building block a table imports** into `building_blocks/prod/`, Run
+  values among them, and the prod table imports that copy, so dev's blocks change freely and
+  prod's only when promoted again; promoting again archives the old copy in admin/removed/,
+  and `project.check()` names a prod copy edited by hand.
+
+### Fixed
+
+- **A "seed" answer typed once every other answer was written is written too.** The step
+  writing the decisions cell's answers counted as done once no Decision was open, so
+  `project.run_workflow` skipped a seed limit given after the rest: in 8.4, promote's prod
+  seed copied every Partition, though its decisions cell limited it.
+- **A table changed in dev and promoted again is written again in prod.** The step writing
+  each prod copy counted as done once any write was ever sent, so `project.run_workflow`
+  left a table promoted again with the rows its old code wrote. It now waits for a write
+  since the table was last promoted.
+
 ## 8.4
 
 8.4 works out what a Script tag stands for each time a table is written, and copies only the

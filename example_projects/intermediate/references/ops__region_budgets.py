@@ -1,4 +1,4 @@
-# sqlglot Composer 8.4 - copy it, then edit your copy
+# sqlglot Composer 8.5 - copy it, then edit your copy
 """ops.region_budgets - one row per job and region: its budget for a day's cost.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the

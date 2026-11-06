@@ -1,7 +1,7 @@
-<!-- sqlglot Composer 8.4, exported 2026-11-05 20:55 - generated from dev, do not edit -->
+<!-- sqlglot Composer 8.5, exported 2026-11-06 07:09 - generated from dev, do not edit -->
 # sqlglot Composer
 
-This is version 8.4, exported 2026-11-05 20:55.
+This is version 8.5, exported 2026-11-06 07:09.
 
 Write Hive SQL as Python. You put clause functions (`SELECT`, `FROM`, `WHERE`, ...) together in
 SQL order, and the Toolbox writes the Hive string. **It refuses a Statement that would silently
@@ -39,15 +39,18 @@ Each word below is the Toolbox's own; the steps define the rest where they first
 - **Project action**: a call of the `project` module, such as `project.start()`, that makes or
   changes a Project's files, never the warehouse, and is logged in the Admin log.
 - **Workflow**: the steps of one job of a Project, from what you start with to its end goal: a
-  notebook in `admin/workflows/`. Fill in its names cell and save it, and `project.check()`
-  names its next step, while `project.do_next()` runs each step that only writes files, such
-  as making a Table folder, and stops at the first that calls the warehouse or needs your
-  decision. The Workflows section below draws each one.
-- **Decision**: one thing about one table that only you decide, such as its folder: you answer
+  notebook in `admin/workflows/`, read top to bottom. Fill in its names cell, run "Run up to
+  your Decisions", answer in the decisions cell under it, then run "Run the rest".
+  `project.check()` names its next step, while `project.do_next()` runs each step that only
+  writes files, such as making a Table folder, and stops at the first that calls the warehouse
+  or needs your decision. The Workflows section below draws each one.
+- **Decision**: one thing about one table that only you decide, such as its Key: you answer
   it in a Workflow's decisions cell, and a step writes your answer in.
 - **Dev Database** and **Prod Database**: the database where you create and write your own
-  tables first, and the one others read your finished tables from. You name both in
-  `admin/databases.py`.
+  tables first, and the one others read your finished tables from.
+- **Database settings**: what differs between the Dev and Prod Databases, one set for each,
+  `DEV` and `PROD` in `admin/databases.py`: each Database's name and the folder its tables'
+  files go under.
 
 ## 1. Start a Project
 
@@ -154,11 +157,17 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     ask for in their names cell, such as the tables to remove.
   - `admin/workflows/`, a folder per Workflow, such as new_table/ and convert/, each holding
     its notebook: made by `project.start()`; you fill in what the Workflow works on, in its
-    notebook's names cell, such as the tables, then save it. Then run each step's cell in turn,
-    or `project.do_next()`, which runs the steps it can for you, those that change only files,
-    up to the first it can't; `project.check()` names the next step.
-  - `admin/databases.py`, the names of your Dev Database and Prod Database: made by
-    `project.start()`; you fill in `DEV` and `PROD`.
+    notebook's names cell, such as the tables, then save it. Then run its cells top to bottom,
+    as The Workflows section says; `project.check()` names the next step.
+  - `admin/databases.py`, the Database settings, `DEV` and `PROD`, a dict each, such as
+    `DEV = {"database": "mart_dev", "location_root": "/data/team/dev"}`: made by
+    `project.start()`; you fill in each one's `"database"`, the Database's name, and
+    `"location_root"`, the folder its tables' files go under. A Saved table with no folder of
+    its own is placed in `<location_root>/<database>.db/<table>`, DEV's for your dev tables and
+    PROD's for their prod copies, so its folder is no Decision. Any other setting is yours,
+    such as `"run_as"`: give it in both, each its own value, and
+    `database_settings("mart_dev")` gives DEV's to your code. A setting in one and not the
+    other is refused, naming it.
   - `admin/sent.csv`, a row for each change a notebook of the Project sends to the warehouse:
     made by `project.start()`, then each `run_execute` and `project.run_tables`; you fill in
     nothing.
@@ -167,7 +176,9 @@ missing or made by hand. Each line below names a path, what makes it, and what y
   - `admin/project_version.txt`, the Toolbox version that last wrote the Project: made by
     `project.start()`, then `project.upgrade()`; you fill in nothing.
   - `admin/workflows/convert/<name>/`, a Conversion folder per batch of someone else's Hive you
-    convert: its scripts as given, and what each statement became. Made by
+    convert: its `batch.md`, where each script is and what each statement became, a script
+    read from a file read where it is, never copied, and Hive pasted as text kept in its
+    scripts/. Made by
     `project.convert(...)`, from `admin/workflows/convert/convert.ipynb`, as
     [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
     shows; it makes each table the Hive writes a Saved table in your Dev Database. You fill in
@@ -189,8 +200,8 @@ missing or made by hand. Each line below names a path, what makes it, and what y
 - **In references/:**
   - `references/<db>__<table>.py`, a Table reference per table: made by
     `project.add_references([...], query=query)` for a table in the warehouse, or by
-    `project.new_table(...)` for a Saved table of your own; you fill in its TODO lines, and
-    your own Aliases.
+    `project.new_table(...)` for a Saved table of your own; you accept or change what it
+    proposed, fill in any TODO line left, and add your own Aliases.
   - `references/<db>.py`, a Database module per Database, such as `references/ops.py`: made by
     each Project action that adds or archives a Table reference; you fill in nothing: never
     edit it.
@@ -199,6 +210,11 @@ missing or made by hand. Each line below names a path, what makes it, and what y
 - **In building_blocks/:**
   - `building_blocks/<name>.py`, a Building block: made by `project.new_block("<name>")`; you
     fill in its `<...>` and TODO lines.
+  - building_blocks/run_values.py, your Run values: made by `project.new_run_value(...)`,
+    which writes one function in it at each call; you write any other kind by hand.
+  - `building_blocks/prod/<name>.py`, the prod copy of each Building block a promoted table
+    imports: made by `project.promote(...)`; you fill in nothing: change the dev block and
+    promote again.
 - **In tables/:**
   - `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table: made by
     `project.new_table("<db>.<table>")`; you fill in its `<...>` lines.
@@ -210,9 +226,9 @@ missing or made by hand. Each line below names a path, what makes it, and what y
     and run its `export_hive()` cell again.
 - **Anywhere else:**
   - a `.hql` file of Hive you write or are given, such as `daily.hql`: your input, not
-    generated. Saved by you, in `admin/workflows/convert/` for the convert Workflow's `FILES`,
-    or in `admin/workflows/new_table/` for the new_table Workflow's `QUERIES`; you write all of
-    it: it is yours, and nothing writes over it.
+    generated. Saved by you, in `admin/workflows/convert/` for the convert Workflow's `FILES`
+    (or anywhere, named by its path), or in `admin/workflows/new_table/` for the new_table
+    Workflow's `QUERIES`; you write all of it: it is yours, and nothing writes over it.
   - `lineage/`, beside the notebook you run it from, the Lineage of a Statement exported outside
     a Table notebook: made by `export_lineage(...)`; you fill in nothing.
 
@@ -240,27 +256,66 @@ such as `references/ops.py`, that gives each of its tables at a dot. The referen
 1. **Name the tables.** Goal: the Workflow knows which tables to read. Action: name the tables
    in the references Workflow's names cell, and save the notebook. Done when the names cell
    lists each table you read; then step 2.
-2. **Write their files.** Goal: a Table reference per table. Action: run its first step,
-   `project.add_references`, which asks each table for its columns, through your query, and
-   writes its file, and the Database module of its Database, as below. Done when it names each
+2. **Write their files.** Goal: a Table reference per table. Action: run "Run up to your
+   Decisions", whose first step, `project.add_references`, asks each table for its columns,
+   through your query, and writes its file, and the Database module of its Database, as
+   below. It also proposes each table's Key from its id columns, such as `run_id`, and checks
+   it with `check_key` on the latest Partitions, printing each result. Done when it names each
    file it wrote; then step 3.
 
 ```python
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py: fill in their TODO lines.
+ops.jobs: its Key proposed, (job_id), checked with check_key:
+  ops.jobs: the key (job_id) holds.
+ops.job_runs: its Key proposed, (run_id), checked with check_key:
+  ops.job_runs: the key (run_id) holds where job_runs.dt IN ('2026-09-23', '2026-09-24').
+ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
+  ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23', '2026-09-24').
+To accept every proposed Key, write in the decisions cell: "all_tables": {"key": "proposed"}
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 ```
 
-3. **Fill in what the table can't say.** Goal: each file complete. Action: fill in each file's
-   TODO lines: what one row is, its Key, and which columns don't add up, such as averages.
-   Below it, you may add **Aliases**, your own names for its columns and conditions. Done when
-   no TODO line is left. A `does_not_add_up=` line is filled in by naming its columns, or, when
-   no column is one, by deleting its TODO; then step 4.
-4. **Import the Database.** Goal: every table of the Database from one import. Action: run
+   "Run up to your Decisions" then stops at the Decisions, and under the lines above prints a
+   whole `DECISIONS` to paste into the decisions cell, which holds the `"all_tables"` line its
+   report names:
+
+```python
+DECISIONS = {
+    "all_tables": {  # answers for every table of this notebook; a table's own answer, under its name, overrides it
+        "key": "proposed",  # accepts each table's proposed Key, marked # proposed in its Table reference, as if typed
+    },
+}
+```
+
+   A Key add_references proposes, from the table's rows, stays open, written
+   `key=None,  # TODO: proposed ["run_id"], checked`, until you accept it in the decisions
+   cell: a few Partitions are evidence, not a promise. "fill in their TODO lines" means that
+   `key=` line, accepted in the next step, and, for a table it proposed no Key for, its first
+   line too, what one row is, which no Key could propose. Every other line it proposed is
+   marked `# proposed`, and blocks nothing.
+3. **Accept each Key.** Goal: each table's Key, the one Decision it waits on. Action: paste
+   the whole `DECISIONS` it printed over the `DECISIONS = {}` line of the decisions cell,
+   under "Run up to your Decisions", change it by the rules below, save the notebook, and
+   run "Run the rest", which writes each answer in. Done when no `key=None,  # TODO` line is
+   left; then step 4.
+   - If you agree with every proposed Key, keep it as printed:
+     `DECISIONS = {"all_tables": {"key": "proposed"}}` writes each as if you typed it.
+   - If a Key is another, give it under the table's name, which wins over "all_tables":
+     `{"ops.job_runs": {"key": ["run_id", "dt"]}}`; `"key": None` says no columns name one row.
+   - If it proposed none, as for a table with no id column, its line says why: give its Key
+     the same way.
+4. **Read what it proposed.** Goal: each file saying what you mean. Action: read each line
+   marked `# proposed`: the first line, what one row is ("One row per run_id."), proposed from
+   its Key, and `does_not_add_up=`, the columns the Toolbox refuses to add up, proposed from
+   names such as `avg_*` and `*_ratio`. Keep each, taking off its `# proposed` comment, or
+   change it. Below it, you may add **Aliases**, your own names for its columns and
+   conditions. Done when you have read each; then step 5.
+5. **Import the Database.** Goal: every table of the Database from one import. Action: run
    `from references import ops`; each column is at a dot after its table, as below. Done when
-   `ops.job_runs.status` shows `job_runs.status`; then step 5.
+   `ops.job_runs.status` shows `job_runs.status`; then step 6.
 
 ```python
 >>> from references import ops
@@ -268,9 +323,10 @@ Restart the kernel of a notebook that imported references, to see a table added 
 job_runs.status
 ```
 
-5. **Check each file.** Goal: each file true to its table. Action: run
+6. **Check each file.** Goal: each file true to its table. Action: run
    `check_table_reference(ops.job_runs, query=query)`, which checks the file against its table,
-   and `check_key`, which checks the Key you wrote. If the table is partitioned, then give
+   and, for a Key of your own, `check_key`, which checks it as step 2 checked each proposed
+   one. If the table is partitioned, then give
    `check_key` one Partition to check with `where=`, such as `check_key(ops.job_runs,
    query=query, where=equals(ops.job_runs.dt, "2026-09-24"))`; `query("SHOW PARTITIONS
    ops.job_runs")` lists the Partitions it holds. `admin/check_references.ipynb` runs both
@@ -281,7 +337,7 @@ How-to: [Add your tables' references](../sqlglot_composer/how_to.html#add_your_t
 
 Before you go on, check:
 
-- `references/` holds a file for each table you read, with no TODO line left, and a Database
+- `references/` holds a file for each table you read, each Key answered, and a Database
   module for each Database.
 - `from references import ops` gives each table at a dot, and each column at a dot after it.
 
@@ -490,8 +546,9 @@ Wrote references/mart__alerts_per_severity.py: project.reference_from_logic writ
    `preview()` gives the rows you expect; then step 5.
 5. **Write its Table reference.** Goal: the stand-in replaced. Action: run the step
    `project.reference_from_logic`, which writes it from the logic you wrote: its columns and
-   types from `preview()`, its partition columns from the logic's `PARTITIONED_BY`, and its
-   Key. Done when its file in `references/` lists those columns; then step 6.
+   types from `preview()`, its partition columns from the logic's `PARTITIONED_BY`, its Key,
+   and its location, placed under DEV's `"location_root"`. Done when its file in
+   `references/` lists those columns; then step 6.
 6. **Write it.** Goal: its rows in the warehouse. Action: run
    `project.run_tables(execute=execute)`, which writes every Saved table, each after the tables
    it reads, sending the Session setting below first. With no execute, it prints each write's
@@ -567,15 +624,25 @@ Before you go on, check:
 Goal: every file the registry lists is there, and every file there is registered.
 
 1. **Check the Project.** Goal: what is missing or made by hand. Action: run `project.check()`,
-   which compares the registry with the Project's files, and changes nothing. Done when it
-   prints the line below; then step 2.
+   which compares the registry with the Project's files, and changes nothing. Done when its
+   first line is the one below; then step 2.
    - If it names a file made by hand, run the `project.register(...)` call it gives, which
      adopts it.
    - It also names any file deleted by hand.
+   - It also lists each line still marked `# proposed`, which blocks nothing, as below, where
+     section 2's proposals are left as add_references wrote them: keep each by taking off its
+     comment, or change it, and it goes from the list.
 
 ```python
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is there.
+Proposed by the Toolbox, which blocks nothing: each line marked # proposed is used as it is. Accept a proposed Key in its Workflow's decisions cell, with "key": "proposed" under its table's name or under "all_tables"; accept any other line by taking off its # proposed comment, or change it.
+  references/ops__job_runs.py, line 1: """ops.job_runs - One row per run_id."""  # proposed from its Key
+  references/ops__job_runs.py, line 16: does_not_add_up=["avg_retry_secs"],  # proposed from its columns' names
+  references/ops__jobs.py, line 1: """ops.jobs - One row per job_id."""  # proposed from its Key
+  references/ops__jobs.py, line 13: does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
+  references/ops__run_alerts.py, line 1: """ops.run_alerts - One row per alert_id."""  # proposed from its Key
+  references/ops__run_alerts.py, line 14: does_not_add_up=[],  # proposed: no name says average, ratio, percent or rate
 ```
 
 2. **Refresh the Reference sheet.** Goal: every column of every table in one CSV file, the
@@ -586,7 +653,7 @@ Every Table folder, Table reference and Building block is registered, and each o
    nothing wrong; then step 4.
 4. **Archive what you no longer need.** Action: run `project.remove_table(...)`,
    `project.remove_reference(...)` or `project.remove_block(...)`, which archive it in
-   admin/removed/, deleting nothing. Done when `project.check()` prints the line above again;
+   admin/removed/, deleting nothing. Done when `project.check()` prints its first line again;
    then go on to section 9, "Convert someone else's Hive".
 
 How a Project stays in order:
@@ -619,13 +686,20 @@ there, and left for you to answer, once for each table it ends up in, since it m
 value in each.
 
 1. **Save the scripts.** Goal: the Workflow can read them. Action: save them beside it, in
-   `admin/workflows/convert/`, where it reads them. Done when each script is there; then
-   step 2.
+   `admin/workflows/convert/`. Each is read where it is, never copied, and `batch.md` names
+   where. Done when each script is there; then step 2.
+   - If `FILES` is left `[]`, the Workflow reads every `.hql` file beside the notebook, in
+     name order, and its report names each.
+   - If a script is somewhere else, name it in `FILES` by its path, such as
+     `FILES = ["C:/work/daily.hql"]`, and leave it where it is.
 2. **Name the batch.** Goal: the Workflow knows what to convert, and what each table it makes
-   is called. Action: name the batch and its scripts in its names cell, `NAME` and `FILES`,
-   fill in DEV, your Dev Database, in `admin/databases.py`, and save the notebook. Each table
-   the batch makes in dev is named by the rules below; you may give one a name of your own
-   in the names cell's `RENAME`. Done when both are filled in; then step 3.
+   is called. Action: name the batch in its names cell, `NAME`, and its scripts in `FILES`, or
+   leave `FILES = []`; fill in DEV's `"database"` and `"location_root"` in
+   `admin/databases.py`, so each table is placed in a folder of its own under that root; and
+   save the notebook. Each table the batch makes in dev is named by the rules below; you may
+   give one a name of your own in the names cell's `RENAME`. Done when both are filled in
+   and saved: the names cell's `NAME` (and `FILES`, unless left `[]`), and DEV's
+   `"database"` and `"location_root"` in `admin/databases.py`; then step 3.
    - If a script writes a table, such as `INSERT OVERWRITE TABLE mart.team_fails`, its copy in
      dev is named for that table, then the original's database: `mart_dev.team_fails_mart`,
      so two databases' tables of one name stay apart in your Dev Database. If you want
@@ -636,77 +710,89 @@ value in each.
      `FILES = ["from_your_team.hql"]` makes `mart_dev.failed_runs`.
    - If the batch is several files, each holding a query alone is named for its file:
      `sales.hql` makes `mart_dev.sales`.
-3. **Convert them.** Goal: a Saved table for each table the scripts write. Action: run its
-   first step, below, which makes each table the scripts write a Saved table in your Dev
-   Database, with its Table folder, its Table reference and a checklist. Done when it names each
-   table it made; then step 4.
+   - If the scripts are simple and unrelated, set `EACH_SCRIPT_ITS_OWN_BATCH = True`: each
+     file is a batch of its own, named for its file, `daily` for `daily.hql`, and `NAME` is
+     unused. The run cells run each batch in turn, and one decisions cell answers them all.
+     Two scripts where one reads a table the other writes are refused, named: convert them as
+     one batch.
+3. **Run up to your Decisions.** Goal: a Saved table for each table the scripts write. Action:
+   run the cell "Run up to your Decisions". Its first step, below, makes each table the
+   scripts write a Saved table in your Dev Database, with its Table folder, its Table
+   reference and a checklist; it stops at the Decisions, printing a whole `DECISIONS = {...}`
+   to paste, each answer not given yet shown as `"<FILL IN>"`. Done when it names each table
+   it made; then step 4.
 
 ```python
 project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 ```
 
-4. **Answer each Decision.** Goal: what only you can decide. Action: answer each table's
-   Decisions, such as its folder and each Script tag's value, in the notebook's decisions cell,
-   and save it: the convert step and `project.check()` print a whole `DECISIONS = {...}` to
-   paste there, each answer not given yet shown as `"<FILL IN>"`. Done when each table's
-   Decisions are answered; then step 5. Each answer, by the rules below:
+4. **Answer each Decision.** Goal: what only you can decide. Action: paste the `DECISIONS`
+   it printed into the decisions cell, directly under it, fill in each `"<FILL IN>"`, such as
+   each Script tag's value, and save the notebook. Done when each table's Decisions are
+   answered; then step 5. Each answer, by the rules below:
    - If a tag stands alone, bare, answer it with the value's own quotes,
      `{"tags": {"PERIOD_END": "'2026-10-31'"}}`; if it stands inside quotes,
      `'<PARM="STATUS"/>'`, with none, `{"tags": {"STATUS": "failed"}}`.
    - If a tag stands for a day that changes each run, answer it with a **Run value**, the
-     value a function of yours gives each time the table is written. Write the function in
-     your Project, such as `period_end` in building_blocks/run_values.py, which gives the
-     latest day a table holds. The whole file:
-
-     ```python
-     """Run values: what a Script tag stands for, worked out each time a table is written."""
-
-     import datetime
-
-     from sqlglot_composer import latest_partition
-     from references.ops__job_runs import job_runs
-     from warehouse import query
-
-
-     def period_end() -> datetime.date:
-         """The latest day ops.job_runs holds."""
-         return latest_partition(job_runs.dt, query)
-     ```
-
-     It imports the Table reference of ops.job_runs, which step 3 added, as it adds one for
-     each table the scripts read; a Run value that reads a table no script reads needs that
-     table's Table reference first, from the references Workflow. Import the function at the
-     top of the decisions cell and give its name, with no brackets:
-     `{"tags": {"PERIOD_END": period_end}}`. The Hive sent holds the day itself, a date as
-     `'2026-10-31'`; `show_hive`, in the Table notebook's "Try it" cell, shows it first.
-   - If you wrote a Run value's file, register it once: `project.check()` names it as made by
-     hand, with the call to run in the `project.register(...)` cell of
-     `admin/check_project.ipynb`, `project.register("run_values")`.
+     value a function of yours gives each time the table is written. For the latest day a
+     table holds, write at the top of the decisions cell
+     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")`, then, under
+     it, this import line, which the call also prints:
+     `from building_blocks.run_values import period_end`; and run the cell once: it writes the function into building_blocks/run_values.py and registers the
+     file. Run again as it is, it changes nothing. Then give the function's name, with no
+     brackets: `{"tags": {"PERIOD_END": period_end}}`. The Hive sent holds the day itself, a
+     date as `'2026-10-31'`; `show_hive`, in the Table notebook's "Try it" cell, shows it
+     first.
+   - If a Run value is of any other kind, write its function in
+     building_blocks/run_values.py by hand, then register the file once:
+     `project.check()` names it as made by hand, with the call to run in the
+     `project.register(...)` cell of `admin/check_project.ipynb`.
    - If several tables share an answer, give it once under `"all_tables"`, and a table's own
-     answer overwrites it: `{"all_tables": {"location_root": "/data/team", "tags":
-     {"PERIOD_END": period_end}}}` gives each table with no location its own folder under
-     `/data/team`, and each table holding PERIOD_END that function.
+     answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
+     period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
+     holding PERIOD_END that function. A guessed type is each table's own.
+   - If a table's Key was proposed by convert, worked out of its query, such as its GROUP
+     BY, it is written in its Table reference marked `# proposed`, and kept even if you
+     leave it unanswered: `"key": "proposed"` only takes off the mark, and a `"key"` of your
+     own replaces it. This differs from the references Workflow, whose Key, proposed from the
+     table's rows, stays open until you accept it. A table with no Key proposed, such as one
+     that reads itself, waits on its `"key"`: give its columns, or `None`.
+   - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
+     or answer `"location"` for that table.
    - If a table reads itself, its seed copies every Partition of its original unless you
      limit it, by partition column: `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those
      from 2026-01-01 on; a list, `{"region": ["US", "CA"]}`, those values alone. A single
      value, `{"dt": "2026-01-01"}`, means **that value or later**.
-   - If an answer was wrong, answer it again, then run the notebook's steps 3, 6 and 7 again:
-     write the answers in, write each table, and compare each. Each table is made and seeded
-     already, so steps 4 and 5 stay done.
-5. **Build each table in dev.** Goal: each table written in dev and compared. Action: run the
-   Workflow's next steps: they write your answers in, create each table in dev, seed each whose
-   write reads its own table (copy its **original**'s rows in once, the original being the
-   table the script writes, so its first write doesn't start from nothing, each Partition or
-   those its `"seed"` answer names), write each, and
-   compare each with the table it copies, `project.compare_batch`. A partitioned table is
-   compared on the latest Partition both tables hold. If you want another Partition compared
-   too, once your dev table holds it, then set `PARTITION` in the names cell, such as
-   `PARTITION = {"dt": "2026-09-23"}`, and run the compare step again: its
-   `conversion/compare.md` keeps each Partition's result. Done when every result of each table
-   has passed; then step 6.
-6. **Promote them.** Goal: the tables in your Prod Database. Action: run the promote Workflow,
-   which carries them to your Prod Database, PROD, `project.promote`, each keeping its name
-   unless `rename=` gives it another. Done when each is written in prod.
+   - If an answer was wrong, answer it again and run "Run the rest" again: it writes the
+     answers in, writes each table, and compares each. Each table is made and seeded already,
+     so those steps stay done.
+5. **Run the rest.** Goal: each table written in dev and compared. Action: run the cell "Run
+   the rest", under the decisions cell: it writes your answers in, creates each table in dev,
+   seeds each whose write reads its own table (copy its **original**'s rows in once, the
+   original being the table the script writes, so its first write doesn't start from
+   nothing, each Partition or those its `"seed"` answer names), writes each, and compares each
+   with the table it copies, `project.compare_batch`. A partitioned table is compared on the
+   latest Partition both tables hold. If you want another Partition compared too, once your
+   dev table holds it, then list it in `PARTITIONS` in the names cell, such as
+   `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch too:
+   its `conversion/compare.md` keeps each Partition's result. Done when every result of each
+   table has passed; then step 6.
+6. **Promote them.** Goal: the tables in your Prod Database. Action: fill in PROD's
+   `"database"` and `"location_root"` in `admin/databases.py`, then run the promote
+   Workflow's cells top to bottom with `TABLES = []` left empty, which promotes every
+   finished table not promoted yet, or changed in dev since, naming each and why. The
+   names cell's `[]` is read by the run cells, `project.run_workflow`, which work out those
+   tables; `project.promote`, the call in step 1's own cell under Step by step, takes the
+   tables by name, and refuses `project.promote([])`, naming the run cells. It carries each
+   to your Prod Database, keeping its name unless `rename=` gives it another. Done when each
+   is written in prod. What it carries, by the rules below:
+   - If a prod copy was promoted before, it keeps that location; if not, it is placed under
+     PROD's `"location_root"`; if that is not filled in, its location is a Decision, in the
+     DECISIONS it prints.
+   - If the table imports a Building block, a Run value among them, promote copies the block
+     into building_blocks/prod/ and the prod table imports that copy: dev's blocks change
+     freely, and prod's only when promoted again. `project.check()` names a prod copy edited
+     by hand.
 
 Dev stays the source: to change a promoted table, change it in dev and promote it again.
 
@@ -721,29 +807,47 @@ Before you go on, check:
 
 Each job a Project goes through has a Workflow: a notebook in `admin/workflows/`, whose steps
 take you from what you start with to the end goal. What only you can decide of a table, a
-Decision such as its folder, you answer in its decisions cell,
-`DECISIONS = {"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly"}}`, and a step
-writes each answer in for you.
+Decision such as its Key, you answer in its decisions cell,
+`DECISIONS = {"mart_dev.weekly": {"key": ["job_id"]}}`, and a step writes each answer in for
+you.
 
 **Run a Workflow notebook's cells one at a time, never all at once (Run All), since a step after
 a decision would write before you make it.**
 
-1. **Name what it works on.** Action: fill in the names cell, and save the notebook. Done when
-   it is saved; then step 2.
-2. **Run up to the first decision.** Action: run each step's cell in turn, down to the first
-   step that is a decision: the line under its heading says "It is a decision, yours to make".
-   Done when you reach it; then step 3.
-3. **Make the decision.** Action: make it where that step says, such as the decisions cell for
-   each table's open Decisions, or the step's own cell for change_a_saved_table's change, and
-   save the notebook. Done when it is saved; then step 4.
-4. **Run the rest.** Action: by the rules below. Done when the notebook's last step has run.
-   - If you want each step in turn, run each cell after it in turn, and go back to step 3 at
-     the next decision.
-   - If you want every step left at once, run, in their place, the notebook's last cell,
-     `project.run_workflow(...)`, which runs every step left, the calls to the warehouse too,
-     up to the first only you can do, and says where it stopped.
-   - If you want to see what it would send first, give `run_workflow` `dry_run=True`: it sends
-     nothing through your execute and says the Hive each step would send.
+The convert, promote, new_table and references notebooks read top to bottom, in four cells:
+
+1. **Name what it works on.** Action: fill in the names cell, the first, and save the
+   notebook. Done when it is saved; then step 2.
+2. **Run up to your Decisions.** Action: run the cell under it, "Run up to your Decisions",
+   `project.run_workflow(...)`: it runs every step, the calls to the warehouse too, up to the
+   first only you can do, and prints the `DECISIONS` to paste, each answer not given yet
+   shown as `"<FILL IN>"`. With nothing waiting on you, as when convert proposes every Key
+   and places every location, it runs to the end, writing and comparing each table: give it
+   `dry_run=True` first to see what it would send. Done when it says where it stopped; then
+   step 3.
+3. **Make the decisions.** Action: paste what it printed into the decisions cell, directly
+   under it, fill in each `"<FILL IN>"`, and save the notebook. Done when it is saved; then
+   step 4.
+4. **Run the rest.** Action: run the cell under the decisions cell, "Run the rest", which goes
+   on from where it stopped. Done when it says every step is done. It is the same call as
+   step 2's, `project.run_workflow(...)`, run once before you answer and once after, and each
+   run stops at the first step only you can do. So "Run the rest" can stop again, by the
+   rules below:
+   - If an answer was wrong, or a Decision is left open, it names it: mend it in the
+     decisions cell, save, and run "Run the rest" again. You never go back up the notebook.
+   - If a step is refused, or a compare fails, it names why: mend what it names, then run
+     "Run the rest" again.
+
+How the rest of a notebook runs, by the rules below:
+
+- If you want to run one step on purpose, or run it again, run its own cell, under
+  "Step by step", below the four cells; a decision step's `project.check()` cell, under it,
+  prints what to paste.
+- If the Workflow is upgrade or change_a_saved_table, run each step's cell in turn, making
+  each decision where its step says, such as the step's own cell for change_a_saved_table's
+  change; the notebook's last cell, `project.run_workflow(...)`, runs every step left.
+- If you want to see what it would send first, give `run_workflow` `dry_run=True`: it sends
+  nothing through your execute and says the Hive each step would send.
 
 `project.check()` names each Workflow's next step, and `project.do_next()` runs only the steps
 that write files. Each chart below is drawn from the steps its notebook runs, beside the same
@@ -888,7 +992,7 @@ flowchart TD
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query, partition=PARTITION)
+       project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 <!-- /chart -->
 
@@ -1221,7 +1325,7 @@ Getting started, how-tos 1 to 9:
 8. [Keep the Project in order](../sqlglot_composer/how_to.html#keep_the_project_in_order)
 9. [Convert someone else's Hive](../sqlglot_composer/how_to.html#convert_someone_elses_hive)
 
-Intermediate, how-tos 10 to 29:
+Intermediate, how-tos 10 to 30:
 
 10. [Describe a table by hand](../sqlglot_composer/how_to.html#describe_a_table_by_hand)
 11. [The latest row of each group, and the top N](../sqlglot_composer/how_to.html#latest_row_of_each_group)
@@ -1243,6 +1347,7 @@ Intermediate, how-tos 10 to 29:
 27. [Hand-written Hive with your Table references](../sqlglot_composer/how_to.html#hand_written_hive_with_your_table_references)
 28. [Upgrade your Project to a new Toolbox version](../sqlglot_composer/how_to.html#upgrade_your_project_to_a_new_toolbox_version)
 29. [Follow a Workflow](../sqlglot_composer/how_to.html#follow_a_workflow)
+30. [Set your Database settings](../sqlglot_composer/how_to.html#set_your_database_settings)
 
 ## The Example gallery
 
@@ -1469,10 +1574,16 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
      6.0's "To update from 5.x". Each says what to change in your notebooks and files. A
      Project 7.0 made looks like one 7.1 made to `project.upgrade()`, so do 7.1's "To update
      from 7.0" first.
-   - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' names, fill in
-     DEV and PROD in place of `<DEV_DATABASE>` and `<PROD_DATABASE>`. Naming them renames
-     nothing: each Saved table you made before, such as `mart.daily_job_runs`, keeps its name
-     and its folder, and new tables, conversions and promotions use the names you set.
+   - If your Project was at 8.4, the 8.5 Upgrade carries it to 8.5: it writes each Workflow
+     notebook again in 8.5's order, keeping each name and answer you gave, and turns DEV and
+     PROD, two names in `admin/databases.py`, into Database settings,
+     `{"database": "mart_dev", ...}`, marking `"location_root"` in each for you to fill in.
+     Until you fill it in, each new table's location stays a Decision, as in 8.4.
+   - If a mark in `admin/databases.py` asks for your Dev and Prod Databases' settings, fill in
+     each `"database"` and `"location_root"` in place of its `<...>`, such as
+     `<DEV_DATABASE>`. Filling them in renames and moves nothing: each Saved table you made
+     before, such as `mart.daily_job_runs`, keeps its name and its folder, and new tables,
+     conversions and promotions use the settings you give.
 
 What an Upgrade does:
 
@@ -1512,7 +1623,7 @@ lives in.
 - Import every name from `sqlglot_composer` itself, never from a file inside it.
 - Arithmetic isn't in it: a calculation uses Python's own `+ - * /` on columns, as in
   `job_runs.duration_mins / 60`.
-- The star import brings the 117 names listed here before the admin module.
+- The star import brings the 118 names listed here before the admin module.
 - Two modules' functions come last: the admin module's, which change your own Saved tables, and
   the project module's, which make and archive a Project's folders and files. The star import
   leaves both out, so import each by name, as `from sqlglot_composer import admin, project`,
@@ -1522,8 +1633,8 @@ lives in.
 
 Write Hive SQL as Python, one clause function per SQL clause.
 
-- `TOOLBOX_VERSION` = `'8.4'` - the feature number, raised only when a big feature lands.
-- `VERSION` = `'sqlglot Composer 8.4, exported 2026-11-05 20:55'` - the full text, which also says when this copy was exported.
+- `TOOLBOX_VERSION` = `'8.5'` - the feature number, raised only when a big feature lands.
+- `VERSION` = `'sqlglot Composer 8.5, exported 2026-11-06 07:09'` - the full text, which also says when this copy was exported.
 
 ### `tables.py`
 
@@ -1699,6 +1810,38 @@ Run values: what a Python function gives each time a Statement is built, traced 
 - `run_value` - What a function gives, worked out each time the Statement is built, and traced.
 - `tag_text` - The text a Script tag stands for, as its place in a string.
 
+### `project.py`
+
+The project module: a Project's folders and files, made and archived for you, and logged.
+
+- `database_settings` - The Database settings of your Dev or Prod Database, by its name or a table's.
+- `project.start` - Make a Project in the folder you're working in, once, from a notebook there.
+- `project.new_table` - Make a Table folder for a Saved table: its notebook, lineage/ and reference.
+- `project.remove_table` - Move a Table folder into admin/removed/, named by the time, deleting nothing.
+- `project.new_block` - Make a Building block, building_blocks/<name>.py, from its Template.
+- `project.remove_block` - Move a Building block into admin/removed/, named by the time, deleting nothing.
+- `project.add_references` - Write a Table reference for each table into references/, skipping any it can't.
+- `project.remove_reference` - Move a Table reference into admin/removed/, deleting nothing of yours.
+- `project.register` - Adopt a Table folder, Table reference or Building block made by hand.
+- `project.check` - Report what the registry gets wrong, and the call that mends each.
+- `project.refresh_reference_sheet` - Rebuild the Reference sheet: a row per column of every Table reference.
+- `project.load` - A Table notebook's or Conversion's logic, its functions by name, from anywhere.
+- `project.run_tables` - Write every table, each before the tables that read it.
+- `project.upgrade` - Carry the Project's files on to this Toolbox's version, step by step.
+- `project.scan_hive` - Say what a Conversion of some Hive would make, and change nothing.
+- `project.convert` - Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
+- `project.remove_conversion` - Archive a batch's folder you no longer want, into admin/removed/.
+- `project.do_next` - Run the next steps it can of each Workflow you have started.
+- `project.batch_tables` - The Saved tables a batch made in your Dev Database, in the order they run.
+- `project.compare_batch` - Compare each Saved table a batch made in dev with the table it copies.
+- `project.promote` - Write a prod copy of dev Saved tables, each reading the others' prod copies.
+- `project.promoted_tables` - The prod copies project.promote made of dev tables, by their names in prod.
+- `project.table_reference` - A table's Table reference in your Project, by the table's name.
+- `project.write_decisions` - Write each answer of a decisions cell into its table's Table reference.
+- `project.run_workflow` - Run every step left of a Workflow, up to the first only you can do.
+- `project.reference_from_logic` - Write a Saved table's Table reference from its logic.
+- `project.new_run_value` - Write a Run value: a function giving a table's latest Partition.
+
 ### `comparisons.py`
 
 Checking a Statement against the original Hive it replaces, such as someone else's .hql.
@@ -1728,33 +1871,3 @@ The admin module: changes to your own Saved tables, written and checked for you.
 - `admin.set_properties` - Set a Saved table's properties as its Table reference gives them.
 - `admin.move_to_own_folder` - Move a Saved table to a folder of its own: the move's first two Statements.
 - `admin.check_the_copy` - Compare a moving table's rows with its copy's, then give the move's last steps.
-
-### `project.py`
-
-The project module: a Project's folders and files, made and archived for you, and logged.
-
-- `project.start` - Make a Project in the folder you're working in, once, from a notebook there.
-- `project.new_table` - Make a Table folder for a Saved table: its notebook, lineage/ and reference.
-- `project.remove_table` - Move a Table folder into admin/removed/, named by the time, deleting nothing.
-- `project.new_block` - Make a Building block, building_blocks/<name>.py, from its Template.
-- `project.remove_block` - Move a Building block into admin/removed/, named by the time, deleting nothing.
-- `project.add_references` - Write a Table reference for each table into references/, skipping any it can't.
-- `project.remove_reference` - Move a Table reference into admin/removed/, deleting nothing of yours.
-- `project.register` - Adopt a Table folder, Table reference or Building block made by hand.
-- `project.check` - Report what the registry gets wrong, and the call that mends each.
-- `project.refresh_reference_sheet` - Rebuild the Reference sheet: a row per column of every Table reference.
-- `project.load` - A Table notebook's or Conversion's logic, its functions by name, from anywhere.
-- `project.run_tables` - Write every table, each before the tables that read it.
-- `project.upgrade` - Carry the Project's files on to this Toolbox's version, step by step.
-- `project.scan_hive` - Say what a Conversion of some Hive would make, and change nothing.
-- `project.convert` - Turn Hive someone else wrote into your own Saved tables, in your Dev Database.
-- `project.remove_conversion` - Archive a batch's folder you no longer want, into admin/removed/.
-- `project.do_next` - Run the next steps it can of each Workflow you have started.
-- `project.batch_tables` - The Saved tables a batch made in your Dev Database, in the order they run.
-- `project.compare_batch` - Compare each Saved table a batch made in dev with the table it copies.
-- `project.promote` - Write a prod copy of dev Saved tables, each reading the others' prod copies.
-- `project.promoted_tables` - The prod copies project.promote made of dev tables, by their names in prod.
-- `project.table_reference` - A table's Table reference in your Project, by the table's name.
-- `project.write_decisions` - Write each answer of a decisions cell into its table's Table reference.
-- `project.run_workflow` - Run every step left of a Workflow, up to the first only you can do.
-- `project.reference_from_logic` - Write a Saved table's Table reference from its logic.

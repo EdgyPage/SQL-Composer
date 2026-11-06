@@ -1,4 +1,4 @@
-# sqlglot Composer 8.4 - copy it, then edit your copy
+# sqlglot Composer 8.5 - copy it, then edit your copy
 """ops.job_runs - one row per run of a job, on the day it ran.
 
 Why: the project's notebooks read the table through this file, so each column they name, and the

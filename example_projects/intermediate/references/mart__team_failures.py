@@ -1,4 +1,4 @@
-# sqlglot Composer 8.4 - copy it, then edit your copy
+# sqlglot Composer 8.5 - copy it, then edit your copy
 """mart.team_failures - one row per team and day: its events and its fails.
 
 Why: the project's notebooks read the table through this file, so each column they name, and
@@ -21,6 +21,6 @@ team_failures = Table(
         "dt": "string",
     },
     partitioned_by=["dt"],  # filled in from the original's PARTITION(...)
-    key=["team", "dt"],  # proposed from its query; if it is wrong, answer "key" in the decisions cell
+    key=["team", "dt"],
     location="/data/mart.db/team_failures",  # filled in by hand
 )
