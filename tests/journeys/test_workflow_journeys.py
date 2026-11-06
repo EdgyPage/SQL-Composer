@@ -744,6 +744,39 @@ def test_convert_the_users_batch_with_run_values(started: Started) -> None:
                                                                       original)
 
 
+def test_convert_the_users_batch_with_run_values_through_the_runner(started: Started) -> None:
+    # Toolbox 8.4, ticket 14: the same batch as the notebook's last cell runs it, the decisions
+    # cell importing the user's function as before.
+    started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(PERIOD_SCRIPT, encoding="utf-8")
+    (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
+                                                                    encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.type_decisions_cell(PERIOD_DECISIONS)
+    assert "convert, weekly: every step is done." in journey.run_workflow()
+    _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
+
+
+def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None:
+    # Toolbox 8.4, ticket 14: a prod copy's seed is promote's own answer, given in promote's
+    # decisions cell.
+    test_convert_the_users_batch_with_run_values(started)
+    log = "mart_dev.team_log_mart"
+    journey = started.journey("promote")
+    # team_log reads job_teams, which is promoted with it.
+    journey.type_names(TABLES=["mart_dev.job_teams_mart", log])
+    journey.run_to(1)
+    prod = project.promoted_tables([log])[0]
+    assert "SEED = {}" in _reference(started.root, prod).read_text(encoding="utf-8")
+    journey.type_names(DECISIONS={prod: {"seed": {"dt": "2026-09-24"}}})
+    journey.run_to()
+    seeds = [hive for hive in started.warehouse.executed
+             if hive.startswith(f"INSERT OVERWRITE TABLE {prod}")]
+    assert len(seeds) == 1 and seeds[0].endswith("WHERE dt >= '2026-09-24'")
+    assert _sorted_rows(started.warehouse, prod) == _sorted_rows(started.warehouse, log)
+
+
 # --- new_table, then change_a_saved_table -----------------------------------------------------
 
 

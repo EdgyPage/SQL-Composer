@@ -1693,11 +1693,63 @@ def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
         if cell.get("cell_type") != "code":
             continue
         # A names cell may start with an UPGRADE mark an Upgrade put above its first line.
-        if any(line.startswith(first_line) for line in source.split("\n")):
+        lines = source.split("\n")
+        if any(line.startswith(first_line) for line in lines):
             given.update(_plain_assignments(source, names))
-        elif source.startswith(f"{DECISIONS} ="):
-            given.update(_plain_assignments(source, {DECISIONS}))
+        elif any(line.startswith(f"{DECISIONS} =") for line in lines):
+            given.update(_decisions_assignment(root, source))
     return given
+
+
+def _decisions_assignment(root: Path, source: str) -> dict[str, object]:
+    """The DECISIONS a decisions cell assigns: plain values, and each Run value's function it
+    imports from a file of the Project's, such as building_blocks/run_values.py (Toolbox 8.4),
+    read without running the cell. A name it doesn't import from the Project gives none."""
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return {}
+    imported = _project_imports(root, tree)
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == DECISIONS):
+            try:
+                return {DECISIONS: _value_of(node.value, imported)}
+            except ValueError:
+                return {}
+    return {}
+
+
+def _project_imports(root: Path, tree: ast.Module) -> dict[str, object]:
+    """Each name a cell imports from a module of the Project's own, the module a file under
+    `root`, such as building_blocks.run_values, by the name the cell gives it: those imports
+    alone are run, as load runs a logic cell's."""
+    # project.py imports this file, so its runner is read here.
+    from .project import run_logic
+
+    own = [node for node in tree.body
+           if isinstance(node, ast.ImportFrom) and node.module and not node.level
+           and root.joinpath(*node.module.split(".")).with_suffix(".py").is_file()]
+    if not own:
+        return {}
+    names = []
+    for node in own:
+        names += [alias.asname or alias.name for alias in node.names]
+    ran = run_logic(root, "\n".join(ast.unparse(node) for node in own), "decisions_cell")
+    return {name: ran[name] for name in names if name in ran}
+
+
+def _value_of(node: ast.expr, imported: dict[str, object]) -> object:
+    """A plain value a decisions cell writes, as ast.literal_eval reads one, but a name it
+    imported, which stands for what it imported."""
+    if isinstance(node, ast.Name) and node.id in imported:
+        return imported[node.id]
+    if isinstance(node, ast.Dict):
+        return {_value_of(key, imported): _value_of(value, imported)
+                for key, value in zip(node.keys, node.values, strict=True)}
+    if isinstance(node, ast.List):
+        return [_value_of(each, imported) for each in node.elts]
+    return ast.literal_eval(node)
 
 
 def _plain_assignments(source: str, names: set[str]) -> dict[str, object]:
