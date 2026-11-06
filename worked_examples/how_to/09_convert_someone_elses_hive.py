@@ -601,9 +601,9 @@ with the name alone.
 ### Working on a table converted before 8.4
 
 A table converted before 8.4 keeps its seed() as it was, copying every Partition, with no SEED
-for a "seed" answer to fill, and a tag inside quotes in its logic reads TAGS["NAME"] itself,
-so it takes text, never a Run value's function. To limit its seed or answer its quoted tags
-with a Run value, convert its scripts again as a new batch, with a new name for each table in
+for a "seed" answer to fill: the 8.4 Upgrade marks it so. Its tags in strings the Upgrade
+writes through tag_text, as 8.4 writes them, so a Run value's function may answer them. To
+limit its seed, convert its scripts again as a new batch, with a new name for each table in
 RENAME, and remove the old one once the new one's compare passes, with `project.remove_table`
 in admin/remove.ipynb.
 

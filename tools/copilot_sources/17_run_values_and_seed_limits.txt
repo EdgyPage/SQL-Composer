@@ -67,9 +67,8 @@ promote's.
   only to the tables with that column.
 - If the value goes in a Statement the user writes: `run_value(function, *arguments)`. In
   Hive written by hand (file 10): `hive_date(day)`, '2026-09-24' in quotes.
-- If the table was converted before 8.4, its seed copies everything and its tags inside
-  quotes take text alone: say to convert its scripts again for a seed limit or a quoted Run
-  value.
+- If the table was converted before 8.4, its seed copies everything, as the Upgrade's mark
+  says: say to convert its scripts again for a seed limit. Its tags take a Run value as 8.4's.
 
 ## Output
 
