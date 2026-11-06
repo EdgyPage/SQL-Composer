@@ -844,10 +844,10 @@ def to_8_4(upgrade: Upgrade) -> None:
     you wrote in kept, for the project.check() cell under each decision step and its text; a
     decisions cell you hadn't answered in is written with 8.4's comment, which tells of
     all_tables, Run values and seed limits, and one you answered in is kept as you wrote it.
-    In a table 8.3 converted, each place a Script tag stood inside a string, which 8.3 wrote as TAGS["NAME"]
-    itself, is written tag_text(TAGS["NAME"]), as 8.4 writes it, so a Run value's function can
-    answer it too: the same Hive for every answer 8.3 took. A seed() 8.3 wrote, copying every
-    Partition, is marked: convert the batch again for one SEED limits."""
+    In a table 8.3 converted, each place a Script tag stood inside a string, which 8.3 wrote
+    as TAGS["NAME"] itself, is written tag_text(TAGS["NAME"]), as 8.4 writes it, so a Run
+    value's function can answer it too: the same Hive for every answer 8.3 took. A seed() 8.3
+    wrote, copying every Partition, is marked: convert the batch again for one SEED limits."""
     _write_workflow_notebooks_again(upgrade)
     for notebook in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
         _read_tags_through_tag_text(upgrade, notebook)
