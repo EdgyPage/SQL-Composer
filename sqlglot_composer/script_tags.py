@@ -172,6 +172,16 @@ def is_built_of_values(value: object) -> bool:
     return isinstance(value, Column) and _is_built_of_values(value._tree)
 
 
+def is_one_value(value: object) -> bool:
+    """Whether `value` is a Column of one value alone, as a Script tag or a Run value gives
+    one: no sum, and no date_add or date_sub, which Hive's PARTITION(...) doesn't take."""
+    return isinstance(value, Column) and value._tree.kind in _ONE_VALUE_KINDS
+
+
+# The kinds of Node one value is: a Script tag's, and a Run value's literal.
+_ONE_VALUE_KINDS = {SCRIPT_TAG, "Literal", "Boolean"}
+
+
 def _is_built_of_values(node: Node) -> bool:
     if node.kind == "HiveFunction":
         return node.parts["name"] in _DAYS_MOVED and all(

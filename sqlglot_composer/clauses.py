@@ -1017,8 +1017,9 @@ def INSERT_OVERWRITE(
 
     A value worked out as the write is built names a Partition too: a Script tag's answer,
     script_tag(...), as a converted nightly script's write gives it, or run_value(...). Each
-    is a Column holding one value, and these two are the only Columns partition= takes: a
-    column of a table, such as job_runs.dt, names no one Partition, and is refused. A Run
+    is a Column holding one value, and partition= takes no other Column: a column of a
+    table, such as job_runs.dt, or a date_sub(...) of a tag, which Hive's PARTITION(...)
+    doesn't take, is refused. A Run
     value given so shows on the Lineage page, feeding the partition column.
 
     >>> print(to_hive(statement(
