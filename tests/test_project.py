@@ -1579,7 +1579,8 @@ def test_the_references_workflow_says_how_to_check_a_key_and_what_a_todo_left_me
     # Toolbox 8.2, 23: W2-2 and W2-3 answered a Key before anything said how to check it,
     # and W4-1 didn't know deleting does_not_add_up='s TODO says no column is one.
     answer, write_in = toolbox_module("workflows").REFERENCES.steps[1:3]
-    assert "To check a Key before you answer it, run `check_key`" in answer.action
+    assert ("To check a Key before you answer it, which how-to 21 shows, check_key"
+            in answer.action)
     assert "check_key(" in answer.action
     assert ("If no column is one, then delete only its `# TODO` comment, and the empty list "
             "says no column is one." in write_in.action)

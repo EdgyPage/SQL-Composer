@@ -939,10 +939,25 @@ def left_by_the_version_before(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     (scripts / "close.hql").write_text(
         'SELECT r.run_id FROM ops.job_runs r WHERE r.dt = <PARM="RUN_DAY"/>;\n',
         encoding="utf-8")
+    # A table converted before 8.4 whose write reads itself: its seed() copies every
+    # Partition, which 8.4's step marks.
+    seeded = root / "tables" / "mart_dev__grows_ops"
+    seeded.mkdir(parents=True)
+    notebooks.write_notebook(seeded / "mart_dev__grows_ops.ipynb", [("code", SEEDED_IN_8_3)])
     hand_edits: dict[str, list[str]] = {}
     yield Started(root, monkeypatch, Warehouse(database="ops"), hand_edits)
     forget_the_projects_modules()
     _check_every_listed_edit_was_made(hand_edits)
+
+
+SEEDED_IN_8_3 = '''# logic
+from sqlglot_composer import UncheckedStatement, unchecked_hive
+
+
+def seed() -> UncheckedStatement:
+    """Copy the original's rows into this table once, before its first write()."""
+    return unchecked_hive("INSERT OVERWRITE TABLE mart_dev.grows_ops SELECT * FROM ops.grows")
+'''
 
 
 def test_upgrade_a_project_the_version_before_left(

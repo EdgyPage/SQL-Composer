@@ -391,15 +391,14 @@ def excel_phases(book: str, final: str, tables: str) -> list[dict[str, str]]:
 
 def scenarios() -> dict[str, Built]:
     """Each scenario, by its id: the Workflow ones, then the Excel ones."""
-    return {**workflow_scenarios(), **new_table_scenarios(), **excel_scenarios(),
-            **held_out_workflow_scenarios()}
+    return {**workflow_scenarios(), **run_value_scenarios(), **new_table_scenarios(),
+            **excel_scenarios(), **held_out_workflow_scenarios()}
 
 
 def workflow_scenarios() -> dict[str, Built]:
     """Each Workflow scenario, by its id."""
     team_fails = f"{DEV}.team_fails"
     daily_fails = f"{DEV}.daily_fails"
-    run_log = f"{DEV}.run_log"
     return {
         "W1": Built({
             "id": "W1", "split": "dev", "title": "convert one script with a CTE",
@@ -436,6 +435,23 @@ def workflow_scenarios() -> dict[str, Built]:
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__daily_fails.py",
                            "holds": ["'2026-09-24'"]}]}),
+        "W4": Built({
+            "id": "W4", "split": "dev", "title": "Table references",
+            "phases": [technical(
+                "Your work will read two tables of the warehouse, ops.jobs and ops.run_alerts. "
+                "Start a Project with the Toolbox, and add a Table reference for each: the Key "
+                "of ops.jobs is job_id, and of ops.run_alerts, alert_id. "
+                f"{DATABASES_SAID}")]},
+            key=lambda: {"files": [
+                {"path": "references/ops__jobs.py", "holds": ['key=["job_id"]']},
+                {"path": "references/ops__run_alerts.py", "holds": ['key=["alert_id"]']}]}),
+    }
+
+
+def run_value_scenarios() -> dict[str, Built]:
+    """Each Workflow scenario with a Run value and a seed limit (Toolbox 8.4), by its id."""
+    run_log = f"{DEV}.run_log"
+    return {
         "W7": Built({
             "id": "W7", "split": "dev",
             "title": "convert a script whose Script tag is the latest day, its seed limited",
@@ -459,16 +475,6 @@ def workflow_scenarios() -> dict[str, Built]:
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__run_log.py",
                            "holds": ["# a Run value", "2026-09-24"]}]}),
-        "W4": Built({
-            "id": "W4", "split": "dev", "title": "Table references",
-            "phases": [technical(
-                "Your work will read two tables of the warehouse, ops.jobs and ops.run_alerts. "
-                "Start a Project with the Toolbox, and add a Table reference for each: the Key "
-                "of ops.jobs is job_id, and of ops.run_alerts, alert_id. "
-                f"{DATABASES_SAID}")]},
-            key=lambda: {"files": [
-                {"path": "references/ops__jobs.py", "holds": ['key=["job_id"]']},
-                {"path": "references/ops__run_alerts.py", "holds": ['key=["alert_id"]']}]}),
     }
 
 
