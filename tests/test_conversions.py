@@ -235,12 +235,15 @@ def test_check_gives_the_next_step_before_the_conversion_notes(started: Path) ->
     assert next_step < said.index("Noted by project.convert(...), which blocks nothing")
 
 
-def test_convert_reads_a_file_and_keeps_it_as_given(started: Path) -> None:
+def test_convert_reads_a_file_where_it_is(started: Path) -> None:
+    # Toolbox 8.5, ticket 03: never copied, batch.md naming where it is.
     (started / "report.hql").write_text(HIVE, encoding="utf-8")
     project.convert("from_file", file="report.hql", query=example_database.query,
                     database="ops")
-    kept = started / "admin" / "workflows" / "convert" / "from_file" / "scripts" / "report.hql"
-    assert kept.read_text(encoding="utf-8") == HIVE
+    batch = started / "admin" / "workflows" / "convert" / "from_file"
+    assert "1 script, each read where it is: report.hql." in (batch / "batch.md").read_text(
+        encoding="utf-8")
+    assert not (batch / "scripts").exists()
 
 
 @pytest.mark.parametrize("name", ["Team", "team-runs", "mart.team", "class", "", 5])
