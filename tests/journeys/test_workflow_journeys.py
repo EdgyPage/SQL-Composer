@@ -15,6 +15,11 @@ Each edit a journey makes by hand, other than typing into the names cell, goes t
 `Journey.make_by_hand`, which refuses one KNOWN_FIDDLING doesn't list; at its end, a journey
 must have made every edit KNOWN_FIDDLING lists for each Workflow it ran: so the list only
 shrinks, as each 8.1 ticket takes a hand edit away.
+
+Each action a journey takes for the user is counted too (Toolbox 8.5, ticket 01): each name
+typed into a names or decisions cell, each cell run, each file saved by hand and each hand edit.
+KNOWN_ACTIONS holds the count of the journeys 8.5 is measured on, which only falls: a journey
+taking more fails, naming what it took.
 """
 
 from __future__ import annotations
@@ -26,7 +31,7 @@ import shutil
 import sys
 import types
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -61,19 +66,27 @@ KNOWN_FIDDLING = {
         "make each change an UPGRADE mark asks for",
     ),
 }
+# How many actions each measured journey takes for the user, by the test's name: what 8.5
+# lowers, one ticket at a time (its ticket 01). A journey taking more fails; one taking fewer
+# asks for its number to be lowered here.
+KNOWN_ACTIONS: dict[str, int] = {
+    "test_promote_a_seeded_table_limiting_its_prod_seed": 35,
+    "test_convert_the_users_batch_with_run_values_through_the_runner": 14,
+}
 # A Workflow's step heading in its notebook, such as "## 3. Create each table in dev".
 STEP_HEADING = re.compile(r"^## (\d+)\. ")
 
 
 @dataclass
 class Started:
-    """A Project a journey runs in: its folder, its warehouse, and the hand edits made, by
-    Workflow."""
+    """A Project a journey runs in: its folder, its warehouse, the hand edits made, by
+    Workflow, and every action taken for the user, as (Workflow, kind, what)."""
 
     root: Path
     monkeypatch: pytest.MonkeyPatch
     warehouse: Warehouse
     hand_edits: dict[str, list[str]]
+    actions: list[tuple[str, str, str]] = field(default_factory=list)
 
     def journey(self, workflow: str, by_hand: bool = True) -> Journey:
         """A Workflow's journey; one not `by_hand` may make no hand edit at all, as new_table
@@ -114,6 +127,8 @@ class Journey:
                     self.scope.update({name: value for name, value in values.items()
                                        if any(line.startswith(f"{name} =") for line in lines)})
         assert typed_names == set(values), f"no names cell holds {set(values) - typed_names}"
+        for name in values:
+            self.took("typed", name)
 
     def run_to(self, step: int | None = None, again: tuple[int, ...] = ()) -> None:
         """Run each code cell not yet run, up to and including step `step`'s, or to the end;
@@ -128,6 +143,7 @@ class Journey:
             if step is not None and current > step:
                 return
             if kind == "code" and (number > self.cells_run or current in again):
+                self.took("ran", f"cell {number}")
                 exec(text, self.scope)
                 self.cells_run = max(self.cells_run, number)
 
@@ -160,6 +176,7 @@ class Journey:
         again with the cells before step 1, as the user runs the cell they changed."""
         for number, (kind, text) in enumerate(notebooks.read_cells(self.notebook), 1):
             if kind == "code" and text.startswith("DECISIONS ="):
+                self.took("typed", "the decisions cell")
                 notebooks.write_cell_text(self.notebook, number, code)
                 if number <= self.cells_run:
                     self.run_to(0, again=(0,))
@@ -178,6 +195,7 @@ class Journey:
             f'project.run_workflow("{self.workflow}"'
             + "".join(f", {name}={name}" for name in self._run_with()) + ")")
         calls = {name: self.scope[name] for name in self._run_with() if name in self.scope}
+        self.took("ran", "the run_workflow cell")
         return repr(project.run_workflow(self.workflow, **{**calls, **given}))
 
     def _run_with(self) -> tuple[str, ...]:
@@ -190,7 +208,18 @@ class Journey:
         assert edit in KNOWN_FIDDLING[self.workflow], (
             f"{self.workflow}: a hand edit KNOWN_FIDDLING doesn't list: {edit}")
         self.started.hand_edits[self.workflow].append(edit)
+        self.took("by hand", edit)
         make(*args)
+
+    def save_by_hand(self, path: Path, text: str) -> None:
+        """Save a file the user writes or copies in by hand, such as a script beside the
+        convert notebook or a Run value's file, and note it."""
+        self.took("file", path.relative_to(self.started.root).as_posix())
+        path.write_text(text, encoding="utf-8")
+
+    def took(self, kind: str, what: str) -> None:
+        """Note one action taken for the user in this Workflow."""
+        self.started.actions.append((self.workflow, kind, what))
 
 
 def _typed(line: str, values: dict[str, object]) -> str:
@@ -202,9 +231,11 @@ def _typed(line: str, values: dict[str, object]) -> str:
 
 
 @pytest.fixture
-def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Started]:
+def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+            request: pytest.FixtureRequest) -> Iterator[Started]:
     """A Project whose conn is the stand-in warehouse, DEV and PROD filled in; at the end, each
-    Workflow it ran made every hand edit KNOWN_FIDDLING lists for it."""
+    Workflow it ran made every hand edit KNOWN_FIDDLING lists for it, and a measured journey
+    took the actions KNOWN_ACTIONS counts."""
     forget_the_projects_modules()
     monkeypatch.chdir(tmp_path)
     project.start()
@@ -215,9 +246,11 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Started
         '"<DEV_DATABASE>"', '"mart_dev"').replace('"<PROD_DATABASE>"', '"team_prod"'),
         encoding="utf-8")
     hand_edits: dict[str, list[str]] = {}
-    yield Started(tmp_path, monkeypatch, warehouse, hand_edits)
+    journeyed = Started(tmp_path, monkeypatch, warehouse, hand_edits)
+    yield journeyed
     forget_the_projects_modules()
     _check_every_listed_edit_was_made(hand_edits)
+    _check_the_actions_taken(request.node.name, journeyed.actions)
 
 
 def _check_every_listed_edit_was_made(hand_edits: dict[str, list[str]]) -> None:
@@ -225,6 +258,17 @@ def _check_every_listed_edit_was_made(hand_edits: dict[str, list[str]]) -> None:
         assert sorted(set(edits)) == sorted(KNOWN_FIDDLING[workflow]), (
             f"{workflow}: KNOWN_FIDDLING lists a hand edit this journey no longer makes: "
             "take it out")
+
+
+def _check_the_actions_taken(test: str, actions: list[tuple[str, str, str]]) -> None:
+    """A measured journey takes no more actions than KNOWN_ACTIONS counts, and asks for the
+    count to be lowered when it takes fewer."""
+    if test not in KNOWN_ACTIONS:
+        return
+    known, taken = KNOWN_ACTIONS[test], len(actions)
+    listed = "\n".join(f"  {workflow}: {kind} {what}" for workflow, kind, what in actions)
+    assert taken <= known, f"{test} takes {taken} actions, more than {known}:\n{listed}"
+    assert taken == known, f"{test} takes {taken} actions now: lower KNOWN_ACTIONS to {taken}"
 
 
 def _set_conn(root: Path, warehouse: Warehouse, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -330,7 +374,7 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
     finished: the dev tables it made, each with the Key `keys` says convert proposes."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(script, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", script)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     journey.run_to(1)
     tables = project.batch_tables("weekly")
@@ -364,7 +408,7 @@ def _convert_through_the_runner(started: Started, script: str,
     finished."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(script, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", script)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     # Before step 1 runs nothing is printed to paste, so each location is typed.
     journey.type_names(DECISIONS={table: {"location": _location(table)} for table in keys})
@@ -433,7 +477,7 @@ def test_convert_compares_another_partition_set_in_partition(started: Started) -
     # cell and running step 7 again, with no cell of the user's own.
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     journey.run_to(1)
     _answer_each_decision(journey, project.batch_tables("weekly"))
@@ -451,7 +495,7 @@ def test_convert_compares_another_partition_set_in_partition(started: Started) -
 def test_the_runner_compares_the_partition_set_in_partition(started: Started) -> None:
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
                        PARTITION={"dt": "2026-09-23"},
@@ -464,7 +508,7 @@ def test_the_runner_compares_the_partition_set_in_partition(started: Started) ->
 def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(ONE_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
                        PARTITION={"dt": "'2026-09-23'"},
@@ -561,7 +605,7 @@ def _check_tagged_rows(started: Started, tables: list[str]) -> None:
 def test_convert_a_script_with_script_tags(started: Started) -> None:
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     journey.run_to(1)
     tables = project.batch_tables("weekly")
@@ -585,7 +629,7 @@ def test_convert_a_script_with_script_tags(started: Started) -> None:
 def test_convert_a_script_with_script_tags_through_the_runner(started: Started) -> None:
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
                        DECISIONS=_tag_answers(TAG_VALUES))
     assert "convert, weekly: every step is done." in journey.run_workflow()
@@ -597,7 +641,7 @@ def test_convert_a_script_with_script_tags_through_the_runner(started: Started) 
 def test_the_runner_creates_nothing_while_a_tag_is_open(started: Started) -> None:
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
                        DECISIONS={table: {"location": _location(table)}
                                   for table in TAG_VALUES})
@@ -611,7 +655,7 @@ def test_a_tag_answered_wrong_is_answered_again_in_the_decisions_cell(
         started: Started) -> None:
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(_tagged_script(), encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     wrong = {**TAG_VALUES, "mart_dev.daily_close_mart": {"PERIOD_END": "'2026-09-24'"}}
     journey.type_names(DECISIONS=_tag_answers(wrong))
@@ -647,7 +691,7 @@ GROUP BY r.job_id, r.dt;
 def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -> None:
     started.warehouse.execute(HIVEVAR_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-23'"))
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(HIVEVAR_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", HIVEVAR_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     table = "mart_dev.daily_close_mart"
     journey.run_to(1)
@@ -716,15 +760,14 @@ PERIOD_TABLES = ["mart_dev.job_teams_mart", "mart_dev.recent_runs_mart",
 def test_convert_the_users_batch_with_run_values(started: Started) -> None:
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(PERIOD_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", PERIOD_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     journey.run_to(1)
     assert project.batch_tables("weekly") == PERIOD_TABLES
     recent = _notebook(started.root, "mart_dev.recent_runs_mart").read_text(encoding="utf-8")
     assert "unchecked_column" not in recent, "date_sub converted with an Unchecked part"
     # The user's function, written in the Project, answers PERIOD_END for every table.
-    (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
-                                                                    encoding="utf-8")
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
     journey.type_decisions_cell(PERIOD_DECISIONS)
     journey.run_to()
     _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
@@ -746,13 +789,14 @@ def test_convert_the_users_batch_with_run_values(started: Started) -> None:
 
 def test_convert_the_users_batch_with_run_values_through_the_runner(started: Started) -> None:
     # Toolbox 8.4, ticket 14: the same batch as the notebook's last cell runs it, the decisions
-    # cell importing the user's function as before.
+    # cell importing the user's function as before. The runner stops at the Decisions first:
+    # the function reads ops.job_runs through the Table reference convert's step 1 writes.
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(PERIOD_SCRIPT, encoding="utf-8")
-    (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
-                                                                    encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", PERIOD_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    assert "convert, weekly: every step is done." not in journey.run_workflow()
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
     journey.type_decisions_cell(PERIOD_DECISIONS)
     assert "convert, weekly: every step is done." in journey.run_workflow()
     _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
@@ -771,12 +815,11 @@ def test_convert_a_batch_whose_partition_is_a_tag_answered_by_a_run_value(
         started: Started) -> None:
     started.warehouse.execute(NIGHTLY_SCRIPT.replace('<PARM="RUN_DAY"/>', "'2026-09-24'"))
     journey = started.journey("convert")
-    (journey.folder / "weekly.hql").write_text(NIGHTLY_SCRIPT, encoding="utf-8")
+    journey.save_by_hand(journey.folder / "weekly.hql", NIGHTLY_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     journey.run_to(1)
     # The Run value reads ops.job_runs through the Table reference step 1 wrote.
-    (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
-                                                                    encoding="utf-8")
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
     journey.type_decisions_cell(PERIOD_DECISIONS.replace(
         '"PERIOD_END"', '"RUN_DAY"').split('    "mart_dev.team_log_mart"')[0] + "}\n")
     journey.run_to()
