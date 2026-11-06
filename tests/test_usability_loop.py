@@ -17,6 +17,7 @@ import notebook_runner
 import openpyxl
 import pytest
 import usability_loop
+from conftest import forget_the_projects_modules, toolbox_module
 from openpyxl.worksheet.table import Table
 from workflow_warehouse import SavedWarehouse
 
@@ -309,3 +310,22 @@ def test_the_saved_warehouse_answers_a_select_of_values_and_keeps_a_location(
     warehouse.execute("CREATE EXTERNAL TABLE mart_dev.kept (a BIGINT) LOCATION '/data/kept'")
     described = SavedWarehouse(path).query("DESCRIBE FORMATTED mart_dev.kept")
     assert ["Location:", "/data/kept"] in described.iloc[:, :2].values.tolist()
+
+
+def test_a_run_that_adds_a_cell_to_a_workflow_notebook_is_scored_with_it(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Toolbox 8.4, ticket 14: on the intended path a user makes no cell of their own.
+    monkeypatch.chdir(tmp_path)
+    project = toolbox_module().project
+    notebooks = toolbox_module("notebooks")
+    project.start()
+    result = usability_loop.RunScore("W7", project=tmp_path)
+    usability_loop.check_cells(result)
+    assert result.added_cells == []
+    notebook = tmp_path / "admin" / "workflows" / "convert" / "convert.ipynb"
+    notebooks.write_notebook(notebook, [*notebooks.read_cells(notebook),
+                                        ("code", "print(project.check())")])
+    usability_loop.check_cells(result)
+    assert result.added_cells == ["convert (1)"]
+    assert not result.passed
+    forget_the_projects_modules()

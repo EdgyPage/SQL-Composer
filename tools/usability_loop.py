@@ -59,6 +59,7 @@ import openpyxl  # noqa: E402
 from formula_workbook import row_label  # noqa: E402
 from workflow_warehouse import SavedWarehouse  # noqa: E402
 
+from sqlglot_composer import notebooks, workflows  # noqa: E402
 from sqlglot_composer.shared import counted, in_words  # noqa: E402
 
 SCENARIOS = TOOLS / "usability_scenarios"
@@ -406,13 +407,16 @@ class RunScore:
     other_columns: list[str] = field(default_factory=list)
     other_rows: list[str] = field(default_factory=list)
     missing_files: list[str] = field(default_factory=list)
+    # Each Workflow notebook the run added code cells to, and how many (Toolbox 8.4, ticket
+    # 14): on the intended path a user makes no cell of their own.
+    added_cells: list[str] = field(default_factory=list)
     questions: int = 0
     project: Path | None = None
 
     @property
     def passed(self) -> bool:
         failures = [self.missing_tables, self.other_columns, self.other_rows,
-                    self.missing_files]
+                    self.missing_files, self.added_cells]
         return not any(failures) and self.questions <= MOST_QUESTIONS
 
 
@@ -491,7 +495,24 @@ def score(chosen: Scenario, run: Path) -> RunScore:
                       project=find_the_project(run))
     check_tables(result, key, run)
     check_files(result, key)
+    check_cells(result)
     return result
+
+
+def check_cells(result: RunScore) -> None:
+    """Note on `result` each Workflow notebook of the run's Project holding more code cells
+    than the Toolbox writes in it: cells the run made of its own."""
+    if result.project is None:
+        return
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(result.project, workflow)
+        if not path.is_file():
+            continue
+        shipped = workflows.notebook_cells(workflow, ["paths"])
+        added = (len([kind for kind, _ in notebooks.read_cells(path) if kind == "code"])
+                 - len([kind for kind, _ in shipped if kind == "code"]))
+        if added > 0:
+            result.added_cells.append(f"{workflow.name} ({added})")
 
 
 def report_text(result: RunScore, run: Path) -> str:
@@ -505,7 +526,8 @@ def report_text(result: RunScore, run: Path) -> str:
     for label, names in (("missing tables", result.missing_tables),
                          ("other columns in", result.other_columns),
                          ("other rows in", result.other_rows),
-                         ("missing files", result.missing_files)):
+                         ("missing files", result.missing_files),
+                         ("cells added to", result.added_cells)):
         if names:
             lines.append(f"  {label}: {in_words(names)}")
     return "\n".join(lines)

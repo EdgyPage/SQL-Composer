@@ -341,6 +341,18 @@ GROUP BY j.team
 """,
 }
 
+# W7's script: each new run of ops.job_runs added to mart.run_log, PERIOD_END the latest day
+# the scheduler finds; and as it ran, the day filled in.
+RUN_LOG = """SET hive.exec.dynamic.partition.mode=nonstrict;
+CREATE TABLE IF NOT EXISTS mart.run_log (run_id BIGINT, job_id BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT INTO TABLE mart.run_log PARTITION (dt)
+SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs r
+WHERE r.dt BETWEEN date_sub(<PARM="PERIOD_END"/>, 1) AND <PARM="PERIOD_END"/>
+  AND r.run_id NOT IN (SELECT l.run_id FROM mart.run_log l);
+"""
+RUN_LOG_RAN = RUN_LOG.replace('<PARM="PERIOD_END"/>', "'2026-09-24'")
+
 # --- The scenarios ----------------------------------------------------------------------------
 
 
@@ -387,6 +399,7 @@ def workflow_scenarios() -> dict[str, Built]:
     """Each Workflow scenario, by its id."""
     team_fails = f"{DEV}.team_fails"
     daily_fails = f"{DEV}.daily_fails"
+    run_log = f"{DEV}.run_log"
     return {
         "W1": Built({
             "id": "W1", "split": "dev", "title": "convert one script with a CTE",
@@ -423,6 +436,29 @@ def workflow_scenarios() -> dict[str, Built]:
                            "holds": ["Passed"]},
                           {"path": "references/mart_dev__daily_fails.py",
                            "holds": ["'2026-09-24'"]}]}),
+        "W7": Built({
+            "id": "W7", "split": "dev",
+            "title": "convert a script whose Script tag is the latest day, its seed limited",
+            "phases": [technical(
+                "Your team's script, from_your_team/run_log.hql, adds each new run of "
+                "ops.job_runs to mart.run_log, a table in a database you can't write to. The "
+                'scheduler that runs it puts in place of <PARM="PERIOD_END"/> the latest day '
+                "ops.job_runs holds, as it stands at each run; it has run, so mart.run_log "
+                f"holds its rows. Make your own copy of that table in your Dev Database, "
+                f"{run_log}, written there and checked against the original, with the "
+                "Toolbox. Your copy must work out PERIOD_END itself each time it is written, "
+                "from what ops.job_runs holds then, never a day typed in. mart.run_log holds "
+                "years of days at work, and you only need 2026-09-24 on: copy only those days "
+                f"of its rows into your copy at the start. {DATABASES_SAID}")],
+            "hive_ran": ["run_log_ran.hql"],
+            "given": {"from_your_team/run_log.hql": "run_log.hql"}},
+            {"run_log.hql": RUN_LOG, "run_log_ran.hql": RUN_LOG_RAN},
+            key=lambda: {"tables": {run_log: table_key(
+                [RUN_LOG_RAN], "SELECT run_id, job_id, dt FROM mart.run_log")},
+                "files": [{"path": COMPARED.format(stem="mart_dev__run_log"),
+                           "holds": ["Passed"]},
+                          {"path": "references/mart_dev__run_log.py",
+                           "holds": ["# a Run value", "2026-09-24"]}]}),
         "W4": Built({
             "id": "W4", "split": "dev", "title": "Table references",
             "phases": [technical(
@@ -634,6 +670,50 @@ def reference_w6(root: Path, warehouse: SavedWarehouse) -> None:
     finish("convert", warehouse)
 
 
+# W7's Run value: the latest day ops.job_runs holds, as the user writes it in their Project.
+RUN_VALUES = '''"""Run values: what a Script tag stands for, worked out each time a table is
+written."""
+
+import datetime
+
+from sqlglot_composer import latest_partition
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+
+def period_end() -> datetime.date:
+    """The latest day ops.job_runs holds."""
+    return latest_partition(job_runs.dt, query)
+'''
+
+
+def reference_w7(root: Path, warehouse: SavedWarehouse) -> None:
+    """W7's end: the script converted, PERIOD_END answered by the user's function, which reads
+    the latest day ops.job_runs holds, and the seed limited to 2026-09-24 on."""
+    folder = root / "admin" / "workflows" / "convert"
+    shutil.copyfile(root.parent / "from_your_team" / "run_log.hql", folder / "run_log.hql")
+    table = f"{DEV}.run_log"
+    type_into(root, "convert", NAME="run_log", FILES=["run_log.hql"], DATABASE="ops",
+              RENAME={"mart.run_log": "run_log"})
+    run_the_workflow("convert", warehouse)
+    (root / "building_blocks" / "run_values.py").write_text(RUN_VALUES, encoding="utf-8")
+    notebook = folder / "convert.ipynb"
+    for number, (_, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if text.startswith("DECISIONS ="):
+            notebooks.write_cell_text(notebook, number, W7_DECISIONS.format(
+                table=table, location=location(table)))
+    finish("convert", warehouse)
+
+
+W7_DECISIONS = """from building_blocks.run_values import period_end
+
+DECISIONS = {{
+    "{table}": {{"location": "{location}", "key": None,
+                 "tags": {{"PERIOD_END": period_end}}, "seed": {{"dt": "2026-09-24"}}}},
+}}
+"""
+
+
 def fill_runs_per_day_logic(text: str) -> str:
     """The saved_table Template's logic, filled in for runs_per_day, as a user fills it in."""
     for placeholder, value in (
@@ -742,7 +822,8 @@ RUNS_KEY = {"ops.job_runs": ["run_id"]}
 JOINED_KEYS = {"ops.jobs": ["job_id"], "ops.job_runs": ["run_id"]}
 REFERENCE_ENDS: dict[str, Callable[[Path, SavedWarehouse], None]] = {
     "W1": reference_w1, "W2": reference_w2, "W3": reference_w3, "W4": reference_w4,
-    "W5": reference_w5, "W6": reference_w6, "H1": reference_h1, "H2": reference_h2,
+    "W5": reference_w5, "W6": reference_w6, "W7": reference_w7, "H1": reference_h1,
+    "H2": reference_h2,
     "E1": reference_excel([f"{DEV}.job_run_report"], RUNS_KEY,
                           {f"{DEV}.job_run_report": ["job_id"]}),
     "E2": reference_excel([f"{DEV}.team_report"], JOINED_KEYS,

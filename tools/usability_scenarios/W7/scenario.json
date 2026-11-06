@@ -1,0 +1,17 @@
+{
+ "id": "W7",
+ "split": "dev",
+ "title": "convert a script whose Script tag is the latest day, its seed limited",
+ "phases": [
+  {
+   "role": "technical",
+   "job": "Your team's script, from_your_team/run_log.hql, adds each new run of ops.job_runs to mart.run_log, a table in a database you can't write to. The scheduler that runs it puts in place of <PARM=\"PERIOD_END\"/> the latest day ops.job_runs holds, as it stands at each run; it has run, so mart.run_log holds its rows. Make your own copy of that table in your Dev Database, mart_dev.run_log, written there and checked against the original, with the Toolbox. Your copy must work out PERIOD_END itself each time it is written, from what ops.job_runs holds then, never a day typed in. mart.run_log holds years of days at work, and you only need 2026-09-24 on: copy only those days of its rows into your copy at the start. Your Dev Database is mart_dev, and your Prod Database is team_prod. Each new table you make goes in the folder /data/team/<its database>.db/<its name>, such as /data/team/mart_dev.db/weekly; a table someone else made stays where it is."
+  }
+ ],
+ "hive_ran": [
+  "run_log_ran.hql"
+ ],
+ "given": {
+  "from_your_team/run_log.hql": "run_log.hql"
+ }
+}
