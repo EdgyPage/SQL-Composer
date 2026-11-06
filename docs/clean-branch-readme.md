@@ -699,8 +699,9 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    those its `"seed"` answer names), write each, and
    compare each with the table it copies, `project.compare_batch`. A partitioned table is
    compared on the latest Partition both tables hold. If you want another Partition compared
-   too, once your dev table holds it, then set `PARTITION` in the names cell, such as
-   `PARTITION = {"dt": "2026-09-23"}`, and run the compare step again: its
+   too, once your dev table holds it, then list it in `PARTITIONS` in the names cell, such
+   as `PARTITIONS = [{"dt": "2026-09-23"}]`, and run "Run the rest" again, a finished batch
+   too: its
    `conversion/compare.md` keeps each Partition's result. Done when every result of each table
    has passed; then step 6.
 6. **Promote them.** Goal: the tables in your Prod Database. Action: run the promote Workflow,
@@ -889,7 +890,7 @@ flowchart TD
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query, partition=PARTITION)
+       project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 <!-- /chart -->
 

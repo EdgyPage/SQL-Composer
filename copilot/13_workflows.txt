@@ -27,7 +27,7 @@ inside it.
 - project.check()
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
-- project.compare_batch(name, *, query=None, tables=None, partition=None)
+- project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.write_decisions(answers, tables=None)
 
 ## Steps
@@ -74,8 +74,8 @@ inside it.
   function of theirs (file 17). If they give none, never guess: ask.
 - `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
   file 17.
-- Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
-  then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
+- Leave convert's `PARTITIONS = []` unless the user asks to compare a Partition by name:
+  then `PARTITIONS = [{"dt": "2026-09-23"}]`; step 7 compares it too.
 - "Run up to your Decisions", then "Run the rest": each runs every step left, up to the first
   only the user can do; `dry_run=True` sends nothing.
 
@@ -131,7 +131,7 @@ Its inputs:
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query, partition=PARTITION)
+       project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 
 ## Example

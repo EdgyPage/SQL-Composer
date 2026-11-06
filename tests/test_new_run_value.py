@@ -57,7 +57,7 @@ def test_it_writes_the_latest_partition_of_a_table(started: Path) -> None:
                  "from sqlglot_composer import latest_partition",
                  "from references.ops__job_runs import job_runs",
                  "from warehouse import query",
-                 "def period_end() -> datetime.date:",
+                 "def period_end() -> datetime.date | int | str:",
                  "    return latest_partition(job_runs.dt, query)"]:
         assert f"\n{line}\n" in text, line
     assert _period_end()() == datetime.date(2026, 9, 24)

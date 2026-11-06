@@ -1149,17 +1149,18 @@ def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
     from warehouse import query
     <BLANKLINE>
     <BLANKLINE>
-    def period_end() -> datetime.date:
+    def period_end() -> datetime.date | int | str:
         """The latest Partition of ops.job_runs, by dt."""
         return latest_partition(job_runs.dt, query)
     <BLANKLINE>
 
     `latest_partition` names a partition column by its table, as "ops.job_runs.dt". The
     function it writes, period_end() here, gives that column's newest value each time it is
-    called, from SHOW PARTITIONS sent through your query: a date as a datetime.date, as
-    latest_partition(...) gives it, and a column of whole numbers, such as year INT, a
-    number. It goes into building_blocks/run_values.py with the imports it needs, the file
-    made if it isn't there and registered as a Building block. Import it at the top of a
+    called, from SHOW PARTITIONS sent through your query, as latest_partition(...) gives it:
+    a date as a datetime.date, a number or text as the values listed read, and, for a column
+    of whole numbers, such as year INT, a number, which its type hint says. It goes into
+    building_blocks/run_values.py with the imports it needs, the file made if it isn't there
+    and registered as a Building block. Import it at the top of a
     Workflow's decisions cell, by the line it prints, and answer a Script tag with it, as
     "tags": {"PERIOD_END": period_end}.
 
@@ -1286,7 +1287,9 @@ def _run_value_code(bound: dict[str, str], name: str, table: Table,
     if bound.get(short, origin) != origin:
         # The file has the table's short name for another thing: import it by its file's.
         reads, table_import = stem, f"{table_import} as {stem}"
-    returns = "datetime.date"
+    # What latest_partition gives: a number for a whole-number column; else a date, a number or
+    # text, as the values SHOW PARTITIONS lists read, which no type says beforehand.
+    returns = "datetime.date | int | str"
     if table._columns[column].strip().lower() in WHOLE_NUMBER_TYPES:
         returns = "int"
     needs = {"latest_partition": ("sqlglot_composer.latest_partition",
