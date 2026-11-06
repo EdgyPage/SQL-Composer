@@ -1,9 +1,9 @@
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.4)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database, with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the
+Database, with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each its cell of the
 promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
 tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
 references, upgrades and changes to a Saved table; a step's own file, for the Python inside
@@ -18,7 +18,8 @@ it.
 - **Saved table**: a table the user's own code writes; its **Table reference** is the file
   of its columns, partitions, Key and location.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
-  Database, where others read them; set once in admin/databases.py.
+  Database, where others read them: dicts in admin/databases.py, each a "database" and a
+  "location_root", which places each new table's location.
 - **prod copy**: the Saved table promote makes in PROD from a dev table: its own Table folder
   and Table reference, named for the dev table with PROD for its database.
 - **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
@@ -36,7 +37,8 @@ it.
 
 1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
    names the next step. Then step 2.
-2. **Write the names cell**, TABLES given the user's dev tables. Then step 3.
+2. **Write the names cell**, TABLES given the user's dev tables, or `TABLES = []`. Then
+   step 3.
 3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
    Then step 4.
 4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
@@ -51,11 +53,11 @@ it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- promote fills in a prod copy's location when it can: the one an earlier promote gave it,
-  or the dev location with PROD in place of the Dev Database's name, as
-  /data/team/mart_dev.db/x becomes /data/team/team_prod.db/x. Otherwise the location is a
-  Decision left open, which `project.check()` names. Write each answer the user gives, or a
-  location they want changed, in DECISIONS by the prod copy's name; if none is open, write
+- A prod copy's location is the one an earlier promote gave it; if none, it is placed under
+  PROD's "location_root", `<root>/<database>.db/<table>`, as /data/team/prod/team_prod.db/x;
+  if that is not filled in, it is a Decision left open, which `project.check()` names. The
+  dev location is never carried over. Write each answer the user gives, or a location they
+  want changed, in DECISIONS by the prod copy's name; if none is open, write
   `DECISIONS = {}`. A Decision is the user's, never yours.
 - A prod copy is named for its dev table, in PROD. If the user wants another name, give
   `project.promote(TABLES, rename={"mart_dev.daily_fails": "fails"})`.
@@ -69,25 +71,29 @@ it.
 ## How a Workflow runs
 
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
-  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
+  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
 - A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
   write in prod too.
+- Each Building block a promoted table imports, Run values among them, is copied into
+  building_blocks/prod/, which the prod copy imports: a change in dev reaches prod only when
+  promoted again; `project.check()` names a prod copy edited by hand.
 - A prod copy that reads itself is seeded from its original once, at step 5, copying every
   Partition unless its own "seed" answer limits them, as in
   `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
   answer isn't carried over, since prod often needs more of the original's history than a dev
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest": one call, run before and after the
+  answers, each stopping at the first step only the user can do; `dry_run=True` sends nothing.
 
 ## promote: dev tables to prod
 
 Its input:
 
 - TABLES: the dev tables to promote, by their full names, such as
-  `["mart_dev.daily_job_runs"]`. Each prod copy reads the prod copies of the others
-  promoted with it.
+  `["mart_dev.daily_job_runs"]`. Left `[]`, the run cells promote every finished table not
+  promoted yet, or changed in dev since, naming each and why; `project.promote([])` is
+  refused: the run cells read the [], and project.promote takes the tables by name. Each prod copy reads the prod copies of the others promoted with it.
 
 1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
    project.do_next() runs it for you).

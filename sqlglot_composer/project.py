@@ -14,7 +14,8 @@ A Project is the folder you work in, laid out the same way every time:
     │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
     │   │                    name what it works on in its names cell, and run each step;
     │   │                    convert/ holds a Conversion folder per batch you convert
-    │   ├── databases.py     DEV and PROD, the two Databases you own, set once
+    │   ├── databases.py     DEV's and PROD's settings, the two Databases you own: each
+    │   │                    one's name and the folder its tables go under, set once
     │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
     │   ├── registry.csv     every Table folder, Table reference, Building block and Conversion
@@ -30,7 +31,9 @@ A Project is the folder you work in, laid out the same way every time:
     │                        Database module per Database, such as ops.py: from references
     │                        import ops gives ops.job_runs, and ops.job_runs.status a column
     ├── building_blocks/     a Building block per file, such as runs_per_job.py: a piece
-    │                        several tables' notebooks share
+    │   │                    several tables' notebooks share
+    │   └── prod/            the prod copy of each one a promoted table uses, which
+    │                        project.promote writes
     └── tables/              a Table folder per Saved table you build
         └── mart__daily_job_runs/
             ├── mart__daily_job_runs.ipynb
@@ -42,7 +45,8 @@ You make three things by hand: the Project's folder, the copy of sqlglot_compose
 the notebook you run start() from.
 start() makes the rest of the layout, once, and the Project actions make every file in it.
 new_table makes a Table folder and remove_table archives one; new_block makes a Building block
-and remove_block archives one; add_references writes Table references in bulk,
+and remove_block archives one; new_run_value writes a Run value's function, a table's latest
+Partition, into building_blocks/run_values.py; add_references writes Table references in bulk,
 remove_reference archives one, register adopts a Table folder, Table reference or Building
 block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
@@ -65,11 +69,11 @@ still in it, as new_table writes one, is left out until it is filled in.
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
-your tables; the rest never touch the warehouse. start, new_table, new_block, remove_table,
-remove_reference, remove_block, register, add_references and upgrade, the Project actions, each
-add an entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
-Project. The rest add no entry of their own: check and load change no file;
-refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
+your tables; the rest never touch the warehouse. start, new_table, new_block, new_run_value,
+remove_table, remove_reference, remove_block, register, add_references and upgrade, the
+Project actions, each add an entry to admin/admin_log.md, the log that also keeps every Admin
+statement run inside the Project. The rest add no entry of their own: check and load change no
+file; refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
 file; run_tables writes only your tables in the warehouse, though an Admin or Unchecked
 statement it sends is logged, as run_execute logs one anywhere.
 """
@@ -111,6 +115,7 @@ from .project_files import (
     CONVERSION_FOLDER,
     DATABASE_TITLE,
     KINDS,
+    PROD_BLOCK,
     REFERENCE,
     REGISTRY,
     TABLE_FOLDER,
@@ -134,7 +139,7 @@ from .shared import (counted, escaped_literal, in_words, python_literal, singula
                      split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
-                     table_reference_text, write_table_reference)
+                     proposed_key_from_rows, table_reference_text, write_table_reference)
 from .unchecked import (
     SessionSettings,
     UncheckedStatement,
@@ -149,7 +154,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
-           "reference_from_logic"]
+           "reference_from_logic", "new_run_value"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -235,13 +240,19 @@ WORKFLOW_PATH_LINES = [
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
 DATABASES = Path("admin") / "databases.py"
-DATABASES_TEXT = '''"""databases - the two Databases you own: DEV, where you build and check
-tables, and PROD, where tables other people rely on are written. Set each once; the Workflows
-read them.
+DATABASES_TEXT = '''"""databases - the settings of the two Databases you own: DEV, where
+you build and check tables, and PROD, where tables other people rely on are written. Set each
+once; the Workflows read them.
+
+"database" is the Database's name, such as "mart_dev". "location_root" is the folder its
+tables' files go under: a table with no folder of its own goes in
+<location_root>/<database>.db/<table>, such as /data/your_team/dev/mart_dev.db/daily_runs.
+Any other setting is yours, such as "run_as", the account your connection runs as: give it
+in both, each its own value, and database_settings("mart_dev") gives DEV's to your code.
 """
 
-DEV = "<DEV_DATABASE>"  # such as "mart_dev"
-PROD = "<PROD_DATABASE>"  # such as "mart"
+DEV = {"database": "<DEV_DATABASE>", "location_root": "<DEV_LOCATION_ROOT>"}
+PROD = {"database": "<PROD_DATABASE>", "location_root": "<PROD_LOCATION_ROOT>"}
 '''
 # admin/sent.csv: one row for each send to the Warehouse of a Project's notebook or script.
 SENT_HEADER = "time,kind,tables,script\n"
@@ -588,7 +599,8 @@ def new_table(name: str | list[str], template: str = "saved_table",
     mart_dev.daily_runs: that table is made from it, in your Dev Database, DEV in
     admin/databases.py, as project.convert makes one query alone a batch of one, template=
     passed over. Its logic is written for you, and its Table reference from the logic, its Key
-    proposed; you answer its location, and the new_table Workflow writes it, then compares it
+    proposed; its location is placed under DEV's location_root in admin/databases.py, or you
+    answer it when DEV has none, and the new_table Workflow writes it, then compares it
     with its query, so the promote Workflow takes it to prod. Each table the query reads needs
     its Table reference first. A query for a table it isn't given, or outside DEV, or Hive that
     is more than one query, is refused before anything is made.
@@ -693,8 +705,11 @@ def _new_table_from_query(name: str, query_or_file: str, frame: FrameType) -> Pr
     call = f"project.new_table({python_literal(name)}, queries=...)"
     _project_root(call)
     table = split_table_name(name)[1]
+    read_from = {}
+    if query_or_file.strip().lower().endswith(".hql"):
+        read_from = _where_each_is(_project_root(call), query_or_file.strip())
     return _convert_batch(table, _query_scripts(call, query_or_file), None, "default", {},
-                          False, frame, {}, made_for=NEW_TABLE_WORKFLOW)
+                          False, frame, {}, made_for=NEW_TABLE_WORKFLOW, read_from=read_from)
 
 
 def _template_shown(template: str) -> str:
@@ -739,7 +754,7 @@ def _new_table_one(name: str, template: str, frame: FrameType,
     else:
         reference_template = template_path.parent / f"{REFERENCE_TEMPLATE}.py"
         text = _filled_template(reference_template.read_text(encoding="utf-8"), fills)
-        reference.write_text(text, encoding="utf-8")
+        reference.write_text(_with_location_placed(root, text, name), encoding="utf-8")
         made.append(f"created {reference_shown}")
         if not registry.listed(REFERENCE, name):
             to_register.append((REFERENCE, name))
@@ -1101,6 +1116,289 @@ def _importers(root: Path, name: str) -> list[str]:
     return found
 
 
+# --- new_run_value ----------------------------------------------------------------------------
+
+# The Building block new_run_value writes each Run value's function into.
+RUN_VALUES_BLOCK = "run_values"
+# The module docstring of building_blocks/run_values.py, when new_run_value makes the file.
+RUN_VALUES_DOCSTRING = (
+    '"""Run values: functions of your Project\'s, each called as a table is written.\n'
+    "\n"
+    "A Workflow's decisions cell imports one to answer a Script tag or a seed, such as\n"
+    '"PERIOD_END": period_end. project.new_run_value writes one that gives a table\'s latest\n'
+    "Partition; write any other kind here yourself, as a function that takes nothing.\n"
+    '"""')
+# The partition column types whose values latest_partition gives as a number.
+WHOLE_NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint")
+
+
+def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
+    '''Write a Run value: a function giving a table's latest Partition.
+
+    >>> from pathlib import Path
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
+    Wrote period_end into building_blocks/run_values.py: the latest Partition of
+    ops.job_runs, by dt.
+    Registered building_blocks/run_values.py.
+    Import it at the top of the decisions cell:
+    from building_blocks.run_values import period_end
+    >>> print(Path("building_blocks/run_values.py").read_text())
+    """Run values: functions of your Project's, each called as a table is written.
+    <BLANKLINE>
+    A Workflow's decisions cell imports one to answer a Script tag or a seed, such as
+    "PERIOD_END": period_end. project.new_run_value writes one that gives a table's latest
+    Partition; write any other kind here yourself, as a function that takes nothing.
+    """
+    <BLANKLINE>
+    import datetime
+    <BLANKLINE>
+    from sqlglot_composer import latest_partition
+    from references.ops__job_runs import job_runs
+    from warehouse import query
+    <BLANKLINE>
+    <BLANKLINE>
+    def period_end() -> datetime.date | int | str:
+        """The latest Partition of ops.job_runs, by dt."""
+        return latest_partition(job_runs.dt, query)
+    <BLANKLINE>
+
+    `latest_partition` names a partition column by its table, as "ops.job_runs.dt". The
+    function it writes, period_end() here, gives that column's newest value each time it is
+    called, from SHOW PARTITIONS sent through your query, as latest_partition(...) gives it:
+    a date as a datetime.date, a number or text as the values listed read, and, for a column
+    of whole numbers, such as year INT, a number, which its type hint says. It goes into
+    building_blocks/run_values.py with the imports it needs, the file made if it isn't there
+    and registered as a Building block. Import it at the top of a
+    Workflow's decisions cell, by the line it prints, and answer a Script tag with it, as
+    "tags": {"PERIOD_END": period_end}.
+
+    In the convert notebook, write the call at the top of the decisions cell, the import under
+    it, and run the cell once before "Run the rest". Run again as it was, it changes nothing,
+    so the cell can run again. A name the file has already for anything else is refused, as
+    is a table with no Table reference, which the references Workflow writes, and a column
+    that isn't one of the table's partition columns. It never touches the warehouse.
+
+    Any other kind of Run value, such as the last day of last month, is a function you write
+    in building_blocks/run_values.py yourself: it takes nothing, and gives a date, a number
+    or text.
+    '''
+    frame = callers_frame()
+    call = (f"project.new_run_value({python_literal(name)}, "
+            f"latest_partition={python_literal(latest_partition)})")
+    root = _project_root(call)
+    _check_run_value_name(name, call)
+    table, column = _partition_column_named(root, latest_partition, call)
+    shown = BUILDING_BLOCK.shown(RUN_VALUES_BLOCK)
+    path = BUILDING_BLOCK.path(root, RUN_VALUES_BLOCK)
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    bound = _names_bound(text, shown, call)
+    function, needs = _run_value_code(bound, name, table, column)
+    import_lines = ["Import it at the top of the decisions cell:",
+                    f"from building_blocks.{RUN_VALUES_BLOCK} import {name}"]
+    if function in text:
+        return ProjectReport([f"{shown} holds {name} already, as this call writes it: "
+                              "nothing changed.", *import_lines])
+    _check_names_are_free(bound, needs, name, shown, call)
+    lacking = [line for local, (from_where, line) in needs.items()
+               if bound.get(local) != from_where]
+    path.write_text(_run_values_with(text, lacking, function), encoding="utf-8")
+    files = [f"{'changed' if text else 'created'} {shown}"]
+    lines = [f"Wrote {name} into {shown}: the latest Partition of {table._name}, by "
+             f"{column}."]
+    registry = Registry(root)
+    if not registry.listed(BUILDING_BLOCK, RUN_VALUES_BLOCK):
+        registry.add([(BUILDING_BLOCK, RUN_VALUES_BLOCK)], unchecked.now())
+        files.append(f"registered {shown}")
+        lines.append(f"Registered {shown}.")
+    _log(root, call, [table._name], files, frame)
+    return ProjectReport([*lines, *import_lines])
+
+
+def _check_run_value_name(name: object, call: str) -> None:
+    """Refuse a Run value's name that a decisions cell couldn't import it by."""
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        refuse(
+            what=f"{call}: {name!r} isn't a name Python can import a Run value by.",
+            why="A decisions cell imports it by its name, as from building_blocks.run_values "
+            "import period_end, so the name is letters, digits and _, not starting with a "
+            "digit.",
+            fix='Write it like "period_end".',
+            error=ValueError,
+        )
+    if keyword.iskeyword(name) or (name.startswith("__") and name.endswith("__")):
+        refuse(
+            what=f"{call}: {name} is a name Python keeps for itself.",
+            why="A decisions cell imports a Run value by its name, and Python can't import "
+            "one named so.",
+            fix=f'Name it something else, such as "{name.strip("_")}_value".',
+            error=ValueError,
+        )
+
+
+def _partition_column_named(root: Path, given: object, call: str) -> tuple[Table, str]:
+    """The Table reference and the partition column new_run_value's latest_partition= names,
+    such as "ops.job_runs.dt"; refused when it names no partition column of a table with a
+    Table reference."""
+    parts = given.split(".") if isinstance(given, str) else []
+    if len(parts) != 3 or not all(re.fullmatch(r"[A-Za-z0-9_]+", part) for part in parts):
+        refuse(
+            what=f"{call}: latest_partition= is {given!r}, which isn't a partition column by "
+            "its table's name.",
+            why="It names the table whose latest Partition the function gives, and its "
+            "partition column: the database, the table and the column, a dot between each.",
+            fix='Write it like "ops.job_runs.dt".',
+            error=ValueError,
+        )
+    name, column = f"{parts[0]}.{parts[1]}", parts[2]
+    if not REFERENCE.path(root, table_stem(name)).is_file():
+        refuse(
+            what=f"{call}: {name} has no Table reference, "
+            f"{REFERENCE.shown(table_stem(name))}, so nothing was written.",
+            why="The function reads the table's partition column through its Table "
+            "reference, as latest_partition(job_runs.dt, query) does.",
+            fix="Write it first with the references Workflow, "
+            "admin/workflows/references/references.ipynb, then run this again.",
+            error=FileNotFoundError,
+        )
+    table = _table_in(root, name)
+    partitioned_by = table._partitioned_by
+    if column in partitioned_by:
+        return table, column
+    if partitioned_by:
+        what = (f"{call}: {column} isn't a partition column of {name}: its partition "
+                f"{singular_or_plural(len(partitioned_by), 'column is', 'columns are')} "
+                f"{in_words(partitioned_by)}.")
+        fix = f'Give one of them, such as "{name}.{partitioned_by[0]}".'
+    else:
+        what = f"{call}: {name} has no partition column, so it has no latest Partition."
+        fix = ("Write the function you need yourself in building_blocks/run_values.py: "
+               "help(project.new_run_value) shows one.")
+    refuse(
+        what=what,
+        why="The function gives the newest value of a partition column, from SHOW "
+        "PARTITIONS, which lists a table's Partitions by their partition columns alone.",
+        fix=fix,
+        error=ValueError,
+    )
+
+
+def _run_value_code(bound: dict[str, str], name: str, table: Table,
+                    column: str) -> tuple[str, dict[str, tuple[str, str]]]:
+    """A Run value's function giving the latest Partition of `table` by `column`, and each
+    name it reads with what it imports and the line importing it, for a file whose top binds
+    the names `bound` holds: the table is imported by its file's name, as ops__job_runs, when
+    the file has its short name for another thing."""
+    stem = table_stem(table._name)
+    short = split_table_name(table._name)[1]
+    origin = f"references.{stem}.{short}"
+    reads, table_import = short, f"from references.{stem} import {short}"
+    if bound.get(short, origin) != origin:
+        # The file has the table's short name for another thing: import it by its file's.
+        reads, table_import = stem, f"{table_import} as {stem}"
+    # What latest_partition gives: a number for a whole-number column; else a date, a number or
+    # text, as the values SHOW PARTITIONS lists read, which no type says beforehand.
+    returns = "datetime.date | int | str"
+    if table._columns[column].strip().lower() in WHOLE_NUMBER_TYPES:
+        returns = "int"
+    needs = {"latest_partition": ("sqlglot_composer.latest_partition",
+                                  "from sqlglot_composer import latest_partition"),
+             reads: (origin, table_import),
+             "query": ("warehouse.query", "from warehouse import query")}
+    if returns != "int":
+        needs = {"datetime": ("datetime", "import datetime"), **needs}
+    function = (f"def {name}() -> {returns}:\n"
+                f'    """The latest Partition of {table._name}, by {column}."""\n'
+                f"    return latest_partition({reads}.{column}, query)\n")
+    return function, needs
+
+
+def _names_bound(text: str, shown: str, call: str) -> dict[str, str]:
+    """Each name the top level of a Python file's text binds, and to what: an import's module
+    and name, such as "warehouse.query", or "" for a function, class or assignment of its
+    own; refused when the text isn't Python."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as error:
+        refuse(
+            what=f"{call}: {shown} isn't Python that runs: line {error.lineno}, {error.msg}.",
+            why="It adds a function to the file, which each decisions cell importing from it "
+            "runs.",
+            fix=f"Mend {shown} first, then run this again.",
+            error=ValueError,
+        )
+    bound: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            bound.update({alias.asname or alias.name: f"{node.module}.{alias.name}"
+                          for alias in node.names})
+        elif isinstance(node, ast.Import):
+            bound.update({alias.asname or alias.name.split(".")[0]: alias.name
+                          for alias in node.names})
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound[node.name] = ""
+        elif isinstance(node, ast.Assign):
+            bound.update({target.id: "" for target in node.targets
+                          if isinstance(target, ast.Name)})
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            bound[node.target.id] = ""
+    return bound
+
+
+def _check_names_are_free(bound: dict[str, str], needs: dict[str, tuple[str, str]], name: str,
+                          shown: str, call: str) -> None:
+    """Refuse a Run value's name the file has already, or that an import it needs takes, and
+    an import whose name the file has for another thing."""
+    if name in bound:
+        refuse(
+            what=f"{call}: {shown} has a {name} already, so nothing was written.",
+            why="One name in one file is one thing: a second would hide the first, and each "
+            "import of it would give the second.",
+            fix=f"Give the new Run value a name of its own, or change the {name} {shown} has "
+            "by hand.",
+            error=FileExistsError,
+        )
+    taken = [local for local, (from_where, _) in needs.items()
+             if local == name or bound.get(local, from_where) != from_where]
+    if taken:
+        refuse(
+            what=f"{call}: the function needs {in_words([needs[each][1] for each in taken])}, "
+            f"and {in_words(taken)} {singular_or_plural(len(taken), 'is', 'are')} another "
+            f"thing in {shown} or the Run value's name, so nothing was written.",
+            why="The function reads each import by its name.",
+            fix=f"Give the new Run value another name, or rename the {in_words(taken)} of "
+            f"{shown}.",
+            error=FileExistsError,
+        )
+
+
+def _run_values_with(text: str, imports: list[str], function: str) -> str:
+    """building_blocks/run_values.py's text, `text`, with the import lines it lacked under its
+    own imports and the function at its end; made with its docstring when `text` is empty."""
+    if not text.strip():
+        plain = [line for line in imports if line.startswith("import ")]
+        others = [line for line in imports if not line.startswith("import ")]
+        groups = ["\n".join(group) for group in (plain, others) if group]
+        return RUN_VALUES_DOCSTRING + "\n\n" + "\n\n".join(groups) + "\n\n\n" + function
+    lines = text.rstrip("\n").split("\n")
+    body = ast.parse(text).body
+    own_imports = [node for node in body if isinstance(node, (ast.Import, ast.ImportFrom))]
+    if own_imports:
+        at = own_imports[-1].end_lineno or 0
+        lines[at:at] = imports
+    elif body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        at = body[0].end_lineno or 0
+        lines[at:at] = ["", *imports] if imports else []
+    elif imports:
+        lines[0:0] = [*imports, ""]
+    return "\n".join(lines) + "\n\n\n" + function
+
+
 # --- add_references ---------------------------------------------------------------------------
 
 
@@ -1121,12 +1419,29 @@ def add_references(names: str | list[str],
     Next: set conn, your connection, in warehouse.py.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+    ops.jobs: its Key proposed, (job_id), checked with check_key:
+      ops.jobs: the key (job_id) holds.
+    ops.job_runs: its Key proposed, (run_id), checked with check_key:
+      ops.job_runs: the key (run_id) holds where job_runs.dt IN ('2026-09-23',
+      '2026-09-24').
+    To accept every proposed Key, write in the decisions cell: "all_tables": {"key":
+    "proposed"}
     Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
     Restart the kernel of a notebook that imported references, to see a table added since.
 
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
     "ops.job_runs"], or one such name alone. Each is written as write_table_reference writes
-    one, into references/<db>__<table>.py, and registered. A table whose file is there already,
+    one, into references/<db>__<table>.py, and registered. Then it proposes what it can, each
+    line marked proposed, through your `query`: the table's Key, from its columns named like
+    an id, such as run_id, the first whose count of distinct values on the latest Partition
+    is its count of rows, checked with check_key on the latest two Partitions, and with its
+    partition columns added when it repeats there; its first line, what one row is, from that
+    Key, such as "One row per run_id."; and its does_not_add_up=, from its columns' names,
+    such as avg_retry_secs. The Key stays an open Decision, its key= line holding the
+    proposal: the report says what check_key found, and the decisions cell's answer that
+    accepts it, "key": "proposed", or "all_tables": {"key": "proposed"} for each table at
+    once. A table with no column named like an id, or whose Key repeats still, keeps its key=
+    and its first line TODO lines. A table whose file is there already,
     a name not written as database.table, and a table whose DESCRIBE (the command that lists
     its columns) fails through your `query` are each skipped, and the rest still written. It
     logs them all in one entry; then, if it skipped any, it raises one SkippedTables error
@@ -1146,6 +1461,9 @@ def add_references(names: str | list[str],
     root = _project_root(call)
     _check_names_are_a_list(names, call)
     files, skipped = _write_each_reference(root, names, query)
+    written = [name for name in names if isinstance(name, str)
+               and REFERENCE.shown(REFERENCE.stem(name)) in files]
+    proposed = _write_proposals(root, written, query)
     result = "worked"
     if skipped:
         result = f"{len(files)} of {len(names)} written; SkippedTables named the rest, above"
@@ -1158,7 +1476,47 @@ def add_references(names: str | list[str],
         wrote = f"Wrote {in_words(files)}: fill in their TODO lines."
     else:
         wrote = f"Wrote {files[0]}: fill in its TODO lines."
-    return ProjectReport([wrote, *databases])
+    return ProjectReport([wrote, *proposed, *databases])
+
+
+def _write_proposals(root: Path, tables: list[str],
+                     query: Callable[[str], pd.DataFrame]) -> list[str]:
+    """Write into each new Table reference of `tables` what add_references proposes for it
+    (Toolbox 8.5): its Key, worked out of its rows and checked through your query, still open
+    to accept, its first line from that Key, and its does_not_add_up=; and what it says of
+    each: each check_key Verdict, or why it proposed no Key, then the DECISIONS line that
+    accepts each Key proposed."""
+    lines, accepted = [], {}
+    for table in tables:
+        path = REFERENCE.path(root, table_stem(table))
+        _, _, _, values = _read_reference(path)
+        read = Table(table, columns=values["columns"],
+                     partitioned_by=values.get("partitioned_by") or [])
+        try:
+            key, said = proposed_key_from_rows(read, query)
+        # Whatever the query raises, the reference stays written, its Key a TODO.
+        except Exception as error:  # noqa: BLE001
+            key, said = None, [f"{table}: no Key proposed: counting its rows failed: "
+                               f"{type(error).__name__}: {_one_line_message(error)}"]
+        text = decisions.with_proposals(path.read_text(encoding="utf-8"), table,
+                                        values["columns"], key)
+        path.write_text(text, encoding="utf-8")
+        if key is not None:
+            accepted[table] = key
+            lines.append(f"{table}: its Key proposed, ({', '.join(key)}), checked with "
+                         "check_key:")
+            for verdict in said:
+                lines += [f"  {line}" for line in verdict.split("\n")]
+        else:
+            lines += said
+    if len(accepted) > 1:
+        lines.append('To accept every proposed Key, write in the decisions cell: '
+                     f'"{decisions.ALL_TABLES}": {{"key": "{decisions.ACCEPT_PROPOSED}"}}')
+    elif accepted:
+        ((table, key),) = accepted.items()
+        lines.append(f"To accept it, write in the decisions cell: {escaped_literal(table)}: "
+                     f'{{"key": {escaped_literal(key)}}}')
+    return lines
 
 
 def _check_names_are_a_list(names: object, call: str) -> None:
@@ -1337,7 +1695,11 @@ def check() -> ProjectReport:
     project.do_next() runs for you when it can, and why a step is due when its files can say,
     such as which Table reference changed after the Reference sheet was last written; each
     batch the convert Workflow finished, as done; and last, since they block nothing, each
-    `# CONVERSION:` mark project.convert left for you, with its file and line.
+    line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
+    it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
+    each with its file and line. Where a decision step deciding Keys waits on two tables or
+    more with a proposed Key, the DECISIONS it prints to paste offers "all_tables": {"key":
+    "proposed"}, which accepts each.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1365,7 +1727,27 @@ def check() -> ProjectReport:
         lines = ["Every Table folder, Table reference and Building block is registered, and "
                  "each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
-    return ProjectReport([*lines, *_finished_batch_lines(root), *_conversion_note_lines(root)])
+    return ProjectReport([*lines, *_finished_batch_lines(root), *_proposed_line_lines(root),
+                          *_conversion_note_lines(root)])
+
+
+def _proposed_line_lines(root: Path) -> list[str]:
+    """What check() says of each line of a Table reference marked # proposed, a proposal the
+    Toolbox made that is used as it is: each one, with its file and line, under a line saying
+    how to accept it, since it blocks nothing."""
+    found = []
+    for path in table_references(root):
+        shown = REFERENCE.shown(path.stem)
+        for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            if decisions.PROPOSED_MARK.search(line):
+                found.append(f"  {shown}, line {number}: {line.strip()}")
+    if not found:
+        return []
+    return ["Proposed by the Toolbox, which blocks nothing: each line marked # proposed is "
+            "used as it is. Accept a proposed Key in its Workflow's decisions cell, with "
+            f'"key": "{decisions.ACCEPT_PROPOSED}" under its table\'s name or under '
+            f'"{decisions.ALL_TABLES}"; accept any other line by taking off its # proposed '
+            "comment, or change it.", *found]
 
 
 def _conversion_note_lines(root: Path) -> list[str]:
@@ -1408,17 +1790,19 @@ def _workflow_lines(root: Path) -> list[str]:
 
 
 def _databases_lines(root: Path) -> list[str]:
-    """What check() says of admin/databases.py: each name a started Workflow reads that it
-    doesn't fill in yet."""
+    """What check() says of admin/databases.py: each setting of the Databases a started
+    Workflow reads that it doesn't fill in yet."""
     wanted: list[str] = []
     for workflow in workflows.WORKFLOWS:
         if workflows.started_inputs(root, workflow) is not None:
             wanted += workflow.databases
+    if not wanted:
+        return []
     left = workflows.databases_to_fill(root, tuple(dict.fromkeys(wanted)))
     if not left:
         return []
-    return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Databases a "
-            "Workflow you have started writes to."]
+    return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Database "
+            "settings of a Workflow you have started."]
 
 
 def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
@@ -1449,9 +1833,10 @@ def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
 
 
 def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.Step,
-                    inputs: dict[str, object]) -> str:
+                    inputs: dict[str, object], paste: bool = True) -> str:
     """One Workflow's next step as check() and do_next() say it: its notebook, its number and
-    name, its kind, and its call when it has one, ready to run."""
+    name, its kind, and its call when it has one, ready to run; and, unless not `paste`, the
+    DECISIONS to paste for the Decisions it waits on."""
     number = workflow.steps.index(step) + 1
     where = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
     if workflow.instances is not None and inputs.get("NAME"):
@@ -1475,21 +1860,25 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
                  "it is written here:")
     for decision in waited_on:
         said += f"\n    {decision.table}: {decision.question()}"
-    said += _paste_text(waited_on, where)
+    if paste:
+        said += _paste_text(waited_on, where,
+                            workflows.proposed_keys_waited_on(root, workflow, inputs, step))
     return said
 
 
-def _paste_text(still_open: list[decisions.Decision], notebook: str) -> str:
+def _paste_text(still_open: list[decisions.Decision], notebook: str,
+                proposed: list[str]) -> str:
     """The DECISIONS to paste into `notebook`'s decisions cell for the Decisions `still_open`,
-    between blank lines and unindented, so it pastes into the cell as it is; or "" when the
-    cell answers none of them."""
+    `proposed` naming the tables whose Key the Toolbox proposed, between blank lines and
+    unindented, so it pastes into the cell as it is; or "" when the cell answers none of
+    them."""
     if not any(decision.kind in decisions.ANSWERS for decision in still_open):
         return ""
     return (f"\nPaste this over the DECISIONS = ... line of {notebook}'s decisions cell, or "
             "over a DECISIONS you pasted before (each answer written into a Table reference "
             "already is kept), "
             f"then fill in each {decisions.FILL_IN} and check each guessed type:\n\n"
-            + "\n".join(decisions.paste_lines(still_open)) + "\n")
+            + "\n".join(decisions.paste_lines(still_open, proposed)) + "\n")
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
@@ -1574,12 +1963,16 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     >>> notebook = Path("admin/workflows/references/references.ipynb")
     >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
     ...     "TABLES = []", "TABLES = ['ops.job_events']").replace(
-    ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': ['event_id']}}"),
+    ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': 'proposed'}}"),
     ...     encoding="utf-8")
     >>> project.run_workflow("references", query=example_database.query,
     ...                      execute=example_database.execute)
       references: 1. Write the Table references from DESCRIBE
         Wrote references/ops__job_events.py: fill in its TODO lines.
+        ops.job_events: its Key proposed, (event_id), checked with check_key:
+          ops.job_events: the key (event_id) holds where job_events.dt IN ('2026-09-23',
+          '2026-09-24').
+        To accept it, write in the decisions cell: "ops.job_events": {"key": ["event_id"]}
         Wrote references/ops.py: from references import ops gives ops.job_events.
         Restart the kernel of a notebook that imported references, to see a table added
         since.
@@ -1587,22 +1980,19 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         skipped
       references: 3. Write each answer into its table's Table reference
         Wrote 1 answer into references/ops__job_events.py.
-        ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
-        nothing: fill each in when you like.
-          line 1: ops.job_events - TODO: say in one line what one row is.
-          line 15: does_not_add_up=[],  # TODO: columns that are averages, ratios or
-          distinct counts
         Each Decision of ops.job_events is made.
       references: 4. Refresh the Reference sheet and the Database modules
         Wrote references/reference_sheet.csv: 5 rows, 1 table.
       references: every step is done.
 
-    Its notebook's last cell runs it, with your query and execute, in place of each step's
-    cell. It reads the notebook as you last saved it: fill in its names cell, and its decisions
-    cell if you know the answers already, as above, and save it first. It runs each step the
-    Project's files don't say is done, in order, as the step's own cell runs it, its calls to
-    the warehouse too, and reports each, a step done already as skipped. A step that only
-    reads, such as new_table's preview, it runs, printing what it reads, and goes on.
+    Its notebook's run cells run it, with your query and execute, in place of each step's
+    cell: in convert's, promote's, new_table's and references', the two under the names cell,
+    "Run up to your Decisions", then, under the decisions cell, "Run the rest"; in the others',
+    the last cell. It reads the notebook as you last saved it: fill in its names cell, and its
+    decisions cell if you know the answers already, as above, and save it first. It runs each
+    step the Project's files don't say is done, in order, as the step's own cell runs it, its
+    calls to the warehouse too, and reports each, a step done already as skipped. A step that
+    only reads, such as new_table's preview, it runs, printing what it reads, and goes on.
 
     It stops at the first step only you can do, and the steps after it don't run:
 
@@ -1613,11 +2003,24 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     - a refusal or the warehouse's error, written in full: mend what it says;
     - a step that ran and isn't done, such as a compare that failed: mend what it says.
 
-    Then save the notebook and run its last cell again: each step done is skipped, so it goes
-    on where it stopped. `workflow` is one Workflow's name, such as "convert". The convert
-    Workflow runs the batch its names cell's NAME names, or, when NAME is a list, each batch it
-    names in turn, each converted already: a stop in one stops the rest. It never runs a batch
-    you didn't name.
+    Then save the notebook and run it again, from "Run the rest" or the last cell: each step
+    done is skipped, so it goes on where it stopped. `workflow` is one Workflow's name, such as
+    "convert". The convert Workflow runs the batch its names cell's NAME names, or, when NAME
+    is a list, each batch it names in turn, each converted already: a stop in one stops the
+    rest. It never runs a batch you didn't name. A batch you named that is finished, in
+    admin/workflows/convert/finished/, has no step left; but when the names cell's PARTITIONS
+    lists a Partition, its compare step runs again, on the latest and each listed, each time
+    you run it, and compare_batch's report says the batch was finished. With
+    EACH_SCRIPT_ITS_OWN_BATCH = True, each file of FILES is a batch of its own, named for its
+    file: it converts each first, then runs
+    each one's steps left in turn, a Decision open in one leaving the next to run, and names
+    each batch's state, then, last, one DECISIONS for every batch's open Decisions. It refuses,
+    before anything is written, two files of one name, and two scripts whose tables read each
+    other's, which convert as one batch. The promote Workflow, its TABLES left [],
+    promotes every finished table, of a finished convert batch or a finished new_table, not
+    promoted yet or changed in dev since it was, with each dev table one of those reads, and
+    each whose promotion it began and hasn't finished; it names each, with why, or says it
+    found none to promote and stops.
 
     With dry_run=True it sends nothing through your execute. Each step that would send says
     the Hive it would send, "would send: ...", and a preview or a compare says what it would
@@ -1638,33 +2041,73 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     """
     root = _project_root(f"project.run_workflow({workflow!r})")
     found = _workflow_named(workflow)
-    started = workflows.started_inputs(root, found)
-    if not workflows.is_startable(found):
-        started = {}
+    started, said = _inputs_to_run(root, found)
     if started is None:
-        where = workflows.notebook_path(root, found).relative_to(root).as_posix()
-        return ProjectReport([f"{workflow} isn't started: name what it works on in the names "
-                              f"cell of {where}, and save it."])
-    # The names cell's instances alone: the runner sends, so only what you named.
+        return ProjectReport(said)
+    # The names cell's instances alone: the runner sends, so only what you named. A finished
+    # batch is run only to compare it again, on the Partitions PARTITIONS lists.
     instances = [workflows.read_again(root, found, each)
-                 for each in workflows.one_per_name(started)
-                 if not workflows.is_finished(root, each)]
+                 for each in workflows.one_per_name(root, started)
+                 if not workflows.is_finished(root, each)
+                 or workflows.is_compared_again(root, each)]
     if not instances:
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
              "skipped.")
+    if workflows.reads_straight_down(found):
+        again = (f'    Then save the notebook, and run "{workflows.RUN_THE_REST}", the cell '
+                 "under the decisions cell: each step done is skipped.")
     lines = []
     if dry_run:
         lines.append("A dry run: nothing is sent through your execute.")
-    for inputs in instances:
-        # Each instance its own: a dry run of one batch says nothing of what another sends.
-        calls = workflows.Calls(query, execute, dry_run, change)
-        ran, stopped = _run_steps(root, found, inputs, calls)
+    lines += said
+    # Each instance its own: a dry run of one batch says nothing of what another sends.
+    calls = [workflows.Calls(query, execute, dry_run, change) for _ in instances]
+    if started.get(workflows.EACH_SCRIPT_ITS_OWN_BATCH) is True:
+        _check_each_its_own_batch(root, instances)
+        ran, stopped = _run_each_batch(root, found, instances, calls)
+        if stopped:
+            ran.append(again)
+        return ProjectReport([*lines, *ran])
+    for inputs, its_calls in zip(instances, calls, strict=True):
+        if workflows.is_finished(root, inputs):
+            ran, stopped = _compare_again(root, found, inputs, its_calls)
+        else:
+            ran, stopped = _run_steps(root, found, inputs, its_calls)
         lines += ran
         if stopped:
             lines.append(again)
             break
     return ProjectReport(lines)
+
+
+def _inputs_to_run(root: Path, workflow: workflows.Workflow
+                   ) -> tuple[dict[str, object] | None, list[str]]:
+    """The inputs run_workflow runs a Workflow with, and what it says of them first: its
+    names cell's, once it is started; for promote's TABLES left [], each table
+    tables_to_promote finds, each named with why. None, with why, when there is nothing to
+    run."""
+    if not workflows.is_startable(workflow):
+        return {}, []
+    given = workflows.given_inputs(root, workflow)
+    if workflow.name == "promote" and not workflows.names_in(given, "TABLES"):
+        found = tables_to_promote(root)
+        if not found:
+            return None, ["  promote: TABLES is left [], and no table is finished and not "
+                          "promoted yet, nor changed in dev since it was: nothing to promote. "
+                          "A table is finished once its convert batch is, in "
+                          f"{(BATCHES / FINISHED).as_posix()}/, or each step of its "
+                          "new_table is done."]
+        return {**given, "TABLES": list(found)}, [
+            "  promote: TABLES is left [], so it promotes each finished table not promoted "
+            "yet, or changed in dev since it was, each with why:",
+            *[f"    {table}: {why}" for table, why in found.items()]]
+    started = workflows.started_inputs(root, workflow)
+    if started is None:
+        where = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
+        return None, [f"{workflow.name} isn't started: name what it works on in the names "
+                      f"cell of {where}, and save it."]
+    return started, []
 
 
 def _workflow_named(name: str) -> workflows.Workflow:
@@ -1679,35 +2122,172 @@ def _workflow_named(name: str) -> workflows.Workflow:
 
 
 def _run_steps(root: Path, workflow: workflows.Workflow, inputs: dict[str, object],
-               calls: workflows.Calls) -> tuple[list[str], bool]:
-    """Run each step left of one instance of a Workflow, up to the first that needs you: what
-    each did, and whether it stopped there."""
+               calls: workflows.Calls, before: int | None = None,
+               paste: bool = True) -> tuple[list[str], bool]:
+    """Run each step left of one instance of a Workflow, up to the first that needs you, or,
+    `before` given, up to the step of that index alone: what each did, and whether it stopped
+    at one that needs you, which names its DECISIONS to paste unless not `paste`."""
     where = workflow.name
     if inputs.get("NAME"):
         where += f", {inputs['NAME']}"
     lines = []
     for step in workflows.steps_left(root, workflow, inputs):
+        if before is not None and workflow.steps.index(step) >= before:
+            return lines, False
         heading = f"  {where}: {workflow.steps.index(step) + 1}. {step.name}"
         if step.done is not None and step.done(root, inputs):
             lines.append(f"{heading}: done already, skipped")
             continue
         if step.run is None and step.send is None:
-            return [*lines, _next_step_line(root, workflow, step, inputs)], True
+            return [*lines, _next_step_line(root, workflow, step, inputs, paste)], True
         lines.append(heading)
         try:
             step_lines = _step_lines(step, inputs, calls)
         # Whatever stops a step, a refusal or the warehouse's error, stops the Workflow there.
         except Exception as error:  # noqa: BLE001
-            stopped = [f"    {line}" for line in str(error).strip("\n").split("\n")]
-            return [*lines, "    Stopped by what this says: mend it.", *stopped], True
+            return [*lines, *_stopped_by(error)], True
         lines += [f"    {line}" for line in step_lines]
         inputs = workflows.read_again(root, workflow, inputs)
         stop = _stop_after(root, step, inputs, calls)
         if stop:
             return [*lines, stop], True
+    return [*lines, _end_line(where, calls)], False
+
+
+def _compare_again(root: Path, workflow: workflows.Workflow, inputs: dict[str, object],
+                   calls: workflows.Calls) -> tuple[list[str], bool]:
+    """Run convert's last step, its compare, once more on a finished batch, on the latest
+    Partition and each PARTITIONS lists, saying so: what it did, and whether it stopped there,
+    on a result that failed."""
+    where = f"{workflow.name}, {inputs['NAME']}"
+    step = workflow.steps[-1]
+    lines = [f"  {where}: {len(workflow.steps)}. {step.name}, again, on each Partition "
+             "PARTITIONS lists"]
+    try:
+        lines += [f"    {line}" for line in _step_lines(step, inputs, calls)]
+    # Whatever stops it, a refusal or the warehouse's error, stops the Workflow there.
+    except Exception as error:  # noqa: BLE001
+        return [*lines, *_stopped_by(error)], True
+    stop = _stop_after(root, step, inputs, calls)
+    if stop:
+        return [*lines, stop], True
+    return [*lines, _end_line(where, calls)], False
+
+
+def _stopped_by(error: Exception) -> list[str]:
+    """What run_workflow says of a step that a refusal or the warehouse's error stopped: that
+    it stopped, then the error in full."""
+    return ["    Stopped by what this says: mend it.",
+            *[f"    {line}" for line in str(error).strip("\n").split("\n")]]
+
+
+def _end_line(where: str, calls: workflows.Calls) -> str:
+    """What run_workflow says once each step of one instance has run, or, in a dry run, been
+    shown."""
     if calls.dry_run:
-        return [*lines, f"  {where}: each step left is shown above."], False
-    return [*lines, f"  {where}: every step is done."], False
+        return f"  {where}: each step left is shown above."
+    return f"  {where}: every step is done."
+
+
+def _run_each_batch(root: Path, workflow: workflows.Workflow,
+                    instances: list[dict[str, object]],
+                    calls: list[workflows.Calls]) -> tuple[list[str], bool]:
+    """Run convert's batches when each script is its own, each in turn: first each one's
+    conversion, so every table is there before an answer is written in; then each one's steps
+    left, a Decision open in one leaving the next to run, any other stop stopping the rest.
+    What each did, each batch's state, and, last, one DECISIONS to paste for every batch's
+    open Decisions; and whether it stopped where you are needed."""
+    decides_at = [index for index, step in enumerate(workflow.steps) if step.decides][0]
+    lines = []
+    for inputs, its_calls in zip(instances, calls, strict=True):
+        ran, stopped = _run_steps(root, workflow, inputs, its_calls, before=decides_at)
+        lines += ran
+        if stopped:
+            return lines, True
+    waiting: list[decisions.Decision] = []
+    proposed: list[str] = []
+    for inputs, its_calls in zip(instances, calls, strict=True):
+        inputs = workflows.read_again(root, workflow, inputs)
+        ran, stopped = _run_steps(root, workflow, inputs, its_calls, paste=False)
+        lines += ran
+        step = workflows.next_step(root, workflow, inputs)
+        if stopped and (step is None or not step.decides):
+            return lines, True
+        if stopped:
+            waiting += workflows.decisions_waited_on(root, workflow, inputs, step)
+            proposed += workflows.proposed_keys_waited_on(root, workflow, inputs, step)
+    lines += _batch_state_lines(root, workflow, instances)
+    if not waiting:
+        return lines, False
+    notebook = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
+    return [*lines, _paste_text(waiting, notebook, proposed).removeprefix("\n")], True
+
+
+def _batch_state_lines(root: Path, workflow: workflows.Workflow,
+                       instances: list[dict[str, object]]) -> list[str]:
+    """What run_workflow says of each batch once it has run them: finished, the step it is at,
+    or that every step is done."""
+    lines = [f"  {workflow.name}: each batch, as it stands:"]
+    for inputs in instances:
+        inputs = workflows.read_again(root, workflow, inputs)
+        step = workflows.next_step(root, workflow, inputs)
+        state = "every step is done"
+        if workflows.is_finished(root, inputs):
+            state = (f"finished, every step done: its folder is "
+                     f"{(BATCHES / FINISHED / str(inputs['NAME'])).as_posix()}/")
+        elif step is not None:
+            state = f"at {workflow.steps.index(step) + 1}. {step.name}"
+        lines.append(f"    {inputs['NAME']}: {state}")
+    return lines
+
+
+def _check_each_its_own_batch(root: Path, instances: list[dict[str, object]]) -> None:
+    """Refuse, before anything is written, convert's batches when each script is its own:
+    one whose name, its file's, isn't a plain one; two files of one name; and two scripts
+    whose tables read each other's, which only one batch converts together."""
+    call = 'project.run_workflow("convert")'
+    files = [workflows.names_in(inputs, "FILES")[0] for inputs in instances]
+    for inputs in instances:
+        _check_conversion_name(inputs["NAME"], call)
+    for name in dict.fromkeys(str(inputs["NAME"]) for inputs in instances):
+        same = [file for file in files if Path(file).stem == name]
+        if len(same) > 1:
+            refuse(what=f"{call}: two of FILES are named {name}: {in_words(same)}.",
+                   why="Each script its own batch is a batch named for its file, so two of "
+                   "one name would be one batch.",
+                   fix="Rename one of the two files, or convert them as one batch: set "
+                   "EACH_SCRIPT_ITS_OWN_BATCH = False and name the batch in NAME.",
+                   error=ValueError)
+    _refuse_batches_reading_each_others_tables(call, files,
+                                               str(instances[0].get("DATABASE", "default")))
+
+
+def _refuse_batches_reading_each_others_tables(call: str, files: list[str],
+                                               database: str) -> None:
+    """Refuse two scripts, each its own batch, one of which reads a table the other writes,
+    naming the pair."""
+    writes, reads = {}, {}
+    for file in files:
+        statements = _batch_statements(call, _scripts_given(call, [file]), database,
+                                       f"{database}.{Path(file).stem}")
+        writes[file] = {each.table for each in statements
+                        if each.kind in converting.MAKES and each.table}
+        reads[file] = set()
+        for each in statements:
+            reads[file] |= set(each.reads) - writes[file]
+    for reader in files:
+        for writer in files:
+            shared = sorted(reads[reader] & writes[writer])
+            if writer != reader and shared:
+                refuse(what=f"{call}: {writer} and {reader}, each its own batch, read each "
+                       f"other's tables: {reader} reads {in_words(shared)}, which {writer} "
+                       "writes.",
+                       why="A batch's tables read each other's copies in dev; two batches "
+                       "would read the originals, so their rows wouldn't be those the scripts "
+                       "make together.",
+                       fix="Convert the two as one batch: set EACH_SCRIPT_ITS_OWN_BATCH = "
+                       "False, name the batch in NAME, and list both in FILES.",
+                       error=ValueError)
 
 
 def _step_lines(step: workflows.Step, inputs: dict[str, object],
@@ -1779,7 +2359,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.4.
+    Upgraded the Project from 7.1 to 8.5.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -1787,9 +2367,10 @@ def upgrade() -> ProjectReport:
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
     8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
+    8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
-        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and
-        admin/upgrade_8.4.md.
+        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
+        admin/upgrade_8.4.md and admin/upgrade_8.5.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -2056,7 +2637,10 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
 
     Run it from admin/workflows/convert/convert.ipynb, with your own query. It takes the Hive
     as text, or file= one script's path, or files=[...] several scripts' paths, each from the
-    folder you're working in: a batch, `name` its name, a plain lowercase name such as weekly.
+    folder you're working in or anywhere: a batch, `name` its name, a plain lowercase name such
+    as weekly. files=[] with no Hive reads every .hql file in the folder you're working in, the
+    convert notebook's, in name order, and the report names each. Each file is read where it
+    is, never copied, and batch.md names where.
     It reads DEV, your Dev Database, from admin/databases.py, and refuses until you fill it in.
     It needs your query, for DESCRIBE, only when a table it reads has no Table reference yet,
     and never your execute: it changes only files.
@@ -2109,7 +2693,8 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     each mark, and the Key it proposed, from its query, when it could work one out. A table it
     can't make is named, with why, and the rest are still made.
 
-    The batch keeps its scripts, batch.md, what each statement became, and written.json, each
+    The batch keeps batch.md, where each script is and what each statement became, Hive given
+    as text in scripts/, and written.json, each
     file it wrote, in admin/workflows/convert/<name>/: a SET line becomes the Session settings
     of the writes after it, a DROP, TRUNCATE, ADD PARTITION or MSCK REPAIR nothing, and any
     other statement an Unchecked statement, with its names in dev. Run again, it writes afresh
@@ -2122,17 +2707,64 @@ def convert(name: str, hive: str | None = None, *, file: str | None = None,
     """
     frame = callers_frame()
     call = _action_call("convert", name, ", ...")
-    _project_root(call)
+    root = _project_root(call)
     _check_conversion_name(name, call)
+    beside: list[str] = []
+    if files == [] and hive is None and file is None:
+        beside = _scripts_beside_the_notebook(call)
+        files = beside
+    read_from: dict[str, str] = {}
     if files:
         scripts = _scripts_given(call, files)
+        read_from = _where_each_is(root, files)
     else:
         script = HIVE_GIVEN
         if file is not None:
             script = Path(file).name
+            read_from = _where_each_is(root, [file])
         scripts = [(script, _hive_given(call, hive, file))]
-    return _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame,
-                          staging or {})
+    report = _convert_batch(name, scripts, query, database, rename or {}, overwrite, frame,
+                            staging or {}, read_from=read_from)
+    if not beside:
+        return report
+    # After its first line, which says what it converted: the files it found to read.
+    return ProjectReport([report.lines[0], "FILES is left [], so it read every .hql file "
+                          f"beside the notebook, in name order: {in_words(beside)}.",
+                          *report.lines[1:]])
+
+
+def _scripts_beside_the_notebook(call: str) -> list[str]:
+    """The name of each .hql file in the folder you're working in, the convert notebook's, in
+    name order: what FILES left [] reads; refused when there is none."""
+    folder = _working_folder()
+    found = [path.name for path in workflows.scripts_in(folder)]
+    if not found:
+        refuse(
+            what=f"{call}: FILES is left [] and HIVE is None, and there is no .hql file beside "
+            f"the notebook, in {folder}.",
+            why="Left [], FILES reads every .hql file in the folder you're working in, the "
+            "convert notebook's, in name order.",
+            fix='Save each script there, or name each in FILES, such as ["daily.hql"], or by a '
+            'path anywhere, such as ["C:/work/daily.hql"]; or paste one query into HIVE.',
+            error=FileNotFoundError,
+        )
+    return found
+
+
+def _where_each_is(root: Path, files: str | list[str]) -> dict[str, str]:
+    """Where each script `files` names is read from, by its file's name: its path in the
+    Project, or, for one outside it, its whole path. A script is read where it is, never
+    copied."""
+    if isinstance(files, str):
+        files = [files]
+    found = {}
+    for file in files:
+        path = (_working_folder() / Path(file)).resolve()
+        shown = path.as_posix()
+        if path.is_relative_to(root.resolve()):
+            shown = path.relative_to(root.resolve()).as_posix()
+        found[path.name] = shown
+    return found
 
 
 # --- A batch of scripts (Toolbox 8.0, tickets 13 and 14) -------------------------------------
@@ -2283,9 +2915,12 @@ def _check_hive_sqlglot_can_read(call: str, statements: list[converting.BatchSta
 def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[str],
                    pd.DataFrame] | None, database: str, rename: dict[str, str],
                    overwrite: bool, frame: FrameType, staging: dict[str, str],
-                   made_for: str = "") -> ProjectReport:
+                   made_for: str = "", read_from: dict[str, str] | None = None
+                   ) -> ProjectReport:
     """convert(...) for a batch: each script split into its statements, ordered by what reads
-    what, and each table it writes a Saved table in the Dev Database, as convert says."""
+    what, and each table it writes a Saved table in the Dev Database, as convert says.
+    `read_from` gives where each script read from a file is, by its file's name, which
+    batch.md names; one given as text, which no file holds, is kept in the batch's scripts/."""
     call = _action_call("convert", name, ", ...")
     root = _project_root(call)
     dev = _dev_database(root, call)
@@ -2318,7 +2953,7 @@ def _convert_batch(name: str, scripts: list[tuple[str, str]], query: Callable[[s
             files.originals[names[table]] = _original_of(ordered, table)
         else:
             created_only.append(names[table])
-    _write_batch_index(files, name, scripts, ordered, names, database, dev, made)
+    _write_batch_index(files, name, scripts, ordered, names, database, dev, made, read_from)
     files.tables = [names[table] for table in _tables_in_order(ordered)]
     files.save()
     registry = Registry(root)
@@ -2508,16 +3143,66 @@ def _write_missing_references(call: str, root: Path,
     return added, skipped
 
 
+def database_settings(name: str) -> dict[str, str]:
+    """The Database settings of your Dev or Prod Database, by its name or a table's.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> _ = Path("admin/databases.py").write_text(  # only to stand in for filling it in
+    ...     'DEV = {"database": "mart_dev", "location_root": "/data/team/dev", '
+    ...     '"run_as": "svc_team_dev"}\\n'
+    ...     'PROD = {"database": "mart", "location_root": "/data/team/prod", '
+    ...     '"run_as": "svc_team_prod"}\\n')
+    >>> database_settings("mart.daily_runs")["run_as"]
+    'svc_team_prod'
+    >>> database_settings("mart_dev")
+    {'database': 'mart_dev', 'location_root': '/data/team/dev', 'run_as': 'svc_team_dev'}
+
+    `name` is a table's name, such as "mart.daily_runs", or a Database's, such as "mart_dev":
+    it gives DEV's settings for your Dev Database, PROD's for your Prod Database, each a dict
+    of text by name. Use it in your own code, such as a Building block or warehouse.py, for a
+    value that differs between dev and prod: a setting of yours, such as "run_as", the
+    account a connection runs as, is given in DEV and PROD both, each its own value, and the
+    Toolbox carries it and never acts on it. "database" is the Database's name, and
+    "location_root" the folder its tables' files go under, which the Workflows read. It reads
+    admin/databases.py of the Project you're working in each time, and refuses a Database
+    that is neither yours, such as ops, as admin/databases.py refuses a setting given in one
+    and not the other.
+    """
+    call = f"database_settings({python_literal(name)})"
+    root = _project_root(call)
+    database = split_table_name(name)[0] if "." in name else name
+    settings = workflows.read_database_settings(root)
+    for each in settings.values():
+        if each[workflows.DATABASE_NAME] == database:
+            return dict(each)
+    dev, prod = (settings.get(which, {}).get(workflows.DATABASE_NAME, "<not given>")
+                 for which in workflows.DATABASE_NAMES)
+    refuse(
+        what=f"{call}: {database} is neither your Dev Database, {dev}, nor your Prod "
+        f"Database, {prod}.",
+        why="admin/databases.py gives the settings of those two alone: any other Database is "
+        "someone else's, whose settings the Project doesn't keep.",
+        fix=f"Name a table in {dev} or {prod}, or one of the two, or fill in the Database's "
+        'name as "database" in DEV or PROD in admin/databases.py.',
+        error=ValueError,
+    )
+
+
 def _dev_database(root: Path, call: str) -> str:
     """The Dev Database admin/databases.py names; refused until it is filled in."""
-    dev = workflows.databases(root).get("DEV", "")
+    dev = workflows.database_name(root, "DEV")
     if not dev or workflows.PLACEHOLDER.fullmatch(dev):
         refuse(
             what=f"{call}: DEV in admin/databases.py isn't filled in.",
             why="A Conversion makes each table a Saved table in your Dev Database, and a "
             "Promotion copies tables from it: the one DEV names.",
-            fix='Write your Dev Database\'s name in admin/databases.py, such as DEV = '
-            '"mart_dev", and save it.',
+            fix="Write your Dev Database's name in admin/databases.py, as DEV's "
+            '"database", such as DEV = {"database": "mart_dev", ...}, and save it.',
             error=ValueError,
         )
     return dev
@@ -2822,6 +3507,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
+    text = _with_location_placed(files.root, text, dev)
     blocks = []
     if tag_is_quoted:
         blocks.append(converting.tags_block(tag_is_quoted, tag_places))
@@ -2832,6 +3518,24 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
+
+
+# What a location= line placed under its Database's location_root says beside it.
+PLACED = "  # under its Database's location_root, in admin/databases.py"
+
+
+def _with_location_placed(root: Path, text: str, table: str) -> str:
+    """A Table reference's text, `table`'s, its location= placed in its own folder under its
+    Database's location_root, <location_root>/<database>.db/<table>, when it has no location
+    of its own and admin/databases.py gives its Database a root (Toolbox 8.5): else as it
+    is."""
+    folder = workflows.location_root(root, split_table_name(table)[0])
+    found = re.search(r"^    location=None,.*$", text, flags=re.MULTILINE)
+    if folder is None or found is None:
+        return text
+    placed = decisions.location_under(folder, table)
+    line = f"    location={escaped_literal(placed)},{PLACED}"
+    return text[:found.start()] + line + text[found.end():]
 
 
 def _register_table(root: Path, dev: str, folder: bool) -> None:
@@ -3274,17 +3978,24 @@ def _batch_columns(root: Path, table: str, ordered: list[converting.BatchStateme
 
 def _write_batch_index(files: _BatchFiles, name: str, scripts: list[tuple[str, str]],
                        ordered: list[converting.BatchStatement], names: dict[str, str],
-                       database: str, dev: str, made: list[str]) -> None:
-    """Keep the batch's scripts as given, and write batch.md: each table, its copy in dev and
-    its checklist, then each statement, in the order they run, and what it became."""
+                       database: str, dev: str, made: list[str],
+                       read_from: dict[str, str] | None) -> None:
+    """Write batch.md: where each script is, each table, its copy in dev and its checklist,
+    then each statement, in the order they run, and what it became. A script read from a file
+    is read where it is, which `read_from` gives by its file's name, never copied; Hive given
+    as text, with no `read_from`, is kept in the batch's scripts/, as no file holds it."""
     index = CONVERSION_FOLDER.shown(name)
-    for script, text in scripts:
-        files.write_text(f"{index}{BATCH_SCRIPTS}/{script}", text)
+    if read_from:
+        where = (f"{counted(len(scripts), 'script')}, each read where it is: "
+                 f"{in_words([read_from[script] for script, _ in scripts])}.")
+    else:
+        for script, text in scripts:
+            files.write_text(f"{index}{BATCH_SCRIPTS}/{script}", text)
+        where = (f"{counted(len(scripts), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
+                 f"{in_words([script for script, _ in scripts])}.")
     lines = [f"# Batch {name}", "",
-             f"{counted(len(scripts), 'script')}, kept as given in {BATCH_SCRIPTS}/: "
-             f"{in_words([script for script, _ in scripts])}. Each table they write is a "
-             f"Saved table in the Dev Database, {dev}; one they only create has its Table "
-             "reference alone.", "", "## Tables", ""]
+             f"{where} Each table they write is a Saved table in the Dev Database, {dev}; one "
+             "they only create has its Table reference alone.", "", "## Tables", ""]
     for table in _tables_in_order(ordered):
         lines += _table_lines(files, table, ordered, names, made)
     lines += ["", "## Each statement, in the order they run", ""]
@@ -3357,17 +4068,20 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
     still_open = workflows.open_decisions_of(files.root, made, workflows.DEV_DECISIONS)
+    proposed = [table for table in made if decisions.proposed_key(
+        workflows.file_text(workflows.reference_path(files.root, table))) is not None]
     if files.made_for:
         # A batch another Workflow made, as new_table makes a table from its query: its own.
         lines.append("Next: answer its open Decisions in the decisions cell of "
                      f"{_decisions_notebook(files.made_for)}, then run its next steps."
-                     + _paste_text(still_open, _decisions_notebook(files.made_for)))
+                     + _paste_text(still_open, _decisions_notebook(files.made_for), proposed))
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "
                  "each, and compare each with its original."
-                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}"))
+                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}",
+                               proposed))
     return lines
 
 
@@ -3435,7 +4149,8 @@ def _batch_index(root: Path, name: str, call: str) -> Path:
 
 def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
                   tables: str | list[str] | None = None,
-                  partition: dict[str, object] | None = None) -> ProjectReport:
+                  partitions: list[dict[str, object]] | None = None,
+                  **removed: object) -> ProjectReport:
     """Compare each Saved table a batch made in dev with the table it copies.
 
     >>> from sqlglot_composer import example_database, project
@@ -3474,16 +4189,20 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     that repeats. It is the convert Workflow's last step. It compares the tables once written,
     not their queries: each dev table's rows with the rows of the table it copies, its original,
     through your query, as compare_with_original compares them. A table partitioned by a column,
-    such as dt, is compared on one Partition: the one partition= gives, such as {"dt":
-    "2026-09-24"}, when both tables hold it; else the latest both hold, of the Partitions Hive's
-    SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in
-    common, or none you gave, the table fails, naming what each holds: write the dev copy for a
-    Partition the original holds, or give one both hold. A table with no Partitions is compared
-    on every row. A query alone, which convert made a Saved table named for the batch, or for
-    its file in a batch of several scripts, has no original table: its rows are compared with
-    the query's, kept in its conversion/statement.hql. A partition= is refused when it isn't a
-    dict, when a value is in quotes of its own, as '2026-09-23' (SHOW PARTITIONS lists
-    dt=2026-09-23), or when it names no column any of them is partitioned by.
+    such as dt, is compared on the latest Partition both hold, of the Partitions Hive's SHOW
+    PARTITIONS lists for each, such as dt=2026-09-24; then on each Partition partitions= lists,
+    such as [{"dt": "2026-09-23"}], that it is partitioned by, each value as SHOW PARTITIONS
+    lists it, with no quotes of its own. Left out, or [], the latest alone is compared. When the
+    two hold no Partition in common, or not one you listed, that compare fails, naming what
+    each holds: write the dev copy for a Partition the original holds, or list one both hold. A
+    table with no Partitions is compared on every row, and a Partition listed that it isn't
+    partitioned by is named as left out. A query alone, which convert made a Saved table named
+    for the batch, or for its file in a batch of several scripts, has no original table: its
+    rows are compared with the query's, kept in its conversion/statement.hql. A partitions= is
+    refused when it isn't a list, when a Partition in it isn't a dict, when a value is in quotes
+    of its own, as '2026-09-23' (SHOW PARTITIONS lists dt=2026-09-23), or when a Partition names
+    no column any of the tables is partitioned by. Toolbox 8.5 replaced 8.4's partition=, one
+    Partition, compared in place of the latest: it is refused, naming the partitions= to pass.
 
     Each result is written in the table's conversion/compare.md, under a heading naming the
     Partition it compared, such as ## dt = '2026-09-24', or ## Every row: a compare of another
@@ -3494,12 +4213,15 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     table's rows. `tables` names which, by their names in dev, such as
     mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
     every one has passed, the batch's folder moves to admin/workflows/convert/finished/<name>/,
-    and check names it done; batch_tables still reads it, and compare_batch run on it
-    again compares again, moving nothing. project.remove_conversion(name) archives a finished
-    batch, which frees its name. It never needs your execute: it only reads.
+    and check names it done; batch_tables still reads it, and compare_batch run on it again,
+    as the convert notebook's step 7 does with another Partition in PARTITIONS, compares
+    again, says the batch was finished, and moves nothing. project.remove_conversion(name)
+    archives a finished batch, which frees its name. It never needs your execute: it only reads.
     """
     frame = callers_frame()
     call = _action_call("compare_batch", name)
+    _refuse_partition_given(call, removed)
+    refuse_removed_arguments(call, removed, compare_batch)
     root = _project_root(call)
     need_warehouse_call(call, "query", query, "It reads the rows of each table and its "
                         "original, and their Partitions, through your query.")
@@ -3508,15 +4230,16 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
-    _refuse_a_partition_not_a_dict(call, partition)
-    _refuse_a_partition_in_quotes(call, partition)
-    _refuse_a_partition_no_table_has(call, partition, read)
+    listed = _partitions_to_compare(call, partitions, read)
     lines = []
     for dev in chosen:
-        result = _compare_one(root, read[dev], originals[dev], query, partition)
-        lines.append(f"{dev}: {result}")
+        lines += _compare_lines(root, read[dev], originals[dev], query, listed)
     written = [f"wrote tables/{table_stem(dev)}/{CONVERSION}/{COMPARED}" for dev in chosen]
-    if index.parent.name != FINISHED and originals and all(
+    if index.parent.name == FINISHED:
+        lines.append(f"The batch was finished already, in admin/workflows/convert/{FINISHED}/"
+                     f"{name}/: it stays there. A table with a result that failed is one "
+                     "promote refuses, until it passes.")
+    elif originals and all(
             workflows.compare_passed(root, dev) for dev in originals):
         finished = root / BATCHES / FINISHED / name
         finished.parent.mkdir(parents=True, exist_ok=True)
@@ -3558,15 +4281,13 @@ def write_decisions(answers: dict[str, dict[str, object]],
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
     Next: set conn, your connection, in warehouse.py.
-    >>> _ = project.add_references("ops.job_runs", query=example_database.query)
-    >>> print(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
-    Wrote 1 answer into references/ops__job_runs.py.
-    ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
-    fill each in when you like.
-      line 1: ops.job_runs - TODO: say in one line what one row is.
-      line 16: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
-      counts
-    Each Decision of ops.job_runs is made.
+    >>> _ = project.add_references("ops.team_notes", query=example_database.query)
+    >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
+    Wrote 1 answer into references/ops__team_notes.py.
+    ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits on
+    nothing: fill it in when you like.
+      line 1: ops.team_notes - TODO: say in one line what one row is.
+    Each Decision of ops.team_notes is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
     holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the
@@ -3574,7 +4295,11 @@ def write_decisions(answers: dict[str, dict[str, object]],
     "string" because nothing told it the type; and each Script tag's line in TAGS, the value
     a <PARM="NAME"/> in the scripts stands for, open while it holds the tag itself. A TODO:
     on any other line, such as the docstring's first line or does_not_add_up=, is no
-    Decision: it waits on nothing, as the two above do. `answers` is the decisions cell,
+    Decision: it waits on nothing, as the one above does. A "key" of "proposed" accepts the
+    Key the Toolbox proposed for the table, marked # proposed on its key= line, written as if
+    typed; a table with no proposal is given no Key by it. A Key written into a Table
+    reference whose first line project.add_references proposed proposes that line again from
+    it. `answers` is the decisions cell,
     DECISIONS, of a Workflow's notebook: by table, a dict holding "location", "key", "types"
     or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
@@ -3603,16 +4328,17 @@ def write_decisions(answers: dict[str, dict[str, object]],
     DECISIONS["all_tables"] answers for every table the Workflow's notebook names, which
     `tables` gives, as each Workflow's step cell does: project.batch_tables(NAME) in convert's
     notebook, project.promoted_tables(TABLES) in promote's, and TABLES in the others. It takes
-    "location_root", the folder each table's own goes under, which gives a table whose
-    location is still open "<root>/<db>.db/<table>": "/data/team" gives mart_dev.weekly_ops
-    "/data/team/mart_dev.db/weekly_ops"; "tags", each written into each table that holds it;
-    and "seed", the limits of the seed's copy. It loads first, and a table's own answer
-    overwrites it, kind by kind and, for tags, tag by tag: {"all_tables": {"location_root":
-    "/data/team", "tags": {"PERIOD_END": "'2026-10-31'"}}, "mart_dev.weekly_ops": {"tags":
-    {"PERIOD_END": "'2026-10-25'"}}}. The report says which tables each of its answers was
-    written into. A Key or a type is each table's own: under all_tables it is refused, naming
-    the tables to answer it for; so is a tag no table of `tables` holds, and all_tables with
-    no `tables`.
+    "tags", each written into each table that holds it, and "seed", the limits of the seed's
+    copy. It loads first, and a table's own answer overwrites it, kind by kind and, for tags,
+    tag by tag: {"all_tables": {"tags": {"PERIOD_END": "'2026-10-31'"}},
+    "mart_dev.weekly_ops": {"tags": {"PERIOD_END": "'2026-10-25'"}}}. Its "key" takes only
+    "proposed", which accepts each table's proposed Key; a table's own "key" wins, and a table
+    with no proposal keeps its Key open, named in the report. The report says which tables each
+    of its answers was written into. Any other Key, and a type, which is each table's own, is
+    refused under all_tables, naming the tables to answer it for; so is a tag no table of
+    `tables` holds, and all_tables with no `tables`. So is "location_root", 8.4's folder every
+    table's own went under: since 8.5 it is a Database setting, in admin/databases.py, which
+    places each table with no location of its own as it is written.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
@@ -3634,7 +4360,7 @@ def write_decisions(answers: dict[str, dict[str, object]],
         path = REFERENCE.path(root, stem)
         before[table] = path.read_text(encoding="utf-8")
         answer = decisions.table_answer(answers, table, before[table])
-        answer = _seed_answer(answers, table, before[table], answer)
+        answer = decisions.seed_answer(answers, table, before[table], answer)
         answered = decisions.answered_text(before[table], answer, REFERENCE.shown(stem))
         written[table] = answered.written
         keys_written = keys_written or decisions.ANSWERS[decisions.KEY] in answered.written
@@ -3669,24 +4395,6 @@ def _answered_lines(root: Path, table: str, answer: dict[str, object],
     return lines
 
 
-def _seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
-                 answer: dict[str, object]) -> dict[str, object]:
-    """One table's answer with its seed limits as they apply to it: its own as given, which
-    the refusals check first; all_tables' for the partition columns it has; none for a table
-    that doesn't read itself, which has no seed."""
-    if not isinstance(answer.get(decisions.SEED), dict):
-        return answer
-    partitions = decisions.seed_partitions(text)
-    own = answers.get(table)
-    if partitions is None:
-        return {kind: value for kind, value in answer.items() if kind != decisions.SEED}
-    if isinstance(own, dict) and decisions.SEED in own:
-        return answer
-    limits = {column: limit for column, limit in answer[decisions.SEED].items()
-              if column in partitions}
-    return {**answer, decisions.SEED: limits}
-
-
 def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict[str, str],
                        written: dict[str, list[str]]) -> list[str]:
     """What write_decisions says of each answer of DECISIONS["all_tables"]: which tables it
@@ -3696,13 +4404,39 @@ def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict
     if not isinstance(every, dict):
         return []
     lines = []
-    if decisions.LOCATION_ROOT in every:
-        lines.append(_location_root_line(answers, before, written))
+    if every.get(decisions.ANSWERS[decisions.KEY]) == decisions.ACCEPT_PROPOSED:
+        lines.append(_all_tables_key_line(answers, before, written))
     for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
         lines.append(_all_tables_tag_line(name, answers, before, written))
     if decisions.SEED in every:
         lines.append(_all_tables_seed_line(answers, written))
     return lines
+
+
+def _all_tables_key_line(answers: dict[str, dict[str, object]], before: dict[str, str],
+                         written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s "key": "proposed": each table
+    whose proposed Key it accepted, each that keeps its own answer, and each with no proposal
+    whose Key stays open."""
+    key = decisions.ANSWERS[decisions.KEY]
+    own = [table for table in written
+           if answers.get(table, {}).get(key, decisions.ACCEPT_PROPOSED)
+           != decisions.ACCEPT_PROPOSED]
+    into = [table for table in written if key in written[table] and table not in own]
+    still_open = [table for table in written if table not in own
+                  and decisions.proposed_key(before[table]) is None
+                  and decisions.open_decisions(before[table], table, (decisions.KEY,))]
+    said = (f'all_tables: key "{decisions.ACCEPT_PROPOSED}": accepted the proposed Key of '
+            f"{in_words(into) or 'no table'}")
+    if into:
+        said += f", {singular_or_plural(len(into), 'written', 'each written')} as if typed"
+    said += f".{_kept_their_own_text(own, 'Key')}"
+    if still_open:
+        has = singular_or_plural(len(still_open), "has", "have")
+        stays = singular_or_plural(len(still_open), "its Key stays", "their Keys stay")
+        said += (f" {in_words(still_open)} {has} no proposed Key, so {stays} open: answer "
+                 f'"key" under {singular_or_plural(len(still_open), "its", "each")} name.')
+    return said
 
 
 def _all_tables_seed_line(answers: dict[str, dict[str, object]],
@@ -3745,27 +4479,6 @@ def _kept_their_own_text(tables: list[str], what: str) -> str:
         return ""
     keep = singular_or_plural(len(tables), "keeps its", "keep their")
     return f" {in_words(tables)} {keep} own {what}."
-
-
-def _location_root_line(answers: dict[str, dict[str, object]], before: dict[str, str],
-                          written: dict[str, list[str]]) -> str:
-    """What write_decisions says of DECISIONS["all_tables"]'s location_root: each table it
-    gave a location, under it, and each that keeps its own."""
-    root = answers[decisions.ALL_TABLES][decisions.LOCATION_ROOT]
-    if decisions.is_left_to_fill_in(root):
-        return (f"all_tables: {decisions.LOCATION_ROOT} "
-                f"{decisions.still_to_fill_in('its answer')}.")
-    location = decisions.ANSWERS[decisions.LOCATION]
-    own = [table for table in written
-           if location in answers.get(table, {})
-           or not decisions.open_decisions(before[table], table, (decisions.LOCATION,))]
-    into = [table for table in written if location in written[table] and table not in own]
-    said = (f"all_tables: {decisions.LOCATION_ROOT} {escaped_literal(root)}: written into "
-            f"{in_words(into) or 'no table'}")
-    if into:
-        each = singular_or_plural(len(into), "in its", "each in its")
-        said += f", {each} own folder under it"
-    return f"{said}.{_kept_their_own_text(own, 'location')}"
 
 
 def _own_tags(answers: dict[str, dict[str, object]], table: str) -> dict[str, object]:
@@ -3952,26 +4665,31 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
 def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> list[str]:
     """A line naming each part of DECISIONS["all_tables"], `every`, that matches no Decision
     of the tables it answers for, `texts` holding each one's Table reference by its name: a
-    Key or a type, which are each table's own, any other kind it doesn't take, a location_root
-    that isn't text, a "tags" or "seed" that isn't a dict, or a tag no table holds."""
+    Key other than "proposed", and a type, which are each table's own, a location_root, which
+    is a Database setting now, any other kind it doesn't take, a "tags" or "seed" that isn't a
+    dict, or a tag no table holds."""
     kinds = list(decisions.ALL_TABLES_ANSWERS)
     tags = decisions.ANSWERS[decisions.TAG]
-    # A Key and a type, which each table answers itself.
-    each_tables_own = (decisions.ANSWERS[decisions.KEY],
-                       decisions.ANSWERS[decisions.GUESSED_TYPE])
+    key, types = decisions.ANSWERS[decisions.KEY], decisions.ANSWERS[decisions.GUESSED_TYPE]
     problems = []
     for name in every:
-        if name in each_tables_own:
+        if name == key and every[key] != decisions.ACCEPT_PROPOSED:
             tables = in_words(_tables_to_answer(name, texts))
-            problems.append(f"all_tables: {name} is each table's own: answer it under the name "
-                            f"of each table it is for, {tables}")
+            problems.append(f'all_tables: key takes only "{decisions.ACCEPT_PROPOSED}", which '
+                            "accepts each table's proposed Key; any other Key is each table's "
+                            f"own: answer it under the name of each table it is for, {tables}")
+        elif name == types:
+            tables = in_words(_tables_to_answer(name, texts))
+            problems.append("all_tables: types: each guessed type is the table's own, never "
+                            "answered for every table at once: answer it under the name of "
+                            f"each table it is for, {tables}")
+        elif name == workflows.LOCATION_ROOT:
+            problems.append(f"all_tables: {name} is a Database setting now: give it as "
+                            f'"{name}" in DEV and PROD, in {workflows.DATABASES.as_posix()}, '
+                            "which places each table with no location of its own")
         elif name not in kinds:
             problems.append(f"all_tables: {name!r} is no kind of answer for every table; "
                             f"all_tables answers {in_words(kinds)}{_nearest(name, kinds)}")
-    root = every.get(decisions.LOCATION_ROOT)
-    if decisions.LOCATION_ROOT in every and not isinstance(root, str):
-        problems.append(f"all_tables: {decisions.LOCATION_ROOT}: give the folder as text, such "
-                        f"as \"/data/your_team\", not {root!r}")
     for kind, example in ((tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
                           (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in every and not isinstance(every[kind], dict):
@@ -4129,41 +4847,87 @@ def _table_in(root: Path, name: str) -> Table:
                      "table_reference")[short]
 
 
+def _refuse_partition_given(call: str, removed: dict[str, object]) -> None:
+    """Refuse the partition= of 8.4, one Partition compared in place of the latest, which 8.5
+    replaced with partitions=, a list of them compared besides it: the message names the
+    partitions= to pass in its place."""
+    if "partition" not in removed:
+        return
+    given = removed["partition"]
+    in_a_list = PARTITIONS_EXAMPLE
+    if isinstance(given, dict):
+        in_a_list = python_literal([given])
+    instead = f"Pass partitions={in_a_list} instead"
+    if given is None:
+        instead = (f"Leave partition= out to compare the latest Partition alone, or pass "
+                   f"partitions={in_a_list} to compare others too")
+    refuse(
+        what=f"{call} was given partition=, which Toolbox 8.5 replaced with partitions=.",
+        why="It compares the latest Partition both tables hold, and then each Partition "
+        "partitions= lists besides it, so it takes a list of them: one Partition is a list "
+        "of one.",
+        fix=f"{instead}. In the convert notebook, set PARTITIONS in the names cell, such as "
+        f"PARTITIONS = {in_a_list}, which step 7's cell passes as partitions=PARTITIONS.",
+    )
+
+
+def _partitions_to_compare(call: str, partitions: object,
+                        read: dict[str, Table]) -> list[dict[str, object]]:
+    """The Partitions a compare_batch call lists, none when `partitions` is None, each
+    refused that SHOW PARTITIONS could never list or that no table compared is partitioned
+    by."""
+    if partitions is None:
+        return []
+    if not isinstance(partitions, list):
+        refuse(
+            what=f"{call}: partitions= is {partitions!r}, not a list of Partitions.",
+            why="It compares the latest Partition both tables hold, then each Partition the "
+            "list holds, each a dict of its partition columns' values.",
+            fix=f"Give it as a list, such as {PARTITIONS_EXAMPLE}, in the convert notebook's "
+            "PARTITIONS, or [] to compare the latest Partition alone.",
+            given=partitions, call=call,
+        )
+    for partition in partitions:
+        _refuse_a_partition_not_a_dict(call, partition)
+        _refuse_a_partition_in_quotes(call, partition)
+        _refuse_a_partition_no_table_has(call, partition, read)
+    return partitions
+
+
 def _refuse_a_partition_not_a_dict(call: str, partition: object) -> None:
-    """Refuse a partition= that is neither None nor a dict of each partition column's value."""
-    if partition is None or isinstance(partition, dict):
+    """Refuse a Partition partitions= lists that isn't a dict of each partition column's
+    value."""
+    if isinstance(partition, dict):
         return
     refuse(
-        what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
+        what=f"{call}: partitions= holds {partition!r}, not a dict of each partition column's "
         "value.",
         why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
-        fix=f"Give it as {PARTITION_EXAMPLE}, in the convert notebook's PARTITION, or None to "
-        "compare the latest Partition both tables hold.",
+        fix=f"Give each as a dict, such as {PARTITIONS_EXAMPLE}, in the convert notebook's "
+        "PARTITIONS, or [] to compare the latest Partition both tables hold alone.",
         given=partition, call=call,
     )
 
 
-def _refuse_a_partition_in_quotes(call: str, partition: object) -> None:
-    """Refuse a partition= whose value is written in quotes of its own: SHOW PARTITIONS lists
-    dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would fail on a
-    Partition that is there."""
-    if not isinstance(partition, dict):
-        return
+def _refuse_a_partition_in_quotes(call: str, partition: dict[str, object]) -> None:
+    """Refuse a Partition partitions= lists whose value is written in quotes of its own: SHOW
+    PARTITIONS lists dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would
+    fail on a Partition that is there."""
     quoted = [column for column, value in partition.items()
               if isinstance(value, str) and _in_quotes_of_its_own(value)]
     if quoted:
         refuse(
-            what=f"{call}: partition= gives {in_words(quoted)} in quotes of its own, "
+            what=f"{call}: partitions= gives {in_words(quoted)} in quotes of its own, "
             f"{partition!r}.",
             why="A Partition's value is written as SHOW PARTITIONS lists it, dt=2026-09-23, "
             "with no quotes: one in quotes matches no Partition, and the table would fail.",
-            fix=f"Give it with no quotes of its own, as {PARTITION_EXAMPLE}.",
+            fix=f"Give it with no quotes of its own, as {PARTITIONS_EXAMPLE}.",
             error=ValueError,
         )
 
 
-# A partition= as a refusal shows it.
-PARTITION_EXAMPLE = '{"dt": "2026-09-23"}'
+# A partitions= as a refusal shows it.
+PARTITIONS_EXAMPLE = '[{"dt": "2026-09-23"}]'
 
 
 def _in_quotes_of_its_own(value: str) -> bool:
@@ -4172,33 +4936,65 @@ def _in_quotes_of_its_own(value: str) -> bool:
     return len(value) > 1 and value[0] in "'\"" and value[-1] == value[0]
 
 
-def _refuse_a_partition_no_table_has(call: str, partition: object,
+def _refuse_a_partition_no_table_has(call: str, partition: dict[str, object],
                                      read: dict[str, Table]) -> None:
-    """Refuse a partition= that names a column none of the tables compared is partitioned by,
-    as a name spelt wrong: every compare would leave it out."""
-    if not isinstance(partition, dict):
-        return
+    """Refuse a Partition partitions= lists that names a column none of the tables compared is
+    partitioned by, as a name spelt wrong: every compare would leave it out."""
     columns: list[str] = []
     for table in read.values():
         if set(partition) <= set(table._partitioned_by):
             return
         columns += table._partitioned_by
     refuse(
-        what=f"{call}: partition= names {in_words(list(partition))}, which no table it "
+        what=f"{call}: partitions= names {in_words(list(partition))}, which no table it "
         "compares is partitioned by.",
-        why="Each table would be compared on its latest Partition instead, which isn't the "
-        "one you asked for.",
+        why="Each table would be compared on its latest Partition alone, without the one you "
+        "asked for.",
         fix=f"Name their partition columns ({in_words(list(dict.fromkeys(columns))) or 'none'})"
-        ", or leave partition= out.",
+        ", or take that Partition out of partitions=.",
         error=ValueError,
     )
 
 
+def _compare_lines(root: Path, table: Table, original: str | None,
+                   query: Callable[[str], pd.DataFrame],
+                   listed: list[dict[str, object]]) -> list[str]:
+    """What compare_batch says of one table: compared on the latest Partition both tables
+    hold, or on every row, then on each Partition `listed` names that it is partitioned by,
+    each result its own section of compare.md; a listed Partition that is the latest is
+    compared once, and one it isn't partitioned by is named as left out."""
+    dev = table._name
+    columns = table._partitioned_by
+    latest, said = _compare_one(root, table, original, query, None, listed)
+    lines = [f"{dev}: {said}"]
+    for partition in listed:
+        if original is None or not set(partition) <= set(columns):
+            lines.append(f"{dev}: {_partition_in_words(partition)} left out: "
+                         f"{_why_left_out(original, columns)}")
+        elif latest is None or _partition_in_words(partition) != _partition_in_words(latest):
+            compared_on = _compare_one(root, table, original, query, partition, listed)
+            lines.append(f"{dev}: {compared_on[1]}")
+    return lines
+
+
+def _why_left_out(original: str | None, columns: list[str]) -> str:
+    """Why a table isn't compared on a Partition partitions= lists: it is compared with its
+    query, or isn't partitioned by that Partition's columns."""
+    if original is None:
+        return "it is compared with its query, which no Partition is chosen for"
+    if not columns:
+        return "it has no Partitions"
+    return f"it is partitioned by {in_words(columns)}"
+
+
 def _compare_one(root: Path, table: Table, original: str | None,
-                 query: Callable[[str], pd.DataFrame],
-                 partition: dict[str, object] | None) -> str:
-    """Compare one dev table with its original, `original`, or its query when None, and
-    write the result in its conversion/compare.md: what the report says of it."""
+                 query: Callable[[str], pd.DataFrame], partition: dict[str, object] | None,
+                 listed: list[dict[str, object]]) -> tuple[dict[str, object] | None, str]:
+    """Compare one dev table with its original, `original`, or its query when None, on
+    `partition`, or the latest both hold when None, and write the result in its
+    conversion/compare.md: the Partition compared, and what the report says of it. `listed`
+    are the Partitions compared besides the latest, which its result doesn't name as left
+    unchecked."""
     dev = table._name
     stem = table_stem(dev)
     columns = table._partitioned_by
@@ -4218,11 +5014,7 @@ def _compare_one(root: Path, table: Table, original: str | None,
     try:
         chosen, described = None, "every row: it has no Partitions"
         if columns and original is not None:
-            chosen, described = _partition_to_compare(query, dev, original, columns, partition)
-        if partition is not None and chosen is not partition and _NOT_HELD not in described:
-            described += (f"; partition= names {in_words(list(partition))}, which isn't one of "
-                          f"its partition columns ({in_words(columns) or 'none'}), so it was "
-                          "left out")
+            chosen, described = _partition_to_compare(query, dev, original, partition, listed)
         if chosen is not None or not columns:
             verdict = compare_with_original(copy, hive, query=query, partition=chosen)
     # Whatever stops the compare, such as a table not there yet, is its result.
@@ -4245,7 +5037,7 @@ def _compare_one(root: Path, table: Table, original: str | None,
     _write_compare_md(root, dev, folder / COMPARED, heading,
                       _compared_on(chosen, not columns or original is None),
                       _compare_text(passed, described, verdicts, stopped))
-    return f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+    return chosen, f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
 
 
 # What a result in compare.md is headed by when it compared every row, and when it compared
@@ -4327,19 +5119,20 @@ def _compare_text(passed: bool, described: str, verdicts: list[Verdict], stopped
 
 
 def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, original: str,
-                          columns: list[str], given: dict[str, object] | None
+                          given: dict[str, object] | None, listed: list[dict[str, object]]
                           ) -> tuple[dict[str, object] | None, str]:
-    """The Partition a dev table is compared on, and how it was chosen: the one `given` names
-    when it names this table's partition columns, else the last SHOW PARTITIONS lists for both
-    the dev table and its original; None, saying why, when they hold none in common."""
+    """The Partition a dev table is compared on, and how it was chosen: the one `given`
+    names, else the last SHOW PARTITIONS lists for both the dev table and its original; None,
+    saying why, when they don't both hold it. The latest's names how many others both hold
+    that neither it nor `listed`, the Partitions compared besides it, compares."""
     ours = _partitions_listed(query, dev)
     theirs = _partitions_listed(query, original)
-    if given is not None and set(given) <= set(columns):
-        lacking = [table for table, listed in ((dev, ours), (original, theirs))
-                   if not _holds(listed, given)]
+    if given is not None:
+        lacking = [table for table, held in ((dev, ours), (original, theirs))
+                   if not _holds(held, given)]
         if lacking:
             return None, (f"{_NOT_HELD} {_partition_in_words(given)} in "
-                          f"{in_words(lacking)}: give one both hold")
+                          f"{in_words(lacking)}: list one both hold")
         return given, f"compared on {_partition_in_words(given)}, the Partition you gave"
     common = sorted(set(ours) & set(theirs))
     if not common:
@@ -4347,13 +5140,17 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
                       f"{original}'s {_last_of(theirs)}")
     latest = dict(pair.split("=", 1) for pair in common[-1].split("/"))
     described = f"compared on {_partition_in_words(latest)}, the latest Partition both hold"
-    if len(common) > 1:
-        # One Partition is compared: the others both hold are named as left unchecked.
-        others = len(common) - 1
+    # The others both hold, each named as left unchecked unless PARTITIONS lists it.
+    others = 0
+    for each in common[:-1]:
+        if not _is_listed(each, listed):
+            others += 1
+    if others:
         described += (f"; {counted(others, 'other Partition')} both tables hold "
                       f"{singular_or_plural(others, 'was', 'were')} not compared: to compare "
-                      f'one, set PARTITION = {{"{next(iter(latest))}": "..."}} in the convert '
-                      "notebook's names cell, run it, and run step 7 again")
+                      f'one, add it to PARTITIONS, such as PARTITIONS = [{{"'
+                      f'{next(iter(latest))}": "..."}}], in the convert notebook\'s names '
+                      "cell, run it, and run step 7 again")
     return latest, described
 
 
@@ -4367,6 +5164,12 @@ def _holds(partitions: list[str], given: dict[str, object]) -> bool:
     `given` names, such as dt=2026-09-24."""
     wanted = {f"{column}={value}" for column, value in given.items()}
     return any(wanted <= set(partition.split("/")) for partition in partitions)
+
+
+def _is_listed(shown: str, listed: list[dict[str, object]]) -> bool:
+    """Whether a Partition as SHOW PARTITIONS lists it, such as dt=2026-09-23, is one of
+    those `listed` names."""
+    return any(_holds([shown], partition) for partition in listed)
 
 
 def _partitions_listed(query: Callable[[str], pd.DataFrame], table: str) -> list[str]:
@@ -4430,20 +5233,25 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     A table promoted before keeps its prod name when promoted again without rename=. Every
     promoted notebook that reads another promoted table reads its prod copy; a renamed one is
     imported under its dev name, so the code that uses it reads as it did. Its Table reference
-    keeps its columns and Key; its location= is the one you filled in when promoted before,
-    else the dev one with each folder named for the Dev Database, such as mart_dev.db, named
-    for the Prod Database, or None for you to fill in, as the report says.
+    keeps its columns and Key; its location= is the one it had when promoted before, else its
+    own folder under PROD's "location_root" in admin/databases.py,
+    <location_root>/<database>.db/<table>, or None for you to fill in when PROD has none, as
+    the report says. Each Building block a promoted table imports, in its notebook or its
+    Table reference, such as a Run value's building_blocks/run_values.py, and each block those
+    import, gets a prod copy in building_blocks/prod/, which the prod copies import in its
+    place: dev's blocks change freely, prod's only when promoted again.
 
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
     with no Table reference; one whose Table reference has a <...> left to fill in, or whose
     notebook's logic doesn't build its write() yet; one whose
     Table reference leaves a Decision open; one a Conversion made whose compare hasn't
     passed (project.compare_batch); one that reads a dev table not promoted with it; and one
-    whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
-    promote it again, which archives the prod copy into admin/removed/ first, and the one under
-    its old name when rename= gives it a new one. project.check()
-    reports a prod copy edited by hand, its notebook or its Table reference but its location=
-    and SEED, as promote would write over it. `tables` is one name or a list, each a dev
+    whose Building block, or one it imports, reads the Dev Database. Dev stays the source:
+    change the dev copy and promote it again, which archives the prod copy, and each Building
+    block's, into admin/removed/ first, and the one under its old name when rename= gives it a
+    new one. project.check() reports a prod copy edited by hand, its notebook, a Building
+    block's prod copy or its Table reference but its location= and SEED, as promote would
+    write over it. `tables` is one name or a list, each a dev
     table's.
     """
     frame = callers_frame()
@@ -4483,13 +5291,140 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
                                                 before[dev], now)
         written += done
         lines.append(line)
+    done, line = _write_prod_blocks(root, names, record, now)
+    written += done
+    if line:
+        lines.append(line)
     _write_databases(root)
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
-    lines.append("Next: fill in location= in each prod Table reference that has none, then run "
-                 "the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: "
-                 "create each table in prod, seed each that reads itself, and write each.")
+    lines.append(_promote_next_line(root, list(names.values())))
     return ProjectReport(lines)
+
+
+def _promote_next_line(root: Path, prods: list[str]) -> str:
+    """What promote's report says to do next: run the promote Workflow's next steps, once each
+    prod copy whose Table reference has no location= is given one, naming each."""
+    unplaced = [prod for prod in prods
+                if decisions.NO_LOCATION in workflows.file_text(
+                    REFERENCE.path(root, table_stem(prod)))]
+    first = "Next: run"
+    if unplaced:
+        first = (f"Next: fill in location= in {in_words(unplaced)}'s Table reference, which "
+                 "has none, then run")
+    return (f"{first} the promote Workflow's next steps, in "
+            "admin/workflows/promote/promote.ipynb: create each table in prod, seed each that "
+            "reads itself, and write each.")
+
+
+def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict[str, object]],
+                       now: datetime.datetime) -> tuple[list[str], str]:
+    """Write a prod copy of each Building block a promoted table uses, `names` each dev table
+    and its prod copy's name, archiving the one promoted before into admin/removed/ first, and
+    register each; give each prod table's `record` entry the hash of each it uses, and any
+    other entry that uses one the hash written now. Gives what it did, for the Admin log, and
+    its report's line, nothing when no table uses a block."""
+    blocks_of = {dev: _blocks_used(root, dev) for dev in names}
+    blocks: list[str] = []
+    for used in blocks_of.values():
+        blocks += used
+    blocks = list(dict.fromkeys(blocks))
+    registry = Registry(root)
+    done, hashes = [], {}
+    for block in blocks:
+        if PROD_BLOCK.path(root, block).exists():
+            done.append(f"moved {PROD_BLOCK.shown(block)} to "
+                        f"{PROD_BLOCK.archive(root, block, now)}")
+        hashes[PROD_BLOCK.shown(block)] = _write_prod_block(root, block, registry, now)
+    for dev, prod in names.items():
+        record[prod]["blocks"] = {PROD_BLOCK.shown(block): hashes[PROD_BLOCK.shown(block)]
+                                  for block in blocks_of[dev]}
+    for entry in record.values():
+        entry["blocks"] = {shown: hashes.get(shown, written)
+                           for shown, written in entry.get("blocks", {}).items()}
+    if not blocks:
+        return done, ""
+    shown = [PROD_BLOCK.shown(block) for block in blocks]
+    done.append(f"wrote {in_words(shown)}")
+    return done, (f"Copied {counted(len(blocks), 'Building block')} to prod, which the prod "
+                  f"tables import: {in_words(shown)}.")
+
+
+def _write_prod_block(root: Path, block: str, registry: Registry,
+                      now: datetime.datetime) -> str:
+    """Write building_blocks/prod/<block>.py, a prod copy of the Building block, its own
+    block imports pointed at their prod copies, and register it: its hash."""
+    path = PROD_BLOCK.path(root, block)
+    dev_text = BUILDING_BLOCK.path(root, block).read_text(encoding="utf-8")
+    text = (f"# A prod copy project.promote made of {BUILDING_BLOCK.shown(block)}: change "
+            "that one and promote it again.\n" + _with_prod_blocks(dev_text))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    if not registry.listed(PROD_BLOCK, block):
+        registry.add([(PROD_BLOCK, block)], now)
+    return _hash(path.read_bytes())
+
+
+def prod_run_values_pointed(tables: list[str]) -> list[str]:
+    """Point each Run value's import in the prod copies' Table references, `tables`, at its
+    Building block's prod copy, building_blocks.prod.<name>, written when promote wrote none,
+    as a Run value given only in promote's decisions cell, for a prod seed limit, has none.
+    Its lines for write_decisions' report, nothing when it changed nothing."""
+    root = _project_root("project.write_decisions(...)")
+    now, record, registry = unchecked.now(), workflows.promoted_record(root), Registry(root)
+    said = []
+    for prod in tables:
+        path = REFERENCE.path(root, table_stem(prod))
+        lines = workflows.file_text(path).split("\n")
+        imports = [line for line in lines if line.endswith(decisions.RUN_VALUE_MARK)]
+        for block in _blocks_imported("\n".join(imports)):
+            if BUILDING_BLOCK.path(root, block).is_file() and not PROD_BLOCK.path(
+                    root, block).exists():
+                written = _write_prod_block(root, block, registry, now)
+                record.get(prod, {}).setdefault("blocks", {})[PROD_BLOCK.shown(block)] = written
+                said.append(f"Copied {BUILDING_BLOCK.shown(block)} to "
+                            f"{PROD_BLOCK.shown(block)}, for {prod}'s Run value.")
+        pointed = [_with_prod_blocks(line) if line in imports else line for line in lines]
+        if pointed != lines:
+            path.write_text("\n".join(pointed), encoding="utf-8")
+            said.append(f"{prod}: its Run value's import reads its Building block's prod copy.")
+    workflows.write_promoted_record(root, record)
+    return said
+
+
+def _blocks_used(root: Path, dev: str) -> list[str]:
+    """Each Building block a dev table uses, by its name, such as run_values: each its
+    notebook's code or its Table reference imports, a Run value's file among them, then each
+    those import, in turn."""
+    code = (_logic_text(root, dev) + "\n"
+            + workflows.file_text(REFERENCE.path(root, table_stem(dev))))
+    found: list[str] = []
+    waiting = _blocks_imported(code)
+    while waiting:
+        block = waiting.pop(0)
+        if block in found or not BUILDING_BLOCK.path(root, block).is_file():
+            continue
+        found.append(block)
+        waiting += _blocks_imported(workflows.file_text(BUILDING_BLOCK.path(root, block)))
+    return found
+
+
+def _blocks_imported(code: str) -> list[str]:
+    """Each Building block `code` imports by its module, building_blocks.<name>, but a prod
+    copy, building_blocks.prod.<name>."""
+    named = dict.fromkeys(re.findall(r"\bbuilding_blocks\.(\w+)", code))
+    return [block for block in named if block != PROD_BLOCKS_PACKAGE]
+
+
+# The package of Building blocks' prod copies, in building_blocks/ (Toolbox 8.5).
+PROD_BLOCKS_PACKAGE = "prod"
+
+
+def _with_prod_blocks(text: str) -> str:
+    """A prod copy's code importing each Building block's prod copy where it imported the
+    block, building_blocks.prod.<name> for building_blocks.<name>."""
+    return re.sub(rf"\bbuilding_blocks\.(?!{PROD_BLOCKS_PACKAGE}\.)(\w+)",
+                  rf"building_blocks.{PROD_BLOCKS_PACKAGE}.\1", text)
 
 
 def _references_promoted_before(root: Path, names: dict[str, str]) -> dict[str, str]:
@@ -4513,14 +5448,15 @@ def _promote_one(root: Path, tables: tuple[str, str], names: dict[str, str],
     report's line."""
     dev, prod = tables
     done = _archive_prod_copy(root, prod, now)
-    said = _write_prod_reference(root, dev, prod, databases, promoted_before)
+    said = _write_prod_reference(root, dev, prod, promoted_before)
     folder = TABLE_FOLDER.path(root, table_stem(dev)).is_dir()
     files = {}
     if folder:
         files = _write_prod_folder(root, dev, prod, names, databases)
     reference = REFERENCE.path(root, table_stem(prod)).read_text(encoding="utf-8")
     entry = {"dev": dev, "seeded": "def seed(" in _logic_text(root, dev), "files": files,
-             "reference": _reference_hash(reference)}
+             "reference": _reference_hash(reference), "dev_code": _dev_code_hash(root, dev),
+             "writes_when_promoted": len(workflows.write_times(root, prod))}
     _register_table(root, prod, folder=folder)
     copies = [REFERENCE.shown(table_stem(prod))]
     if folder:
@@ -4576,15 +5512,100 @@ def promoted_tables(tables: str | list[str], seeded: bool = False) -> list[str]:
     return prods
 
 
+# --- What promote's TABLES, left [], promotes (Toolbox 8.5, ticket 03) ------------------------
+
+
+def tables_to_promote(root: Path) -> dict[str, str]:
+    """Each dev table the promote Workflow promotes when its TABLES is left [], with why: each
+    finished table, of a finished convert batch or a finished new_table, not promoted yet or
+    changed in dev since it was; each promoted whose promotion isn't finished; and each dev
+    table one of those reads, which promote takes with it."""
+    promoted = {entry["dev"]: entry for entry in workflows.promoted_record(root).values()}
+    chosen = {}
+    for table in _finished_tables(root):
+        if table not in promoted:
+            chosen[table] = "not promoted yet"
+        elif changed_since_promoted(root, table):
+            chosen[table] = "changed in dev since it was promoted"
+    for table, why in unfinished_promotions(root).items():
+        chosen.setdefault(table, why)
+    dev_db = workflows.database_name(root, "DEV")
+    # Each table a chosen one reads, and each that one reads in turn, is promoted with it.
+    to_read = list(chosen)
+    while to_read:
+        table = to_read.pop(0)
+        for read in _dev_names_in(_logic_text(root, table), dev_db, table):
+            if read not in chosen:
+                chosen[read] = f"{table} reads it, so it is promoted with it"
+                to_read.append(read)
+    return chosen
+
+
+def unfinished_promotions(root: Path) -> dict[str, str]:
+    """Each dev table promoted, and not changed in dev since, whose promotion isn't finished,
+    with the promote Workflow's step it is at: what project.check() names of promote while
+    its TABLES is left []."""
+    found = {}
+    for entry in workflows.promoted_record(root).values():
+        dev = entry["dev"]
+        if not REFERENCE.path(root, table_stem(dev)).is_file() or changed_since_promoted(
+                root, dev):
+            continue
+        step = workflows.next_step(root, workflows.PROMOTE, {"TABLES": [dev]})
+        if step is not None:
+            number = workflows.PROMOTE.steps.index(step) + 1
+            found[dev] = f"promoted, and not finished: its next step is {number}. {step.name}"
+    return found
+
+
+def changed_since_promoted(root: Path, dev: str) -> bool:
+    """Whether a dev table's code, its Table reference and its notebook's code cells, changed
+    since project.promote last promoted it: never for one not promoted, nor one promoted
+    before 8.5, whose record keeps no hash of it."""
+    for entry in workflows.promoted_record(root).values():
+        if entry["dev"] == dev and "dev_code" in entry:
+            return entry["dev_code"] != _dev_code_hash(root, dev)
+    return False
+
+
+def _dev_code_hash(root: Path, dev: str) -> str:
+    """A dev table's code's hash: its Table reference and its notebook's code cells, which a
+    run of the notebook leaves as they were."""
+    reference = workflows.file_text(REFERENCE.path(root, table_stem(dev)))
+    return _hash(f"{reference}\n{_logic_text(root, dev)}".encode())
+
+
+def _finished_tables(root: Path) -> list[str]:
+    """Each dev table finished: each table of a finished convert batch, a new_table made from
+    its query among them, in the batch's order; then each other dev Table folder no batch
+    made whose new_table steps are done, its Decisions made and written in dev."""
+    found: list[str] = []
+    batched: list[str] = []
+    for record in sorted((root / BATCHES).glob(f"**/{BATCH_RECORD}")):
+        tables = json.loads(record.read_text(encoding="utf-8")).get("tables", [])
+        batched += tables
+        if record.parent.parent == root / BATCHES / FINISHED:
+            found += tables
+    dev_db = workflows.database_name(root, "DEV")
+    for stem in sorted(TABLE_FOLDER.found(root)):
+        table = TABLE_FOLDER.name_of(stem)
+        made = {"TABLES": [table]}
+        if (split_table_name(table)[0] == dev_db and table not in batched
+                and workflows.every_new_table_decision_made(root, made)
+                and workflows.every_table_written(root, made)):
+            found.append(table)
+    return list(dict.fromkeys(found))
+
+
 def _prod_database(root: Path, call: str) -> str:
     """The Prod Database admin/databases.py names; refused until it is filled in."""
-    prod = workflows.databases(root).get("PROD", "")
+    prod = workflows.database_name(root, "PROD")
     if not prod or workflows.PLACEHOLDER.fullmatch(prod):
         refuse(
             what=f"{call}: PROD in admin/databases.py isn't filled in.",
             why="Promotion copies each table to your Prod Database, the one PROD names.",
-            fix="Write your Prod Database's name in admin/databases.py, such as "
-            'PROD = "mart", and save it.',
+            fix="Write your Prod Database's name in admin/databases.py, as PROD's "
+            '"database", such as PROD = {"database": "mart", ...}, and save it.',
             error=ValueError,
         )
     return prod
@@ -4593,9 +5614,18 @@ def _prod_database(root: Path, call: str) -> str:
 def _prod_names(root: Path, call: str, tables: list[str], rename: dict[str, str],
                 databases: tuple[str, str]) -> dict[str, str]:
     """Each dev table promote copies and its prod copy's name, `databases` the Dev and Prod
-    Database: refused when one isn't in the Dev Database or has no Table reference, or rename=
-    names a table not promoted."""
+    Database: refused when none is given, one isn't in the Dev Database or has no Table
+    reference, or rename= names a table not promoted."""
     dev_db, prod_db = databases
+    if not tables:
+        refuse(
+            what=f"{call} names no table.",
+            why="It promotes the dev tables it is given. TABLES left [] in the promote "
+            "notebook is for its run cells, which find each finished table to promote.",
+            fix='Name each dev table, such as project.promote(["mart_dev.daily_job_runs"]), '
+            'or leave TABLES [] and run the notebook\'s "Run up to your Decisions" cell.',
+            error=ValueError,
+        )
     names = {}
     for table in tables:
         database, short = split_table_name(table)
@@ -4666,9 +5696,9 @@ def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[
         problems += [f"{dev}: it reads {read}, which isn't promoted with it"
                      for read in _dev_names_in(code, dev_db, dev) if read not in names]
         problems += [f"{dev}: its Building block {block} reads the Dev Database, which its "
-                     "prod copy would read too: a Building block serves dev and prod alike, "
-                     "so have it take the table, given by the notebook"
-                     for block in _blocks_reading(root, code, dev_db)]
+                     "prod copy, in building_blocks/prod/, would read too, so have it take "
+                     "the table, given by the notebook"
+                     for block in _blocks_reading(root, _blocks_used(root, dev), dev_db)]
     return problems
 
 
@@ -4690,9 +5720,8 @@ def _dev_names_in(code: str, dev_db: str, own: str) -> list[str]:
     return [table for table in dict.fromkeys(read) if table != own]
 
 
-def _blocks_reading(root: Path, code: str, dev_db: str) -> list[str]:
-    """Each Building block `code` imports that names a table of the Dev Database."""
-    blocks = dict.fromkeys(re.findall(r"\bbuilding_blocks\.(\w+)", code))
+def _blocks_reading(root: Path, blocks: list[str], dev_db: str) -> list[str]:
+    """Each Building block of `blocks`, by its name, that names a table of the Dev Database."""
     return [block for block in blocks
             if _dev_names_in(workflows.file_text(BUILDING_BLOCK.path(root, block)), dev_db, "")]
 
@@ -4700,8 +5729,9 @@ def _blocks_reading(root: Path, code: str, dev_db: str) -> list[str]:
 def _prod_text(text: str, names: dict[str, str], databases: tuple[str, str]) -> str:
     """A promoted notebook's code or Hive naming each promoted table's prod copy: by its name,
     its files' name and its Database; a renamed one imported under its dev name, so the code
-    that uses it reads as it did."""
+    that uses it reads as it did; and each Building block's prod copy."""
     dev_db, prod_db = databases
+    text = _with_prod_blocks(text)
     for dev, prod in names.items():
         text = re.sub(rf"\b{re.escape(dev)}\b", prod, text)
         text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
@@ -4754,32 +5784,36 @@ def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[st
     return moved
 
 
-def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str, str],
-                          promoted_before: str) -> str:
-    """Write a prod copy's Table reference, `databases` the Dev and Prod Database: the dev one
-    naming prod, its location= and its SEED kept from `promoted_before`, the text of the one
-    promoted before, when you answered them, else made from the dev one, with SEED = {}.
-    Gives what promote's report says of its location=, or nothing when it was kept."""
-    dev_db, prod_db = databases
+def _write_prod_reference(root: Path, dev: str, prod: str, promoted_before: str) -> str:
+    """Write a prod copy's Table reference: the dev one naming prod, its location= and its
+    SEED kept from `promoted_before`, the text of the one promoted before, when you answered
+    them, else its location= placed under PROD's location_root and SEED = {}. Gives what
+    promote's report says of its location=: nothing, but that it is None to fill in, when
+    PROD has no root."""
     dev_text = REFERENCE.path(root, table_stem(dev)).read_text(encoding="utf-8")
-    location, said = _prod_location(promoted_before, dev_text, dev, prod, databases)
     text = re.sub(rf"\b{re.escape(dev)}\b", prod, dev_text)
     text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
     # The table's own name, never a column's, which is in quotes.
     text = re.sub(rf"(?<![\"'\w.]){split_table_name(dev)[1]}\b(?![\"'])",
                   split_table_name(prod)[1], text)
-    text = re.sub(r"^    location=.*$", location, text, count=1, flags=re.MULTILINE)
+    found = re.search(r"^    location=.*$", text, flags=re.MULTILINE)
+    if found is not None:
+        line = _kept_prod_location(promoted_before)
+        text = text[:found.start()] + line + text[found.end():]
+    text = _with_location_placed(root, text, prod)
     # A prod copy's seed is promote's own Decision: every Partition, unless its decisions cell
     # answered "seed" for it before, which is kept.
     text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
                   flags=re.MULTILINE)
-    text = decisions.with_run_value_imports_kept(text, promoted_before)
-    text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
+    # A Run value's function, imported from its Building block's prod copy.
+    text = decisions.with_run_value_imports_kept(_with_prod_blocks(text), promoted_before)
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
             "that one and promote it again. Its\n# location= and SEED are the lines yours to "
             "change here.\n" + text)
     REFERENCE.path(root, table_stem(prod)).write_text(text, encoding="utf-8")
-    return said
+    if _NO_LOCATION in text:
+        return "its location= is None: fill it in"
+    return ""
 
 
 def _prod_seed_line(promoted_before: str) -> str:
@@ -4793,8 +5827,11 @@ def _prod_seed_line(promoted_before: str) -> str:
 
 def _reference_hash(text: str) -> str:
     """A prod Table reference's hash, its location= and SEED lines left out, which are yours
-    to answer."""
+    to answer, and each Run value's import, which an answer of promote's decisions cell writes
+    above SEED."""
     left_out = re.sub(r"^(    location=|SEED = ).*$", "", text, flags=re.MULTILINE)
+    left_out = re.sub(rf"^.*{re.escape(decisions.RUN_VALUE_MARK)}$", "", left_out,
+                      flags=re.MULTILINE)
     return _hash(left_out.encode("utf-8"))
 
 
@@ -4803,29 +5840,15 @@ _NO_LOCATION = ('    location=None,  # TODO: its own folder, such as '
                 '"/data/your_team/mart.db/this_table"')
 
 
-def _prod_location(promoted_before: str, dev_text: str, dev: str, prod: str,
-                   databases: tuple[str, str]) -> tuple[str, str]:
-    """A prod Table reference's location= line, and what promote's report says of it: the one
-    filled in when promoted before; else the dev one with each folder named for the Dev
-    Database, such as mart_dev or mart_dev.db, named for the Prod Database, and its last for
-    the prod table when renamed; else None to fill in."""
-    dev_db, prod_db = databases
-    before = re.search(r'^    location="([^"]*)"', promoted_before, re.MULTILINE)
-    if before is not None:
-        return f'    location="{before.group(1)}",', ""
-    in_dev = re.search(r'^    location="([^"]*)"', dev_text, re.MULTILINE)
-    folders = []
-    if in_dev is not None:
-        folders = in_dev.group(1).split("/")
-    named = {dev_db: prod_db, f"{dev_db}.db": f"{prod_db}.db"}
-    if not any(folder in named for folder in folders):
-        return _NO_LOCATION, "its location= is None: fill it in"
-    folders = [named.get(folder, folder) for folder in folders]
-    if folders[-1] == split_table_name(dev)[1]:
-        folders[-1] = split_table_name(prod)[1]
-    location = "/".join(folders)
-    said = f"its location= is {location}, made from dev's: check it"
-    return f'    location="{location}",', said
+def _kept_prod_location(promoted_before: str) -> str:
+    """A prod Table reference's location= line: the one it had when it was promoted before,
+    `promoted_before` its text then, filled in or placed, since its files are there now; else
+    None, which promote places under PROD's location_root, or leaves to fill in. Dev's own
+    location is never carried to prod, as two tables never share a folder."""
+    before = re.search(r"^    location=\"[^\"]*\",.*$", promoted_before, re.MULTILINE)
+    if before is None:
+        return _NO_LOCATION
+    return before.group(0)
 
 
 def _write_prod_folder(root: Path, dev: str, prod: str, names: dict[str, str],
@@ -4875,8 +5898,9 @@ def _prod_cells(cells: list[tuple[str, str]], dev: str, names: dict[str, str],
 
 
 def _edited_by_hand_lines(root: Path) -> list[str]:
-    """What check() says of each file of a prod copy changed or deleted since promote wrote it;
-    nothing of one archived since, as remove_table does."""
+    """What check() says of each file of a prod copy changed or deleted since promote wrote it,
+    a Building block's prod copy among them, each once; nothing of one archived since, as
+    remove_table does."""
     lines = []
     for prod, entry in workflows.promoted_record(root).items():
         has_folder = TABLE_FOLDER.path(root, table_stem(prod)).is_dir()
@@ -4889,6 +5913,7 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
                          f"{REFERENCE.shown(table_stem(prod))}, but its location= and SEED "
                          "(change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
+        lines += _prod_blocks_edited_lines(root, entry.get("blocks", {}))
         if not has_folder:
             continue
         for relative, written in entry["files"].items():
@@ -4896,6 +5921,19 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
             if not path.is_file() or _hash(path.read_bytes()) != written:
                 lines.append(f"Edited by hand, which project.promote writes over: {relative} "
                              f"(change its dev copy, in {dev_folder}, and promote it again)")
+    return list(dict.fromkeys(lines))
+
+
+def _prod_blocks_edited_lines(root: Path, blocks: dict[str, str]) -> list[str]:
+    """What check() says of each Building block's prod copy of `blocks`, by its path in the
+    Project, with the hash promote wrote it with, changed or deleted since."""
+    lines = []
+    for relative, written in blocks.items():
+        path = root / relative
+        if not path.is_file() or _hash(path.read_bytes()) != written:
+            dev = BUILDING_BLOCK.shown(Path(relative).stem)
+            lines.append(f"Edited by hand, which project.promote writes over: {relative} "
+                         f"(change {dev} and promote it again)")
     return lines
 
 
@@ -5093,6 +6131,10 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     Next: set conn, your connection, in warehouse.py.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
+    ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
+      ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23',
+      '2026-09-24').
+    To accept it, write in the decisions cell: "ops.run_alerts": {"key": ["alert_id"]}
     Wrote references/ops.py: from references import ops gives ops.run_alerts.
     Restart the kernel of a notebook that imported references, to see a table added since.
     >>> project.refresh_reference_sheet()
@@ -5560,12 +6602,13 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     Table reference lists each column preview() gives, in its order, typed as the tables it
     reads type them ("string", noted as a guess, where nothing tells); its partition columns,
     PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic
-    makes, proposed, as project.convert proposes one from a query. location= is a Decision left
-    to you, which the new_table Workflow's decisions cell answers. It writes over only the file
-    new_table wrote, whose columns are still <COLUMNS>: a Table reference whose columns you
-    wrote is kept, and the report says so. Either way, it names each TODO line the Table
-    reference leaves, such as its docstring's first line, which waits on nothing: fill each in
-    by hand. It refuses a logic cell that doesn't run, one
+    makes, proposed, as project.convert proposes one from a query. location= is placed in its
+    own folder under its Database's location_root, in admin/databases.py; with no root it is a
+    Decision left to you, which the new_table Workflow's decisions cell answers. It writes
+    over only the file new_table wrote, whose columns are still <COLUMNS>: a Table reference
+    whose columns you wrote is kept, and the report says so. Either way, it names each TODO
+    line the Table reference leaves, such as its docstring's first line, which waits on
+    nothing: fill each in by hand. It refuses a logic cell that doesn't run, one
     that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming
     columns preview() doesn't give last. `name` may be a list of tables' names, each written
     in turn.
@@ -5595,6 +6638,7 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     text = table_reference_text(name, _untyped_as_string(columns), partitions,
                                 f"{REFERENCE.folder}.{stem}", guessed=_guessed(columns),
                                 proposed=proposed, proposed_mark=decisions.PROPOSED_FROM_LOGIC)
+    text = _with_location_placed(root, text, name)
     path.write_text(text, encoding="utf-8")
     _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
     said = f"Wrote {shown} from its logic: {in_words(list(columns))}"

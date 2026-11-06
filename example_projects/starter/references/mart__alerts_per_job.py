@@ -1,4 +1,4 @@
-# sqlglot Composer 8.4 - copy it, then edit your copy
+# sqlglot Composer 8.5 - copy it, then edit your copy
 """mart.alerts_per_job - one row per job and day with alerts: alerts, high alerts.
 
 Why: its notebook saves these numbers once a day, so mart.team_day and anyone else can read

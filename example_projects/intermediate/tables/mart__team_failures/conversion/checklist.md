@@ -1,4 +1,4 @@
-<!-- sqlglot Composer 8.4 - copy it, then edit your copy -->
+<!-- sqlglot Composer 8.5 - copy it, then edit your copy -->
 # Checklist: mart.team_failures
 
 Written again each time its Decisions are written: don't tick or edit it. Answer each open Decision in the decisions cell of admin/workflows/convert/convert.ipynb.

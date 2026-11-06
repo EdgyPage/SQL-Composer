@@ -1,4 +1,4 @@
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.4)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 

@@ -4,12 +4,12 @@ paste or attach the separate files in copilot/, as 00_start_here.txt says.
 
 ===== 00_start_here.txt =====
 
-# Copilot files for sqlglot Composer 8.4: start here
+# Copilot files for sqlglot Composer 8.5: start here
 
 **Read this file to choose the one Copilot file your task needs, then follow the steps below
 in order.**
 
-sqlglot Composer 8.4 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
+sqlglot Composer 8.5 writes Hive, the SQL of the user's warehouse, from Python. You build a Statement from Clause functions, such as
 SELECT, FROM and WHERE, and the Toolbox writes its Hive and refuses one that would give a
 wrong number or read too much. These files teach Microsoft Copilot to write that Python, so
 you can ask it in plain words.
@@ -117,7 +117,7 @@ you can ask it in plain words.
 
 ===== 01_imports_and_project.txt =====
 
-# Copilot file 01: imports and the Project (sqlglot Composer 8.4)
+# Copilot file 01: imports and the Project (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -127,7 +127,7 @@ something and see its rows.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Project**: a folder holding the Toolbox's folder, `sqlglot_composer/`, and the user's
   notebooks.
 - **Statement**: one Hive query, built with `statement(...)`.
@@ -199,7 +199,8 @@ something and see its rows.
 - Each table read needs a Table reference: the references Workflow,
   admin/workflows/references/references.ipynb, runs
   `project.add_references(["ops.job_runs"], query=query)`, which writes
-  references/ops__job_runs.py from the table's own description. The user fills in its `key=`.
+  references/ops__job_runs.py from the table's own description, its Key proposed: the user
+  accepts it in the decisions cell.
 - A Saved table: the new_table Workflow, admin/workflows/new_table/new_table.ipynb, runs
   `project.new_table("mart.job_day_runs")`, which writes its notebook and Table reference:
   file 06 says what goes in them.
@@ -280,7 +281,7 @@ s = statement(
 
 ===== 02_table_references.txt =====
 
-# Copilot file 02: Table references (sqlglot Composer 8.4)
+# Copilot file 02: Table references (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -290,7 +291,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -350,11 +351,12 @@ table, or asks about a table's columns, partitions or Key.
 
 - A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
   runs `project.add_references(["ops.job_runs"], query=query)`, writing its Table reference
-  from the warehouse's own description, so its columns and types are right. Its Key is a
-  Decision, `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, which the next step writes.
+  from the warehouse's own description, so its columns and types are right. Its Key,
+  proposed and checked, is a Decision: `{"ops.job_runs": {"key": "proposed"}}` accepts it,
+  `["run_id"]` gives one; the next step writes it.
 - A new Saved table: the new_table Workflow (file 14) writes its Table reference from its
-  logic, `project.reference_from_logic(TABLES)`, or from its query; the user answers its
-  location in the decisions cell.
+  logic, `project.reference_from_logic(TABLES)`, or its query, its location placed under
+  DEV's location_root.
 
 ## Table's arguments
 
@@ -379,7 +381,7 @@ table, or asks about a table's columns, partitions or Key.
   warehouse has it now.
 - `first_look(t)` is a Statement of all its columns and 20 rows, for `run_query`.
 - A check gives back a Verdict `v`: `print(v)` says whether the Key holds; `if v:` is true
-  when it does.
+  then.
 
 ## Steps
 
@@ -400,7 +402,7 @@ table, or asks about a table's columns, partitions or Key.
 Reply with these parts, in this order, and nothing else:
 
 1. **Code**: one ```python block the user can paste into a notebook cell or a file.
-2. **Notes**: a few plain sentences on what it gives.
+2. **Notes**: a few plain sentences.
 
 ## Examples
 
@@ -439,7 +441,7 @@ print(v)
 
 ===== 03_build_a_statement.txt =====
 
-# Copilot file 03: building a Statement (sqlglot Composer 8.4)
+# Copilot file 03: building a Statement (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -448,7 +450,7 @@ Load this file when the user asks for rows, counts, totals or a list from their 
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)` of Clause functions such as `SELECT(...)`;
   a **Condition**, a test on rows: `equals(...)`.
 - `t`: a table, as its Table reference describes it: `job_runs`.
@@ -619,7 +621,7 @@ s = statement(
 
 ===== 04_joins.txt =====
 
-# Copilot file 04: joins (sqlglot Composer 8.4)
+# Copilot file 04: joins (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -629,7 +631,7 @@ match in another table, or a count of matches.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Statement**: one Hive query, `statement(...)`; a **Condition**, a test on rows:
   `equals(...)`.
 - `t`, `other`: two tables, as their Table references describe them: `job_runs`, `jobs`.
@@ -784,7 +786,7 @@ s = statement(
 
 ===== 05_windows_and_subtotals.txt =====
 
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.4)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -796,7 +798,7 @@ the rows of several Statements together.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Statement**: one Hive query; a **Condition**, a test on rows.
 - `t`: a table, as its Table reference describes it: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.
@@ -952,7 +954,7 @@ s = statement(
 
 ===== 06_save_a_table.txt =====
 
-# Copilot file 06: saving a table (sqlglot Composer 8.4)
+# Copilot file 06: saving a table (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1110,7 +1112,7 @@ def write() -> Statement:
 
 ===== 07_convert_hive.txt =====
 
-# Copilot file 07: converting Hive (sqlglot Composer 8.4)
+# Copilot file 07: converting Hive (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1264,7 +1266,7 @@ s = statement(
 
 ===== 08_check_and_compare.txt =====
 
-# Copilot file 08: checking and comparing (sqlglot Composer 8.4)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1419,7 +1421,7 @@ print(v)
 
 ===== 09_fix_a_refusal.txt =====
 
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.4)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1567,7 +1569,7 @@ s = statement(
 
 ===== 10_hand_written_hive_and_functions.txt =====
 
-# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.4)
+# Copilot file 10: labels, Hive functions, hand-written Hive and upkeep (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
@@ -1729,7 +1731,7 @@ s = statement(
 
 ===== 11_excel_formula_workbooks.txt =====
 
-# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.4)
+# Copilot file 11: each Excel formula's Hive (sqlglot Composer 8.5)
 
 **Use this file as reference while you follow file 15's steps: it says what each formula of
 an attached workbook becomes in Hive.**
@@ -1860,7 +1862,7 @@ FROM <database>.job_runs
 
 ===== 12_excel_power_query.txt =====
 
-# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.4)
+# Copilot file 12: Power Query, whole-column totals and Total Rows into Hive (sqlglot Composer 8.5)
 
 **Use this file as reference while you follow file 15's steps: it says what each Power Query
 step, whole-column total and Total Row of an attached workbook becomes in Hive.**
@@ -2006,16 +2008,15 @@ SELECT SUM(runs) AS runs FROM by_job
 
 ===== 13_workflows.txt =====
 
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.4)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the convert
-Workflow's notebook, in order. Load this file when the user asks how to turn Hive into their
-own tables end to end. File 16 is for promoting dev tables to prod; file 14 for new tables,
-Table references, upgrades and changes to a Saved table; a step's own file, for the Python
-inside it.
+with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each a cell of the convert
+Workflow's notebook, in order. Load this file when the user asks to turn Hive into tables.
+File 16 promotes dev tables to prod; file 14 covers new tables, Table references, upgrades
+and changes to a Saved table; a step's own file, its Python.
 
 ## Terms
 
@@ -2026,16 +2027,16 @@ inside it.
 - **Saved table**: a table the user's own code writes; its **Table reference** is the file
   of its columns, partitions, Key and location.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
-  Database, where others read them; set once in admin/databases.py.
-- **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
-  notebook's first cell imports them with the Toolbox's names.
+  Database, where others read them: dicts in admin/databases.py, each a "database" and a
+  "location_root", placing each new table.
+- **query**, **execute**: the user's warehouse calls, imported from warehouse.py.
 
 ## Names for this objective, with their arguments
 
 - project.check()
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
-- project.compare_batch(name, *, query=None, tables=None, partition=None)
+- project.compare_batch(name, *, query=None, tables=None, partitions=None)
 - project.write_decisions(answers, tables=None)
 
 ## Steps
@@ -2054,8 +2055,8 @@ inside it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
-  the user to answer: a Decision is the user's, never yours.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
+  a Decision is the user's, never yours.
 - If the user names no rename, staging table or database, write `RENAME = {}`,
   `STAGING = {}` or `DATABASE = "default"`. If no Decision is open, write `DECISIONS = {}`.
 - If the user asks to promote the tables to prod, name file 16 for it, once each compare
@@ -2070,40 +2071,39 @@ inside it.
 ## How a Workflow runs
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END": "'2026-10-31'"}}}`;
-  the next step writes each into its table's Table reference.
-- `project.check()`, and convert's step 1, print a whole DECISIONS to paste, each answer
-  still to give `"<FILL IN>"`, which is no answer until filled in.
-- A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
-  Decision of its table under "tags": a bare one is answered with the value's own quotes,
+  its kind: `{"mart_dev.weekly": {"key": ["job_id"], "types": {"fails": "bigint"}, "tags":
+  {"PERIOD_END": "'2026-10-31'"}}}`; the next step writes each into its Table reference.
+- "Run up to your Decisions" prints a whole DECISIONS to paste in the decisions cell under
+  it, each answer still to give `"<FILL IN>"`, none until filled in.
+- A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
   user gives; for one worked out each run, such as the latest Partition, a Run value: a
   function of theirs (file 17). If they give none, never guess: ask.
-- `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
-  file 17.
-- Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
-  then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- `"all_tables": {"key": "proposed"}` accepts each table's proposed Key as if typed. More
+  of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
+- Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
+  `PARTITIONS = [{"dt": "2026-09-23"}]`.
+- "Run up to your Decisions", then "Run the rest": one call, run before and after the
+  answers, each up to the first step only the user can do; `dry_run=True` sends nothing.
 
 ## convert: someone else's Hive into Saved tables in dev
 
 Its inputs:
 
-- NAME: the batch's name. For the `project.run_workflow(...)` cell, which runs every step
-  left, it may be a list of batches converted already.
-- FILES: the .hql files, saved in admin/workflows/convert/; or `FILES = []` and HIVE the
-  Hive as text. A query that only SELECTs makes a Saved table too, named for its file or
-  NAME.
+- NAME: the batch's name; for the run cells, it may be a list of batches converted already.
+- FILES: the .hql files, beside the notebook or by path, each read where it is; left `[]`,
+  every .hql beside it, or HIVE, the Hive as text. A query alone makes a Saved
+  table too, named for its file or NAME.
+- EACH_SCRIPT_ITS_OWN_BATCH: True makes each file a batch named for it, one decisions cell
+  for all; scripts reading each other's tables are refused.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
-- RENAME: a dev copy's own name, by the table's full name (DATABASE when the scripts give
-  none), the new name without a database: `{"mart.team_fails": "team_fails"}` makes
-  mart_dev.team_fails. Left `{}`, it is <table>_<its database>: mart_dev.team_fails_mart.
-- STAGING: a staging table is one a statement makes and a later one reads; convert's report
-  names each. Folded, its query goes inside each table that reads it, and it is never made;
-  kept, it is a Saved table: `{"ops_reports.failed": "fold"}` or "keep". Each one not named,
-  convert folds if temporary or DROPped, and keeps if not.
+- RENAME: a dev copy's own name, by the table's full name, without a database:
+  `{"mart.team_fails": "team_fails"}` makes mart_dev.team_fails. Left `{}`, it is
+  <table>_<its database>: mart_dev.team_fails_mart.
+- STAGING: a staging table is one a statement makes and a later one reads, named in
+  convert's report. Folded, its query goes inside each table that reads it; kept, it is a
+  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if
+  temporary or DROPped, else kept.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -2139,7 +2139,7 @@ Its inputs:
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-       project.compare_batch(NAME, query=query, partition=PARTITION)
+       project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 
 ## Example
@@ -2151,9 +2151,11 @@ convert notebook's names cell, then its first step's cell:
 NAME = "ops_reports"
 FILES = ["daily.hql", "weekly.hql"]
 HIVE = None
+EACH_SCRIPT_ITS_OWN_BATCH = False
 DATABASE = "default"
 RENAME = {}
 STAGING = {}
+PARTITIONS = []
 
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)
@@ -2169,17 +2171,15 @@ project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
 
 ===== 14_workflows_new_tables_and_upkeep.txt =====
 
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.4)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.5)
 
-**Follow the steps below in order, as written. Add no step or call, and reply in the shape
-the Output section gives.**
+**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
-Objective: take the user through a job on their own Project, with sqlglot Composer 8.4, a Toolbox that
-writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
-Load this file when the user asks how to make a new Saved table, from a query or by hand, add
-Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
-File 13 converts Hive, file 16 promotes to prod; a step's own file is for the Python inside
-it.
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.5, a Toolbox that
+writes Hive: the steps left, each a cell of a Workflow's notebook, in order.
+Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
+change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file, its
+Python.
 
 ## Terms
 
@@ -2189,10 +2189,10 @@ it.
   or a column type, answered in the **decisions cell**, DECISIONS.
 - **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic.
   A **Table reference** is the file of a table's columns, partitions, Key and location.
-- **DEV**: the Dev Database, where tables are built and compared; set once in
-  admin/databases.py.
+- **DEV**: the Dev Database, where tables are built and compared: a dict in
+  admin/databases.py, a "database" and a "location_root" that places each new table.
 - **Reference sheet**: one table of every column of every table with a Table reference.
-- **Admin statement**: a Statement from the admin module that changes a Saved table's
+- **Admin statement**: an admin module Statement that changes a Saved table's
   definition or deletes its data. An **UPGRADE mark** is a comment an upgrade leaves for the
   user.
 
@@ -2220,8 +2220,8 @@ it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
-  the user to answer: a Decision is the user's, never yours.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
+  a Decision is the user's, never yours.
 - If the user has a new table's query, QUERIES gives its .hql file by the table's name
   without its database, and the table is made from it: no `<...>` to fill in. If not,
   `QUERIES = {}`.
@@ -2235,12 +2235,14 @@ it.
 
 ## How a Workflow runs
 
-- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}}}`; the next step writes each into its table's
-  Table reference.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- DECISIONS holds each answer by table, as `project.check()` writes it:
+  `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
+- references' step 1 proposes each Key, checked with check_key, and the first line and
+  `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
+  Key, a table's own "key" wins.
+- "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
+  before and after the answers, else the last cell, run to the first step the user must do;
+  `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 
@@ -2337,13 +2339,13 @@ it.
 ## Example
 
 The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
-notebook's names cell, its decisions cell once the table's location is known, then its last
-cell, which makes the table from the query, writes it in dev and compares it with the query:
+notebook's names cell, its decisions cell (its location placed under DEV's root), then "Run
+the rest", which makes, writes and compares the table:
 
 ```python
 TABLES = ["mart_dev.failed_per_job"]
 QUERIES = {"failed_per_job": "failed_per_job.hql"}
-DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/failed_per_job"}}
+DECISIONS = {"mart_dev.failed_per_job": {"key": ["job_id"]}}
 project.run_workflow("new_table", query=query, execute=execute)
 ```
 
@@ -2357,7 +2359,7 @@ project.run_workflow("new_table", query=query, execute=execute)
 
 ===== 15_excel_workbook_steps.txt =====
 
-# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.4)
+# Copilot file 15: an Excel workbook into Hive, step by step (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written. Add no step, skip none, and reply in the shape
 the Output section gives.**
@@ -2496,12 +2498,12 @@ LEFT JOIN (SELECT job_id, COUNT(*) AS runs FROM <database>.job_runs GROUP BY job
 
 ===== 16_workflows_promote.txt =====
 
-# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.4)
+# Copilot file 16: the promote Workflow, dev tables to prod (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through promoting tables from their Dev Database to their Prod
-Database, with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the
+Database, with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each its cell of the
 promote Workflow's notebook, in order. Load this file when the user asks how to carry dev
 tables to prod. File 13 is for converting Hive into dev first; file 14 for new tables, Table
 references, upgrades and changes to a Saved table; a step's own file, for the Python inside
@@ -2516,7 +2518,8 @@ it.
 - **Saved table**: a table the user's own code writes; its **Table reference** is the file
   of its columns, partitions, Key and location.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
-  Database, where others read them; set once in admin/databases.py.
+  Database, where others read them: dicts in admin/databases.py, each a "database" and a
+  "location_root", which places each new table's location.
 - **prod copy**: the Saved table promote makes in PROD from a dev table: its own Table folder
   and Table reference, named for the dev table with PROD for its database.
 - **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
@@ -2534,7 +2537,8 @@ it.
 
 1. **Place the user.** Name the Workflow and the step the user is at; `project.check()`
    names the next step. Then step 2.
-2. **Write the names cell**, TABLES given the user's dev tables. Then step 3.
+2. **Write the names cell**, TABLES given the user's dev tables, or `TABLES = []`. Then
+   step 3.
 3. **Write the cells asked**, by the Decision rules, each as listed, with the user's names.
    Then step 4.
 4. **Name the rest**: each Decision left to the user, and each later step, in words. Then
@@ -2549,11 +2553,11 @@ it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- promote fills in a prod copy's location when it can: the one an earlier promote gave it,
-  or the dev location with PROD in place of the Dev Database's name, as
-  /data/team/mart_dev.db/x becomes /data/team/team_prod.db/x. Otherwise the location is a
-  Decision left open, which `project.check()` names. Write each answer the user gives, or a
-  location they want changed, in DECISIONS by the prod copy's name; if none is open, write
+- A prod copy's location is the one an earlier promote gave it; if none, it is placed under
+  PROD's "location_root", `<root>/<database>.db/<table>`, as /data/team/prod/team_prod.db/x;
+  if that is not filled in, it is a Decision left open, which `project.check()` names. The
+  dev location is never carried over. Write each answer the user gives, or a location they
+  want changed, in DECISIONS by the prod copy's name; if none is open, write
   `DECISIONS = {}`. A Decision is the user's, never yours.
 - A prod copy is named for its dev table, in PROD. If the user wants another name, give
   `project.promote(TABLES, rename={"mart_dev.daily_fails": "fails"})`.
@@ -2567,25 +2571,29 @@ it.
 ## How a Workflow runs
 
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
-  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
+  by its kind: `{"team_prod.daily_fails": {"location": "/data/team/prod/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
 - A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
   write in prod too.
+- Each Building block a promoted table imports, Run values among them, is copied into
+  building_blocks/prod/, which the prod copy imports: a change in dev reaches prod only when
+  promoted again; `project.check()` names a prod copy edited by hand.
 - A prod copy that reads itself is seeded from its original once, at step 5, copying every
   Partition unless its own "seed" answer limits them, as in
   `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
   answer isn't carried over, since prod often needs more of the original's history than a dev
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest": one call, run before and after the
+  answers, each stopping at the first step only the user can do; `dry_run=True` sends nothing.
 
 ## promote: dev tables to prod
 
 Its input:
 
 - TABLES: the dev tables to promote, by their full names, such as
-  `["mart_dev.daily_job_runs"]`. Each prod copy reads the prod copies of the others
-  promoted with it.
+  `["mart_dev.daily_job_runs"]`. Left `[]`, the run cells promote every finished table not
+  promoted yet, or changed in dev since, naming each and why; `project.promote([])` is
+  refused: the run cells read the [], and project.promote takes the tables by name. Each prod copy reads the prod copies of the others promoted with it.
 
 1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
    project.do_next() runs it for you).
@@ -2646,17 +2654,15 @@ project.promote(TABLES)
 
 ===== 17_run_values_and_seed_limits.txt =====
 
-# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.4)
+# Copilot file 17: Run values, answers for every table, and seed limits (sqlglot Composer 8.5)
 
-**Follow the steps below in order, as written, adding none; reply as the Output section says.**
+**Follow the steps below in order, as written, adding none; reply as Output says.**
 
 Objective: write a Run value, a function of the user's that works out a value each time a
 table is written, and the decisions cell answers that use it: a Script tag's, one for every
-table, and a seed's limits.
-Load this file when the user wants a tag's day worked out at each run, such as the latest
-Partition a table holds, one answer for every table of a Workflow notebook, or a seed that
-copies only some Partitions. File 13 is for the convert Workflow's other steps, file 16 for
-promote's.
+table, and a seed's limits. Load this file when the user wants a tag's day worked out at
+each run, one answer for every table, or a seed of only some Partitions. File 13 is for the convert
+Workflow's other steps, file 16 for promote's.
 
 ## Terms
 
@@ -2675,6 +2681,7 @@ promote's.
 
 ## Names for this objective, with their arguments
 
+- project.new_run_value(name, *, latest_partition)
 - latest_partition(column, query=None)
 - today(utc_offset_hours=0)
 - hive_date(day)
@@ -2687,9 +2694,10 @@ promote's.
 
 1. **Pick the pieces**, the function, the answers or both, by the Decision rules. Done when
    each piece asked for is named. Then step 2.
-2. **Write the function**, if one is asked for and the user hasn't one, in the file
-   building_blocks/run_values.py, importing `query` from warehouse itself; a tag's function
-   takes no argument. Done when it gives a value. Then step 3.
+2. **Write the function**, if one is asked for and the user hasn't one: for a table's
+   latest Partition, the `project.new_run_value` call at the top of the decisions cell; for
+   any other, by hand in building_blocks/run_values.py, importing `query` from warehouse; a
+   tag's function takes no argument. Done when it gives a value. Then step 3.
 3. **Write the decisions cell**: the function's import, then DECISIONS, then the notebook's
    answers' step cell, which writes them in. Done when each answer is in. Then step 4.
 4. **Name the rest** in words, as Output says. Then step 5.
@@ -2699,20 +2707,24 @@ promote's.
 
 - If a tag stands for a day that changes each run, answer it with a Run value. If the user
   gives one fixed day, answer with text, as file 13 says.
-- If the day is the newest Partition of a table: `latest_partition(t.dt, query)`, which reads
-  no row. If it is today where the warehouse is: `today()` in UTC, or
+- If the day is the newest Partition of a table:
+  `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")` writes
+  `latest_partition(job_runs.dt, query)`, which reads no row, and registers the file. If it
+  is today where the warehouse is: `today()` in UTC, or
   `today(utc_offset_hours=-6)` six hours behind it, the user's offset; yesterday is that minus
   `datetime.timedelta(days=1)`.
 - If no Partition names it, the function runs a Statement of its own with run_query, each
   partitioned read bounded (file 03), and gives the value it read.
 - Answer with the function's name, no brackets: `{"tags": {"PERIOD_END": period_end}}`. With
   brackets it is one day, which the answers' step leaves unwritten.
-- The function lives in a file of the Project. One made in a notebook cell, a lambda or one
-  inside another function is left unwritten by the answers' step.
-- If several tables of the notebook share an answer, give it under "all_tables":
-  "location_root", "tags" or "seed" only. A table's own answer overwrites it, kind by kind
-  and tag by tag. A Key or a type goes under each table, never "all_tables".
-- "location_root" gives each table with no location its own folder, `<root>/<db>.db/<table>`.
+- The function lives in a file of the Project: one made in a notebook cell, a lambda or a
+  nested one is left unwritten by the answers' step.
+- If several tables share an answer, give it under "all_tables": "tags",
+  "seed", or `"key": "proposed"`, which accepts each table's proposed Key. A table's own
+  answer overwrites it, kind by kind and tag by tag. Any other Key, and a type, goes under
+  each table, never "all_tables".
+- A location is placed under "location_root" in admin/databases.py, never answered under
+  "all_tables", which refuses it.
 - If a table that reads itself needs only some Partitions, answer "seed", by partition
   column: a value, **that value or later**, never it alone; `{"from": ..., "to": ...}`, either end left out as
   the user likes; a list, those values alone; numbers as numbers. Any value may be a Run
@@ -2728,10 +2740,10 @@ promote's.
 
 1. building_blocks/run_values.py in a ```python block, if step 2 wrote it.
 2. The decisions cell, then the answers' step cell, in one ```python block.
-3. In words: the first time, register the file with `project.register("run_values")`, the
-   register cell of admin/check_project.ipynb, as `project.check()` asks; then run the
-   notebook's answers' step cell. A function that fails leaves `<NAME failed>` in the Hive and a Warning; nothing is
-   sent until it is fixed.
+3. In words: for a file written by hand, register it once with
+   `project.register("run_values")`, as `project.check()` asks; then run the notebook's
+   answers' step cell. A function that fails leaves `<NAME failed>` in the Hive and a
+   Warning; nothing is sent until it is fixed.
 
 ## Examples
 
@@ -2774,14 +2786,15 @@ def last_good_day() -> datetime.date:
 ```
 
 The convert notebook's decisions cell and step 3 cell: every table's PERIOD_END answered by
-period_end and its folder under /data/team; team_log's seed copies only the Partitions from
+period_end and its proposed Key accepted; team_log's seed copies only the Partitions from
 2026-09-01 on whose team is US or CA:
 
 ```python
+project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
 from building_blocks.run_values import period_end
 
 DECISIONS = {
-    "all_tables": {"location_root": "/data/team", "tags": {"PERIOD_END": period_end}},
+    "all_tables": {"key": "proposed", "tags": {"PERIOD_END": period_end}},
     "mart_dev.team_log_mart": {"key": None,
                                "seed": {"dt": {"from": "2026-09-01"}, "team": ["US", "CA"]}},
 }
@@ -2793,6 +2806,7 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 - The function takes no argument and imports what it uses, `query` among them.
 - Each Run value is answered by the function's name, imported at the top of the cell.
-- "all_tables" holds only location_root, tags and seed; each Key and type is a table's own.
+- "all_tables" holds only tags, seed and "key": "proposed"; each other Key and type is a
+  table's own.
 - Each seed limit names a partition column.
 - The answers' step cell gives `tables=`, as its notebook does.
