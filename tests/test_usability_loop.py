@@ -329,3 +329,34 @@ def test_a_run_that_adds_a_cell_to_a_workflow_notebook_is_scored_with_it(
     assert result.added_cells == ["convert (1)"]
     assert not result.passed
     forget_the_projects_modules()
+
+
+def test_a_runs_actions_are_counted_cells_edited_and_files_of_its_own(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Toolbox 8.5, ticket 12: what a run did by hand, counted, failing nothing.
+    run = tmp_path / "run"
+    work = run / "my_work"
+    work.mkdir(parents=True)
+    monkeypatch.chdir(work)
+    project = toolbox_module().project
+    notebooks = toolbox_module("notebooks")
+    project.start()
+    result = usability_loop.RunScore("W7", project=work)
+    usability_loop.count_actions(result, run)
+    assert result.actions == 0
+    notebook = work / "admin" / "workflows" / "convert" / "convert.ipynb"
+    cells = notebooks.read_cells(notebook)
+    names = next(number for number, (kind, text) in enumerate(cells)
+                 if kind == "code" and text.startswith("NAME ="))
+    cells[names] = ("code", cells[names][1].replace("NAME = ''", "NAME = 'weekly'", 1))
+    notebooks.write_notebook(notebook, cells)
+    (work / "admin" / "workflows" / "convert" / "weekly.hql").write_text("SELECT 1\n",
+                                                                       encoding="utf-8")
+    (run / "set_cell.py").write_text("print('mine')\n", encoding="utf-8")
+    usability_loop.count_actions(result, run)
+    assert result.edited_cells == {"convert": 1}
+    assert result.own_files == ["my_work/admin/workflows/convert/weekly.hql", "set_cell.py"]
+    assert result.actions == 3
+    assert "actions: 3, cells edited (convert 1), 2 files of its own" in (
+        usability_loop.report_text(result, run))
+    forget_the_projects_modules()
