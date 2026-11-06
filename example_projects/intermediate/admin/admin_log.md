@@ -105,7 +105,7 @@ Each Admin statement, Unchecked statement, Statement holding an Unchecked expres
 
 - Call: `project.write_decisions(...)`
 - Tables named: mart.team_failures
-- Files: none changed
+- Files: wrote references/mart__team_failures.py
 - Script: a notebook, at commit nogit
 - Result: worked
 
