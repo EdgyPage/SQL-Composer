@@ -1680,8 +1680,10 @@ def run_cell_text(workflow: Workflow) -> str:
 
 def given_inputs(root: Path, workflow: Workflow) -> dict[str, object]:
     """A Workflow's inputs, as its notebook's names cell holds them: each name given a
-    plain value there, and its decisions cell's DECISIONS, when it has one. A value that isn't
-    plain Python, or a notebook that isn't there, gives none."""
+    plain value there, and its decisions cell's DECISIONS, the cell holding a DECISIONS = line,
+    when it has one, a Run value's function it imports from the Project's own files among its
+    values. A value that isn't plain Python, but such a function, or a notebook that isn't
+    there, gives none."""
     text = file_text(notebook_path(root, workflow))
     if not text or not workflow.inputs:
         return {}

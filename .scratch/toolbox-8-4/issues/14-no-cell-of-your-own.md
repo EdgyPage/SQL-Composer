@@ -73,3 +73,11 @@ Built 2026-11-05.
   takes the same cell the notebook does.
 - **Journeys**: the user's batch through the runner, and promote of its seeded table with the
   prod seed limited from promote's decisions cell, its prod rows the dev ones.
+- **The usability loop counts the cells a run adds**: `usability_loop.check_cells` notes each
+  Workflow notebook of the run's Project holding more code cells than the Toolbox writes in it,
+  and a run with any fails (`RunScore.added_cells`), its report naming them.
+- **Scenario W7**, "convert a script whose Script tag is the latest day, its seed limited": the
+  user's job in their words, PERIOD_END worked out at each write from what ops.job_runs holds
+  and the seed copying only 2026-09-24 on; its key holds the rows, the compare passing, and a
+  Run value's import and the seed's day in the Table reference; its reference end, written
+  with the Toolbox, passes it.
