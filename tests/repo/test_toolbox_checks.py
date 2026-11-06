@@ -89,6 +89,8 @@ PUBLIC_NAMES = [
     "tag_text", "run_value", "today", "latest_partition", "hive_date",
     # Toolbox 8.4, ticket 09: a converted table's seed, limited by Partition.
     "seed_copy",
+    # Toolbox 8.5, ticket 09: the settings of the Dev or Prod Database, for the user's code.
+    "database_settings",
 ]
 # The admin module's names, `from sqlglot_composer import admin`, as decided in Toolbox 5.0's
 # ticket 04: drop_table moved here from the names above. Toolbox 7.0, ticket 03: tables have no
@@ -137,8 +139,8 @@ def test_the_folder_holds_exactly_its_files() -> None:
 
 
 def test_the_public_names_are_the_decided_ones() -> None:
-    assert len(PUBLIC_NAMES) == 117
-    assert len(set(PUBLIC_NAMES)) == 117
+    assert len(PUBLIC_NAMES) == 118
+    assert len(set(PUBLIC_NAMES)) == 118
     assert sorted(sqlglot_composer.__all__) == sorted(PUBLIC_NAMES)
     for name in sqlglot_composer.__all__:
         assert hasattr(sqlglot_composer, name), name

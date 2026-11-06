@@ -24,11 +24,11 @@ answers. It never writes over any other line that is made already, as yours is o
 change it: the answer is kept unwritten, to name.
 
 `DECISIONS["all_tables"]` (Toolbox 8.4) answers for every table the Workflow's notebook names:
-"seed", the limits of the seed's copy; "location_root", the folder each table's own goes
-under, as <root>/<db>.db/<table>, for a table whose location is still open; and "tags", each
-for the tables that hold it. `table_answer` gives one table's answer: all_tables' first, then
-the table's own over it, kind by kind and, for tags, tag by tag. A Key and a type are each
-table's own.
+"seed", the limits of the seed's copy, and "tags", each for the tables that hold it.
+`table_answer` gives one table's answer: all_tables' first, then the table's own over it, kind
+by kind and, for tags, tag by tag. A Key, a type and a location are each table's own: the
+folder every table's own goes under is a Database setting since 8.5, "location_root" in
+admin/databases.py, which places a table with no location of its own as it is written.
 """
 
 from __future__ import annotations
@@ -60,12 +60,11 @@ ANSWERS = {LOCATION: "location", KEY: "key", GUESSED_TYPE: "types", TAG: "tags"}
 ANSWERED_KINDS = tuple(ANSWERS)
 # The decisions cell's answer for every table its Workflow's notebook names, beside each
 # table's own (Toolbox 8.4), and the kinds it answers, each by its name there: "proposed" for
-# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, the folder
-# each table's own goes under, and Script tags.
+# the Key, accepting each table's proposed one (8.5), the limits of the seed's copy, and Script
+# tags. A location is placed under its Database's location_root, a Database setting (8.5).
 ALL_TABLES = "all_tables"
 SEED = "seed"
-LOCATION_ROOT = "location_root"
-ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, LOCATION_ROOT, ANSWERS[TAG])
+ALL_TABLES_ANSWERS = (ANSWERS[KEY], SEED, ANSWERS[TAG])
 # What a line still to decide holds.
 OPEN = re.compile(r"TODO:|<[A-Z][A-Z_]*>")
 PLACEHOLDER_WORD = re.compile(r"<[A-Z][A-Z_]*>")
@@ -590,19 +589,15 @@ def proposed_key(text: str) -> list[str] | None:
 
 def all_tables_answer(every: dict[str, object], table: str, text: str) -> dict[str, object]:
     """What "all_tables", `every`, answers for one table, its Table reference's text being
-    `text`: its seed limits as they are, for the seed to read; its location under
-    "location_root" while its location= is still open; each tag of "tags" the table holds; and,
-    for a "key" of "proposed", "proposed", which table_answer turns into its proposed Key.
+    `text`: its seed limits as they are, for the seed to read; each tag of "tags" the table
+    holds; and, for a "key" of "proposed", "proposed", which table_answer turns into its
+    proposed Key.
     An answer left <FILL IN> answers none; write_decisions names it once, for all_tables."""
     answer: dict[str, object] = {}
     if every.get(ANSWERS[KEY]) == ACCEPT_PROPOSED:
         answer[ANSWERS[KEY]] = ACCEPT_PROPOSED
     if SEED in every:
         answer[SEED] = every[SEED]
-    root = every.get(LOCATION_ROOT)
-    if (isinstance(root, str) and not is_left_to_fill_in(root)
-            and open_decisions(text, table, (LOCATION,))):
-        answer[ANSWERS[LOCATION]] = location_under(root, table)
     tags = every.get(ANSWERS[TAG])
     if isinstance(tags, dict):
         held = tag_names(text)
@@ -670,8 +665,8 @@ def proposed_does_not_add_up(columns: dict[str, str]) -> list[str]:
 
 
 def location_under(root: str, table: str) -> str:
-    """A table's own folder under a location_root, <root>/<db>.db/<table>: "/data/team" gives
-    mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
+    """A table's own folder under its Database's location_root, <root>/<db>.db/<table>:
+    "/data/team" gives mart_dev.weekly_ops "/data/team/mart_dev.db/weekly_ops"."""
     database, short = split_table_name(table)
     return f"{root.rstrip('/')}/{database}.db/{short}"
 
@@ -789,10 +784,10 @@ def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -
     """The lines of a whole DECISIONS = {...} to paste into a decisions cell: each Decision of
     `still_open` the cell answers, by its table, each value still to give <FILL IN>, a guessed
     type's proposal "string", an open Key's proposal, and a comment beside each saying what to
-    write. A Decision more than one table holds is offered once, under "all_tables": a location
-    as location_root, and a tag by its NAME, where it stands bare in each or inside quotes in
-    each. When `proposed`, the tables whose Key the Toolbox proposed, names two or more,
-    "all_tables" offers "key": "proposed", which accepts each, in place of each table's own."""
+    write. A tag more than one table holds is offered once, under "all_tables", by its NAME,
+    where it stands bare in each or inside quotes in each. When `proposed`, the tables whose
+    Key the Toolbox proposed, names two or more, "all_tables" offers "key": "proposed", which
+    accepts each, in place of each table's own."""
     accepts_every_key = len(set(proposed or [])) > 1
     answered = [decision for decision in still_open if decision.kind in ANSWERS
                 and not (accepts_every_key and decision.kind == KEY and decision.subject)]
@@ -818,11 +813,9 @@ def paste_lines(still_open: list[Decision], proposed: list[str] | None = None) -
 
 
 def _shared_kind(decision: Decision) -> tuple[str, str, bool] | None:
-    """What a Decision answered for several tables at once has in common: a location, or a
-    tag by its NAME and whether it stands inside quotes; None for a Key or a type, which each
-    table answers itself."""
-    if decision.kind == LOCATION:
-        return (LOCATION, "", False)
+    """What a Decision answered for several tables at once has in common: a tag's NAME and
+    whether it stands inside quotes; None for a location, a Key or a type, which each table
+    answers itself."""
     if decision.kind == TAG:
         return (TAG, decision.subject, decision.quoted)
     return None
@@ -846,8 +839,7 @@ def _shared_decisions(still_open: list[Decision]) -> list[Decision]:
 
 def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[str]:
     """The lines of "all_tables" in DECISIONS to paste: "key": "proposed" when it
-    `accepts_every_key`, its location_root when the location is shared, and each shared tag's
-    <FILL IN>, with how its answer is written."""
+    `accepts_every_key`, and each shared tag's <FILL IN>, with how its answer is written."""
     if not shared and not accepts_every_key:
         return []
     lines = [f'    "{ALL_TABLES}": {{  # answers for every table of this notebook; a table\'s '
@@ -855,12 +847,6 @@ def _all_tables_lines(shared: list[Decision], accepts_every_key: bool) -> list[s
     if accepts_every_key:
         lines.append(f'        "{ANSWERS[KEY]}": "{ACCEPT_PROPOSED}",  # accepts each table\'s '
                      "proposed Key, marked # proposed in its Table reference, as if typed")
-    for decision in shared:
-        if decision.kind == LOCATION:
-            example = location_under("/data/your_team", decision.table)
-            lines.append(f'        "{LOCATION_ROOT}": "{FILL_IN}",  # the folder each '
-                         f"table's own goes under, such as \"/data/your_team\", which gives "
-                         f'{decision.table} "{example}"')
     # Where a shared tag stands differs from table to table, so its hint names no place.
     lines += _tags_lines([replace(decision, where="") for decision in shared
                           if decision.kind == TAG])

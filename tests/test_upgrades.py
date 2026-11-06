@@ -536,8 +536,10 @@ def test_each_name_databases_py_still_holds_unfilled_is_marked(open_in_7_2: Path
 
 def test_a_filled_in_name_is_not_marked(open_in_7_2: Path) -> None:
     databases = open_in_7_2 / "admin" / "databases.py"
+    # Toolbox 8.5: DEV's settings, its name and its root, both filled in.
     databases.write_text(toolbox_module("project").DATABASES_TEXT.replace(
-        '"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
+        '"<DEV_DATABASE>"', '"mart_dev"').replace('"<DEV_LOCATION_ROOT>"', '"/data/team/dev"'),
+        encoding="utf-8")
     project.upgrade()
     lines = databases.read_text(encoding="utf-8").split("\n")
     assert [line for line in lines if line.startswith("# UPGRADE")] == [
