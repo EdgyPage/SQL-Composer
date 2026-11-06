@@ -169,6 +169,38 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Decisions so far
 
+- [01 Counting your actions](issues/01-a-journey-counting-actions.md): each journey counts the
+  actions it takes for the user; `KNOWN_ACTIONS` only falls. The user's batch converted and
+  promoted took 35 in 8.4 and takes 17 in 8.5.
+- [02 Top to bottom](issues/02-notebooks-top-to-bottom.md): convert, promote, new_table and
+  references open with the names cell, "Run up to your Decisions", the decisions cell and "Run
+  the rest"; each step's own cell below.
+- [03 Names cell defaults](issues/03-names-cell-defaults.md): FILES left [] reads every .hql
+  beside the notebook, a script is read where it is; promote's TABLES left [] promotes every
+  finished table not promoted, or changed since.
+- [04 PARTITIONS](issues/04-partitions.md): a list, compared besides the latest, a finished
+  batch too; `compare_batch`'s `partition=` refused.
+- [05 One batch per script](issues/05-one-batch-per-script.md): EACH_SCRIPT_ITS_OWN_BATCH, one
+  decisions cell for all, batches reading each other's tables refused.
+- [06 new_run_value](issues/06-new-run-value.md): writes and registers the latest-Partition Run
+  value; run again as it was, it changes nothing.
+- [07 Proposed Keys](issues/07-accept-proposed-keys.md): `"key": "proposed"`, under all_tables
+  or a table's name; types refused under all_tables.
+- [08 References propose](issues/08-references-propose-and-check.md): a Key checked from rows,
+  open until accepted; the first line and does_not_add_up proposed.
+- [09 Database settings](issues/09-database-settings.md): DEV and PROD dicts, each table placed
+  under its Database's location_root; `database_settings(name)`; all_tables' location_root
+  refused.
+- [10 Prod Building blocks](issues/10-prod-building-blocks.md): promote copies each block a
+  table uses into building_blocks/prod/, and a Run value promote's decisions cell gives.
+- [11 The docs](issues/11-the-docs.md): README, how-tos 01, 02, 09, 28 to 30, CHANGES, CONTEXT,
+  the Copilot files; the beginner reader's 13 stops mended.
+- [12 The round](issues/12-the-usability-round.md): 12 of 12 passed; files of their own fell
+  for W1, W3 and W7.
+- [13 8.5](issues/13-eight-point-five.md): the Upgrade from 8.4, the raise. The code review
+  ([its record](reports/review.md)) fixed three gaps: the partition= mark, a prod Run value's
+  block, a table promoted again written again.
+
 ## Not yet specified
 
 ## Out of scope
