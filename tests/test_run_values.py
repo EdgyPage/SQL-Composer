@@ -333,6 +333,13 @@ def test_partition_takes_a_run_values_day() -> None:
     assert "PARTITION(dt = '2026-09-24')" in hive
 
 
+def test_partition_refuses_a_day_moved_from_a_tag() -> None:
+    # Hive's PARTITION(...) takes one value, not date_sub's call on one.
+    moved = hive_function("date_sub", script_tag("'2026-09-24'"), 1)
+    with pytest.raises(ValueError, match="not a value"):
+        INSERT_OVERWRITE(DAILY, partition={"dt": moved})
+
+
 @pytest.mark.parametrize("write", [INSERT_OVERWRITE, INSERT_INTO],
                          ids=["INSERT_OVERWRITE", "INSERT_INTO"])
 def test_partition_still_refuses_a_column_that_reads_a_table(write: object) -> None:
