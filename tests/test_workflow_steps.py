@@ -260,11 +260,12 @@ def test_a_step_that_only_reads_waits_on_nothing_and_is_named_beside_the_next(
 
 
 def test_a_todo_line_left_is_counted_and_waits_on_nothing(started: Path) -> None:
-    project.add_references("ops.job_runs", query=toolbox_module("example_database").query)
-    said = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
-    assert ("ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on "
-            "nothing: fill each in when you like.\n  line 1: ") in said
-    assert "Each Decision of ops.job_runs is made." in said
+    # Toolbox 8.5, ticket 08: a table with no column named like an id keeps its first line's.
+    project.add_references("ops.team_notes", query=toolbox_module("example_database").query)
+    said = repr(project.write_decisions({"ops.team_notes": {"key": None}}))
+    assert ("ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits "
+            "on nothing: fill it in when you like.\n  line 1: ") in said
+    assert "Each Decision of ops.team_notes is made." in said
 
 
 @pytest.mark.parametrize("workflow", workflows.WORKFLOWS,

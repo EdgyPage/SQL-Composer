@@ -749,6 +749,14 @@ def test_add_references_writes_each_table_and_registers_it(started: Path) -> Non
         ("reference", "ops.jobs"), ("reference", "ops.job_runs")]
     assert repr(report) == ("Wrote references/ops__jobs.py and references/ops__job_runs.py: "
                             "fill in their TODO lines.\n"
+                            "ops.jobs: its Key proposed, (job_id), checked with check_key:\n"
+                            "  ops.jobs: the key (job_id) holds.\n"
+                            "ops.job_runs: its Key proposed, (run_id), checked with "
+                            "check_key:\n"
+                            "  ops.job_runs: the key (run_id) holds where job_runs.dt IN "
+                            "('2026-09-23', '2026-09-24').\n"
+                            "To accept every proposed Key, write in the decisions cell: "
+                            '"all_tables": {"key": "proposed"}\n'
                             "Wrote references/ops.py: from references import ops gives "
                             "ops.job_runs and ops.jobs.\n"
                             "Restart the kernel of a notebook that imported references, to "
@@ -1011,8 +1019,9 @@ def test_a_database_module_says_what_it_is_and_lists_its_tables(started: Path) -
 
 def test_check_and_the_reference_sheet_leave_a_database_module_out(started: Path) -> None:
     project.add_references(["ops.jobs"], query=example_database.query)
-    assert repr(project.check()) == ("Every Table folder, Table reference and Building block "
-                                     "is registered, and each one registered is there.")
+    assert repr(project.check()).startswith(
+        "Every Table folder, Table reference and Building block is registered, and each one "
+        "registered is there.\nProposed by the Toolbox, which blocks nothing")
     assert repr(project.refresh_reference_sheet()) == (
         "Wrote references/reference_sheet.csv: 4 rows, 1 table.")
     assert [row["table"] for row in registry(started)] == ["ops.jobs"]
@@ -1536,7 +1545,7 @@ def test_check_names_an_open_key_after_a_later_step_ran(started: Path) -> None:
     project.refresh_reference_sheet()
     assert ("references.ipynb: 2. Answer each table's open Decisions in the decisions cell"
             in repr(project.check()))
-    assert "ops.run_alerts: key: the columns" in repr(project.check())
+    assert 'ops.run_alerts: key: proposed ["alert_id"]' in repr(project.check())
     assert "2. Answer each table's open Decisions" in repr(project.do_next("references"))
 
 
@@ -1551,7 +1560,7 @@ def test_check_names_a_read_tables_open_key_while_new_table_goes_on(started: Pat
     checked = repr(project.check())
     assert "new_table.ipynb: 2. Write each table's logic" in checked
     assert "references.ipynb: 2. Answer each table's open Decisions" in checked
-    assert "ops.job_runs: key: the columns whose values name one row" in checked
+    assert 'ops.job_runs: key: proposed ["run_id"], which check_key found holds' in checked
 
 
 def test_check_says_why_the_reference_sheet_needs_a_refresh(started: Path) -> None:
@@ -1577,13 +1586,13 @@ def test_check_says_why_the_reference_sheet_needs_a_refresh(started: Path) -> No
 
 def test_the_references_workflow_says_how_to_check_a_key_and_what_a_todo_left_means() -> None:
     # Toolbox 8.2, 23: W2-2 and W2-3 answered a Key before anything said how to check it,
-    # and W4-1 didn't know deleting does_not_add_up='s TODO says no column is one.
+    # and W4-1 didn't know deleting does_not_add_up='s TODO says no column is one. Toolbox
+    # 8.5, ticket 08: step 1 proposes and checks the Key, and proposes does_not_add_up=.
     answer, write_in = toolbox_module("workflows").REFERENCES.steps[1:3]
-    assert ("To check a Key before you answer it, which how-to 21 shows, check_key"
-            in answer.action)
-    assert "check_key(" in answer.action
-    assert ("If no column is one, then delete only its `# TODO` comment, and the empty list "
-            "says no column is one." in write_in.action)
+    assert "and checked it with `check_key`, printing each verdict" in answer.action
+    assert '`"all_tables": {"key": "proposed"}` accepts each' in answer.action
+    assert "how-to 21 shows how to check one with `check_key` first" in answer.action
+    assert "each marked `# proposed`" in write_in.action
 
 
 def test_do_next_runs_file_steps_up_to_the_first_that_is_yours(started: Path) -> None:

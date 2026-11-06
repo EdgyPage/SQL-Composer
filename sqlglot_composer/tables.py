@@ -26,8 +26,8 @@ import numpy as np
 import pandas as pd
 
 from . import _FOLDER, describe, kinds
-from .decisions import GUESSED, PROPOSED
-from .shared import escaped_literal, python_literal, split_table_name
+from .decisions import GUESSED, PROPOSED, ROW_TODO
+from .shared import escaped_literal, in_words, python_literal, split_table_name
 from .writing import hive_text, readable_text
 from .refusals import (
     CONTROL_CHARACTERS,
@@ -1317,7 +1317,7 @@ def _reference_text(name: str, variable: str, columns: dict[str, str],
     """A Table reference file's text. `module` is the name the file is imported by, such as
     references.ops__job_runs, which its Aliases heading shows."""
     lines = [
-        f'"""{name} - TODO: say in one line what one row is."""',
+        f'"""{name} - {ROW_TODO}"""',
         f"from {_FOLDER} import Table",
         "",
         f"{variable} = Table(",
@@ -1527,6 +1527,95 @@ def _repeated_keys_statement(t: Table, where: Condition | None, reads_all_partit
         clauses.append(WHERE(where))
     clauses += [GROUP_BY(key), HAVING(more_than(count_rows(), 1)), LIMIT(20)]
     return statement(*clauses)
+
+
+# A column named like an id, such as run_id or id: the columns a Key is proposed from.
+LIKELY_ID = re.compile(r"(?i)^(id|.+_id)$")
+
+
+def proposed_key_from_rows(t: Table, query: Callable[[str], pd.DataFrame]
+                           ) -> tuple[list[str] | None, list[str]]:
+    """The Key the references Workflow proposes for a table someone else owns (Toolbox 8.5),
+    worked out of its rows, and what it says of it: each check_key Verdict, or why it proposes
+    none.
+
+    Through your query it counts, on the latest Partition SHOW PARTITIONS lists, or on every
+    row of a table with none, the rows and the distinct values of each column named like an id,
+    such as run_id, partition columns aside, in one SELECT. The first whose values are as many
+    as the rows is proposed, and checked with check_key on the latest two Partitions; one that
+    repeats there, as a table that keeps a row per job each day repeats its job_id from day to
+    day, is proposed again with the partition columns, and checked again. It proposes none when
+    no column is named like an id, none has a value for each row, or the Key repeats still.
+    """
+    partitions = list(t._partitioned_by)
+    candidates = [column for column in t._columns
+                  if column not in partitions and LIKELY_ID.match(column)]
+    if not candidates:
+        return None, [f"{t._name}: no Key proposed: no column is named like an id, such as "
+                      "run_id: answer its Key in the decisions cell."]
+    listed = []
+    if partitions:
+        listed = sorted(str(each) for each in query(f"SHOW PARTITIONS {t._name}").iloc[:, 0])
+        if not listed:
+            return None, [f"{t._name}: no Key proposed: it holds no Partition yet, so it has "
+                          "no rows to count: answer its Key in the decisions cell."]
+    counts = _id_counts(t, candidates, listed[-1:], query)
+    unique = [column for column in candidates
+              if counts["rows_read"] > 0 and counts[column] == counts["rows_read"]]
+    if not unique:
+        return None, [f"{t._name}: no Key proposed: no column named like an id has a value of "
+                      f"its own for each row it counted, of {in_words(candidates)}: answer its "
+                      "Key in the decisions cell."]
+    where = _partitions_condition(t, listed[-2:]) if listed else None
+    said = []
+    for key in ([unique[0]], [unique[0], *partitions]):
+        checked = Table(t._name, columns=dict(t._columns), partitioned_by=partitions, key=key)
+        verdict = check_key(checked, query=query, where=where)
+        said.append(repr(verdict))
+        if verdict.ok:
+            return key, said
+        if not partitions:
+            break
+    return None, [*said, f"{t._name}: no Key proposed: the Key it worked out repeats: answer "
+                  "its Key in the decisions cell."]
+
+
+def _id_counts(t: Table, columns: list[str], partition: list[str],
+               query: Callable[[str], pd.DataFrame]) -> dict[str, int]:
+    """The rows of a table, as rows_read, and the distinct values of each of `columns`, by its
+    name, on the Partition `partition` names, as SHOW PARTITIONS lists it, or on every row."""
+    # Here, not at the top: these files import this one.
+    from .calculations import count_distinct, count_rows
+    from .clauses import AS, FROM, SELECT, WHERE, statement
+    from .running import run_query
+
+    clauses = [SELECT(AS(count_rows(), "rows_read"),
+                      *[AS(count_distinct(t._column(column)), column) for column in columns]),
+               FROM(t)]
+    if partition:
+        clauses.append(WHERE(_partitions_condition(t, partition)))
+    counted = run_query(statement(*clauses), query)
+    return {name: int(counted[name].iloc[0]) for name in ["rows_read", *columns]}
+
+
+def _partitions_condition(t: Table, listed: list[str]) -> Condition:
+    """The Condition that picks the Partitions `listed` names, as SHOW PARTITIONS lists them,
+    such as dt=2026-09-24 or region=us/dt=20260921."""
+    from .conditions import all_of, any_of, equals, is_in  # conditions.py imports this file
+
+    specs = []
+    for partition in listed:
+        specs.append(dict(pair.split("=", 1) for pair in partition.split("/")))
+    columns = list(specs[0])
+    if len(columns) == 1 and len(specs) > 1:
+        return is_in(t._column(columns[0]), [spec[columns[0]] for spec in specs])
+    each = []
+    for spec in specs:
+        each.append(all_of(*[equals(t._column(column), value)
+                             for column, value in spec.items()]))
+    if len(each) == 1:
+        return each[0]
+    return any_of(*each)
 
 
 def _same_type(first: str, second: str) -> bool:
