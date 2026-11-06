@@ -6522,12 +6522,10 @@ DECISIONS = {
         &quot;key&quot;: &quot;&lt;FILL IN&gt;&quot;,  # a list, such as [&quot;job_id&quot;, &quot;dt&quot;], or None when no columns name one row
     },
 }</pre>
-<p class="label">It writes 25 files</p>
+<p class="label">It writes 23 files</p>
 <pre class="file">admin/admin_log.md
 admin/registry.csv
 admin/workflows/convert/ops_reports/batch.md
-admin/workflows/convert/ops_reports/scripts/daily.hql
-admin/workflows/convert/ops_reports/scripts/weekly.hql
 admin/workflows/convert/ops_reports/written.json
 references/mart.py
 references/mart__alerted_runs_ops_reports.py
@@ -6555,7 +6553,7 @@ tables/mart__fail_history/mart__fail_history.ipynb</pre>
 <pre class="python">print(Path(&quot;admin/workflows/convert/ops_reports/batch.md&quot;).read_text(encoding=&quot;utf-8&quot;))</pre>
 <p class="label">Python prints</p><pre class="output"># Batch ops_reports
 
-2 scripts, kept as given in scripts/: daily.hql and weekly.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
+2 scripts, each read where it is: admin/workflows/convert/daily.hql and admin/workflows/convert/weekly.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
 
 ## Tables
 
@@ -7428,7 +7426,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7448,7 +7446,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -7900,7 +7897,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -7920,7 +7917,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -8254,7 +8250,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8274,7 +8270,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -8886,7 +8881,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -8906,7 +8901,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -9278,7 +9272,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9298,7 +9292,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -9608,7 +9601,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -9628,7 +9621,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -10073,7 +10065,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10093,7 +10085,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -10396,7 +10387,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10416,7 +10407,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -10695,7 +10685,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -10715,7 +10705,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -11284,7 +11273,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -11304,7 +11293,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -12340,7 +12328,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -12360,7 +12348,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -13088,7 +13075,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13108,7 +13095,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -13859,7 +13845,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -13879,7 +13865,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -14494,7 +14479,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14514,7 +14499,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -14796,7 +14780,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -14816,7 +14800,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -15195,7 +15178,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15215,7 +15198,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -15428,7 +15410,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -15448,7 +15430,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -16608,7 +16589,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -16628,7 +16609,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -17292,7 +17272,7 @@ from pathlib import Path
 import sqlglot_composer
 download = Path(sqlglot_composer.__file__).parents[1]  # -&gt; Path
 _ = shutil.copytree(download / &quot;example_projects&quot; / &quot;intermediate&quot;, &quot;.&quot;, dirs_exist_ok=True)</pre>
-<p class="label">It writes 78 files</p>
+<p class="label">It writes 77 files</p>
 <pre class="file">README.md
 admin/admin_log.md
 admin/check_project.ipynb
@@ -17312,7 +17292,6 @@ admin/templates/saved_table_reference.py
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/convert/finished/team_failures/batch.md
-admin/workflows/convert/finished/team_failures/scripts/team_failures.hql
 admin/workflows/convert/finished/team_failures/written.json
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
@@ -17608,13 +17587,20 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
-<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot; (or, for the last cell alone,
-# a list of batches converted already)
+<pre class="python"># the batch&#x27;s name, plain lowercase, such as &quot;weekly&quot; (or, for the run cells alone,
+# a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is
+# True, each batch named for its file
 NAME = &#x27;&#x27;
-# the scripts&#x27; files, from this folder, such as [&quot;daily.hql&quot;], or [] to read HIVE
+# the scripts&#x27; files, such as [&quot;daily.hql&quot;], each beside this notebook or a path
+# anywhere, such as &quot;C:/work/daily.hql&quot;, read where it is: left [], every .hql file
+# beside this notebook, or HIVE when it is given
 FILES = []
 # the Hive as text, such as &quot;&quot;&quot;SELECT ...&quot;&quot;&quot;, or None to read FILES
 HIVE = None
+# True makes each file of FILES a batch of its own, named for its file without .hql,
+# such as &quot;daily&quot; for daily.hql, for simple scripts that read none of each other&#x27;s
+# tables: the run cells run each in turn, and one decisions cell answers them all
+EACH_SCRIPT_ITS_OWN_BATCH = False
 # the database of a table the Hive names without one
 DATABASE = &#x27;default&#x27;
 # a name of your own for a table&#x27;s copy in dev, by the table&#x27;s full name, such as
@@ -17726,7 +17712,8 @@ flowchart TD
 ```</pre></details>
 <p>Its names cell, which you fill in and save first:</p>
 <pre class="python"># the dev tables, by their names in your Dev Database, such as
-# [&quot;mart_dev.daily_job_runs&quot;]
+# [&quot;mart_dev.daily_job_runs&quot;]: left [], the run cells promote every finished table
+# not promoted yet, or changed in dev since, naming each and why
 TABLES = []</pre>
 <p>Under it, &quot;Run up to your Decisions&quot;, which runs every step left up to the first only you can do, and prints the DECISIONS to paste:</p>
 <pre class="python"># Run up to your Decisions: every step left, up to the first only you can do.

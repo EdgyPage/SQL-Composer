@@ -297,8 +297,10 @@ def test_a_batch_with_tags_makes_each_table_reading_tags_from_its_reference(
     in_dev = (started / "tables" / stem / "conversion" / "in_dev.hql").read_text(
         encoding="utf-8")
     assert '<= <PARM="PERIOD_END"/>' in in_dev
-    script = (started / "admin" / "workflows" / "convert" / "closing" / "scripts" / "close.hql")
-    assert '<PARM="MinMins"/>' in script.read_text(encoding="utf-8")
+    # The script is read where it is (Toolbox 8.5): each statement of the table's write is
+    # kept as the script wrote it, its tag with it.
+    statement = (started / "tables" / stem / "conversion" / "statement.hql")
+    assert '<= <PARM="PERIOD_END"/>' in statement.read_text(encoding="utf-8")
 
 
 def test_a_staging_tables_tag_is_a_tag_of_each_table_it_is_folded_into(started: Path) -> None:

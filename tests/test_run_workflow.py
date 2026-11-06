@@ -178,6 +178,121 @@ def test_a_promote_named_in_a_project_with_a_reference_sheet_starts_at_its_first
     assert "promote: 1. Promote each table" in run("promote")
 
 
+# --- The names cell's defaults (Toolbox 8.5, ticket 03) -------------------------------------
+
+
+def convert_folder(root: Path) -> Path:
+    return root / "admin" / "workflows" / "convert"
+
+
+def test_files_left_empty_reads_every_hql_beside_the_notebook_in_name_order(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("second", "first"):
+        (convert_folder(started) / f"{name}.hql").write_text(
+            QUERY.replace("r.job_id", f"r.job_id AS {name}_job"), encoding="utf-8")
+    (convert_folder(started) / "notes.txt").write_text("not a script", encoding="utf-8")
+    monkeypatch.chdir(convert_folder(started))  # as the notebook's run cell runs
+    typed(started, "convert", "NAME = ''", "both")
+    said = run("convert")
+    assert ("FILES is left [], so it read every .hql file beside the notebook, in name order: "
+            "first.hql and second.hql.") in said
+    batch = (convert_folder(started) / "both" / "batch.md").read_text(encoding="utf-8")
+    assert ("2 scripts, each read where it is: admin/workflows/convert/first.hql and "
+            "admin/workflows/convert/second.hql.") in batch
+    assert not (convert_folder(started) / "both" / "scripts").exists(), "a script was copied"
+
+
+def test_files_left_empty_with_no_hql_beside_the_notebook_is_refused(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.chdir(convert_folder(started))
+    typed(started, "convert", "NAME = ''", "none")
+    said = run("convert")
+    assert "Stopped by what this says: mend it." in said
+    assert "FILES is left [] and HIVE is None, and there is no .hql file beside" in said
+    assert not (convert_folder(started) / "none").exists()
+
+
+def test_a_file_outside_the_project_is_read_where_it_is(
+        started: Path, monkeypatch: pytest.MonkeyPatch,
+        tmp_path_factory: pytest.TempPathFactory) -> None:
+    outside = tmp_path_factory.mktemp("work") / "daily.hql"
+    outside.write_text(QUERY, encoding="utf-8")
+    monkeypatch.chdir(convert_folder(started))
+    typed(started, "convert", "NAME = ''", "daily")
+    typed(started, "convert", "FILES = []", [str(outside)])
+    run("convert")
+    batch = (convert_folder(started) / "daily" / "batch.md").read_text(encoding="utf-8")
+    assert f"1 script, each read where it is: {outside.resolve().as_posix()}." in batch
+    assert not (convert_folder(started) / "daily" / "scripts").exists(), "a script was copied"
+    assert (started / "tables" / f"{DEV}__daily").is_dir()
+
+
+def test_hive_given_as_text_is_kept_in_the_batchs_scripts(started: Path) -> None:
+    typed(started, "convert", "NAME = ''", "spare")
+    typed(started, "convert", "HIVE = None", QUERY)
+    run("convert")
+    kept = convert_folder(started) / "spare" / "scripts" / "hive.hql"
+    assert kept.read_text(encoding="utf-8") == QUERY + "\n"
+
+
+def test_each_its_own_batch_refuses_scripts_reading_each_others_tables(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Toolbox 8.5, ticket 05: refused before anything is written, naming the pair.
+    (convert_folder(started) / "makes.hql").write_text(
+        "INSERT OVERWRITE TABLE mart.team_runs SELECT r.job_id FROM ops.job_runs r;\n",
+        encoding="utf-8")
+    (convert_folder(started) / "reads.hql").write_text(
+        "INSERT OVERWRITE TABLE mart.team_counts SELECT t.job_id FROM mart.team_runs t;\n",
+        encoding="utf-8")
+    monkeypatch.chdir(convert_folder(started))
+    typed(started, "convert", "EACH_SCRIPT_ITS_OWN_BATCH = False", True)
+    with pytest.raises(ValueError, match="makes.hql and reads.hql, each its own batch, read "
+                       "each other's tables: reads.hql reads mart.team_runs, which makes.hql "
+                       "writes"):
+        run("convert")
+    assert not (convert_folder(started) / "makes").exists()
+
+
+def test_each_its_own_batch_refuses_two_files_of_one_name(
+        started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for folder in ("one", "two"):
+        (started / folder).mkdir()
+        (started / folder / "daily.hql").write_text(QUERY, encoding="utf-8")
+    typed(started, "convert", "EACH_SCRIPT_ITS_OWN_BATCH = False", True)
+    typed(started, "convert", "FILES = []", ["one/daily.hql", "two/daily.hql"])
+    with pytest.raises(ValueError, match="two of FILES are named daily"):
+        run("convert")
+    assert not (convert_folder(started) / "daily").exists()
+
+
+def test_each_its_own_batch_names_each_batch_in_check(started: Path,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("first", "second"):
+        (convert_folder(started) / f"{name}.hql").write_text(QUERY, encoding="utf-8")
+    monkeypatch.chdir(convert_folder(started))
+    typed(started, "convert", "EACH_SCRIPT_ITS_OWN_BATCH = False", True)
+    checked = repr(project.check())
+    for name in ("first", "second"):
+        assert (f'convert.ipynb, {name}: 1. Convert the scripts: each table they write a '
+                f'Saved table in dev. It is a call to the warehouse, yours to run: '
+                f'project.convert("{name}", None, files=["{name}.hql"]') in checked
+
+
+def test_promote_left_empty_with_no_finished_table_says_so_and_stops(started: Path) -> None:
+    said = run("promote")
+    assert said.startswith("  promote: TABLES is left [], and no table is finished")
+    assert "nothing to promote" in said
+    assert not (started / "admin" / "workflows" / "promote" / "promoted.json").exists()
+
+
+def test_promote_given_no_table_is_refused(started: Path) -> None:
+    databases = started / "admin" / "databases.py"
+    databases.write_text(databases.read_text(encoding="utf-8")
+                         .replace('"<PROD_DATABASE>"', '"mart"'), encoding="utf-8")
+    with pytest.raises(ValueError, match=r"project.promote\(\[\]\) names no table"):
+        project.promote([])
+
+
 # --- new_table from a query (Toolbox 8.1, ticket 09) ----------------------------------------
 
 

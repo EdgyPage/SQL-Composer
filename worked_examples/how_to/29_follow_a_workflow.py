@@ -166,13 +166,20 @@ flowchart TD
 
 Its names cell, which you fill in and save first:
 
-    # the batch's name, plain lowercase, such as "weekly" (or, for the last cell alone,
-    # a list of batches converted already)
+    # the batch's name, plain lowercase, such as "weekly" (or, for the run cells alone,
+    # a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is
+    # True, each batch named for its file
     NAME = ''
-    # the scripts' files, from this folder, such as ["daily.hql"], or [] to read HIVE
+    # the scripts' files, such as ["daily.hql"], each beside this notebook or a path
+    # anywhere, such as "C:/work/daily.hql", read where it is: left [], every .hql file
+    # beside this notebook, or HIVE when it is given
     FILES = []
     # the Hive as text, such as \"\"\"SELECT ...\"\"\", or None to read FILES
     HIVE = None
+    # True makes each file of FILES a batch of its own, named for its file without .hql,
+    # such as "daily" for daily.hql, for simple scripts that read none of each other's
+    # tables: the run cells run each in turn, and one decisions cell answers them all
+    EACH_SCRIPT_ITS_OWN_BATCH = False
     # the database of a table the Hive names without one
     DATABASE = 'default'
     # a name of your own for a table's copy in dev, by the table's full name, such as
@@ -316,7 +323,8 @@ flowchart TD
 Its names cell, which you fill in and save first:
 
     # the dev tables, by their names in your Dev Database, such as
-    # ["mart_dev.daily_job_runs"]
+    # ["mart_dev.daily_job_runs"]: left [], the run cells promote every finished table
+    # not promoted yet, or changed in dev since, naming each and why
     TABLES = []
 
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
