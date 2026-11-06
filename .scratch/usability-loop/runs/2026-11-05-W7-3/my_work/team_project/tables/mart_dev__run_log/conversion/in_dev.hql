@@ -1,0 +1,2 @@
+SET hive.exec.dynamic.partition.mode=nonstrict;
+INSERT INTO mart_dev.run_log PARTITION(dt) SELECT r.run_id, r.job_id, r.dt FROM ops.job_runs AS r WHERE r.dt BETWEEN DATE_ADD(<PARM="PERIOD_END"/>, 1 * -1) AND <PARM="PERIOD_END"/> AND NOT r.run_id IN (SELECT l.run_id FROM mart_dev.run_log AS l)

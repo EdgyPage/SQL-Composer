@@ -700,3 +700,39 @@ What the tickets did:
 - **The harness: proxy reads.** An Excel proxy message of five workbooks ran past what a proxy
   reads at once (about 600 lines), so it answered only the first four. Each missing task was run
   again on its own, and each passed. Groups of two hold.
+| 2026-11-05 | W7 | dev | 2026-11-05-W7-3 | pass | 0 | passed; Run value's file imports taken from latest_partition's docstring |
+| 2026-11-05 | W7 | dev | 2026-11-05-W7-1 | pass | 0 | passed; Run value file and register written by hand from docstrings |
+| 2026-11-05 | W7 | dev | 2026-11-05-W7-2 | pass | 0 | passed; Run value file and register written by hand from docstrings |
+
+## The ticket 14 round, 2026-11-05: W7, a Run value and a seed limit
+
+Main's tree was built from dev at 8.4 (ac53eac1). Three fresh Haiku runs of the new scenario W7:
+convert the team's run_log.hql, its PERIOD_END tag answered by a Run value worked out at each
+write, its seed copying only 2026-09-24 on. The three rows are just above.
+
+| scenario | split | passed | questions | cells added |
+|---|---|---|---|---|
+| W7 | dev | 3/3 | 0 | 0 |
+
+What it showed:
+- **Run values.** Each run wrote `period_end()` returning `latest_partition(job_runs.dt, query)`
+  in building_blocks/run_values.py, registered it, and answered PERIOD_END with the function.
+  Each write's Hive held the day worked out then, 2026-09-24.
+- **Seed limits.** Each answered `"seed": {"dt": {"from": "2026-09-24"}}`; the seed copied 4
+  rows, and the compare passed on 2026-09-24 (and on 2026-09-23, which two runs checked too).
+- **No cell of your own.** No run's Workflow notebook held a code cell more than the Toolbox
+  wrote: the `project.check()` cell under each decision step was the one used.
+
+### Found in the ticket 14 round, none failing a run
+
+- **The Run value's file (all three).** Its imports and `project.register("run_values")` were
+  taken from `latest_partition`'s docstring and how-to 09; no README step shows the file. Each
+  run registered from a script, outside the notebooks.
+- **The Run value's Table reference (W7-2, W7-3).** `from references.ops__job_runs import
+  job_runs` needs that reference first, its TODO lines filled; two runs found it on the import's
+  error.
+- **RENAME (W7-2, W7-3).** The default name is mart_dev.run_log_mart; the names cell's RENAME
+  rule is what drops the suffix, and two runs found it late.
+- **The seed's edge (W7-1, W7-2).** The first write's window, PERIOD_END-1 to PERIOD_END, adds
+  2026-09-23's rows the seed left out. Each run said so, matching the original. Expected, and
+  how-to 09 could say it.

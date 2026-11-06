@@ -1,7 +1,7 @@
 # The seed's limits
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 05, 08
 Size: M
 

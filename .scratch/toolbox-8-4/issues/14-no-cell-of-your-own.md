@@ -1,7 +1,7 @@
 # No cell of your own: workflow and usability tests
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12
 Size: M
 
@@ -81,3 +81,7 @@ Built 2026-11-05.
   and the seed copying only 2026-09-24 on; its key holds the rows, the compare passing, and a
   Run value's import and the seed's day in the Table reference; its reference end, written
   with the Toolbox, passes it.
+- **Its first round** (2026-11-05, results.md's "The ticket 14 round"): W7 passed 3/3 on Haiku,
+  no question asked, no cell added. Found, none failing a run: the Run value's file is written
+  from docstrings, with no README step showing it; its Table reference must exist first; RENAME
+  is found late; and the first write adds the day before the seed's limit, as its window says.

@@ -1,7 +1,7 @@
 # date_sub and date_add convert to Hive's two arguments
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01
 Size: S
 

@@ -1,7 +1,7 @@
 # 8.4: the Upgrade step and the raise
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 12, 14
 Size: M
 

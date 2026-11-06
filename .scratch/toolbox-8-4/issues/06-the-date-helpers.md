@@ -1,7 +1,7 @@
 # today, latest_partition and hive_date
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 05
 Size: M
 

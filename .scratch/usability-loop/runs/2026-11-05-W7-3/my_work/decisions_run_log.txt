@@ -1,0 +1,10 @@
+from building_blocks.run_values import period_end
+
+DECISIONS = {
+    "mart_dev.run_log": {
+        "location": "/data/team/mart_dev.db/run_log",
+        "key": ["run_id"],
+        "tags": {"PERIOD_END": period_end},
+        "seed": {"dt": {"from": "2026-09-24"}},
+    },
+}

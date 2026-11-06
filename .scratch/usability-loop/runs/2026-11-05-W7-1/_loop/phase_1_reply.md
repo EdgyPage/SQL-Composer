@@ -1,0 +1,1 @@
+DONE: mart_dev.run_log built and compared, passed on dt=2026-09-24 and 2026-09-23. PERIOD_END a Run value period_end() returning latest_partition(job_runs.dt, query), registered with project.register. Seed {dt: {from: 2026-09-24}}. Notes: write is an Unchecked statement (NOT IN subquery); first write also adds 2026-09-23 rows the seed skipped.

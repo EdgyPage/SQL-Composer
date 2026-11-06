@@ -1,7 +1,7 @@
 # Run values
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03
 Size: L
 

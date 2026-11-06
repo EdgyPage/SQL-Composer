@@ -1,0 +1,1 @@
+DONE: mart_dev.run_log built and compared, passed. PERIOD_END Run value period_end() in building_blocks/run_values.py, registered. Seed {dt: {from: 2026-09-24}}. Friction: RENAME rule (default _mart suffix); scripts saved beside the convert notebook; decisions cell imports period_end first; the Run value's Table reference must exist first (add_references run from a script).

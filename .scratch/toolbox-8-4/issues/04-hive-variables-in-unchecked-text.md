@@ -1,7 +1,7 @@
 # ${...} in Unchecked text is Hive
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: S
 
