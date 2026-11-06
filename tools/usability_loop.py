@@ -411,8 +411,19 @@ class RunScore:
     # Each Workflow notebook the run added code cells to, and how many (Toolbox 8.4, ticket
     # 14): on the intended path a user makes no cell of their own.
     added_cells: list[str] = field(default_factory=list)
+    # The run's actions (Toolbox 8.5, ticket 12), which fail nothing: each Workflow notebook's
+    # code cells edited from as the Toolbox writes them, by the Workflow, and each file the run
+    # wrote of its own, outside its Project or a script saved into it.
+    edited_cells: dict[str, int] = field(default_factory=dict)
+    own_files: list[str] = field(default_factory=list)
     questions: int = 0
     project: Path | None = None
+
+    @property
+    def actions(self) -> int:
+        """How many actions the run took that the Toolbox could count: cells edited and files
+        of its own."""
+        return sum(self.edited_cells.values()) + len(self.own_files)
 
     @property
     def passed(self) -> bool:
@@ -498,7 +509,37 @@ def score(chosen: Scenario, run: Path) -> RunScore:
     check_tables(result, key, run)
     check_files(result, key)
     check_cells(result)
+    count_actions(result, run)
     return result
+
+
+def count_actions(result: RunScore, run: Path) -> None:
+    """Note on `result` each Workflow notebook's code cells the run edited from as the Toolbox
+    writes them, and each file it wrote of its own: one in its folder outside the Project,
+    main/ and _loop/, such as a script of its own, and each .hql in the Project's
+    admin/workflows/, a script saved for a Workflow to read."""
+    if result.project is None:
+        return
+    for workflow in workflows.WORKFLOWS:
+        path = workflows.notebook_path(result.project, workflow)
+        if not path.is_file():
+            continue
+        shipped = {text for kind, text in workflows.notebook_cells(workflow, ["paths"])
+                   if kind == "code"}
+        cells = [text for kind, text in notebooks.read_cells(path) if kind == "code"]
+        # The first cell finds the Project, written for its folder: never the user's.
+        edited = len([text for text in cells[1:] if text not in shipped])
+        if edited:
+            result.edited_cells[workflow.name] = edited
+    project = result.project.relative_to(run)
+    for path in sorted(run.rglob("*")):
+        relative = path.relative_to(run)
+        if not path.is_file() or relative.parts[0] in ("main", "_loop", "__pycache__"):
+            continue
+        if not relative.is_relative_to(project) or (
+                path.suffix == ".hql"
+                and path.relative_to(result.project).parts[:2] == ("admin", "workflows")):
+            result.own_files.append(relative.as_posix())
 
 
 def check_cells(result: RunScore) -> None:
@@ -532,6 +573,11 @@ def report_text(result: RunScore, run: Path) -> str:
                          ("cells added to", result.added_cells)):
         if names:
             lines.append(f"  {label}: {in_words(names)}")
+    edited = "none"
+    if result.edited_cells:
+        edited = in_words([f"{name} {count}" for name, count in result.edited_cells.items()])
+    lines.append(f"  actions: {result.actions}, cells edited ({edited}), "
+                 f"{counted(len(result.own_files), 'file')} of its own")
     return "\n".join(lines)
 
 
@@ -541,6 +587,8 @@ def record(result: RunScore, run: Path, chosen: Scenario, note: str = "") -> str
     `.scratch/usability-loop/results.md`."""
     left_out = shutil.ignore_patterns("main", "sqlglot_composer", "__pycache__")
     shutil.copytree(run, KEPT / "runs" / run.name, ignore=left_out)
+    actions = f"{result.actions} actions"
+    note = f"{note}; {actions}" if note else actions
     row = (f"| {datetime.date.today().isoformat()} | {chosen.id} | {chosen.split} | {run.name} "
            f"| {'pass' if result.passed else 'fail'} | {result.questions} | {note} |")
     if not RESULTS.is_file():
