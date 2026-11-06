@@ -1,4 +1,4 @@
-# sqlglot Composer 8.3 - copy it, then edit your copy
+# sqlglot Composer 8.4 - copy it, then edit your copy
 """costs_per_job - each job's cost in cents per day billed, all regions added up.
 
 Why: mart.job_day_costs saves these numbers, and writing them once here means a check of a

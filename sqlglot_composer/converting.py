@@ -41,6 +41,7 @@ from .shared import (
     python_literal,
     singular_or_plural,
     split_table_name,
+    unchecked_expression_text,
 )
 from .writing import read_hive, sql_text, typed_hive
 
@@ -173,7 +174,7 @@ class ConvertedQuery:
                       f"    return {_indented(self.query, 4)}"]
         if not self.tag_is_quoted:
             return "\n".join(lines) + "\n"
-        lines = _with_tags_read("\n".join(lines)).split("\n")
+        lines = _with_tags_read("\n".join(lines), self.tag_is_quoted).split("\n")
         at = _after_imports(lines)
         lines[at:at] = ["", *tags_block(self.tag_is_quoted)]
         return "\n".join(lines) + "\n"
@@ -207,11 +208,14 @@ def tags_block(tag_is_quoted: dict[str, bool],
     return [*lines, "}"]
 
 
-def _with_tags_read(source: str) -> str:
+def _with_tags_read(source: str, tag_is_quoted: dict[str, bool]) -> str:
     """Python source with each string that holds a Script tag made to read TAGS in the tag's
-    place: '<PARM="X"/>' becomes TAGS["X"], and 'a <PARM="X"/> b' becomes
-    "a " + TAGS["X"] + " b". A tag in backticks, as a bare one is read, is read so too, its
-    backticks dropped, as the answer is written where the tag stood."""
+    place: '<PARM="X"/>' becomes tag_text(TAGS["X"]), and 'a <PARM="X"/> b' becomes
+    "a " + tag_text(TAGS["X"]) + " b", tag_text calling a Run value's function each time.
+    A tag that stood bare, as `tag_is_quoted` says, in Hive kept whole, becomes
+    tag_text(TAGS["X"], quoted=False), Hive, its value's own quotes and all. A tag in
+    backticks, as a bare one is read, is read so too, its backticks dropped, as the answer is
+    written where the tag stood."""
     starts = [0]
     for line in source.split("\n"):
         starts.append(starts[-1] + len(line) + 1)
@@ -224,21 +228,42 @@ def _with_tags_read(source: str) -> str:
             continue
         begin = starts[token.start[0] - 1] + token.start[1]
         end = starts[token.end[0] - 1] + token.end[1]
-        swaps.append((begin, end, _tags_read(value)))
+        swaps.append((begin, end, _tags_read(value, tag_is_quoted)))
     for begin, end, written in reversed(swaps):
         source = source[:begin] + written + source[end:]
+    if swaps and TAG_TEXT_IMPORT not in source:
+        lines = source.split("\n")
+        at = _after_imports(lines)
+        lines[at:at] = [TAG_TEXT_IMPORT]
+        source = "\n".join(lines)
     return source
 
 
-def _tags_read(value: str) -> str:
-    """A string holding Script tags, as Python that reads each tag's place from TAGS."""
+# The import of tag_text, for a string a Script tag stands in: each its place.
+TAG_TEXT_IMPORT = "from sqlglot_composer import tag_text  # for each Script tag in a string"
+
+
+def _tags_read(value: str, tag_is_quoted: dict[str, bool]) -> str:
+    """A string holding Script tags, as Python that reads each tag's place from TAGS: a tag
+    inside quotes as its text, and a bare one, in Hive kept whole, as Hive, its value's own
+    quotes and all, as `tag_is_quoted` says of each."""
     parts = []
     for piece, name in tag_pieces(value):
-        if name is not None:
-            parts.append(f"TAGS[{python_literal(name)}]")
+        if name is not None and not tag_is_quoted.get(name, True):
+            parts.append(f"tag_text(TAGS[{python_literal(name)}], quoted=False)")
+        elif name is not None:
+            parts.append(f"tag_text(TAGS[{python_literal(name)}])")
         else:
             parts.append(python_literal(piece))
     return " + ".join(parts)
+
+
+def _tags_quoted(lines: list[str]) -> dict[str, bool]:
+    """Whether each Script tag of TAGS' lines, as tags_block writes them, stands inside
+    quotes, by its NAME, as each line's comment says."""
+    found = (re.match(r'^    "((?:[^"\\]|\\.)*)": .*?#\s*(bare|inside quotes)', line)
+             for line in lines)
+    return {match.group(1): match.group(2) == "inside quotes" for match in found if match}
 
 
 def saved_table_logic(logic: str, saved_table: str, short: str, write: str | None,
@@ -253,11 +278,13 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
     stem = saved_table.replace(".", "__", 1)
     lines = logic.rstrip("\n").split("\n")
     own = f"from references.{stem} import {short}  # the Saved table's own Table reference"
+    tag_is_quoted: dict[str, bool] = {}
     if TAGS_COMMENT in lines:
         # TAGS moves into the Table reference, where the decisions cell's answers are written:
         # its lines go, from the blank line logic() puts above its comment to its closing }.
         blank_above = lines.index(TAGS_COMMENT) - 1
         closing = lines.index("}", blank_above)
+        tag_is_quoted = _tags_quoted(lines[blank_above:closing])
         del lines[blank_above:closing + 1]
         own = (f"from references.{stem} import {short}, TAGS  "
                "# its Table reference, and its Script tags")
@@ -291,7 +318,7 @@ def saved_table_logic(logic: str, saved_table: str, short: str, write: str | Non
         f"def write() -> {returns[0]}:",
         f'    """{docstring}"""',
         *body,
-    ])) + "\n"
+    ]), tag_is_quoted) + "\n"
 
 
 def _write_body(logic: str, short: str, write: str | None, static_partition: dict[str, str],
@@ -305,14 +332,19 @@ def _write_body(logic: str, short: str, write: str | None, static_partition: dic
     if mode is None:
         mode = "INSERT_OVERWRITE"
     given = ""
+    # A bare Script tag names its Partition through script_tag, which write() imports then.
+    tag_imports = []
+    if any(value.startswith("script_tag(") for value in static_partition.values()):
+        tag_imports = ["script_tag"]
     if static_partition:
         values = ", ".join(f"{python_literal(name)}: {value}"
                            for name, value in static_partition.items())
         given = f", partition={{{values}}}"
     if re.search(r"^def rows\(", logic, re.MULTILINE):
-        return (["Statement", mode, "statement"],
+        return (["Statement", mode, "statement", *tag_imports],
                 [f"    return statement({mode}({short}{given}), *rows())"])
-    return (["Statement", "FROM", "SELECT", "all_columns", "derived", mode, "statement"],
+    return (["Statement", "FROM", "SELECT", "all_columns", "derived", mode, "statement",
+             *tag_imports],
             ['    made = derived("converted", converted())',
              f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
              "FROM(made))"])
@@ -861,7 +893,7 @@ class _Converter:
             bound[name] = self.column(column, scope)
             marker = "__placeholder_" + name + "__"
             column.replace(exp.Var(this=marker))
-        text = sql_text(piece).replace("{", "{{").replace("}", "}}")
+        text = unchecked_expression_text(sql_text(piece))
         text = re.sub(r"__placeholder_(\w+?)__", r"{\1}", text)
         self.note_finding(node, "unchecked",
                           f"{sql_text(node)} stays Hive, in {function}(...): {why}")
@@ -1014,6 +1046,8 @@ class _Converter:
     def function(self, node: exp.Func, scope: dict[str, _Source]) -> str:
         """A Hive function the Toolbox doesn't wrap, as hive_function(...), when its call
         writes back to the same Hive; else it stays an Unchecked expression."""
+        if isinstance(node, exp.TsOrDsAdd):
+            return self.days_moved(node, scope)
         written = sql_text(node)
         called = re.match(r"(\w+)\(", written)
         if isinstance(node, exp.Anonymous):
@@ -1044,6 +1078,27 @@ class _Converter:
                           f'function wraps: hive_function("{name}", ...) writes it')
         arguments = "".join(", " + v for v in values)
         return f"{self.use('hive_function')}({python_literal(name)}{arguments})"
+
+    def days_moved(self, node: exp.TsOrDsAdd, scope: dict[str, _Source]) -> str:
+        """Hive's date_add(day, n) or date_sub(day, n), which sqlglot reads as one function
+        with a unit, DAY, beside its two arguments, date_sub's n as n * -1: written as the
+        two-argument Hive call it was, through hive_function(...)."""
+        unit = node.args.get("unit")
+        if unit is not None and unit.name.upper() != "DAY":
+            raise Unconvertible(f"no Toolbox function writes {_call_name(node)} in "
+                                f"{unit.name} yet")
+        days = node.expression
+        name = "date_add"
+        negated = (isinstance(days, exp.Mul) and isinstance(days.expression, exp.Neg)
+                   and days.expression.this == exp.Literal.number(1))
+        if negated:
+            name, days = "date_sub", days.this
+        values = [self.column_or_unchecked(node.this, scope),
+                  self.column_or_unchecked(days, scope)]
+        self.note_finding(node, "changed", f"{name}(...) is a Hive function no Toolbox "
+                          f"function wraps: hive_function({python_literal(name)}, ...) "
+                          "writes it")
+        return f"{self.use('hive_function')}({python_literal(name)}, {', '.join(values)})"
 
     def windowed(self, node: exp.Window, scope: dict[str, _Source]) -> str:
         """A function OVER (...): the Toolbox's own, with over=window(...)."""
@@ -1485,6 +1540,49 @@ def with_opt_out(logic: str, refusal: str) -> tuple[str, str] | None:
     return None
 
 
+def marked_opt_outs(logic: str, keyword: str) -> list[tuple[str, str]]:
+    """Each opt-out `keyword`=True that with_opt_out added to the logic and marked, in order:
+    what was added, as with_opt_out names it, such as JOIN(t, many_matches=True), and the
+    logic with it and its `# CONVERSION:` mark taken out. A `keyword`=True with no mark above
+    its call's line is yours, and isn't one."""
+    marks = re.finditer(rf"^[ \t]*{re.escape(CONVERSION_MARK.format(keyword=keyword))}\n",
+                        logic, re.MULTILINE)
+    found = []
+    for mark in marks:
+        line_end = logic.find("\n", mark.end())
+        if line_end == -1:
+            line_end = len(logic)
+        # The call the mark is above starts on the line after it.
+        for call in re.finditer(r"\b(\w+)\(", logic[mark.end():line_end]):
+            opening = mark.end() + call.end() - 1
+            given = logic[opening + 1:_closing(logic, opening)]
+            # Added on a line of its own, before a closing bracket on the next, or after a
+            # comma.
+            opt_out = (re.search(rf"^[ \t]*{keyword}=True,[ \t]*\n", given, re.MULTILINE)
+                       or re.search(rf",\s*{keyword}=True\b", given))
+            if opt_out is None:
+                continue
+            start, end = opening + 1 + opt_out.start(), opening + 1 + opt_out.end()
+            without = logic[:mark.start()] + logic[mark.end():start] + logic[end:]
+            first = re.match(r"\s*([^,)\n]*)", given)[1].strip()
+            found.append((f"{call[1]}({first}, {keyword}=True)", without))
+            break
+    return found
+
+
+def _partition_given(name: str, value: exp.Expression) -> str:
+    """The Python of the value an INSERT's PARTITION(...) gives the column `name`: a literal's,
+    or a bare Script tag's, its TAGS entry through script_tag, as a bare tag stands anywhere
+    else. Refused for anything else."""
+    if isinstance(value, exp.Column) and tag_name(value.name) is not None:
+        return f"script_tag(TAGS[{python_literal(tag_name(value.name))}])"
+    python = _python_of_literal(value)
+    if python is None:
+        raise ConversionRefused(f"its PARTITION gives {name} the value {sql_text(value)}, not "
+                                "a plain one")
+    return python
+
+
 def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
     """Note what an INSERT wrote, and how, and give back the query it wrote: INSERT INTO or
     INSERT OVERWRITE, with or without TABLE, PARTITION(...) with values or without, and a
@@ -1510,11 +1608,7 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
     for part in (partition.expressions if partition is not None else []):
         if isinstance(part, exp.EQ):
             name = part.this.name
-            value = _python_of_literal(part.expression)
-            if value is None:
-                raise ConversionRefused(f"its PARTITION gives {name} the value "
-                                        f"{sql_text(part.expression)}, not a plain one")
-            result.static_partition[name] = value
+            result.static_partition[name] = _partition_given(name, part.expression)
         else:
             name = part.name
         result.partition_columns.append(name)
@@ -1538,6 +1632,18 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
                                    f"{wrote} becomes your own Saved table's write, "
                                    f"{result.write}(...), with the same partitions"))
     return query
+
+
+def _note_what_it_reads(converter: _Converter, whole: exp.Expression,
+                        insert: exp.Insert | None) -> None:
+    """Note the tables, variables and Script tags a query reads, and the tags in its INSERT's
+    PARTITION(...), when it has one: a tag there is one of the table's, though the query may
+    hold none."""
+    converter.note_tables_read(whole)
+    converter.note_variables()
+    if insert is not None:
+        converter.note_tags(insert.this)
+    converter.note_tags(whole)
 
 
 # How the finding on a write's INSERT starts, which a scan of a query alone words again.
@@ -1683,15 +1789,14 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         targets = [sql_text(one.this) for one in query.expressions]
         raise ConversionRefused(_SEVERAL_INSERTS.format(count=len(targets),
                                                         targets=", ".join(targets)))
+    insert = None
     if isinstance(query, exp.Insert):
-        query = _note_insert(query, result, text)
+        insert, query = query, _note_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
         raise ConversionRefused(f"it is a {type(query).__name__.upper()}, not a query")
     with_ = with_ or query.args.get("with_")
     whole = _query_with(query, with_)
-    converter.note_tables_read(whole)
-    converter.note_variables()
-    converter.note_tags(whole)
+    _note_what_it_reads(converter, whole, insert)
     before = list(result.findings)
     query = _query_with(query, None)
     try:
@@ -2227,21 +2332,25 @@ def _static_values(insert: exp.Expression) -> dict[str, exp.Expression]:
     return values
 
 
-def with_seed(logic: str, seed_hive: str) -> str:
-    """A Table notebook's logic with seed(): the Hive that copies the original's rows into
-    the dev copy once, before the first write, for a table that reads itself."""
+def with_seed(logic: str, short: str, original: str) -> str:
+    """A Table notebook's logic with seed(): the original's rows copied into the dev copy once,
+    before the first write, for a table that reads itself, limited by SEED, its Table
+    reference's seed limits, which the logic imports from there with the table."""
     lines = logic.rstrip("\n").split("\n")
-    imported = "from sqlglot_composer import UncheckedStatement, unchecked_hive"
+    imported = "from sqlglot_composer import UncheckedStatement, seed_copy"
     if not any(line.startswith(imported) for line in lines):
         at = _after_imports(lines)
         lines[at:at] = [f"{imported}  # for seed()"]
+    own = re.compile(rf"^(from references\.\w+ import {re.escape(short)}(?:, TAGS)?)(\s|$)")
+    lines = [own.sub(r"\1, SEED\2", line, count=1) for line in lines]
     return "\n".join(lines + [
         "",
         "",
         "def seed() -> UncheckedStatement:",
         '    """Copy the original\'s rows into this table once, before its first write():',
-        '    its write reads its own table, which starts empty."""',
-        f"    return unchecked_hive({python_literal(seed_hive)})",
+        "    its write reads its own table, which starts empty. SEED, in its Table reference,",
+        '    limits the Partitions it copies."""',
+        f"    return seed_copy({short}, {python_literal(original)}, SEED)",
     ]) + "\n"
 
 

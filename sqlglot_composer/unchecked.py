@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import datetime
+import math
 import os
 import re
 import string
@@ -26,12 +27,13 @@ from . import kinds
 from .conditions import Condition
 from .keys import Found, Keys
 from .refusals import callers_frame, refuse, warn_at_callers_line
-from .shared import in_words, python_literal
-from .tables import Column, Table, UncheckedSelect, python_text
+from .shared import HIVE_VARIABLE, in_words, python_literal
+from .tables import Column, Table, UncheckedSelect, literal, python_text, type_family
 from .trees import SIMPLE_NAME, Node
 from .writing import (
     ExpressionFacts,
     SelectFacts,
+    hive_text,
     read_unchecked_expression,
     read_unchecked_select,
     with_placeholders,
@@ -354,6 +356,14 @@ def unchecked_hive(text: str) -> UncheckedStatement:
     other. When the last line ends in a -- comment, show_hive puts the ; on a line of its own,
     since after the comment it would be part of it.
 
+    A Hive variable, such as ${hivevar:run_day}, is sent as written, for Hive to fill in from a
+    SET line sent first, as run_execute(hive_settings(...), execute) sends one:
+
+    >>> text = show_hive(unchecked_hive(
+    ...     "SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '${hivevar:run_day}'"))
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    SELECT COUNT(*) AS runs FROM ops.job_runs WHERE dt = '${hivevar:run_day}';
+
     A Table reference's text drops into the Hive you write, in an f-string, so the names are
     spelt as the Table reference spells them. A table's text is its name as FROM writes it,
     ops.jobs AS jobs, for after FROM or JOIN; DESCRIBE and SHOW PARTITIONS take the name
@@ -392,6 +402,109 @@ def unchecked_hive(text: str) -> UncheckedStatement:
         )
     _note_a_change(written)
     return UncheckedStatement(written)
+
+
+def seed_copy(table: Table, original: str,
+              limits: dict[str, object] | None = None) -> UncheckedStatement:
+    """A converted table's Seed: its original's rows, copied in once, by Partition.
+
+    >>> runs = example_database.job_runs
+    >>> text = show_hive(seed_copy(runs, "mart.job_runs", {"dt": {"from": "2026-09-24"}}))
+    -- Unchecked statement, written by hand: no Guard, Warning or Load limit looked inside
+    INSERT OVERWRITE TABLE ops.job_runs PARTITION (dt) SELECT * FROM mart.job_runs WHERE dt >= '2026-09-24';
+
+    A Conversion writes it as a table's seed(), for a table whose write reads its own table,
+    as an incremental INSERT does: its copy starts empty, so its first write would start from
+    nothing. `limits` is the table's SEED, in its Table reference, which the decisions cell
+    answers under "seed": by partition column, a value, that value or later, as above; a
+    range, {"from": ..., "to": ...}, either end left out as you like; or a list, those values
+    alone, as {"region": ["US", "CA"]}. A value may be a Run value's function, called each
+    time seed() is built. A partition column it leaves out is copied whole, and with no limits
+    every Partition is. Each value is written as the column's type in the Table reference
+    says: text and dates in quotes, numbers as they are. It refuses a column that isn't one of
+    the table's partition columns, and a value that doesn't fit its column's type.
+    """  # noqa: E501 - its example's Hive is one line
+    call = f"seed_copy({python_text(table)}, ...)"
+    partitions = table._partitioned_by
+    partition = f" PARTITION ({', '.join(partitions)})" if partitions else ""
+    conditions = []
+    for column, limit in (limits or {}).items():
+        if column not in partitions:
+            refuse(
+                what=f"{call}: {column} isn't a partition column of {table._name}"
+                + (f"; its partition columns are {', '.join(partitions)}." if partitions
+                   else ", which has none."),
+                why="A seed is limited by Partition alone: a limit on another column would "
+                "still read every Partition, which is what it saves you.",
+                fix=f"Name one of {table._name}'s partition columns in its seed limits, or "
+                "take the limit out.",
+                error=ValueError,
+            )
+        conditions += _seed_conditions(call, column, table._columns.get(column), limit)
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+    return UncheckedStatement(
+        f"INSERT OVERWRITE TABLE {table._name}{partition} SELECT * FROM {original}{where}")
+
+
+def _seed_conditions(call: str, column: str, hive_type: str | None,
+                     limit: object) -> list[str]:
+    """The conditions of one partition column's seed limit: a value, >=; a range, >= and
+    <=; or a list, IN."""
+    if isinstance(limit, dict):
+        unknown = set(limit) - {"from", "to"}
+        if unknown or not limit:
+            refuse(
+                what=f"{call}: {column}'s limit {limit!r} isn't a range.",
+                why='A range is {"from": ..., "to": ...}, either end left out as you like.',
+                fix='Write it as {"from": "2026-01-01"} or {"from": ..., "to": ...}.',
+                error=ValueError,
+            )
+        found = []
+        if "from" in limit:
+            found.append(f"{column} >= {_seed_value(call, column, hive_type, limit['from'])}")
+        if "to" in limit:
+            found.append(f"{column} <= {_seed_value(call, column, hive_type, limit['to'])}")
+        return found
+    if isinstance(limit, (list, tuple)):
+        if not limit:
+            refuse(
+                what=f"{call}: {column}'s limit is an empty list.",
+                why="A list limits the seed to those values alone, so an empty one would copy "
+                "nothing, and Hive refuses IN ().",
+                fix=f"Name the values to copy, such as {{{column!r}: [\"US\", \"CA\"]}}, or "
+                "take the limit out to copy every one.",
+                error=ValueError,
+            )
+        values = ", ".join(_seed_value(call, column, hive_type, each) for each in limit)
+        return [f"{column} IN ({values})"]
+    return [f"{column} >= {_seed_value(call, column, hive_type, limit)}"]
+
+
+def _seed_value(call: str, column: str, hive_type: str | None, value: object) -> str:
+    """One value of a seed limit, written as its column's type says: a number as it is, text
+    and dates in quotes; a Run value's function called first."""
+    if callable(value):
+        value = value()
+    family = type_family(hive_type)
+    if family == "number":
+        if isinstance(value, str) and re.fullmatch(r"-?\d+(\.\d+)?", value.strip()):
+            return value.strip()
+        if isinstance(value, int) and not isinstance(value, bool):
+            return repr(value)
+        if isinstance(value, float) and math.isfinite(value):
+            return repr(value)
+    elif isinstance(value, datetime.date):
+        return hive_text(literal(value.isoformat(), call=call))
+    elif isinstance(value, (str, int)) and not isinstance(value, bool):
+        return hive_text(literal(str(value), call=call))
+    refuse(
+        what=f"{call}: {column}'s limit {value!r} doesn't fit its type, {hive_type}.",
+        why="Each value of a seed limit is compared with the partition column, so it is "
+        "written as that column's type.",
+        fix=f"Give {column} a {family or 'text'} value, such as "
+        + ("400." if family == "number" else '"2026-01-01".'),
+        error=ValueError,
+    )
 
 
 def unchecked_text(unchecked: UncheckedStatement) -> str:
@@ -529,6 +642,16 @@ def unchecked_column(text: str, /, **columns: Column) -> Column:
     "regexp_extract({job_name}, '[a-z]{{2}}', 0)". A column passed as a calculation, such as
     job_runs.duration_mins + 1, is put in round brackets.
 
+    A Hive variable, such as ${hivevar:bucket_mins}, is Hive, never a placeholder: it is
+    written as it is, for Hive to fill in from a SET line sent first, as
+    run_execute(hive_settings(...), execute) sends one (help(hive_settings)).
+
+    >>> unchecked_column("{minutes} DIV ${hivevar:bucket_mins}", minutes=job_runs.duration_mins)
+    job_runs.duration_mins DIV ${hivevar:bucket_mins}
+
+    Written with its braces doubled, ${{hivevar:bucket_mins}}, as a Conversion before 8.4
+    wrote it, it gives the same Hive.
+
     It gives back a Column, used like any other: give it a name with AS. For a condition, in
     WHERE, HAVING or ON=, use unchecked_condition(...). Text that adds rows up, such as
     percentile({minutes}, 0.5), is treated as count_rows() is: it needs GROUP_BY for the other
@@ -587,9 +710,14 @@ def unchecked_condition(text: str, /, **columns: Column) -> Condition:
     It gives back a Condition, for WHERE, HAVING or ON=, and for all_of(...) and any_of(...).
     Its text is written as unchecked_column's is: each column it reads as a placeholder in
     braces, such as {status}, with the column itself passed by that name, a brace you mean
-    doubled, and the same refusals; help(unchecked_column) says more. The Toolbox doesn't check
-    that the text is a condition, one that is true or false for each row: Hive refuses one
-    that isn't when it runs.
+    doubled, a Hive variable written as it is, and the same refusals; help(unchecked_column)
+    says more:
+
+    >>> unchecked_condition("{status} RLIKE '${hivevar:pattern}'", status=job_runs.status)
+    job_runs.status RLIKE '${hivevar:pattern}'
+
+    The Toolbox doesn't check that the text is a condition, one that is true or false for
+    each row: Hive refuses one that isn't when it runs.
 
     The Guards and Load limits check the rest of the Statement, and say so where they can't
     tell what the text does. A read of a partitioned table whose partition columns are
@@ -606,10 +734,11 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
     """An Unchecked expression's Node, once its text and columns are checked. `call` is the
     function it is made by, unchecked_column or unchecked_condition."""
     written = _hive_written(call, text)
-    names = _placeholders(call, written)
+    template = _with_hive_variables_doubled(written)
+    names = _placeholders(call, template, written)
     _check_columns(call, written, names, columns)
     stand_ins = [f"unchecked_placeholder_{number}" for number in range(len(names))]
-    filled = written.format(**dict(zip(names, stand_ins)))
+    filled = template.format(**dict(zip(names, stand_ins)))
     facts = read_unchecked_expression(filled, stand_ins)
     _check_expression(call, written, facts)
     _check_columns_named(call, written, facts, filled, dict(zip(stand_ins, names)), columns)
@@ -624,7 +753,7 @@ def _unchecked_tree(call: str, text: object, columns: dict[str, object]) -> Node
             f"{{{missing[0]}}}).",
             error=ValueError,
         )
-    tree = Node("Unchecked", text=written, names=names,
+    tree = Node("Unchecked", text=template, names=names,
                 columns=[columns[name]._tree.copy() for name in names],
                 aggregate=facts.aggregate, window=facts.window)
     passed = "".join(f", {name}={python_text(columns[name])}" for name in names)
@@ -664,11 +793,19 @@ def _hive_written(call: str, text: object) -> str:
     return written
 
 
-def _placeholders(call: str, text: str) -> list[str]:
-    """The name of each {name} placeholder in the text, each once, in the order written; a
-    refusal of braces str.format can't read, and of a placeholder with no plain name."""
+def _with_hive_variables_doubled(written: str) -> str:
+    """The text as str.format reads it: each Hive variable's braces doubled, ${{hivevar:day}},
+    so it is kept as written, never read as a placeholder. One already doubled, as the
+    Conversion wrote it before 8.4, is left as it is."""
+    return HIVE_VARIABLE.sub(r"${{\1\2}}", written)
+
+
+def _placeholders(call: str, template: str, text: str) -> list[str]:
+    """The name of each {name} placeholder in the template, the text with each Hive
+    variable's braces doubled, each once, in the order written; a refusal of braces
+    str.format can't read, and of a placeholder with no plain name, showing the text."""
     try:
-        parsed = list(string.Formatter().parse(text))
+        parsed = list(string.Formatter().parse(template))
     except ValueError as error:
         refuse(
             what=f"{call}({python_text(text)}, ...) has braces it can't read: {error}.",
@@ -862,7 +999,8 @@ def unchecked_derived(name: str, text: str, columns: dict[str, str | None],
     can tell the names of the columns the SELECT gives, they must be the ones declared. The
     text names its columns itself, with no {placeholders}: a brace sqlglot reads as a struct,
     as {'k': 1}, is refused, since it can't write that back as Hive; one inside quotes, as in a
-    regular expression's '[a-z]{2}', is kept.
+    regular expression's '[a-z]{2}', is kept, and so is a Hive variable, as in
+    WHERE r.dt = '${hivevar:run_day}', for Hive to fill in from a SET line sent first.
 
     No Guard, Warning or Load limit looks inside the text, so it has no Key the Toolbox can
     see unless you name one: key=["run_id"] says one row has each run_id, as a GROUP BY

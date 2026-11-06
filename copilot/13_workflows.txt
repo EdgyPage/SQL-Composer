@@ -1,9 +1,9 @@
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.3)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.4)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.3, a Toolbox that writes Hive: the steps left, each its cell of the convert
+with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the convert
 Workflow's notebook, in order. Load this file when the user asks how to turn Hive into their
 own tables end to end. File 16 is for promoting dev tables to prod; file 14 for new tables,
 Table references, upgrades and changes to a Saved table; a step's own file, for the Python
@@ -28,7 +28,7 @@ inside it.
 - project.run_workflow(workflow, *, query=None, execute=None, dry_run=False, change=None)
 - project.convert(name, hive=None, *, file=None, files=None, query=None, database='default', rename=None, overwrite=False, staging=None)
 - project.compare_batch(name, *, query=None, tables=None, partition=None)
-- project.write_decisions(answers)
+- project.write_decisions(answers, tables=None)
 
 ## Steps
 
@@ -64,14 +64,16 @@ inside it.
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
   its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
   ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END": "'2026-10-31'"}}}`;
-  `project.write_decisions(DECISIONS)` writes each into its table's Table reference.
+  the next step writes each into its table's Table reference.
 - `project.check()`, and convert's step 1, print a whole DECISIONS to paste, each answer
   still to give `"<FILL IN>"`, which is no answer until filled in.
 - A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
   Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
-  user gives; only if they ask for one changing each run, `"'${hivevar:run_day}'"`, a SET
-  hivevar line kept in the script. If they give none, never guess: ask.
+  user gives; for one worked out each run, such as the latest Partition, a Run value: a
+  function of theirs (file 17). If they give none, never guess: ask.
+- `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
+  file 17.
 - Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
   then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
@@ -105,7 +107,7 @@ Its inputs:
 3. Write each answer into its table's Table reference (it changes only files, so
    project.do_next() runs it for you).
 
-       project.write_decisions(DECISIONS)
+       project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 
 4. Create each table in dev (it is a call to the warehouse, yours to run).
 

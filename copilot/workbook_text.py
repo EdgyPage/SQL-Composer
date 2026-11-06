@@ -1,4 +1,4 @@
-# sqlglot Composer 8.3 - copy it, then edit your copy
+# sqlglot Composer 8.4 - copy it, then edit your copy
 """Write an Excel workbook as text for a Copilot chat: its Tables, formulas and Power Queries,
 and the order in which each piece reads the others.
 
