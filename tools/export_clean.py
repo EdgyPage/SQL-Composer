@@ -197,14 +197,16 @@ def describe_toolbox(folder: str) -> dict[str, str | list[dict[str, str | list[l
         group = groups.setdefault(file, {"file": file, "about": first_line(module.__doc__),
                                          "names": []})
         group["names"].append([name, line])
-    # The admin and project modules, imported by name: their functions, as admin.<name>.
+    # The admin and project modules, imported by name: their functions, as admin.<name>, after
+    # any name of the star import the file holds, such as project.py's database_settings.
     for module_name in ("admin", "project"):
         module = getattr(toolbox, module_name)
-        groups[Path(module.__file__).name] = {
+        group = groups.setdefault(Path(module.__file__).name, {
             "file": Path(module.__file__).name, "about": first_line(module.__doc__),
-            "names": [[f"{module_name}.{name}",
-                       "- " + first_line(inspect.getdoc(getattr(module, name)))]
-                      for name in module.__all__]}
+            "names": []})
+        group["names"] += [[f"{module_name}.{name}",
+                            "- " + first_line(inspect.getdoc(getattr(module, name)))]
+                           for name in module.__all__]
     return {
         "folder": str(Path(toolbox.__file__).parent),
         "version": toolbox.VERSION,

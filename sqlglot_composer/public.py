@@ -70,6 +70,7 @@ from .conditions import (
     today,
 )
 from .lineage import export_lineage
+from .project import database_settings
 from .python_steps import PythonStep, python_step
 from .refusals import GuardRefused, LoadRefused
 from .running import export_hive, run_execute, run_query, set_load_limits, show_hive, to_hive
@@ -246,6 +247,8 @@ __all__ = [
     "latest_partition",
     "run_value",
     "tag_text",
+    # project.py
+    "database_settings",
     # comparisons.py
     "compare_hive",
     "compare_with_original",

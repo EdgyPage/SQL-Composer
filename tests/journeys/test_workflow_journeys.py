@@ -50,7 +50,7 @@ notebooks = toolbox_module("notebooks")
 KNOWN_FIDDLING = {
     # Its Decisions are answered in the decisions cell, which is typing, not a hand edit.
     "convert": (),
-    # Its prod copies' locations follow the dev ones, their database's folder renamed.
+    # Its prod copies are placed under PROD's location_root, in admin/databases.py.
     "promote": (),
     # A hand-started table's logic is what the user writes: its Table reference is written
     # from it.
@@ -156,9 +156,7 @@ class Journey:
     def paste_decisions(self, filled: dict[str, dict[str, object]]) -> None:
         """Paste the DECISIONS project.check() prints for this Workflow's next step into its
         decisions cell, each <FILL IN> filled in from `filled`, by table and kind, a tag's or a
-        type's by its name too, as the user fills in what they pasted. A location offered
-        under "all_tables" (8.4) is filled in as the folder _location's are under."""
-        filled = {"all_tables": {"location_root": LOCATION_ROOT}, **filled}
+        type's by its name too, as the user fills in what they pasted."""
         printed = repr(project.check())
         from_its_step = printed[printed.index(f"admin/workflows/{self.workflow}/"):]
         # The block starts at "DECISIONS = {" and ends at the first line that is "}" alone.
@@ -240,7 +238,8 @@ def _typed(line: str, values: dict[str, object]) -> str:
 @pytest.fixture
 def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
             request: pytest.FixtureRequest) -> Iterator[Started]:
-    """A Project whose conn is the stand-in warehouse, DEV and PROD filled in; at the end, each
+    """A Project whose conn is the stand-in warehouse, DEV's and PROD's settings filled in,
+    each with its own root; at the end, each
     Workflow it ran made every hand edit KNOWN_FIDDLING lists for it, and a measured journey
     took the actions KNOWN_ACTIONS counts."""
     forget_the_projects_modules()
@@ -248,10 +247,16 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
     project.start()
     warehouse = Warehouse(database="ops")
     _set_conn(tmp_path, warehouse, monkeypatch)
+    # Each Database's settings, as the user fills them in (Toolbox 8.5, ticket 09): a root
+    # each, so each table is placed in a folder of its own, dev and prod alike.
     databases = tmp_path / "admin" / "databases.py"
-    databases.write_text(databases.read_text(encoding="utf-8").replace(
-        '"<DEV_DATABASE>"', '"mart_dev"').replace('"<PROD_DATABASE>"', '"team_prod"'),
-        encoding="utf-8")
+    filled = databases.read_text(encoding="utf-8")
+    for placeholder, value in (("<DEV_DATABASE>", "mart_dev"), ("<PROD_DATABASE>", "team_prod"),
+                               ("<DEV_LOCATION_ROOT>", LOCATION_ROOT),
+                               ("<PROD_LOCATION_ROOT>", PROD_LOCATION_ROOT)):
+        filled = filled.replace(f'"{placeholder}"', f'"{value}"')
+    assert 'DEV = {"database": "mart_dev", "location_root": "/data/team"}' in filled
+    databases.write_text(filled, encoding="utf-8")
     hand_edits: dict[str, list[str]] = {}
     journeyed = Started(tmp_path, monkeypatch, warehouse, hand_edits)
     yield journeyed
@@ -326,18 +331,22 @@ def _notebook(root: Path, table: str) -> Path:
     return root / "tables" / _stem(table) / f"{_stem(table)}.ipynb"
 
 
+# admin/databases.py's two roots: DEV's places each dev table, PROD's each prod copy.
 LOCATION_ROOT = "/data/team"
+PROD_LOCATION_ROOT = "/data/team_prod"
 
 
-def _location(table: str) -> str:
-    return f"{LOCATION_ROOT}/" + table.replace(".", ".db/", 1)
+def _location(table: str, root: str = LOCATION_ROOT) -> str:
+    return f"{root}/" + table.replace(".", ".db/", 1)
 
 
-def _answer_each_decision(journey: Journey, tables: list[str]) -> None:
-    """The convert Workflow's decision step: the DECISIONS project.check() prints pasted into
-    the decisions cell, each table's location filled in, which the next step writes into its
-    Table reference. Its Key is the one convert proposed."""
-    journey.paste_decisions({table: {"location": _location(table)} for table in tables})
+def _check_each_placed(root: Path, tables: list[str], under: str = LOCATION_ROOT) -> None:
+    """Each table's Table reference places it in its own folder under its Database's root,
+    so no location is a Decision: the convert Workflow's decision step has nothing to ask
+    when convert proposed each Key."""
+    for table in tables:
+        written = _reference(root, table).read_text(encoding="utf-8")
+        assert f'    location="{_location(table, under)}",' in written, table
 
 
 # --- convert, then promote --------------------------------------------------------------------
@@ -390,7 +399,8 @@ def _convert(started: Started, script: str, keys: dict[str, list[str]]) -> list[
         assert path.is_file(), f"convert made no Table reference for {table}"
         written = path.read_text(encoding="utf-8")
         assert f"    key={keys[table]!r},  # proposed".replace("'", '"') in written
-    _answer_each_decision(journey, tables)
+    _check_each_placed(started.root, tables)
+    assert "DECISIONS = {" not in repr(project.check()), "a Decision is left to answer"
     journey.run_to()
     _check_converted(started, tables, keys)
     return tables
@@ -410,15 +420,13 @@ def _check_converted(started: Started, tables: list[str], keys: dict[str, list[s
 
 def _convert_through_the_runner(started: Started, script: str,
                                 keys: dict[str, list[str]]) -> list[str]:
-    """The convert Workflow as one project.run_workflow call: its names and each table's
-    location typed first, then a dry run, which sends nothing, then the run, to the Batch
-    finished."""
+    """The convert Workflow as one project.run_workflow call: its names typed first, then a
+    dry run, which sends nothing, then the run, to the Batch finished. Each location is
+    placed under DEV's root, and each Key proposed, so no Decision is typed."""
     started.warehouse.execute(script)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", script)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
-    # Before step 1 runs nothing is printed to paste, so each location is typed.
-    journey.type_names(DECISIONS={table: {"location": _location(table)} for table in keys})
     sent = list(started.warehouse.executed)
     dry_run = journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
@@ -452,9 +460,10 @@ def _promote(started: Started, tables: list[str]) -> list[str]:
 
 
 def _check_promoted(started: Started, tables: list[str]) -> list[str]:
-    """The promote Workflow's end goal: each prod copy holds its dev table's rows, and is in
-    the Reference sheet and its Database module."""
+    """The promote Workflow's end goal: each prod copy holds its dev table's rows, is placed
+    under PROD's root, and is in the Reference sheet and its Database module."""
     prod = project.promoted_tables(tables)
+    _check_each_placed(started.root, prod, under=PROD_LOCATION_ROOT)
     sheet = (started.root / "references" / "reference_sheet.csv").read_text(encoding="utf-8")
     for prod_table in prod:
         assert f"{prod_table}," in sheet, f"{prod_table} isn't in the Reference sheet"
@@ -486,8 +495,6 @@ def test_convert_compares_another_partition_set_in_partition(started: Started) -
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
-    journey.run_to(1)
-    _answer_each_decision(journey, project.batch_tables("weekly"))
     journey.run_to()
     compared = (started.root / "tables" / "mart_dev__team_fails_mart" / "conversion"
                 / "compare.md")
@@ -505,8 +512,7 @@ def test_the_runner_compares_the_partition_set_in_partition(started: Started) ->
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITION={"dt": "2026-09-23"},
-                       DECISIONS={table: {"location": _location(table)}})
+                       PARTITION={"dt": "2026-09-23"})
     assert "convert, weekly: every step is done." in journey.run_workflow()
     compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
     assert "dt = '2026-09-23'" in compared.read_text(encoding="utf-8")
@@ -516,10 +522,8 @@ def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
-    table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITION={"dt": "'2026-09-23'"},
-                       DECISIONS={table: {"location": _location(table)}})
+                       PARTITION={"dt": "'2026-09-23'"})
     said = journey.run_workflow()
     # The runner stops at step 7 on its refusal, as the cell's call does.
     assert "7. Compare each table with its original\n    Stopped by what this says" in said
@@ -598,9 +602,8 @@ TAGGED_KEYS = {"mart_dev.daily_close_mart": ["job_id", "dt"],
 
 
 def _tag_answers(values: dict[str, dict[str, str]]) -> dict[str, dict[str, object]]:
-    """The decisions cell for the tagged script: each table's location and its tags."""
-    return {table: {"location": _location(table), "tags": tags}
-            for table, tags in values.items()}
+    """The decisions cell for the tagged script: each table's tags."""
+    return {table: {"tags": tags} for table, tags in values.items()}
 
 
 def _check_tagged_rows(started: Started, tables: list[str]) -> None:
@@ -649,9 +652,7 @@ def test_the_runner_creates_nothing_while_a_tag_is_open(started: Started) -> Non
     started.warehouse.execute(_filled_in_script())
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", _tagged_script())
-    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       DECISIONS={table: {"location": _location(table)}
-                                  for table in TAG_VALUES})
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     said = journey.run_workflow()
     assert "2. Answer each table's open Decisions" in said
     assert "tags: PERIOD_END, bare at weekly.hql, line 10" in said
@@ -702,8 +703,7 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     table = "mart_dev.daily_close_mart"
     journey.run_to(1)
-    journey.paste_decisions({table: {"location": _location(table),
-                                     "tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
+    journey.paste_decisions({table: {"tags": {"PERIOD_END": "'${hivevar:period_end}'"}}})
     journey.run_to()
     _check_converted(started, [table], {table: ["job_id", "dt"]})
     assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
@@ -713,7 +713,8 @@ def test_a_tag_answered_with_a_hive_variable_its_scripts_set(started: Started) -
 # The user's batch (Toolbox 8.4): reporting windows ending at PERIOD_END, which should be the
 # latest day the warehouse holds at each run, worked out by a function of the user's, a Run
 # value; a table that reads itself, partitioned by a day and a team, whose seed needs only the
-# latest day; and every table's location and PERIOD_END answered once, for all of them. A
+# latest day; and every table's PERIOD_END answered once, for all of them, each placed under
+# DEV's root. A
 # needless many_matches=True taken out at step 3 is tests/test_batches.py's: a Key only an
 # answer gives, which the Toolbox can't prove from the query, its write refuses.
 PERIOD_SCRIPT = """SET hive.exec.dynamic.partition.mode=nonstrict;
@@ -756,7 +757,7 @@ def period_end() -> datetime.date:
 PERIOD_DECISIONS = """from building_blocks.run_values import period_end
 
 DECISIONS = {
-    "all_tables": {"location_root": "/data/team", "tags": {"PERIOD_END": period_end}},
+    "all_tables": {"tags": {"PERIOD_END": period_end}},
     "mart_dev.team_log_mart": {"key": None, "seed": {"dt": {"from": "2026-09-24"}}},
 }
 """
@@ -856,6 +857,34 @@ def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None
              if hive.startswith(f"INSERT OVERWRITE TABLE {prod}")]
     assert len(seeds) == 1 and seeds[0].endswith("WHERE dt >= '2026-09-24'")
     assert _sorted_rows(started.warehouse, prod) == _sorted_rows(started.warehouse, log)
+    # Toolbox 8.5, ticket 10: the Run value's Building block has a prod copy, which the prod
+    # table imports; and each prod copy is placed under PROD's root.
+    assert _PROD_RUN_VALUES_IMPORT in _reference(started.root, prod).read_text(encoding="utf-8")
+    assert _prod_run_values(started.root).read_text(encoding="utf-8").endswith(RUN_VALUES)
+    _check_each_placed(started.root, project.promoted_tables(["mart_dev.job_teams_mart", log]),
+                       under=PROD_LOCATION_ROOT)
+
+
+_PROD_RUN_VALUES_IMPORT = "from building_blocks.prod.run_values import period_end  # a Run"
+
+
+def _prod_run_values(root: Path) -> Path:
+    return root / "building_blocks" / "prod" / "run_values.py"
+
+
+def test_a_run_value_changed_in_dev_reaches_prod_only_when_promoted_again(
+        started: Started) -> None:
+    # Toolbox 8.5, ticket 10: dev's Building blocks change freely, prod's only when promoted.
+    test_promote_a_seeded_table_limiting_its_prod_seed(started)
+    journey = started.journey("convert")
+    changed = RUN_VALUES.replace("The latest day", "The last day")
+    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", changed)
+    assert _prod_run_values(started.root).read_text(encoding="utf-8").endswith(RUN_VALUES)
+    assert "Edited by hand" not in repr(project.check())
+    # As step 1's cell of the promote notebook runs it again.
+    project.promote(["mart_dev.job_teams_mart", "mart_dev.team_log_mart"])
+    assert _prod_run_values(started.root).read_text(encoding="utf-8").endswith(changed)
+    assert list((started.root / "admin" / "removed").glob("*-run_values.py"))
 
 
 # --- new_table, then change_a_saved_table -----------------------------------------------------
@@ -865,13 +894,14 @@ def test_new_table_then_change_it(started: Started) -> None:
     table = "mart_dev.daily_runs"
     _run_references(started, "ops.job_runs", ["run_id"])
     journey = started.journey("new_table")
-    journey.type_names(TABLES=[table], DECISIONS={table: {"location": _location(table)}})
+    journey.type_names(TABLES=[table])
     journey.run_to(1)
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
     journey.run_to()
     written = _reference(started.root, table).read_text(encoding="utf-8")
     assert '    key=["job_id", "dt"],  # proposed' in written
+    _check_each_placed(started.root, [table])
     written = started.warehouse.rows_of(table)
     assert sorted(written.columns) == ["dt", "job_id", "runs"]
     assert len(written) > 0
@@ -892,7 +922,7 @@ def test_new_table_then_change_it_through_the_runner(started: Started) -> None:
     table = "mart_dev.daily_runs"
     _run_references_through_the_runner(started, "ops.job_runs", ["run_id"])
     journey = started.journey("new_table")
-    journey.type_names(TABLES=[table], DECISIONS={table: {"location": _location(table)}})
+    journey.type_names(TABLES=[table])
     assert "2. Write each table's logic" in journey.run_workflow()
     journey.make_by_hand("fill in the logic's <...>", _edit_notebook,
                          _notebook(started.root, table), _fill_daily_runs_logic, "# logic")
@@ -927,8 +957,7 @@ def test_new_table_from_a_query_then_promote_it(started: Started) -> None:
     query = ("SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r "
              "WHERE r.status = 'FAILED' GROUP BY r.job_id")
     journey = started.journey("new_table", by_hand=False)
-    journey.type_names(TABLES=[table], QUERIES={"job_counts": query},
-                       DECISIONS={table: {"location": _location(table)}})
+    journey.type_names(TABLES=[table], QUERIES={"job_counts": query})
     sent = list(started.warehouse.executed)
     assert "would send: CREATE" in journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
