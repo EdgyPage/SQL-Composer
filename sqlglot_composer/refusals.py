@@ -489,9 +489,10 @@ def warn_upgrade_needed(have: str, toolbox: str) -> None:
         why="A newer Toolbox may change what your files need, and an Upgrade makes those "
         "changes, or marks them for you. The import worked, and your notebooks still run "
         "meanwhile: this only warns.",
-        fix="Run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-        "admin/workflows/upgrade/upgrade.ipynb once the Project has one, then work through "
-        f"the checklist it writes, admin/upgrade_{toolbox}.md.",
+        fix="Run step 1's cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(), "
+        f"then work through the checklist it writes, admin/upgrade_{toolbox}.md. A Project "
+        "made before 8.0 has no such notebook until its first Upgrade: there, "
+        "project.upgrade() goes in admin/check_project.ipynb.",
         opt_out="none - it shows at each import until the Project is upgraded.",
     )
     warn_at_callers_line(message, UserWarning)

@@ -61,6 +61,10 @@ Being built: what each ticket changes is listed here as it lands.
   Key, each marked one whose Repeated-rows Warning no longer fires is taken out, with its mark,
   its checklist note and its batch.md line, and the report names each. One you wrote yourself,
   with no mark, stays; a join on a table with no Key still only warns.
+- **No cell of your own on a Workflow's path**: each decision step of the convert, promote,
+  new_table and references notebooks now has a `project.check()` cell under it, which names
+  each open Decision and prints a whole DECISIONS to paste, where before its text sent you to
+  make one. The Upgrade writes the Workflow notebooks again with it.
 - **Decisions for every table**: `DECISIONS["all_tables"]` answers `location_root`, `tags` and
   `seed` for every table a Workflow's notebook names, each table's own answer over it, kind by
   kind and tag by tag. `location_root` gives each table with no location of its own

@@ -379,8 +379,9 @@ def test_check_says_a_project_behind_its_toolbox_needs_an_upgrade(started: Path)
     made_by_7_1(started)
     assert repr(project.check()) == (
         f"The Project was last written by Toolbox 7.1, and this Toolbox is {VERSION}: run "
-        "project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-        "admin/workflows/upgrade/upgrade.ipynb once the Project has one.")
+        "step 1's cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project "
+        "made before 8.0 has no such notebook until its first Upgrade, so there "
+        "project.upgrade() goes in admin/check_project.ipynb.")
 
 
 def test_check_says_a_newer_toolbox_last_wrote_the_project(started: Path) -> None:
