@@ -70,8 +70,8 @@ KNOWN_FIDDLING = {
 # lowers, one ticket at a time (its ticket 01). A journey taking more fails; one taking fewer
 # asks for its number to be lowered here.
 KNOWN_ACTIONS: dict[str, int] = {
-    "test_promote_a_seeded_table_limiting_its_prod_seed": 20,
-    "test_convert_the_users_batch_with_run_values_through_the_runner": 14,
+    "test_promote_a_seeded_table_limiting_its_prod_seed": 18,
+    "test_convert_the_users_batch_with_run_values_through_the_runner": 13,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -153,14 +153,19 @@ class Journey:
                 exec(text, self.scope)
                 self.cells_run = max(self.cells_run, number)
 
-    def paste_decisions(self, filled: dict[str, dict[str, object]]) -> None:
+    def paste_decisions(self, filled: dict[str, dict[str, object]],
+                        printed: str | None = None) -> None:
         """Paste the DECISIONS project.check() prints for this Workflow's next step into its
-        decisions cell, each <FILL IN> filled in from `filled`, by table and kind, a tag's or a
-        type's by its name too, as the user fills in what they pasted. A location offered
-        under "all_tables" (8.4) is filled in as the folder _location's are under."""
+        decisions cell, or the last one `printed` holds, as a run cell prints it, each
+        <FILL IN> filled in from `filled`, by table and kind, a tag's or a type's by its name
+        too, as the user fills in what they pasted. A location offered under "all_tables"
+        (8.4) is filled in as the folder _location's are under."""
         filled = {"all_tables": {"location_root": LOCATION_ROOT}, **filled}
-        printed = repr(project.check())
-        from_its_step = printed[printed.index(f"admin/workflows/{self.workflow}/"):]
+        if printed is None:
+            printed = repr(project.check())
+            from_its_step = printed[printed.index(f"admin/workflows/{self.workflow}/"):]
+        else:
+            from_its_step = printed[printed.rindex("\nDECISIONS = {"):]
         # The block starts at "DECISIONS = {" and ends at the first line that is "}" alone.
         block = from_its_step[from_its_step.index("\nDECISIONS = {") + 1:]
         block = block[:block.index("\n}\n") + 2] if "\n}\n" in block else block
@@ -798,11 +803,15 @@ def test_convert_the_users_batch_with_run_values_through_the_runner(started: Sta
     # Toolbox 8.4, ticket 14: the same batch as the notebook's last cell runs it, the decisions
     # cell importing the user's function as before. The runner stops at the Decisions first:
     # the function reads ops.job_runs through the Table reference convert's step 1 writes.
+    # Toolbox 8.5, ticket 03: FILES left [], it reads every .hql beside the notebook.
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", PERIOD_SCRIPT)
-    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
-    assert "convert, weekly: every step is done." not in journey.run_workflow()
+    journey.type_names(NAME="weekly", DATABASE="ops")
+    said = journey.run_workflow()
+    assert "convert, weekly: every step is done." not in said
+    assert "FILES is left [], so it read every .hql file beside the notebook" in said
+    assert "weekly.hql" in said
     journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
     journey.type_decisions_cell(PERIOD_DECISIONS)
     assert "convert, weekly: every step is done." in journey.run_workflow()
@@ -844,18 +853,108 @@ def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None
     # decisions cell. Toolbox 8.5, ticket 02: the user's batch, each notebook read top to
     # bottom: convert through its two run cells, then promote's names and decisions, the seed
     # limited for every table under "all_tables", and its run cell.
+    # Toolbox 8.5, ticket 03: TABLES left [], it promotes every finished table not promoted.
     test_convert_the_users_batch_with_run_values_through_the_runner(started)
     log = "mart_dev.team_log_mart"
     journey = started.journey("promote")
-    # team_log reads job_teams, which is promoted with it.
-    journey.type_names(TABLES=["mart_dev.job_teams_mart", log],
-                       DECISIONS={"all_tables": {"seed": {"dt": "2026-09-24"}}})
-    assert "promote: every step is done." in journey.run_workflow()
+    journey.type_names(DECISIONS={"all_tables": {"seed": {"dt": "2026-09-24"}}})
+    said = journey.run_workflow()
+    assert "promote: every step is done." in said
+    assert "TABLES is left [], so it promotes" in said
+    for table in PERIOD_TABLES:
+        assert f"    {table}: not promoted yet" in said
+    # Run again, not as an action of the journey's: it finds nothing left, and says so.
+    assert "nothing to promote" in repr(project.run_workflow("promote"))
     prod = project.promoted_tables([log])[0]
     seeds = [hive for hive in started.warehouse.executed
              if hive.startswith(f"INSERT OVERWRITE TABLE {prod}")]
     assert len(seeds) == 1 and seeds[0].endswith("WHERE dt >= '2026-09-24'")
     assert _sorted_rows(started.warehouse, prod) == _sorted_rows(started.warehouse, log)
+
+
+# Three simple scripts that read none of each other's tables (Toolbox 8.5, ticket 05), each
+# converted as a batch of its own, by its file's name.
+UNRELATED_SCRIPTS = {
+    "team_fails": ONE_SCRIPT,
+    "job_counts": """CREATE TABLE IF NOT EXISTS mart.job_counts (job_id BIGINT, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.job_counts PARTITION (dt)
+SELECT r.job_id, COUNT(*) AS runs, r.dt FROM ops.job_runs r GROUP BY r.job_id, r.dt;
+""",
+    "failed_counts": """CREATE TABLE IF NOT EXISTS mart.failed_counts
+(job_id BIGINT, fails BIGINT) PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.failed_counts PARTITION (dt)
+SELECT r.job_id, COUNT(*) AS fails, r.dt FROM ops.job_runs r WHERE r.status = 'FAILED'
+GROUP BY r.job_id, r.dt;
+""",
+}
+
+
+def test_convert_three_unrelated_scripts_each_its_own_batch(started: Started) -> None:
+    journey = started.journey("convert")
+    for name, script in UNRELATED_SCRIPTS.items():
+        started.warehouse.execute(script)
+        journey.save_by_hand(journey.folder / f"{name}.hql", script)
+    journey.type_names(EACH_SCRIPT_ITS_OWN_BATCH=True, DATABASE="ops")
+    said = journey.run_workflow()
+    # Each converted, in name order, before any stops at its Decisions; one DECISIONS for all.
+    for name in sorted(UNRELATED_SCRIPTS):
+        assert f"convert, {name}: 1. Convert the scripts" in said
+        assert f"    {name}: at 2. Answer each table's open Decisions" in said
+    tables = []
+    for name in sorted(UNRELATED_SCRIPTS):
+        tables += project.batch_tables(name)
+    assert tables == ["mart_dev.failed_counts_mart", "mart_dev.job_counts_mart",
+                      "mart_dev.team_fails_mart"]
+    # The last DECISIONS is every batch's: a location for each, under all_tables, spans them.
+    last = said[said.rindex("Paste this over"):]
+    assert last.startswith("Paste this over the DECISIONS = ... line of "
+                           "admin/workflows/convert/convert.ipynb's decisions cell")
+    assert '"all_tables": {' in last and '"location_root": "<FILL IN>"' in last
+    journey.paste_decisions({table: {"location": _location(table)} for table in tables},
+                            printed=said)
+    said = journey.run_workflow()
+    finished = started.root / "admin" / "workflows" / "convert" / "finished"
+    for name in UNRELATED_SCRIPTS:
+        assert f"    {name}: finished, every step done" in said
+        assert (finished / name).is_dir(), f"batch {name} isn't finished"
+    for table, original in zip(tables, ["mart.failed_counts", "mart.job_counts",
+                                        "mart.team_fails"], strict=True):
+        assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
+                                                                      original)
+
+
+def test_promote_left_empty_finishes_a_promotion_its_cell_began(started: Started) -> None:
+    # Toolbox 8.5, ticket 03: a promotion begun step by step, TABLES left [], is one check()
+    # names and the run cells finish.
+    tables = _convert(started, ONE_SCRIPT, {"mart_dev.team_fails_mart": ["team", "dt"]})
+    journey = started.journey("promote")
+    journey.run_to(0)
+    project.promote(tables)  # as step 1's cell runs, its TABLES typed in the call
+    checked = repr(project.check())
+    assert "admin/workflows/promote/promote.ipynb: 4. Create each table in prod" in checked
+    said = journey.run_workflow()
+    assert ("    mart_dev.team_fails_mart: promoted, and not finished: its next step is "
+            "4. Create each table in prod") in said
+    assert "promote: every step is done." in said
+    _check_promoted(started, tables)
+
+
+def test_promote_left_empty_promotes_a_table_changed_in_dev_again(started: Started) -> None:
+    tables = _convert(started, ONE_SCRIPT, {"mart_dev.team_fails_mart": ["team", "dt"]})
+    journey = started.journey("promote")
+    assert "promote: every step is done." in journey.run_workflow()
+    reference = _reference(started.root, tables[0])
+    # A change to the dev table, made where its code is, as the user makes it.
+    reference.write_text(reference.read_text(encoding="utf-8").replace(
+        "TODO: say in one line what one row is.", "One row per team and day."),
+        encoding="utf-8")
+    said = journey.run_workflow()
+    assert "    mart_dev.team_fails_mart: changed in dev since it was promoted" in said
+    assert "Promoted mart_dev.team_fails_mart to team_prod.team_fails_mart" in said
+    prod = _reference(started.root, "team_prod.team_fails_mart").read_text(encoding="utf-8")
+    assert "One row per team and day." in prod
+    assert "nothing to promote" in repr(project.run_workflow("promote"))
 
 
 # --- new_table, then change_a_saved_table -----------------------------------------------------

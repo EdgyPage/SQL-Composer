@@ -84,6 +84,8 @@ RESULT_HEADING = "## "
 # open Decisions.
 CONVERSION = "conversion"
 CHECKLIST = "checklist.md"
+# The convert notebook's switch making each script of FILES a batch of its own (Toolbox 8.5).
+EACH_SCRIPT_ITS_OWN_BATCH = "EACH_SCRIPT_ITS_OWN_BATCH"
 # A placeholder a Template leaves to fill in, such as <PARTITION_COLUMN>.
 PLACEHOLDER = decisions.PLACEHOLDER_WORD
 
@@ -209,6 +211,12 @@ def times_sent(root: Path, kind: str, table: str) -> int:
     """How many sends of `kind`, such as "write", admin/sent.csv records for `table`."""
     return len([row for row in sent_rows(root)
                 if row["kind"] == kind and table in row["tables"].split(";")])
+
+
+def scripts_in(folder: Path) -> list[Path]:
+    """Each .hql file in a folder, in name order: what convert's FILES, left [], reads beside
+    the convert notebook."""
+    return sorted(path for path in folder.glob("*.hql") if path.is_file())
 
 
 def file_text(path: Path) -> str:
@@ -352,12 +360,14 @@ def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object
 
 def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
-    reference, all_tables' into each table TABLES names: a convert batch's own tables."""
+    reference, all_tables' into each table TABLES names: a convert batch's own tables, or,
+    when each script is its own batch, every batch's, as one decisions cell answers them all."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
+    tables = names_in(inputs, "TABLES_OF_EVERY_BATCH") or names_in(inputs, "TABLES")
     return project.write_decisions(answers if isinstance(answers, dict) else {},
-                                   tables=names_in(inputs, "TABLES"))
+                                   tables=tables)
 
 
 def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
@@ -538,11 +548,15 @@ def write_promoted_record(root: Path, record: dict[str, dict[str, object]]) -> N
 def prod_inputs(root: Path, inputs: dict[str, object]) -> dict[str, object]:
     """The promote Workflow's inputs as its prod steps read them: TABLES, the prod copy of each
     dev table TABLES names, and SEEDED, those that read themselves; no TABLES when one isn't
-    promoted yet."""
+    promoted yet, or is changed in dev since it was, which promote's first step promotes
+    again."""
+    from . import project  # project.py imports this file
+
     record = promoted_record(root)
     prod_of = {entry["dev"]: prod for prod, entry in record.items()}
     devs = names_in(inputs, "TABLES")
-    if not devs or any(dev not in prod_of for dev in devs):
+    if not devs or any(dev not in prod_of or project.changed_since_promoted(root, dev)
+                       for dev in devs):
         return {"TABLES": [], "SEEDED": []}
     prods = [prod_of[dev] for dev in devs]
     return {"TABLES": prods, "SEEDED": [prod for prod in prods if record[prod]["seeded"]]}
@@ -717,12 +731,14 @@ def prod_tables_of(inputs: dict[str, object], seeded: bool = False) -> list[str]
 
 def convert_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
     """project.convert for the batch NAME names, from FILES or HIVE, each copy RENAME names
-    named so. It reads only, DESCRIBE
-    through your query, and writes files, so a dry run runs it too."""
+    named so: FILES left [] with HIVE None reads every .hql file beside the notebook. It reads
+    only, DESCRIBE through your query, and writes files, so a dry run runs it too."""
     from . import project  # project.py imports this file
 
-    files = inputs.get("FILES") or None
+    files = inputs.get("FILES")
     hive = inputs.get("HIVE")
+    if isinstance(hive, str) and not files:
+        files = None
     # STAGING goes as given, so convert refuses one that isn't a dict, as its cell does.
     report = project.convert(str(inputs.get("NAME")), hive if isinstance(hive, str) else None,
                              files=files, query=calls.query,
@@ -1078,11 +1094,19 @@ CONVERT = Workflow(
              "with a result that failed is one promote refuses"),
     ),
     inputs=(Input("NAME", "", "the batch's name, plain lowercase, such as \"weekly\" (or, "
-                  "for the last cell alone, a list of batches converted already)", starts=True),
-            Input("FILES", [], 'the scripts\' files, from this folder, such as ["daily.hql"], '
-                  "or [] to read HIVE"),
+                  "for the run cells alone, a list of batches converted already); unused when "
+                  "EACH_SCRIPT_ITS_OWN_BATCH is True, each batch named for its file",
+                  starts=True),
+            Input("FILES", [], 'the scripts\' files, such as ["daily.hql"], each beside this '
+                  'notebook or a path anywhere, such as "C:/work/daily.hql", read where it is: '
+                  "left [], every .hql file beside this notebook, or HIVE when it is given"),
             Input("HIVE", None, 'the Hive as text, such as """SELECT ...""", or None '
                   "to read FILES"),
+            Input(EACH_SCRIPT_ITS_OWN_BATCH, False, "True makes each file of FILES a batch "
+                  'of its own, named for its file without .hql, such as "daily" for '
+                  "daily.hql, for simple scripts that read none of each other's tables: the "
+                  "run cells run each in turn, and one decisions cell answers them all",
+                  starts=True),
             Input("DATABASE", "default", "the database of a table the Hive names without one"),
             Input("RENAME", {}, "a name of your own for a table's copy in dev, by the table's "
                   'full name, such as {"mart.team_fails": "team_fails"} for '
@@ -1195,7 +1219,9 @@ PROMOTE = Workflow(
              "Table reference last changed"),
     ),
     inputs=(Input("TABLES", [], 'the dev tables, by their names in your Dev Database, such '
-                  'as ["mart_dev.daily_job_runs"]', starts=True),),
+                  'as ["mart_dev.daily_job_runs"]: left [], the run cells promote every '
+                  "finished table not promoted yet, or changed in dev since, naming each and "
+                  "why", starts=True),),
     databases=("DEV", "PROD"),
     about="Carries Saved tables from your Dev Database to your Prod Database.",
     checks=("Each dev table in `TABLES` has a prod copy: its Table folder in tables/ and its "
@@ -1885,16 +1911,17 @@ def is_startable(workflow: Workflow) -> bool:
 
 def instances_of(root: Path, workflow: Workflow) -> list[dict[str, object]]:
     """Each instance of a Workflow in a Project, as its inputs: its notebook's names cell,
-    once started, and, for one that keeps instances, each it made, but the one the names cell
-    names already."""
+    once started, with what convert recorded of a batch it names, and, for one that keeps
+    instances, each other it made."""
     found = []
     if workflow.instances is not None:
         found = workflow.instances(root)
-    named = {each.get("NAME") for each in found}
     started = started_inputs(root, workflow)
     if started is not None:
-        found = [*[each for each in one_per_name(started) if each.get("NAME") not in named],
-                 *found]
+        # Each the names cell names, with what convert recorded of it, then each other made.
+        from_cell = [read_again(root, workflow, each) for each in one_per_name(root, started)]
+        named = {each.get("NAME") for each in from_cell}
+        found = [*from_cell, *[each for each in found if each.get("NAME") not in named]]
     # Each instance reads the one decisions cell, which answers by table.
     answers = given_inputs(root, workflow).get(DECISIONS, {})
     return [{**each, DECISIONS: answers} for each in found if not is_finished(root, each)]
@@ -1907,9 +1934,19 @@ def is_finished(root: Path, inputs: dict[str, object]) -> bool:
     return isinstance(name, str) and bool(name) and (root / BATCHES / FINISHED / name).is_dir()
 
 
-def one_per_name(inputs: dict[str, object]) -> list[dict[str, object]]:
+def one_per_name(root: Path, inputs: dict[str, object]) -> list[dict[str, object]]:
     """A names cell's inputs, one instance per batch when NAME is a list of them. Each is one
-    convert made already: FILES and HIVE convert the batch NAME names alone."""
+    convert made already: FILES and HIVE convert the batch NAME names alone. With
+    EACH_SCRIPT_ITS_OWN_BATCH True, one instance per file of FILES, every .hql file beside the
+    convert notebook when it is left [], each a batch named for its file without .hql, NAME
+    unused; BATCHES names them all, as one decisions cell answers every batch's tables."""
+    if inputs.get(EACH_SCRIPT_ITS_OWN_BATCH) is True:
+        files = names_in(inputs, "FILES")
+        if not files:
+            files = [path.name for path in scripts_in(notebook_path(root, CONVERT).parent)]
+        names = [Path(file).stem for file in files]
+        return [{**inputs, "NAME": Path(file).stem, "FILES": [file], "HIVE": None,
+                 "BATCHES": names} for file in files]
     names = inputs.get("NAME")
     if not isinstance(names, list):
         return [inputs]
@@ -1921,15 +1958,36 @@ def read_again(root: Path, workflow: Workflow, inputs: dict[str, object]) -> dic
     the tables of the batch convert has just recorded, beside the names cell's inputs."""
     if workflow.instances is None:
         return inputs
-    for each in workflow.instances(root):
+    found = workflow.instances(root)
+    if "BATCHES" in inputs:
+        inputs = {**inputs, "TABLES_OF_EVERY_BATCH": every_batch_table(found, inputs)}
+    for each in found:
         if each.get("NAME") == inputs.get("NAME"):
             return {**inputs, **each}
     return inputs
 
 
+def every_batch_table(found: list[dict[str, object]], inputs: dict[str, object]) -> list[str]:
+    """The tables of each batch BATCHES names that convert has made, of the instances
+    `found`, in BATCHES' order: what all_tables answers for when each script is its own
+    batch."""
+    tables: list[str] = []
+    for name in names_in(inputs, "BATCHES"):
+        for each in found:
+            if each.get("NAME") == name:
+                tables += names_in(each, "TABLES")
+    return tables
+
+
 def started_inputs(root: Path, workflow: Workflow) -> dict[str, object] | None:
-    """A Workflow's inputs, once it is started; None until then."""
+    """A Workflow's inputs, once it is started; None until then. promote's TABLES, left [],
+    is each table whose promotion is begun and not finished, which starts it (Toolbox 8.5):
+    every finished table, which its run cells promote, it starts only once they run."""
     inputs = given_inputs(root, workflow)
+    if workflow.name == "promote" and not names_in(inputs, "TABLES"):
+        from . import project  # project.py imports this file
+
+        inputs = {**inputs, "TABLES": list(project.unfinished_promotions(root))}
     if not is_started(workflow, inputs):
         return None
     return inputs
