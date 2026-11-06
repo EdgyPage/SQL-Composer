@@ -104,6 +104,23 @@ Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs
     ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
 
+Its "fill in their TODO lines." means the lines it proposed nothing for: here only each
+`key=None,  # TODO: proposed [...]` line, which step 5 accepts in the decisions cell, since a
+Key proposed from a table's rows stays open until you do. A table it proposed no Key for has
+one more, its first line, what one row is. Every other line it proposed is marked
+`# proposed`, and blocks nothing.
+
+Its "To accept every proposed Key" line is one line of the decisions cell. Run from the
+references Workflow's "Run up to your Decisions", the run then stops at the Decisions and
+prints the whole DECISIONS to paste over the cell's `DECISIONS = {}` line, that line inside it,
+its comments shortened here:
+
+    DECISIONS = {
+        "all_tables": {  # answers for every table of this notebook
+            "key": "proposed",  # accepts each table's proposed Key, as if typed
+        },
+    }
+
 Each file is named after the database and the table joined by two underscores, `ops.jobs`
 giving ops__jobs.py, since a dot can't be in a name Python imports. The variable in it is
 named after the table alone, jobs.
@@ -126,7 +143,10 @@ your editor. It imports `Table`, then makes one variable, `job_runs`:
   columns that are averages or ratios, `["avg_retry_secs"]  # proposed from its columns'
   names`, from names such as avg_*, *_ratio and *_rate; and the Key, `key=None,  # TODO:
   proposed ["run_id"], checked`, which stays open until you accept it. A table with no id
-  column, or none naming every row, gets no Key proposed, and its line says why;
+  column, or none naming every row, gets no Key proposed, and its line says why. A Key
+  convert or new_table proposes, worked out of a table's query, such as its GROUP BY, is
+  kept unless you answer it, since the query proves it; one proposed from a table's rows, as
+  here, waits for your yes;
 - `descriptions=` holds what each column holds, in words, from its comment in the warehouse,
   such as status's `SUCCESS / FAILED / TEST, NULL while running`;
 - under the Aliases heading at the end, commented-out examples show how to add your own names
@@ -282,7 +302,9 @@ The file `references/ops__run_alerts.py`, after you fill it in:
 
     high = equals(run_alerts.severity, "high")
 
-Done when no file holds a TODO line or a `# proposed` comment. Then step 6.
+Done when each table's Key is accepted or your own, so no file holds a
+`key=None,  # TODO` line. Keeping or changing each `# proposed` line, and adding Aliases, is
+yours to do when you like: they block nothing. Then step 6.
 
 ### 6. Reach a table and its columns
 

@@ -83,8 +83,8 @@ it.
   `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
   answer isn't carried over, since prod often needs more of the original's history than a dev
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
-- "Run up to your Decisions", then "Run the rest": each runs every step left, up to the first
-  only the user can do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest": one call, run before and after the
+  answers, each stopping at the first step only the user can do; `dry_run=True` sends nothing.
 
 ## promote: dev tables to prod
 
@@ -93,7 +93,7 @@ Its input:
 - TABLES: the dev tables to promote, by their full names, such as
   `["mart_dev.daily_job_runs"]`. Left `[]`, the run cells promote every finished table not
   promoted yet, or changed in dev since, naming each and why; `project.promote([])` is
-  refused. Each prod copy reads the prod copies of the others promoted with it.
+  refused: the run cells read the [], and project.promote takes the tables by name. Each prod copy reads the prod copies of the others promoted with it.
 
 1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
    project.do_next() runs it for you).

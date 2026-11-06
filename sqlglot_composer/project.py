@@ -754,7 +754,7 @@ def _new_table_one(name: str, template: str, frame: FrameType,
     else:
         reference_template = template_path.parent / f"{REFERENCE_TEMPLATE}.py"
         text = _filled_template(reference_template.read_text(encoding="utf-8"), fills)
-        reference.write_text(with_location_placed(root, text, name), encoding="utf-8")
+        reference.write_text(_with_location_placed(root, text, name), encoding="utf-8")
         made.append(f"created {reference_shown}")
         if not registry.listed(REFERENCE, name):
             to_register.append((REFERENCE, name))
@@ -2359,7 +2359,7 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.4.
+    Upgraded the Project from 7.1 to 8.5.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
@@ -2367,9 +2367,10 @@ def upgrade() -> ProjectReport:
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
     8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
+    8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
-        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and
-        admin/upgrade_8.4.md.
+        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md,
+        admin/upgrade_8.4.md and admin/upgrade_8.5.md.
 
     Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
     cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
@@ -3506,7 +3507,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
-    text = with_location_placed(files.root, text, dev)
+    text = _with_location_placed(files.root, text, dev)
     blocks = []
     if tag_is_quoted:
         blocks.append(converting.tags_block(tag_is_quoted, tag_places))
@@ -3523,7 +3524,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
 PLACED = "  # under its Database's location_root, in admin/databases.py"
 
 
-def with_location_placed(root: Path, text: str, table: str) -> str:
+def _with_location_placed(root: Path, text: str, table: str) -> str:
     """A Table reference's text, `table`'s, its location= placed in its own folder under its
     Database's location_root, <location_root>/<database>.db/<table>, when it has no location
     of its own and admin/databases.py gives its Database a root (Toolbox 8.5): else as it
@@ -4229,7 +4230,7 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
-    listed = _partitions_checked(call, partitions, read)
+    listed = _partitions_to_compare(call, partitions, read)
     lines = []
     for dev in chosen:
         lines += _compare_lines(root, read[dev], originals[dev], query, listed)
@@ -4870,7 +4871,7 @@ def _refuse_partition_given(call: str, removed: dict[str, object]) -> None:
     )
 
 
-def _partitions_checked(call: str, partitions: object,
+def _partitions_to_compare(call: str, partitions: object,
                         read: dict[str, Table]) -> list[dict[str, object]]:
     """The Partitions a compare_batch call lists, none when `partitions` is None, each
     refused that SHOW PARTITIONS could never list or that no table compared is partitioned
@@ -5318,18 +5319,10 @@ def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict
     registry = Registry(root)
     done, hashes = [], {}
     for block in blocks:
-        path = PROD_BLOCK.path(root, block)
-        if path.exists():
+        if PROD_BLOCK.path(root, block).exists():
             done.append(f"moved {PROD_BLOCK.shown(block)} to "
                         f"{PROD_BLOCK.archive(root, block, now)}")
-        dev_text = BUILDING_BLOCK.path(root, block).read_text(encoding="utf-8")
-        text = (f"# A prod copy project.promote made of {BUILDING_BLOCK.shown(block)}: change "
-                "that one and promote it again.\n" + _with_prod_blocks(dev_text))
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(text, encoding="utf-8")
-        hashes[PROD_BLOCK.shown(block)] = _hash(path.read_bytes())
-        if not registry.listed(PROD_BLOCK, block):
-            registry.add([(PROD_BLOCK, block)], now)
+        hashes[PROD_BLOCK.shown(block)] = _write_prod_block(root, block, registry, now)
     for dev, prod in names.items():
         record[prod]["blocks"] = {PROD_BLOCK.shown(block): hashes[PROD_BLOCK.shown(block)]
                                   for block in blocks_of[dev]}
@@ -5342,6 +5335,48 @@ def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict
     done.append(f"wrote {in_words(shown)}")
     return done, (f"Copied {counted(len(blocks), 'Building block')} to prod, which the prod "
                   f"tables import: {in_words(shown)}.")
+
+
+def _write_prod_block(root: Path, block: str, registry: Registry,
+                      now: datetime.datetime) -> str:
+    """Write building_blocks/prod/<block>.py, a prod copy of the Building block, its own
+    block imports pointed at their prod copies, and register it: its hash."""
+    path = PROD_BLOCK.path(root, block)
+    dev_text = BUILDING_BLOCK.path(root, block).read_text(encoding="utf-8")
+    text = (f"# A prod copy project.promote made of {BUILDING_BLOCK.shown(block)}: change "
+            "that one and promote it again.\n" + _with_prod_blocks(dev_text))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    if not registry.listed(PROD_BLOCK, block):
+        registry.add([(PROD_BLOCK, block)], now)
+    return _hash(path.read_bytes())
+
+
+def prod_run_values_pointed(tables: list[str]) -> list[str]:
+    """Point each Run value's import in the prod copies' Table references, `tables`, at its
+    Building block's prod copy, building_blocks.prod.<name>, written when promote wrote none,
+    as a Run value given only in promote's decisions cell, for a prod seed limit, has none.
+    Its lines for write_decisions' report, nothing when it changed nothing."""
+    root = _project_root("project.write_decisions(...)")
+    now, record, registry = unchecked.now(), workflows.promoted_record(root), Registry(root)
+    said = []
+    for prod in tables:
+        path = REFERENCE.path(root, table_stem(prod))
+        lines = workflows.file_text(path).split("\n")
+        imports = [line for line in lines if line.endswith(decisions.RUN_VALUE_MARK)]
+        for block in _blocks_imported("\n".join(imports)):
+            if BUILDING_BLOCK.path(root, block).is_file() and not PROD_BLOCK.path(
+                    root, block).exists():
+                written = _write_prod_block(root, block, registry, now)
+                record.get(prod, {}).setdefault("blocks", {})[PROD_BLOCK.shown(block)] = written
+                said.append(f"Copied {BUILDING_BLOCK.shown(block)} to "
+                            f"{PROD_BLOCK.shown(block)}, for {prod}'s Run value.")
+        pointed = [_with_prod_blocks(line) if line in imports else line for line in lines]
+        if pointed != lines:
+            path.write_text("\n".join(pointed), encoding="utf-8")
+            said.append(f"{prod}: its Run value's import reads its Building block's prod copy.")
+    workflows.write_promoted_record(root, record)
+    return said
 
 
 def _blocks_used(root: Path, dev: str) -> list[str]:
@@ -5407,7 +5442,8 @@ def _promote_one(root: Path, tables: tuple[str, str], names: dict[str, str],
         files = _write_prod_folder(root, dev, prod, names, databases)
     reference = REFERENCE.path(root, table_stem(prod)).read_text(encoding="utf-8")
     entry = {"dev": dev, "seeded": "def seed(" in _logic_text(root, dev), "files": files,
-             "reference": _reference_hash(reference), "dev_code": _dev_code_hash(root, dev)}
+             "reference": _reference_hash(reference), "dev_code": _dev_code_hash(root, dev),
+             "writes_when_promoted": len(workflows.write_times(root, prod))}
     _register_table(root, prod, folder=folder)
     copies = [REFERENCE.shown(table_stem(prod))]
     if folder:
@@ -5751,7 +5787,7 @@ def _write_prod_reference(root: Path, dev: str, prod: str, promoted_before: str)
     if found is not None:
         line = _kept_prod_location(promoted_before)
         text = text[:found.start()] + line + text[found.end():]
-    text = with_location_placed(root, text, prod)
+    text = _with_location_placed(root, text, prod)
     # A prod copy's seed is promote's own Decision: every Partition, unless its decisions cell
     # answered "seed" for it before, which is kept.
     text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
@@ -5778,8 +5814,11 @@ def _prod_seed_line(promoted_before: str) -> str:
 
 def _reference_hash(text: str) -> str:
     """A prod Table reference's hash, its location= and SEED lines left out, which are yours
-    to answer."""
+    to answer, and each Run value's import, which an answer of promote's decisions cell writes
+    above SEED."""
     left_out = re.sub(r"^(    location=|SEED = ).*$", "", text, flags=re.MULTILINE)
+    left_out = re.sub(rf"^.*{re.escape(decisions.RUN_VALUE_MARK)}$", "", left_out,
+                      flags=re.MULTILINE)
     return _hash(left_out.encode("utf-8"))
 
 
@@ -6586,7 +6625,7 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     text = table_reference_text(name, _untyped_as_string(columns), partitions,
                                 f"{REFERENCE.folder}.{stem}", guessed=_guessed(columns),
                                 proposed=proposed, proposed_mark=decisions.PROPOSED_FROM_LOGIC)
-    text = with_location_placed(root, text, name)
+    text = _with_location_placed(root, text, name)
     path.write_text(text, encoding="utf-8")
     _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
     said = f"Wrote {shown} from its logic: {in_words(list(columns))}"

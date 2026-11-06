@@ -83,13 +83,19 @@ Done when no `<...>` is left in it. Then step 4.
 ### 4. Read a setting from your code
 
 Goal: your own setting reaching your code. `database_settings` gives the settings of the
-Database a name is in, your Dev or Prod Database, or a table in one, so the same line of your
-code reads DEV's in dev and PROD's in prod:
+Database a name is in: a Database's own name, such as "mart", or a table's, such as
+"mart.job_day_facts", whose Database is the part before the dot. Give it the name of the table
+your code writes. A dev table's code names it in your Dev Database, mart.job_day_facts; its
+prod copy, which promote writes, names it in your Prod Database, mart_prod.job_day_facts. So
+the line you write in dev reads DEV's settings there, and its copy in prod, with the prod
+name promote wrote, reads PROD's:
 
->>> database_settings("mart")["run_as"]
+>>> database_settings("mart.job_day_facts")["run_as"]
 'svc_team_dev'
 >>> database_settings("mart_prod.job_day_facts")["run_as"]
 'svc_team_prod'
+>>> database_settings("mart")["run_as"]
+'svc_team_dev'
 
 Done when each gives its Database's "run_as". Then step 5.
 

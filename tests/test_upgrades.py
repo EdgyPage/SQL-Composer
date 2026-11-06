@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import shutil
 import sys
 import warnings
@@ -34,19 +35,30 @@ STEP_8_0 = "8.0"
 STEP_8_2 = "8.2"
 ROOT = Path(__file__).resolve().parents[1]
 UPGRADE_FROM = ROOT / "tests" / "upgrade_from"
+# A line an Upgrade step's mark holds in a file, as `# UPGRADE 8.5: ...`.
+UPGRADE_MARK_LINE = re.compile(rb"^[ \t]*# UPGRADE \d+\.\d+: [^\n]*\n", re.MULTILINE)
 
 
-# What each Example project gained by hand in a version, which no Upgrade makes, by the version
-# and the Example project, such as {"8.4": {"starter": ("admin/notes.md",)}}: left out of the
-# comparison of a Project upgraded from any version before it. Nothing yet: 8.3's Example
-# projects' changes are all the Upgrade's. Add a version's entry when its Example projects gain
-# a file by hand, and keep it once the version ships, since an upgrade from before it still
-# lacks the file.
-GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {}
+# What each Example project gained or changed by hand in a version, which no Upgrade makes, by
+# the version and the Example project, such as {"8.4": {"starter": ("admin/notes.md",)}}: left
+# out of the comparison of a Project upgraded from any version before it. Add a version's entry
+# when its Example projects gain a file by hand, and keep it once the version ships, since an
+# upgrade from before it still lacks the file.
+GAINED_BY_HAND: dict[str, dict[str, tuple[str, ...]]] = {
+    # 8.5 reads a script where it is: the intermediate's is saved beside the convert notebook,
+    # as a user saves one, where 8.4's batch kept a copy of it; its README lists it; and its
+    # converted table's proposed Key is accepted, as a user accepts one (ticket 07).
+    "8.5": {"intermediate": ("admin/workflows/convert/team_failures.hql", "README.md",
+                             "references/mart__team_failures.py")},
+}
 # What a version's Upgrade leaves as the version before wrote it, on purpose, by the version,
 # such as {"8.4": ("admin/check_project.ipynb",)}: left out the same way, and kept the same
-# way. Nothing yet.
-LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {}
+# way.
+LEFT_AS_IT_WAS: dict[str, tuple[str, ...]] = {
+    # A batch finished before 8.5 is history: its batch.md, its record and its scripts' copy
+    # stay as that version wrote them.
+    "8.5": ("admin/workflows/convert/finished/",),
+}
 # The first version whose frozen Example projects are upgraded straight to this one.
 CHAINS_START_AT = "8.3"
 upgrades = toolbox_module("upgrades")
@@ -117,12 +129,14 @@ def test_the_example_projects_of_the_version_before_are_kept_frozen() -> None:
 def files_of(folder: Path, left_out: tuple[str, ...] = ()) -> dict[str, bytes]:
     """Each file of a Project, by its path, leaving out the history an Upgrade keeps as it was
     or adds to: Lineage pages, the Admin log and the Upgrade's own checklists; and each path
-    starting with one of `left_out`."""
+    starting with one of `left_out`. Each UPGRADE mark's line is left out too: what a mark
+    asks is the user's to do, and the rest of the file is what the Upgrade wrote."""
     def kept(relative: str) -> bool:
         return not ("/lineage/" in f"/{relative}" or relative == "admin/admin_log.md"
                     or relative.startswith(("admin/upgrade_", "admin/removed/", *left_out)))
 
-    return {path.relative_to(folder).as_posix(): path.read_bytes().replace(b"\r\n", b"\n")
+    return {path.relative_to(folder).as_posix():
+            UPGRADE_MARK_LINE.sub(b"", path.read_bytes().replace(b"\r\n", b"\n"))
             for path in sorted(folder.rglob("*"))
             if path.is_file() and "__pycache__" not in path.parts
             and kept(path.relative_to(folder).as_posix())}
@@ -196,10 +210,12 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[3].startswith("8.1: ")
     assert said[4].startswith("8.2: ")
     assert said[5].startswith("8.3: ")
-    assert said[6].startswith(f"{VERSION}: ")
-    assert said[7] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+    assert said[6].startswith("8.4: ")
+    assert said[7].startswith(f"{VERSION}: ")
+    assert said[8] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
                        "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
-                       f"admin/upgrade_8.3.md and admin/upgrade_{VERSION}.md.")
+                       "admin/upgrade_8.3.md, admin/upgrade_8.4.md and "
+                       f"admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -808,3 +824,98 @@ def test_8_4_reads_a_tag_8_3_wrote_in_a_string_through_tag_text(
     assert "from sqlglot_composer import tag_text  # for each Script tag in a string" in logic
     # The notebook as it was is kept.
     assert list((copy / "admin" / "removed").rglob("mart_dev__closing.ipynb"))
+
+
+# --- 8.5 (ticket 13) ------------------------------------------------------------------------
+
+STEP_8_5 = "8.5"
+
+
+def _copy_of_8_4(tmp_path: Path) -> Path:
+    """The starter Example project as 8.4 left it, to upgrade."""
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.4" / "starter", copy)
+    return copy
+
+
+def test_8_5_writes_dev_and_prod_as_database_settings_marking_each_root(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_4(tmp_path)
+    monkeypatch.chdir(copy)
+    said = repr(project.upgrade())
+    assert f"Upgraded the Project from 8.4 to {STEP_8_5}." in said
+    text = (copy / "admin" / "databases.py").read_text(encoding="utf-8")
+    assert 'DEV = {"database": "mart", "location_root": "<DEV_LOCATION_ROOT>"}' in text
+    assert ('PROD = {"database": "<PROD_DATABASE>", "location_root": "<PROD_LOCATION_ROOT>"}'
+            in text)
+    marks = [line for line in text.split("\n") if line.startswith("# UPGRADE 8.5:")]
+    assert len(marks) == 2 and 'fill in "location_root", the folder DEV' in marks[0]
+    # The root an 8.4 location used, a Table reference's, is named.
+    assert '"/data/your_team"' in marks[0] or "shows" not in marks[0]
+    assert list((copy / "admin" / "removed").rglob("databases.py"))
+
+
+def test_8_5_carries_partition_into_partitions(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_4(tmp_path)
+    notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if kind == "code" and "\nPARTITION = None" in f"\n{text}":
+            notebooks.write_cell_text(notebook, number, text.replace(
+                "PARTITION = None", 'PARTITION = {"dt": "2026-09-23"}'))
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    code = "\n".join(text for kind, text in notebooks.read_cells(notebook) if kind == "code")
+    assert 'PARTITIONS = [{"dt": "2026-09-23"}]' in code
+    assert "PARTITION =" not in code and "partition=PARTITION" not in code
+    assert "partitions=PARTITIONS" in code
+
+
+def test_8_5_marks_an_all_tables_location_root_a_decisions_cell_kept(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_4(tmp_path)
+    notebook = copy / "admin" / "workflows" / "convert" / "convert.ipynb"
+    for number, (kind, text) in enumerate(notebooks.read_cells(notebook), 1):
+        if kind == "code" and text.startswith("DECISIONS ="):
+            notebooks.write_cell_text(
+                notebook, number, 'DECISIONS = {"all_tables": {"location_root": "/data/team"}}')
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    checklist = (copy / "admin" / "upgrade_8.5.md").read_text(encoding="utf-8")
+    assert "location_root is a Database setting now" in checklist
+    (cell,) = [text for kind, text in notebooks.read_cells(notebook)
+               if kind == "code" and "DECISIONS = {" in text]
+    assert cell.startswith("# UPGRADE 8.5: location_root is a Database setting now")
+
+
+def test_8_5_marks_a_prod_copy_importing_devs_building_block(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_4(tmp_path)
+    record = copy / "admin" / "workflows" / "promote" / "promoted.json"
+    record.write_text(json.dumps({"team_prod.daily_job_runs": {
+        "dev": "mart.daily_job_runs", "seeded": False}}), encoding="utf-8")
+    folder = copy / "tables" / "team_prod__daily_job_runs"
+    folder.mkdir(parents=True)
+    notebooks.write_notebook(folder / "team_prod__daily_job_runs.ipynb", [
+        ("code", "# logic\nfrom building_blocks.runs_per_job import runs_per_job\n")])
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    checklist = (copy / "admin" / "upgrade_8.5.md").read_text(encoding="utf-8")
+    assert "this prod copy imports dev's Building block" in checklist
+    (logic,) = [text for _, text in notebooks.read_cells(
+        folder / "team_prod__daily_job_runs.ipynb")]
+    assert logic.split("\n")[1].startswith("# UPGRADE 8.5: this prod copy imports dev's")
+
+
+def test_8_5_marks_a_call_of_yours_giving_compare_batch_partition(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = _copy_of_8_4(tmp_path)
+    script = copy / "compare_more.py"
+    script.write_text('from sqlglot_composer import project\nfrom warehouse import query\n\n'
+                      'project.compare_batch("weekly", query=query, '
+                      'partition={"dt": "2026-09-23"})\n', encoding="utf-8")
+    monkeypatch.chdir(copy)
+    project.upgrade()
+    lines = script.read_text(encoding="utf-8").split("\n")
+    assert lines[3].startswith("# UPGRADE 8.5: compare_batch takes partitions=, a list")
+    assert lines[4].startswith("project.compare_batch(")

@@ -377,11 +377,11 @@ def _every_decision_made(root: Path, tables: list[str], kinds: tuple[str, ...],
     answers = (inputs or {}).get(DECISIONS)
     if not isinstance(answers, dict):
         return True
-    return all(_seed_written(answers, table, file_text(reference_path(root, table)))
+    return all(_has_seed_written(answers, table, file_text(reference_path(root, table)))
                for table in tables)
 
 
-def _seed_written(answers: dict[str, object], table: str, text: str) -> bool:
+def _has_seed_written(answers: dict[str, object], table: str, text: str) -> bool:
     """Whether a table's Table reference, `text`, holds the seed limits the decisions cell's
     `answers` give it, all_tables' among them: true when they give none, or it has no SEED."""
     answer = decisions.seed_answer(answers, table, text,
@@ -468,13 +468,15 @@ def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
 
 def write_the_prod_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of promote's decisions cell into its prod copy's Table
-    reference, all_tables' into the prod copy of each table TABLES names."""
+    reference, all_tables' into the prod copy of each table TABLES names, each Run value's
+    import pointed at its Building block's prod copy (Toolbox 8.5)."""
     from . import project  # project.py imports this file
 
     answers = inputs.get(DECISIONS)
-    return project.write_decisions(
-        answers if isinstance(answers, dict) else {},
-        tables=project.promoted_tables(names_in(inputs, "TABLES")))
+    tables = project.promoted_tables(names_in(inputs, "TABLES"))
+    written = project.write_decisions(answers if isinstance(answers, dict) else {},
+                                      tables=tables)
+    return project.ProjectReport([*written.lines, *project.prod_run_values_pointed(tables)])
 
 
 def every_preview_builds(root: Path, inputs: dict[str, object]) -> bool:
@@ -677,8 +679,23 @@ def every_prod_table_seeded(root: Path, inputs: dict[str, object]) -> bool:
 
 
 def every_prod_table_written(root: Path, inputs: dict[str, object]) -> bool:
-    """Whether admin/sent.csv records a write of each prod copy."""
-    return every_table_written(root, prod_inputs(root, inputs))
+    """Whether admin/sent.csv records a write of each prod copy since it was last promoted: a
+    table changed in dev and promoted again is written again, its prod rows its new code's."""
+    prods = prod_inputs(root, inputs)
+    record = promoted_record(root)
+    return every_table_written(root, prods) and all(
+        _is_written_since_promoted(root, prod, record.get(prod, {}))
+        for prod in names_in(prods, "TABLES"))
+
+
+def _is_written_since_promoted(root: Path, prod: str, entry: dict[str, object]) -> bool:
+    """Whether admin/sent.csv records more writes of a prod copy than it had when last
+    promoted, as its promotion record, `entry`, counts them: true for a record from before
+    8.5, which counts none."""
+    before = entry.get("writes_when_promoted")
+    if not isinstance(before, int):
+        return True
+    return len(write_times(root, prod)) > before
 
 
 def promote_tables(inputs: dict[str, object]) -> ProjectReport:
@@ -1629,8 +1646,7 @@ def input_line(given: Input, value: object) -> str:
 DECISIONS_CELL = (
     f"{DECISIONS} = {{}}  # your answer to each open Decision, by the table's name as\n"
     "# project.check() writes it, such as\n"
-    '# {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",\n'
-    '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
+    '# {"mart_dev.weekly_ops": {"key": ["job_id"], "types": {"fails": "bigint"},\n'
     '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
     "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key\n"
@@ -1850,15 +1866,18 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
     step up to the first Decision, which prints the DECISIONS to paste; the decisions cell,
     directly below; and a run of the rest. Then the heading of the steps' own cells."""
     return [
-        ("markdown", f"## {RUN_UP_TO_DECISIONS}\n\nRun the cell below: it runs every step "
-         "left, up to the first only you can do, and says where it stopped. At a Decision, "
-         "it prints a whole DECISIONS: paste it into the decisions cell under it, fill in "
-         f"each {decisions.FILL_IN}, and save the notebook."),
+        ("markdown", f"## {RUN_UP_TO_DECISIONS}\n\nThis cell and \"{RUN_THE_REST}\" are one "
+         "call, `project.run_workflow`, run once before you answer and once after. Run the "
+         "cell below: it runs every step left, up to the first only you can do, and says "
+         "where it stopped. At a Decision, it prints a whole DECISIONS: paste it into the "
+         f"decisions cell under it, fill in each {decisions.FILL_IN}, and save the notebook."),
         ("code", run_cell_text(workflow, RUN_UP_TO_DECISIONS)),
         ("code", DECISIONS_CELL),
         ("markdown", f"## {RUN_THE_REST}\n\nRun the cell below once the decisions cell above "
-         "is filled in and saved: it goes on from where the cell before stopped. If an answer "
-         "was wrong, mend it in the decisions cell, save, and run this cell again."),
+         "is filled in and saved: the same call again, it goes on from where the cell before "
+         "stopped, and it too stops at the first step only you can do: a refusal, a compare "
+         "that failed, or a Decision left open, each named. Mend what it names, such as an "
+         "answer in the decisions cell, save, and run this cell again."),
         ("code", run_cell_text(workflow, RUN_THE_REST)),
         ("markdown", f"# {STEP_BY_STEP}\n\nEach step's own cell, to run or run again one step "
          "on purpose; the cells above run them all for you."),
@@ -1892,10 +1911,18 @@ def notebook_cells(workflow: Workflow, path_lines: list[str]) -> list[tuple[str,
 
 def run_cell_text(workflow: Workflow, heading: str = "") -> str:
     """A cell running project.run_workflow, which runs every step left: a notebook's last
-    cell, or, under `heading`, one of its intended path's two run cells."""
+    cell, or, under `heading`, one of its intended path's two run cells: the same call, its
+    first lines saying which run it is."""
     given = "".join(f", {name}={name}" for name in workflow.run_with)
     first = "# Every step left, in place of their cells, up to the first only you can do.\n"
-    if heading:
+    if heading == RUN_UP_TO_DECISIONS:
+        first = (f"# {heading}: every step left, up to the first only you can do, such as a\n"
+                 "# Decision, whose DECISIONS it prints to paste into the cell under it.\n")
+    elif heading == RUN_THE_REST:
+        first = (f"# {heading}: the same call, run again once you have answered: it goes\n"
+                 "# on from where it stopped, and stops again at a refusal, a compare that\n"
+                 "# failed or a Decision left open.\n")
+    elif heading:
         first = f"# {heading}: every step left, up to the first only you can do.\n"
     return (first + "# Add dry_run=True to see the Hive it would send, sending nothing through "
             "your\n# execute: help(project.run_workflow) says the steps it still runs:\n"

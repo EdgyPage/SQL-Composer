@@ -98,9 +98,12 @@ it, and what you fill in:
 - `admin/workflows/`, a folder per Workflow, an ordered list of steps that takes the Project to
   one end goal, such as new_table/, references/ and convert/, each holding its notebook:
   `project.start()`. You name what the Workflow works on in its notebook's names cell, such as
-  the tables, and save it; then run each step's cell in turn, or `project.do_next()`, which
-  runs the steps it can for you, those that change only files, up to the first it can't.
-  `project.check()` names the next step.
+  the tables, and save it. Convert, promote, new_table and references open with four cells,
+  run in order: the names cell, "Run up to your Decisions", the decisions cell, where you
+  answer, and "Run the rest". Each step's own cell is below them, under Step by step, to run
+  one step on purpose; in upgrade and change_a_saved_table, run each step's cell in turn.
+  `project.do_next()` runs only the steps that change files, and `project.check()` names the
+  next step.
 - admin/databases.py, the Database settings of your Dev Database, where you create and write
   tables of your own, and your Prod Database, where others read your finished tables:
   `project.start()`. You fill in DEV and PROD, a dict each, such as

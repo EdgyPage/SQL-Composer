@@ -1,7 +1,7 @@
 # The docs and the Copilot files
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 03, 04, 05, 06, 07, 08, 09, 10
 Size: M
 
@@ -62,3 +62,41 @@ Built 2026-11-05; Status stays open until the beginner reader has run.
 - **`workflows.DECISIONS_CELL`**: a Key convert or new_table proposed is kept unless answered;
   one add_references proposed stays open until accepted; "key": "proposed" accepts either.
 - Drift closed: D450, D452 to D459, D461 to D464. D451 is the Example projects' (maintainer).
+
+## Beginner reader
+
+Run 2026-11-06; its thirteen stops, costliest first, each mended where the reader meets it:
+
+1. The two run cells read as one: their markdown and first comment lines now differ
+   (`workflows.intended_path_cells`, `workflows.run_cell_text`), saying they are one call,
+   run before and after the answers, "Run the rest" stopping again at a refusal, a failed
+   compare or a Decision left open; how-to 29's text (`tools/workflow_graph.py`) and the
+   README's Workflows step 4 say so.
+2. A proposed Key's two ways: the README's references step 2 and convert step 4, how-to 02
+   step 4 and how-to 09 step 6 (why its DECISIONS has `"key": "proposed"`: harmless for a
+   kept Key, it takes off the mark).
+3. add_references' "fill in their TODO lines." and its one-line fragment: the README and
+   how-to 02 step 3 show the whole DECISIONS the run prints, and say which TODO lines are
+   still yours. The printed text is project.py's, left to the maintainer.
+4. The new_run_value import line shown as "this import line": README convert step 4, how-to
+   09 step 8.
+5. How-to 30 step 4: the table's name differs in its prod copy, which promote writes.
+6. CHANGES' "To update from 8.4": the location_root mark's example, and the prod copy's
+   dev Building block import, said plainly.
+7. "still downward" cut from the README's Workflows step 4.
+8. TABLES = [] read by the run cells, project.promote taking names: README promote step,
+   CHANGES, Copilot file 16.
+9. README convert step 2 names both: NAME and DEV's "location_root".
+10. `workflows.DECISIONS_CELL`'s example leads with a Key, no location.
+11. How-to 01: the four cells first, step by step as the edge.
+12. How-to 02 step 5's Done when: the Key accepted; the `# proposed` lines optional.
+13. How-to 09 step 7: convert's Table references keep TODO first lines and
+    `does_not_add_up=`, where add_references proposes them for tables you read.
+
+Written again: how-to 29, how_to.html, examples.html, the Copilot files (13, 14 and 16
+trimmed to stay under 8,000). The Example projects' notebooks are written again by the
+maintainer's `tools/example_project.py`.
+- Stop 3's message, add_references' "fill in their TODO lines", is kept: a proposed Key is a
+  TODO line too, `key=None,  # TODO: proposed [...]`, which the README and how-to 02 now say is
+  accepted in the decisions cell; a longer message would run nine how-tos' doctest lines past
+  the line limit for no new fact.

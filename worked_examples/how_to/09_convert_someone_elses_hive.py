@@ -208,8 +208,12 @@ Each answer, by its kind:
 - "all_tables" answers for every table of the batch at once, and a table's own answer
   overwrites it. Its "key": "proposed" accepts each table's proposed Key, as if you typed it:
   a Key project.convert could work out of a table's query, as GROUP BY a.severity gives one,
-  is proposed in its Table reference already, marked # proposed, and is kept even unanswered;
-  accepting it takes off the mark. A table with none, fail_history here, keeps its own answer.
+  is proposed in its Table reference already, marked # proposed, and is kept even unanswered,
+  since the query proves it. So "key": "proposed" isn't needed here, but it does no harm: for
+  a Key kept already it only takes off the # proposed mark, and you needn't tell the two
+  kinds of Key apart. The other kind is the references Workflow's: a Key add_references
+  proposes from a table's rows stays open, `key=None,  # TODO: proposed [...]`, until you
+  accept it. A table with none, fail_history here, keeps its own answer.
 - "key": None says no columns name one row. fail_history's write reads its own table, so no
   Key could be worked out of it: its Key is open.
 - "types": two tables write the Partition dt from a query that doesn't say its type, so each
@@ -257,6 +261,11 @@ on nothing: fill each in when you like.
 Each Decision of mart.fail_history is made.
 all_tables: key "proposed": accepted the proposed Key of mart.alerts_by_severity_ops_reports and mart.alerted_runs_ops_reports, each written as if typed. mart.fail_history keeps its own Key.
 
+Each table's first line and `does_not_add_up=` are TODO lines here, not `# proposed` ones as
+in [Add your tables' references](#add_your_tables_references): add_references proposes them
+for a table you read, from its Key and its columns' names, and convert proposes neither for
+the tables it writes. They wait on nothing: fill each in when you like.
+
 Done when each table says `Each Decision of ... is made.` Then step 8.
 
 ### 8. Answer RUN_DAY with a Run value
@@ -270,7 +279,8 @@ and all. Here it is the latest day ops.run_alerts holds, which `latest_partition
 the warehouse's list of Partitions, reading no row. `project.new_run_value` writes that
 function into your Project, in building_blocks/run_values.py, with its imports, registers the
 file, and prints the line that imports it. Write the call at the top of the decisions cell,
-then the import line under it, and run the cell once:
+then, under it, this import line, which the call prints too:
+`from building_blocks.run_values import run_day`; and run the cell once:
 
 >>> print(project.new_run_value("run_day", latest_partition="ops.run_alerts.dt"))
 Wrote run_day into building_blocks/run_values.py: the latest Partition of ops.run_alerts, by dt.
