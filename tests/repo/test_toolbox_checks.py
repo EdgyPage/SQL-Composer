@@ -117,7 +117,10 @@ PROJECT_NAMES = ["start", "new_table", "remove_table", "new_block", "remove_bloc
                  # that needs you.
                  "run_workflow",
                  # Toolbox 8.1, ticket 08: a new table's Table reference, from its logic.
-                 "reference_from_logic"]
+                 "reference_from_logic",
+                 # Toolbox 8.5, ticket 06: a Run value's function, giving a table's latest
+                 # Partition.
+                 "new_run_value"]
 
 
 FOLDER = ROOT / toolbox_registry.FOLDER
