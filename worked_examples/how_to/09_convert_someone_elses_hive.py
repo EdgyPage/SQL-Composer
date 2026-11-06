@@ -22,6 +22,13 @@ so you get the rest converted rather than none of it.
   do. Converted, the Guards check it, Lineage traces it, and you change it in one place, dev,
   before promoting it.
 - If one script writes a table another reads, convert both in one batch, as step 3 does.
+- If a Script tag stands for a day that changes each run, such as the latest day a table
+  holds, answer it with a Run value, the value a function of yours gives at each write, as
+  step 8 does.
+- If a table that reads itself has years of rows you don't need, limit its seed, the one copy
+  of the original's rows, by Partition, as step 6 does.
+- If several tables share an answer, such as the folder their files go under, give it once
+  under "all_tables", as step 6 does.
 - If you have no Project yet, do [Start a Project](#start_a_project) first.
 - If you have not yet written a Saved table of your own, read [Save a table](#save_a_table)
   first.
@@ -40,7 +47,7 @@ mart (yours is any database you own, such as mart_dev):
 >>> import sqlglot_composer
 >>> download = Path(sqlglot_composer.__file__).parents[1]  # -> Path
 >>> _ = shutil.copytree(download / "example_projects" / "starter", ".", dirs_exist_ok=True)
->>> from sqlglot_composer import example_database, project, run_execute, hive_settings
+>>> from sqlglot_composer import example_database, project, run_execute, hive_settings, show_hive
 >>> from warehouse import query, execute
 
 Done when `from warehouse import query, execute` runs without an error. Then step 2.
@@ -128,7 +135,9 @@ mart.fail_history's stays Hive, whole, an Unchecked statement, Hive text run thr
 Toolbox that no Guard looks inside: its WHERE holds a query, NOT IN (SELECT ...), which no
 Toolbox function writes yet, as its conversion/scan.md says. Its write reads its own table, as
 an incremental INSERT does, so in dev it would start from nothing: its notebook has seed() too,
-which copies the original's rows into it once, before its first write.
+which copies the original's rows into it once, before its first write. Which of the original's
+Partitions it copies is SEED, in its Table reference: every one, `SEED = {}`, until you answer
+its "seed" Decision in step 6.
 
 Done when batch.md starts `# Batch ops_reports` and you have read what each statement became.
 Then step 5.
@@ -160,50 +169,57 @@ Done when you have the list of each table's open Decisions. Then step 6.
 ### 6. Answer each Decision in the decisions cell
 
 Goal: an answer for each open Decision. Write each answer in the convert Workflow notebook's
-decisions cell, DECISIONS, by each table's name as project.check() writes it. Step 3's report
-and project.check() print a whole DECISIONS to paste there, each answer still to give
-"<FILL IN>": paste it, and fill each in. The tag's line of it reads:
+decisions cell, DECISIONS, by each table's name as project.check() writes it. The convert step's
+report and project.check() print a whole DECISIONS to paste there, each answer not given yet
+shown as "<FILL IN>": paste it, and fill each in. The tag's line of it reads:
 
 >>> print(next(line.strip() for line in said.splitlines() if '"RUN_DAY":' in line))
 "RUN_DAY": "<FILL IN>",  # bare at daily.hql, line 9: the value with its own quotes, such as "'2026-10-31'", or a number, such as "5"
 
-You open no Table reference, and tick nothing. "key": None says no columns name one row. A Key project.convert
-could work out of a table's query, as GROUP BY a.severity gives one, is proposed in its Table
-reference already, marked # proposed, and its checklist says so: answer "key" only where one is
-open or wrong. A TODO line left, such as does_not_add_up=, waits on nothing. This page stands in
-for the decisions cell:
+You open no Table reference, and tick nothing. This page stands in for the decisions cell,
+where you paste the DECISIONS project.check() printed and fill it in:
 
->>> DECISIONS = {table: {"location": f"/data/mart.db/{table.split('.')[1]}"}
-...              for table in project.batch_tables("ops_reports")}
+>>> DECISIONS = {
+...     "all_tables": {"location_root": "/data"},
+...     "mart.alerts_by_severity_ops_reports": {"types": {"dt": "string"},
+...                                             "tags": {"RUN_DAY": "'2026-09-24'"}},
+...     "mart.alerted_runs_ops_reports": {"types": {"dt": "string"}},
+...     "mart.fail_history": {"key": None, "seed": {"dt": {"from": "2026-09-01"}}},
+... }
 
-fail_history's write reads its own table, so no Key could be worked out of it: its Key is
-open. Here the answer is that no columns name one row of it.
+Each answer, by its kind:
 
->>> DECISIONS["mart.fail_history"]["key"] = None
+- "all_tables" answers for every table of the batch at once, and a table's own answer
+  overwrites it. Its "location_root" gives each table with no location of its own a folder
+  under it, `<root>/<database>.db/<table>`: here /data/mart.db/fail_history and the like.
+- "key": None says no columns name one row. fail_history's write reads its own table, so no
+  Key could be worked out of it: its Key is open. A Key project.convert could work out of a
+  table's query, as GROUP BY a.severity gives one, is proposed in its Table reference already,
+  marked # proposed, and its checklist says so: answer "key" only where one is open or wrong.
+- "types": two tables write the Partition dt from a query that doesn't say its type, so each
+  one's dt is a guessed type, "string": keep it, or give its type. Here it is kept, the day as
+  text. A Partition is a slice of a table: the rows that share one value of each column it is
+  partitioned by.
+- "tags": the Script tag's answer is the Hive the scheduler put in its place. A bare tag's
+  answer is the day with its own quotes, "'2026-09-24'", the day of the run whose rows the
+  original holds.
+- "seed": fail_history reads itself, so step 12 seeds it, copying the original's rows into it
+  once. With no "seed", it copies every Partition the original holds, years of them perhaps;
+  here it copies only those from 2026-09-01 on. **A single value means that value or later**,
+  not that one alone: for one Partition alone, give a list of one, `{"dt": ["2026-09-24"]}`.
 
-Two tables write the Partition dt from a query that doesn't say its type, so each one's dt is
-a guessed type, "string" in the block: keep it, or give its type. Here it is kept, the day as
-text. A Partition is a slice of a table: the
-rows that share one value of each column it is partitioned by.
+A TODO line left, such as does_not_add_up=, waits on nothing.
 
->>> for table in ["mart.alerts_by_severity_ops_reports", "mart.alerted_runs_ops_reports"]:
-...     DECISIONS[table]["types"] = {"dt": "string"}
-
-The Script tag's answer is the Hive the scheduler put in its place, under "tags". A bare tag's
-answer is the day with its own quotes, "'2026-09-24'". Here it is answered with the wrong day,
-2026-09-23, to show in step 7 how an answer is changed:
-
->>> DECISIONS["mart.alerts_by_severity_ops_reports"]["tags"] = {"RUN_DAY": "'2026-09-23'"}
-
-Done when DECISIONS holds a location for each table, a key for mart.fail_history, a dt type
-for the other two, and RUN_DAY's day. Then step 7.
+Done when DECISIONS holds a location_root, a key for mart.fail_history, a dt type for the other
+two, RUN_DAY's day and fail_history's seed. Then step 7.
 
 ### 7. Write each answer into its Table reference
 
 Goal: each Decision made in the table's files. Run the Workflow's next step, which writes each
-answer into the table's Table reference:
+answer into the table's Table reference. Its cell gives the batch's tables, which "all_tables"
+answers for:
 
->>> print(project.write_decisions(DECISIONS))
+>>> print(project.write_decisions(DECISIONS, tables=project.batch_tables("ops_reports")))
 Wrote 3 answers into references/mart__alerts_by_severity_ops_reports.py.
 mart.alerts_by_severity_ops_reports: 2 TODO lines left in references/mart__alerts_by_severity_ops_reports.py, which wait
 on nothing: fill each in when you like.
@@ -216,38 +232,121 @@ on nothing: fill each in when you like.
   line 1: mart.alerted_runs_ops_reports - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.alerted_runs_ops_reports is made.
-Wrote 2 answers into references/mart__fail_history.py.
+Wrote 3 answers into references/mart__fail_history.py.
 mart.fail_history: 2 TODO lines left in references/mart__fail_history.py, which wait
 on nothing: fill each in when you like.
   line 1: mart.fail_history - TODO: say in one line what one row is.
   line 14: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct counts
 Each Decision of mart.fail_history is made.
+all_tables: location_root "/data": written into mart.alerts_by_severity_ops_reports, mart.alerted_runs_ops_reports and mart.fail_history, each in its own folder under it.
 
-An answer is changed by answering it again in the decisions cell and running this step
-again: no file is edited by hand. Here RUN_DAY's day, 2026-09-23, was wrong: the scheduler's
-job, or whoever runs it, says the day it put there, 2026-09-24, and a compare in step 11 would
-show rows that differ from the original's. Write the right day in DECISIONS and run the step
-again; it writes the new day over the old, and says so:
+Done when each table says `Each Decision of ... is made.` Then step 8.
 
->>> DECISIONS["mart.alerts_by_severity_ops_reports"]["tags"] = {"RUN_DAY": "'2026-09-24'"}
->>> said = repr(project.write_decisions(DECISIONS))  # -> str
+### 8. Answer RUN_DAY with a Run value
+
+Goal: RUN_DAY worked out each time the table is written, rather than typed in once. A day
+answered in the decisions cell is the day the table is written for, every night after, until
+you answer it again, whereas the scheduler put a new day there each night. A Run value is the
+value a function of yours gives each time a table's write is built: the Toolbox calls the
+function and writes what it gives into the Hive as plain text, a date as '2026-09-24', quotes
+and all. Write the function in your Project, in building_blocks/run_values.py: here the latest
+day ops.run_alerts holds, which `latest_partition` reads from the warehouse's list of
+Partitions, reading no row. It imports `query` from warehouse.py itself, as every notebook does:
+
+The file `building_blocks/run_values.py`, after you save it:
+
+    \"\"\"Run values: what a Script tag stands for, worked out each time a table is written.\"\"\"
+
+    import datetime
+
+    from sqlglot_composer import latest_partition
+    from references.ops__run_alerts import run_alerts
+    from warehouse import query
+
+
+    def run_day() -> datetime.date:
+        \"\"\"The latest day ops.run_alerts holds.\"\"\"
+        return latest_partition(run_alerts.dt, query)
+
+Then answer RUN_DAY with it, in place of the day: import the function at the top of the
+decisions cell, and give its name, with no brackets, so the Toolbox calls it at each write.
+Under "all_tables", it answers RUN_DAY in each table that holds it, and passes over the others;
+a table's own "tags" would overwrite it. Run the notebook's step 3 cell again, as in step 7 of
+this page: it writes the import and the function's name into the table's TAGS, and says what
+changed:
+
+>>> from building_blocks.run_values import run_day
+>>> DECISIONS["all_tables"]["tags"] = {"RUN_DAY": run_day}
+>>> del DECISIONS["mart.alerts_by_severity_ops_reports"]["tags"]
+>>> said = repr(project.write_decisions(DECISIONS, tables=project.batch_tables("ops_reports")))
 >>> print(next(line for line in said.splitlines() if "in place of" in line))
-mart.alerts_by_severity_ops_reports: tags: RUN_DAY is '2026-09-24' now, in place of '2026-09-23': if the table is written already, write it and compare it again.
+mart.alerts_by_severity_ops_reports: tags: RUN_DAY is run_day now, in place of '2026-09-24': if the table is written already, write it and compare it again.
 
-`project.check()` names the batch's next step in the Workflow, the first call to the
-warehouse:
+The rest of its report says each other answer is kept as written the first time. The table's
+Table reference now imports the function, and its TAGS names it:
+
+>>> reference = Path("references/mart__alerts_by_severity_ops_reports.py")
+>>> for line in reference.read_text(encoding="utf-8").splitlines():
+...     if "run_day" in line:
+...         print(line.split("  #")[0])
+from building_blocks.run_values import run_day
+    "RUN_DAY": run_day,
+
+Only the tag follows run_day. The script's PARTITION (dt='2026-09-24') was typed in, so its
+write still goes to that day's Partition: the author tagged only the WHERE's day, and the
+converted code keeps what was typed. A nightly script whose Partition changes with the day
+writes PARTITION (dt) and gives dt from its rows, as a dynamic Partition, and converts so; a
+tag in PARTITION itself, PARTITION (dt=<PARM="RUN_DAY"/>), is one project.convert can't take
+yet, and skips, saying why.
+
+Done when RUN_DAY's line in TAGS names run_day. Then step 9.
+
+### 9. Register the file
+
+Goal: the Project's registry, its list of the files Project actions made, holds
+building_blocks/run_values.py. You wrote the file by hand, so `project.check()` names it, with
+the call that registers it. Run that call in admin/check_project.ipynb, whose last cell holds
+`project.register(...)`, given the file's name:
 
 >>> print(project.check())
+Not registered, made by hand. Adopt each with the call beside it:
+  building_blocks/run_values.py: project.register("run_values")
 The next step of each Workflow you have started; project.do_next() runs the steps it can for you:
   admin/workflows/convert/convert.ipynb, ops_reports: 4. Create each table in dev. ...
+>>> print(project.register("run_values"))
+Registered building_blocks/run_values.py.
 
-Done when each table says `Each Decision of ... is made.`, RUN_DAY holds the right day, and
-`project.check()` names `4. Create each table in dev`. Then step 8.
+Done when `project.register` says it registered the file. Then step 10.
 
-### 8. Create each table in dev
+### 10. See the Hive before you send it
 
-Goal: each Saved table made in your Dev Database. The Workflow's steps 4 to 6 are calls to the
-warehouse, yours to run, each a cell of the Workflow's notebook. At work, step 4 creates each
+Goal: the day a Run value gives, seen before anything is sent. Open the table's Table notebook,
+tables/mart__alerts_by_severity_ops_reports/mart__alerts_by_severity_ops_reports.ipynb, and run
+its "Try it" cell, which shows the Hive of each step with `show_hive`, sending nothing. Each
+time the Hive is built, the Toolbox calls run_day() and writes the day it gives where the tag
+stood:
+
+>>> text = show_hive(project.load("mart.alerts_by_severity_ops_reports").write())  # -> str
+INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt = '2026-09-24')
+SELECT
+  a.severity,
+  COUNT(*) AS alerts
+FROM ops.run_alerts AS a
+WHERE
+  a.dt = '2026-09-24'
+GROUP BY
+  a.severity;
+
+A dry run, the notebook's last cell with `dry_run=True` added, calls it the same way. If the
+function fails, say with no connection, the Hive holds a placeholder in its place and a
+Warning says why; nothing holding it is sent. Common mistakes, below, shows it.
+
+Done when the Hive shows the day RUN_DAY stands for, here '2026-09-24'. Then step 11.
+
+### 11. Create each table in dev
+
+Goal: each Saved table made in your Dev Database. The notebook's steps 4 to 6 are calls to the
+warehouse, yours to run, each a cell of the notebook. At work, its step 4 creates each
 table in your Dev Database. Here execute is the Example database's, which prints the first line
 of each Hive it is given and changes nothing:
 
@@ -255,24 +354,26 @@ of each Hive it is given and changes nothing:
 ...     run_execute(project.load(table).create(), execute)
 execute: ...
 
-Done when execute has been given each table's create. Then step 9.
+Done when execute has been given each table's create. Then step 12.
 
-### 9. Seed the table that reads itself
+### 12. Seed the table that reads itself
 
-Goal: mart.fail_history starts from the original's rows. The Workflow's step 5 sends the
-Session settings for dynamic Partitions, then seeds mart.fail_history from the original, once:
+Goal: mart.fail_history starts from the original's rows. The notebook's step 5 sends the
+Session settings for dynamic Partitions, the SET lines that let one write fill several
+Partitions from its rows, then seeds mart.fail_history from the original, once,
+copying only the Partitions its "seed" answer names:
 
 >>> run_execute(hive_settings("dynamic_partitions"), execute)
 execute: ...
->>> for table in project.batch_tables("ops_reports", seeded=True):
+>>> for table in project.batch_tables("ops_reports", seeded=True):  # those that read themselves
 ...     run_execute(project.load(table).seed(), execute)
-execute: ...
+execute: INSERT OVERWRITE TABLE mart.fail_history PARTITION (dt) SELECT * FROM ops_reports.fail_history WHERE dt >= '2026-09-01'
 
-Done when execute has been given the seed. Then step 10.
+Done when execute has been given the seed. Then step 13.
 
-### 10. Write each table in dev
+### 13. Write each table in dev
 
-Goal: each Saved table's rows in dev. The Workflow's step 6 writes each table, in the order
+Goal: each Saved table's rows in dev. The notebook's step 6 writes each table, in the order
 they read each other. It sends each table's SET lines, the original's, before its write: here
 hive.exec.parallel, which makes Hive faster and changes no row:
 
@@ -284,11 +385,11 @@ execute: INSERT OVERWRITE TABLE mart.alerts_by_severity_ops_reports PARTITION(dt
 3 of 3: mart.fail_history                    worked
 Wrote 3 tables, in order.
 
-Done when it prints `Wrote 3 tables, in order.` Then step 11.
+Done when it prints `Wrote 3 tables, in order.` Then step 14.
 
-### 11. Compare each with its original
+### 14. Compare each with its original
 
-Goal: proof that each dev table gives its original's rows. The Workflow's step 7 compares each
+Goal: proof that each dev table gives its original's rows. The notebook's step 7 compares each
 dev table's rows with the table it copies, on the latest Partition both hold, and writes each
 result in its conversion/compare.md. The Example database holds no Dev Database, so here each
 says it couldn't read its dev table; at work, once every table passes, the batch is finished:
@@ -298,9 +399,9 @@ mart.alerted_runs_ops_reports: failed, couldn't compare: The Example database ha
 mart.alerts_by_severity_ops_reports: failed, couldn't compare: The Example database has no table 'mart.alerts_by_severity_ops_reports'.
 mart.fail_history: failed, couldn't compare: The Example database has no table 'mart.fail_history'.
 
-Done when each table's line says it passed, at work. Then step 12.
+Done when each table's line says it passed, at work. Then step 15.
 
-### 12. Promote them
+### 15. Promote them
 
 Goal: each table's code in your Prod Database. Once each table has passed, `project.promote`
 copies their code to your Prod Database, PROD in admin/databases.py, each notebook reading the
@@ -321,13 +422,140 @@ At work, in admin/workflows/promote/promote.ipynb, name the dev tables and run i
     project.promote(["mart.fail_history", "mart.alerts_by_severity_ops_reports",
                      "mart.alerted_runs_ops_reports"])
 
+A prod copy keeps its dev table's TAGS, its Run values among them. Its seed is its own: it
+copies every Partition of the original until you answer "seed" for it in the promote
+notebook's decisions cell, as step 6 did here, since prod often needs more of the original's
+history than a dev compare did.
+
 Done when the promote Workflow names its next step for the three tables, at work. Then check
 it worked, below.
+
+### Run values, in full
+
+What the steps used, and the cases they didn't meet:
+
+- **What it may give:** a `datetime.date` is written as '2026-09-24', in quotes; a datetime
+  with its time; a number as it is; True or False as TRUE or FALSE; and text as Hive, as a
+  typed-in answer is, so a day given as text needs its own quotes, "'2026-09-24'". Anything
+  else is refused, naming the function.
+- **When it runs:** each time a Statement holding it is built, such as the table's write(),
+  preview() or seed(), for each table on its own. If two tables are answered with one
+  function, the Toolbox calls it once for each, and they may get two days if the warehouse
+  changed between the calls. A tag's function is called with no arguments.
+- **Where it lives:** a file of your Project, such as building_blocks/run_values.py, so a
+  Table reference can import it. One made in a notebook, a lambda or one inside another
+  function is left unwritten by the notebook's step 3, which names it.
+- **Its own day:** today() is today's date in UTC, and today(utc_offset_hours=-6) six hours
+  behind it; today() - datetime.timedelta(days=1) is yesterday. `latest_partition` gives a
+  date when every Partition's value is one, a number when every one is digits, and otherwise
+  the last in the order of their text, passing over Hive's Partition for rows with no value.
+- **A tag inside quotes**, as '<PARM="RUN_MONTH"/>', reads tag_text(TAGS["RUN_MONTH"]) in the
+  converted logic. It gives text as it is. A date a function gives is written with no quotes
+  of its own, 2026-09-24, because the original's quotes stand around it already. Lineage draws
+  no box for it: it is part of a string.
+- **In a Statement of your own**, run_value(function, ...) puts what any function gives where
+  a value goes, called each time the Statement is built, with the arguments you give it. A
+  partition column held to it is bounded, as by a plain day. Here run_day() is called with
+  brackets, since its day is an argument to days_before; a tag's answer never has them:
+
+>>> import datetime
+>>> from sqlglot_composer import (FROM, SELECT, WHERE, at_least, latest_partition, run_value,
+...                               statement, to_hive)
+>>> from references.ops__job_runs import job_runs
+>>> def days_before(day: datetime.date, days: int) -> datetime.date:
+...     return day - datetime.timedelta(days=days)
+>>> print(to_hive(statement(SELECT(job_runs.run_id), FROM(job_runs),
+...                         WHERE(at_least(job_runs.dt, run_value(days_before, run_day(), 1))))))
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt >= '2026-09-23'
+
+### A Run value that runs a query of its own
+
+A function may send a Statement of its own through `run_query`, to find a day no Partition
+names, such as the latest day a run succeeded. Build it as any Statement, bounding each
+partitioned table it reads, and give back what it read as a value. The table's lineage draws
+an arrow into the Run value from each table its Statement read. Here it is, as you would add it
+to building_blocks/run_values.py, called on its own to show what it gives; its file imports
+what it uses, as run_day's does, `query` from warehouse.py among them:
+
+>>> from sqlglot_composer import AS, equals, max_of, run_query
+>>> def last_good_day() -> datetime.date:
+...     \"\"\"The latest day a run succeeded, of the last 30 days ops.job_runs holds.\"\"\"
+...     newest = latest_partition(job_runs.dt, query)  # -> datetime.date
+...     first = str(newest - datetime.timedelta(days=30))  # -> str, such as "2026-08-25"
+...     rows = run_query(statement(SELECT(AS(max_of(job_runs.dt), "day")), FROM(job_runs),
+...                                WHERE(at_least(job_runs.dt, first),
+...                                      equals(job_runs.status, "SUCCESS"))), query)
+...     return datetime.date.fromisoformat(rows["day"][0])
+>>> last_good_day()
+datetime.date(2026, 9, 24)
+
+### When a Run value fails
+
+If the function raises, say with no connection to the warehouse, the Hive still builds, with a
+placeholder in the value's place, `<RUN_DAY failed>` for a tag's function and the function's
+name for run_value's, and a Warning saying what it raised, so a dry run and
+`show_hive` still show the rest. Nothing holding the placeholder is sent: run_query and
+run_execute refuse it, before sending. Fix the function, or what it reads, and run the step
+again:
+
+>>> def no_day() -> datetime.date:
+...     raise ConnectionError("no connection to the warehouse")
+>>> broken = statement(SELECT(job_runs.run_id), FROM(job_runs),
+...                    WHERE(at_least(job_runs.dt, run_value(no_day))))
+>>> print(to_hive(broken))
+SELECT
+  job_runs.run_id
+FROM ops.job_runs AS job_runs
+WHERE
+  job_runs.dt >= `<no_day() failed>`
+>>> try:
+...     run_query(broken, query)
+... except ValueError as refused:
+...     print(str(refused).strip().splitlines()[0])
+What happened:  Nothing was sent: the Statement holds a Run value that failed, ...
+
+### all_tables, in full
+
+- It loads first, then each table's own answer overwrites it, kind by kind and, for "tags", tag
+  by tag: `{"all_tables": {"tags": {"RUN_DAY": run_day, "TEAM": "'ops'"}},
+  "mart_dev.web_fails": {"tags": {"TEAM": "'web'"}}}` answers mart_dev.web_fails's RUN_DAY
+  with run_day and its TEAM with 'web', and each other table's with run_day and 'ops'.
+- It takes "location_root", "tags" and "seed". A Key or a type is each table's own: under
+  "all_tables" it is refused, naming the tables to answer it for.
+- A tag no table holds is refused; a table without it is passed over, and the report says so.
+- "location_root" fills only a location still open: one written already is kept, and the report
+  says so.
+- It needs the notebook's tables, which each Workflow's step 3 cell gives with `tables=`.
+
+### Seed limits, in full
+
+"seed" limits the Partitions the seed copies, by partition column, each column on its own:
+
+- a value, **that value or later**, never that one alone: `{"dt": "2026-09-01"}`;
+- a range, either end left out as you like: `{"dt": {"from": "2026-01-01", "to": "2026-06-30"}}`;
+- a list, those values alone, one value alone as a list of one: `{"region": ["US", "CA"]}`.
+
+It works the same on any partition column, not only days: `{"dt": {"from": "2026-01-01"},
+"region": ["US", "CA"], "batch_no": 400}` copies the Partitions from 2026-01-01 on, of the US
+and Canada, from batch 400 on. Each value is written as the column's type says: a number as it
+is, text and dates in quotes. Any value may be a Run value's function, called as the seed is
+built. A partition column it leaves out is copied whole, and there is no top end unless "to"
+gives one. A limit on a column that isn't one of the table's partition columns is refused, as
+is one for a table that doesn't read itself. Under "all_tables", a limit applies only to the
+tables with that partition column; the notebook's step 3 report and the seed's line say
+what was sent.
 
 ## Check it worked
 
 Before you go on, check that:
 
+- RUN_DAY's line in TAGS, in references/mart__alerts_by_severity_ops_reports.py, names
+  run_day, and the Hive `show_hive` shows holds the day it gave;
+- the seed's line ends with the WHERE its "seed" answer gave, here `WHERE dt >= '2026-09-01'`;
 - each result in each table's conversion/compare.md says "Passed:";
 - `project.check()` names no step of the batch;
 - the batch is in admin/workflows/convert/finished/;
@@ -356,10 +584,27 @@ project.write_decisions names that answer and writes nothing for it. A tag insid
 ### Answering a nightly tag with one day
 
 A day answered in the decisions cell is the day the table is written for, every night after,
-until you answer it again. For a day that changes each run, answer "'${hivevar:run_day}'", a
-Hive variable, and keep a line that sets it, SET hivevar:run_day=..., at the top of the script
-you convert: the table's session_settings() keeps it and project.run_tables sends it before
-each write, and project.write_decisions says whether a line sets it.
+until you answer it again. For a day that changes each run, answer it with a Run value's
+function, as step 8 does: the Hive sent holds the day itself. If your warehouse lets you send
+Hive variables, "'${hivevar:run_day}'" works too, with a line that sets it, SET
+hivevar:run_day=..., kept at the top of the script you convert: the table's
+session_settings() keeps it, project.run_tables sends it before each write, and
+project.write_decisions says whether a line sets it.
+
+### Writing the function's name with brackets
+
+Answer a tag with the function itself, `run_day`, never `run_day()`: with brackets, Python
+calls it once, as the decisions cell runs, and the answer is that one day. The Workflow's step
+3 refuses a date given so, writing nothing: answer with the name alone.
+
+### Working on a table converted before 8.4
+
+A table converted before 8.4 keeps its seed() as it was, copying every Partition, with no SEED
+for a "seed" answer to fill, and a tag inside quotes in its logic reads TAGS["NAME"] itself,
+so it takes text, never a Run value's function. To limit its seed or answer its quoted tags
+with a Run value, convert its scripts again as a new batch, with a new name for each table in
+RENAME, and remove the old one once the new one's compare passes, with `project.remove_table`
+in admin/remove.ipynb.
 
 ### Promoting before comparing
 

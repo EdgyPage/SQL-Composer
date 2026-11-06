@@ -95,12 +95,12 @@ Load this file when the user pastes Hive and asks for it as Toolbox code.
 - `LEFT JOIN t ON ... AND t.dt = 'd'`: keep `equals(t.dt, "d")` in ON=, by `all_of`.
 - `ROW_NUMBER() OVER (PARTITION BY a ORDER BY b DESC)`:
   `row_number(PARTITION_BY=t.a, ORDER_BY=descending(t.b))` (file 05).
-- `ORDER BY ... LIMIT n`: `ORDER_BY(...)`, `LIMIT(n)`.
 - `SET k=v;`: `hive_settings("converted", sets={"converted": {"k": "v"}})`, run_execute first.
 - `INSERT OVERWRITE TABLE ... SELECT ...`: convert the SELECT; the write goes in the
   Saved table's logic cell (file 06).
-- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted, `TAGS["NAME"]`;
-  `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not imported.
+- `<PARM="NAME"/>`, Script tag: bare, `script_tag(TAGS["NAME"])`; quoted,
+  `tag_text(TAGS["NAME"])`; `TAGS = {"NAME": "'2026-09-24'"}` above it, quotes kept, not
+  imported; a day worked out each run: file 17.
 
 ## Steps
 

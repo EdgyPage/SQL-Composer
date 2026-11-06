@@ -2834,11 +2834,11 @@ GROUP BY
 </section>
 <section class="entry" id="today">
 <h3><code>today</code></h3>
-<p class="why">Today&#x27;s date in UTC, or utc_offset_hours from it, as last_n_days sees it.</p>
+<p class="why">Today&#x27;s date in UTC, or utc_offset_hours from it.</p>
 <pre class="python">today(utc_offset_hours=-6) &lt;= today() &lt;= today(utc_offset_hours=14)</pre>
 <p class="label">Python shows</p>
 <pre class="output">True</pre>
-<p>Write utc_offset_hours=-6 for a warehouse that keeps its days six hours behind UTC, such as Central Standard Time, or 5.5 for India&#x27;s: the offset stays as given all year, as no zone&#x27;s name is read. It is the usual start of a Run value&#x27;s function, which works out a day each time a table is written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1) for yesterday where the warehouse is.</p>
+<p>In UTC, it is the day last_n_days counts back from. Write utc_offset_hours=-6 for a warehouse that keeps its days six hours behind UTC, such as Central Standard Time, or 5.5 for India&#x27;s: the offset stays as given all year, as no zone&#x27;s name is read. It is the usual start of a Run value&#x27;s function, which works out a day each time a table is written, such as today(utc_offset_hours=-6) - datetime.timedelta(days=1) for yesterday where the warehouse is.</p>
 <p class="names">Toolbox names used: <code>today</code></p>
 </section>
 <section class="entry" id="is_in">
@@ -3920,7 +3920,7 @@ WHERE
 <pre class="python">hive_date(datetime.date(2026, 10, 31))</pre>
 <p class="label">Python shows</p>
 <pre class="output">&quot;&#x27;2026-10-31&#x27;&quot;</pre>
-<p>A Run value&#x27;s function may give back a date itself, which script_tag writes so; hive_date is for a date you put in Unchecked text, as in unchecked_condition(&quot;{dt} &lt;= &quot; + hive_date(day), dt=job_runs.dt). A datetime is written with its time, &#x27;2026-10-31 06:30:00&#x27;. It refuses anything that isn&#x27;t a date.</p>
+<p>A Run value&#x27;s function may give back a date itself, which script_tag writes in this form for you; hive_date is for a date you put in Unchecked text, as in unchecked_condition(&quot;{dt} &lt;= &quot; + hive_date(day), dt=job_runs.dt). A datetime is written with its time, &#x27;2026-10-31 06:30:00&#x27;. It refuses anything that isn&#x27;t a date.</p>
 <p class="names">Toolbox names used: <code>hive_date</code></p>
 </section>
 <section class="entry" id="latest_partition">
@@ -3931,11 +3931,13 @@ WHERE
 <p class="label">Python shows</p>
 <pre class="output">datetime.date(2026, 9, 24)</pre>
 <p>It sends SHOW PARTITIONS for the column&#x27;s table through your query, which lists each Partition, such as dt=2026-09-24, and reads no row. When every value is a date, such as 2026-09-24, it gives the latest as a datetime.date; when every value is digits alone, the biggest as a number; otherwise the last, in the order of their text. The Partition Hive keeps for rows with no value, __HIVE_DEFAULT_PARTITION__, is passed over. It is what a Run value&#x27;s function usually gives, in your Project&#x27;s building_blocks/run_values.py:</p>
-<pre class="python">from sqlglot_composer import latest_partition
+<pre class="python">import datetime
+
+from sqlglot_composer import latest_partition
 from references.ops__job_runs import job_runs
 from warehouse import query
 
-def period_end():
+def period_end() -&gt; datetime.date:
     return latest_partition(job_runs.dt, query)</pre>
 <p>It refuses a column that isn&#x27;t one of its table&#x27;s partition columns, before anything is sent, and a table that holds no Partition yet.</p>
 <p class="names">Toolbox names used: <code>latest_partition</code>, <code>example_database</code></p>
@@ -3959,7 +3961,9 @@ def period_end():
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt &gt;= &#x27;2026-09-23&#x27;</pre>
-<p>It calls function(*arguments, **keywords) and writes what it gives as a value, as a plain one is written: a date as &#x27;2026-09-23&#x27;, text in quotes, a number, True or False. Any function will do, one of your Project&#x27;s or a library&#x27;s. A partition column held to it is bounded, as by a plain value. The Statement&#x27;s lineage draws a box for it, naming the function, what it was given and what it gave, with an arrow into it from each table the Toolbox read for it while it ran: the partition column latest_partition reads, and each table a Statement it sends through run_query reads. A function that fails leaves its name in backticks in the value&#x27;s place, with a Warning saying why, so show_hive still shows the rest; run_query and run_execute refuse to send it. A Script tag answered with a function is one too: script_tag(TAGS[&quot;PERIOD_END&quot;]) calls it so.</p>
+<p>It calls function(*arguments, **keywords) and writes what it gives as a value, as a plain one is written: a date as &#x27;2026-09-23&#x27;, text in quotes, a number, True or False. Any function will do, one of your Project&#x27;s or a library&#x27;s. A partition column held to it is bounded, as by a plain value.</p>
+<p>A function that fails leaves its name in backticks in the value&#x27;s place, such as <code>&lt;days_before() failed&gt;</code>, with a Warning saying why, so show_hive still shows the rest; run_query and run_execute refuse to send it. A Script tag answered with a function is a Run value too: script_tag(TAGS[&quot;PERIOD_END&quot;]) calls it the same way.</p>
+<p>The Statement&#x27;s lineage draws a box for each Run value: the function, what it was given and what it gave. An arrow goes into the box from each table the Toolbox read for it while it ran: the partition column latest_partition reads, and each table read by a Statement it sends through run_query.</p>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
 <tr><th>run_id</th></tr>
 <tr><td>95</td></tr>
@@ -3984,7 +3988,9 @@ WHERE
 <pre class="python">&quot;dt &lt;= &quot; + tag_text(TAGS[&quot;PERIOD_END&quot;], quoted=False)</pre>
 <p class="label">Python shows</p>
 <pre class="output">&quot;dt &lt;= &#x27;2026-09-24&#x27;&quot;</pre>
-<p>A Conversion writes it where a tag stood in text it keeps: tag_text(TAGS[&quot;RUN_MONTH&quot;]) for one inside quotes, as above, and tag_text(TAGS[&quot;PERIOD_END&quot;], quoted=False) for a bare one in Hive kept whole, which stands for Hive, its value&#x27;s own quotes and all. TAGS, in the table&#x27;s Table reference, holds what each tag stands for: text, or a Run value&#x27;s function, which tag_text calls each time the Statement is built. A date it gives is written as 2026-10-31 inside quotes and as &#x27;2026-10-31&#x27; bare, a number as it is, True or False bare as TRUE or FALSE, and text as it is: bare, it must be one value of a kind a program puts in a tag&#x27;s place, as script_tag holds its answer to. A function that fails is refused, naming it. What it gives is text inside a string, so the Statement&#x27;s lineage, which traces each value, doesn&#x27;t draw it.</p>
+<p>A Conversion writes it for you, where a tag stood in text it keeps:</p>
+<ul><li>if the tag stood inside quotes, as &#x27;&lt;PARM=&quot;RUN_MONTH&quot;/&gt;&#x27;, it writes tag_text(TAGS[&quot;RUN_MONTH&quot;]): the quotes are the original&#x27;s, so the text has none;</li><li>if the tag stood bare, in Hive kept whole as text, it writes tag_text(TAGS[&quot;PERIOD_END&quot;], quoted=False): the text is the value as Hive, with its own quotes, as &#x27;2026-09-24&#x27;.</li></ul>
+<p>TAGS, in the table&#x27;s Table reference, holds what each tag stands for: text, or a Run value&#x27;s function, which tag_text calls each time the Statement is built. A date it gives is written as 2026-10-31 inside quotes and as &#x27;2026-10-31&#x27; bare, a number as it is, True or False bare as TRUE or FALSE, and text as it is: bare, it must be one value of a kind a program puts in a tag&#x27;s place, as script_tag holds its answer to. A function that fails is refused, naming it. What it gives is text inside a string, so the Statement&#x27;s lineage, which traces each value, doesn&#x27;t draw it.</p>
 <p class="names">Toolbox names used: <code>tag_text</code></p>
 </section>
 <section class="entry" id="compare_hive">

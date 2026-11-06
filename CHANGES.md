@@ -4,7 +4,44 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 8.4
 
-Being built: what each ticket changes is listed here as it lands.
+8.4 works out what a Script tag stands for each time a table is written, and copies only the
+Partitions a Seed needs. A **Run value** is the value a function of yours gives each time a
+table is written, such as the latest day a table holds: write the function in your Project,
+answer a tag with it in the decisions cell, and the Hive sent holds the day it gave, with no
+Hive variable to set. `"all_tables"` answers once for
+every table of a Workflow's notebook, and a `"seed"` answer limits the one-time copy of a table
+that reads itself to the Partitions you name. Reporting windows such as
+`date_sub(<PARM="PERIOD_END"/>, 14)` now convert and bound their reads, and a Project that
+Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
+
+### To update from 8.3
+
+- **Copy in 8.4's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and read
+  `admin/upgrade_8.4.md`.
+- **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
+  `admin/removed/`: each step 3 cell gives the notebook's tables to `project.write_decisions`,
+  as `tables=project.batch_tables(NAME)` in convert's, which `"all_tables"` needs, and each
+  decisions cell's comment shows `"all_tables"`. Each name and answer you gave stays.
+- **A table converted before 8.4 keeps its seed() copying every Partition**, with no `SEED`
+  for a `"seed"` answer to fill, and **its tags inside quotes read `TAGS["NAME"]`**, so they
+  take text, never a Run value's function. Its bare tags take a Run value's function as they
+  are. To limit its seed, or answer a quoted tag with a Run value, convert its scripts again
+  as a new batch, with a new name for each table in RENAME, and remove the old table with
+  `project.remove_table(...)`, in `admin/remove.ipynb`, once the new one's compare passes.
+- **`last_n_days` counts from UTC's today**, where it counted from this computer's: a window
+  run near midnight may move by a day. Where the warehouse keeps another day, bound the read
+  with a Run value in its place, a function of yours that starts from the warehouse's day:
+
+  ```python
+  def days_ago(days: int) -> datetime.date:
+      return today(utc_offset_hours=-6) - datetime.timedelta(days=days)
+
+  WHERE(between(job_runs.dt, run_value(days_ago, 7), run_value(days_ago, 1)))
+  ```
+
+  which reads the 7 days before today, six hours behind UTC, as `last_n_days(job_runs.dt, 7)`
+  does in UTC.
 
 ### What's new
 
@@ -24,10 +61,10 @@ Being built: what each ticket changes is listed here as it lands.
 - **Run values**: a Script tag may be answered with a function of your own, written in the
   Project, such as `building_blocks/run_values.py`'s `period_end()`, which gives the latest day
   your warehouse holds. Import it in the decisions cell and answer with it, as in
-  `{"tags": {"PERIOD_END": period_end}}`: step 3 writes the import and the function's name into
+  `{"tags": {"PERIOD_END": period_end}}`: the convert notebook's step 3 writes the import and the function's name into
   TAGS, and each time the table's write is built the function is called and what it gives is
   written into the Hive as plain text, a date as `'2026-10-31'`. A dry run shows the value; a
-  function that fails leaves `<period_end() failed>` in its place, with a Warning saying why,
+  function that fails leaves `<PERIOD_END failed>` in its place, with a Warning saying why,
   and `run_query` and `run_execute` refuse to send it.
 - **`tag_text(TAGS["NAME"])`** is a tag inside quotes' place in a converted table's logic, where
   8.3 wrote `TAGS["NAME"]` itself: it calls a Run value's function too, and gives text as it
