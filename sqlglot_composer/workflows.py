@@ -411,12 +411,14 @@ def every_batch_converted(root: Path, inputs: dict[str, object]) -> bool:
 
 def batch_instances(root: Path) -> list[dict[str, object]]:
     """Each batch convert made, as the convert Workflow's inputs: its name, and the tables
-    its record lists."""
+    its record lists. A finished one, in finished/, is among them, for its compare step to
+    read when PARTITIONS has it compared again; instances_of passes it over."""
     found: list[dict[str, object]] = []
     folder = root / BATCHES
     if not folder.is_dir():
         return found
-    for record in sorted(folder.glob(f"*/{BATCH_RECORD}")):
+    records = [*folder.glob(f"*/{BATCH_RECORD}"), *folder.glob(f"{FINISHED}/*/{BATCH_RECORD}")]
+    for record in sorted(records):
         kept = json.loads(record.read_text(encoding="utf-8"))
         # A table new_table made from its query: its own Workflow takes it on.
         if kept.get("made_for"):
@@ -815,16 +817,16 @@ def create_and_write_the_tables(inputs: dict[str, object], calls: Calls) -> list
 
 
 def compare_the_batch(inputs: dict[str, object], calls: Calls) -> list[str]:
-    """project.compare_batch for the batch NAME names, on the Partition PARTITION names when
-    it names one; a dry run names what it would read."""
+    """project.compare_batch for the batch NAME names, on the latest Partition and each
+    PARTITIONS lists; a dry run names what it would read."""
     from . import project  # project.py imports this file
 
     if calls.dry_run:
         return ["would compare each with its original, through your query: "
                 f"{in_words(batch_tables_of(inputs))}"]
-    # As given, so compare_batch refuses a PARTITION it can't use, as the cell's call does.
+    # As given, so compare_batch refuses a PARTITIONS it can't use, as the cell's call does.
     return project.compare_batch(str(inputs.get("NAME")), query=calls.query,
-                                 partition=inputs.get("PARTITION")).lines
+                                 partitions=inputs.get("PARTITIONS")).lines
 
 
 def preview_each(inputs: dict[str, object], calls: Calls) -> list[str]:
@@ -1056,23 +1058,25 @@ CONVERT = Workflow(
              done_when="admin/sent.csv records each table written"),
         Step("Compare each table with its original",
              PERMISSION, ("each written in dev",), ("each compared with its original",),
-             "project.compare_batch(NAME, query=query, partition=PARTITION)",
+             "project.compare_batch(NAME, query=query, partitions=PARTITIONS)",
              every_table_compared,
              send=compare_the_batch,
              goal="each table's rows checked against its original's: a partitioned table's "
-             "on the latest Partition both hold, and only that one unless you give another",
+             "on the latest Partition both hold, and on each other one PARTITIONS lists",
              action="run the cell below. `project.compare_batch` reads both through your query "
              "and writes each table's result in its `conversion/compare.md`. A partitioned "
              "table is compared on the latest Partition both tables hold, which its line in "
-             "the report names, such as `on dt = '2026-09-24'`. If you want another "
-             "Partition compared too, one your dev table holds as well as its original, then "
-             "set `PARTITION` in the names cell, such as `{\"dt\": \"2026-09-23\"}`, its "
-             "value with no quotes of its own, run the names cell, and run this step's cell "
-             "again: each table partitioned by dt is compared on it, the others on their "
-             "latest, and each result is kept beside the ones before; a result that failed "
-             "is replaced when that Partition is compared again. If the batch is finished "
-             "already, then compare another Partition by running this step's cell: the last "
-             "cell sees step 7 done, and compares nothing more.",
+             "the report names, such as `on dt = '2026-09-24'`. If you want other "
+             "Partitions compared too, each one your dev table holds as well as its original, "
+             "then list them in `PARTITIONS` in the names cell, such as "
+             "`[{\"dt\": \"2026-09-23\"}]`, each value with no quotes of its own, run the "
+             "names cell, and run this step's cell again: each table partitioned by dt is "
+             "compared on its latest and on each listed, the others on their latest, each "
+             "result its own section, kept beside the ones before; a result that failed is "
+             "replaced when that Partition is compared again. If the batch is finished "
+             "already, then the same: list them in PARTITIONS and run this step's cell, or "
+             '"Run the rest", which compares a finished batch again whenever PARTITIONS '
+             "lists a Partition, and says the batch was finished.",
              done_when="every result in each table's `conversion/compare.md` says Passed, "
              "and the batch's folder has moved to admin/workflows/convert/finished/; a table "
              "with a result that failed is one promote refuses"),
@@ -1091,10 +1095,10 @@ CONVERT = Workflow(
             Input("STAGING", {}, 'each staging table convert names, kept or folded, such as '
                   '{"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is '
                   "folded, any other kept"),
-            Input("PARTITION", None, 'a Partition for step 7 to compare besides the latest, '
-                  'such as {"dt": "2026-09-23"}, its value with no quotes of its own: None '
-                  "compares only the latest Partition your dev table and its original both "
-                  "hold")),
+            Input("PARTITIONS", [], "the Partitions for step 7 to compare besides the "
+                  'latest, each a dict, such as [{"dt": "2026-09-23"}], each value with no '
+                  "quotes of its own: [] compares only the latest Partition your dev table and "
+                  "its original both hold")),
     about="Turns Hive someone else wrote, one query or a batch of scripts, into your own code: "
     "each table the scripts write becomes a Saved table in your Dev Database, with its Table "
     "folder, and what only you can decide of it, a Decision, answered in the decisions cell.",
@@ -1905,6 +1909,12 @@ def is_finished(root: Path, inputs: dict[str, object]) -> bool:
     moved to finished/, so no step of it is left."""
     name = inputs.get("NAME")
     return isinstance(name, str) and bool(name) and (root / BATCHES / FINISHED / name).is_dir()
+
+
+def is_compared_again(root: Path, inputs: dict[str, object]) -> bool:
+    """Whether project.run_workflow runs the compare step of the batch NAME names once more:
+    it is finished, and PARTITIONS lists a Partition to compare."""
+    return is_finished(root, inputs) and bool(inputs.get("PARTITIONS"))
 
 
 def one_per_name(inputs: dict[str, object]) -> list[dict[str, object]]:
