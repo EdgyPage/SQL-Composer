@@ -1,7 +1,7 @@
 # A journey through the user's batch, and what it needs today
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: M
 

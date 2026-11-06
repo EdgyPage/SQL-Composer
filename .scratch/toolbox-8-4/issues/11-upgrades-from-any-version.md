@@ -1,7 +1,7 @@
 # Upgrades from any version since 8.3
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: -
 Size: M
 

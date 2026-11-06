@@ -188,6 +188,36 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 
 ## Decisions so far
 
+- [01 The user's batch](issues/01-the-users-batch-journey.md): a journey converts it end to end,
+  a Run value answering PERIOD_END and the seed limited, through the notebook and the runner.
+- [02 date_sub and date_add](issues/02-date-sub-and-date-add.md): a day moved converts to Hive's
+  two-argument form.
+- [03 Ends built of values](issues/03-ends-built-of-values-bound.md): an end built of literals,
+  Script tags and Run values bounds a partition read (`script_tags.is_built_of_values`).
+- [04 `${...}`](issues/04-hive-variables-in-unchecked-text.md): kept as Hive in Unchecked text.
+- [05 Run values](issues/05-run-values.md): any function of the user's answers a tag, called each
+  time a table is written; `run_value(fn, ...)` traces any function, `tag_text` reads a tag in a
+  string, and a function that fails writes a name the send refuses.
+- [06 The date helpers](issues/06-the-date-helpers.md): `today(utc_offset_hours=0)`,
+  `latest_partition(column, query)` and `hive_date(day)`.
+- [07 Lineage](issues/07-run-values-in-lineage.md): a Run value is a box in the group "Run
+  values", with the tables it read.
+- [08 Every table](issues/08-decisions-for-every-table.md): `"all_tables"` in DECISIONS answers
+  each table, a table's own answer winning; `location_root` names each location.
+- [09 Seed limits](issues/09-seed-limits.md): `"seed"` limits a seed by any partition column,
+  written into the reference's SEED, which `seed_copy` reads; promote keeps a prod seed's own.
+- [10 many_matches](issues/10-needless-many-matches.md): step 3 takes out an opt-out the Keys
+  prove needless.
+- [11 Upgrades](issues/11-upgrades-from-any-version.md): any version since 8.3 upgrades to the
+  newest in one run, step by step.
+- [12 The docs](issues/12-the-docs.md): how-tos 09, 28 and 29, the README, CHANGES and Copilot
+  file 17.
+- [13 8.4](issues/13-eight-point-four.md): the Upgrade step writes the Workflow notebooks again,
+  reads tags through tag_text and marks an 8.3 seed() copying every Partition.
+- [14 No cell of your own](issues/14-no-cell-of-your-own.md): each decision step ships its
+  `project.check()` cell, edge cases stay in the docs, and usability scenario W7 counts the cells
+  a run adds.
+
 ## Not yet specified
 
 - Whether the usability loop gains a scenario with Run values and a seed limit: answered by the

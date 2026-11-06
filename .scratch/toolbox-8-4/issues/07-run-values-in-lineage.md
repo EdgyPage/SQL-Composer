@@ -1,7 +1,7 @@
 # Run values in lineage
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 05, 06
 Size: M
 

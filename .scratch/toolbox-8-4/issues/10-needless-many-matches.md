@@ -1,7 +1,7 @@
 # Step 3 clears the needless many_matches
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01
 Size: M
 
