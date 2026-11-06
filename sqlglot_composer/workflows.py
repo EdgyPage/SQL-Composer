@@ -350,6 +350,19 @@ def decisions_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object
     return open_decisions_of(root, names_in(inputs, "TABLES"), step.decides)
 
 
+def proposed_keys_waited_on(root: Path, workflow: Workflow, inputs: dict[str, object],
+                            step: Step) -> list[str]:
+    """Each table of a decision step that decides Keys whose Table reference holds a Key the
+    Toolbox proposed, made or still open, which "all_tables": {"key": "proposed"} accepts:
+    the prod copies' for promote."""
+    if decisions.KEY not in step.decides:
+        return []
+    if workflow.name == "promote":
+        inputs = prod_inputs(root, inputs)
+    return [table for table in names_in(inputs, "TABLES")
+            if decisions.proposed_key(file_text(reference_path(root, table))) is not None]
+
+
 def write_the_decisions(inputs: dict[str, object]) -> ProjectReport:
     """The step that writes each answer of the decisions cell into its table's Table
     reference, all_tables' into each table TABLES names: a convert batch's own tables."""
@@ -1333,29 +1346,25 @@ REFERENCES = Workflow(
              "project.add_references(TABLES, query=query)", every_reference_written,
              send=add_the_references,
              goal="a Table reference for each table in `TABLES`, its columns and their types "
-             "read from its DESCRIBE",
-             action="run the cell below. It reads each table's DESCRIBE through your query, "
-             "and writes only files.",
+             "read from its DESCRIBE, and its Key proposed and checked",
+             action="run the cell below. It reads each table's DESCRIBE, counts the distinct "
+             "values of each id column on its latest Partition, and checks the Key it proposes "
+             "with `check_key`, all through your query, and writes only files.",
              done_when="each table in `TABLES` has its Table reference in references/"),
         Step("Answer each table's open Decisions in the decisions cell", DECISION,
              ("Table references with TODO lines",), ("each answer in the decisions cell",),
              done=every_source_decision_answered, decides=SOURCE_DECISIONS,
-             goal="an answer to each table's open Key: the columns whose values name exactly "
-             "one row, or None when no columns do",
-             action=RUN_THE_CHECK_CELL + "; then write each answer in the decisions cell, "
-             "`DECISIONS`, by the table's name as `project.check()` writes it, then save the "
-             "notebook. To check a Key before you answer it, which how-to 21 shows, check_key "
-             "reads a Table you make with that Key, since the Table reference's Key is still "
-             "open. Its `columns=` names each column of the Key and the Partition column, "
-             "each with None, which leaves its type out. For `run_id` of `ops.job_runs`, "
-             "partitioned by `dt`, the code is three lines: "
-             "`from sqlglot_composer import Table, check_key, equals`; "
-             "`runs = Table(\"ops.job_runs\", columns={\"run_id\": None, \"dt\": None}, "
-             "partitioned_by=[\"dt\"], key=[\"run_id\"])`; "
-             "`print(check_key(runs, query=query, where=equals(runs.dt, \"2026-09-24\")))`. "
-             "A table with no Partitions leaves out `partitioned_by=` and `where=`. If it says "
-             "the key holds, then answer it. If it says the key repeats, then add another "
-             "column to `key=` and `columns=` and check again, or answer None.",
+             goal="an answer to each table's open Key: the Key step 1 proposed, accepted, or "
+             "the columns whose values name exactly one row, or None when no columns do",
+             action=RUN_THE_CHECK_CELL + "; then fill in each `<FILL IN>` in it, if any, and "
+             "save the notebook. Step 1 proposed a Key for each table it could, from its "
+             "columns and a count of each id column's distinct values, and checked it with "
+             "`check_key`, printing each verdict. A proposed Key is pasted as it is, which "
+             "accepts it; for two tables or more, `\"all_tables\": {\"key\": \"proposed\"}` "
+             "accepts each. If no Key was proposed for a table, or its verdict says it "
+             "repeats, then write its Key in place of its `<FILL IN>`, as a list such as "
+             "`[\"run_id\"]`, or None when no columns name one row; how-to 21 shows how to "
+             "check one with `check_key` first.",
              done_when="the decisions cell answers each Key `project.check()` names for these "
              "tables"),
         Step("Write each answer into its table's Table reference", FILE_STEP,
@@ -1363,12 +1372,13 @@ REFERENCES = Workflow(
              "project.write_decisions(DECISIONS, tables=TABLES)", every_source_decision_made,
              write_the_decisions,
              goal="each answer written into its table's Table reference",
-             action="run the cell below. It names each TODO line the Table reference still "
-             "holds; no step waits on them, so fill each in by hand. On its "
-             "`does_not_add_up=[]` line, list each column whose values can't be added up "
-             "across rows, such as an average, a ratio or a distinct count: "
-             "`does_not_add_up=[\"avg_retry_secs\"]`. If no column is one, then delete only "
-             "its `# TODO` comment, and the empty list says no column is one.",
+             action="run the cell below. Step 1 proposed each Table reference's first line, "
+             "what one row is, from its Key, and its `does_not_add_up=`, the columns whose "
+             "names say their values can't be added up across rows, such as an average, each "
+             "marked `# proposed`; writing a Key proposes its first line again. Read them, and "
+             "change any that is wrong, such as a distinct count no name gives away. The cell "
+             "names each TODO line left, as a table with no Key keeps its first line's; no "
+             "step waits on them, so fill each in when you like.",
              done_when="each table's Table reference leaves no Key open"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("filled-in Table references",),
@@ -1512,12 +1522,14 @@ DECISIONS_CELL = (
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
     "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
     "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
-    '# answer "key" here. "all_tables" answers for every table of this notebook, and a\n'
-    "# table's own answer overwrites it, kind by kind and tag by tag:\n"
-    '# {"all_tables": {"location_root": "/data/team",\n'
+    '# answer "key" here; "key": "proposed" accepts it as if typed. "all_tables" answers\n'
+    "# for every table of this notebook, and a table's own answer overwrites it, kind by\n"
+    "# kind and tag by tag:\n"
+    '# {"all_tables": {"key": "proposed", "location_root": "/data/team",\n'
     '#                 "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
-    "# gives each table with no location its own folder, such as\n"
-    '# "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.\n'
+    "# accepts each table's proposed Key, gives each table with no location its own\n"
+    '# folder, such as "/data/team/mart_dev.db/weekly_ops", and each table holding\n'
+    "# PERIOD_END that value.\n"
     "# A tag may be answered with a Run value's function of your Project's, imported above\n"
     '# DECISIONS, such as "PERIOD_END": period_end; and "seed", such as\n'
     '# {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself\n'

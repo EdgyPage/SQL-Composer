@@ -34,8 +34,9 @@ For each project, in a Python of its own, started in an empty folder, it:
 The time, the commit and the calling script are pinned, as if a notebook ran everything on
 PINNED_TIME in a folder that isn't in git, so the files are the same on every computer. The
 version is the Toolbox's own, so raising TOOLBOX_VERSION makes the committed lineage stale
-until this is run again. It runs no SELECT, only DESCRIBE, which add_references sends through
-the Example database's query.
+until this is run again. It reads only what add_references sends through the Example
+database's query: DESCRIBE, SHOW PARTITIONS, and the count and check_key that propose each
+Key.
 """
 
 from __future__ import annotations
@@ -184,14 +185,12 @@ def filled_in(text: str, table: str,
               filling: dict[str, str | list[str] | dict[str, str] | None]) -> str:
     """A Table reference with its TODO lines replaced by what a user writes there, and the
     Aliases a user adds below it."""
+    # Each line add_references left a TODO, or proposed (Toolbox 8.5), by how it starts.
     replacements = [
-        (f'"""{table} - TODO: say in one line what one row is."""',
+        (f'"""{table} - ',
          f'"""{table} - {filling["one_row"]}\n\n{_wrapped(WHY)}\n\n{_wrapped(HOW)}\n"""'),
-        ('    key=None,  # TODO: the columns that pick out one row, such as key=',
-         _key_line(filling["key"])),
-        ("    does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct "
-         "counts",
-         _does_not_add_up_line(filling["does_not_add_up"])),
+        ("    key=None,  # TODO: ", _key_line(filling["key"])),
+        ("    does_not_add_up=", _does_not_add_up_line(filling["does_not_add_up"])),
     ]
     if filling.get("calls"):
         calls = ", ".join(filling["calls"])
@@ -348,8 +347,9 @@ def _add_conversions(name: str, folder: Path) -> None:
         notebooks.write_notebook(notebook, cells)
         shutil.copyfile(source / "references" / f"{stem}.py",
                         folder / "references" / f"{stem}.py")
-        # Its Decisions are made in the file now: its checklist, a view of them, says so.
-        project.write_decisions({table: {}})
+        # Its Decisions are made in the file now, its proposed Key accepted as a user accepts
+        # it: its checklist, a view of them, says so.
+        project.write_decisions({table: {"key": "proposed"}})
         # Compared with its original, which at work is the table it copies, the batch is
         # finished, so the Project's check names no step of it. The Example database holds no
         # Dev Database: both are read as the rows the converted query gives.

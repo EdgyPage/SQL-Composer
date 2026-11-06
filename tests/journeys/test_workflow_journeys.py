@@ -975,25 +975,53 @@ def test_references_through_the_runner(started: Started) -> None:
     assert 'key=["event_id"],' in written
 
 
-def _run_references_through_the_runner(started: Started, table: str, key: list[str]) -> None:
-    """The references Workflow as one project.run_workflow call, its Key typed first."""
+def test_references_of_many_tables_accept_every_proposed_key(started: Started) -> None:
+    # Toolbox 8.5, tickets 07 and 08: each Key proposed from the rows and checked, accepted
+    # for every table at once in what check() prints to paste.
+    tables = ["ops.job_runs", "ops.job_owners"]
     journey = started.journey("references")
-    journey.type_names(TABLES=[table], DECISIONS={table: {"key": key}})
+    journey.type_names(TABLES=tables)
+    journey.run_to(1)
+    journey.paste_decisions({})
+    assert journey.scope["DECISIONS"] == {"all_tables": {"key": "proposed"}}
+    journey.run_to()
+    for table, key in zip(tables, ['["run_id"]', '["job_id", "dt"]'], strict=True):
+        _check_no_todo_left(started, table, key)
+
+
+def _run_references_through_the_runner(started: Started, table: str, key: list[str]) -> None:
+    """The references Workflow read top to bottom: its names typed, run up to its Decisions,
+    the Key it proposed pasted into the decisions cell, then the rest, after a dry run."""
+    journey = started.journey("references")
+    journey.type_names(TABLES=[table])
+    assert "references: every step is done." not in journey.run_workflow()
+    journey.paste_decisions({})
     sent = list(started.warehouse.executed)
     # It sends nothing through execute: a dry run takes it to its end goal.
     assert "references: each step left is shown above." in journey.run_workflow(dry_run=True)
     assert started.warehouse.executed == sent, "a dry run sent something"
     assert "references: every step is done." in journey.run_workflow()
+    _check_no_todo_left(started, table, repr(key).replace("'", '"'))
 
 
 def _run_references(started: Started, table: str, key: list[str]) -> None:
     """The references Workflow, from a table's name to its filled-in Table reference and the
-    Reference sheet."""
+    Reference sheet: the Key step 1 proposed and checked, pasted as check() prints it, with no
+    check_key typed and no TODO line edited."""
     journey = started.journey("references")
     journey.type_names(TABLES=[table])
     journey.run_to(1)
-    journey.paste_decisions({table: {"key": key}})
+    journey.paste_decisions({})
     journey.run_to()
+    _check_no_todo_left(started, table, repr(key).replace("'", '"'))
+
+
+def _check_no_todo_left(started: Started, table: str, key: str) -> None:
+    """The references Workflow's Table reference: its Key the one proposed, and no TODO line
+    left for the user to edit."""
+    written = _reference(started.root, table).read_text(encoding="utf-8")
+    assert f"    key={key},\n" in written
+    assert "TODO" not in written, f"{table} keeps a TODO line"
 
 
 # --- upgrade ----------------------------------------------------------------------------------
