@@ -23,6 +23,8 @@ from sqlglot_composer import (
     AS,
     FROM,
     GROUP_BY,
+    INSERT_INTO,
+    INSERT_OVERWRITE,
     SELECT,
     WHERE,
     Table,
@@ -294,6 +296,48 @@ def test_a_run_value_of_a_statement_of_its_own_shows_its_name_and_value() -> Non
     assert box["name"] == "test_run_values.period_end()"
     assert not [arrow for arrow in graph.arrows if arrow[1] in graph.boxes
                 and graph.boxes[arrow[1]] is box]
+
+
+# --- A Run value naming a Partition (Toolbox 8.4, ticket 15) ---------------------------------
+
+# A Saved table written one day at a time, the day named in partition=.
+DAILY = Table("mart.daily_counts", partitioned_by=["dt"], key=["job_id", "dt"],
+              columns={"job_id": "bigint", "runs": "bigint", "dt": "string"},
+              location="/data/your_team/mart.db/daily_counts")
+
+
+def _daily_write(day: object) -> object:
+    return statement(INSERT_OVERWRITE(DAILY, partition={"dt": day}),
+                     SELECT(runs.job_id, AS(count_rows(), "runs")), FROM(runs),
+                     WHERE(equals(runs.dt, day)), GROUP_BY(runs.job_id))
+
+
+def test_partition_takes_a_script_tags_value_as_its_hive() -> None:
+    TAGS = {"RUN_DAY": "'2026-09-24'"}  # noqa: N806 - as a converted table's logic names it
+    hive = to_hive(_daily_write(script_tag(TAGS["RUN_DAY"])))
+    assert "PARTITION(dt = '2026-09-24')" in hive
+
+
+def test_a_run_value_naming_a_partition_is_drawn_into_the_column_it_fills() -> None:
+    TAGS = {"RUN_DAY": latest_day}  # noqa: N806 - as a converted table's logic names it
+    built = _daily_write(script_tag(TAGS["RUN_DAY"]))
+    assert "PARTITION(dt = '2026-09-24')" in to_hive(built)
+    graph = lineage.build_graph([(built, "daily")])
+    keys = [key for key, box in graph.boxes.items() if box["group"] == lineage.RUN_VALUES]
+    assert keys
+    assert any((key, "table:mart.daily_counts.dt", "value") in graph.arrows for key in keys)
+
+
+def test_partition_takes_a_run_values_day() -> None:
+    hive = to_hive(_daily_write(run_value(period_end)))
+    assert "PARTITION(dt = '2026-09-24')" in hive
+
+
+@pytest.mark.parametrize("write", [INSERT_OVERWRITE, INSERT_INTO],
+                         ids=["INSERT_OVERWRITE", "INSERT_INTO"])
+def test_partition_still_refuses_a_column_that_reads_a_table(write: object) -> None:
+    with pytest.raises(ValueError, match="gives dt the column job_runs.dt, not a value"):
+        write(DAILY, partition={"dt": runs.dt})
 
 
 # --- run_value: any function, traced ----------------------------------------------------------

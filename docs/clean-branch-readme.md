@@ -655,7 +655,26 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    - If a tag stands for a day that changes each run, answer it with a **Run value**, the
      value a function of yours gives each time the table is written. Write the function in
      your Project, such as `period_end` in building_blocks/run_values.py, which gives the
-     latest day a table holds with `latest_partition(job_runs.dt, query)`. Import it at the
+     latest day a table holds. The whole file:
+
+     ```python
+     """Run values: what a Script tag stands for, worked out each time a table is written."""
+
+     import datetime
+
+     from sqlglot_composer import latest_partition
+     from references.ops__job_runs import job_runs
+     from warehouse import query
+
+
+     def period_end() -> datetime.date:
+         """The latest day ops.job_runs holds."""
+         return latest_partition(job_runs.dt, query)
+     ```
+
+     It imports the Table reference of ops.job_runs, which step 3 added, as it adds one for
+     each table the scripts read; a Run value that reads a table no script reads needs that
+     table's Table reference first, from the references Workflow. Import the function at the
      top of the decisions cell and give its name, with no brackets:
      `{"tags": {"PERIOD_END": period_end}}`. The Hive sent holds the day itself, a date as
      `'2026-10-31'`; `show_hive`, in the Table notebook's "Try it" cell, shows it first.

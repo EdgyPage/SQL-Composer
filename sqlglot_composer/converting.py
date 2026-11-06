@@ -332,14 +332,19 @@ def _write_body(logic: str, short: str, write: str | None, static_partition: dic
     if mode is None:
         mode = "INSERT_OVERWRITE"
     given = ""
+    # A bare Script tag names its Partition through script_tag, which write() imports then.
+    tag_imports = []
+    if any(value.startswith("script_tag(") for value in static_partition.values()):
+        tag_imports = ["script_tag"]
     if static_partition:
         values = ", ".join(f"{python_literal(name)}: {value}"
                            for name, value in static_partition.items())
         given = f", partition={{{values}}}"
     if re.search(r"^def rows\(", logic, re.MULTILINE):
-        return (["Statement", mode, "statement"],
+        return (["Statement", mode, "statement", *tag_imports],
                 [f"    return statement({mode}({short}{given}), *rows())"])
-    return (["Statement", "FROM", "SELECT", "all_columns", "derived", mode, "statement"],
+    return (["Statement", "FROM", "SELECT", "all_columns", "derived", mode, "statement",
+             *tag_imports],
             ['    made = derived("converted", converted())',
              f"    return statement({mode}({short}{given}), SELECT(all_columns(made)), "
              "FROM(made))"])
@@ -1565,6 +1570,19 @@ def marked_opt_outs(logic: str, keyword: str) -> list[tuple[str, str]]:
     return found
 
 
+def _partition_given(name: str, value: exp.Expression) -> str:
+    """The Python of the value an INSERT's PARTITION(...) gives the column `name`: a literal's,
+    or a bare Script tag's, its TAGS entry through script_tag, as a bare tag stands anywhere
+    else. Refused for anything else."""
+    if isinstance(value, exp.Column) and tag_name(value.name) is not None:
+        return f"script_tag(TAGS[{python_literal(tag_name(value.name))}])"
+    python = _python_of_literal(value)
+    if python is None:
+        raise ConversionRefused(f"its PARTITION gives {name} the value {sql_text(value)}, not "
+                                "a plain one")
+    return python
+
+
 def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Expression:
     """Note what an INSERT wrote, and how, and give back the query it wrote: INSERT INTO or
     INSERT OVERWRITE, with or without TABLE, PARTITION(...) with values or without, and a
@@ -1590,11 +1608,7 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
     for part in (partition.expressions if partition is not None else []):
         if isinstance(part, exp.EQ):
             name = part.this.name
-            value = _python_of_literal(part.expression)
-            if value is None:
-                raise ConversionRefused(f"its PARTITION gives {name} the value "
-                                        f"{sql_text(part.expression)}, not a plain one")
-            result.static_partition[name] = value
+            result.static_partition[name] = _partition_given(name, part.expression)
         else:
             name = part.name
         result.partition_columns.append(name)
@@ -1618,6 +1632,18 @@ def _note_insert(node: exp.Insert, result: ConvertedQuery, text: str) -> exp.Exp
                                    f"{wrote} becomes your own Saved table's write, "
                                    f"{result.write}(...), with the same partitions"))
     return query
+
+
+def _note_what_it_reads(converter: _Converter, whole: exp.Expression,
+                        insert: exp.Insert | None) -> None:
+    """Note the tables, variables and Script tags a query reads, and the tags in its INSERT's
+    PARTITION(...), when it has one: a tag there is one of the table's, though the query may
+    hold none."""
+    converter.note_tables_read(whole)
+    converter.note_variables()
+    if insert is not None:
+        converter.note_tags(insert.this)
+    converter.note_tags(whole)
 
 
 # How the finding on a write's INSERT starts, which a scan of a query alone words again.
@@ -1763,15 +1789,14 @@ def convert_query(text: str, columns_of: Callable[[str], list[str] | None],
         targets = [sql_text(one.this) for one in query.expressions]
         raise ConversionRefused(_SEVERAL_INSERTS.format(count=len(targets),
                                                         targets=", ".join(targets)))
+    insert = None
     if isinstance(query, exp.Insert):
-        query = _note_insert(query, result, text)
+        insert, query = query, _note_insert(query, result, text)
     if not isinstance(query, (exp.Select, exp.Union, exp.Intersect, exp.Except, exp.Subquery)):
         raise ConversionRefused(f"it is a {type(query).__name__.upper()}, not a query")
     with_ = with_ or query.args.get("with_")
     whole = _query_with(query, with_)
-    converter.note_tables_read(whole)
-    converter.note_variables()
-    converter.note_tags(whole)
+    _note_what_it_reads(converter, whole, insert)
     before = list(result.findings)
     query = _query_with(query, None)
     try:

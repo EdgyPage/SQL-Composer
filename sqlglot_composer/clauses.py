@@ -961,7 +961,7 @@ def _write_clause(call: str, table: object, unproven_key: object,
 
 def INSERT_OVERWRITE(
         table: Table, unproven_key: bool = False,
-        partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+        partition: dict[str, str | int | float | bool | datetime.date | Column] | None = None,
 ) -> Clause:
     """Write rows into a Saved table, replacing the Partitions they fill, or all of it.
 
@@ -1014,6 +1014,21 @@ def INSERT_OVERWRITE(
     from the rows: a table with partitioned_by=["region", "dt"] may name region alone, and
     fill dt from the rows. A write that names every partition column needs no Session setting.
     partition= says where the rows go, and WHERE which rows are read: keep them the same.
+
+    A value worked out as the write is built names a Partition too: a Script tag's answer,
+    script_tag(...), as a converted nightly script's write gives it, or run_value(...). Each
+    is a Column holding one value, and these two are the only Columns partition= takes: a
+    column of a table, such as job_runs.dt, names no one Partition, and is refused. A Run
+    value given so shows on the Lineage page, feeding the partition column.
+
+    >>> print(to_hive(statement(
+    ...     INSERT_OVERWRITE(daily_runs, partition={"dt": script_tag("'2026-09-24'")}),
+    ...     SELECT(job_runs.job_id, AS(count_rows(), "runs")),
+    ...     FROM(job_runs),
+    ...     WHERE(equals(job_runs.dt, "2026-09-24")),
+    ...     GROUP_BY(job_runs.job_id),
+    ... )).splitlines()[0])
+    INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = '2026-09-24')
 
     When the Saved table's Table reference declares a Key, the write is refused unless the
     Toolbox can see that each row it writes has a Key of its own, since Hive never checks one.
@@ -1079,7 +1094,7 @@ def INSERT_OVERWRITE(
 
 def INSERT_INTO(
         table: Table, unproven_key: bool = False,
-        partition: dict[str, str | int | float | bool | datetime.date] | None = None,
+        partition: dict[str, str | int | float | bool | datetime.date | Column] | None = None,
 ) -> Clause:
     """Add rows to a Saved table or its Partitions; sent twice, it adds twice.
 

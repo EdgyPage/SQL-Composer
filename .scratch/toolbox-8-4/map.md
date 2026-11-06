@@ -170,6 +170,7 @@ before that ticket.
 - [12 The docs and the Copilot files](issues/12-the-docs.md)
 - [13 8.4: the Upgrade step and the raise](issues/13-eight-point-four.md)
 - [14 No cell of your own: workflow and usability tests](issues/14-no-cell-of-your-own.md)
+- [15 A Script tag in PARTITION, and W7's friction](issues/15-a-tag-in-partition.md)
 
 One at a time, by number, the user's habit. The real dependencies are in each ticket's
 `Blocked by:`.
@@ -217,6 +218,9 @@ One at a time, by number, the user's habit. The real dependencies are in each ti
 - [14 No cell of your own](issues/14-no-cell-of-your-own.md): each decision step ships its
   `project.check()` cell, edge cases stay in the docs, and usability scenario W7 counts the cells
   a run adds.
+- [15 A Script tag in PARTITION](issues/15-a-tag-in-partition.md): a bare tag there is
+  `partition={"dt": script_tag(TAGS["NAME"])}`, a tag only there is in TAGS, and partition=
+  takes a Script tag's or a Run value's one value; W7's friction mended in the docs.
 
 ## Not yet specified
 

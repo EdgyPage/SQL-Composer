@@ -10,6 +10,7 @@ goes, stops the Conversion, naming its line.
 
 from __future__ import annotations
 
+import ast
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -209,6 +210,39 @@ def test_a_bare_tag_in_a_piece_kept_as_hive_is_its_placeholder() -> None:
     logic = _logic_of('SELECT r.run_id FROM ops.job_runs r WHERE r.dt = 1 AND '
                       'r.status RLIKE <PARM="PATTERN"/>')
     assert 'parm_pattern=script_tag(TAGS["PATTERN"])' in logic
+
+
+# A nightly write whose Partition is the tag's day (Toolbox 8.4, ticket 15).
+IN_PARTITION = ('INSERT OVERWRITE TABLE mart.daily_close PARTITION (dt=<PARM="RUN_DAY"/>)\n'
+                "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r\n"
+                'WHERE r.dt = <PARM="RUN_DAY"/> GROUP BY r.job_id;')
+
+
+def test_a_bare_tag_in_partition_names_the_partition_through_script_tag() -> None:
+    converted = converting.convert_query(IN_PARTITION.rstrip(";"), COLUMNS.get, "ops")
+    assert converted.tag_is_quoted == {"RUN_DAY": False}
+    logic = converting.saved_table_logic(converted.logic(), "mart_dev.daily_close_mart",
+                                         "daily_close_mart", converted.write,
+                                         converted.static_partition)
+    assert ('INSERT_OVERWRITE(daily_close_mart, partition={"dt": script_tag(TAGS["RUN_DAY"])})'
+            in logic)
+    ast.parse(logic)
+    assert "script_tag" in logic.split("def rows")[0]
+
+
+@pytest.mark.parametrize(("value", "quoted"), [('<PARM="RUN_DAY"/>', False),
+                                               ("""'<PARM="RUN_DAY"/>'""", True)],
+                         ids=["bare", "quoted"])
+def test_a_tag_only_in_partition_is_a_tag_of_its_table(value: str, quoted: bool) -> None:
+    text = (f"INSERT OVERWRITE TABLE mart.daily_close PARTITION (dt={value})\n"
+            "SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r\n"
+            "WHERE r.dt = '2026-09-24' GROUP BY r.job_id")
+    converted = converting.convert_query(text, COLUMNS.get, "ops")
+    assert converted.tag_is_quoted == {"RUN_DAY": quoted}
+    assert [finding.line for finding in converted.findings if finding.kind == "tag"] == [1]
+    # Its TAGS line holds the tag itself, which is how a Decision is left open.
+    how = "inside quotes" if quoted else "bare"
+    assert f'''    "RUN_DAY": "<PARM=\\"RUN_DAY\\"/>",  # {how}.''' in converted.logic()
 
 
 def test_the_saved_tables_logic_imports_tags_from_its_table_reference() -> None:

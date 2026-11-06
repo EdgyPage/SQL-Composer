@@ -758,6 +758,37 @@ def test_convert_the_users_batch_with_run_values_through_the_runner(started: Sta
     _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
 
 
+# A nightly script whose Partition is the tag's day (Toolbox 8.4, ticket 15).
+NIGHTLY_SCRIPT = """CREATE TABLE IF NOT EXISTS mart.daily_counts (job_id BIGINT, runs BIGINT)
+PARTITIONED BY (dt STRING);
+INSERT OVERWRITE TABLE mart.daily_counts PARTITION (dt=<PARM="RUN_DAY"/>)
+SELECT r.job_id, COUNT(*) AS runs FROM ops.job_runs r WHERE r.dt = <PARM="RUN_DAY"/>
+GROUP BY r.job_id;
+"""
+
+
+def test_convert_a_batch_whose_partition_is_a_tag_answered_by_a_run_value(
+        started: Started) -> None:
+    started.warehouse.execute(NIGHTLY_SCRIPT.replace('<PARM="RUN_DAY"/>', "'2026-09-24'"))
+    journey = started.journey("convert")
+    (journey.folder / "weekly.hql").write_text(NIGHTLY_SCRIPT, encoding="utf-8")
+    journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
+    journey.run_to(1)
+    # The Run value reads ops.job_runs through the Table reference step 1 wrote.
+    (started.root / "building_blocks" / "run_values.py").write_text(RUN_VALUES,
+                                                                    encoding="utf-8")
+    journey.type_decisions_cell(PERIOD_DECISIONS.replace(
+        '"PERIOD_END"', '"RUN_DAY"').split('    "mart_dev.team_log_mart"')[0] + "}\n")
+    journey.run_to()
+    table = "mart_dev.daily_counts_mart"
+    _check_converted(started, [table], {table: None})
+    writes = [hive for hive in started.warehouse.executed
+              if hive.startswith(f"INSERT OVERWRITE TABLE {table} PARTITION")]
+    assert writes and all("PARTITION(dt = '2026-09-24')" in hive for hive in writes)
+    assert _sorted_rows(started.warehouse, table) == _sorted_rows(started.warehouse,
+                                                                  "mart.daily_counts")
+
+
 def test_promote_a_seeded_table_limiting_its_prod_seed(started: Started) -> None:
     # Toolbox 8.4, ticket 14: a prod copy's seed is promote's own answer, given in promote's
     # decisions cell.

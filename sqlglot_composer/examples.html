@@ -2201,6 +2201,16 @@ GROUP BY
 <p>It goes first, before SELECT. Columns are matched to the Saved table by name, and the Toolbox puts them in the table&#x27;s order, its partition columns last, as Hive fills them. Into a table with partitioned_by=, each row goes to the Partition its own values of the partition columns name, and INSERT_OVERWRITE replaces only the Partitions the rows fill: one they don&#x27;t fill keeps what it held. Sent again, it replaces them again rather than adding to them, so a write can safely be sent twice; to add rows instead, use INSERT_INTO. If your warehouse runs Hive 2.3 or 3.1 under Tez (ask whoever looks after it), a write that now comes back empty may leave the old rows in place (HIVE-18702). After editing a Saved table&#x27;s Table reference, check it with check_table_reference(t, query=...).</p>
 <p>Filling Partitions from the rows needs Hive&#x27;s dynamic partitioning switched on, the Session setting the Toolbox calls &quot;dynamic_partitions&quot;, whose two SET lines show_hive prints ahead of such a write. Send them with run_execute(hive_settings(&quot;dynamic_partitions&quot;), execute) before the first such write: the warehouse keeps them for as long as your execute&#x27;s connection lasts, and sending them again does no harm. The example above writes each job&#x27;s runs on each of two days, one Partition for each day.</p>
 <p>partition={&quot;dt&quot;: &quot;2026-09-24&quot;} names the Partition instead: each column it names is one value, written into the Hive, so SELECT leaves it out. The columns it names are the first of the table&#x27;s partitioned_by, since Hive takes the named ones first and fills the rest from the rows: a table with partitioned_by=[&quot;region&quot;, &quot;dt&quot;] may name region alone, and fill dt from the rows. A write that names every partition column needs no Session setting. partition= says where the rows go, and WHERE which rows are read: keep them the same.</p>
+<p>A value worked out as the write is built names a Partition too: a Script tag&#x27;s answer, script_tag(...), as a converted nightly script&#x27;s write gives it, or run_value(...). Each is a Column holding one value, and these two are the only Columns partition= takes: a column of a table, such as job_runs.dt, names no one Partition, and is refused. A Run value given so shows on the Lineage page, feeding the partition column.</p>
+<pre class="python">print(to_hive(statement(
+    INSERT_OVERWRITE(daily_runs, partition={&quot;dt&quot;: script_tag(&quot;&#x27;2026-09-24&#x27;&quot;)}),
+    SELECT(job_runs.job_id, AS(count_rows(), &quot;runs&quot;)),
+    FROM(job_runs),
+    WHERE(equals(job_runs.dt, &quot;2026-09-24&quot;)),
+    GROUP_BY(job_runs.job_id),
+)).splitlines()[0])</pre>
+<p class="label">Hive</p>
+<pre class="output">INSERT OVERWRITE TABLE mart.daily_runs PARTITION(dt = &#x27;2026-09-24&#x27;)</pre>
 <p>When the Saved table&#x27;s Table reference declares a Key, the write is refused unless the Toolbox can see that each row it writes has a Key of its own, since Hive never checks one. It sees that from any of these:</p>
 <ul><li>a GROUP_BY over the Key&#x27;s columns;</li><li>a SELECT_DISTINCT;</li><li>a row_number(...) kept at 1 for each Key, in a Derived table;</li><li>reading a table by its own Key, each join matching its joined table&#x27;s whole Key.</li></ul>
 <p>A column partition= names is one value, so a Key that holds it needs only its other columns. unproven_key=True writes it anyway, for rows that are one per Key for a reason the Toolbox can&#x27;t see. A table with no Key is written unchecked. Below, GROUP_BY makes one row for each job_id:</p>
@@ -2247,7 +2257,8 @@ GROUP BY
   jobs.team</pre>
 <p class="note">No result here. The Example database is never written to: its execute prints the Hive's first line and changes nothing, and run_execute gives back None.</p>
 <p class="note">No result here. The Example database is never written to: its execute prints the Hive's first line and changes nothing, and run_execute gives back None.</p>
-<p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code>, <code>show_hive</code></p>
+<p class="note">No result here. The Example database is never written to: its execute prints the Hive's first line and changes nothing, and run_execute gives back None.</p>
+<p class="names">Toolbox names used: <code>INSERT_OVERWRITE</code>, <code>Table</code>, <code>SELECT</code>, <code>AS</code>, <code>FROM</code>, <code>JOIN</code>, <code>WHERE</code>, <code>GROUP_BY</code>, <code>statement</code>, <code>equals</code>, <code>between</code>, <code>last_n_days</code>, <code>count_rows</code>, <code>to_hive</code>, <code>show_hive</code>, <code>script_tag</code></p>
 <p class="names">Worked examples that use it: <a href="#saved_table">Build a Saved table: create it, write a day, add to a day, backfill, rebuild.</a></p>
 </section>
 <section class="entry" id="INSERT_INTO">
