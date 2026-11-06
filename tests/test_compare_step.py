@@ -128,32 +128,75 @@ def test_rows_that_differ_fail_and_are_named_and_the_batch_stays(started: Path) 
     assert "convert.ipynb, failed: " in repr(project.check())
 
 
-def test_the_partition_you_give_is_the_one_compared(started: Path) -> None:
-    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
-    assert "compared on dt = '2026-09-23', the Partition you gave" in compared(started)
+def test_the_latest_partition_and_each_listed_are_compared_a_section_each(
+        started: Path) -> None:
+    # Toolbox 8.5, ticket 04: PARTITIONS, a list, in place of 8.4's PARTITION.
+    report = repr(project.compare_batch("failed", query=SAME,
+                                        partitions=[{"dt": "2026-09-23"}]))
+    assert f"{DEV}: passed, on dt = '2026-09-24', the latest Partition both hold" in report
+    assert f"{DEV}: passed, on dt = '2026-09-23', the Partition you gave" in report
+    text = compared(started)
+    assert "## dt = '2026-09-23'\n\nPassed: compared on dt = '2026-09-23', the Partition you " \
+        "gave" in text
+    assert "## dt = '2026-09-24'\n\nPassed: compared on dt = '2026-09-24', the latest" in text
+    # The one other Partition both hold is listed, so none is named as left unchecked.
+    assert "not compared" not in text
+
+
+def test_no_partitions_listed_compares_the_latest_alone(started: Path) -> None:
+    project.compare_batch("failed", query=SAME, partitions=[])
+    text = compared(started)
+    assert "## dt = '2026-09-24'" in text and "## dt = '2026-09-23'" not in text
+
+
+def test_a_listed_partition_that_is_the_latest_is_compared_once(started: Path) -> None:
+    report = repr(project.compare_batch("failed", query=SAME,
+                                        partitions=[{"dt": "2026-09-24"}]))
+    assert report.count(f"{DEV}: passed") == 1
+    assert compared(started).count("Compared at ") == 1
+
+
+def test_partition_is_refused_naming_partitions(started: Path) -> None:
+    # Toolbox 8.5, ticket 04: one way to give a Partition, a list of them.
+    with pytest.raises(TypeError, match=r"was given partition=, which Toolbox 8\.5 replaced"
+                       r"[\s\S]*partitions=\[\{'dt': '2026-09-23'\}\]"):
+        project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+
+
+def test_a_finished_batch_compares_again_saying_so(started: Path) -> None:
+    project.compare_batch("failed", query=SAME)
+    report = repr(project.compare_batch("failed", query=SAME,
+                                        partitions=[{"dt": "2026-09-23"}]))
+    assert ("The batch was finished already, in admin/workflows/convert/finished/failed/"
+            in report)
+    assert "## dt = '2026-09-23'" in compared(started)
 
 
 @pytest.mark.parametrize("given, said", [
-    ({"dt": "'2026-09-23'"}, "partition= gives dt in quotes of its own"),
-    ({"dt": '"2026-09-23"'}, "partition= gives dt in quotes of its own"),
-    ("2026-09-23", "partition= is '2026-09-23', not a dict of each partition column's value"),
-], ids=["quoted", "double quoted", "not a dict"])
+    ([{"dt": "'2026-09-23'"}], "partitions= gives dt in quotes of its own"),
+    ([{"dt": '"2026-09-23"'}], "partitions= gives dt in quotes of its own"),
+    (["2026-09-23"], "partitions= holds '2026-09-23', not a dict of each partition column's "
+     "value"),
+    # 8.4's PARTITION, one dict, given as PARTITIONS.
+    ({"dt": "2026-09-23"}, r"partitions= is \{'dt': '2026-09-23'\}, not a list of Partitions"),
+], ids=["quoted", "double quoted", "not a dict", "not a list"])
 def test_a_partition_not_as_show_partitions_lists_it_is_refused(
         started: Path, given: object, said: str) -> None:
     # Toolbox 8.3: step 2 teaches a bare tag's own quotes; a Partition's value takes none.
     with pytest.raises((ValueError, TypeError), match=said):
-        project.compare_batch("failed", query=SAME, partition=given)
+        project.compare_batch("failed", query=SAME, partitions=given)
 
 
-def test_the_compare_names_partition_to_compare_another(started: Path) -> None:
+def test_the_compare_names_partitions_to_compare_another(started: Path) -> None:
     project.compare_batch("failed", query=SAME)
-    assert ('to compare one, set PARTITION = {"dt": "..."} in the convert notebook\'s names '
-            "cell, run it, and run step 7 again") in compared(started)
+    assert ('to compare one, add it to PARTITIONS, such as PARTITIONS = [{"dt": "..."}], in '
+            "the convert notebook's names cell, run it, and run step 7 again"
+            ) in compared(started)
 
 
 def test_a_compare_of_another_partition_keeps_the_first_result_beside_it(started: Path) -> None:
     project.compare_batch("failed", query=SAME)
-    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=SAME, partitions=[{"dt": "2026-09-23"}])
     text = compared(started)
     assert text.count(f"# {DEV} against {ORIGINAL}\n") == 1
     assert "## dt = '2026-09-23'\n\nPassed: compared on dt = '2026-09-23'" in text
@@ -166,11 +209,11 @@ def test_a_compare_of_the_same_partition_replaces_its_result(started: Path) -> N
     fewer = warehouse({DEV: BOTH_DAYS, ORIGINAL: BOTH_DAYS},
                       {DEV: f"{FAILED_ROWS} AND run_id <> {left_out}", ORIGINAL: FAILED_ROWS})
     project.compare_batch("failed", query=SAME)
-    project.compare_batch("failed", query=fewer, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=fewer, partitions=[{"dt": "2026-09-23"}])
     workflows = toolbox_module("workflows")
     # One Partition failing fails the table, though the other passed.
     assert not workflows.compare_passed(started, DEV)
-    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=SAME, partitions=[{"dt": "2026-09-23"}])
     text = compared(started)
     assert text.count("## dt = '2026-09-23'") == 1 and "Failed: " not in text
     assert workflows.compare_passed(started, DEV)
@@ -180,7 +223,7 @@ def test_a_partition_that_failed_fails_the_table_beside_one_that_passed(started:
     left_out = example_database.query(f"{FAILED_ROWS} AND dt = '2026-09-23'")["run_id"][0]
     fewer = warehouse({DEV: BOTH_DAYS, ORIGINAL: BOTH_DAYS},
                       {DEV: f"{FAILED_ROWS} AND run_id <> {left_out}", ORIGINAL: FAILED_ROWS})
-    project.compare_batch("failed", query=fewer, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=fewer, partitions=[{"dt": "2026-09-23"}])
     project.compare_batch("failed", query=SAME)
     text = compared(started)
     assert "## dt = '2026-09-23'\n\nFailed: " in text
@@ -195,15 +238,15 @@ def test_a_compare_md_from_before_8_2_is_read_then_written_over(started: Path) -
                     encoding="utf-8")
     workflows = toolbox_module("workflows")
     assert workflows.compare_passed(started, DEV)
-    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=SAME, partitions=[{"dt": "2026-09-23"}])
     text = compared(started)
-    # The result 8.1 wrote names no Partition, so the new one, which does, takes its place.
-    assert text.count("Compared at ") == 1 and "## dt = '2026-09-23'" in text
+    # The result 8.1 wrote names no Partition, so the new ones, which do, take its place.
+    assert text.count("Compared at ") == 2 and "## dt = '2026-09-23'" in text
 
 
 def test_a_result_from_before_the_table_was_written_again_is_dropped(
         started: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    project.compare_batch("failed", query=SAME, partition={"dt": "2026-09-23"})
+    project.compare_batch("failed", query=SAME, partitions=[{"dt": "2026-09-23"}])
     later = datetime.datetime(2026, 10, 31, 10, 0, 0)
     monkeypatch.setattr(toolbox_module("unchecked"), "now", lambda: later)
     run_execute(unchecked_hive(f"INSERT INTO TABLE {DEV} PARTITION (dt) {FAILED_ROWS}"),
@@ -258,7 +301,7 @@ def test_a_batch_cant_be_named_finished(started: Path) -> None:
 def test_the_workflows_compare_step_calls_compare_batch(started: Path) -> None:
     assert "failed: 2. Answer each table's open Decisions" in repr(project.check())
     step = toolbox_module("workflows").CONVERT.steps[-1]
-    assert step.call == "project.compare_batch(NAME, query=query, partition=PARTITION)"
+    assert step.call == "project.compare_batch(NAME, query=query, partitions=PARTITIONS)"
 
 
 def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_another(
@@ -266,10 +309,11 @@ def test_the_compare_step_says_it_checks_the_latest_partition_and_how_to_check_a
     # Toolbox 8.2, 23: H1 had to find partition= for itself.
     step = toolbox_module("workflows").CONVERT.steps[-1]
     assert "on the latest Partition both hold" in step.goal
-    assert "If you want another Partition compared too, one your dev table holds" in step.action
-    assert "its value with no quotes of its own, run the names cell" in step.action
+    assert "If you want other Partitions compared too, each one your dev table holds" in (
+        step.action)
+    assert "each value with no quotes of its own, run the names cell" in step.action
     # Toolbox 8.3, 06: set in the names cell, with no cell of your own.
-    assert '`{"dt": "2026-09-23"}`' in step.action
+    assert '`[{"dt": "2026-09-23"}]`' in step.action
     assert "in a new cell" not in step.action
 
 
@@ -307,8 +351,8 @@ def test_a_finished_batchs_name_is_refused(started: Path) -> None:
 
 
 def test_a_partition_naming_no_partition_column_is_refused(started: Path) -> None:
-    with pytest.raises(ValueError, match="partition= names day, which no table it compares"):
-        project.compare_batch("failed", query=SAME, partition={"day": "2026-09-23"})
+    with pytest.raises(ValueError, match="partitions= names day, which no table it compares"):
+        project.compare_batch("failed", query=SAME, partitions=[{"day": "2026-09-23"}])
 
 
 def test_a_write_after_a_passing_compare_makes_it_stale(
@@ -337,9 +381,10 @@ def test_what_stops_a_compare_is_its_result_whole(started: Path) -> None:
 
 def test_a_partition_you_give_that_neither_holds_fails_and_finishes_nothing(
         started: Path) -> None:
-    report = repr(project.compare_batch("failed", query=SAME, partition={"dt": "2030-01-01"}))
+    report = repr(project.compare_batch("failed", query=SAME,
+                                        partitions=[{"dt": "2030-01-01"}]))
     assert (f"{DEV}: failed, there is no Partition where dt = '2030-01-01' in {DEV} and "
-            f"{ORIGINAL}: give one both hold") in report
+            f"{ORIGINAL}: list one both hold") in report
     assert "finished" not in report
 
 
