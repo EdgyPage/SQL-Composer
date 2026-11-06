@@ -14,7 +14,8 @@ A Project is the folder you work in, laid out the same way every time:
     │   ├── workflows/       a folder per Workflow, such as new_table/, holding its notebook:
     │   │                    name what it works on in its names cell, and run each step;
     │   │                    convert/ holds a Conversion folder per batch you convert
-    │   ├── databases.py     DEV and PROD, the two Databases you own, set once
+    │   ├── databases.py     DEV's and PROD's settings, the two Databases you own: each
+    │   │                    one's name and the folder its tables go under, set once
     │   ├── sent.csv         each send to the warehouse a notebook of the Project made
     │   ├── admin_log.md     every Project action and Admin statement, oldest first
     │   ├── registry.csv     every Table folder, Table reference, Building block and Conversion
@@ -30,7 +31,9 @@ A Project is the folder you work in, laid out the same way every time:
     │                        Database module per Database, such as ops.py: from references
     │                        import ops gives ops.job_runs, and ops.job_runs.status a column
     ├── building_blocks/     a Building block per file, such as runs_per_job.py: a piece
-    │                        several tables' notebooks share
+    │   │                    several tables' notebooks share
+    │   └── prod/            the prod copy of each one a promoted table uses, which
+    │                        project.promote writes
     └── tables/              a Table folder per Saved table you build
         └── mart__daily_job_runs/
             ├── mart__daily_job_runs.ipynb
@@ -112,6 +115,7 @@ from .project_files import (
     CONVERSION_FOLDER,
     DATABASE_TITLE,
     KINDS,
+    PROD_BLOCK,
     REFERENCE,
     REGISTRY,
     TABLE_FOLDER,
@@ -236,13 +240,19 @@ WORKFLOW_PATH_LINES = [
 ]
 # admin/databases.py: the two Databases the user owns, set once (help(project)).
 DATABASES = Path("admin") / "databases.py"
-DATABASES_TEXT = '''"""databases - the two Databases you own: DEV, where you build and check
-tables, and PROD, where tables other people rely on are written. Set each once; the Workflows
-read them.
+DATABASES_TEXT = '''"""databases - the settings of the two Databases you own: DEV, where
+you build and check tables, and PROD, where tables other people rely on are written. Set each
+once; the Workflows read them.
+
+"database" is the Database's name, such as "mart_dev". "location_root" is the folder its
+tables' files go under: a table with no folder of its own goes in
+<location_root>/<database>.db/<table>, such as /data/your_team/dev/mart_dev.db/daily_runs.
+Any other setting is yours, such as "run_as", the account your connection runs as: give it
+in both, each its own value, and database_settings("mart_dev") gives DEV's to your code.
 """
 
-DEV = "<DEV_DATABASE>"  # such as "mart_dev"
-PROD = "<PROD_DATABASE>"  # such as "mart"
+DEV = {"database": "<DEV_DATABASE>", "location_root": "<DEV_LOCATION_ROOT>"}
+PROD = {"database": "<PROD_DATABASE>", "location_root": "<PROD_LOCATION_ROOT>"}
 '''
 # admin/sent.csv: one row for each send to the Warehouse of a Project's notebook or script.
 SENT_HEADER = "time,kind,tables,script\n"
@@ -589,7 +599,8 @@ def new_table(name: str | list[str], template: str = "saved_table",
     mart_dev.daily_runs: that table is made from it, in your Dev Database, DEV in
     admin/databases.py, as project.convert makes one query alone a batch of one, template=
     passed over. Its logic is written for you, and its Table reference from the logic, its Key
-    proposed; you answer its location, and the new_table Workflow writes it, then compares it
+    proposed; its location is placed under DEV's location_root in admin/databases.py, or you
+    answer it when DEV has none, and the new_table Workflow writes it, then compares it
     with its query, so the promote Workflow takes it to prod. Each table the query reads needs
     its Table reference first. A query for a table it isn't given, or outside DEV, or Hive that
     is more than one query, is refused before anything is made.
@@ -743,7 +754,7 @@ def _new_table_one(name: str, template: str, frame: FrameType,
     else:
         reference_template = template_path.parent / f"{REFERENCE_TEMPLATE}.py"
         text = _filled_template(reference_template.read_text(encoding="utf-8"), fills)
-        reference.write_text(text, encoding="utf-8")
+        reference.write_text(with_location_placed(root, text, name), encoding="utf-8")
         made.append(f"created {reference_shown}")
         if not registry.listed(REFERENCE, name):
             to_register.append((REFERENCE, name))
@@ -1779,17 +1790,19 @@ def _workflow_lines(root: Path) -> list[str]:
 
 
 def _databases_lines(root: Path) -> list[str]:
-    """What check() says of admin/databases.py: each name a started Workflow reads that it
-    doesn't fill in yet."""
+    """What check() says of admin/databases.py: each setting of the Databases a started
+    Workflow reads that it doesn't fill in yet."""
     wanted: list[str] = []
     for workflow in workflows.WORKFLOWS:
         if workflows.started_inputs(root, workflow) is not None:
             wanted += workflow.databases
+    if not wanted:
+        return []
     left = workflows.databases_to_fill(root, tuple(dict.fromkeys(wanted)))
     if not left:
         return []
-    return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Databases a "
-            "Workflow you have started writes to."]
+    return [f"{workflows.DATABASES.as_posix()}: fill in {in_words(left)}, the Database "
+            "settings of a Workflow you have started."]
 
 
 def _scripts_given(call: str, files: str | list[str]) -> list[tuple[str, str]]:
@@ -3129,16 +3142,66 @@ def _write_missing_references(call: str, root: Path,
     return added, skipped
 
 
+def database_settings(name: str) -> dict[str, str]:
+    """The Database settings of your Dev or Prod Database, by its name or a table's.
+
+    >>> from sqlglot_composer import project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> from pathlib import Path
+    >>> _ = Path("admin/databases.py").write_text(  # only to stand in for filling it in
+    ...     'DEV = {"database": "mart_dev", "location_root": "/data/team/dev", '
+    ...     '"run_as": "svc_team_dev"}\\n'
+    ...     'PROD = {"database": "mart", "location_root": "/data/team/prod", '
+    ...     '"run_as": "svc_team_prod"}\\n')
+    >>> database_settings("mart.daily_runs")["run_as"]
+    'svc_team_prod'
+    >>> database_settings("mart_dev")
+    {'database': 'mart_dev', 'location_root': '/data/team/dev', 'run_as': 'svc_team_dev'}
+
+    `name` is a table's name, such as "mart.daily_runs", or a Database's, such as "mart_dev":
+    it gives DEV's settings for your Dev Database, PROD's for your Prod Database, each a dict
+    of text by name. Use it in your own code, such as a Building block or warehouse.py, for a
+    value that differs between dev and prod: a setting of yours, such as "run_as", the
+    account a connection runs as, is given in DEV and PROD both, each its own value, and the
+    Toolbox carries it and never acts on it. "database" is the Database's name, and
+    "location_root" the folder its tables' files go under, which the Workflows read. It reads
+    admin/databases.py of the Project you're working in each time, and refuses a Database
+    that is neither yours, such as ops, as admin/databases.py refuses a setting given in one
+    and not the other.
+    """
+    call = f"database_settings({python_literal(name)})"
+    root = _project_root(call)
+    database = split_table_name(name)[0] if "." in name else name
+    settings = workflows.read_database_settings(root)
+    for each in settings.values():
+        if each[workflows.DATABASE_NAME] == database:
+            return dict(each)
+    dev, prod = (settings.get(which, {}).get(workflows.DATABASE_NAME, "<not given>")
+                 for which in workflows.DATABASE_NAMES)
+    refuse(
+        what=f"{call}: {database} is neither your Dev Database, {dev}, nor your Prod "
+        f"Database, {prod}.",
+        why="admin/databases.py gives the settings of those two alone: any other Database is "
+        "someone else's, whose settings the Project doesn't keep.",
+        fix=f"Name a table in {dev} or {prod}, or one of the two, or fill in the Database's "
+        'name as "database" in DEV or PROD in admin/databases.py.',
+        error=ValueError,
+    )
+
+
 def _dev_database(root: Path, call: str) -> str:
     """The Dev Database admin/databases.py names; refused until it is filled in."""
-    dev = workflows.databases(root).get("DEV", "")
+    dev = workflows.database_name(root, "DEV")
     if not dev or workflows.PLACEHOLDER.fullmatch(dev):
         refuse(
             what=f"{call}: DEV in admin/databases.py isn't filled in.",
             why="A Conversion makes each table a Saved table in your Dev Database, and a "
             "Promotion copies tables from it: the one DEV names.",
-            fix='Write your Dev Database\'s name in admin/databases.py, such as DEV = '
-            '"mart_dev", and save it.',
+            fix="Write your Dev Database's name in admin/databases.py, as DEV's "
+            '"database", such as DEV = {"database": "mart_dev", ...}, and save it.',
             error=ValueError,
         )
     return dev
@@ -3443,6 +3506,7 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
     stem = REFERENCE.stem(dev)
     text = table_reference_text(dev, columns, partitions, f"{REFERENCE.folder}.{stem}",
                                 guessed=guessed, proposed=proposed, **storage)
+    text = with_location_placed(files.root, text, dev)
     blocks = []
     if tag_is_quoted:
         blocks.append(converting.tags_block(tag_is_quoted, tag_places))
@@ -3453,6 +3517,24 @@ def _write_table_reference(files: _BatchFiles, dev: str, columns: dict[str, str]
         text = text[:at] + "\n".join(block) + "\n\n" + text[at:]
     files.write_text(REFERENCE.shown(stem), text)
     _write_databases(files.root)
+
+
+# What a location= line placed under its Database's location_root says beside it.
+PLACED = "  # under its Database's location_root, in admin/databases.py"
+
+
+def with_location_placed(root: Path, text: str, table: str) -> str:
+    """A Table reference's text, `table`'s, its location= placed in its own folder under its
+    Database's location_root, <location_root>/<database>.db/<table>, when it has no location
+    of its own and admin/databases.py gives its Database a root (Toolbox 8.5): else as it
+    is."""
+    folder = workflows.location_root(root, split_table_name(table)[0])
+    found = re.search(r"^    location=None,.*$", text, flags=re.MULTILINE)
+    if folder is None or found is None:
+        return text
+    placed = decisions.location_under(folder, table)
+    line = f"    location={escaped_literal(placed)},{PLACED}"
+    return text[:found.start()] + line + text[found.end():]
 
 
 def _register_table(root: Path, dev: str, folder: bool) -> None:
@@ -4245,18 +4327,17 @@ def write_decisions(answers: dict[str, dict[str, object]],
     DECISIONS["all_tables"] answers for every table the Workflow's notebook names, which
     `tables` gives, as each Workflow's step cell does: project.batch_tables(NAME) in convert's
     notebook, project.promoted_tables(TABLES) in promote's, and TABLES in the others. It takes
-    "location_root", the folder each table's own goes under, which gives a table whose
-    location is still open "<root>/<db>.db/<table>": "/data/team" gives mart_dev.weekly_ops
-    "/data/team/mart_dev.db/weekly_ops"; "tags", each written into each table that holds it;
-    and "seed", the limits of the seed's copy. It loads first, and a table's own answer
-    overwrites it, kind by kind and, for tags, tag by tag: {"all_tables": {"location_root":
-    "/data/team", "tags": {"PERIOD_END": "'2026-10-31'"}}, "mart_dev.weekly_ops": {"tags":
-    {"PERIOD_END": "'2026-10-25'"}}}. Its "key" takes only "proposed", which accepts each
-    table's proposed Key; a table's own "key" wins, and a table with no proposal keeps its Key
-    open, named in the report. The report says which tables each of its answers was written
-    into. Any other Key, and a type, which is each table's own, is refused under all_tables,
-    naming the tables to answer it for; so is a tag no table of `tables` holds, and
-    all_tables with no `tables`.
+    "tags", each written into each table that holds it, and "seed", the limits of the seed's
+    copy. It loads first, and a table's own answer overwrites it, kind by kind and, for tags,
+    tag by tag: {"all_tables": {"tags": {"PERIOD_END": "'2026-10-31'"}},
+    "mart_dev.weekly_ops": {"tags": {"PERIOD_END": "'2026-10-25'"}}}. Its "key" takes only
+    "proposed", which accepts each table's proposed Key; a table's own "key" wins, and a table
+    with no proposal keeps its Key open, named in the report. The report says which tables each
+    of its answers was written into. Any other Key, and a type, which is each table's own, is
+    refused under all_tables, naming the tables to answer it for; so is a tag no table of
+    `tables` holds, and all_tables with no `tables`. So is "location_root", 8.4's folder every
+    table's own went under: since 8.5 it is a Database setting, in admin/databases.py, which
+    places each table with no location of its own as it is written.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
@@ -4324,8 +4405,6 @@ def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict
     lines = []
     if every.get(decisions.ANSWERS[decisions.KEY]) == decisions.ACCEPT_PROPOSED:
         lines.append(_all_tables_key_line(answers, before, written))
-    if decisions.LOCATION_ROOT in every:
-        lines.append(_location_root_line(answers, before, written))
     for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
         lines.append(_all_tables_tag_line(name, answers, before, written))
     if decisions.SEED in every:
@@ -4399,27 +4478,6 @@ def _kept_their_own_text(tables: list[str], what: str) -> str:
         return ""
     keep = singular_or_plural(len(tables), "keeps its", "keep their")
     return f" {in_words(tables)} {keep} own {what}."
-
-
-def _location_root_line(answers: dict[str, dict[str, object]], before: dict[str, str],
-                          written: dict[str, list[str]]) -> str:
-    """What write_decisions says of DECISIONS["all_tables"]'s location_root: each table it
-    gave a location, under it, and each that keeps its own."""
-    root = answers[decisions.ALL_TABLES][decisions.LOCATION_ROOT]
-    if decisions.is_left_to_fill_in(root):
-        return (f"all_tables: {decisions.LOCATION_ROOT} "
-                f"{decisions.still_to_fill_in('its answer')}.")
-    location = decisions.ANSWERS[decisions.LOCATION]
-    own = [table for table in written
-           if location in answers.get(table, {})
-           or not decisions.open_decisions(before[table], table, (decisions.LOCATION,))]
-    into = [table for table in written if location in written[table] and table not in own]
-    said = (f"all_tables: {decisions.LOCATION_ROOT} {escaped_literal(root)}: written into "
-            f"{in_words(into) or 'no table'}")
-    if into:
-        each = singular_or_plural(len(into), "in its", "each in its")
-        said += f", {each} own folder under it"
-    return f"{said}.{_kept_their_own_text(own, 'location')}"
 
 
 def _own_tags(answers: dict[str, dict[str, object]], table: str) -> dict[str, object]:
@@ -4606,9 +4664,9 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
 def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> list[str]:
     """A line naming each part of DECISIONS["all_tables"], `every`, that matches no Decision
     of the tables it answers for, `texts` holding each one's Table reference by its name: a
-    Key other than "proposed", and a type, which are each table's own, any other kind it
-    doesn't take, a location_root that isn't text, a "tags" or "seed" that isn't a dict, or a
-    tag no table holds."""
+    Key other than "proposed", and a type, which are each table's own, a location_root, which
+    is a Database setting now, any other kind it doesn't take, a "tags" or "seed" that isn't a
+    dict, or a tag no table holds."""
     kinds = list(decisions.ALL_TABLES_ANSWERS)
     tags = decisions.ANSWERS[decisions.TAG]
     key, types = decisions.ANSWERS[decisions.KEY], decisions.ANSWERS[decisions.GUESSED_TYPE]
@@ -4624,13 +4682,13 @@ def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> li
             problems.append("all_tables: types: each guessed type is the table's own, never "
                             "answered for every table at once: answer it under the name of "
                             f"each table it is for, {tables}")
+        elif name == workflows.LOCATION_ROOT:
+            problems.append(f"all_tables: {name} is a Database setting now: give it as "
+                            f'"{name}" in DEV and PROD, in {workflows.DATABASES.as_posix()}, '
+                            "which places each table with no location of its own")
         elif name not in kinds:
             problems.append(f"all_tables: {name!r} is no kind of answer for every table; "
                             f"all_tables answers {in_words(kinds)}{_nearest(name, kinds)}")
-    root = every.get(decisions.LOCATION_ROOT)
-    if decisions.LOCATION_ROOT in every and not isinstance(root, str):
-        problems.append(f"all_tables: {decisions.LOCATION_ROOT}: give the folder as text, such "
-                        f"as \"/data/your_team\", not {root!r}")
     for kind, example in ((tags, '{"PERIOD_END": "\'2026-10-31\'"}'),
                           (decisions.SEED, '{"dt": {"from": "2026-01-01"}}')):
         if kind in every and not isinstance(every[kind], dict):
@@ -5174,20 +5232,25 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     A table promoted before keeps its prod name when promoted again without rename=. Every
     promoted notebook that reads another promoted table reads its prod copy; a renamed one is
     imported under its dev name, so the code that uses it reads as it did. Its Table reference
-    keeps its columns and Key; its location= is the one you filled in when promoted before,
-    else the dev one with each folder named for the Dev Database, such as mart_dev.db, named
-    for the Prod Database, or None for you to fill in, as the report says.
+    keeps its columns and Key; its location= is the one it had when promoted before, else its
+    own folder under PROD's "location_root" in admin/databases.py,
+    <location_root>/<database>.db/<table>, or None for you to fill in when PROD has none, as
+    the report says. Each Building block a promoted table imports, in its notebook or its
+    Table reference, such as a Run value's building_blocks/run_values.py, and each block those
+    import, gets a prod copy in building_blocks/prod/, which the prod copies import in its
+    place: dev's blocks change freely, prod's only when promoted again.
 
     It refuses, naming each, before it writes anything: a table not in your Dev Database or
     with no Table reference; one whose Table reference has a <...> left to fill in, or whose
     notebook's logic doesn't build its write() yet; one whose
     Table reference leaves a Decision open; one a Conversion made whose compare hasn't
     passed (project.compare_batch); one that reads a dev table not promoted with it; and one
-    whose Building block reads the Dev Database. Dev stays the source: change the dev copy and
-    promote it again, which archives the prod copy into admin/removed/ first, and the one under
-    its old name when rename= gives it a new one. project.check()
-    reports a prod copy edited by hand, its notebook or its Table reference but its location=
-    and SEED, as promote would write over it. `tables` is one name or a list, each a dev
+    whose Building block, or one it imports, reads the Dev Database. Dev stays the source:
+    change the dev copy and promote it again, which archives the prod copy, and each Building
+    block's, into admin/removed/ first, and the one under its old name when rename= gives it a
+    new one. project.check() reports a prod copy edited by hand, its notebook, a Building
+    block's prod copy or its Table reference but its location= and SEED, as promote would
+    write over it. `tables` is one name or a list, each a dev
     table's.
     """
     frame = callers_frame()
@@ -5227,6 +5290,10 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
                                                 before[dev], now)
         written += done
         lines.append(line)
+    done, line = _write_prod_blocks(root, names, record, now)
+    written += done
+    if line:
+        lines.append(line)
     _write_databases(root)
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
@@ -5234,6 +5301,82 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
                  "the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: "
                  "create each table in prod, seed each that reads itself, and write each.")
     return ProjectReport(lines)
+
+
+def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict[str, object]],
+                       now: datetime.datetime) -> tuple[list[str], str]:
+    """Write a prod copy of each Building block a promoted table uses, `names` each dev table
+    and its prod copy's name, archiving the one promoted before into admin/removed/ first, and
+    register each; give each prod table's `record` entry the hash of each it uses, and any
+    other entry that uses one the hash written now. Gives what it did, for the Admin log, and
+    its report's line, nothing when no table uses a block."""
+    blocks_of = {dev: _blocks_used(root, dev) for dev in names}
+    blocks: list[str] = []
+    for used in blocks_of.values():
+        blocks += used
+    blocks = list(dict.fromkeys(blocks))
+    registry = Registry(root)
+    done, hashes = [], {}
+    for block in blocks:
+        path = PROD_BLOCK.path(root, block)
+        if path.exists():
+            done.append(f"moved {PROD_BLOCK.shown(block)} to "
+                        f"{PROD_BLOCK.archive(root, block, now)}")
+        dev_text = BUILDING_BLOCK.path(root, block).read_text(encoding="utf-8")
+        text = (f"# A prod copy project.promote made of {BUILDING_BLOCK.shown(block)}: change "
+                "that one and promote it again.\n" + _with_prod_blocks(dev_text))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        hashes[PROD_BLOCK.shown(block)] = _hash(path.read_bytes())
+        if not registry.listed(PROD_BLOCK, block):
+            registry.add([(PROD_BLOCK, block)], now)
+    for dev, prod in names.items():
+        record[prod]["blocks"] = {PROD_BLOCK.shown(block): hashes[PROD_BLOCK.shown(block)]
+                                  for block in blocks_of[dev]}
+    for entry in record.values():
+        entry["blocks"] = {shown: hashes.get(shown, written)
+                           for shown, written in entry.get("blocks", {}).items()}
+    if not blocks:
+        return done, ""
+    shown = [PROD_BLOCK.shown(block) for block in blocks]
+    done.append(f"wrote {in_words(shown)}")
+    return done, (f"Copied {counted(len(blocks), 'Building block')} to prod, which the prod "
+                  f"tables import: {in_words(shown)}.")
+
+
+def _blocks_used(root: Path, dev: str) -> list[str]:
+    """Each Building block a dev table uses, by its name, such as run_values: each its
+    notebook's code or its Table reference imports, a Run value's file among them, then each
+    those import, in turn."""
+    code = (_logic_text(root, dev) + "\n"
+            + workflows.file_text(REFERENCE.path(root, table_stem(dev))))
+    found: list[str] = []
+    waiting = _blocks_imported(code)
+    while waiting:
+        block = waiting.pop(0)
+        if block in found or not BUILDING_BLOCK.path(root, block).is_file():
+            continue
+        found.append(block)
+        waiting += _blocks_imported(workflows.file_text(BUILDING_BLOCK.path(root, block)))
+    return found
+
+
+def _blocks_imported(code: str) -> list[str]:
+    """Each Building block `code` imports by its module, building_blocks.<name>, but a prod
+    copy, building_blocks.prod.<name>."""
+    named = dict.fromkeys(re.findall(r"\bbuilding_blocks\.(\w+)", code))
+    return [block for block in named if block != PROD_BLOCKS_PACKAGE]
+
+
+# The package of Building blocks' prod copies, in building_blocks/ (Toolbox 8.5).
+PROD_BLOCKS_PACKAGE = "prod"
+
+
+def _with_prod_blocks(text: str) -> str:
+    """A prod copy's code importing each Building block's prod copy where it imported the
+    block, building_blocks.prod.<name> for building_blocks.<name>."""
+    return re.sub(rf"\bbuilding_blocks\.(?!{PROD_BLOCKS_PACKAGE}\.)(\w+)",
+                  rf"building_blocks.{PROD_BLOCKS_PACKAGE}.\1", text)
 
 
 def _references_promoted_before(root: Path, names: dict[str, str]) -> dict[str, str]:
@@ -5257,7 +5400,7 @@ def _promote_one(root: Path, tables: tuple[str, str], names: dict[str, str],
     report's line."""
     dev, prod = tables
     done = _archive_prod_copy(root, prod, now)
-    said = _write_prod_reference(root, dev, prod, databases, promoted_before)
+    said = _write_prod_reference(root, dev, prod, promoted_before)
     folder = TABLE_FOLDER.path(root, table_stem(dev)).is_dir()
     files = {}
     if folder:
@@ -5337,7 +5480,7 @@ def tables_to_promote(root: Path) -> dict[str, str]:
             chosen[table] = "changed in dev since it was promoted"
     for table, why in unfinished_promotions(root).items():
         chosen.setdefault(table, why)
-    dev_db = workflows.databases(root).get("DEV", "")
+    dev_db = workflows.database_name(root, "DEV")
     # Each table a chosen one reads, and each that one reads in turn, is promoted with it.
     to_read = list(chosen)
     while to_read:
@@ -5394,7 +5537,7 @@ def _finished_tables(root: Path) -> list[str]:
         batched += tables
         if record.parent.parent == root / BATCHES / FINISHED:
             found += tables
-    dev_db = workflows.databases(root).get("DEV", "")
+    dev_db = workflows.database_name(root, "DEV")
     for stem in sorted(TABLE_FOLDER.found(root)):
         table = TABLE_FOLDER.name_of(stem)
         made = {"TABLES": [table]}
@@ -5407,13 +5550,13 @@ def _finished_tables(root: Path) -> list[str]:
 
 def _prod_database(root: Path, call: str) -> str:
     """The Prod Database admin/databases.py names; refused until it is filled in."""
-    prod = workflows.databases(root).get("PROD", "")
+    prod = workflows.database_name(root, "PROD")
     if not prod or workflows.PLACEHOLDER.fullmatch(prod):
         refuse(
             what=f"{call}: PROD in admin/databases.py isn't filled in.",
             why="Promotion copies each table to your Prod Database, the one PROD names.",
-            fix="Write your Prod Database's name in admin/databases.py, such as "
-            'PROD = "mart", and save it.',
+            fix="Write your Prod Database's name in admin/databases.py, as PROD's "
+            '"database", such as PROD = {"database": "mart", ...}, and save it.',
             error=ValueError,
         )
     return prod
@@ -5504,9 +5647,9 @@ def _promotion_problems(root: Path, names: dict[str, str], dev_db: str) -> list[
         problems += [f"{dev}: it reads {read}, which isn't promoted with it"
                      for read in _dev_names_in(code, dev_db, dev) if read not in names]
         problems += [f"{dev}: its Building block {block} reads the Dev Database, which its "
-                     "prod copy would read too: a Building block serves dev and prod alike, "
-                     "so have it take the table, given by the notebook"
-                     for block in _blocks_reading(root, code, dev_db)]
+                     "prod copy, in building_blocks/prod/, would read too, so have it take "
+                     "the table, given by the notebook"
+                     for block in _blocks_reading(root, _blocks_used(root, dev), dev_db)]
     return problems
 
 
@@ -5528,9 +5671,8 @@ def _dev_names_in(code: str, dev_db: str, own: str) -> list[str]:
     return [table for table in dict.fromkeys(read) if table != own]
 
 
-def _blocks_reading(root: Path, code: str, dev_db: str) -> list[str]:
-    """Each Building block `code` imports that names a table of the Dev Database."""
-    blocks = dict.fromkeys(re.findall(r"\bbuilding_blocks\.(\w+)", code))
+def _blocks_reading(root: Path, blocks: list[str], dev_db: str) -> list[str]:
+    """Each Building block of `blocks`, by its name, that names a table of the Dev Database."""
     return [block for block in blocks
             if _dev_names_in(workflows.file_text(BUILDING_BLOCK.path(root, block)), dev_db, "")]
 
@@ -5538,8 +5680,9 @@ def _blocks_reading(root: Path, code: str, dev_db: str) -> list[str]:
 def _prod_text(text: str, names: dict[str, str], databases: tuple[str, str]) -> str:
     """A promoted notebook's code or Hive naming each promoted table's prod copy: by its name,
     its files' name and its Database; a renamed one imported under its dev name, so the code
-    that uses it reads as it did."""
+    that uses it reads as it did; and each Building block's prod copy."""
     dev_db, prod_db = databases
+    text = _with_prod_blocks(text)
     for dev, prod in names.items():
         text = re.sub(rf"\b{re.escape(dev)}\b", prod, text)
         text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
@@ -5592,32 +5735,36 @@ def _archive_prod_copy(root: Path, prod: str, now: datetime.datetime) -> list[st
     return moved
 
 
-def _write_prod_reference(root: Path, dev: str, prod: str, databases: tuple[str, str],
-                          promoted_before: str) -> str:
-    """Write a prod copy's Table reference, `databases` the Dev and Prod Database: the dev one
-    naming prod, its location= and its SEED kept from `promoted_before`, the text of the one
-    promoted before, when you answered them, else made from the dev one, with SEED = {}.
-    Gives what promote's report says of its location=, or nothing when it was kept."""
-    dev_db, prod_db = databases
+def _write_prod_reference(root: Path, dev: str, prod: str, promoted_before: str) -> str:
+    """Write a prod copy's Table reference: the dev one naming prod, its location= and its
+    SEED kept from `promoted_before`, the text of the one promoted before, when you answered
+    them, else its location= placed under PROD's location_root and SEED = {}. Gives what
+    promote's report says of its location=: nothing, but that it is None to fill in, when
+    PROD has no root."""
     dev_text = REFERENCE.path(root, table_stem(dev)).read_text(encoding="utf-8")
-    location, said = _prod_location(promoted_before, dev_text, dev, prod, databases)
     text = re.sub(rf"\b{re.escape(dev)}\b", prod, dev_text)
     text = re.sub(rf"\b{re.escape(table_stem(dev))}\b", table_stem(prod), text)
     # The table's own name, never a column's, which is in quotes.
     text = re.sub(rf"(?<![\"'\w.]){split_table_name(dev)[1]}\b(?![\"'])",
                   split_table_name(prod)[1], text)
-    text = re.sub(r"^    location=.*$", location, text, count=1, flags=re.MULTILINE)
+    found = re.search(r"^    location=.*$", text, flags=re.MULTILINE)
+    if found is not None:
+        line = _kept_prod_location(promoted_before)
+        text = text[:found.start()] + line + text[found.end():]
+    text = with_location_placed(root, text, prod)
     # A prod copy's seed is promote's own Decision: every Partition, unless its decisions cell
     # answered "seed" for it before, which is kept.
     text = re.sub(r"^SEED = .*$", _prod_seed_line(promoted_before), text, count=1,
                   flags=re.MULTILINE)
-    text = decisions.with_run_value_imports_kept(text, promoted_before)
-    text = text.replace(f"/{dev_db}.db/", f"/{prod_db}.db/")
+    # A Run value's function, imported from its Building block's prod copy.
+    text = decisions.with_run_value_imports_kept(_with_prod_blocks(text), promoted_before)
     text = (f"# A prod copy project.promote made of {REFERENCE.shown(table_stem(dev))}: change "
             "that one and promote it again. Its\n# location= and SEED are the lines yours to "
             "change here.\n" + text)
     REFERENCE.path(root, table_stem(prod)).write_text(text, encoding="utf-8")
-    return said
+    if _NO_LOCATION in text:
+        return "its location= is None: fill it in"
+    return ""
 
 
 def _prod_seed_line(promoted_before: str) -> str:
@@ -5641,29 +5788,15 @@ _NO_LOCATION = ('    location=None,  # TODO: its own folder, such as '
                 '"/data/your_team/mart.db/this_table"')
 
 
-def _prod_location(promoted_before: str, dev_text: str, dev: str, prod: str,
-                   databases: tuple[str, str]) -> tuple[str, str]:
-    """A prod Table reference's location= line, and what promote's report says of it: the one
-    filled in when promoted before; else the dev one with each folder named for the Dev
-    Database, such as mart_dev or mart_dev.db, named for the Prod Database, and its last for
-    the prod table when renamed; else None to fill in."""
-    dev_db, prod_db = databases
-    before = re.search(r'^    location="([^"]*)"', promoted_before, re.MULTILINE)
-    if before is not None:
-        return f'    location="{before.group(1)}",', ""
-    in_dev = re.search(r'^    location="([^"]*)"', dev_text, re.MULTILINE)
-    folders = []
-    if in_dev is not None:
-        folders = in_dev.group(1).split("/")
-    named = {dev_db: prod_db, f"{dev_db}.db": f"{prod_db}.db"}
-    if not any(folder in named for folder in folders):
-        return _NO_LOCATION, "its location= is None: fill it in"
-    folders = [named.get(folder, folder) for folder in folders]
-    if folders[-1] == split_table_name(dev)[1]:
-        folders[-1] = split_table_name(prod)[1]
-    location = "/".join(folders)
-    said = f"its location= is {location}, made from dev's: check it"
-    return f'    location="{location}",', said
+def _kept_prod_location(promoted_before: str) -> str:
+    """A prod Table reference's location= line: the one it had when it was promoted before,
+    `promoted_before` its text then, filled in or placed, since its files are there now; else
+    None, which promote places under PROD's location_root, or leaves to fill in. Dev's own
+    location is never carried to prod, as two tables never share a folder."""
+    before = re.search(r"^    location=\"[^\"]*\",.*$", promoted_before, re.MULTILINE)
+    if before is None:
+        return _NO_LOCATION
+    return before.group(0)
 
 
 def _write_prod_folder(root: Path, dev: str, prod: str, names: dict[str, str],
@@ -5713,8 +5846,9 @@ def _prod_cells(cells: list[tuple[str, str]], dev: str, names: dict[str, str],
 
 
 def _edited_by_hand_lines(root: Path) -> list[str]:
-    """What check() says of each file of a prod copy changed or deleted since promote wrote it;
-    nothing of one archived since, as remove_table does."""
+    """What check() says of each file of a prod copy changed or deleted since promote wrote it,
+    a Building block's prod copy among them, each once; nothing of one archived since, as
+    remove_table does."""
     lines = []
     for prod, entry in workflows.promoted_record(root).items():
         has_folder = TABLE_FOLDER.path(root, table_stem(prod)).is_dir()
@@ -5727,6 +5861,7 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
                          f"{REFERENCE.shown(table_stem(prod))}, but its location= and SEED "
                          "(change "
                          f"{REFERENCE.shown(table_stem(entry['dev']))} and promote it again)")
+        lines += _prod_blocks_edited_lines(root, entry.get("blocks", {}))
         if not has_folder:
             continue
         for relative, written in entry["files"].items():
@@ -5734,6 +5869,19 @@ def _edited_by_hand_lines(root: Path) -> list[str]:
             if not path.is_file() or _hash(path.read_bytes()) != written:
                 lines.append(f"Edited by hand, which project.promote writes over: {relative} "
                              f"(change its dev copy, in {dev_folder}, and promote it again)")
+    return list(dict.fromkeys(lines))
+
+
+def _prod_blocks_edited_lines(root: Path, blocks: dict[str, str]) -> list[str]:
+    """What check() says of each Building block's prod copy of `blocks`, by its path in the
+    Project, with the hash promote wrote it with, changed or deleted since."""
+    lines = []
+    for relative, written in blocks.items():
+        path = root / relative
+        if not path.is_file() or _hash(path.read_bytes()) != written:
+            dev = BUILDING_BLOCK.shown(Path(relative).stem)
+            lines.append(f"Edited by hand, which project.promote writes over: {relative} "
+                         f"(change {dev} and promote it again)")
     return lines
 
 
@@ -6402,12 +6550,13 @@ def reference_from_logic(name: str | list[str]) -> ProjectReport:
     Table reference lists each column preview() gives, in its order, typed as the tables it
     reads type them ("string", noted as a guess, where nothing tells); its partition columns,
     PARTITIONED_BY in the logic, which must name columns preview() gives; and the Key its logic
-    makes, proposed, as project.convert proposes one from a query. location= is a Decision left
-    to you, which the new_table Workflow's decisions cell answers. It writes over only the file
-    new_table wrote, whose columns are still <COLUMNS>: a Table reference whose columns you
-    wrote is kept, and the report says so. Either way, it names each TODO line the Table
-    reference leaves, such as its docstring's first line, which waits on nothing: fill each in
-    by hand. It refuses a logic cell that doesn't run, one
+    makes, proposed, as project.convert proposes one from a query. location= is placed in its
+    own folder under its Database's location_root, in admin/databases.py; with no root it is a
+    Decision left to you, which the new_table Workflow's decisions cell answers. It writes
+    over only the file new_table wrote, whose columns are still <COLUMNS>: a Table reference
+    whose columns you wrote is kept, and the report says so. Either way, it names each TODO
+    line the Table reference leaves, such as its docstring's first line, which waits on
+    nothing: fill each in by hand. It refuses a logic cell that doesn't run, one
     that defines no preview() or no write(), and one with no PARTITIONED_BY, or one naming
     columns preview() doesn't give last. `name` may be a list of tables' names, each written
     in turn.
@@ -6437,6 +6586,7 @@ def _reference_from_logic_one(name: str, frame: FrameType) -> ProjectReport:
     text = table_reference_text(name, _untyped_as_string(columns), partitions,
                                 f"{REFERENCE.folder}.{stem}", guessed=_guessed(columns),
                                 proposed=proposed, proposed_mark=decisions.PROPOSED_FROM_LOGIC)
+    text = with_location_placed(root, text, name)
     path.write_text(text, encoding="utf-8")
     _log(root, call, [name], [f"wrote {shown} from its logic"], frame)
     said = f"Wrote {shown} from its logic: {in_words(list(columns))}"

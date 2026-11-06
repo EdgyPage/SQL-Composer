@@ -1012,8 +1012,9 @@ project.new_table(TABLES, queries=QUERIES)
 
 NAME = "fails"
 DECISIONS = {
-    "all_tables": {"location_root": "/data/team", "tags": {"RUN_DAY": period_end}},
-    "mart_dev.daily_fails_mart": {"types": {"dt": "string"}},
+    "all_tables": {"tags": {"RUN_DAY": period_end}},
+    "mart_dev.daily_fails_mart": {"location": "/data/team/mart_dev.db/daily_fails_mart",
+                                  "types": {"dt": "string"}},
 }
 
 project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
@@ -1069,8 +1070,9 @@ RENAME = {}
 STAGING = {}
 PARTITIONS = []
 DECISIONS = {
-    "all_tables": {"location_root": "/data/team", "tags": {"RUN_DAY": period_end}},
-    "mart_dev.daily_fails_mart": {"types": {"dt": "string"}},
+    "all_tables": {"tags": {"RUN_DAY": period_end}},
+    "mart_dev.daily_fails_mart": {"location": "/data/team/mart_dev.db/daily_fails_mart",
+                                  "types": {"dt": "string"}},
 }
 
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,

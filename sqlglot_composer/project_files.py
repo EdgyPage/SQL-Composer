@@ -1,5 +1,5 @@
 """The registry, and the kinds it lists: a Table folder, a Table reference, a Building block,
-and a Conversion folder.
+a Building block's prod copy, and a Conversion folder.
 
 It isn't brought by `from sqlglot_composer import *`, and isn't for you to call: the Project
 actions in project.py use it. Each kind is one FileKind below, holding where it lives in the
@@ -113,6 +113,13 @@ BUILDING_BLOCK = FileKind(
     "runs_per_job.py", writes_databases=False)
 # Every kind, in the order check() and register() name them.
 KINDS = (TABLE_FOLDER, REFERENCE, BUILDING_BLOCK)
+# A Building block's prod copy, which only project.promote makes and archives, promoting it
+# again (Toolbox 8.5), so register() never adopts one, as it never does a Conversion folder.
+PROD_BLOCK = FileKind(
+    kind="prod_building_block", label="prod Building block", folder="building_blocks/prod",
+    is_folder=False, by_table=False, remover="promote",
+    named_as="the files in building_blocks/prod/ are named as the Building block they copy is",
+    writes_databases=False)
 # A Conversion folder, a batch's index, which only project.convert makes, so register()
 # never adopts one: the scripts as given, what each statement became, and what it wrote.
 CONVERSION_FOLDER = FileKind(

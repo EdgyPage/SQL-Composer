@@ -180,6 +180,7 @@ NOTEBOOK_IMPORTS = ("from sqlglot_composer import admin, hive_settings, project,
 # A Workflow task's Project's Dev and Prod Databases, filled in in its admin/databases.py.
 DEV_DATABASE = "mart_dev"
 PROD_DATABASE = "mart"
+PROD_LOCATION_ROOT = "/data/team"
 # The lines of a Workflow notebook that find the Project, which the scorer runs in their place.
 PATH_LINES = project.WORKFLOW_PATH_LINES[:3]
 
@@ -689,6 +690,9 @@ def _project_for(task: Task, warehouse: Warehouse) -> Path:
         text = databases.read_text(encoding="utf-8")
         text = text.replace('"<DEV_DATABASE>"', f'"{DEV_DATABASE}"')
         text = text.replace('"<PROD_DATABASE>"', f'"{PROD_DATABASE}"')
+        # Toolbox 8.5: PROD's root places each prod copy, as 8.4 renamed dev's folder; DEV's
+        # is left to fill in, so each dev location stays the Decision a task answers.
+        text = text.replace('"<PROD_LOCATION_ROOT>"', f'"{PROD_LOCATION_ROOT}"')
         databases.write_text(text, encoding="utf-8")
         if task.tables:
             project.add_references([f"ops.{name}" for name in task.tables],

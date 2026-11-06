@@ -1,11 +1,11 @@
 """Decisions for every table: DECISIONS["all_tables"] answers for every table a Workflow's
 notebook names, and a table's own answer overwrites it. Toolbox 8.4, ticket 08.
 
-It takes "seed", for the seed's limits, "location_root", the folder each table's own goes
-under, "tags", and "key": "proposed" (8.5), accepting each proposed Key; a type is each
-table's own. project.write_decisions is given the
-notebook's tables with tables=, as each Workflow's step cell does, and says which tables each
-answer of all_tables was written into.
+It takes "seed", for the seed's limits, "tags", and "key": "proposed" (8.5), accepting each
+proposed Key; a type and a location are each table's own. 8.4's "location_root" is a Database
+setting since 8.5 (ticket 09), in admin/databases.py, and refused here.
+project.write_decisions is given the notebook's tables with tables=, as each Workflow's step
+cell does, and says which tables each answer of all_tables was written into.
 """
 
 from __future__ import annotations
@@ -44,14 +44,15 @@ def _script(name: str) -> str:
 
 @pytest.fixture
 def converted(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
-    """A Project whose batch "closing" made two tables, each with its location open and a
-    PERIOD_END tag."""
+    """A Project whose batch "closing" made two tables, each placed under DEV's location_root,
+    with a PERIOD_END tag."""
     monkeypatch.setattr(sys, "path", [str(tmp_path), *sys.path])
     monkeypatch.chdir(tmp_path)
     project.start()
     databases = tmp_path / "admin" / "databases.py"
     databases.write_text(databases.read_text(encoding="utf-8")
-                         .replace('"<DEV_DATABASE>"', '"mart_dev"'), encoding="utf-8")
+                         .replace('"<DEV_DATABASE>"', '"mart_dev"')
+                         .replace('"<DEV_LOCATION_ROOT>"', '"/data/team"'), encoding="utf-8")
     (tmp_path / "building_blocks" / "run_values.py").write_text(RUN_VALUES, encoding="utf-8")
     for name in ("daily", "weekly"):
         (tmp_path / f"{name}.hql").write_text(_script(name), encoding="utf-8")
@@ -71,7 +72,7 @@ def _reference(root: Path, table: str) -> str:
 
 
 def test_all_tables_answers_every_table_the_notebook_names(converted: Path) -> None:
-    every = {"location_root": "/data/team/", "tags": {"PERIOD_END": "'2026-09-24'"}}
+    every = {"tags": {"PERIOD_END": "'2026-09-24'"}}
     said = repr(project.write_decisions({"all_tables": every},
                                         tables=project.batch_tables("closing")))
     for table in BATCH:
@@ -79,38 +80,23 @@ def test_all_tables_answers_every_table_the_notebook_names(converted: Path) -> N
         assert f'    location="/data/team/mart_dev.db/{table.split(".")[1]}",' in reference
         assert '    "PERIOD_END": "\'2026-09-24\'",  # bare' in reference
         assert f"Each Decision of {table} is made." in said
-    assert (f'all_tables: location_root "/data/team/": written into {DAILY} and {WEEKLY}, '
-            "each in its own folder under it." in said)
     assert f"all_tables: tags: PERIOD_END: written into {DAILY} and {WEEKLY}." in said
 
 
 def test_a_tables_own_answer_overwrites_all_tables_kind_by_kind(converted: Path) -> None:
     said = repr(project.write_decisions({
-        "all_tables": {"location_root": "/data/team", "tags": {"PERIOD_END": "'2026-09-24'"}},
-        WEEKLY: {"location": "/data/weekly", "tags": {"PERIOD_END": "'2026-09-20'"}},
+        "all_tables": {"tags": {"PERIOD_END": "'2026-09-24'"}},
+        WEEKLY: {"tags": {"PERIOD_END": "'2026-09-20'"}},
     }, tables=BATCH))
-    assert '    location="/data/weekly",' in _reference(converted, WEEKLY)
     assert '"PERIOD_END": "\'2026-09-20\'",' in _reference(converted, WEEKLY)
     assert '"PERIOD_END": "\'2026-09-24\'",' in _reference(converted, DAILY)
-    assert (f'all_tables: location_root "/data/team": written into {DAILY}, in its own '
-            f"folder under it. {WEEKLY} keeps its own location." in said)
     assert (f"all_tables: tags: PERIOD_END: written into {DAILY}. {WEEKLY} keeps its own "
             "answer." in said)
 
 
-def test_a_location_made_already_is_kept_and_passed_over(converted: Path) -> None:
-    project.write_decisions({WEEKLY: {"location": "/data/weekly"}})
-    said = repr(project.write_decisions({"all_tables": {"location_root": "/data/team"}},
-                                        tables=BATCH))
-    assert '    location="/data/weekly",' in _reference(converted, WEEKLY)
-    assert f"{WEEKLY} keeps its own location." in said
-    assert "kept as" not in said
-
-
 def test_a_tag_answered_with_a_run_value_is_written_into_every_table(converted: Path) -> None:
     from building_blocks.run_values import period_end
-    project.write_decisions({"all_tables": {"location_root": "/data/team",
-                                            "tags": {"PERIOD_END": period_end}}},
+    project.write_decisions({"all_tables": {"tags": {"PERIOD_END": period_end}}},
                             tables=BATCH)
     for table in BATCH:
         reference = _reference(converted, table)
@@ -154,13 +140,14 @@ def test_a_seed_under_all_tables_is_passed_through_for_each_table() -> None:
      f"table at once: answer it under the name of each table it is for, {DAILY} and {WEEKLY}"),
     ({"location": "/data/team"},
      "all_tables: 'location' is no kind of answer for every table; all_tables answers key, "
-     "seed, location_root and tags; did you mean location_root?"),
-    ({"location_root": ["/data/team"]},
-     "all_tables: location_root: give the folder as text, such as \"/data/your_team\", not "
-     "['/data/team']"),
+     "seed and tags"),
+    # Toolbox 8.5, ticket 09: the root is a Database setting.
+    ({"location_root": "/data/team"},
+     'all_tables: location_root is a Database setting now: give it as "location_root" in DEV '
+     "and PROD, in admin/databases.py"),
     ({"tags": "'2026-09-24'"},
      "all_tables: tags: give a dict of each answer by its name"),
-], ids=["tag held by no table", "key", "types", "location", "root not text", "tags not a dict"])
+], ids=["tag held by no table", "key", "types", "location", "root", "tags not a dict"])
 def test_an_answer_all_tables_cant_give_is_refused_writing_nothing(
         converted: Path, every: dict, said: str) -> None:
     before = _reference(converted, DAILY)
@@ -173,21 +160,22 @@ def test_an_answer_all_tables_cant_give_is_refused_writing_nothing(
 def test_all_tables_with_no_tables_given_is_refused(converted: Path) -> None:
     with pytest.raises(ValueError, match="all_tables answers for every table the notebook "
                        "names, but tables= names none") as refused:
-        project.write_decisions({"all_tables": {"location_root": "/data/team"}})
+        project.write_decisions({"all_tables": {"tags": {"PERIOD_END": "'2026-09-24'"}}})
     assert "tables=project.batch_tables(NAME)" in str(refused.value)
 
 
 def test_a_table_given_with_no_table_reference_is_refused(converted: Path) -> None:
     with pytest.raises(ValueError, match="tables: mart_dev.nothing: no table of the Project "
                        "has that name"):
-        project.write_decisions({"all_tables": {"location_root": "/data/team"}},
+        project.write_decisions({"all_tables": {"tags": {"PERIOD_END": "'2026-09-24'"}}},
                                 tables=[*BATCH, "mart_dev.nothing"])
 
 
 # --- Offered in what check() prints to paste --------------------------------------------------
 
 
-def test_a_decision_more_than_one_table_holds_is_offered_under_all_tables() -> None:
+def test_a_tag_more_than_one_table_holds_is_offered_under_all_tables() -> None:
+    # A location is each table's own since 8.5, its root a Database setting.
     still_open = [
         decisions.Decision("mart_dev.a", decisions.LOCATION),
         decisions.Decision("mart_dev.a", decisions.TAG, "PERIOD_END", "a.hql, line 3"),
@@ -201,27 +189,28 @@ def test_a_decision_more_than_one_table_holds_is_offered_under_all_tables() -> N
         "DECISIONS = {",
         '    "all_tables": {  # answers for every table of this notebook; a table\'s own '
         "answer, under its name, overrides it",
-        '        "location_root": "<FILL IN>",  # the folder each table\'s own goes under, '
-        'such as "/data/your_team", which gives mart_dev.a "/data/your_team/mart_dev.db/a"',
         '        "tags": {',
         '            "PERIOD_END": "<FILL IN>",  # bare: the value with its own quotes, '
         'such as "\'2026-10-31\'", or a number, such as "5"',
         "        },",
         "    },",
         '    "mart_dev.a": {',
+        '        "location": "<FILL IN>",  # its folder, such as '
+        '"/data/your_team/mart_dev.db/a"',
         '        "tags": {',
         '            "TEAM": "<FILL IN>",  # inside quotes: the value with no quotes, such as '
         '"failed"',
         "        },",
         "    },",
         '    "mart_dev.b": {',
+        '        "location": "<FILL IN>",  # its folder, such as '
+        '"/data/your_team/mart_dev.db/b"',
         '        "key": "<FILL IN>",  # a list, such as ["job_id", "dt"], or None when no '
         "columns name one row",
         "    },",
         "}"]
     pasted = ast.literal_eval("\n".join(lines).removeprefix("DECISIONS = "))
-    assert pasted["all_tables"] == {"location_root": "<FILL IN>",
-                                    "tags": {"PERIOD_END": "<FILL IN>"}}
+    assert pasted["all_tables"] == {"tags": {"PERIOD_END": "<FILL IN>"}}
 
 
 def test_a_tag_bare_in_one_table_and_quoted_in_another_stays_with_each() -> None:
@@ -241,8 +230,7 @@ def test_check_offers_all_tables_for_the_batch(converted: Path) -> None:
 
 
 def test_the_decision_step_is_done_once_all_tables_answers_each(converted: Path) -> None:
-    inputs = {"NAME": "closing", "TABLES": BATCH,
-              "DECISIONS": {"all_tables": {"location_root": "/data/team"}}}
+    inputs = {"NAME": "closing", "TABLES": BATCH, "DECISIONS": {"all_tables": {}}}
     assert not workflows.every_dev_decision_answered(converted, inputs)
     inputs["DECISIONS"]["all_tables"]["tags"] = {"PERIOD_END": "'2026-09-24'"}
     assert workflows.every_dev_decision_answered(converted, inputs)
@@ -263,7 +251,7 @@ def test_do_next_writes_all_tables_into_every_table_of_the_batch(converted: Path
     (step,) = [each for each in workflows.CONVERT.steps if each.run is not None
                and each.call.startswith("project.write_decisions(")]
     step.run({"NAME": "closing", "TABLES": BATCH, "DECISIONS": {"all_tables": {
-        "location_root": "/data/team", "tags": {"PERIOD_END": "'2026-09-24'"}}}})
+        "tags": {"PERIOD_END": "'2026-09-24'"}}}})
     assert workflows.every_dev_decision_made(converted, {"NAME": "closing", "TABLES": BATCH})
 
 
