@@ -195,10 +195,11 @@ def test_a_7_1_project_is_upgraded_and_told_what_it_lacked(started: Path) -> Non
     assert said[2].startswith("8.0: ")
     assert said[3].startswith("8.1: ")
     assert said[4].startswith("8.2: ")
-    assert said[5].startswith(f"{VERSION}: ")
-    assert said[6] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
-                       "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md and "
-                       f"admin/upgrade_{VERSION}.md.")
+    assert said[5].startswith("8.3: ")
+    assert said[6].startswith(f"{VERSION}: ")
+    assert said[7] == ("Read each step's checklist, in order: admin/upgrade_7.2.md, "
+                       "admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, "
+                       f"admin/upgrade_8.3.md and admin/upgrade_{VERSION}.md.")
     assert upgrades.project_version(started) == VERSION
     assert (started / "admin" / "workflows" / "upgrade" / "upgrade.ipynb").is_file()
     checklist = (started / "admin" / "upgrade_7.2.md").read_text(encoding="utf-8")
@@ -761,3 +762,47 @@ def test_an_upgrade_from_8_2_with_no_script_tags_has_nothing_for_you_to_do(
     shutil.copytree(UPGRADE_FROM / "8.2" / "intermediate", copy)
     monkeypatch.chdir(copy)
     assert f"{STEP_8_3}: nothing to change by hand." in repr(project.upgrade())
+
+
+# --- 8.4 (ticket 13) ------------------------------------------------------------------------
+
+STEP_8_4 = "8.4"
+# A table 8.3 converted: a tag inside quotes, and a bare one in Hive kept whole, each read in
+# its string as TAGS["NAME"] itself.
+LOGIC_8_3 = '''# logic
+from sqlglot_composer import FROM, SELECT, WHERE, Statement, equals, statement
+from references.mart_dev__closing import TAGS, closing
+
+
+def converted() -> Statement:
+    return statement(SELECT(closing.team), FROM(closing),
+                     WHERE(equals(closing.team, TAGS["SKIP_TEAM"])))
+
+
+def kept() -> str:
+    return "SELECT 1 FROM ops.job_runs r WHERE r.dt = " + TAGS["RUN_DAY"]
+'''
+REFERENCE_8_3 = '''TAGS = {
+    "SKIP_TEAM": "nobody",  # inside quotes, at close.hql, line 3. Answer it with no quotes.
+    "RUN_DAY": "'2026-09-24'",  # bare, at close.hql, line 4. Answer it with its quotes.
+}
+'''
+
+
+def test_8_4_reads_a_tag_8_3_wrote_in_a_string_through_tag_text(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, pinned: None) -> None:
+    copy = tmp_path / "starter"
+    shutil.copytree(UPGRADE_FROM / "8.3" / "starter", copy)
+    folder = copy / "tables" / "mart_dev__closing"
+    folder.mkdir(parents=True)
+    notebooks.write_notebook(folder / "mart_dev__closing.ipynb", [("code", LOGIC_8_3)])
+    (copy / "references" / "mart_dev__closing.py").write_text(REFERENCE_8_3, encoding="utf-8")
+    monkeypatch.chdir(copy)
+    said = repr(project.upgrade())
+    assert f"{STEP_8_4}: nothing to change by hand." in said
+    (logic,) = [text for _, text in notebooks.read_cells(folder / "mart_dev__closing.ipynb")]
+    assert 'equals(closing.team, tag_text(TAGS["SKIP_TEAM"]))' in logic
+    assert '" + tag_text(TAGS["RUN_DAY"], quoted=False)' in logic
+    assert "from sqlglot_composer import tag_text  # for each Script tag in a string" in logic
+    # The notebook as it was is kept.
+    assert list((copy / "admin" / "removed").rglob("mart_dev__closing.ipynb"))

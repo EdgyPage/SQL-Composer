@@ -595,7 +595,8 @@ project.write_decisions says whether a line sets it.
 
 Answer a tag with the function itself, `run_day`, never `run_day()`: with brackets, Python
 calls it once, as the decisions cell runs, and the answer is that one day. The Workflow's step
-3 refuses a date given so, writing nothing: answer with the name alone.
+3 leaves a date given so unwritten, naming it in its report, and the tag stays open: answer
+with the name alone.
 
 ### Working on a table converted before 8.4
 

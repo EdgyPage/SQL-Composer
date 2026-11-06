@@ -1,9 +1,9 @@
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.3)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.4)
 
 **Follow the steps below in order, as written. Add no step or call, and reply in the shape
 the Output section gives.**
 
-Objective: take the user through a job on their own Project, with sqlglot Composer 8.3, a Toolbox that
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.4, a Toolbox that
 writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
 Load this file when the user asks how to make a new Saved table, from a query or by hand, add
 Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.

@@ -23,12 +23,18 @@ Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
   `admin/removed/`: each step 3 cell gives the notebook's tables to `project.write_decisions`,
   as `tables=project.batch_tables(NAME)` in convert's, which `"all_tables"` needs, and each
   decisions cell's comment shows `"all_tables"`. Each name and answer you gave stays.
+- **Each Workflow decision step has a `project.check()` cell** under it, which the Upgrade
+  writes in with the rest of the notebook.
+- **In a table converted before 8.4, each Script tag in a string**, which 8.3 wrote as
+  `TAGS["NAME"]` itself, the Upgrade writes as `tag_text(TAGS["NAME"])`, or with
+  `quoted=False` for a bare one in Hive kept whole, as 8.4 writes it, keeping the logic cell as
+  it was in `admin/removed/`: the same Hive for every answer it took, and a Run value's
+  function may answer it now.
 - **A table converted before 8.4 keeps its seed() copying every Partition**, with no `SEED`
-  for a `"seed"` answer to fill, and **its tags inside quotes read `TAGS["NAME"]`**, so they
-  take text, never a Run value's function. Its bare tags take a Run value's function as they
-  are. To limit its seed, or answer a quoted tag with a Run value, convert its scripts again
-  as a new batch, with a new name for each table in RENAME, and remove the old table with
-  `project.remove_table(...)`, in `admin/remove.ipynb`, once the new one's compare passes.
+  for a `"seed"` answer to fill: a `"seed"` answer for it is refused, saying so. To limit its
+  seed, convert its scripts again as a new batch, with a new name for each table in RENAME,
+  and remove the old table with `project.remove_table(...)`, in `admin/remove.ipynb`, once the
+  new one's compare passes.
 - **`last_n_days` counts from UTC's today**, where it counted from this computer's: a window
   run near midnight may move by a day. Where the warehouse keeps another day, bound the read
   with a Run value in its place, a function of yours that starts from the warehouse's day:

@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.3: Example gallery</title>
+<title>sqlglot Composer 8.4: Example gallery</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -23,7 +23,7 @@ table.result th,table.result td{border:1px solid #ddd;padding:2px 8px;text-align
 #filter input{font:inherit;padding:4px 8px;width:22em;max-width:70%}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.3: Example gallery</h1>
+<h1>sqlglot Composer 8.4: Example gallery</h1>
 <p>Every Worked example on one page: 14 Worked examples on their own, and the
 149 examples from the Toolbox's docstrings. Each shows its Python and, for each
 Statement it builds, the Hive and any result: from the Example database, the made-up tables
@@ -1456,10 +1456,10 @@ WHERE
 <p>TOOLBOX_VERSION is the feature number, raised only when a big feature lands. VERSION is the full text, which also says when this copy was exported. Both are read from the folder&#x27;s version.txt, the one place the version is written.</p>
 <pre class="python">TOOLBOX_VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;8.3&#x27;</pre>
+<pre class="output">&#x27;8.4&#x27;</pre>
 <pre class="python">VERSION</pre>
 <p class="label">Python shows</p>
-<pre class="output">&#x27;sqlglot Composer 8.3, ...&#x27;</pre>
+<pre class="output">&#x27;sqlglot Composer 8.4, ...&#x27;</pre>
 <p class="names">Toolbox names used: <code>TOOLBOX_VERSION</code>, <code>VERSION</code></p>
 </section>
 <section class="entry" id="Table">
@@ -3896,7 +3896,7 @@ GROUP BY
 FROM ops.job_runs AS job_runs
 WHERE
   job_runs.dt &lt;= &#x27;2026-09-24&#x27;</pre>
-<p>A Script tag is a &lt;PARM=&quot;NAME&quot;/&gt; in Hive someone else wrote, which the program that ran it filled in before Hive read it, such as &lt;PARM=&quot;PERIOD_END&quot;/&gt;. Where a tag stood bare, a Conversion writes script_tag(TAGS[&quot;PERIOD_END&quot;]): you give it the table&#x27;s TAGS entry, and it gives back a Column, the type any value in a Statement has, as job_runs.duration_mins / 60 does. TAGS, in the table&#x27;s Table reference, holds what each tag stands for: the Hive the program put there, such as &#x27;2026-09-24&#x27; with its quotes, 5, or &#x27;${hivevar:period_end}&#x27;, a Hive variable your warehouse fills in when the query runs, in quotes when it holds a date; or a Run value&#x27;s function, such as period_end, written in your Project, which script_tag calls each time the Statement is built. What it gives is written as Hive: a datetime.date as &#x27;2026-09-24&#x27;, a number as it is, TRUE or FALSE, and text as the Hive it is. One that fails leaves <code>&lt;period_end() failed&gt;</code> in the value&#x27;s place, with a Warning saying why, so show_hive still shows the rest; run_query and run_execute refuse to send it.</p>
+<p>A Script tag is a &lt;PARM=&quot;NAME&quot;/&gt; in Hive someone else wrote, which the program that ran it filled in before Hive read it, such as &lt;PARM=&quot;PERIOD_END&quot;/&gt;. Where a tag stood bare, a Conversion writes script_tag(TAGS[&quot;PERIOD_END&quot;]): you give it the table&#x27;s TAGS entry, and it gives back a Column, the type any value in a Statement has, as job_runs.duration_mins / 60 does. TAGS, in the table&#x27;s Table reference, holds what each tag stands for: the Hive the program put there, such as &#x27;2026-09-24&#x27; with its quotes, 5, or &#x27;${hivevar:period_end}&#x27;, a Hive variable your warehouse fills in when the query runs, in quotes when it holds a date; or a Run value&#x27;s function, such as period_end, written in your Project, which script_tag calls each time the Statement is built. What it gives is written as Hive: a datetime.date as &#x27;2026-09-24&#x27;, a number as it is, TRUE or FALSE, and text as the Hive it is. One that fails leaves <code>&lt;PERIOD_END failed&gt;</code> in the value&#x27;s place, with a Warning saying why, so show_hive still shows the rest; run_query and run_execute refuse to send it.</p>
 <p>You answer each tag in the convert notebook&#x27;s decisions cell, under &quot;tags&quot;, as in DECISIONS = {&quot;mart_dev.daily_close&quot;: {&quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-09-24&#x27;&quot;}}}, and step 3, project.write_decisions, writes the answer into TAGS; answering again changes it. Until then TAGS holds the tag itself, and the table isn&#x27;t created: script_tag would write a bare one in backticks, <code>&lt;PARM=&quot;PERIOD_END&quot;/&gt;</code>, which Hive refuses to run.</p>
 <p>Its text, given or given by a Run value, is one value of a kind a program puts in a tag&#x27;s place: text or a date in quotes, a number, TRUE, FALSE, NULL or a Hive variable such as ${hivevar:period_end}. Anything else is refused: a column, a condition, a sum such as 5 - 3, a function&#x27;s call or a comment, which Hive would read with what stands beside the tag, and a date with no quotes, 2026-09-24, which Hive reads as a subtraction. The Toolbox doesn&#x27;t check the text inside it, but at_most(runs.dt, script_tag(...)) still filters dt, a partition column, as at_most(runs.dt, &quot;2026-09-24&quot;) does.</p>
 <p class="label">Result on the Example database</p><div class="scroll"><table class="result">
@@ -4994,16 +4994,18 @@ Next: set conn, your connection, in warehouse.py.</pre>
 <pre class="python">os.remove(&quot;admin/project_version.txt&quot;)  # only to show a 7.1 Project: never in yours</pre>
 <pre class="python">project.upgrade()</pre>
 <p class="label">Python shows</p>
-<pre class="output">Upgraded the Project from 7.1 to 8.3.
+<pre class="output">Upgraded the Project from 7.1 to 8.4.
 7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
     admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
 Read each step&#x27;s checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
-    admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.</pre>
-<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new cell of admin/check_project.ipynb, which imports project already, or of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark: its checklist, which the last line names, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
+    admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and
+    admin/upgrade_8.4.md.</pre>
+<p>Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow&#x27;s notebook, which start() writes and an Upgrade adds; a Project made before 8.0, which has no such notebook until its first Upgrade, runs it in admin/check_project.ipynb, which imports project already. It reads the version that last wrote the Project from admin/project_version.txt, and runs each version&#x27;s step from there to this Toolbox&#x27;s, in order, so you may skip versions: copy in the newest, and every step between runs. A step makes the changes that need no judgement, keeping each file it changes, as it was, in its own folder of admin/removed/, and marks each change that needs you with a <code># UPGRADE &lt;version&gt;: &lt;what to change&gt;</code> comment at the line. admin/upgrade_&lt;version&gt;.md lists what each step did, and a box for each mark: its checklist, which the last line names, in order, and project.check() lists the marks left. It changes only files, never the warehouse, and logs what it did in the Admin log. Run again, it does nothing.</p>
 <p>A Project with no admin/project_version.txt, holding warehouse.py and no send.py, was made by 7.1, the first version it upgrades from. A Project 7.0 made looks the same, so bring it to 7.1 by hand first, as CHANGES.md&#x27;s &quot;To update from 7.0&quot; says; one from before 7.0, holding send.py, is refused, and is updated by hand the same way.</p>
 <p class="names">Toolbox names used: <code>project.start</code></p>
 </section>
