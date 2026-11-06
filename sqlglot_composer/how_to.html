@@ -17649,7 +17649,10 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 # gives each table with no location its own folder, such as
 # &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
-# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
+# project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
+# of this cell, the import it prints under it, and run the cell once: it writes the
+# function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
 <p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
@@ -17746,7 +17749,10 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # gives each table with no location its own folder, such as
 # &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
-# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
+# project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
+# of this cell, the import it prints under it, and run the cell once: it writes the
+# function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
 <p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
@@ -17850,7 +17856,10 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 # gives each table with no location its own folder, such as
 # &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
-# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
+# project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
+# of this cell, the import it prints under it, and run the cell once: it writes the
+# function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
 <p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
@@ -17931,7 +17940,10 @@ project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 # gives each table with no location its own folder, such as
 # &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
 # A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
-# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end. For a table&#x27;s latest Partition, write
+# project.new_run_value(&quot;period_end&quot;, latest_partition=&quot;ops.job_runs.dt&quot;) at the top
+# of this cell, the import it prints under it, and run the cell once: it writes the
+# function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
 <p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>

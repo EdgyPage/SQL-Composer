@@ -212,7 +212,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # gives each table with no location its own folder, such as
     # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
     # A tag may be answered with a Run value's function of your Project's, imported above
-    # DECISIONS, such as "PERIOD_END": period_end; and "seed", such as
+    # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
+    # of this cell, the import it prints under it, and run the cell once: it writes the
+    # function into building_blocks/run_values.py. And "seed", such as
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
@@ -341,7 +344,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # gives each table with no location its own folder, such as
     # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
     # A tag may be answered with a Run value's function of your Project's, imported above
-    # DECISIONS, such as "PERIOD_END": period_end; and "seed", such as
+    # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
+    # of this cell, the import it prints under it, and run the cell once: it writes the
+    # function into building_blocks/run_values.py. And "seed", such as
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
@@ -481,7 +487,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # gives each table with no location its own folder, such as
     # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
     # A tag may be answered with a Run value's function of your Project's, imported above
-    # DECISIONS, such as "PERIOD_END": period_end; and "seed", such as
+    # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
+    # of this cell, the import it prints under it, and run the cell once: it writes the
+    # function into building_blocks/run_values.py. And "seed", such as
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
@@ -599,7 +608,10 @@ Its decisions cell, under that, where you answer each open Decision:
     # gives each table with no location its own folder, such as
     # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
     # A tag may be answered with a Run value's function of your Project's, imported above
-    # DECISIONS, such as "PERIOD_END": period_end; and "seed", such as
+    # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
+    # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
+    # of this cell, the import it prints under it, and run the cell once: it writes the
+    # function into building_blocks/run_values.py. And "seed", such as
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
