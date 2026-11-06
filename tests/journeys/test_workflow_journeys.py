@@ -479,9 +479,10 @@ def test_convert_then_promote_one_script(started: Started) -> None:
     _promote(started, tables)
 
 
-def test_convert_compares_another_partition_set_in_partition(started: Started) -> None:
-    # Toolbox 8.3, ticket 06: another Partition is compared by setting PARTITION in the names
-    # cell and running step 7 again, with no cell of the user's own.
+def test_convert_compares_another_partition_listed_in_partitions(started: Started) -> None:
+    # Toolbox 8.3, ticket 06: another Partition is compared by setting it in the names cell
+    # and running step 7 again, with no cell of the user's own; 8.5, ticket 04: PARTITIONS, a
+    # list of them.
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
@@ -492,24 +493,48 @@ def test_convert_compares_another_partition_set_in_partition(started: Started) -
     compared = (started.root / "tables" / "mart_dev__team_fails_mart" / "conversion"
                 / "compare.md")
     assert "dt = '2026-09-23'" not in compared.read_text(encoding="utf-8")
-    journey.type_names(PARTITION={"dt": "2026-09-23"})
+    journey.type_names(PARTITIONS=[{"dt": "2026-09-23"}])
     journey.run_again(7)
     text = compared.read_text(encoding="utf-8")
     assert "dt = '2026-09-23'" in text
     assert text.count("Passed: ") == 2
 
 
-def test_the_runner_compares_the_partition_set_in_partition(started: Started) -> None:
+def test_the_runner_compares_the_partitions_listed(started: Started) -> None:
     started.warehouse.execute(ONE_SCRIPT)
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITION={"dt": "2026-09-23"},
+                       PARTITIONS=[{"dt": "2026-09-23"}],
                        DECISIONS={table: {"location": _location(table)}})
     assert "convert, weekly: every step is done." in journey.run_workflow()
     compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
-    assert "dt = '2026-09-23'" in compared.read_text(encoding="utf-8")
+    text = compared.read_text(encoding="utf-8")
+    # The latest and the one listed, a section each.
+    assert "## dt = '2026-09-23'" in text and "## dt = '2026-09-24'" in text
+
+
+def test_the_runner_compares_a_finished_batch_again_on_the_partitions_listed(
+        started: Started) -> None:
+    # Toolbox 8.5, ticket 04: about 8 runs compared a backfill from a script of their own once
+    # the batch was finished. Now it is the names cell and "Run the rest".
+    table = "mart_dev.team_fails_mart"
+    _convert_through_the_runner(started, ONE_SCRIPT, {table: ["team", "dt"]})
+    journey = started.journey("convert")
+    compared = started.root / "tables" / _stem(table) / "conversion" / "compare.md"
+    assert "dt = '2026-09-23'" not in compared.read_text(encoding="utf-8")
+    # Nothing listed, a finished batch has no step left.
+    assert "convert: every step is done." in journey.run_workflow()
+    journey.type_names(PARTITIONS=[{"dt": "2026-09-23"}])
+    said = journey.run_workflow()
+    assert "convert, weekly: 7. Compare each table with its original, again" in said
+    assert "The batch was finished already, in admin/workflows/convert/finished/weekly/" in said
+    assert "convert, weekly: every step is done." in said
+    text = compared.read_text(encoding="utf-8")
+    assert "## dt = '2026-09-23'\n\nPassed: " in text
+    finished = started.root / "admin" / "workflows" / "convert" / "finished" / "weekly"
+    assert finished.is_dir()
 
 
 def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
@@ -518,12 +543,12 @@ def test_the_runner_refuses_a_partition_in_quotes(started: Started) -> None:
     journey.save_by_hand(journey.folder / "weekly.hql", ONE_SCRIPT)
     table = "mart_dev.team_fails_mart"
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops",
-                       PARTITION={"dt": "'2026-09-23'"},
+                       PARTITIONS=[{"dt": "'2026-09-23'"}],
                        DECISIONS={table: {"location": _location(table)}})
     said = journey.run_workflow()
     # The runner stops at step 7 on its refusal, as the cell's call does.
     assert "7. Compare each table with its original\n    Stopped by what this says" in said
-    assert "partition= gives dt in quotes of its own" in said
+    assert "partitions= gives dt in quotes of its own" in said
 
 
 def test_convert_then_promote_one_script_through_the_runner(started: Started) -> None:

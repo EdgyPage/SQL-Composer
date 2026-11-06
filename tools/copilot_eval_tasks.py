@@ -1067,7 +1067,7 @@ HIVE = None
 DATABASE = "default"
 RENAME = {}
 STAGING = {}
-PARTITION = None
+PARTITIONS = []
 DECISIONS = {
     "all_tables": {"location_root": "/data/team", "tags": {"RUN_DAY": period_end}},
     "mart_dev.daily_fails_mart": {"types": {"dt": "string"}},
@@ -1086,7 +1086,7 @@ else:
     for table in to_seed:
         run_execute(project.load(table).seed(), execute)
 project.run_tables(tables=project.batch_tables(NAME), execute=execute)
-project.compare_batch(NAME, query=query, partition=PARTITION)
+project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 ''', tables=("job_runs",), workflow="convert",
          files={"admin/workflows/convert/daily_fails.hql": TAGGED_FAILS,
                 "building_blocks/run_values.py": RUN_VALUES},

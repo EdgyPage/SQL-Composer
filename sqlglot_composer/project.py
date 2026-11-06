@@ -1619,7 +1619,10 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     done is skipped, so it goes on where it stopped. `workflow` is one Workflow's name, such as
     "convert". The convert Workflow runs the batch its names cell's NAME names, or, when NAME
     is a list, each batch it names in turn, each converted already: a stop in one stops the
-    rest. It never runs a batch you didn't name.
+    rest. It never runs a batch you didn't name. A batch you named that is finished, in
+    admin/workflows/convert/finished/, has no step left; but when the names cell's PARTITIONS
+    lists a Partition, its compare step runs again, on the latest and each listed, each time
+    you run it, and compare_batch's report says the batch was finished.
 
     With dry_run=True it sends nothing through your execute. Each step that would send says
     the Hive it would send, "would send: ...", and a preview or a compare says what it would
@@ -1647,10 +1650,12 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         where = workflows.notebook_path(root, found).relative_to(root).as_posix()
         return ProjectReport([f"{workflow} isn't started: name what it works on in the names "
                               f"cell of {where}, and save it."])
-    # The names cell's instances alone: the runner sends, so only what you named.
+    # The names cell's instances alone: the runner sends, so only what you named. A finished
+    # batch is run only to compare it again, on the Partitions PARTITIONS lists.
     instances = [workflows.read_again(root, found, each)
                  for each in workflows.one_per_name(started)
-                 if not workflows.is_finished(root, each)]
+                 if not workflows.is_finished(root, each)
+                 or workflows.is_compared_again(root, each)]
     if not instances:
         return ProjectReport([f"  {workflow}: every step is done."])
     again = ("    Then save the notebook, and run its last cell again: each step done is "
@@ -1664,7 +1669,10 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     for inputs in instances:
         # Each instance its own: a dry run of one batch says nothing of what another sends.
         calls = workflows.Calls(query, execute, dry_run, change)
-        ran, stopped = _run_steps(root, found, inputs, calls)
+        if workflows.is_finished(root, inputs):
+            ran, stopped = _compare_again(root, found, inputs, calls)
+        else:
+            ran, stopped = _run_steps(root, found, inputs, calls)
         lines += ran
         if stopped:
             lines.append(again)
@@ -1703,16 +1711,48 @@ def _run_steps(root: Path, workflow: workflows.Workflow, inputs: dict[str, objec
             step_lines = _step_lines(step, inputs, calls)
         # Whatever stops a step, a refusal or the warehouse's error, stops the Workflow there.
         except Exception as error:  # noqa: BLE001
-            stopped = [f"    {line}" for line in str(error).strip("\n").split("\n")]
-            return [*lines, "    Stopped by what this says: mend it.", *stopped], True
+            return [*lines, *_stopped_by(error)], True
         lines += [f"    {line}" for line in step_lines]
         inputs = workflows.read_again(root, workflow, inputs)
         stop = _stop_after(root, step, inputs, calls)
         if stop:
             return [*lines, stop], True
+    return [*lines, _end_line(where, calls)], False
+
+
+def _compare_again(root: Path, workflow: workflows.Workflow, inputs: dict[str, object],
+                   calls: workflows.Calls) -> tuple[list[str], bool]:
+    """Run convert's last step, its compare, once more on a finished batch, on the latest
+    Partition and each PARTITIONS lists, saying so: what it did, and whether it stopped there,
+    on a result that failed."""
+    where = f"{workflow.name}, {inputs['NAME']}"
+    step = workflow.steps[-1]
+    lines = [f"  {where}: {len(workflow.steps)}. {step.name}, again, on each Partition "
+             "PARTITIONS lists"]
+    try:
+        lines += [f"    {line}" for line in _step_lines(step, inputs, calls)]
+    # Whatever stops it, a refusal or the warehouse's error, stops the Workflow there.
+    except Exception as error:  # noqa: BLE001
+        return [*lines, *_stopped_by(error)], True
+    stop = _stop_after(root, step, inputs, calls)
+    if stop:
+        return [*lines, stop], True
+    return [*lines, _end_line(where, calls)], False
+
+
+def _stopped_by(error: Exception) -> list[str]:
+    """What run_workflow says of a step that a refusal or the warehouse's error stopped: that
+    it stopped, then the error in full."""
+    return ["    Stopped by what this says: mend it.",
+            *[f"    {line}" for line in str(error).strip("\n").split("\n")]]
+
+
+def _end_line(where: str, calls: workflows.Calls) -> str:
+    """What run_workflow says once each step of one instance has run, or, in a dry run, been
+    shown."""
     if calls.dry_run:
-        return [*lines, f"  {where}: each step left is shown above."], False
-    return [*lines, f"  {where}: every step is done."], False
+        return f"  {where}: each step left is shown above."
+    return f"  {where}: every step is done."
 
 
 def _step_lines(step: workflows.Step, inputs: dict[str, object],
@@ -3440,7 +3480,8 @@ def _batch_index(root: Path, name: str, call: str) -> Path:
 
 def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = None,
                   tables: str | list[str] | None = None,
-                  partition: dict[str, object] | None = None) -> ProjectReport:
+                  partitions: list[dict[str, object]] | None = None,
+                  **removed: object) -> ProjectReport:
     """Compare each Saved table a batch made in dev with the table it copies.
 
     >>> from sqlglot_composer import example_database, project
@@ -3479,16 +3520,20 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     that repeats. It is the convert Workflow's last step. It compares the tables once written,
     not their queries: each dev table's rows with the rows of the table it copies, its original,
     through your query, as compare_with_original compares them. A table partitioned by a column,
-    such as dt, is compared on one Partition: the one partition= gives, such as {"dt":
-    "2026-09-24"}, when both tables hold it; else the latest both hold, of the Partitions Hive's
-    SHOW PARTITIONS lists for each, such as dt=2026-09-24. When the two hold no Partition in
-    common, or none you gave, the table fails, naming what each holds: write the dev copy for a
-    Partition the original holds, or give one both hold. A table with no Partitions is compared
-    on every row. A query alone, which convert made a Saved table named for the batch, or for
-    its file in a batch of several scripts, has no original table: its rows are compared with
-    the query's, kept in its conversion/statement.hql. A partition= is refused when it isn't a
-    dict, when a value is in quotes of its own, as '2026-09-23' (SHOW PARTITIONS lists
-    dt=2026-09-23), or when it names no column any of them is partitioned by.
+    such as dt, is compared on the latest Partition both hold, of the Partitions Hive's SHOW
+    PARTITIONS lists for each, such as dt=2026-09-24; then on each Partition partitions= lists,
+    such as [{"dt": "2026-09-23"}], that it is partitioned by, each value as SHOW PARTITIONS
+    lists it, with no quotes of its own. Left out, or [], the latest alone is compared. When the
+    two hold no Partition in common, or not one you listed, that compare fails, naming what
+    each holds: write the dev copy for a Partition the original holds, or list one both hold. A
+    table with no Partitions is compared on every row, and a Partition listed that it isn't
+    partitioned by is named as left out. A query alone, which convert made a Saved table named
+    for the batch, or for its file in a batch of several scripts, has no original table: its
+    rows are compared with the query's, kept in its conversion/statement.hql. A partitions= is
+    refused when it isn't a list, when a Partition in it isn't a dict, when a value is in quotes
+    of its own, as '2026-09-23' (SHOW PARTITIONS lists dt=2026-09-23), or when a Partition names
+    no column any of the tables is partitioned by. Toolbox 8.5 replaced 8.4's partition=, one
+    Partition, compared in place of the latest: it is refused, naming the partitions= to pass.
 
     Each result is written in the table's conversion/compare.md, under a heading naming the
     Partition it compared, such as ## dt = '2026-09-24', or ## Every row: a compare of another
@@ -3499,12 +3544,15 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
     table's rows. `tables` names which, by their names in dev, such as
     mart_dev.weekly_events_ops_reports, one or a list; left out, each the batch made. Once
     every one has passed, the batch's folder moves to admin/workflows/convert/finished/<name>/,
-    and check names it done; batch_tables still reads it, and compare_batch run on it
-    again compares again, moving nothing. project.remove_conversion(name) archives a finished
-    batch, which frees its name. It never needs your execute: it only reads.
+    and check names it done; batch_tables still reads it, and compare_batch run on it again,
+    as the convert notebook's step 7 does with another Partition in PARTITIONS, compares
+    again, says the batch was finished, and moves nothing. project.remove_conversion(name)
+    archives a finished batch, which frees its name. It never needs your execute: it only reads.
     """
     frame = callers_frame()
     call = _action_call("compare_batch", name)
+    _refuse_partition_given(call, removed)
+    refuse_removed_arguments(call, removed, compare_batch)
     root = _project_root(call)
     need_warehouse_call(call, "query", query, "It reads the rows of each table and its "
                         "original, and their Partitions, through your query.")
@@ -3513,15 +3561,16 @@ def compare_batch(name: str, *, query: Callable[[str], pd.DataFrame] | None = No
         "originals", {})
     chosen = _tables_compared(call, tables, originals)
     read = {dev: _table_in(root, dev) for dev in chosen}
-    _refuse_a_partition_not_a_dict(call, partition)
-    _refuse_a_partition_in_quotes(call, partition)
-    _refuse_a_partition_no_table_has(call, partition, read)
+    listed = _partitions_checked(call, partitions, read)
     lines = []
     for dev in chosen:
-        result = _compare_one(root, read[dev], originals[dev], query, partition)
-        lines.append(f"{dev}: {result}")
+        lines += _compare_lines(root, read[dev], originals[dev], query, listed)
     written = [f"wrote tables/{table_stem(dev)}/{CONVERSION}/{COMPARED}" for dev in chosen]
-    if index.parent.name != FINISHED and originals and all(
+    if index.parent.name == FINISHED:
+        lines.append(f"The batch was finished already, in admin/workflows/convert/{FINISHED}/"
+                     f"{name}/: it stays there. A table with a result that failed is one "
+                     "promote refuses, until it passes.")
+    elif originals and all(
             workflows.compare_passed(root, dev) for dev in originals):
         finished = root / BATCHES / FINISHED / name
         finished.parent.mkdir(parents=True, exist_ok=True)
@@ -4116,41 +4165,87 @@ def _table_in(root: Path, name: str) -> Table:
                      "table_reference")[short]
 
 
+def _refuse_partition_given(call: str, removed: dict[str, object]) -> None:
+    """Refuse the partition= of 8.4, one Partition compared in place of the latest, which 8.5
+    replaced with partitions=, a list of them compared besides it: the message names the
+    partitions= to pass in its place."""
+    if "partition" not in removed:
+        return
+    given = removed["partition"]
+    in_a_list = PARTITIONS_EXAMPLE
+    if isinstance(given, dict):
+        in_a_list = python_literal([given])
+    instead = f"Pass partitions={in_a_list} instead"
+    if given is None:
+        instead = (f"Leave partition= out to compare the latest Partition alone, or pass "
+                   f"partitions={in_a_list} to compare others too")
+    refuse(
+        what=f"{call} was given partition=, which Toolbox 8.5 replaced with partitions=.",
+        why="It compares the latest Partition both tables hold, and then each Partition "
+        "partitions= lists besides it, so it takes a list of them: one Partition is a list "
+        "of one.",
+        fix=f"{instead}. In the convert notebook, set PARTITIONS in the names cell, such as "
+        f"PARTITIONS = {in_a_list}, which step 7's cell passes as partitions=PARTITIONS.",
+    )
+
+
+def _partitions_checked(call: str, partitions: object,
+                        read: dict[str, Table]) -> list[dict[str, object]]:
+    """The Partitions a compare_batch call lists, none when `partitions` is None, each
+    refused that SHOW PARTITIONS could never list or that no table compared is partitioned
+    by."""
+    if partitions is None:
+        return []
+    if not isinstance(partitions, list):
+        refuse(
+            what=f"{call}: partitions= is {partitions!r}, not a list of Partitions.",
+            why="It compares the latest Partition both tables hold, then each Partition the "
+            "list holds, each a dict of its partition columns' values.",
+            fix=f"Give it as a list, such as {PARTITIONS_EXAMPLE}, in the convert notebook's "
+            "PARTITIONS, or [] to compare the latest Partition alone.",
+            given=partitions, call=call,
+        )
+    for partition in partitions:
+        _refuse_a_partition_not_a_dict(call, partition)
+        _refuse_a_partition_in_quotes(call, partition)
+        _refuse_a_partition_no_table_has(call, partition, read)
+    return partitions
+
+
 def _refuse_a_partition_not_a_dict(call: str, partition: object) -> None:
-    """Refuse a partition= that is neither None nor a dict of each partition column's value."""
-    if partition is None or isinstance(partition, dict):
+    """Refuse a Partition partitions= lists that isn't a dict of each partition column's
+    value."""
+    if isinstance(partition, dict):
         return
     refuse(
-        what=f"{call}: partition= is {partition!r}, not a dict of each partition column's "
+        what=f"{call}: partitions= holds {partition!r}, not a dict of each partition column's "
         "value.",
         why="A Partition is named by its columns' values, as SHOW PARTITIONS lists them.",
-        fix=f"Give it as {PARTITION_EXAMPLE}, in the convert notebook's PARTITION, or None to "
-        "compare the latest Partition both tables hold.",
+        fix=f"Give each as a dict, such as {PARTITIONS_EXAMPLE}, in the convert notebook's "
+        "PARTITIONS, or [] to compare the latest Partition both tables hold alone.",
         given=partition, call=call,
     )
 
 
-def _refuse_a_partition_in_quotes(call: str, partition: object) -> None:
-    """Refuse a partition= whose value is written in quotes of its own: SHOW PARTITIONS lists
-    dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would fail on a
-    Partition that is there."""
-    if not isinstance(partition, dict):
-        return
+def _refuse_a_partition_in_quotes(call: str, partition: dict[str, object]) -> None:
+    """Refuse a Partition partitions= lists whose value is written in quotes of its own: SHOW
+    PARTITIONS lists dt=2026-09-24, so no Partition is dt='2026-09-24', and the compare would
+    fail on a Partition that is there."""
     quoted = [column for column, value in partition.items()
               if isinstance(value, str) and _in_quotes_of_its_own(value)]
     if quoted:
         refuse(
-            what=f"{call}: partition= gives {in_words(quoted)} in quotes of its own, "
+            what=f"{call}: partitions= gives {in_words(quoted)} in quotes of its own, "
             f"{partition!r}.",
             why="A Partition's value is written as SHOW PARTITIONS lists it, dt=2026-09-23, "
             "with no quotes: one in quotes matches no Partition, and the table would fail.",
-            fix=f"Give it with no quotes of its own, as {PARTITION_EXAMPLE}.",
+            fix=f"Give it with no quotes of its own, as {PARTITIONS_EXAMPLE}.",
             error=ValueError,
         )
 
 
-# A partition= as a refusal shows it.
-PARTITION_EXAMPLE = '{"dt": "2026-09-23"}'
+# A partitions= as a refusal shows it.
+PARTITIONS_EXAMPLE = '[{"dt": "2026-09-23"}]'
 
 
 def _in_quotes_of_its_own(value: str) -> bool:
@@ -4159,33 +4254,65 @@ def _in_quotes_of_its_own(value: str) -> bool:
     return len(value) > 1 and value[0] in "'\"" and value[-1] == value[0]
 
 
-def _refuse_a_partition_no_table_has(call: str, partition: object,
+def _refuse_a_partition_no_table_has(call: str, partition: dict[str, object],
                                      read: dict[str, Table]) -> None:
-    """Refuse a partition= that names a column none of the tables compared is partitioned by,
-    as a name spelt wrong: every compare would leave it out."""
-    if not isinstance(partition, dict):
-        return
+    """Refuse a Partition partitions= lists that names a column none of the tables compared is
+    partitioned by, as a name spelt wrong: every compare would leave it out."""
     columns: list[str] = []
     for table in read.values():
         if set(partition) <= set(table._partitioned_by):
             return
         columns += table._partitioned_by
     refuse(
-        what=f"{call}: partition= names {in_words(list(partition))}, which no table it "
+        what=f"{call}: partitions= names {in_words(list(partition))}, which no table it "
         "compares is partitioned by.",
-        why="Each table would be compared on its latest Partition instead, which isn't the "
-        "one you asked for.",
+        why="Each table would be compared on its latest Partition alone, without the one you "
+        "asked for.",
         fix=f"Name their partition columns ({in_words(list(dict.fromkeys(columns))) or 'none'})"
-        ", or leave partition= out.",
+        ", or take that Partition out of partitions=.",
         error=ValueError,
     )
 
 
+def _compare_lines(root: Path, table: Table, original: str | None,
+                   query: Callable[[str], pd.DataFrame],
+                   listed: list[dict[str, object]]) -> list[str]:
+    """What compare_batch says of one table: compared on the latest Partition both tables
+    hold, or on every row, then on each Partition `listed` names that it is partitioned by,
+    each result its own section of compare.md; a listed Partition that is the latest is
+    compared once, and one it isn't partitioned by is named as left out."""
+    dev = table._name
+    columns = table._partitioned_by
+    latest, said = _compare_one(root, table, original, query, None, listed)
+    lines = [f"{dev}: {said}"]
+    for partition in listed:
+        if original is None or not set(partition) <= set(columns):
+            lines.append(f"{dev}: {_partition_in_words(partition)} left out: "
+                         f"{_why_left_out(original, columns)}")
+        elif latest is None or _partition_in_words(partition) != _partition_in_words(latest):
+            compared_on = _compare_one(root, table, original, query, partition, listed)
+            lines.append(f"{dev}: {compared_on[1]}")
+    return lines
+
+
+def _why_left_out(original: str | None, columns: list[str]) -> str:
+    """Why a table isn't compared on a Partition partitions= lists: it is compared with its
+    query, or isn't partitioned by that Partition's columns."""
+    if original is None:
+        return "it is compared with its query, which no Partition is chosen for"
+    if not columns:
+        return "it has no Partitions"
+    return f"it is partitioned by {in_words(columns)}"
+
+
 def _compare_one(root: Path, table: Table, original: str | None,
-                 query: Callable[[str], pd.DataFrame],
-                 partition: dict[str, object] | None) -> str:
-    """Compare one dev table with its original, `original`, or its query when None, and
-    write the result in its conversion/compare.md: what the report says of it."""
+                 query: Callable[[str], pd.DataFrame], partition: dict[str, object] | None,
+                 listed: list[dict[str, object]]) -> tuple[dict[str, object] | None, str]:
+    """Compare one dev table with its original, `original`, or its query when None, on
+    `partition`, or the latest both hold when None, and write the result in its
+    conversion/compare.md: the Partition compared, and what the report says of it. `listed`
+    are the Partitions compared besides the latest, which its result doesn't name as left
+    unchecked."""
     dev = table._name
     stem = table_stem(dev)
     columns = table._partitioned_by
@@ -4205,11 +4332,7 @@ def _compare_one(root: Path, table: Table, original: str | None,
     try:
         chosen, described = None, "every row: it has no Partitions"
         if columns and original is not None:
-            chosen, described = _partition_to_compare(query, dev, original, columns, partition)
-        if partition is not None and chosen is not partition and _NOT_HELD not in described:
-            described += (f"; partition= names {in_words(list(partition))}, which isn't one of "
-                          f"its partition columns ({in_words(columns) or 'none'}), so it was "
-                          "left out")
+            chosen, described = _partition_to_compare(query, dev, original, partition, listed)
         if chosen is not None or not columns:
             verdict = compare_with_original(copy, hive, query=query, partition=chosen)
     # Whatever stops the compare, such as a table not there yet, is its result.
@@ -4232,7 +4355,7 @@ def _compare_one(root: Path, table: Table, original: str | None,
     _write_compare_md(root, dev, folder / COMPARED, heading,
                       _compared_on(chosen, not columns or original is None),
                       _compare_text(passed, described, verdicts, stopped))
-    return f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
+    return chosen, f"{_PASSED_OR_FAILED[passed]}, {described.removeprefix('compared ')}"
 
 
 # What a result in compare.md is headed by when it compared every row, and when it compared
@@ -4314,19 +4437,20 @@ def _compare_text(passed: bool, described: str, verdicts: list[Verdict], stopped
 
 
 def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, original: str,
-                          columns: list[str], given: dict[str, object] | None
+                          given: dict[str, object] | None, listed: list[dict[str, object]]
                           ) -> tuple[dict[str, object] | None, str]:
-    """The Partition a dev table is compared on, and how it was chosen: the one `given` names
-    when it names this table's partition columns, else the last SHOW PARTITIONS lists for both
-    the dev table and its original; None, saying why, when they hold none in common."""
+    """The Partition a dev table is compared on, and how it was chosen: the one `given`
+    names, else the last SHOW PARTITIONS lists for both the dev table and its original; None,
+    saying why, when they don't both hold it. The latest's names how many others both hold
+    that neither it nor `listed`, the Partitions compared besides it, compares."""
     ours = _partitions_listed(query, dev)
     theirs = _partitions_listed(query, original)
-    if given is not None and set(given) <= set(columns):
-        lacking = [table for table, listed in ((dev, ours), (original, theirs))
-                   if not _holds(listed, given)]
+    if given is not None:
+        lacking = [table for table, held in ((dev, ours), (original, theirs))
+                   if not _holds(held, given)]
         if lacking:
             return None, (f"{_NOT_HELD} {_partition_in_words(given)} in "
-                          f"{in_words(lacking)}: give one both hold")
+                          f"{in_words(lacking)}: list one both hold")
         return given, f"compared on {_partition_in_words(given)}, the Partition you gave"
     common = sorted(set(ours) & set(theirs))
     if not common:
@@ -4334,13 +4458,17 @@ def _partition_to_compare(query: Callable[[str], pd.DataFrame], dev: str, origin
                       f"{original}'s {_last_of(theirs)}")
     latest = dict(pair.split("=", 1) for pair in common[-1].split("/"))
     described = f"compared on {_partition_in_words(latest)}, the latest Partition both hold"
-    if len(common) > 1:
-        # One Partition is compared: the others both hold are named as left unchecked.
-        others = len(common) - 1
+    # The others both hold, each named as left unchecked unless PARTITIONS lists it.
+    others = 0
+    for each in common[:-1]:
+        if not _is_listed(each, listed):
+            others += 1
+    if others:
         described += (f"; {counted(others, 'other Partition')} both tables hold "
                       f"{singular_or_plural(others, 'was', 'were')} not compared: to compare "
-                      f'one, set PARTITION = {{"{next(iter(latest))}": "..."}} in the convert '
-                      "notebook's names cell, run it, and run step 7 again")
+                      f'one, add it to PARTITIONS, such as PARTITIONS = [{{"'
+                      f'{next(iter(latest))}": "..."}}], in the convert notebook\'s names '
+                      "cell, run it, and run step 7 again")
     return latest, described
 
 
@@ -4354,6 +4482,12 @@ def _holds(partitions: list[str], given: dict[str, object]) -> bool:
     `given` names, such as dt=2026-09-24."""
     wanted = {f"{column}={value}" for column, value in given.items()}
     return any(wanted <= set(partition.split("/")) for partition in partitions)
+
+
+def _is_listed(shown: str, listed: list[dict[str, object]]) -> bool:
+    """Whether a Partition as SHOW PARTITIONS lists it, such as dt=2026-09-23, is one of
+    those `listed` names."""
+    return any(_holds([shown], partition) for partition in listed)
 
 
 def _partitions_listed(query: Callable[[str], pd.DataFrame], table: str) -> list[str]:
