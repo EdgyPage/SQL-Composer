@@ -2238,8 +2238,8 @@ it.
 - DECISIONS holds each answer by table, as `project.check()` writes it, each by its kind:
   `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"]}}`;
   the next step writes each into its table's Table reference.
-- "Run up to your Decisions", then "Run the rest" (new_table), or the last cell (the others),
-  runs every step left, up to the first the user must do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest" (new_table, references), else the last
+  cell, runs every step left, to the first the user must do; `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 
@@ -2336,8 +2336,8 @@ it.
 ## Example
 
 The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
-notebook's names cell, its decisions cell once the table's location is known, then its last
-cell, which makes the table from the query, writes it in dev and compares it with the query:
+notebook's names cell, its decisions cell once the table's location is known, then "Run the
+rest", which makes the table from the query, writes it in dev and compares it with the query:
 
 ```python
 TABLES = ["mart_dev.failed_per_job"]

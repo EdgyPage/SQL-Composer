@@ -15,7 +15,8 @@ grow as each part is built; its Upgrade, from 8.4, comes with the version.
   the rest", which goes on from there. Each step's own cell is below, under "Step by step",
   and `project.do_next()` is the last cell. change_a_saved_table and upgrade keep their last
   cell, `project.run_workflow(...)`. Before, the decisions cell sat at the top, under the
-  names cell, and `project.check()`, which prints what to paste into it, under step 2.
+  names cell, and `project.check()`, which prints what to paste into it, under the step that
+  asks for the Decisions.
 
 ### Fixed
 
