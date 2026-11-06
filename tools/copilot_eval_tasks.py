@@ -51,6 +51,7 @@ OBJECTIVES = {
     "13": "a Workflow: convert",
     "14": "a Workflow: new tables and upkeep",
     "16": "a Workflow: promote",
+    "17": "Run values, answers for every table, and seed limits",
 }
 
 # What the answer must assign, by kind.
@@ -177,8 +178,39 @@ TAGS_COMPARED = FAILS_COMPARED.replace(
     '    "tags": {"RUN_DAY": "\'2026-09-24\'", "STATUS": "FAILED"},\n'
     '}}')
 
+# Toolbox 8.4: the user's Run value, the latest day ops.job_runs holds, in their Project; the
+# tagged script as the scheduler ran it, that day filled in; and a script that reads itself,
+# which the team's job has run.
+RUN_VALUES = '''"""Run values: what a Script tag stands for, worked out each time a table is
+written."""
+
+import datetime
+
+from sqlglot_composer import latest_partition
+from references.ops__job_runs import job_runs
+from warehouse import query
+
+
+def period_end() -> datetime.date:
+    """The latest day ops.job_runs holds."""
+    return latest_partition(job_runs.dt, query)
+'''
+TAGGED_FAILS_RAN = ("CREATE TABLE IF NOT EXISTS mart.daily_fails (job_id BIGINT, "
+                    "fails BIGINT)\nPARTITIONED BY (dt STRING);\n\n"
+                    + TAGGED_FAILS.replace('<PARM="RUN_DAY"/>', "'2026-09-24'"))
+FAIL_LOG = """SET hive.exec.dynamic.partition.mode=nonstrict;
+CREATE TABLE IF NOT EXISTS mart.fail_log (run_id BIGINT, job_id BIGINT)
+PARTITIONED BY (dt STRING);
+
+INSERT INTO TABLE mart.fail_log PARTITION (dt)
+SELECT r.run_id, r.job_id, r.dt
+FROM ops.job_runs r
+WHERE r.dt >= '2026-09-23' AND r.status = 'FAILED'
+AND r.run_id NOT IN (SELECT l.run_id FROM mart.fail_log l);
+"""
+
 # A new table's query, as the user saved it.
-OK_RUNS = """SELECT r.job_id, COUNT(*) AS oks
+OK_RUNS ="""SELECT r.job_id, COUNT(*) AS oks
 FROM ops.job_runs r
 WHERE r.dt = '2026-09-24' AND r.status = 'SUCCESS'
 GROUP BY r.job_id
@@ -967,6 +999,98 @@ QUERIES = {"ok_runs": "ok_runs.hql"}
 project.new_table(TABLES, queries=QUERIES)
 ''', tables=("job_runs",), workflow="new_table",
          files={"admin/workflows/new_table/ok_runs.hql": OK_RUNS}),
+    # --- 17 Run values, answers for every table, and seed limits (Toolbox 8.4) ---------------
+    Task("T47", "17", "dev",
+         "I converted daily_fails.hql as the batch named fails (NAME = \"fails\"). Its "
+         "scheduler puts a new day in place of <PARM=\"RUN_DAY\"/> each night: the latest day "
+         "ops.job_runs holds, which period_end() in my building_blocks/run_values.py gives. "
+         "project.check() says mart_dev.daily_fails_mart's dt type, written \"string\" as a "
+         "guess, its location and RUN_DAY are open. dt is a string, and every table's folder "
+         "goes under /data/team. Give the convert notebook's decisions cell, answered, and the "
+         "cell that writes the answers in.",
+         "workflow", '''from building_blocks.run_values import period_end
+
+NAME = "fails"
+DECISIONS = {
+    "all_tables": {"location_root": "/data/team", "tags": {"RUN_DAY": period_end}},
+    "mart_dev.daily_fails_mart": {"types": {"dt": "string"}},
+}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": TAGGED_FAILS,
+                "building_blocks/run_values.py": RUN_VALUES},
+         before='''project.convert("fails", None, files=["daily_fails.hql"], query=query)
+'''),
+    Task("T48", "17", "dev",
+         "I converted fail_log.hql as the batch named log (NAME = \"log\"): "
+         "mart_dev.fail_log_mart reads itself, so the convert notebook seeds it from "
+         "mart.fail_log, which holds years of days. Copy only its Partitions from 2026-09-24 "
+         "on. No columns name one row of it, and its folder is "
+         "/data/team/mart_dev.db/fail_log. Give the decisions cell, answered, then each "
+         "step's cell from writing the answers in through the seed.",
+         "workflow", '''NAME = "log"
+DECISIONS = {"mart_dev.fail_log_mart": {
+    "location": "/data/team/mart_dev.db/fail_log",
+    "key": None,
+    "seed": {"dt": {"from": "2026-09-24"}},
+}}
+
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)
+to_seed = project.batch_tables(NAME, seeded=True)
+if not to_seed:
+    print("Seeded nothing: no table of the batch reads itself.")
+else:
+    run_execute(hive_settings("dynamic_partitions"), execute)
+    for table in to_seed:
+        run_execute(project.load(table).seed(), execute)
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/fail_log.hql": FAIL_LOG},
+         originals=FAIL_LOG,
+         before='''project.convert("log", None, files=["fail_log.hql"], query=query)
+'''),
+    Task("T49", "17", "held_out",
+         "I have daily_fails.hql from the ops team, saved in admin/workflows/convert/. Their "
+         "scheduler puts the latest day ops.job_runs holds in place of <PARM=\"RUN_DAY\"/> "
+         "each night, and period_end() in my building_blocks/run_values.py gives that day. "
+         "Convert it into my Dev Database as a batch named fails, RUN_DAY worked out at each "
+         "run, and take it all the way through the compare: give every step's cell, in order. "
+         "convert names the table mart_dev.daily_fails_mart; dt is a string, and every "
+         "table's folder goes under /data/team.",
+         "workflow", '''from building_blocks.run_values import period_end
+
+NAME = "fails"
+FILES = ["daily_fails.hql"]
+HIVE = None
+DATABASE = "default"
+RENAME = {}
+STAGING = {}
+PARTITION = None
+DECISIONS = {
+    "all_tables": {"location_root": "/data/team", "tags": {"RUN_DAY": period_end}},
+    "mart_dev.daily_fails_mart": {"types": {"dt": "string"}},
+}
+
+project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
+                rename=RENAME, staging=STAGING)
+project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
+for table in project.batch_tables(NAME):
+    run_execute(project.load(table).create(), execute)
+to_seed = project.batch_tables(NAME, seeded=True)
+if not to_seed:
+    print("Seeded nothing: no table of the batch reads itself.")
+else:
+    run_execute(hive_settings("dynamic_partitions"), execute)
+    for table in to_seed:
+        run_execute(project.load(table).seed(), execute)
+project.run_tables(tables=project.batch_tables(NAME), execute=execute)
+project.compare_batch(NAME, query=query, partition=PARTITION)
+''', tables=("job_runs",), workflow="convert",
+         files={"admin/workflows/convert/daily_fails.hql": TAGGED_FAILS,
+                "building_blocks/run_values.py": RUN_VALUES},
+         originals=TAGGED_FAILS_RAN),
 )
 
 BY_ID = {task.id: task for task in TASKS}

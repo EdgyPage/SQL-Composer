@@ -19,7 +19,10 @@ line.
 - If the Project was made by Toolbox 7.1 or later, `project.upgrade()` carries it: from 7.1 on,
   every Toolbox version ships the step that carries a Project to it from the version before.
 - If you skipped versions, copy in the newest and upgrade once: `project.upgrade()` runs each
-  version's step in turn, from the Project's version to the Toolbox's.
+  version's step in turn, from the Project's version to the Toolbox's. If Toolbox 8.3 or a later
+  version last wrote your Project, it upgrades straight to the newest, as each new Toolbox is
+  tested to do on its Example projects. A Project that 7.1 to 8.2 last wrote upgrades the same
+  way, though no test runs its whole chain of steps.
 - If you have no Project yet, do [Start a Project](#start_a_project) first, and read
   [Keep the Project in order](#keep_the_project_in_order) for `project.check()`.
 
@@ -67,8 +70,10 @@ Done when `project.check()` names the version that last wrote the Project. Then 
 ### 3. Upgrade it
 
 Goal: the Project's files carried to this Toolbox. Run `project.upgrade()` from a notebook in
-the Project: the first time, in a new cell of admin/check_project.ipynb, which imports
-`project` already.
+the Project. If the Project has admin/workflows/upgrade/upgrade.ipynb, as one 8.0 or later made
+does, run its step 1 cell, which is this call. If it has none, as here, run the call from
+admin/check_project.ipynb, which imports `project` already; the Upgrade adds the upgrade
+notebook, for the next time.
 
 >>> print(project.upgrade())
 Upgraded the Project from 7.2 to 8.3.

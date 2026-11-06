@@ -71,6 +71,13 @@ it.
 - DECISIONS holds each answer by the prod copy's name as `project.check()` writes it, each
   by its kind: `{"team_prod.daily_fails": {"location": "/data/team/team_prod.db/daily_fails"}}`;
   the next step writes each into its prod copy's Table reference.
+- A prod copy keeps its dev table's TAGS, a Run value's function among them, called at each
+  write in prod too.
+- A prod copy that reads itself is seeded from its original once, at step 5, copying every
+  Partition unless its own "seed" answer limits them, as in
+  `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
+  answer isn't carried over, since prod often needs more of the original's history than a dev
+  compare did. "all_tables" answers every prod copy at once: file 17 says how.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
   user can do; `dry_run=True` sends nothing.
 

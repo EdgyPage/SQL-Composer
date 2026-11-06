@@ -613,8 +613,8 @@ The convert Workflow, `admin/workflows/convert/convert.ipynb`, makes a **Convers
 with several INSERTs and an INSERT that reads its own table each come out as Saved tables, and
 a temporary table another statement reads, a **staging table**, is folded into the tables that
 read it. A **Script tag**, a `<PARM="NAME"/>` the program that ran the scripts filled in before
-Hive read it, such as `WHERE dt <= <PARM="PERIOD_END"/>`, is read past where a value goes, and
-left for you to answer, once for each table it ends up in, since it may stand for a different
+Hive read it, such as `WHERE dt <= <PARM="PERIOD_END"/>`, is converted as a value standing
+there, and left for you to answer, once for each table it ends up in, since it may stand for a different
 value in each.
 
 1. **Save the scripts.** Goal: the Workflow can read them. Action: save them beside it, in
@@ -647,17 +647,37 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 4. **Answer each Decision.** Goal: what only you can decide. Action: answer each table's
    Decisions, such as its folder and each Script tag's value, in the notebook's decisions cell,
    and save it: the convert step and `project.check()` print a whole `DECISIONS = {...}` to
-   paste there, each answer to give `"<FILL IN>"`. A bare tag is answered with the value's own
-   quotes, `{"tags": {"PERIOD_END": "'2026-10-31'"}}`, and one inside quotes,
-   `'<PARM="STATUS"/>'`, with none, `{"tags": {"STATUS": "failed"}}`. A day that changes each
-   run is answered `"'${hivevar:period_end}'"`, with a `SET hivevar:period_end=...` line kept
-   in the script. To change an answer, answer it again, then run step 5's steps again: write
-   the answers in, write each table, and compare each. Done when each table's Decisions are
-   answered; then step 5.
+   paste there, each answer not given yet shown as `"<FILL IN>"`. Done when each table's
+   Decisions are answered; then step 5. Each answer, by the rules below:
+   - If a tag stands alone, bare, answer it with the value's own quotes,
+     `{"tags": {"PERIOD_END": "'2026-10-31'"}}`; if it stands inside quotes,
+     `'<PARM="STATUS"/>'`, with none, `{"tags": {"STATUS": "failed"}}`.
+   - If a tag stands for a day that changes each run, answer it with a **Run value**, the
+     value a function of yours gives each time the table is written. Write the function in
+     your Project, such as `period_end` in building_blocks/run_values.py, which gives the
+     latest day a table holds with `latest_partition(job_runs.dt, query)`. Import it at the
+     top of the decisions cell and give its name, with no brackets:
+     `{"tags": {"PERIOD_END": period_end}}`. The Hive sent holds the day itself, a date as
+     `'2026-10-31'`; `show_hive`, in the Table notebook's "Try it" cell, shows it first.
+   - If you wrote a Run value's file, register it once: `project.check()` names it as made by
+     hand, with the call to run in the `project.register(...)` cell of
+     `admin/check_project.ipynb`, `project.register("run_values")`.
+   - If several tables share an answer, give it once under `"all_tables"`, and a table's own
+     answer overwrites it: `{"all_tables": {"location_root": "/data/team", "tags":
+     {"PERIOD_END": period_end}}}` gives each table with no location its own folder under
+     `/data/team`, and each table holding PERIOD_END that function.
+   - If a table reads itself, its seed copies every Partition of its original unless you
+     limit it, by partition column: `{"seed": {"dt": {"from": "2026-01-01"}}}` copies those
+     from 2026-01-01 on; a list, `{"region": ["US", "CA"]}`, those values alone. A single
+     value, `{"dt": "2026-01-01"}`, means **that value or later**.
+   - If an answer was wrong, answer it again, then run the notebook's steps 3, 6 and 7 again:
+     write the answers in, write each table, and compare each. Each table is made and seeded
+     already, so steps 4 and 5 stay done.
 5. **Build each table in dev.** Goal: each table written in dev and compared. Action: run the
    Workflow's next steps: they write your answers in, create each table in dev, seed each whose
    write reads its own table (copy its **original**'s rows in once, the original being the
-   table the script writes, so its first write doesn't start from nothing), write each, and
+   table the script writes, so its first write doesn't start from nothing, each Partition or
+   those its `"seed"` answer names), write each, and
    compare each with the table it copies, `project.compare_batch`. A partitioned table is
    compared on the latest Partition both tables hold. If you want another Partition compared
    too, once your dev table holds it, then set `PARTITION` in the names cell, such as
@@ -1379,11 +1399,16 @@ Goal: the new Toolbox copied in, and your Project carried to its version.
    has restarted; then step 5.
 5. **Bring your Project to the new version.** Action: by the rules below. Done when
    `project.check()` lists no UPGRADE mark left.
-   - If your Project was made by Toolbox 7.1 or newer, upgrade it: run `project.upgrade()` in a
-     new cell of `admin/check_project.ipynb`, which imports `project` already, or of
-     `admin/workflows/upgrade/upgrade.ipynb` once your Project has one (`project.start()` writes
-     it, and an Upgrade adds it to a Project made before 8.0). Then work through the boxes in
-     the checklist it writes in admin/, named for the version, such as upgrade_7.3.md.
+   - If your Project was made by Toolbox 7.1 or newer, upgrade it: run step 1's cell,
+     `project.upgrade()`, of `admin/workflows/upgrade/upgrade.ipynb` (`project.start()` writes
+     it, and an Upgrade adds it to a Project made before 8.0). If your Project has none, as one
+     made before 8.0 hasn't, run `project.upgrade()` from `admin/check_project.ipynb`, which
+     imports `project` already. Then work through the boxes in each checklist it writes in
+     admin/, one for each version it upgraded through, named for the version, such as
+     upgrade_8.4.md: the upgrade's report ends by naming each, in order.
+   - If you skipped versions, copy in the newest and upgrade once: it runs each version's step
+     in turn. From 8.3 on, the Toolbox's tests upgrade each version's Example projects straight
+     to the newest.
    - If your Project was made before 7.1, bring it to 7.1 by hand first, then upgrade it as
      above: in `CHANGES.md`, at the top of the download, read the "To update" part of every
      version newer than yours, up to 7.1's. The newest comes first, so start at your version's
