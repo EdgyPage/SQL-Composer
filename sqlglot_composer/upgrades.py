@@ -267,12 +267,14 @@ def _texts_of(path: Path) -> list[tuple[int | None, str, str]]:
     return [(number, kind, text) for number, (kind, text) in enumerate(cells, 1)]
 
 
-def calls_to(root: Path, function: str) -> list[tuple[str, int | None, int]]:
+def calls_to(root: Path, function: str,
+             keyword: str | None = None) -> list[tuple[str, int | None, int]]:
     """Each line of the Project's code that calls `function`, by its name or as an attribute,
     such as project.finish_conversion(...), as (its file, its cell or None, its line), each
     counted from 1, outside the Toolbox's folder and admin/removed/: code only, a .py file's or
-    a notebook's code cell's, and never a docstring or comment that names it. A cell's %magic
-    and !command lines are read as blank; code Python still can't read is passed over."""
+    a notebook's code cell's, and never a docstring or comment that names it. With `keyword`,
+    only a call that gives it, such as partition=. A cell's %magic and !command lines are read
+    as blank; code Python still can't read is passed over."""
     found = []
     for path in _searched_files(root):
         relative = path.relative_to(root).as_posix()
@@ -284,9 +286,15 @@ def calls_to(root: Path, function: str) -> list[tuple[str, int | None, int]]:
             except SyntaxError:
                 continue
             lines = {node.lineno for node in ast.walk(tree)
-                     if isinstance(node, ast.Call) and _called_name(node.func) == function}
+                     if isinstance(node, ast.Call) and _called_name(node.func) == function
+                     and _gives(node, keyword)}
             found += [(relative, cell, line) for line in sorted(lines)]
     return found
+
+
+def _gives(call: ast.Call, keyword: str | None) -> bool:
+    """Whether a call gives `keyword`, as partition=...; any call does when it is None."""
+    return keyword is None or any(given.arg == keyword for given in call.keywords)
 
 
 def _without_magics(text: str) -> str:
@@ -920,5 +928,150 @@ def _logic_reading_tags_through_tag_text(text: str, bare: set[str]) -> str:
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds. A Project may skip versions, so a step may not assume the version just before it wrote
 # the Project, only that each earlier step ran.
+def to_8_5(upgrade: Upgrade) -> None:
+    """8.4 to 8.5: admin/databases.py's DEV and PROD, each a Database's name, become Database
+    settings, {"database": ...}, each with a "location_root" marked to fill in, the folder its
+    tables' files go under. convert's PARTITION is carried into PARTITIONS, a list, as each
+    Workflow notebook is written again top to bottom, each name given and each step cell you
+    wrote in kept. An all_tables location_root in a decisions cell is marked, as it is a
+    Database setting now; so is each prod copy that imports dev's Building blocks, as one
+    promoted before 8.5 does, which promoting its dev table again gives prod's own copies."""
+    partition = _partition_8_4_gave(upgrade.root)
+    _databases_as_settings(upgrade)
+    _write_workflow_notebooks_again(upgrade)
+    if partition is not None:
+        _partitions_given(upgrade.root, partition)
+    _mark_all_tables_location_root(upgrade)
+    _mark_prod_copies_importing_dev_blocks(upgrade)
+    # Last first: a mark moves the lines below it down, so each line found holds.
+    for relative, cell, line in reversed(calls_to(upgrade.root, "compare_batch",
+                                                  keyword="partition")):
+        upgrade.mark(relative, line, _PARTITION_GIVEN, cell=cell)
+
+
+# A Database's name, as 8.4 wrote it in admin/databases.py, such as DEV = "mart_dev".
+_DATABASE_NAMED = re.compile(r'^(DEV|PROD) = "([^"]*)"[^\n]*$', re.MULTILINE)
+# A Table reference's location= line, such as location="/data/team/mart_dev.db/weekly",
+_LOCATION_LINE = re.compile(r'^\s*location="([^"]*)"', re.MULTILINE)
+
+
+def _databases_as_settings(upgrade: Upgrade) -> None:
+    """Write admin/databases.py as this version's project.start() does, DEV and PROD Database
+    settings, each holding the name 8.4 gave it, its "location_root" left <...> and marked,
+    naming the folder an 8.4 location used under it. The file as it was is kept."""
+    from .project import DATABASES_TEXT  # project.py imports this file
+
+    relative = "admin/databases.py"
+    path = upgrade.root / relative
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    found = list(_DATABASE_NAMED.finditer(text))
+    if not found:
+        return
+    text = DATABASES_TEXT
+    for match in found:
+        which, name = match.group(1), match.group(2)
+        text = text.replace(f'"database": "<{which}_DATABASE>"', f'"database": "{name}"')
+    upgrade.rewrite(relative, text)
+    lines = text.split("\n")
+    for match in reversed(found):
+        which, name = match.group(1), match.group(2)
+        line = next(number for number, each in enumerate(lines, 1)
+                    if each.startswith(f"{which} = {{"))
+        upgrade.mark(relative, line, _root_to_fill(upgrade.root, which, name))
+
+
+def _root_to_fill(root: Path, which: str, database: str) -> str:
+    """What a "location_root" mark says to fill in: the folder `which`'s tables go under, and
+    the one a Table reference's location shows them under today, when one does."""
+    said = (f'fill in "location_root", the folder {which}\'s tables\' files go under: each '
+            "table with no location of its own is placed <location_root>/<database>.db/<table>")
+    for reference in sorted((root / "references").glob("*.py")):
+        for location in _LOCATION_LINE.findall(reference.read_text(encoding="utf-8")):
+            if f"/{database}.db/" in location:
+                used = location.split(f"/{database}.db/")[0]
+                return f'{said}; {reference.name} shows "{used}"'
+    return said
+
+
+def _partition_8_4_gave(root: Path) -> str | None:
+    """The Partition convert's names cell gave in 8.4's PARTITION, as written, such as
+    {"dt": "2026-09-23"}; None when it gave none or the notebook isn't there."""
+    path = root / CONVERT_NOTEBOOK_8_1
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    for kind, text in cells or []:
+        lines = text.split("\n") if kind == "code" else []
+        for line in lines:
+            if line.startswith("PARTITION = "):
+                value = line.removeprefix("PARTITION = ").split("  #")[0].strip()
+                return None if value == "None" else value
+    return None
+
+
+def _partitions_given(root: Path, partition: str) -> None:
+    """Carry the Partition 8.4's PARTITION gave into the convert notebook's PARTITIONS, as
+    written again, a list of it."""
+    path = root / CONVERT_NOTEBOOK_8_1
+    for number, (kind, text) in enumerate(read_cells(path), 1):
+        if kind == "code" and "\nPARTITIONS = []" in f"\n{text}":
+            lines = [f"PARTITIONS = [{partition}]" + line.removeprefix("PARTITIONS = []")
+                     if line.startswith("PARTITIONS = []") else line
+                     for line in text.split("\n")]
+            write_cell_text(path, number, "\n".join(lines))
+            return
+
+
+# The mark on an all_tables location_root a decisions cell kept, and on a prod copy's import
+# of dev's Building block.
+_ROOT_IN_DECISIONS = ('location_root is a Database setting now: give it as "location_root" in '
+                      "DEV and PROD, in admin/databases.py, and take it out here, as "
+                      "all_tables refuses it")
+_DEV_BLOCK_IN_PROD = ("this prod copy imports dev's Building block: promote its dev table "
+                      "again, which gives it prod's own copy, in building_blocks/prod/")
+# The mark on a call of the user's giving compare_batch 8.4's partition=, which 8.5 refuses.
+_PARTITION_GIVEN = ('compare_batch takes partitions=, a list, in place of partition=: write '
+                    'partitions=[{"dt": "..."}], each Partition to compare besides the latest')
+_DEV_BLOCK_IMPORT = re.compile(r"^\s*(from|import) building_blocks\.(?!prod\.)")
+
+
+def _mark_all_tables_location_root(upgrade: Upgrade) -> None:
+    """Mark the location_root a Workflow notebook's decisions cell gives under all_tables."""
+    for path in sorted((upgrade.root / "admin" / "workflows").glob("*/*.ipynb")):
+        for number, (kind, text) in enumerate(read_cells(path), 1):
+            if kind != "code" or not text.startswith("DECISIONS ="):
+                continue
+            for line, each in enumerate(text.split("\n"), 1):
+                if '"location_root"' in each and not each.lstrip().startswith("#"):
+                    upgrade.mark(path.relative_to(upgrade.root).as_posix(), line,
+                                 _ROOT_IN_DECISIONS, cell=number)
+                    break
+
+
+def _mark_prod_copies_importing_dev_blocks(upgrade: Upgrade) -> None:
+    """Mark the first import of dev's Building block in each prod copy's notebook."""
+    from .project_files import table_stem  # project_files imports this file's caller
+    from .workflows import promoted_record  # workflows imports this file
+
+    for prod in sorted(promoted_record(upgrade.root)):
+        stem = table_stem(prod)
+        path = upgrade.root / "tables" / stem / f"{stem}.ipynb"
+        if not path.is_file():
+            continue
+        found = _first_dev_block_import(path)
+        if found is not None:
+            upgrade.mark(path.relative_to(upgrade.root).as_posix(), found[1],
+                         _DEV_BLOCK_IN_PROD, cell=found[0])
+
+
+def _first_dev_block_import(path: Path) -> tuple[int, int] | None:
+    """The cell and line of a notebook's first import of dev's Building block, or None."""
+    for number, (kind, text) in enumerate(read_cells(path), 1):
+        lines = text.split("\n") if kind == "code" else []
+        for line, each in enumerate(lines, 1):
+            if _DEV_BLOCK_IMPORT.match(each):
+                return number, line
+    return None
+
+
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
-                                               "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4}
+                                               "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4,
+                                               "8.5": to_8_5}

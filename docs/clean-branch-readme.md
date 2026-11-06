@@ -277,12 +277,31 @@ Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs
 Restart the kernel of a notebook that imported references, to see a table added since.
 ```
 
+   "Run up to your Decisions" then stops at the Decisions, and under the lines above prints a
+   whole `DECISIONS` to paste into the decisions cell, which holds the `"all_tables"` line its
+   report names:
+
+```python
+DECISIONS = {
+    "all_tables": {  # answers for every table of this notebook; a table's own answer, under its name, overrides it
+        "key": "proposed",  # accepts each table's proposed Key, marked # proposed in its Table reference, as if typed
+    },
+}
+```
+
+   A Key add_references proposes, from the table's rows, stays open, written
+   `key=None,  # TODO: proposed ["run_id"], checked`, until you accept it in the decisions
+   cell: a few Partitions are evidence, not a promise. "fill in their TODO lines" means that
+   `key=` line, accepted in the next step, and, for a table it proposed no Key for, its first
+   line too, what one row is, which no Key could propose. Every other line it proposed is
+   marked `# proposed`, and blocks nothing.
 3. **Accept each Key.** Goal: each table's Key, the one Decision it waits on. Action: paste
-   what it printed into the decisions cell, under "Run up to your Decisions", by the rules
-   below, save the notebook, and run "Run the rest", which writes each answer in. Done when
-   no `key=None,  # TODO` line is left; then step 4.
-   - If you agree with every proposed Key, write `DECISIONS = {"all_tables": {"key":
-     "proposed"}}`, which writes each as if you typed it.
+   the whole `DECISIONS` it printed over the `DECISIONS = {}` line of the decisions cell,
+   under "Run up to your Decisions", change it by the rules below, save the notebook, and
+   run "Run the rest", which writes each answer in. Done when no `key=None,  # TODO` line is
+   left; then step 4.
+   - If you agree with every proposed Key, keep it as printed:
+     `DECISIONS = {"all_tables": {"key": "proposed"}}` writes each as if you typed it.
    - If a Key is another, give it under the table's name, which wins over "all_tables":
      `{"ops.job_runs": {"key": ["run_id", "dt"]}}`; `"key": None` says no columns name one row.
    - If it proposed none, as for a table with no id column, its line says why: give its Key
@@ -677,8 +696,9 @@ value in each.
    leave `FILES = []`; fill in DEV's `"database"` and `"location_root"` in
    `admin/databases.py`, so each table is placed in a folder of its own under that root; and
    save the notebook. Each table the batch makes in dev is named by the rules below; you may
-   give one a name of your own in the names cell's `RENAME`. Done when both are filled in;
-   then step 3.
+   give one a name of your own in the names cell's `RENAME`. Done when both are filled in
+   and saved: the names cell's `NAME` (and `FILES`, unless left `[]`), and DEV's
+   `"database"` and `"location_root"` in `admin/databases.py`; then step 3.
    - If a script writes a table, such as `INSERT OVERWRITE TABLE mart.team_fails`, its copy in
      dev is named for that table, then the original's database: `mart_dev.team_fails_mart`,
      so two databases' tables of one name stay apart in your Dev Database. If you want
@@ -715,9 +735,9 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
    - If a tag stands for a day that changes each run, answer it with a **Run value**, the
      value a function of yours gives each time the table is written. For the latest day a
      table holds, write at the top of the decisions cell
-     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")`, then the
-     import line it prints, `from building_blocks.run_values import period_end`, and run the
-     cell once: it writes the function into building_blocks/run_values.py and registers the
+     `project.new_run_value("period_end", latest_partition="ops.job_runs.dt")`, then, under
+     it, this import line, which the call also prints:
+     `from building_blocks.run_values import period_end`; and run the cell once: it writes the function into building_blocks/run_values.py and registers the
      file. Run again as it is, it changes nothing. Then give the function's name, with no
      brackets: `{"tags": {"PERIOD_END": period_end}}`. The Hive sent holds the day itself, a
      date as `'2026-10-31'`; `show_hive`, in the Table notebook's "Try it" cell, shows it
@@ -730,6 +750,12 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
      answer overwrites it: `{"all_tables": {"key": "proposed", "tags": {"PERIOD_END":
      period_end}}}` accepts each table's proposed Key, as if typed, and gives each table
      holding PERIOD_END that function. A guessed type is each table's own.
+   - If a table's Key was proposed by convert, worked out of its query, such as its GROUP
+     BY, it is written in its Table reference marked `# proposed`, and kept even if you
+     leave it unanswered: `"key": "proposed"` only takes off the mark, and a `"key"` of your
+     own replaces it. This differs from the references Workflow, whose Key, proposed from the
+     table's rows, stays open until you accept it. A table with no Key proposed, such as one
+     that reads itself, waits on its `"key"`: give its columns, or `None`.
    - If a location is a Decision, DEV's `"location_root"` is not filled in yet: fill it in,
      or answer `"location"` for that table.
    - If a table reads itself, its seed copies every Partition of its original unless you
@@ -753,9 +779,12 @@ project.convert("ops_reports", files=["daily.hql", "weekly.hql"], query=query)
 6. **Promote them.** Goal: the tables in your Prod Database. Action: fill in PROD's
    `"database"` and `"location_root"` in `admin/databases.py`, then run the promote
    Workflow's cells top to bottom with `TABLES = []` left empty, which promotes every
-   finished table not promoted yet, or changed in dev since, naming each and why.
-   `project.promote` carries each to your Prod Database, keeping its name unless `rename=`
-   gives it another. Done when each is written in prod. What it carries, by the rules below:
+   finished table not promoted yet, or changed in dev since, naming each and why. The
+   names cell's `[]` is read by the run cells, `project.run_workflow`, which work out those
+   tables; `project.promote`, the call in step 1's own cell under Step by step, takes the
+   tables by name, and refuses `project.promote([])`, naming the run cells. It carries each
+   to your Prod Database, keeping its name unless `rename=` gives it another. Done when each
+   is written in prod. What it carries, by the rules below:
    - If a prod copy was promoted before, it keeps that location; if not, it is placed under
      PROD's `"location_root"`; if that is not filled in, its location is a Decision, in the
      DECISIONS it prints.
@@ -796,8 +825,14 @@ The convert, promote, new_table and references notebooks read top to bottom, in 
    under it, fill in each `"<FILL IN>"`, and save the notebook. Done when it is saved; then
    step 4.
 4. **Run the rest.** Action: run the cell under the decisions cell, "Run the rest", which goes
-   on from where it stopped. Done when it says every step is done. If an answer was wrong,
-   mend it in the decisions cell and run "Run the rest" again: still downward.
+   on from where it stopped. Done when it says every step is done. It is the same call as
+   step 2's, `project.run_workflow(...)`, run once before you answer and once after, and each
+   run stops at the first step only you can do. So "Run the rest" can stop again, by the
+   rules below:
+   - If an answer was wrong, or a Decision is left open, it names it: mend it in the
+     decisions cell, save, and run "Run the rest" again. You never go back up the notebook.
+   - If a step is refused, or a compare fails, it names why: mend what it names, then run
+     "Run the rest" again.
 
 How the rest of a notebook runs, by the rules below:
 

@@ -1,0 +1,21 @@
+-- Events and failures per team and day, as the ops team wrote it
+WITH ev AS (
+  SELECT e.job_id, e.dt, e.event_type
+  FROM ops.job_events e
+  WHERE e.dt BETWEEN '2026-09-20' AND '2026-09-24'
+    AND e.event_type IN ('start', 'retry', 'fail', 'finish')
+), per_team AS (
+  SELECT o.team, ev.dt,
+         COUNT(*) AS events,
+         SUM(CASE WHEN ev.event_type = 'fail' THEN 1 ELSE 0 END) AS fails
+  FROM ev
+  JOIN ops.job_owners o ON o.job_id = ev.job_id AND o.dt = ev.dt
+  GROUP BY o.team, ev.dt
+)
+INSERT OVERWRITE TABLE ops_reports.team_failures PARTITION (dt)
+SELECT p.team,
+       CASE p.team WHEN 'data' THEN 'Data platform' WHEN 'web' THEN 'Web' ELSE 'Other' END AS team_name,
+       p.events,
+       p.fails,
+       p.dt
+FROM per_team p

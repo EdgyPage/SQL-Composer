@@ -4,8 +4,32 @@ What changed in each Toolbox version, in plain words. The newest version comes f
 
 ## 8.5
 
-8.5 takes away steps you do by hand in the Workflows, each doing what it did before. Its notes
-grow as each part is built; its Upgrade, from 8.4, comes with the version.
+8.5 takes away steps you do by hand in the Workflows, each doing what it did before: the
+Workflow notebooks read top to bottom, the names cell fills in what the code knows, proposals
+are accepted at once, and a Run value is written for you. `admin/databases.py` holds each
+Database's settings, its tables placed under its own folder, and promote gives prod its own
+copies of your Building blocks.
+
+### To update from 8.4
+
+- **Copy in 8.5's `sqlglot_composer` folder**, as the README's Update says, then **run
+  `project.upgrade()`**, step 1's cell of `admin/workflows/upgrade/upgrade.ipynb`, and work
+  through `admin/upgrade_8.5.md`. A Project 8.3 last wrote upgrades straight to 8.5 the same
+  way, each step in turn.
+- **`admin/databases.py` is written again**, DEV and PROD each a dict of Database settings
+  holding the name you gave: fill in each `"location_root"` its `# UPGRADE 8.5:` mark asks
+  for, the folder that Database's tables go under. As an example of the folder you use
+  today, the mark names one Table reference whose location is in that Database, and the
+  folder its location starts with. Until you do, each new table's location is a Decision, as
+  in 8.4.
+- **Each Workflow notebook is written again top to bottom**, each name and answer you gave
+  kept. convert's `PARTITION` is carried into `PARTITIONS`, a list of it.
+- **Marked for you**: a `"location_root"` under `"all_tables"` in a decisions cell, now a
+  Database setting; and, in a table you promoted before 8.5, its prod copy's notebook, at
+  the first line importing a Building block from building_blocks/, which is dev's copy of it:
+  promote its dev table again, and the prod table imports prod's own copy, in
+  building_blocks/prod/.
+- **A batch finished before 8.5 keeps its copy of its scripts**, as 8.4 wrote it.
 
 ### What's new
 
@@ -37,8 +61,10 @@ grow as each part is built; its Upgrade, from 8.4, comes with the version.
   every batch. Two scripts where one reads a table the other writes are refused, naming the
   pair, as are two files of one name.
 - **promote's TABLES left [] promotes every finished table** not promoted yet, or changed in
-  dev since, and each dev table one of those reads, naming each and why.
-  `project.promote([])` is refused, naming the run cells.
+  dev since, and each dev table one of those reads, naming each and why. The names cell's
+  `[]` is read by the run cells, `project.run_workflow`, which work out those tables;
+  `project.promote` itself takes the tables by name, so `project.promote([])` is refused,
+  naming the run cells.
 - **`"key": "proposed"` accepts each proposed Key as if typed**, under `"all_tables"` or a
   table's own name, where 8.4 refused any "key" under `"all_tables"`. A table's own Key
   wins; one with no proposal stays open, named. The DECISIONS to paste offer it for two

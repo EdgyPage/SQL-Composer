@@ -232,10 +232,12 @@ def _how_to_head() -> list[str]:
         *_wrapped("- If you want every step left run for you, run `project.run_workflow(...)` "
                   "in place of the steps' cells: in convert, promote, new_table and "
                   "references, the two cells under the names cell, \"Run up to your "
-                  "Decisions\" and then, under the decisions cell, \"Run the rest\"; in the "
+                  "Decisions\" and then, under the decisions cell, \"Run the rest\": one "
+                  "call, run once before you answer and once after; in the "
                   "others, the notebook's last cell. It runs every step left, the calls to "
-                  "the warehouse too, up to the first only you can do: a Decision, or a check "
-                  "of what a step printed.", "  "),
+                  "the warehouse too, up to the first only you can do: a Decision, a check "
+                  "of what a step printed, or a refusal to mend. Run after you answer, it "
+                  "goes on and can stop again the same way.", "  "),
         *_wrapped("- If you haven't sent anything yet, run `project.run_workflow(...)` with "
                   "`dry_run=True` first: it sends nothing through your execute and says the "
                   "Hive each step would send. It runs for real convert and the references "
@@ -360,8 +362,12 @@ def _intended_path_lines(workflow: Workflow) -> list[str]:
             *[f"    {line}" for line in up_to.split("\n")], "",
             "Its decisions cell, under that, where you answer each open Decision:", "",
             *[f"    {line}" for line in workflows.DECISIONS_CELL.split("\n")], "",
-            *_wrapped(f'And "{workflows.RUN_THE_REST}", which goes on from where the first '
-                      "stopped; each step's own cell follows, under Step by step:"), "",
+            *_wrapped(f'And "{workflows.RUN_THE_REST}", the same call as '
+                      f'"{workflows.RUN_UP_TO_DECISIONS}", run again once you have answered: '
+                      "it goes on from where the first stopped, and it too stops at the first "
+                      "step only you can do, so it can stop again, at a refusal, a compare "
+                      "that failed or a Decision left open. Mend what it names and run it "
+                      "again. Each step's own cell follows, under Step by step:"), "",
             *[f"    {line}" for line in the_rest.split("\n")]]
 
 

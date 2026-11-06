@@ -1014,6 +1014,10 @@ def test_promote_left_empty_promotes_a_table_changed_in_dev_again(started: Start
     assert "Promoted mart_dev.team_fails_mart to team_prod.team_fails_mart" in said
     prod = _reference(started.root, "team_prod.team_fails_mart").read_text(encoding="utf-8")
     assert "One row per team and day." in prod
+    # Its prod rows are written again, by its new code.
+    writes = [hive for hive in started.warehouse.executed
+              if "INSERT OVERWRITE TABLE team_prod.team_fails_mart" in hive]
+    assert len(writes) == 2
     assert "nothing to promote" in repr(project.run_workflow("promote"))
 
 

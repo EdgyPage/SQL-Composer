@@ -18,9 +18,11 @@ such as its location or its Key, the columns whose values name exactly one row.
   next step of each Workflow you have started.
 - If you want every step left run for you, run `project.run_workflow(...)` in place of the
   steps' cells: in convert, promote, new_table and references, the two cells under the names
-  cell, "Run up to your Decisions" and then, under the decisions cell, "Run the rest"; in the
-  others, the notebook's last cell. It runs every step left, the calls to the warehouse too, up
-  to the first only you can do: a Decision, or a check of what a step printed.
+  cell, "Run up to your Decisions" and then, under the decisions cell, "Run the rest": one call,
+  run once before you answer and once after; in the others, the notebook's last cell. It runs
+  every step left, the calls to the warehouse too, up to the first only you can do: a Decision,
+  a check of what a step printed, or a refusal to mend. Run after you answer, it goes on and can
+  stop again the same way.
 - If you haven't sent anything yet, run `project.run_workflow(...)` with `dry_run=True` first:
   it sends nothing through your execute and says the Hive each step would send. It runs for real
   convert and the references Workflow's first step, which read DESCRIBE, and each step that
@@ -197,7 +199,8 @@ Its names cell, which you fill in and save first:
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
 do, and prints the DECISIONS to paste:
 
-    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Run up to your Decisions: every step left, up to the first only you can do, such as a
+    # Decision, whose DECISIONS it prints to paste into the cell under it.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("convert", query=query, execute=execute)
@@ -206,8 +209,7 @@ Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
-    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    # {"mart_dev.weekly_ops": {"key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
@@ -229,10 +231,14 @@ Its decisions cell, under that, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
-under Step by step:
+And "Run the rest", the same call as "Run up to your Decisions", run again once you have
+answered: it goes on from where the first stopped, and it too stops at the first step only you
+can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
+what it names and run it again. Each step's own cell follows, under Step by step:
 
-    # Run the rest: every step left, up to the first only you can do.
+    # Run the rest: the same call, run again once you have answered: it goes
+    # on from where it stopped, and stops again at a refusal, a compare that
+    # failed or a Decision left open.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("convert", query=query, execute=execute)
@@ -333,7 +339,8 @@ Its names cell, which you fill in and save first:
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
 do, and prints the DECISIONS to paste:
 
-    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Run up to your Decisions: every step left, up to the first only you can do, such as a
+    # Decision, whose DECISIONS it prints to paste into the cell under it.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("promote", query=query, execute=execute)
@@ -342,8 +349,7 @@ Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
-    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    # {"mart_dev.weekly_ops": {"key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
@@ -365,10 +371,14 @@ Its decisions cell, under that, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
-under Step by step:
+And "Run the rest", the same call as "Run up to your Decisions", run again once you have
+answered: it goes on from where the first stopped, and it too stops at the first step only you
+can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
+what it names and run it again. Each step's own cell follows, under Step by step:
 
-    # Run the rest: every step left, up to the first only you can do.
+    # Run the rest: the same call, run again once you have answered: it goes
+    # on from where it stopped, and stops again at a refusal, a compare that
+    # failed or a Decision left open.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("promote", query=query, execute=execute)
@@ -479,7 +489,8 @@ Its names cell, which you fill in and save first:
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
 do, and prints the DECISIONS to paste:
 
-    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Run up to your Decisions: every step left, up to the first only you can do, such as a
+    # Decision, whose DECISIONS it prints to paste into the cell under it.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("new_table", query=query, execute=execute)
@@ -488,8 +499,7 @@ Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
-    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    # {"mart_dev.weekly_ops": {"key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
@@ -511,10 +521,14 @@ Its decisions cell, under that, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
-under Step by step:
+And "Run the rest", the same call as "Run up to your Decisions", run again once you have
+answered: it goes on from where the first stopped, and it too stops at the first step only you
+can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
+what it names and run it again. Each step's own cell follows, under Step by step:
 
-    # Run the rest: every step left, up to the first only you can do.
+    # Run the rest: the same call, run again once you have answered: it goes
+    # on from where it stopped, and stops again at a refusal, a compare that
+    # failed or a Decision left open.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("new_table", query=query, execute=execute)
@@ -603,7 +617,8 @@ Its names cell, which you fill in and save first:
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
 do, and prints the DECISIONS to paste:
 
-    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Run up to your Decisions: every step left, up to the first only you can do, such as a
+    # Decision, whose DECISIONS it prints to paste into the cell under it.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("references", query=query, execute=execute)
@@ -612,8 +627,7 @@ Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
-    # {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
-    #                          "key": ["job_id"], "types": {"fails": "bigint"},
+    # {"mart_dev.weekly_ops": {"key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
     # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
@@ -635,10 +649,14 @@ Its decisions cell, under that, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
-under Step by step:
+And "Run the rest", the same call as "Run up to your Decisions", run again once you have
+answered: it goes on from where the first stopped, and it too stops at the first step only you
+can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend
+what it names and run it again. Each step's own cell follows, under Step by step:
 
-    # Run the rest: every step left, up to the first only you can do.
+    # Run the rest: the same call, run again once you have answered: it goes
+    # on from where it stopped, and stops again at a refusal, a compare that
+    # failed or a Decision left open.
     # Add dry_run=True to see the Hive it would send, sending nothing through your
     # execute: help(project.run_workflow) says the steps it still runs:
     project.run_workflow("references", query=query, execute=execute)

@@ -5,8 +5,8 @@
 Objective: take the user through a job on their own Project, with sqlglot Composer 8.5, a Toolbox that
 writes Hive: the steps left, each a cell of a Workflow's notebook, in order.
 Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
-change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file is
-for its Python.
+change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file, its
+Python.
 
 ## Terms
 
@@ -62,13 +62,14 @@ for its Python.
 
 ## How a Workflow runs
 
-- DECISIONS holds each answer by table, as `project.check()` writes it, each by its kind:
+- DECISIONS holds each answer by table, as `project.check()` writes it:
   `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
 - references' step 1 proposes each Key, checked with check_key, and the first line and
   `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
   Key, a table's own "key" wins.
-- "Run up to your Decisions", then "Run the rest" (new_table, references), else the last
-  cell, runs every step left, to the first the user must do; `dry_run=True` sends nothing.
+- "Run up to your Decisions" and "Run the rest" (new_table, references), one call run
+  before and after the answers, else the last cell, run to the first step the user must do;
+  `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 

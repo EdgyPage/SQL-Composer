@@ -161,7 +161,7 @@ warehouse.py</pre>
 <p>Done when it says <code>Started a Project</code>. Then step 6.</p>
 <h5>6. Know every file of a Project</h5>
 <p>Goal: know which call makes each file, and what you fill in. Besides the three things you made by hand, each file of a Project is made by a call of the <code>project</code> module, a Project action: a one-time change to the Project&#x27;s files, recorded in the Admin log. Make each file with its Project action, never by hand in your file explorer. Here is every file, the call that makes it, and what you fill in:</p>
-<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, in step 8.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it; then run each step&#x27;s cell in turn, or <code>project.do_next()</code>, which runs the steps it can for you, those that change only files, up to the first it can&#x27;t. <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
+<ul><li><code>my_project/</code>, the Project&#x27;s folder: made by you, in your file explorer.</li><li><code>sqlglot_composer/</code>: copied in by you. You fill in nothing: never edit a file inside it.</li><li>start.ipynb, or any name you like, the notebook you run <code>project.start()</code> from: made by you, in Jupyter. Keep it for trying things out, or delete it.</li><li><code>warehouse.py</code>: <code>project.start()</code>. You set <code>conn</code>, your connection, in it, in step 8.</li><li><code>admin/</code>, a notebook for each job on the whole Project, such as check_project.ipynb, run_tables.ipynb and remove.ipynb: <code>project.start()</code>. You fill in the names some ask for in their names cell, such as the tables to remove, and run them. Calling the same Project action from any notebook of the Project does just the same.</li><li><code>admin/workflows/</code>, a folder per Workflow, an ordered list of steps that takes the Project to one end goal, such as new_table/, references/ and convert/, each holding its notebook: <code>project.start()</code>. You name what the Workflow works on in its notebook&#x27;s names cell, such as the tables, and save it. Convert, promote, new_table and references open with four cells, run in order: the names cell, &quot;Run up to your Decisions&quot;, the decisions cell, where you answer, and &quot;Run the rest&quot;. Each step&#x27;s own cell is below them, under Step by step, to run one step on purpose; in upgrade and change_a_saved_table, run each step&#x27;s cell in turn. <code>project.do_next()</code> runs only the steps that change files, and <code>project.check()</code> names the next step.</li><li>admin/databases.py, the Database settings of your Dev Database, where you create and write tables of your own, and your Prod Database, where others read your finished tables: <code>project.start()</code>. You fill in DEV and PROD, a dict each, such as <code>{&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;/data/team/dev&quot;}</code>: its name, and the folder its tables&#x27; files go under, each table with no folder of its own placed in <code>&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;</code>. <a href="#set_your_database_settings">Set your Database settings</a> shows each setting.</li><li>admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse: <code>project.start()</code>, then each change you run on the warehouse. You fill in nothing.</li><li>admin/admin_log.md, the Admin log, the record of each Project action and each change you run: <code>project.start()</code>, then each Project action adds an entry. You fill in nothing.</li><li>admin/registry.csv, the registry, the list of what each Project action made: <code>project.start()</code>, then each Project action that makes or archives a Table folder, a Table reference, a Building block or a Conversion folder adds a row. You fill in nothing.</li><li>admin/project_version.txt, the Toolbox version that last wrote the Project: <code>project.start()</code>, then <code>project.upgrade()</code>. You fill in nothing.</li><li>admin/workflows/convert/&lt;name&gt;/, a Conversion folder per batch of someone else&#x27;s Hive you convert, its batch.md naming where each script is, read where it is and never copied, and what each statement became: <code>project.convert(...)</code>, from admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table in your Dev Database. You answer each of its tables&#x27; Decisions, the things only you decide, as <a href="#convert_someone_elses_hive">Convert someone else&#x27;s Hive</a> shows.</li><li>an Upgrade&#x27;s checklist in admin/, named for the version it upgraded to, such as upgrade_7.3.md: <code>project.upgrade()</code>, once you copy in a newer Toolbox. You make each change it lists, each marked <code># UPGRADE &lt;version&gt;:</code> at its line.</li><li><code>admin/templates/</code>, the Templates a new notebook or Building block is made from: <code>project.start()</code>. Nothing, unless you want your team&#x27;s own shape.</li><li><code>references/&lt;db&gt;__&lt;table&gt;.py</code>, a Table reference per table: <code>project.add_references([...], query=query)</code> for a table in the warehouse, or <code>project.new_table(...)</code> for a Saved table of your own. You accept or change what it proposed, such as its Key, and add your own names for its columns, as <a href="#add_your_tables_references">Add your tables&#x27; references</a> shows.</li><li><code>references/&lt;db&gt;.py</code>, a Database module per Database, the group of tables a name such as <code>ops</code> in <code>ops.jobs</code> names, such as references/ops.py: written again by each Project action that adds or archives a Table reference. Leave it as the Project actions write it.</li><li>references/reference_sheet.csv, the Reference sheet, every column of every table you have a Table reference for: <code>project.refresh_reference_sheet()</code>. You fill in nothing.</li><li><code>building_blocks/&lt;name&gt;.py</code>, a Building block: <code>project.new_block(&quot;&lt;name&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> and TODO lines, as <a href="#share_building_blocks">Share Building blocks</a> shows.</li><li><code>building_blocks/prod/&lt;name&gt;.py</code>, the prod copy of a Building block a promoted table imports: <code>project.promote(...)</code>. You fill in nothing: change the dev block and promote it again.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.ipynb</code>, a Table notebook per Saved table, whose cells create, preview and write it: <code>project.new_table(&quot;&lt;db&gt;.&lt;table&gt;&quot;)</code>. You fill in its <code>&lt;...&gt;</code> lines, as <a href="#save_a_table">Save a table</a> shows.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/lineage/</code>, the Lineage of that table, which table columns feed each of its columns: its notebook&#x27;s lineage cell. You fill in nothing.</li><li><code>tables/&lt;db&gt;__&lt;table&gt;/&lt;db&gt;__&lt;table&gt;.hql</code>, the Hive that table&#x27;s logic sends: its notebook&#x27;s Hive cell, written again each time it runs, as <a href="#save_a_table">Save a table</a> shows. You fill in nothing: edit the logic instead.</li><li><code>lineage/</code>, beside the notebook you run it from, such as start.ipynb: the Lineage of a Statement exported outside a Table notebook, by <code>export_lineage(...)</code>, as <a href="#follow_lineage">Follow lineage</a> shows. You fill in nothing.</li><li><code>admin/removed/</code>, what you archive: <code>project.remove_table(...)</code>, <code>project.remove_reference(...)</code> and <code>project.remove_block(...)</code> move a file or folder here rather than delete it, as does <code>project.remove_conversion(...)</code> with a Conversion folder; <code>project.upgrade()</code> keeps here each file as it was before it changed it, and <code>project.convert(..., overwrite=True)</code> each file it writes over.</li></ul>
 <p><code>references/</code>, <code>building_blocks/</code> and <code>tables/</code> are empty for now. Each Project action writes over nothing of yours: most refuse a file or folder that is already there, and convert, run again, writes a fresh copy of a file you changed into its batch&#x27;s folder. Each logs what it did in the Admin log. <code>Path</code>, from Python&#x27;s own <code>pathlib</code>, reads a file; the log&#x27;s first entry is the one after its heading:</p>
 <pre class="python">from pathlib import Path
 print(Path(&quot;admin/admin_log.md&quot;).read_text(encoding=&quot;utf-8&quot;).split(&quot;## &quot;)[1])</pre>
@@ -531,12 +531,19 @@ run_alerts = Table(
 # count_rows(where=...). Add what it calls, such as equals, to the import at the top.
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)</pre>
 <p class="note">It writes <code>admin/registry.csv</code> too.</p>
+<p>Its &quot;fill in their TODO lines.&quot; means the lines it proposed nothing for: here only each <code>key=None, # TODO: proposed [...]</code> line, which step 5 accepts in the decisions cell, since a Key proposed from a table&#x27;s rows stays open until you do. A table it proposed no Key for has one more, its first line, what one row is. Every other line it proposed is marked <code># proposed</code>, and blocks nothing.</p>
+<p>Its &quot;To accept every proposed Key&quot; line is one line of the decisions cell. Run from the references Workflow&#x27;s &quot;Run up to your Decisions&quot;, the run then stops at the Decisions and prints the whole DECISIONS to paste over the cell&#x27;s <code>DECISIONS = {}</code> line, that line inside it, its comments shortened here:</p>
+<pre class="python">DECISIONS = {
+    &quot;all_tables&quot;: {  # answers for every table of this notebook
+        &quot;key&quot;: &quot;proposed&quot;,  # accepts each table&#x27;s proposed Key, as if typed
+    },
+}</pre>
 <p>Each file is named after the database and the table joined by two underscores, <code>ops.jobs</code> giving ops__jobs.py, since a dot can&#x27;t be in a name Python imports. The variable in it is named after the table alone, jobs.</p>
 <p>The last file is the Database module of the Database ops, the first part of each table&#x27;s name: references/ops.py, which the Project actions write again each time a Table reference is added or archived. Leave it as they write it.</p>
 <p>Done when it says <code>Wrote references/ops__jobs.py</code> and <code>Wrote references/ops.py</code>. Then step 4.</p>
 <h5>4. Read a Table reference it wrote</h5>
 <p>Goal: know what the file holds and what it leaves to you. Open references/ops__job_runs.py in your editor. It imports <code>Table</code>, then makes one variable, <code>job_runs</code>:</p>
-<ul><li><code>columns=</code> holds every column and its type;</li><li><code>partitioned_by=[&quot;dt&quot;]</code> comes from DESCRIBE&#x27;s <code># Partition Information</code> rows;</li><li>three lines are proposed, since the table can&#x27;t say them for sure: the line at the top, what one row is, <code>&quot;One row per run_id.&quot; # proposed from its Key</code>; <code>does_not_add_up=</code>, the columns that are averages or ratios, <code>[&quot;avg_retry_secs&quot;] # proposed from its columns&#x27; names</code>, from names such as avg_*, *_ratio and *_rate; and the Key, <code>key=None, # TODO: proposed [&quot;run_id&quot;], checked</code>, which stays open until you accept it. A table with no id column, or none naming every row, gets no Key proposed, and its line says why;</li><li><code>descriptions=</code> holds what each column holds, in words, from its comment in the warehouse, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li>under the Aliases heading at the end, commented-out examples show how to add your own names for the table&#x27;s columns and conditions.</li></ul>
+<ul><li><code>columns=</code> holds every column and its type;</li><li><code>partitioned_by=[&quot;dt&quot;]</code> comes from DESCRIBE&#x27;s <code># Partition Information</code> rows;</li><li>three lines are proposed, since the table can&#x27;t say them for sure: the line at the top, what one row is, <code>&quot;One row per run_id.&quot; # proposed from its Key</code>; <code>does_not_add_up=</code>, the columns that are averages or ratios, <code>[&quot;avg_retry_secs&quot;] # proposed from its columns&#x27; names</code>, from names such as avg_*, *_ratio and *_rate; and the Key, <code>key=None, # TODO: proposed [&quot;run_id&quot;], checked</code>, which stays open until you accept it. A table with no id column, or none naming every row, gets no Key proposed, and its line says why. A Key convert or new_table proposes, worked out of a table&#x27;s query, such as its GROUP BY, is kept unless you answer it, since the query proves it; one proposed from a table&#x27;s rows, as here, waits for your yes;</li><li><code>descriptions=</code> holds what each column holds, in words, from its comment in the warehouse, such as status&#x27;s <code>SUCCESS / FAILED / TEST, NULL while running</code>;</li><li>under the Aliases heading at the end, commented-out examples show how to add your own names for the table&#x27;s columns and conditions.</li></ul>
 <p>Done when you have found the file&#x27;s three proposed lines. Then step 5.</p>
 <h5>5. Accept or change what it proposed</h5>
 <p>Goal: a Table reference that says what only you know. A proposed Key waits for your yes, as proof from a few Partitions is evidence, not a promise. In the references Workflow&#x27;s notebook, the decisions cell under &quot;Run up to your Decisions&quot; accepts it: <code>&quot;key&quot;: &quot;proposed&quot;</code> under &quot;all_tables&quot; accepts every table&#x27;s, under a table&#x27;s name that one&#x27;s, and a Key of your own, such as <code>{&quot;ops.job_runs&quot;: {&quot;key&quot;: [&quot;run_id&quot;]}}</code>, wins over it. &quot;Run the rest&quot; writes each in. This page stands in for that cell and its step:</p>
@@ -762,7 +769,7 @@ run_alerts = Table(
 #     &lt;alias&gt; = equals(run_alerts.severity, &lt;value&gt;)
 
 high = equals(run_alerts.severity, &quot;high&quot;)</pre>
-<p>Done when no file holds a TODO line or a <code># proposed</code> comment. Then step 6.</p>
+<p>Done when each table&#x27;s Key is accepted or your own, so no file holds a <code>key=None, # TODO</code> line. Keeping or changing each <code># proposed</code> line, and adding Aliases, is yours to do when you like: they block nothing. Then step 6.</p>
 <h5>6. Reach a table and its columns</h5>
 <p>Goal: each table and column by name, in any notebook. In any notebook of the Project, one line imports the Database module, and with it every table of the Database ops:</p>
 <pre class="python">from references import ops</pre>
@@ -6810,7 +6817,7 @@ print(next(line.strip() for line in said.splitlines() if &quot;tags:&quot; in li
     &quot;mart.fail_history&quot;: {&quot;key&quot;: None, &quot;seed&quot;: {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-09-01&quot;}}},
 }</pre>
 <p>Each answer, by its kind:</p>
-<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered; accepting it takes off the mark. A table with none, fail_history here, keeps its own answer.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;: fail_history reads itself, so step 11 seeds it, copying the original&#x27;s rows into it once. With no &quot;seed&quot;, it copies every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>.</li></ul>
+<ul><li>&quot;all_tables&quot; answers for every table of the batch at once, and a table&#x27;s own answer overwrites it. Its &quot;key&quot;: &quot;proposed&quot; accepts each table&#x27;s proposed Key, as if you typed it: a Key project.convert could work out of a table&#x27;s query, as GROUP BY a.severity gives one, is proposed in its Table reference already, marked # proposed, and is kept even unanswered, since the query proves it. So &quot;key&quot;: &quot;proposed&quot; isn&#x27;t needed here, but it does no harm: for a Key kept already it only takes off the # proposed mark, and you needn&#x27;t tell the two kinds of Key apart. The other kind is the references Workflow&#x27;s: a Key add_references proposes from a table&#x27;s rows stays open, <code>key=None, # TODO: proposed [...]</code>, until you accept it. A table with none, fail_history here, keeps its own answer.</li><li>&quot;key&quot;: None says no columns name one row. fail_history&#x27;s write reads its own table, so no Key could be worked out of it: its Key is open.</li><li>&quot;types&quot;: two tables write the Partition dt from a query that doesn&#x27;t say its type, so each one&#x27;s dt is a guessed type, &quot;string&quot;: keep it, or give its type. Here it is kept, the day as text. A Partition is a slice of a table: the rows that share one value of each column it is partitioned by.</li><li>&quot;tags&quot;: the Script tag&#x27;s answer is the Hive the scheduler put in its place. A bare tag&#x27;s answer is the day with its own quotes, &quot;&#x27;2026-09-24&#x27;&quot;, the day of the run whose rows the original holds.</li><li>&quot;seed&quot;: fail_history reads itself, so step 11 seeds it, copying the original&#x27;s rows into it once. With no &quot;seed&quot;, it copies every Partition the original holds, years of them perhaps; here it copies only those from 2026-09-01 on. <strong>A single value means that value or later</strong>, not that one alone: for one Partition alone, give a list of one, <code>{&quot;dt&quot;: [&quot;2026-09-24&quot;]}</code>.</li></ul>
 <p>A TODO line left, such as does_not_add_up=, waits on nothing.</p>
 <p>Done when DECISIONS holds &quot;key&quot;: &quot;proposed&quot;, a key for mart.fail_history, a dt type for the other two, RUN_DAY&#x27;s day and fail_history&#x27;s seed. Then step 7.</p>
 <h5>7. Write each answer into its Table reference</h5>
@@ -7036,9 +7043,10 @@ None: each Decision in references/mart__fail_history.py is made.
 
 - Make each unchecked_ piece a Toolbox function where you can.
 - Its write reads its own table, which in dev starts empty. So the convert Workflow&#x27;s seed step, after it creates the table, copies the original&#x27;s rows into it once, with its seed(). It copies every Partition unless SEED, in its Table reference, limits them. To copy only those you need, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. The seed step&#x27;s line shows the WHERE it sends.</pre>
+<p>Each table&#x27;s first line and <code>does_not_add_up=</code> are TODO lines here, not <code># proposed</code> ones as in <a href="#add_your_tables_references">Add your tables&#x27; references</a>: add_references proposes them for a table you read, from its Key and its columns&#x27; names, and convert proposes neither for the tables it writes. They wait on nothing: fill each in when you like.</p>
 <p>Done when each table says <code>Each Decision of ... is made.</code> Then step 8.</p>
 <h5>8. Answer RUN_DAY with a Run value</h5>
-<p>Goal: RUN_DAY worked out each time the table is written, rather than typed in once. A day answered in the decisions cell is the day the table is written for, every night after, until you answer it again, whereas the scheduler put a new day there each night. A Run value is the value a function of yours gives each time a table&#x27;s write is built: the Toolbox calls the function and writes what it gives into the Hive as plain text, a date as &#x27;2026-09-24&#x27;, quotes and all. Here it is the latest day ops.run_alerts holds, which <code>latest_partition</code> reads from the warehouse&#x27;s list of Partitions, reading no row. <code>project.new_run_value</code> writes that function into your Project, in building_blocks/run_values.py, with its imports, registers the file, and prints the line that imports it. Write the call at the top of the decisions cell, then the import line under it, and run the cell once:</p>
+<p>Goal: RUN_DAY worked out each time the table is written, rather than typed in once. A day answered in the decisions cell is the day the table is written for, every night after, until you answer it again, whereas the scheduler put a new day there each night. A Run value is the value a function of yours gives each time a table&#x27;s write is built: the Toolbox calls the function and writes what it gives into the Hive as plain text, a date as &#x27;2026-09-24&#x27;, quotes and all. Here it is the latest day ops.run_alerts holds, which <code>latest_partition</code> reads from the warehouse&#x27;s list of Partitions, reading no row. <code>project.new_run_value</code> writes that function into your Project, in building_blocks/run_values.py, with its imports, registers the file, and prints the line that imports it. Write the call at the top of the decisions cell, then, under it, this import line, which the call prints too: <code>from building_blocks.run_values import run_day</code>; and run the cell once:</p>
 <pre class="python">print(project.new_run_value(&quot;run_day&quot;, latest_partition=&quot;ops.run_alerts.dt&quot;))</pre>
 <p class="label">Python prints</p><pre class="output">Wrote run_day into building_blocks/run_values.py: the latest Partition of ops.run_alerts, by dt.
 Registered building_blocks/run_values.py.
@@ -17624,49 +17632,123 @@ warehouse.py</pre>
     Path(added).unlink()
 shutil.rmtree(&quot;admin/workflows&quot;)
 version = Path(&quot;admin/project_version.txt&quot;)  # -&gt; Path
-_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.4&quot;, &quot;7.2&quot;, 1),
+_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.5&quot;, &quot;7.2&quot;, 1),
                        encoding=&quot;utf-8&quot;)</pre>
+<p class="note">It writes <code>admin/project_version.txt</code> too.</p>
 <p>admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has none, and is taken to be 7.1.</p>
 <p>Done when admin/project_version.txt says 7.2. Then step 2.</p>
 <h5>2. See that it needs an Upgrade</h5>
 <p>Goal: know the Project is behind the Toolbox. Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before writing 7.2 in the version file, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
 <pre class="python">from sqlglot_composer import project
 print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.5: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.</pre>
 <p>Done when <code>project.check()</code> names the version that last wrote the Project. Then step 3.</p>
 <h5>3. Upgrade it</h5>
 <p>Goal: the Project&#x27;s files carried to this Toolbox. Run <code>project.upgrade()</code> from a notebook in the Project. If the Project has admin/workflows/upgrade/upgrade.ipynb, as one 8.0 or later made does, run its step 1 cell, which is this call. If it has none, as here, run the call from admin/check_project.ipynb, which imports <code>project</code> already; the Upgrade adds the upgrade notebook, for the next time.</p>
 <pre class="python">print(project.upgrade())</pre>
-<p class="label">Python prints</p><pre class="output">The Project is at 8.5 already, as this Toolbox is: nothing to upgrade.</pre>
-<p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.4.&quot;. Then step 4.</p>
+<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.5.
+8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.
+8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
+8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
+8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
+8.5: nothing to change by hand. admin/upgrade_8.5.md lists what it did.
+Read each step&#x27;s checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md, admin/upgrade_8.4.md and admin/upgrade_8.5.md.</pre>
+<p class="label">It writes 50 files</p>
+<pre class="file">admin/admin_log.md
+admin/databases.py
+admin/project_version.txt
+admin/remove.ipynb
+admin/removed/20260925-090000-upgrade_8.0/admin/databases.py
+admin/removed/20260925-090000-upgrade_8.0/admin/new_block.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.1/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/check_references.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.2/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.3/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.5/admin/workflows/upgrade/upgrade.ipynb
+admin/sent.csv
+admin/upgrade_8.0.md
+admin/upgrade_8.1.md
+admin/upgrade_8.2.md
+admin/upgrade_8.3.md
+admin/upgrade_8.4.md
+admin/upgrade_8.5.md
+admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/workflows/convert/convert.ipynb
+admin/workflows/new_table/new_table.ipynb
+admin/workflows/promote/promote.ipynb
+admin/workflows/references/references.ipynb
+admin/workflows/upgrade/upgrade.ipynb</pre>
+<p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.5.&quot;. Then step 4.</p>
 <h5>4. Read each checklist</h5>
 <p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here four, and wrote a checklist for each, which its last line names in order:</p>
-<pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">FileNotFoundError:
-[Errno 2] No such file or directory: &#x27;admin\\upgrade_8.0.md&#x27;</pre>
-<pre class="python">for line in checklist.splitlines():
+<pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
+for line in checklist.splitlines():
     if line.startswith(&quot;- &quot;):
         print(line)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">NameError:
-name &#x27;checklist&#x27; is not defined</pre>
+<p class="label">Python prints</p><pre class="output">- rewrote admin/new_block.ipynb
+- added admin/remove.ipynb
+- added admin/workflows/convert/convert.ipynb
+- added admin/workflows/promote/promote.ipynb
+- added admin/workflows/new_table/new_table.ipynb
+- added admin/workflows/references/references.ipynb
+- added admin/workflows/upgrade/upgrade.ipynb
+- added admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+- added admin/databases.py
+- added admin/sent.csv
+- recorded 8.0 in admin/project_version.txt
+- [ ] admin/databases.py, line 12: fill in your Dev Database&#x27;s name
+- [ ] admin/databases.py, line 14: fill in your Prod Database&#x27;s name</pre>
 <p>Under Done for you, it lists each change it made, keeping each file it changed as it was in admin/removed/, and under For you to do, each change it left you, marked with an <code># UPGRADE</code> comment at its line, with a box. Here 8.0 added admin/databases.py, whose two names are yours to fill in: your Dev Database, where you create and write tables of your own, and your Prod Database, which others read your finished tables from.</p>
 <p>Done when you have the list of boxes under For you to do. Then step 5.</p>
 <h5>5. Make each change it marked</h5>
 <p>Goal: no change left for you. Make each change, delete its mark, and tick its box. Open admin/databases.py, fill in DEV and PROD with your own databases&#x27; names, and delete the two <code># UPGRADE 8.0:</code> lines. This page stands in for your editor:</p>
 <pre class="python">databases = Path(&quot;admin/databases.py&quot;)  # -&gt; Path
-text = databases.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">FileNotFoundError:
-[Errno 2] No such file or directory: &#x27;admin\\databases.py&#x27;</pre>
-<pre class="python">text = text.replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;).replace(&#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart&quot;&#x27;)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">NameError:
-name &#x27;text&#x27; is not defined</pre>
-<pre class="python">kept = [line for line in text.splitlines(keepends=True)
-        if not line.startswith(&quot;# UPGRADE&quot;)]  # -&gt; list</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">NameError:
-name &#x27;text&#x27; is not defined</pre>
-<pre class="python">_ = databases.write_text(&quot;&quot;.join(kept), encoding=&quot;utf-8&quot;)</pre>
-<p class="label">Python stops with this message</p><pre class="refusal">NameError:
-name &#x27;kept&#x27; is not defined</pre>
+text = databases.read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
+text = text.replace(&#x27;&quot;&lt;DEV_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart_dev&quot;&#x27;).replace(&#x27;&quot;&lt;PROD_DATABASE&gt;&quot;&#x27;, &#x27;&quot;mart&quot;&#x27;)
+kept = [line for line in text.splitlines(keepends=True)
+        if not line.startswith(&quot;# UPGRADE&quot;)]  # -&gt; list
+_ = databases.write_text(&quot;&quot;.join(kept), encoding=&quot;utf-8&quot;)</pre>
+<p class="label">It writes admin/databases.py</p>
+<pre class="python">&quot;&quot;&quot;databases - the settings of the two Databases you own: DEV, where
+you build and check tables, and PROD, where tables other people rely on are written. Set each
+once; the Workflows read them.
+
+&quot;database&quot; is the Database&#x27;s name, such as &quot;mart_dev&quot;. &quot;location_root&quot; is the folder its
+tables&#x27; files go under: a table with no folder of its own goes in
+&lt;location_root&gt;/&lt;database&gt;.db/&lt;table&gt;, such as /data/your_team/dev/mart_dev.db/daily_runs.
+Any other setting is yours, such as &quot;run_as&quot;, the account your connection runs as: give it
+in both, each its own value, and database_settings(&quot;mart_dev&quot;) gives DEV&#x27;s to your code.
+&quot;&quot;&quot;
+
+DEV = {&quot;database&quot;: &quot;mart_dev&quot;, &quot;location_root&quot;: &quot;&lt;DEV_LOCATION_ROOT&gt;&quot;}
+PROD = {&quot;database&quot;: &quot;mart&quot;, &quot;location_root&quot;: &quot;&lt;PROD_LOCATION_ROOT&gt;&quot;}</pre>
 <p>Done when admin/databases.py names both databases and holds no <code># UPGRADE</code> line. Then check it worked, below.</p>
 <h4>Check it worked</h4>
 <p><code>project.check()</code> says nothing of the version, and lists no <code># UPGRADE</code> mark left:</p>
@@ -17693,7 +17775,7 @@ name &#x27;kept&#x27; is not defined</pre>
 <h4>Goal</h4>
 <p>Do a whole job from its Workflow notebook, step by step, with nothing typed twice. A Workflow is an ordered list of steps that takes a Project, your folder of scripts at work, from what you bring to one end goal, such as converting scripts or promoting tables. Each Workflow has a notebook in admin/workflows/, a folder for each, and each Workflow below is drawn and listed from the steps its notebook runs. A Decision is one thing about one table that only you decide, such as its location or its Key, the columns whose values name exactly one row.</p>
 <h4>When you&#x27;d use it</h4>
-<ul><li>If you start one of the jobs below, follow its Workflow&#x27;s notebook, as the steps below do.</li><li>If you don&#x27;t know which step of a Workflow comes next, run <code>project.check()</code>: it names the next step of each Workflow you have started.</li><li>If you want every step left run for you, run <code>project.run_workflow(...)</code> in place of the steps&#x27; cells: in convert, promote, new_table and references, the two cells under the names cell, &quot;Run up to your Decisions&quot; and then, under the decisions cell, &quot;Run the rest&quot;; in the others, the notebook&#x27;s last cell. It runs every step left, the calls to the warehouse too, up to the first only you can do: a Decision, or a check of what a step printed.</li><li>If you haven&#x27;t sent anything yet, run <code>project.run_workflow(...)</code> with <code>dry_run=True</code> first: it sends nothing through your execute and says the Hive each step would send. It runs for real convert and the references Workflow&#x27;s first step, which read DESCRIBE, and each step that changes only files up to the first that would send; after that it names each such step, &quot;would run: ...&quot;, and runs none.</li><li>If you want only the steps that change files run, run <code>project.do_next()</code>.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li></ul>
+<ul><li>If you start one of the jobs below, follow its Workflow&#x27;s notebook, as the steps below do.</li><li>If you don&#x27;t know which step of a Workflow comes next, run <code>project.check()</code>: it names the next step of each Workflow you have started.</li><li>If you want every step left run for you, run <code>project.run_workflow(...)</code> in place of the steps&#x27; cells: in convert, promote, new_table and references, the two cells under the names cell, &quot;Run up to your Decisions&quot; and then, under the decisions cell, &quot;Run the rest&quot;: one call, run once before you answer and once after; in the others, the notebook&#x27;s last cell. It runs every step left, the calls to the warehouse too, up to the first only you can do: a Decision, a check of what a step printed, or a refusal to mend. Run after you answer, it goes on and can stop again the same way.</li><li>If you haven&#x27;t sent anything yet, run <code>project.run_workflow(...)</code> with <code>dry_run=True</code> first: it sends nothing through your execute and says the Hive each step would send. It runs for real convert and the references Workflow&#x27;s first step, which read DESCRIBE, and each step that changes only files up to the first that would send; after that it names each such step, &quot;would run: ...&quot;, and runs none.</li><li>If you want only the steps that change files run, run <code>project.do_next()</code>.</li><li>If you have no Project yet, do <a href="#start_a_project">Start a Project</a> first.</li></ul>
 <h4>Steps</h4>
 <h5>1. Start a Project</h5>
 <p>Goal: a Project whose admin/workflows/ folder holds a notebook for each Workflow, each waiting for its names cell:</p>
@@ -17825,15 +17907,15 @@ STAGING = {}
 # latest Partition your dev table and its original both hold
 PARTITIONS = []</pre>
 <p>Under it, &quot;Run up to your Decisions&quot;, which runs every step left up to the first only you can do, and prints the DECISIONS to paste:</p>
-<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do.
+<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do, such as a
+# Decision, whose DECISIONS it prints to paste into the cell under it.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 <p>Its decisions cell, under that, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
-# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
-#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key
@@ -17854,8 +17936,10 @@ project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
-<pre class="python"># Run the rest: every step left, up to the first only you can do.
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<pre class="python"># Run the rest: the same call, run again once you have answered: it goes
+# on from where it stopped, and stops again at a refusal, a compare that
+# failed or a Decision left open.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;convert&quot;, query=query, execute=execute)</pre>
@@ -17929,15 +18013,15 @@ flowchart TD
 # not promoted yet, or changed in dev since, naming each and why
 TABLES = []</pre>
 <p>Under it, &quot;Run up to your Decisions&quot;, which runs every step left up to the first only you can do, and prints the DECISIONS to paste:</p>
-<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do.
+<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do, such as a
+# Decision, whose DECISIONS it prints to paste into the cell under it.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 <p>Its decisions cell, under that, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
-# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
-#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key
@@ -17958,8 +18042,10 @@ project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
-<pre class="python"># Run the rest: every step left, up to the first only you can do.
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<pre class="python"># Run the rest: the same call, run again once you have answered: it goes
+# on from where it stopped, and stops again at a refusal, a compare that
+# failed or a Decision left open.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;promote&quot;, query=query, execute=execute)</pre>
@@ -18039,15 +18125,15 @@ TABLES = []
 # from its query
 QUERIES = {}</pre>
 <p>Under it, &quot;Run up to your Decisions&quot;, which runs every step left up to the first only you can do, and prints the DECISIONS to paste:</p>
-<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do.
+<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do, such as a
+# Decision, whose DECISIONS it prints to paste into the cell under it.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 <p>Its decisions cell, under that, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
-# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
-#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key
@@ -18068,8 +18154,10 @@ project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
-<pre class="python"># Run the rest: every step left, up to the first only you can do.
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<pre class="python"># Run the rest: the same call, run again once you have answered: it goes
+# on from where it stopped, and stops again at a refusal, a compare that
+# failed or a Decision left open.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;new_table&quot;, query=query, execute=execute)</pre>
@@ -18126,15 +18214,15 @@ flowchart TD
 <pre class="python"># the tables, by their names in the warehouse, such as [&quot;mart.daily_job_runs&quot;]
 TABLES = []</pre>
 <p>Under it, &quot;Run up to your Decisions&quot;, which runs every step left up to the first only you can do, and prints the DECISIONS to paste:</p>
-<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do.
+<pre class="python"># Run up to your Decisions: every step left, up to the first only you can do, such as a
+# Decision, whose DECISIONS it prints to paste into the cell under it.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 <p>Its decisions cell, under that, where you answer each open Decision:</p>
 <pre class="python">DECISIONS = {}  # your answer to each open Decision, by the table&#x27;s name as
 # project.check() writes it, such as
-# {&quot;mart_dev.weekly_ops&quot;: {&quot;location&quot;: &quot;/data/team/mart_dev.db/weekly&quot;,
-#                          &quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
+# {&quot;mart_dev.weekly_ops&quot;: {&quot;key&quot;: [&quot;job_id&quot;], &quot;types&quot;: {&quot;fails&quot;: &quot;bigint&quot;},
 #                          &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # &quot;key&quot;: None says no columns name one row. project.check() names each one open, and
 # prints a whole DECISIONS to paste over this line: fill in each &lt;FILL IN&gt;. A Key
@@ -18155,8 +18243,10 @@ project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
 # function into building_blocks/run_values.py. And &quot;seed&quot;, such as
 # {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
 # copies: how-to 09 shows both.</pre>
-<p>And &quot;Run the rest&quot;, which goes on from where the first stopped; each step&#x27;s own cell follows, under Step by step:</p>
-<pre class="python"># Run the rest: every step left, up to the first only you can do.
+<p>And &quot;Run the rest&quot;, the same call as &quot;Run up to your Decisions&quot;, run again once you have answered: it goes on from where the first stopped, and it too stops at the first step only you can do, so it can stop again, at a refusal, a compare that failed or a Decision left open. Mend what it names and run it again. Each step&#x27;s own cell follows, under Step by step:</p>
+<pre class="python"># Run the rest: the same call, run again once you have answered: it goes
+# on from where it stopped, and stops again at a refusal, a compare that
+# failed or a Decision left open.
 # Add dry_run=True to see the Hive it would send, sending nothing through your
 # execute: help(project.run_workflow) says the steps it still runs:
 project.run_workflow(&quot;references&quot;, query=query, execute=execute)</pre>
@@ -18369,11 +18459,13 @@ PROD = {&quot;database&quot;: &quot;mart_prod&quot;, &quot;location_root&quot;: 
         &quot;run_as&quot;: &quot;svc_team_prod&quot;}</pre>
 <p>Done when no <code>&lt;...&gt;</code> is left in it. Then step 4.</p>
 <h5>4. Read a setting from your code</h5>
-<p>Goal: your own setting reaching your code. <code>database_settings</code> gives the settings of the Database a name is in, your Dev or Prod Database, or a table in one, so the same line of your code reads DEV&#x27;s in dev and PROD&#x27;s in prod:</p>
-<pre class="python">database_settings(&quot;mart&quot;)[&quot;run_as&quot;]</pre>
+<p>Goal: your own setting reaching your code. <code>database_settings</code> gives the settings of the Database a name is in: a Database&#x27;s own name, such as &quot;mart&quot;, or a table&#x27;s, such as &quot;mart.job_day_facts&quot;, whose Database is the part before the dot. Give it the name of the table your code writes. A dev table&#x27;s code names it in your Dev Database, mart.job_day_facts; its prod copy, which promote writes, names it in your Prod Database, mart_prod.job_day_facts. So the line you write in dev reads DEV&#x27;s settings there, and its copy in prod, with the prod name promote wrote, reads PROD&#x27;s:</p>
+<pre class="python">database_settings(&quot;mart.job_day_facts&quot;)[&quot;run_as&quot;]</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;svc_team_dev&#x27;</pre>
 <pre class="python">database_settings(&quot;mart_prod.job_day_facts&quot;)[&quot;run_as&quot;]</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;svc_team_prod&#x27;</pre>
+<pre class="python">database_settings(&quot;mart&quot;)[&quot;run_as&quot;]</pre>
+<p class="label">Python shows</p><pre class="output">&#x27;svc_team_dev&#x27;</pre>
 <p>Done when each gives its Database&#x27;s &quot;run_as&quot;. Then step 5.</p>
 <h5>5. See a new table placed</h5>
 <p>Goal: proof that a new table&#x27;s folder is no Decision. <code>project.new_table</code> makes a Saved table&#x27;s folder and its Table reference, the file that describes the table; its <code>location=</code> line is placed under DEV&#x27;s &quot;location_root&quot;, saying where it came from:</p>

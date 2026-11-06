@@ -19,8 +19,7 @@ and changes to a Saved table; a step's own file, its Python.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
   Database, where others read them: dicts in admin/databases.py, each a "database" and a
   "location_root", placing each new table.
-- **query**, **execute**: the user's warehouse calls, from warehouse.py, which a Workflow
-  notebook's first cell imports.
+- **query**, **execute**: the user's warehouse calls, imported from warehouse.py.
 
 ## Names for this objective, with their arguments
 
@@ -65,7 +64,7 @@ and changes to a Saved table; a step's own file, its Python.
   its kind: `{"mart_dev.weekly": {"key": ["job_id"], "types": {"fails": "bigint"}, "tags":
   {"PERIOD_END": "'2026-10-31'"}}}`; the next step writes each into its Table reference.
 - "Run up to your Decisions" prints a whole DECISIONS to paste in the decisions cell under
-  it, each answer still to give `"<FILL IN>"`, no answer until filled in.
+  it, each answer still to give `"<FILL IN>"`, none until filled in.
 - A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
   user gives; for one worked out each run, such as the latest Partition, a Run value: a
@@ -74,8 +73,8 @@ and changes to a Saved table; a step's own file, its Python.
   of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
 - Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
   `PARTITIONS = [{"dt": "2026-09-23"}]`.
-- "Run up to your Decisions", then "Run the rest": each runs every step left, up to the first
-  only the user can do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest": one call, run before and after the
+  answers, each up to the first step only the user can do; `dry_run=True` sends nothing.
 
 ## convert: someone else's Hive into Saved tables in dev
 

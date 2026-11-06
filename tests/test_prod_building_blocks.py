@@ -152,3 +152,33 @@ def test_a_block_imported_through_another_naming_the_dev_database_is_refused(
                        "Dev Database"):
         project.promote([FAILED, PER_JOB])
     assert not (started / "building_blocks" / "prod").exists()
+
+
+def test_a_run_value_promotes_decisions_cell_gives_reads_its_blocks_prod_copy(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A Run value given only in promote's decisions cell, for a prod seed limit, is a block no
+    # dev table imports, so promote copied none: the prod reference reads a prod copy all the
+    # same, written as its import is pointed at it.
+    monkeypatch.chdir(tmp_path)
+    project.start()
+    (tmp_path / "building_blocks" / "first_days.py").write_text(
+        "import datetime\n\n\ndef first_day() -> datetime.date:\n"
+        "    return datetime.date(2026, 9, 1)\n", encoding="utf-8")
+    mark = toolbox_module("decisions").RUN_VALUE_MARK
+    reference = tmp_path / "references" / "mart__fails.py"
+    reference.write_text(f"from building_blocks.first_days import first_day{mark}\n"
+                         'SEED = {"dt": {"from": first_day}}\n', encoding="utf-8")
+    record = tmp_path / "admin" / "workflows" / "promote" / "promoted.json"
+    record.parent.mkdir(parents=True, exist_ok=True)
+    record.write_text('{"mart.fails": {"dev": "mart_dev.fails", "seeded": true}}',
+                      encoding="utf-8")
+    said = project.prod_run_values_pointed(["mart.fails"])
+    assert reference.read_text(encoding="utf-8").startswith(
+        f"from building_blocks.prod.first_days import first_day{mark}")
+    copy = tmp_path / "building_blocks" / "prod" / "first_days.py"
+    assert copy.read_text(encoding="utf-8").startswith("# A prod copy project.promote made of")
+    assert any("first_days" in line for line in said)
+    assert "building_blocks/prod/first_days.py" in record.read_text(encoding="utf-8")
+    # Run again, it changes nothing.
+    assert project.prod_run_values_pointed(["mart.fails"]) == []
+    forget_the_projects_modules()
