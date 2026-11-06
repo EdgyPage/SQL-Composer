@@ -150,10 +150,9 @@ def test_a_statement_that_reads_a_created_table_reads_its_dev_copy(started: Path
 def test_the_statements_are_in_the_order_of_what_reads_what(started: Path, batch: str) -> None:
     index = (batch_folder(started) / "batch.md").read_text(encoding="utf-8")
     assert index.index("failed_runs_ops_reports") < index.index("fails_per_job_ops_reports")
-    # Each script is kept as it was given.
-    scripts = batch_folder(started) / "scripts"
-    assert (scripts / "daily.hql").read_text(encoding="utf-8") == DAILY
-    assert (scripts / "weekly.hql").read_text(encoding="utf-8") == WEEKLY
+    # Each script is read where it is, never copied (Toolbox 8.5, ticket 03).
+    assert "2 scripts, each read where it is: daily.hql and weekly.hql." in index
+    assert not (batch_folder(started) / "scripts").exists()
 
 
 def test_each_statement_that_becomes_nothing_or_hive_is_listed(started: Path,

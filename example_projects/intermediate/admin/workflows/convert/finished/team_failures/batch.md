@@ -1,6 +1,6 @@
 # Batch team_failures
 
-1 script, kept as given in scripts/: team_failures.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
+1 script, each read where it is: C:/Users/myfir/Code and Repos/SQL-Composer/tools/example_project_sources/intermediate/conversions/team_failures.hql. Each table they write is a Saved table in the Dev Database, mart; one they only create has its Table reference alone.
 
 ## Tables
 
