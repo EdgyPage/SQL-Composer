@@ -132,17 +132,16 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
 
 
 def test_write_decisions_writes_each_answer_and_says_what_is_left(started: Path) -> None:
-    report = repr(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
+    report = repr(project.write_decisions({"ops.job_runs": {"key": None}}))
     # Ticket 21: each TODO line left is named, by its line, so no one has to look for it.
+    # Toolbox 8.5, ticket 08: no Key, so no first line is proposed from it.
     assert report == ('Wrote 1 answer into references/ops__job_runs.py.\n'
-                      'ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which '
-                      'wait on nothing: fill each in when you like.\n'
+                      'ops.job_runs: 1 TODO line left in references/ops__job_runs.py, which '
+                      'waits on nothing: fill it in when you like.\n'
                       '  line 1: ops.job_runs - TODO: say in one line what one row is.\n'
-                      '  line 16: does_not_add_up=[],  # TODO: columns that are averages, '
-                      'ratios or distinct counts\n'
                       'Each Decision of ops.job_runs is made.')
     reference = (started / "references" / "ops__job_runs.py").read_text(encoding="utf-8")
-    assert '    key=["run_id"],' in reference
+    assert '    key=None,\n' in reference
 
 
 # --- An answer that matches nothing (Toolbox 8.3, ticket 04) ---------------------------------

@@ -2,7 +2,8 @@
 notebook names, and a table's own answer overwrites it. Toolbox 8.4, ticket 08.
 
 It takes "seed", for the seed's limits, "location_root", the folder each table's own goes
-under, and "tags"; a Key and a type are each table's own. project.write_decisions is given the
+under, "tags", and "key": "proposed" (8.5), accepting each proposed Key; a type is each
+table's own. project.write_decisions is given the
 notebook's tables with tables=, as each Workflow's step cell does, and says which tables each
 answer of all_tables was written into.
 """
@@ -144,14 +145,16 @@ def test_a_seed_under_all_tables_is_passed_through_for_each_table() -> None:
      "all_tables: tags: PERIOD_ED is no Script tag of any table it answers for; did you mean "
      "PERIOD_END?"),
     ({"key": ["job_id"]},
-     f"all_tables: key is each table's own: answer it under the name of each table it is "
-     f"for, {DAILY} and {WEEKLY}"),
+     'all_tables: key takes only "proposed", which accepts each table\'s proposed Key; any '
+     "other Key is each table's own: answer it under the name of each table it is for, "
+     f"{DAILY} and {WEEKLY}"),
+    # Toolbox 8.5, ticket 07: a guessed type is never accepted for every table at once.
     ({"types": {"runs": "bigint"}},
-     f"all_tables: types is each table's own: answer it under the name of each table it is "
-     f"for, {DAILY} and {WEEKLY}"),
+     "all_tables: types: each guessed type is the table's own, never answered for every "
+     f"table at once: answer it under the name of each table it is for, {DAILY} and {WEEKLY}"),
     ({"location": "/data/team"},
-     "all_tables: 'location' is no kind of answer for every table; all_tables answers seed, "
-     "location_root and tags; did you mean location_root?"),
+     "all_tables: 'location' is no kind of answer for every table; all_tables answers key, "
+     "seed, location_root and tags; did you mean location_root?"),
     ({"location_root": ["/data/team"]},
      "all_tables: location_root: give the folder as text, such as \"/data/your_team\", not "
      "['/data/team']"),
