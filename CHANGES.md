@@ -22,7 +22,9 @@ Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
 - **Each Workflow notebook** in `admin/workflows/` is written again, kept as it was in
   `admin/removed/`: each step 3 cell gives the notebook's tables to `project.write_decisions`,
   as `tables=project.batch_tables(NAME)` in convert's, which `"all_tables"` needs, and each
-  decisions cell's comment shows `"all_tables"`. Each name and answer you gave stays.
+  decisions cell you hadn't answered in is written with 8.4's comment, which shows
+  `"all_tables"`, a Run value and a seed limit; one you answered in is kept as you wrote it.
+  Each name and answer you gave stays.
 - **Each Workflow decision step has a `project.check()` cell** under it, which the Upgrade
   writes in with the rest of the notebook.
 - **In a table converted before 8.4, each Script tag in a string**, which 8.3 wrote as
@@ -31,7 +33,8 @@ Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
   it was in `admin/removed/`: the same Hive for every answer it took, and a Run value's
   function may answer it now.
 - **A table converted before 8.4 keeps its seed() copying every Partition**, with no `SEED`
-  for a `"seed"` answer to fill: a `"seed"` answer for it is refused, saying so. To limit its
+  for a `"seed"` answer to fill: the Upgrade marks its seed() so, and a `"seed"` answer for it
+  is refused, saying so. To limit its
   seed, convert its scripts again as a new batch, with a new name for each table in RENAME,
   and remove the old table with `project.remove_table(...)`, in `admin/remove.ipynb`, once the
   new one's compare passes.
