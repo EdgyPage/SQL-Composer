@@ -310,6 +310,24 @@ def seed_python(value: object) -> str:
     return repr(value)
 
 
+def seed_answer(answers: dict[str, dict[str, object]], table: str, text: str,
+                answer: dict[str, object]) -> dict[str, object]:
+    """One table's answer with its seed limits as they apply to it: its own as given, which
+    the refusals check first; all_tables' for the partition columns it has; none for a table
+    that doesn't read itself, which has no seed."""
+    if not isinstance(answer.get(SEED), dict):
+        return answer
+    partitions = seed_partitions(text)
+    own = answers.get(table)
+    if partitions is None:
+        return {kind: value for kind, value in answer.items() if kind != SEED}
+    if isinstance(own, dict) and SEED in own:
+        return answer
+    limits = {column: limit for column, limit in answer[SEED].items()
+              if column in partitions}
+    return {**answer, SEED: limits}
+
+
 def seed_partitions(text: str) -> list[str] | None:
     """The partition columns a Table reference's text names, for its seed limits; None when
     it has no SEED, as a table that doesn't read itself has none."""
