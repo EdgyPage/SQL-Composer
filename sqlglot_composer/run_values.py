@@ -129,13 +129,17 @@ def run_value(function: Callable[..., object], *arguments: object,
     It calls function(*arguments, **keywords) and writes what it gives as a value, as a
     plain one is written: a date as '2026-09-23', text in quotes, a number, True or False.
     Any function will do, one of your Project's or a library's. A partition column held to it
-    is bounded, as by a plain value. The Statement's lineage draws a box for it, naming the
-    function, what it was given and what it gave, with an arrow into it from each table the
-    Toolbox read for it while it ran: the partition column latest_partition reads, and each
-    table a Statement it sends through run_query reads. A function that fails leaves its name
-    in backticks in the value's place, with a Warning saying why, so show_hive still shows the
-    rest; run_query and run_execute refuse to send it. A Script tag answered with a function is
-    one too: script_tag(TAGS["PERIOD_END"]) calls it so.
+    is bounded, as by a plain value.
+
+    A function that fails leaves its name in backticks in the value's place, such as
+    `<days_before() failed>`, with a Warning saying why, so show_hive still shows the rest;
+    run_query and run_execute refuse to send it. A Script tag answered with a function is a
+    Run value too: script_tag(TAGS["PERIOD_END"]) calls it the same way.
+
+    The Statement's lineage draws a box for each Run value: the function, what it was given
+    and what it gave. An arrow goes into the box from each table the Toolbox read for it while
+    it ran: the partition column latest_partition reads, and each table read by a Statement
+    it sends through run_query.
     """
     if not callable(function):
         refuse(
@@ -214,9 +218,15 @@ def tag_text(value: str | Callable[[], object], *, quoted: bool = True) -> str:
     >>> "dt <= " + tag_text(TAGS["PERIOD_END"], quoted=False)
     "dt <= '2026-09-24'"
 
-    A Conversion writes it where a tag stood in text it keeps: tag_text(TAGS["RUN_MONTH"]) for
-    one inside quotes, as above, and tag_text(TAGS["PERIOD_END"], quoted=False) for a bare one
-    in Hive kept whole, which stands for Hive, its value's own quotes and all. TAGS, in the
+    A Conversion writes it for you, where a tag stood in text it keeps:
+
+    - if the tag stood inside quotes, as '<PARM="RUN_MONTH"/>', it writes
+      tag_text(TAGS["RUN_MONTH"]): the quotes are the original's, so the text has none;
+    - if the tag stood bare, in Hive kept whole as text, it writes
+      tag_text(TAGS["PERIOD_END"], quoted=False): the text is the value as Hive, with its own
+      quotes, as '2026-09-24'.
+
+    TAGS, in the
     table's Table reference, holds what each tag stands for: text, or a Run value's function,
     which tag_text calls each time the Statement is built. A date it gives is written as
     2026-10-31 inside quotes and as '2026-10-31' bare, a number as it is, and text as it is. A
@@ -286,11 +296,13 @@ def latest_partition(column: Column,
     keeps for rows with no value, __HIVE_DEFAULT_PARTITION__, is passed over. It is what a Run
     value's function usually gives, in your Project's building_blocks/run_values.py:
 
+        import datetime
+
         from sqlglot_composer import latest_partition
         from references.ops__job_runs import job_runs
         from warehouse import query
 
-        def period_end():
+        def period_end() -> datetime.date:
             return latest_partition(job_runs.dt, query)
 
     It refuses a column that isn't one of its table's partition columns, before anything is
@@ -357,10 +369,10 @@ def hive_date(day: datetime.date) -> str:
     >>> hive_date(datetime.date(2026, 10, 31))
     "'2026-10-31'"
 
-    A Run value's function may give back a date itself, which script_tag writes so; hive_date
-    is for a date you put in Unchecked text, as in unchecked_condition("{dt} <= " +
-    hive_date(day), dt=job_runs.dt). A datetime is written with its time,
-    '2026-10-31 06:30:00'. It refuses anything that isn't a date.
+    A Run value's function may give back a date itself, which script_tag writes in this form
+    for you; hive_date is for a date you put in Unchecked text, as in
+    unchecked_condition("{dt} <= " + hive_date(day), dt=job_runs.dt). A datetime is written
+    with its time, '2026-10-31 06:30:00'. It refuses anything that isn't a date.
     """
     if not isinstance(day, datetime.date):
         refuse(

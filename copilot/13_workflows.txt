@@ -70,8 +70,10 @@ inside it.
 - A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
   Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
-  user gives; only if they ask for one changing each run, `"'${hivevar:run_day}'"`, a SET
-  hivevar line kept in the script. If they give none, never guess: ask.
+  user gives; for one worked out each run, such as the latest Partition, a Run value: a
+  function of theirs (file 17). If they give none, never guess: ask.
+- `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
+  file 17.
 - Leave convert's `PARTITION = None` unless the user asks to compare a Partition by name:
   then `PARTITION = {"dt": "2026-09-23"}`, and step 7 compares it too.
 - The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
