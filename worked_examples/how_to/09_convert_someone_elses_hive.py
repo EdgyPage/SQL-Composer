@@ -342,7 +342,7 @@ WHERE
 GROUP BY
   a.severity;
 
-A dry run, the notebook's last cell with `dry_run=True` added, calls it the same way. If the
+A dry run, a run cell of the notebook with `dry_run=True` added, calls it the same way. If the
 function fails, say with no connection, the Hive holds a placeholder in its place and a
 Warning says why; nothing holding it is sent. Common mistakes, below, shows it.
 

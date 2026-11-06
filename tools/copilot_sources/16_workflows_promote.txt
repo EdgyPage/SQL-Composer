@@ -74,8 +74,8 @@ it.
   `{"team_prod.fail_log": {"seed": {"dt": {"from": "2026-09-01"}}}}`: a dev table's seed
   answer isn't carried over, since prod often needs more of the original's history than a dev
   compare did. "all_tables" answers every prod copy at once: file 17 says how.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- "Run up to your Decisions", then "Run the rest": each runs every step left, up to the first
+  only the user can do; `dry_run=True` sends nothing.
 
 ## promote: dev tables to prod
 

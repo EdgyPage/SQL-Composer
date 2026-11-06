@@ -229,10 +229,13 @@ def _how_to_head() -> list[str]:
         *_wrapped("- If you don't know which step of a Workflow comes next, run "
                   "`project.check()`: it names the next step of each Workflow you have "
                   "started.", "  "),
-        *_wrapped("- If you want every step left run for you, run the notebook's last cell, "
-                  "`project.run_workflow(...)`, in place of the steps' cells: it runs every "
-                  "step left, the calls to the warehouse too, up to the first only you can "
-                  "do: a Decision, or a check of what a step printed.", "  "),
+        *_wrapped("- If you want every step left run for you, run `project.run_workflow(...)` "
+                  "in place of the steps' cells: in convert, promote, new_table and "
+                  "references, the two cells under the names cell, \"Run up to your "
+                  "Decisions\" and then, under the decisions cell, \"Run the rest\"; in the "
+                  "others, the notebook's last cell. It runs every step left, the calls to "
+                  "the warehouse too, up to the first only you can do: a Decision, or a check "
+                  "of what a step printed.", "  "),
         *_wrapped("- If you haven't sent anything yet, run `project.run_workflow(...)` with "
                   "`dry_run=True` first: it sends nothing through your execute and says the "
                   "Hive each step would send. It runs for real convert and the references "
@@ -288,11 +291,11 @@ def _how_to_steps() -> list[str]:
                   "save the notebook."), "",
         "Done when each name the cell asks for is filled in and saved. Then step 5.", "",
         "### 5. Run its steps in order", "",
-        *_wrapped("Goal: the Workflow's end goal reached. Run each step's cell in turn, as its "
-                  "Workflow's section below lists them, or its last cell in their place. At a "
-                  "step that is a decision, yours to make, make it: write your answer to each "
-                  "open Decision in the decisions cell, beside the names cell, and save it, or "
-                  "read what the step before printed. Then run the next step."), "",
+        *_wrapped("Goal: the Workflow's end goal reached. Run its run cells, as its "
+                  "Workflow's section below shows them, or each step's cell in turn in their "
+                  "place. At a step that is a decision, yours to make, make it: write your "
+                  "answer to each open Decision in the decisions cell and save it, or read "
+                  "what the step before printed. Then run on."), "",
         *_wrapped("An answer is what its kind takes, as the decisions cell's comment shows: a "
                   "folder as text, a Key as a list, a Script tag's day as Hive text. A tag may "
                   "be answered by a Run value's function instead, one of your Project's, "
@@ -329,18 +332,37 @@ def _how_to_section(workflow: Workflow) -> list[str]:
                                    subsequent_indent="    # ", break_long_words=False,
                                    break_on_hyphens=False)
             lines.append(f"    {given.name} = {given.empty!r}")
-    if any(step.decides for step in workflow.steps):
+    if workflows.reads_straight_down(workflow):
+        lines += _intended_path_lines(workflow)
+    elif any(step.decides for step in workflow.steps):
         lines += ["", "Its decisions cell, beside it, where you answer each open Decision:",
                   "", *[f"    {line}" for line in workflows.DECISIONS_CELL.split("\n")]]
-    lines += ["", "Its steps, in order:", ""]
+    lines += ["", "Its steps' own cells, in order:", ""]
     for number, step in enumerate(workflow.steps, 1):
         lines += _wrapped(f"{number}. {step.name} (it {workflows.step_said(workflow, step)}).",
                           "   ")
         if step.call:
             lines += ["", *[f"    {line}" for line in step.call.split("\n")], ""]
-    lines += ["", "Its last cell runs every step left, in place of their cells:", "",
-              *[f"    {line}" for line in workflows.run_cell_text(workflow).split("\n")]]
+    if not workflows.reads_straight_down(workflow):
+        lines += ["", "Its last cell runs every step left, in place of their cells:", "",
+                  *[f"    {line}" for line in workflows.run_cell_text(workflow).split("\n")]]
     return [*lines, ""]
+
+
+def _intended_path_lines(workflow: Workflow) -> list[str]:
+    """A notebook's intended path, under its names cell, as how-to 29 shows it: its run of
+    every step up to the Decisions, its decisions cell, and its run of the rest (8.5)."""
+    up_to = workflows.run_cell_text(workflow, workflows.RUN_UP_TO_DECISIONS)
+    the_rest = workflows.run_cell_text(workflow, workflows.RUN_THE_REST)
+    return ["", *_wrapped(f'Under it, "{workflows.RUN_UP_TO_DECISIONS}", which runs every step '
+                          "left up to the first only you can do, and prints the DECISIONS to "
+                          "paste:"), "",
+            *[f"    {line}" for line in up_to.split("\n")], "",
+            "Its decisions cell, under that, where you answer each open Decision:", "",
+            *[f"    {line}" for line in workflows.DECISIONS_CELL.split("\n")], "",
+            *_wrapped(f'And "{workflows.RUN_THE_REST}", which goes on from where the first '
+                      "stopped; each step's own cell follows, under Step by step:"), "",
+            *[f"    {line}" for line in the_rest.split("\n")]]
 
 
 def _imports_wrapped() -> list[str]:
