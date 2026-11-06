@@ -738,9 +738,11 @@ a decision would write before you make it.**
 4. **Run the rest.** Action: by the rules below. Done when the notebook's last step has run.
    - If you want each step in turn, run each cell after it in turn, and go back to step 3 at
      the next decision.
-   - If you want every step left at once, run, in their place, the notebook's last cell,
-     `project.run_workflow(...)`, which runs every step left, the calls to the warehouse too,
-     up to the first only you can do, and says where it stopped.
+   - If you want every step left at once, run `project.run_workflow(...)` in their place:
+     in convert, promote, new_table and references, the two cells under the names cell, "Run
+     up to your Decisions", then, under the decisions cell, "Run the rest"; in the others, the
+     notebook's last cell. It runs every step left, the calls to the warehouse too, up to the
+     first only you can do, and says where it stopped.
    - If you want to see what it would send first, give `run_workflow` `dry_run=True`: it sends
      nothing through your execute and says the Hive each step would send.
 

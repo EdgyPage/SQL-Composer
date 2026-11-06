@@ -64,12 +64,11 @@ it.
 
 ## How a Workflow runs
 
-- DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}}}`; the next step writes each into its table's
-  Table reference.
-- The last cell, `project.run_workflow(...)`, runs every step left, up to the first only the
-  user can do; `dry_run=True` sends nothing.
+- DECISIONS holds each answer by table, as `project.check()` writes it, each by its kind:
+  `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"]}}`;
+  the next step writes each into its table's Table reference.
+- "Run up to your Decisions", then "Run the rest" (new_table), or the last cell (the others),
+  runs every step left, up to the first the user must do; `dry_run=True` sends nothing.
 
 ## new_table: a Saved table of your own
 

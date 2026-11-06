@@ -16,10 +16,11 @@ such as its location or its Key, the columns whose values name exactly one row.
 - If you start one of the jobs below, follow its Workflow's notebook, as the steps below do.
 - If you don't know which step of a Workflow comes next, run `project.check()`: it names the
   next step of each Workflow you have started.
-- If you want every step left run for you, run the notebook's last cell,
-  `project.run_workflow(...)`, in place of the steps' cells: it runs every step left, the calls
-  to the warehouse too, up to the first only you can do: a Decision, or a check of what a step
-  printed.
+- If you want every step left run for you, run `project.run_workflow(...)` in place of the
+  steps' cells: in convert, promote, new_table and references, the two cells under the names
+  cell, "Run up to your Decisions" and then, under the decisions cell, "Run the rest"; in the
+  others, the notebook's last cell. It runs every step left, the calls to the warehouse too, up
+  to the first only you can do: a Decision, or a check of what a step printed.
 - If you haven't sent anything yet, run `project.run_workflow(...)` with `dry_run=True` first:
   it sends nothing through your execute and says the Hive each step would send. It runs for real
   convert and the references Workflow's first step, which read DESCRIBE, and each step that
@@ -94,10 +95,10 @@ Done when each name the cell asks for is filled in and saved. Then step 5.
 
 ### 5. Run its steps in order
 
-Goal: the Workflow's end goal reached. Run each step's cell in turn, as its Workflow's section
-below lists them, or its last cell in their place. At a step that is a decision, yours to make,
-make it: write your answer to each open Decision in the decisions cell, beside the names cell,
-and save it, or read what the step before printed. Then run the next step.
+Goal: the Workflow's end goal reached. Run its run cells, as its Workflow's section below shows
+them, or each step's cell in turn in their place. At a step that is a decision, yours to make,
+make it: write your answer to each open Decision in the decisions cell and save it, or read what
+the step before printed. Then run on.
 
 An answer is what its kind takes, as the decisions cell's comment shows: a folder as text, a Key
 as a list, a Script tag's day as Hive text. A tag may be answered by a Run value's function
@@ -186,7 +187,15 @@ Its names cell, which you fill in and save first:
     # Partition your dev table and its original both hold
     PARTITION = None
 
-Its decisions cell, beside it, where you answer each open Decision:
+Under it, "Run up to your Decisions", which runs every step left up to the first only you can
+do, and prints the DECISIONS to paste:
+
+    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("convert", query=query, execute=execute)
+
+Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
@@ -207,7 +216,15 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-Its steps, in order:
+And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
+under Step by step:
+
+    # Run the rest: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("convert", query=query, execute=execute)
+
+Its steps' own cells, in order:
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -245,13 +262,6 @@ Its steps, in order:
 
     project.compare_batch(NAME, query=query, partition=PARTITION)
 
-
-Its last cell runs every step left, in place of their cells:
-
-    # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see the Hive it would send, sending nothing through your
-    # execute: help(project.run_workflow) says the steps it still runs:
-    project.run_workflow("convert", query=query, execute=execute)
 
 ### The promote Workflow
 
@@ -306,7 +316,15 @@ Its names cell, which you fill in and save first:
     # ["mart_dev.daily_job_runs"]
     TABLES = []
 
-Its decisions cell, beside it, where you answer each open Decision:
+Under it, "Run up to your Decisions", which runs every step left up to the first only you can
+do, and prints the DECISIONS to paste:
+
+    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("promote", query=query, execute=execute)
+
+Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
@@ -327,7 +345,15 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-Its steps, in order:
+And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
+under Step by step:
+
+    # Run the rest: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("promote", query=query, execute=execute)
+
+Its steps' own cells, in order:
 
 1. Promote each table: a prod copy of its folder and Table reference (it changes only files, so
    project.do_next() runs it for you).
@@ -366,13 +392,6 @@ Its steps, in order:
 
     project.refresh_reference_sheet(project.promoted_tables(TABLES))
 
-
-Its last cell runs every step left, in place of their cells:
-
-    # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see the Hive it would send, sending nothing through your
-    # execute: help(project.run_workflow) says the steps it still runs:
-    project.run_workflow("promote", query=query, execute=execute)
 
 ### The new_table Workflow
 
@@ -437,7 +456,15 @@ Its names cell, which you fill in and save first:
     # from its query
     QUERIES = {}
 
-Its decisions cell, beside it, where you answer each open Decision:
+Under it, "Run up to your Decisions", which runs every step left up to the first only you can
+do, and prints the DECISIONS to paste:
+
+    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("new_table", query=query, execute=execute)
+
+Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
@@ -458,7 +485,15 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-Its steps, in order:
+And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
+under Step by step:
+
+    # Run the rest: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("new_table", query=query, execute=execute)
+
+Its steps' own cells, in order:
 
 1. Make each Table folder, converting each table's query QUERIES gives (it changes only files,
    so project.do_next() runs it for you).
@@ -501,13 +536,6 @@ Its steps, in order:
         print(project.compare_batch(name, query=query))
 
 
-Its last cell runs every step left, in place of their cells:
-
-    # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see the Hive it would send, sending nothing through your
-    # execute: help(project.run_workflow) says the steps it still runs:
-    project.run_workflow("new_table", query=query, execute=execute)
-
 ### The references Workflow
 
 Writes a Table reference for each table your Project reads, from its DESCRIBE.
@@ -546,7 +574,15 @@ Its names cell, which you fill in and save first:
     # the tables, by their names in the warehouse, such as ["mart.daily_job_runs"]
     TABLES = []
 
-Its decisions cell, beside it, where you answer each open Decision:
+Under it, "Run up to your Decisions", which runs every step left up to the first only you can
+do, and prints the DECISIONS to paste:
+
+    # Run up to your Decisions: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("references", query=query, execute=execute)
+
+Its decisions cell, under that, where you answer each open Decision:
 
     DECISIONS = {}  # your answer to each open Decision, by the table's name as
     # project.check() writes it, such as
@@ -567,7 +603,15 @@ Its decisions cell, beside it, where you answer each open Decision:
     # {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself
     # copies: how-to 09 shows both.
 
-Its steps, in order:
+And "Run the rest", which goes on from where the first stopped; each step's own cell follows,
+under Step by step:
+
+    # Run the rest: every step left, up to the first only you can do.
+    # Add dry_run=True to see the Hive it would send, sending nothing through your
+    # execute: help(project.run_workflow) says the steps it still runs:
+    project.run_workflow("references", query=query, execute=execute)
+
+Its steps' own cells, in order:
 
 1. Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).
 
@@ -584,13 +628,6 @@ Its steps, in order:
 
     project.refresh_reference_sheet(TABLES)
 
-
-Its last cell runs every step left, in place of their cells:
-
-    # Every step left, in place of their cells, up to the first only you can do.
-    # Add dry_run=True to see the Hive it would send, sending nothing through your
-    # execute: help(project.run_workflow) says the steps it still runs:
-    project.run_workflow("references", query=query, execute=execute)
 
 ### The upgrade Workflow
 
@@ -618,7 +655,7 @@ flowchart TD
     classDef thing fill:#ffffff,stroke:#888888
 ```
 
-Its steps, in order:
+Its steps' own cells, in order:
 
 1. Upgrade the Project's files (it changes only files, or only prints: run its cell).
 
@@ -671,7 +708,7 @@ Its names cell, which you fill in and save first:
     # the Saved table to change, such as "mart.daily_job_runs"
     TABLE = ''
 
-Its steps, in order:
+Its steps' own cells, in order:
 
 1. Write the Admin statement for the change (it is a decision, yours to make).
 

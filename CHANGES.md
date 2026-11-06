@@ -2,6 +2,28 @@
 
 What changed in each Toolbox version, in plain words. The newest version comes first.
 
+## 8.5
+
+8.5 takes away steps you do by hand in the Workflows, each doing what it did before. Its notes
+grow as each part is built; its Upgrade, from 8.4, comes with the version.
+
+### What's new
+
+- **The convert, promote, new_table and references notebooks read top to bottom.** Each opens
+  with its names cell, then "Run up to your Decisions", which runs every step up to the first
+  only you can do and prints the DECISIONS to paste; the decisions cell, under it; and "Run
+  the rest", which goes on from there. Each step's own cell is below, under "Step by step",
+  and `project.do_next()` is the last cell. change_a_saved_table and upgrade keep their last
+  cell, `project.run_workflow(...)`. Before, the decisions cell sat at the top, under the
+  names cell, and `project.check()`, which prints what to paste into it, under step 2.
+
+### Fixed
+
+- **A "seed" answer typed once every other answer was written is written too.** The step
+  writing the decisions cell's answers counted as done once no Decision was open, so
+  `project.run_workflow` skipped a seed limit given after the rest: in 8.4, promote's prod
+  seed copied every Partition, though its decisions cell limited it.
+
 ## 8.4
 
 8.4 works out what a Script tag stands for each time a table is written, and copies only the
