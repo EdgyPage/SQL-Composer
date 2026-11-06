@@ -6822,7 +6822,7 @@ None: each Decision in references/mart__fail_history.py is made.
 ## Notes, which block nothing
 
 - Make each unchecked_ piece a Toolbox function where you can.
-- Its write reads its own table, which in dev starts empty, so the convert Workflow&#x27;s seed step, after it creates the table, copies every Partition of the original&#x27;s rows into it once, with its seed(), unless SEED, in its Table reference, limits them: answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, to copy only those you need. The seed step&#x27;s line shows the WHERE it sends.</pre>
+- Its write reads its own table, which in dev starts empty. So the convert Workflow&#x27;s seed step, after it creates the table, copies the original&#x27;s rows into it once, with its seed(). It copies every Partition unless SEED, in its Table reference, limits them. To copy only those you need, answer &quot;seed&quot; in the decisions cell, such as {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}. A table with no Partitions copies every row. The seed step&#x27;s line shows the WHERE it sends.</pre>
 <p>An answer is changed by answering it again in the decisions cell and running this step again: no file is edited by hand. Here RUN_DAY&#x27;s day, 2026-09-23, was wrong: the scheduler&#x27;s job, or whoever runs it, says the day it put there, 2026-09-24, and a compare in step 11 would show rows that differ from the original&#x27;s. Write the right day in DECISIONS and run the step again; it writes the new day over the old, and says so:</p>
 <pre class="python">DECISIONS[&quot;mart.alerts_by_severity_ops_reports&quot;][&quot;tags&quot;] = {&quot;RUN_DAY&quot;: &quot;&#x27;2026-09-24&#x27;&quot;}
 said = repr(project.write_decisions(DECISIONS))  # -&gt; str</pre>
@@ -17172,7 +17172,7 @@ _ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&qu
 <p>Goal: know the Project is behind the Toolbox. Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before writing 7.2 in the version file, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
 <pre class="python">from sqlglot_composer import project
 print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run project.upgrade() in a new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the Project has one.</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.</pre>
 <p>Done when <code>project.check()</code> names the version that last wrote the Project. Then step 3.</p>
 <h5>3. Upgrade it</h5>
 <p>Goal: the Project&#x27;s files carried to this Toolbox. Run <code>project.upgrade()</code> from a notebook in the Project: the first time, in a new cell of admin/check_project.ipynb, which imports <code>project</code> already.</p>

@@ -58,9 +58,10 @@ Nothing is refused meanwhile: your notebooks still run.
 
 >>> from sqlglot_composer import project
 >>> print(project.check())
-The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run project.upgrade() in a
-    new cell of admin/check_project.ipynb, or of admin/workflows/upgrade/upgrade.ipynb once the
-    Project has one.
+The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run step 1's cell of
+    admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no
+    such notebook until its first Upgrade, so there project.upgrade() goes in
+    admin/check_project.ipynb.
 
 Done when `project.check()` names the version that last wrote the Project. Then step 3.
 

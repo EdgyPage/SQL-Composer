@@ -1892,8 +1892,9 @@ def _version_of_or_refuse(root: Path, call: str, toolbox: str) -> str:
 # Where to run project.upgrade(): a Project an older Toolbox made has no
 # admin/workflows/upgrade/upgrade.ipynb until an Upgrade adds one, and every admin notebook
 # imports project already.
-RUN_UPGRADE = ("run project.upgrade() in a new cell of admin/check_project.ipynb, or of "
-               "admin/workflows/upgrade/upgrade.ipynb once the Project has one")
+RUN_UPGRADE = ("run step 1's cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); "
+               "a Project made before 8.0 has no such notebook until its first Upgrade, so "
+               "there project.upgrade() goes in admin/check_project.ipynb")
 
 
 def _recorded_version(root: Path) -> str | None:
@@ -3988,8 +3989,10 @@ def _seed_columns_no_table_has(named: list[str], texts: dict[str, str]) -> list[
         partitions += decisions.seed_partitions(text) or []
     partitions = list(dict.fromkeys(partitions))
     if not partitions:
-        return ["all_tables: seed: no table it answers for reads itself, so none has a seed "
-                "to limit"]
+        return ["all_tables: seed: no table it answers for has a SEED with a partition column "
+                "to limit: one that doesn't read itself has no seed, one with no Partitions "
+                "copies every row, and one converted before 8.4 keeps its seed() copying "
+                "everything"]
     return [f"all_tables: seed: {column} is no partition column of any table with a seed"
             f"{_nearest_or_all(column, partitions, 'partition columns')}"
             for column in named if column not in partitions]
