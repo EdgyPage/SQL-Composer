@@ -47,3 +47,29 @@ input of its own unless the intended path needs it.
   is answered by a Run value and whose seed is limited, from what main ships, its record saying
   how many cells the run added (none, to pass). Its first round is run and recorded in
   `.scratch/usability-loop/results.md`, with what it found.
+
+## Answer
+Built 2026-11-05.
+
+- **A cell for each decision step**: each Workflow's decision step that answers Decisions
+  (convert's, promote's, new_table's and references') now has a `project.check()` cell under
+  its heading (`workflows.DECISIONS_TO_ANSWER_CELL`), which names each open Decision and
+  prints a whole DECISIONS to paste; its text opens "Run the cell below" (`RUN_THE_CHECK_CELL`).
+  That was the cell the user made by hand.
+- **The edge cases are the docs'**, as the user asked after: the references step's Key check
+  says the code check_key takes, pointing to how-to 21, with no "new cell"; the upgrade's advice
+  points to step 1's cell of the upgrade notebook, and says where a Project made before 8.0,
+  which has none, runs it.
+- **No file of your own to start a Run value, dropped**: a `building_blocks/run_values.py` in
+  every Project would be the dead code the user asked to keep out; a Run value's function is
+  taught in the docs (12), its file one the user writes when they need one.
+- **`tests/test_no_cell_of_your_own.py`**: no notebook a started Project ships asks for a cell
+  of your own; each call a Workflow step says to run has its cell; each step you run has a
+  cell under its heading, a decision step its `project.check()`.
+- **The runner reads a function answer**: `project.run_workflow` and check() read the decisions
+  cell without running it; a cell that imports a Run value's function from the Project, such
+  as `from building_blocks.run_values import period_end`, now gives it, its Project imports
+  alone run as load runs a logic cell's (`workflows._decisions_assignment`), so the runner
+  takes the same cell the notebook does.
+- **Journeys**: the user's batch through the runner, and promote of its seeded table with the
+  prod seed limited from promote's decisions cell, its prod rows the dev ones.
