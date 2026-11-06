@@ -530,15 +530,22 @@ def _add_python_step(graph: Graph, step: PythonStep, index: int, name: str) -> l
 
 def _add_write(graph: Graph, s: Statement, index: int) -> list[str]:
     """Arrows from a write's outputs into its Saved table, and a box for each partition column
-    it fills with one value, which says what it writes, such as "writes region = 'EU'"."""
+    it fills with one value, which says what it writes, such as "writes region = 'EU'", with
+    an arrow into it from each Run value that value is."""
     table, written = s._write, []
     for _, name in s._outputs:
         target = _table_box(graph, table, name)
         graph.arrow(_box_key("output", index, name), target, "value")
         written.append(target)
+    named = {}
+    if s._partitions.tree is not None:
+        named = {part.parts["this"].parts["name"]: part.parts["expression"]
+                 for part in s._partitions.tree.parts["expressions"] if part.kind == "EQ"}
     for column, value in s._partitions.values.items():
         target = _table_box(graph, table, column)
         graph.boxes[target]["static"] = f"writes {column} = {value}"
+        for key in _run_value_boxes(graph, named[column]):
+            graph.arrow(key, target, "value")
         written.append(target)
     return written
 

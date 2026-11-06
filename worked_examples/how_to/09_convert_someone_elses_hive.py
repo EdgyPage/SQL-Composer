@@ -268,6 +268,10 @@ The file `building_blocks/run_values.py`, after you save it:
         \"\"\"The latest day ops.run_alerts holds.\"\"\"
         return latest_partition(run_alerts.dt, query)
 
+It imports the Table reference of ops.run_alerts, which step 3 added, as it adds one for each
+table the scripts read. A Run value that reads a table no script reads needs that table's
+Table reference first, from the references Workflow.
+
 Then answer RUN_DAY with it, in place of the day: import the function at the top of the
 decisions cell, and give its name, with no brackets, so the Toolbox calls it at each write.
 Under "all_tables", it answers RUN_DAY in each table that holds it, and passes over the others;
@@ -295,9 +299,10 @@ from building_blocks.run_values import run_day
 Only the tag follows run_day. The script's PARTITION (dt='2026-09-24') was typed in, so its
 write still goes to that day's Partition: the author tagged only the WHERE's day, and the
 converted code keeps what was typed. A nightly script whose Partition changes with the day
-writes PARTITION (dt) and gives dt from its rows, as a dynamic Partition, and converts so; a
-tag in PARTITION itself, PARTITION (dt=<PARM="RUN_DAY"/>), is one project.convert can't take
-yet, and skips, saying why.
+tags it, PARTITION (dt=<PARM="RUN_DAY"/>), and that tag is one of the table's Script tags,
+like any other: its write() names the Partition with
+partition={"dt": script_tag(TAGS["RUN_DAY"])}, so each write goes to the day run_day gives,
+and the table's Lineage page shows run_day feeding dt.
 
 Done when RUN_DAY's line in TAGS names run_day. Then step 9.
 
@@ -549,6 +554,12 @@ is one for a table that doesn't read itself. Under "all_tables", a limit applies
 tables with that partition column; the notebook's step 3 report and the seed's line say
 what was sent.
 
+The seed copies once, and each write after it reads what its own WHERE says. If a write
+reads a window of days, such as the day before RUN_DAY through RUN_DAY, and the seed starts
+at RUN_DAY's day, the first write fills the day before too, as the original's write did: the
+copy then holds that day as the original does, and its compare passes. There is nothing to
+do; start the seed earlier only if you want the copy to hold more days.
+
 ## Check it worked
 
 Before you go on, check that:
@@ -573,6 +584,14 @@ in one batch. Give the scripts together, with `files=`.
 The Workflow waits on each table's open Decisions, each one only you can make, such as a
 table's folder or a Script tag's value. Answer each one project.check() names in the decisions
 cell: paste the DECISIONS it prints, and fill in each "<FILL IN>".
+
+### Expecting a copy to keep its table's name
+
+A table's copy in dev is named <table>_<the original's database>,
+mart.fail_history_ops_reports, so two databases' tables of one name stay apart. To keep the
+table's own name, give it before converting, the name alone: in the convert notebook's names
+cell, RENAME = {"ops_reports.fail_history": "fail_history"}, which step 3 passes as rename=,
+makes mart.fail_history.
 
 ### Answering a bare Script tag without its quotes
 

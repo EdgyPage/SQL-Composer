@@ -2018,8 +2018,15 @@ def _check_partition_columns(t: Table, partition: dict[object, object], call: st
 
 
 def _partition_literal(t: Table, name: str, value: object, call: str, left_out: str) -> Node:
-    """The value partition= gives the partition column `name`, as a Hive literal: refused
-    when it is None or a column, which name no Partition."""
+    """The value partition= gives the partition column `name`, as a Hive literal, or as its
+    tree when it is a Column built of values alone, a Script tag's or a Run value's, which is
+    one value too: refused when it is None or a column that reads a table, which name no
+    Partition."""
+    # script_tags reads Column from here, so it is read once a call needs it.
+    from .script_tags import is_built_of_values
+
+    if is_built_of_values(value):
+        return value._tree
     if value is None or isinstance(value, Column):
         if value is None:
             given = "None"

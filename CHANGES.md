@@ -79,6 +79,12 @@ Toolbox 8.3 or later last wrote upgrades straight to the newest Toolbox.
   8.3 wrote `TAGS["NAME"]` itself: it calls a Run value's function too, and gives text as it
   is. A bare tag in Hive kept whole, an Unchecked statement, is
   `tag_text(TAGS["NAME"], quoted=False)`, which gives Hive, a date with its quotes.
+- **A Script tag in PARTITION converts**: `PARTITION (dt=<PARM="RUN_DAY"/>)`, which a
+  Conversion skipped before, becomes `partition={"dt": script_tag(TAGS["RUN_DAY"])}` in the
+  table's write(), so a nightly script writes the day its Run value gives. A tag found only in
+  PARTITION, bare or inside quotes, is a line of TAGS and a Decision too, where before a
+  quoted one there was in no TAGS. `partition=` takes `script_tag(...)` or `run_value(...)`,
+  one value worked out as the write is built, and lineage draws its Run value into the column.
 - **`run_value(function, *args)`** puts what any Python function gives into a Statement, a
   date as `'2026-10-31'`, worked out each time the Statement is built, as a Script tag's Run
   value is. A partition column held to it is bounded.
