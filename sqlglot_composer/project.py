@@ -135,7 +135,7 @@ from .shared import (counted, escaped_literal, in_words, python_literal, singula
                      split_table_name)
 from .conditions import all_of, equals
 from .tables import (ALIASES_HEADING, TABLE_NAME, Table, Verdict, all_columns, check_key,
-                     table_reference_text, write_table_reference)
+                     proposed_key_from_rows, table_reference_text, write_table_reference)
 from .unchecked import (
     SessionSettings,
     UncheckedStatement,
@@ -1408,12 +1408,29 @@ def add_references(names: str | list[str],
     Next: set conn, your connection, in warehouse.py.
     >>> project.add_references(["ops.jobs", "ops.job_runs"], query=example_database.query)
     Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+    ops.jobs: its Key proposed, (job_id), checked with check_key:
+      ops.jobs: the key (job_id) holds.
+    ops.job_runs: its Key proposed, (run_id), checked with check_key:
+      ops.job_runs: the key (run_id) holds where job_runs.dt IN ('2026-09-23',
+      '2026-09-24').
+    To accept every proposed Key, write in the decisions cell: "all_tables": {"key":
+    "proposed"}
     Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
     Restart the kernel of a notebook that imported references, to see a table added since.
 
     `names` is a list of tables by their names in the warehouse, such as ["ops.jobs",
     "ops.job_runs"], or one such name alone. Each is written as write_table_reference writes
-    one, into references/<db>__<table>.py, and registered. A table whose file is there already,
+    one, into references/<db>__<table>.py, and registered. Then it proposes what it can, each
+    line marked proposed, through your `query`: the table's Key, from its columns named like
+    an id, such as run_id, the first whose count of distinct values on the latest Partition
+    is its count of rows, checked with check_key on the latest two Partitions, and with its
+    partition columns added when it repeats there; its first line, what one row is, from that
+    Key, such as "One row per run_id."; and its does_not_add_up=, from its columns' names,
+    such as avg_retry_secs. The Key stays an open Decision, its key= line holding the
+    proposal: the report says what check_key found, and the decisions cell's answer that
+    accepts it, "key": "proposed", or "all_tables": {"key": "proposed"} for each table at
+    once. A table with no column named like an id, or whose Key repeats still, keeps its key=
+    and its first line TODO lines. A table whose file is there already,
     a name not written as database.table, and a table whose DESCRIBE (the command that lists
     its columns) fails through your `query` are each skipped, and the rest still written. It
     logs them all in one entry; then, if it skipped any, it raises one SkippedTables error
@@ -1433,6 +1450,9 @@ def add_references(names: str | list[str],
     root = _project_root(call)
     _check_names_are_a_list(names, call)
     files, skipped = _write_each_reference(root, names, query)
+    written = [name for name in names if isinstance(name, str)
+               and REFERENCE.shown(REFERENCE.stem(name)) in files]
+    proposed = _write_proposals(root, written, query)
     result = "worked"
     if skipped:
         result = f"{len(files)} of {len(names)} written; SkippedTables named the rest, above"
@@ -1445,7 +1465,47 @@ def add_references(names: str | list[str],
         wrote = f"Wrote {in_words(files)}: fill in their TODO lines."
     else:
         wrote = f"Wrote {files[0]}: fill in its TODO lines."
-    return ProjectReport([wrote, *databases])
+    return ProjectReport([wrote, *proposed, *databases])
+
+
+def _write_proposals(root: Path, tables: list[str],
+                     query: Callable[[str], pd.DataFrame]) -> list[str]:
+    """Write into each new Table reference of `tables` what add_references proposes for it
+    (Toolbox 8.5): its Key, worked out of its rows and checked through your query, still open
+    to accept, its first line from that Key, and its does_not_add_up=; and what it says of
+    each: each check_key Verdict, or why it proposed no Key, then the DECISIONS line that
+    accepts each Key proposed."""
+    lines, accepted = [], {}
+    for table in tables:
+        path = REFERENCE.path(root, table_stem(table))
+        _, _, _, values = _read_reference(path)
+        read = Table(table, columns=values["columns"],
+                     partitioned_by=values.get("partitioned_by") or [])
+        try:
+            key, said = proposed_key_from_rows(read, query)
+        # Whatever the query raises, the reference stays written, its Key a TODO.
+        except Exception as error:  # noqa: BLE001
+            key, said = None, [f"{table}: no Key proposed: counting its rows failed: "
+                               f"{type(error).__name__}: {_one_line_message(error)}"]
+        text = decisions.with_proposals(path.read_text(encoding="utf-8"), table,
+                                        values["columns"], key)
+        path.write_text(text, encoding="utf-8")
+        if key is not None:
+            accepted[table] = key
+            lines.append(f"{table}: its Key proposed, ({', '.join(key)}), checked with "
+                         "check_key:")
+            for verdict in said:
+                lines += [f"  {line}" for line in verdict.split("\n")]
+        else:
+            lines += said
+    if len(accepted) > 1:
+        lines.append('To accept every proposed Key, write in the decisions cell: '
+                     f'"{decisions.ALL_TABLES}": {{"key": "{decisions.ACCEPT_PROPOSED}"}}')
+    elif accepted:
+        ((table, key),) = accepted.items()
+        lines.append(f"To accept it, write in the decisions cell: {escaped_literal(table)}: "
+                     f'{{"key": {escaped_literal(key)}}}')
+    return lines
 
 
 def _check_names_are_a_list(names: object, call: str) -> None:
@@ -1624,7 +1684,11 @@ def check() -> ProjectReport:
     project.do_next() runs for you when it can, and why a step is due when its files can say,
     such as which Table reference changed after the Reference sheet was last written; each
     batch the convert Workflow finished, as done; and last, since they block nothing, each
-    `# CONVERSION:` mark project.convert left for you, with its file and line.
+    line of a Table reference marked # proposed, a proposal the Toolbox made that is used as
+    it is until you accept it, and each `# CONVERSION:` mark project.convert left for you,
+    each with its file and line. Where a decision step deciding Keys waits on two tables or
+    more with a proposed Key, the DECISIONS it prints to paste offers "all_tables": {"key":
+    "proposed"}, which accepts each.
 
     One made by hand, such as a reference file copied in, is adopted with register(...). One
     moved or deleted by hand is put back, or has its registry row marked removed with
@@ -1652,7 +1716,27 @@ def check() -> ProjectReport:
         lines = ["Every Table folder, Table reference and Building block is registered, and "
                  "each one registered is there."]
     # What blocks nothing comes last, so it never reads as a step to take first.
-    return ProjectReport([*lines, *_finished_batch_lines(root), *_conversion_note_lines(root)])
+    return ProjectReport([*lines, *_finished_batch_lines(root), *_proposed_line_lines(root),
+                          *_conversion_note_lines(root)])
+
+
+def _proposed_line_lines(root: Path) -> list[str]:
+    """What check() says of each line of a Table reference marked # proposed, a proposal the
+    Toolbox made that is used as it is: each one, with its file and line, under a line saying
+    how to accept it, since it blocks nothing."""
+    found = []
+    for path in table_references(root):
+        shown = REFERENCE.shown(path.stem)
+        for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            if decisions.PROPOSED_MARK.search(line):
+                found.append(f"  {shown}, line {number}: {line.strip()}")
+    if not found:
+        return []
+    return ["Proposed by the Toolbox, which blocks nothing: each line marked # proposed is "
+            "used as it is. Accept a proposed Key in its Workflow's decisions cell, with "
+            f'"key": "{decisions.ACCEPT_PROPOSED}" under its table\'s name or under '
+            f'"{decisions.ALL_TABLES}"; accept any other line by taking off its # proposed '
+            "comment, or change it.", *found]
 
 
 def _conversion_note_lines(root: Path) -> list[str]:
@@ -1764,21 +1848,24 @@ def _next_step_line(root: Path, workflow: workflows.Workflow, step: workflows.St
     for decision in waited_on:
         said += f"\n    {decision.table}: {decision.question()}"
     if paste:
-        said += _paste_text(waited_on, where)
+        said += _paste_text(waited_on, where,
+                            workflows.proposed_keys_waited_on(root, workflow, inputs, step))
     return said
 
 
-def _paste_text(still_open: list[decisions.Decision], notebook: str) -> str:
+def _paste_text(still_open: list[decisions.Decision], notebook: str,
+                proposed: list[str]) -> str:
     """The DECISIONS to paste into `notebook`'s decisions cell for the Decisions `still_open`,
-    between blank lines and unindented, so it pastes into the cell as it is; or "" when the
-    cell answers none of them."""
+    `proposed` naming the tables whose Key the Toolbox proposed, between blank lines and
+    unindented, so it pastes into the cell as it is; or "" when the cell answers none of
+    them."""
     if not any(decision.kind in decisions.ANSWERS for decision in still_open):
         return ""
     return (f"\nPaste this over the DECISIONS = ... line of {notebook}'s decisions cell, or "
             "over a DECISIONS you pasted before (each answer written into a Table reference "
             "already is kept), "
             f"then fill in each {decisions.FILL_IN} and check each guessed type:\n\n"
-            + "\n".join(decisions.paste_lines(still_open)) + "\n")
+            + "\n".join(decisions.paste_lines(still_open, proposed)) + "\n")
 
 
 def do_next(workflow: str | None = None) -> ProjectReport:
@@ -1863,12 +1950,16 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
     >>> notebook = Path("admin/workflows/references/references.ipynb")
     >>> _ = notebook.write_text(notebook.read_text(encoding="utf-8").replace(
     ...     "TABLES = []", "TABLES = ['ops.job_events']").replace(
-    ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': ['event_id']}}"),
+    ...     "DECISIONS = {}", "DECISIONS = {'ops.job_events': {'key': 'proposed'}}"),
     ...     encoding="utf-8")
     >>> project.run_workflow("references", query=example_database.query,
     ...                      execute=example_database.execute)
       references: 1. Write the Table references from DESCRIBE
         Wrote references/ops__job_events.py: fill in its TODO lines.
+        ops.job_events: its Key proposed, (event_id), checked with check_key:
+          ops.job_events: the key (event_id) holds where job_events.dt IN ('2026-09-23',
+          '2026-09-24').
+        To accept it, write in the decisions cell: "ops.job_events": {"key": ["event_id"]}
         Wrote references/ops.py: from references import ops gives ops.job_events.
         Restart the kernel of a notebook that imported references, to see a table added
         since.
@@ -1876,11 +1967,6 @@ def run_workflow(workflow: str, *, query: Callable[[str], pd.DataFrame] | None =
         skipped
       references: 3. Write each answer into its table's Table reference
         Wrote 1 answer into references/ops__job_events.py.
-        ops.job_events: 2 TODO lines left in references/ops__job_events.py, which wait on
-        nothing: fill each in when you like.
-          line 1: ops.job_events - TODO: say in one line what one row is.
-          line 15: does_not_add_up=[],  # TODO: columns that are averages, ratios or
-          distinct counts
         Each Decision of ops.job_events is made.
       references: 4. Refresh the Reference sheet and the Database modules
         Wrote references/reference_sheet.csv: 5 rows, 1 table.
@@ -2106,6 +2192,7 @@ def _run_each_batch(root: Path, workflow: workflows.Workflow,
         if stopped:
             return lines, True
     waiting: list[decisions.Decision] = []
+    proposed: list[str] = []
     for inputs, its_calls in zip(instances, calls, strict=True):
         inputs = workflows.read_again(root, workflow, inputs)
         ran, stopped = _run_steps(root, workflow, inputs, its_calls, paste=False)
@@ -2115,11 +2202,12 @@ def _run_each_batch(root: Path, workflow: workflows.Workflow,
             return lines, True
         if stopped:
             waiting += workflows.decisions_waited_on(root, workflow, inputs, step)
+            proposed += workflows.proposed_keys_waited_on(root, workflow, inputs, step)
     lines += _batch_state_lines(root, workflow, instances)
     if not waiting:
         return lines, False
     notebook = workflows.notebook_path(root, workflow).relative_to(root).as_posix()
-    return [*lines, _paste_text(waiting, notebook).removeprefix("\n")], True
+    return [*lines, _paste_text(waiting, notebook, proposed).removeprefix("\n")], True
 
 
 def _batch_state_lines(root: Path, workflow: workflows.Workflow,
@@ -3897,17 +3985,20 @@ def _batch_report(name: str, scripts: list[tuple[str, str]],
     lines.append(f"{CONVERSION_FOLDER.shown(name)}{BATCH_LIST} lists each statement, in the "
                  "order they run, and what it became.")
     still_open = workflows.open_decisions_of(files.root, made, workflows.DEV_DECISIONS)
+    proposed = [table for table in made if decisions.proposed_key(
+        workflows.file_text(workflows.reference_path(files.root, table))) is not None]
     if files.made_for:
         # A batch another Workflow made, as new_table makes a table from its query: its own.
         lines.append("Next: answer its open Decisions in the decisions cell of "
                      f"{_decisions_notebook(files.made_for)}, then run its next steps."
-                     + _paste_text(still_open, _decisions_notebook(files.made_for)))
+                     + _paste_text(still_open, _decisions_notebook(files.made_for), proposed))
         return lines
     lines.append("Next: answer each table's open Decisions in the decisions cell of "
                  "admin/workflows/convert/convert.ipynb, then run its next steps: write the "
                  "answers in, create each table in dev, seed each that reads itself, write "
                  "each, and compare each with its original."
-                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}"))
+                 + _paste_text(still_open, f"admin/workflows/convert/convert.ipynb, {name}",
+                               proposed))
     return lines
 
 
@@ -4107,15 +4198,13 @@ def write_decisions(answers: dict[str, dict[str, object]],
     Started a Project in the folder you're working in: admin/, references/, building_blocks/,
     tables/ and warehouse.py.
     Next: set conn, your connection, in warehouse.py.
-    >>> _ = project.add_references("ops.job_runs", query=example_database.query)
-    >>> print(project.write_decisions({"ops.job_runs": {"key": ["run_id"]}}))
-    Wrote 1 answer into references/ops__job_runs.py.
-    ops.job_runs: 2 TODO lines left in references/ops__job_runs.py, which wait on nothing:
-    fill each in when you like.
-      line 1: ops.job_runs - TODO: say in one line what one row is.
-      line 16: does_not_add_up=[],  # TODO: columns that are averages, ratios or distinct
-      counts
-    Each Decision of ops.job_runs is made.
+    >>> _ = project.add_references("ops.team_notes", query=example_database.query)
+    >>> print(project.write_decisions({"ops.team_notes": {"key": None}}))
+    Wrote 1 answer into references/ops__team_notes.py.
+    ops.team_notes: 1 TODO line left in references/ops__team_notes.py, which waits on
+    nothing: fill it in when you like.
+      line 1: ops.team_notes - TODO: say in one line what one row is.
+    Each Decision of ops.team_notes is made.
 
     A Decision is one line of a table's Table reference only you can fill in, open while it
     holds a TODO: or a <...>: its location=, the folder its files go in; its key=, the
@@ -4123,7 +4212,11 @@ def write_decisions(answers: dict[str, dict[str, object]],
     "string" because nothing told it the type; and each Script tag's line in TAGS, the value
     a <PARM="NAME"/> in the scripts stands for, open while it holds the tag itself. A TODO:
     on any other line, such as the docstring's first line or does_not_add_up=, is no
-    Decision: it waits on nothing, as the two above do. `answers` is the decisions cell,
+    Decision: it waits on nothing, as the one above does. A "key" of "proposed" accepts the
+    Key the Toolbox proposed for the table, marked # proposed on its key= line, written as if
+    typed; a table with no proposal is given no Key by it. A Key written into a Table
+    reference whose first line project.add_references proposed proposes that line again from
+    it. `answers` is the decisions cell,
     DECISIONS, of a Workflow's notebook: by table, a dict holding "location", "key", "types"
     or "tags", such as {"mart_dev.weekly_ops": {"location": "/data/team/mart_dev.db/weekly",
     "key": ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END":
@@ -4158,10 +4251,12 @@ def write_decisions(answers: dict[str, dict[str, object]],
     and "seed", the limits of the seed's copy. It loads first, and a table's own answer
     overwrites it, kind by kind and, for tags, tag by tag: {"all_tables": {"location_root":
     "/data/team", "tags": {"PERIOD_END": "'2026-10-31'"}}, "mart_dev.weekly_ops": {"tags":
-    {"PERIOD_END": "'2026-10-25'"}}}. The report says which tables each of its answers was
-    written into. A Key or a type is each table's own: under all_tables it is refused, naming
-    the tables to answer it for; so is a tag no table of `tables` holds, and all_tables with
-    no `tables`.
+    {"PERIOD_END": "'2026-10-25'"}}}. Its "key" takes only "proposed", which accepts each
+    table's proposed Key; a table's own "key" wins, and a table with no proposal keeps its Key
+    open, named in the report. The report says which tables each of its answers was written
+    into. Any other Key, and a type, which is each table's own, is refused under all_tables,
+    naming the tables to answer it for; so is a tag no table of `tables` holds, and
+    all_tables with no `tables`.
     """
     frame = callers_frame()
     call = "project.write_decisions(...)"
@@ -4227,6 +4322,8 @@ def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict
     if not isinstance(every, dict):
         return []
     lines = []
+    if every.get(decisions.ANSWERS[decisions.KEY]) == decisions.ACCEPT_PROPOSED:
+        lines.append(_all_tables_key_line(answers, before, written))
     if decisions.LOCATION_ROOT in every:
         lines.append(_location_root_line(answers, before, written))
     for name in every.get(decisions.ANSWERS[decisions.TAG], {}):
@@ -4234,6 +4331,32 @@ def _all_tables_report_lines(answers: dict[str, dict[str, object]], before: dict
     if decisions.SEED in every:
         lines.append(_all_tables_seed_line(answers, written))
     return lines
+
+
+def _all_tables_key_line(answers: dict[str, dict[str, object]], before: dict[str, str],
+                         written: dict[str, list[str]]) -> str:
+    """What write_decisions says of DECISIONS["all_tables"]'s "key": "proposed": each table
+    whose proposed Key it accepted, each that keeps its own answer, and each with no proposal
+    whose Key stays open."""
+    key = decisions.ANSWERS[decisions.KEY]
+    own = [table for table in written
+           if answers.get(table, {}).get(key, decisions.ACCEPT_PROPOSED)
+           != decisions.ACCEPT_PROPOSED]
+    into = [table for table in written if key in written[table] and table not in own]
+    still_open = [table for table in written if table not in own
+                  and decisions.proposed_key(before[table]) is None
+                  and decisions.open_decisions(before[table], table, (decisions.KEY,))]
+    said = (f'all_tables: key "{decisions.ACCEPT_PROPOSED}": accepted the proposed Key of '
+            f"{in_words(into) or 'no table'}")
+    if into:
+        said += f", {singular_or_plural(len(into), 'written', 'each written')} as if typed"
+    said += f".{_kept_their_own_text(own, 'Key')}"
+    if still_open:
+        has = singular_or_plural(len(still_open), "has", "have")
+        stays = singular_or_plural(len(still_open), "its Key stays", "their Keys stay")
+        said += (f" {in_words(still_open)} {has} no proposed Key, so {stays} open: answer "
+                 f'"key" under {singular_or_plural(len(still_open), "its", "each")} name.')
+    return said
 
 
 def _all_tables_seed_line(answers: dict[str, dict[str, object]],
@@ -4483,19 +4606,24 @@ def _unmatched_kinds(table: str, answer: dict[str, object]) -> list[str]:
 def _unmatched_all_tables(every: dict[str, object], texts: dict[str, str]) -> list[str]:
     """A line naming each part of DECISIONS["all_tables"], `every`, that matches no Decision
     of the tables it answers for, `texts` holding each one's Table reference by its name: a
-    Key or a type, which are each table's own, any other kind it doesn't take, a location_root
-    that isn't text, a "tags" or "seed" that isn't a dict, or a tag no table holds."""
+    Key other than "proposed", and a type, which are each table's own, any other kind it
+    doesn't take, a location_root that isn't text, a "tags" or "seed" that isn't a dict, or a
+    tag no table holds."""
     kinds = list(decisions.ALL_TABLES_ANSWERS)
     tags = decisions.ANSWERS[decisions.TAG]
-    # A Key and a type, which each table answers itself.
-    each_tables_own = (decisions.ANSWERS[decisions.KEY],
-                       decisions.ANSWERS[decisions.GUESSED_TYPE])
+    key, types = decisions.ANSWERS[decisions.KEY], decisions.ANSWERS[decisions.GUESSED_TYPE]
     problems = []
     for name in every:
-        if name in each_tables_own:
+        if name == key and every[key] != decisions.ACCEPT_PROPOSED:
             tables = in_words(_tables_to_answer(name, texts))
-            problems.append(f"all_tables: {name} is each table's own: answer it under the name "
-                            f"of each table it is for, {tables}")
+            problems.append(f'all_tables: key takes only "{decisions.ACCEPT_PROPOSED}", which '
+                            "accepts each table's proposed Key; any other Key is each table's "
+                            f"own: answer it under the name of each table it is for, {tables}")
+        elif name == types:
+            tables = in_words(_tables_to_answer(name, texts))
+            problems.append("all_tables: types: each guessed type is the table's own, never "
+                            "answered for every table at once: answer it under the name of "
+                            f"each table it is for, {tables}")
         elif name not in kinds:
             problems.append(f"all_tables: {name!r} is no kind of answer for every table; "
                             f"all_tables answers {in_words(kinds)}{_nearest(name, kinds)}")
@@ -5803,6 +5931,10 @@ def refresh_reference_sheet(name: str | list[str] | None = None) -> ProjectRepor
     Next: set conn, your connection, in warehouse.py.
     >>> project.add_references(["ops.run_alerts"], query=example_database.query)
     Wrote references/ops__run_alerts.py: fill in its TODO lines.
+    ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
+      ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23',
+      '2026-09-24').
+    To accept it, write in the decisions cell: "ops.run_alerts": {"key": ["alert_id"]}
     Wrote references/ops.py: from references import ops gives ops.run_alerts.
     Restart the kernel of a notebook that imported references, to see a table added since.
     >>> project.refresh_reference_sheet()
