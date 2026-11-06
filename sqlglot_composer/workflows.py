@@ -1325,7 +1325,8 @@ PROMOTE = Workflow(
              goal="each prod copy's rows written in your Prod Database",
              action="run the cell below. `project.run_tables` sends each prod copy's `write()` "
              "through your execute.",
-             done_when="admin/sent.csv records each prod copy written"),
+             done_when="admin/sent.csv records each prod copy written since it was last "
+             "promoted"),
         Step("Refresh the Reference sheet and the Database modules", FILE_STEP,
              ("each written in prod",), ("each in the Reference sheet",),
              "project.refresh_reference_sheet(project.promoted_tables(TABLES))",

@@ -28,7 +28,8 @@ copies of your Building blocks.
   Database setting; and, in a table you promoted before 8.5, its prod copy's notebook, at
   the first line importing a Building block from building_blocks/, which is dev's copy of it:
   promote its dev table again, and the prod table imports prod's own copy, in
-  building_blocks/prod/.
+  building_blocks/prod/; and each call of yours giving `compare_batch` 8.4's `partition=`,
+  which 8.5 refuses: give `partitions=`, a list, instead.
 - **A batch finished before 8.5 keeps its copy of its scripts**, as 8.4 wrote it.
 
 ### What's new
@@ -100,6 +101,10 @@ copies of your Building blocks.
   writing the decisions cell's answers counted as done once no Decision was open, so
   `project.run_workflow` skipped a seed limit given after the rest: in 8.4, promote's prod
   seed copied every Partition, though its decisions cell limited it.
+- **A table changed in dev and promoted again is written again in prod.** The step writing
+  each prod copy counted as done once any write was ever sent, so `project.run_workflow`
+  left a table promoted again with the rows its old code wrote. It now waits for a write
+  since the table was last promoted.
 
 ## 8.4
 

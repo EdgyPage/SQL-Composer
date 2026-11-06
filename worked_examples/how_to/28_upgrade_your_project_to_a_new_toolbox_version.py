@@ -94,7 +94,7 @@ Done when it prints "Upgraded the Project from 7.2 to 8.5.". Then step 4.
 ### 4. Read each checklist
 
 Goal: know what the Upgrade did and what it left you. It ran the step from each version to the
-next, here four, and wrote a checklist for each, which its last line names in order:
+next, here six, and wrote a checklist for each, which its last line names in order:
 
 >>> checklist = Path("admin/upgrade_8.0.md").read_text(encoding="utf-8")  # -> str
 >>> for line in checklist.splitlines():

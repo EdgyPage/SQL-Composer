@@ -17707,7 +17707,7 @@ admin/workflows/references/references.ipynb
 admin/workflows/upgrade/upgrade.ipynb</pre>
 <p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.5.&quot;. Then step 4.</p>
 <h5>4. Read each checklist</h5>
-<p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here four, and wrote a checklist for each, which its last line names in order:</p>
+<p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here six, and wrote a checklist for each, which its last line names in order:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
 for line in checklist.splitlines():
     if line.startswith(&quot;- &quot;):
