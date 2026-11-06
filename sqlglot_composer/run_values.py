@@ -57,7 +57,10 @@ _TRACING: list[Traced] = []
 
 
 def function_name(function: Callable[..., object]) -> str:
-    """A function by its module and name, such as building_blocks.run_values.period_end."""
+    """A function by its module and name, such as building_blocks.run_values.period_end, or
+    its name alone when it has no module, as one made in a doctest has none."""
+    if not function.__module__:
+        return function.__qualname__
     return f"{function.__module__}.{function.__qualname__}"
 
 

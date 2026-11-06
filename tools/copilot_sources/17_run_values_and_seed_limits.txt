@@ -15,8 +15,9 @@ promote's.
 - **Script tag**: a `<PARM="NAME"/>` in Hive someone else wrote, which the program that ran it
   filled in; a Conversion leaves each as a Decision of its table, under "tags".
 - **Decision**: one thing about one table only the user decides, answered in a Workflow
-  notebook's **decisions cell**, DECISIONS; the notebook's step 3 cell writes each answer into
-  the table's **Table reference**, the file of its columns, partitions, Key and TAGS.
+  notebook's **decisions cell**, DECISIONS; the answers' step (step 3; new_table's step 5)
+  writes each answer into the table's **Table reference**, the file of its columns,
+  partitions, Key and TAGS.
 - **Run value**: what a function gives each time a Statement is built, written into the Hive as
   plain text: a `datetime.date` as '2026-09-24', a number as it is, True or False as TRUE or
   FALSE, text as Hive.
@@ -36,7 +37,7 @@ promote's.
    building_blocks/run_values.py, importing `query` from warehouse itself; a tag's function
    takes no argument. Done when it gives a value. Then step 3.
 3. **Write the decisions cell**: the function's import, then DECISIONS, then the notebook's
-   step 3 cell, which writes the answers in. Done when each answer is in. Then step 4.
+   answers' step cell, which writes them in. Done when each answer is in. Then step 4.
 4. **Name the rest** in words, as Output says. Then step 5.
 5. **Check** by the Self-check; fix what it finds, then reply.
 
@@ -51,9 +52,9 @@ promote's.
 - If no Partition names it, the function runs a Statement of its own with run_query, each
   partitioned read bounded (file 03), and gives the value it read.
 - Answer with the function's name, no brackets: `{"tags": {"PERIOD_END": period_end}}`. With
-  brackets it is one day, which the notebook's step 3 refuses.
+  brackets it is one day, which the answers' step leaves unwritten.
 - The function lives in a file of the Project. One made in a notebook cell, a lambda or one
-  inside another function is left unwritten by the notebook's step 3.
+  inside another function is left unwritten by the answers' step.
 - If several tables of the notebook share an answer, give it under "all_tables":
   "location_root", "tags" or "seed" only. A table's own answer overwrites it, kind by kind
   and tag by tag. A Key or a type goes under each table, never "all_tables".
@@ -73,10 +74,10 @@ promote's.
 ## Output
 
 1. building_blocks/run_values.py in a ```python block, if step 2 wrote it.
-2. The decisions cell, then step 3's cell, in one ```python block.
+2. The decisions cell, then the answers' step cell, in one ```python block.
 3. In words: the first time, register the file with `project.register("run_values")`, the
    register cell of admin/check_project.ipynb, as `project.check()` asks; then run the
-   notebook's step 3 cell. A function that fails leaves `<NAME failed>` in the Hive and a Warning; nothing is
+   notebook's answers' step cell. A function that fails leaves `<NAME failed>` in the Hive and a Warning; nothing is
    sent until it is fixed.
 
 ## Examples
@@ -141,4 +142,4 @@ project.write_decisions(DECISIONS, tables=project.batch_tables(NAME))
 - Each Run value is answered by the function's name, imported at the top of the cell.
 - "all_tables" holds only location_root, tags and seed; each Key and type is a table's own.
 - Each seed limit names a partition column.
-- The notebook's step 3 cell gives `tables=`, as its notebook does.
+- The answers' step cell gives `tables=`, as its notebook does.

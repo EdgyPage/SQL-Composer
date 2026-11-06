@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>sqlglot Composer 8.3: How-tos</title>
+<title>sqlglot Composer 8.4: How-tos</title>
 <style>
 body{margin:0;font:15px/1.5 system-ui,sans-serif;color:#222;background:#fff}
 header,main,#filter{max-width:1180px;margin:0 auto;padding:0 16px} header{padding-top:12px}
@@ -33,7 +33,7 @@ details summary{cursor:pointer;color:#555;margin:4px 0}
 .copy{position:absolute;top:4px;right:4px;font:12px system-ui,sans-serif;padding:1px 8px;cursor:pointer}
 </style></head><body>
 <header>
-<h1>sqlglot Composer 8.3: How-tos</h1>
+<h1>sqlglot Composer 8.4: How-tos</h1>
 <p>Each how-to walks through one job from start to finish: its goal, when you'd use it, its
 steps, how to check it worked, the mistakes people make first, and what to read next. Its steps
 are one notebook: paste them in order, starting with the import. Each step shows its Python,
@@ -3981,7 +3981,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 <p class="note">It writes <code>lineage/20260925-090000_1a2b3c4_lineage_notebook_team_runs.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.name  # -&gt; str</pre>
 <p class="label">Python shows</p><pre class="output">&#x27;20260925-090000_1a2b3c4_lineage_notebook_team_runs.md&#x27;</pre>
@@ -4318,7 +4318,7 @@ FROM runs_per_job
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>tables/mart__daily_job_runs/lineage/20260925-090000-mart__daily_job_runs.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.relative_to(Path.cwd()).as_posix()  # -&gt; str</pre>
@@ -4845,7 +4845,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>tables/mart__team_day/lineage/20260925-090000-mart__team_day.html</code> too, a page to open in your browser.</p>
 <pre class="python">markdown_file.name  # -&gt; str</pre>
@@ -5301,7 +5301,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>lineage/team_alone.html</code> too, a page to open in your browser.</p>
 <pre class="python">&quot;ops.job_runs&quot; in alone_markdown.read_text(encoding=&quot;utf-8&quot;)</pre>
@@ -7400,7 +7400,7 @@ except ValueError as refused:
 <h5>Answering a nightly tag with one day</h5>
 <p>A day answered in the decisions cell is the day the table is written for, every night after, until you answer it again. For a day that changes each run, answer it with a Run value&#x27;s function, as step 8 does: the Hive sent holds the day itself. If your warehouse lets you send Hive variables, &quot;&#x27;${hivevar:run_day}&#x27;&quot; works too, with a line that sets it, SET hivevar:run_day=..., kept at the top of the script you convert: the table&#x27;s session_settings() keeps it, project.run_tables sends it before each write, and project.write_decisions says whether a line sets it.</p>
 <h5>Writing the function&#x27;s name with brackets</h5>
-<p>Answer a tag with the function itself, <code>run_day</code>, never <code>run_day()</code>: with brackets, Python calls it once, as the decisions cell runs, and the answer is that one day. The Workflow&#x27;s step 3 refuses a date given so, writing nothing: answer with the name alone.</p>
+<p>Answer a tag with the function itself, <code>run_day</code>, never <code>run_day()</code>: with brackets, Python calls it once, as the decisions cell runs, and the answer is that one day. The Workflow&#x27;s step 3 leaves a date given so unwritten, naming it in its report, and the tag stays open: answer with the name alone.</p>
 <h5>Working on a table converted before 8.4</h5>
 <p>A table converted before 8.4 keeps its seed() as it was, copying every Partition, with no SEED for a &quot;seed&quot; answer to fill, and a tag inside quotes in its logic reads TAGS[&quot;NAME&quot;] itself, so it takes text, never a Run value&#x27;s function. To limit its seed or answer its quoted tags with a Run value, convert its scripts again as a new batch, with a new name for each table in RENAME, and remove the old one once the new one&#x27;s compare passes, with <code>project.remove_table</code> in admin/remove.ipynb.</p>
 <h5>Promoting before comparing</h5>
@@ -8813,7 +8813,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>daily_totals.html</code> too, a page to open in your browser.</p>
 <p>Done when daily_totals.html and daily_totals.md are written. Then check it worked, below.</p>
@@ -11792,7 +11792,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>before.html</code> too, a page to open in your browser.</p>
 <p>The Markdown file holds, for each Statement, every calculated column with the table columns it comes from and the conditions that decide which rows count, then the copied columns, then the Keys, then the Hive, as <a href="#follow_lineage">Follow lineage</a> shows. A Key is the columns whose values name exactly one row of a table. Open the HTML page in your browser to see the same drawn.</p>
@@ -12202,7 +12202,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>after.html</code> too, a page to open in your browser.</p>
 <p>Done when the folder holds after.html and after.md beside the before files. Then step 10.</p>
@@ -13710,7 +13710,7 @@ GROUP BY
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>lineage/keys.html</code> too, a page to open in your browser.</p>
 <pre class="python">for keys in markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;### Keys&quot;)[1:]:
@@ -16543,7 +16543,7 @@ WHERE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 </details>
 <p class="note">It writes <code>lineage/run_speed.html</code> too, a page to open in your browser.</p>
 <p>The chart draws the step as one box, &quot;Python step&quot;, naming the function and its line, with an arrow in from each column it read and out to each column of mart.run_speed. The Toolbox can&#x27;t see inside it, so it can&#x27;t tell which column made which: the columns of mart.slow_runs go back as far as the step, and the step&#x27;s own section says what it read and where its function lives.</p>
@@ -17058,7 +17058,7 @@ SELECT jobs.job_id, jobs.job_name FROM ops.jobs AS jobs WHERE jobs.job_id IN (SE
 
 ---
 
-Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.3.</pre>
+Made by export_lineage on 2026-09-25 09:00, from your scripts at commit 1a2b3c4, with sqlglot Composer 8.4.</pre>
 <p class="note">It writes <code>lineage/busy_jobs.html</code> too, a page to open in your browser.</p>
 <pre class="python">print(markdown_file.read_text(encoding=&quot;utf-8&quot;).split(&quot;## busy_jobs&quot;)[1].split(&quot;###&quot;)[0])</pre>
 <p class="label">Python prints</p><pre class="output">⚠ An Unchecked statement: Hive written by hand, which no Guard, Warning or Load limit looked inside, so its columns can&#x27;t be followed through it. It reads ops.job_events and ops.jobs.</pre>
@@ -17371,7 +17371,7 @@ warehouse.py</pre>
     Path(added).unlink()
 shutil.rmtree(&quot;admin/workflows&quot;)
 version = Path(&quot;admin/project_version.txt&quot;)  # -&gt; Path
-_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.3&quot;, &quot;7.2&quot;, 1),
+_ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&quot;8.4&quot;, &quot;7.2&quot;, 1),
                        encoding=&quot;utf-8&quot;)</pre>
 <p class="note">It writes <code>admin/project_version.txt</code> too.</p>
 <p>admin/project_version.txt says which Toolbox version last wrote a Project; one 7.1 made has none, and is taken to be 7.1.</p>
@@ -17380,18 +17380,19 @@ _ = version.write_text(version.read_text(encoding=&quot;utf-8&quot;).replace(&qu
 <p>Goal: know the Project is behind the Toolbox. Importing the Toolbox in the Project warns that an older Toolbox last wrote it, the next time you restart the kernel (this page imported it before writing 7.2 in the version file, so it shows no warning), and <code>project.check()</code> says so too. Nothing is refused meanwhile: your notebooks still run.</p>
 <pre class="python">from sqlglot_composer import project
 print(project.check())</pre>
-<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.3: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.</pre>
+<p class="label">Python prints</p><pre class="output">The Project was last written by Toolbox 7.2, and this Toolbox is 8.4: run step 1&#x27;s cell of admin/workflows/upgrade/upgrade.ipynb, project.upgrade(); a Project made before 8.0 has no such notebook until its first Upgrade, so there project.upgrade() goes in admin/check_project.ipynb.</pre>
 <p>Done when <code>project.check()</code> names the version that last wrote the Project. Then step 3.</p>
 <h5>3. Upgrade it</h5>
 <p>Goal: the Project&#x27;s files carried to this Toolbox. Run <code>project.upgrade()</code> from a notebook in the Project. If the Project has admin/workflows/upgrade/upgrade.ipynb, as one 8.0 or later made does, run its step 1 cell, which is this call. If it has none, as here, run the call from admin/check_project.ipynb, which imports <code>project</code> already; the Upgrade adds the upgrade notebook, for the next time.</p>
 <pre class="python">print(project.upgrade())</pre>
-<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.3.
+<p class="label">Python prints</p><pre class="output">Upgraded the Project from 7.2 to 8.4.
 8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in admin/upgrade_8.0.md.
 8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
 8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
 8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
-Read each step&#x27;s checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.</pre>
-<p class="label">It writes 36 files</p>
+8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
+Read each step&#x27;s checklist, in order: admin/upgrade_8.0.md, admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and admin/upgrade_8.4.md.</pre>
+<p class="label">It writes 43 files</p>
 <pre class="file">admin/admin_log.md
 admin/databases.py
 admin/project_version.txt
@@ -17417,18 +17418,25 @@ admin/removed/20260925-090000-upgrade_8.3/admin/workflows/new_table/new_table.ip
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/promote/promote.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/references/references.ipynb
 admin/removed/20260925-090000-upgrade_8.3/admin/workflows/upgrade/upgrade.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/convert/convert.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/new_table/new_table.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/promote/promote.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/references/references.ipynb
+admin/removed/20260925-090000-upgrade_8.4/admin/workflows/upgrade/upgrade.ipynb
 admin/sent.csv
 admin/upgrade_8.0.md
 admin/upgrade_8.1.md
 admin/upgrade_8.2.md
 admin/upgrade_8.3.md
+admin/upgrade_8.4.md
 admin/workflows/change_a_saved_table/change_a_saved_table.ipynb
 admin/workflows/convert/convert.ipynb
 admin/workflows/new_table/new_table.ipynb
 admin/workflows/promote/promote.ipynb
 admin/workflows/references/references.ipynb
 admin/workflows/upgrade/upgrade.ipynb</pre>
-<p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.3.&quot;. Then step 4.</p>
+<p>Done when it prints &quot;Upgraded the Project from 7.2 to 8.4.&quot;. Then step 4.</p>
 <h5>4. Read each checklist</h5>
 <p>Goal: know what the Upgrade did and what it left you. It ran the step from each version to the next, here four, and wrote a checklist for each, which its last line names in order:</p>
 <pre class="python">checklist = Path(&quot;admin/upgrade_8.0.md&quot;).read_text(encoding=&quot;utf-8&quot;)  # -&gt; str
@@ -17473,7 +17481,7 @@ PROD = &quot;mart&quot;  # such as &quot;mart&quot;</pre>
 <p class="label">Python prints</p><pre class="output">Every Table folder, Table reference and Building block is registered, and each one registered is there.</pre>
 <p>Run again, the Upgrade does nothing:</p>
 <pre class="python">print(project.upgrade())</pre>
-<p class="label">Python prints</p><pre class="output">The Project is at 8.3 already, as this Toolbox is: nothing to upgrade.</pre>
+<p class="label">Python prints</p><pre class="output">The Project is at 8.4 already, as this Toolbox is: nothing to upgrade.</pre>
 <p>Before you go on, check that:</p>
 <ul><li><code>project.check()</code> names no Toolbox version and no <code># UPGRADE</code> mark;</li><li><code>project.upgrade()</code> says there is nothing to upgrade;</li><li>each box under For you to do in each admin/upgrade_*.md checklist is ticked.</li></ul>
 <h4>Common mistakes</h4>
@@ -17630,7 +17638,11 @@ PARTITION = None</pre>
 # {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
 #                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # gives each table with no location its own folder, such as
-# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
+# A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
+# copies: how-to 09 shows both.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Convert the scripts: each table they write a Saved table in dev (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
@@ -17718,7 +17730,11 @@ TABLES = []</pre>
 # {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
 #                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # gives each table with no location its own folder, such as
-# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
+# A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
+# copies: how-to 09 shows both.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Promote each table: a prod copy of its folder and Table reference (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.promote(TABLES)</pre>
@@ -17813,7 +17829,11 @@ QUERIES = {}</pre>
 # {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
 #                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # gives each table with no location its own folder, such as
-# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
+# A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
+# copies: how-to 09 shows both.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Make each Table folder, converting each table&#x27;s query QUERIES gives (it changes only files, so project.do_next() runs it for you).</li></ol>
 <pre class="python">project.new_table(TABLES, queries=QUERIES)</pre>
@@ -17885,7 +17905,11 @@ TABLES = []</pre>
 # {&quot;all_tables&quot;: {&quot;location_root&quot;: &quot;/data/team&quot;,
 #                 &quot;tags&quot;: {&quot;PERIOD_END&quot;: &quot;&#x27;2026-10-31&#x27;&quot;}}}
 # gives each table with no location its own folder, such as
-# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.</pre>
+# &quot;/data/team/mart_dev.db/weekly_ops&quot;, and each table holding PERIOD_END that value.
+# A tag may be answered with a Run value&#x27;s function of your Project&#x27;s, imported above
+# DECISIONS, such as &quot;PERIOD_END&quot;: period_end; and &quot;seed&quot;, such as
+# {&quot;dt&quot;: {&quot;from&quot;: &quot;2026-01-01&quot;}}, limits the Partitions a table that reads itself
+# copies: how-to 09 shows both.</pre>
 <p>Its steps, in order:</p>
 <ol start="1"><li>Write the Table references from DESCRIBE (it is a call to the warehouse, yours to run).</li></ol>
 <pre class="python">project.add_references(TABLES, query=query)</pre>

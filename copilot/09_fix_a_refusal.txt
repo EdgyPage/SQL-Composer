@@ -1,4 +1,4 @@
-# Copilot file 09: fixing a refusal (sqlglot Composer 8.3)
+# Copilot file 09: fixing a refusal (sqlglot Composer 8.4)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 

@@ -1779,20 +1779,23 @@ def upgrade() -> ProjectReport:
     >>> import os
     >>> os.remove("admin/project_version.txt")  # only to show a 7.1 Project: never in yours
     >>> project.upgrade()
-    Upgraded the Project from 7.1 to 8.3.
+    Upgraded the Project from 7.1 to 8.4.
     7.2: nothing to change by hand. admin/upgrade_7.2.md lists what it did.
     8.0: 2 changes for you to make, each marked `# UPGRADE 8.0:`, and listed in
         admin/upgrade_8.0.md.
     8.1: nothing to change by hand. admin/upgrade_8.1.md lists what it did.
     8.2: nothing to change by hand. admin/upgrade_8.2.md lists what it did.
     8.3: nothing to change by hand. admin/upgrade_8.3.md lists what it did.
+    8.4: nothing to change by hand. admin/upgrade_8.4.md lists what it did.
     Read each step's checklist, in order: admin/upgrade_7.2.md, admin/upgrade_8.0.md,
-        admin/upgrade_8.1.md, admin/upgrade_8.2.md and admin/upgrade_8.3.md.
+        admin/upgrade_8.1.md, admin/upgrade_8.2.md, admin/upgrade_8.3.md and
+        admin/upgrade_8.4.md.
 
-    Run it once you have copied in a newer sqlglot_composer and restarted the kernel: in a new
-    cell of admin/check_project.ipynb, which imports project already, or of
-    admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which start()
-    writes and an Upgrade adds. It reads the version that last wrote the Project from
+    Run it once you have copied in a newer sqlglot_composer and restarted the kernel: step 1's
+    cell of admin/workflows/upgrade/upgrade.ipynb, the upgrade Workflow's notebook, which
+    start() writes and an Upgrade adds; a Project made before 8.0, which has no such notebook
+    until its first Upgrade, runs it in admin/check_project.ipynb, which imports project
+    already. It reads the version that last wrote the Project from
     admin/project_version.txt, and runs each version's step from there to this Toolbox's, in
     order, so you may skip versions: copy in the newest, and every step between runs. A step
     makes the changes that need no judgement, keeping each file it changes, as it was, in its

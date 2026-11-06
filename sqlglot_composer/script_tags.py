@@ -209,7 +209,7 @@ def script_tag(text: str | Callable[[], object]) -> Column:
     in quotes when it holds a date; or a Run value's function, such as period_end, written in
     your Project, which script_tag calls each time the Statement is built. What it gives is
     written as Hive: a datetime.date as '2026-09-24', a number as it is, TRUE or FALSE, and
-    text as the Hive it is. One that fails leaves `<period_end() failed>` in the value's
+    text as the Hive it is. One that fails leaves `<PERIOD_END failed>` in the value's
     place, with a Warning saying why, so show_hive still shows the rest; run_query and
     run_execute refuse to send it.
 

@@ -564,6 +564,7 @@ def _workflow_cells_with_yours(root: Path, workflow: Workflow,
     path = workflows.notebook_path(root, workflow)
     written = _step_cells_written(path)
     marks = _marks_above(path, workflow)
+    answered = _decisions_cell_answered(path)
     cells = []
     step = None
     for kind, text in workflows.notebook_cells(workflow, path_lines):
@@ -571,10 +572,46 @@ def _workflow_cells_with_yours(root: Path, workflow: Workflow,
             step = workflows.step_name_of(text) or step
         elif text == workflows.inputs_cell(workflow):
             text = _names_cell_with_given(workflow, given, marks)
+        elif text == workflows.DECISIONS_CELL and answered is not None:
+            text = answered
         elif step in written and "..." in text and _written_in(written[step], text):
             text = written[step]
         cells.append((kind, text))
+    top = _marks_on_top(path)
+    if top and cells:
+        cells[0] = (cells[0][0], "\n".join([*top, cells[0][1]]))
     return cells
+
+
+def _marks_on_top(path: Path) -> list[str]:
+    """Each UPGRADE mark an earlier step left on a notebook's first lines, as 8.3's left on the
+    convert notebook's, to keep above the first cell once it is written again."""
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    if not cells:
+        return []
+    marks = []
+    for line in cells[0][1].split("\n"):
+        if not MARK_LINE.search(line):
+            break
+        marks.append(line)
+    return marks
+
+
+def _decisions_cell_answered(path: Path) -> str | None:
+    """A Workflow notebook's decisions cell as you wrote it, to keep once the notebook is
+    written again: one you answered in, or that imports a Run value's function; None when it
+    is as the Toolbox writes it, DECISIONS = {} with its comment."""
+    from . import workflows  # it imports this file
+
+    cells = read_cells_if_readable(path) if path.is_file() else None
+    for kind, text in cells or []:
+        lines = text.split("\n")
+        decisions = f"{workflows.DECISIONS} ="
+        if kind == "code" and any(line.startswith(decisions) for line in lines):
+            if lines[0].startswith(f"{workflows.DECISIONS} = {{}}  #"):
+                return None
+            return text
+    return None
 
 
 def _written_in(kept: str, fresh: str) -> bool:
@@ -802,8 +839,64 @@ def _convert_again_said(scripts: Path) -> str:
             "project.remove_table(...)")
 
 
+def to_8_4(upgrade: Upgrade) -> None:
+    """8.3 to 8.4: each Workflow notebook is written again, each name given and each step cell
+    you wrote in kept, for the project.check() cell under each decision step and its text, and
+    the decisions cell's, which tell of all_tables, Run values and seed limits. In a table 8.3
+    converted, each place a Script tag stood inside a string, which 8.3 wrote as TAGS["NAME"]
+    itself, is written tag_text(TAGS["NAME"]), as 8.4 writes it, so a Run value's function can
+    answer it too: the same Hive for every answer 8.3 took. A seed() 8.3 wrote stays as it
+    was, copying every Partition: convert the batch again to limit it."""
+    _write_workflow_notebooks_again(upgrade)
+    for notebook in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
+        _read_tags_through_tag_text(upgrade, notebook)
+
+
+# A place a Table notebook's logic reads a Script tag's answer itself, TAGS["NAME"], not
+# through script_tag(...) or tag_text(...), as 8.3 wrote a tag inside a string.
+_TAGS_READ_ITSELF = re.compile(r'(?<![\w(])TAGS\[("(?:[^"\\]|\\.)*")\]')
+# Whether each tag of a Table reference's TAGS stood inside quotes, as its line's comment says.
+_TAG_STOOD = re.compile(r'^    ("(?:[^"\\]|\\.)*"): .*?#\s*(bare|inside quotes)', re.MULTILINE)
+_TAG_TEXT_IMPORT = "from sqlglot_composer import tag_text  # for each Script tag in a string"
+
+
+def _read_tags_through_tag_text(upgrade: Upgrade, notebook: Path) -> None:
+    """Write a converted table's logic cell again with each TAGS["NAME"] it reads itself as
+    tag_text(TAGS["NAME"]), or tag_text(TAGS["NAME"], quoted=False) for a tag that stood
+    bare, as its Table reference's TAGS says, and tag_text imported; one with none is left."""
+    reference = upgrade.root / "references" / f"{notebook.stem}.py"
+    if not reference.is_file():
+        return
+    bare = {name for name, how in _TAG_STOOD.findall(reference.read_text("utf-8"))
+            if how == "bare"}
+    cells = read_cells(notebook)
+    changed = False
+    for number, (kind, text) in enumerate(cells):
+        if kind == "code" and text.startswith("# logic") and _TAGS_READ_ITSELF.search(text):
+            cells[number] = (kind, _logic_reading_tags_through_tag_text(text, bare))
+            changed = True
+    if changed:
+        relative = notebook.relative_to(upgrade.root).as_posix()
+        upgrade.rewrite_notebook(relative, cells, f"wrote {relative}'s Script tags inside "
+                                 "strings as tag_text(TAGS[...])")
+
+
+def _logic_reading_tags_through_tag_text(text: str, bare: set[str]) -> str:
+    """A logic cell's text with each TAGS["NAME"] it reads itself through tag_text, a tag
+    of `bare`, which stood bare, with quoted=False; and tag_text imported."""
+    pieces, at = [], 0
+    for found in _TAGS_READ_ITSELF.finditer(text):
+        quoted = "" if found.group(1) not in bare else ", quoted=False"
+        pieces += [text[at:found.start()], f"tag_text(TAGS[{found.group(1)}]{quoted})"]
+        at = found.end()
+    lines = "".join([*pieces, text[at:]]).split("\n")
+    if _TAG_TEXT_IMPORT not in lines:
+        lines.insert(1, _TAG_TEXT_IMPORT)
+    return "\n".join(lines)
+
+
 # Each version's step from the version before it: every Toolbox version has one, which a test
 # holds. A Project may skip versions, so a step may not assume the version just before it wrote
 # the Project, only that each earlier step ran.
 STEPS: dict[str, Callable[[Upgrade], None]] = {"7.2": to_7_2, "8.0": to_8_0, "8.1": to_8_1,
-                                               "8.2": to_8_2, "8.3": to_8_3}
+                                               "8.2": to_8_2, "8.3": to_8_3, "8.4": to_8_4}
