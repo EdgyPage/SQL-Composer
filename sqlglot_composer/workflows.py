@@ -167,28 +167,111 @@ def names_in(inputs: dict[str, object], name: str) -> list[str]:
     return []
 
 
-def databases(root: Path) -> dict[str, str]:
-    """The names admin/databases.py gives DEV and PROD, as written: <DEV_DATABASE> until the
-    user fills one in. None for a name it doesn't give as text."""
+# The two Databases admin/databases.py gives, and the setting each must hold, its name, and the
+# one the Toolbox reads beside it, the folder each of its tables' files go under.
+DATABASE_NAMES = ("DEV", "PROD")
+DATABASE_NAME = "database"
+LOCATION_ROOT = "location_root"
+# What a refusal of admin/databases.py says it should look like.
+_SETTINGS_EXAMPLE = 'DEV = {"database": "mart_dev", "location_root": "/data/your_team/dev"}'
+
+
+def read_database_settings(root: Path) -> dict[str, dict[str, str]]:
+    """The Database settings admin/databases.py gives DEV and PROD, by name, each as written:
+    "<DEV_DATABASE>" until the user fills it in. A name given as text alone, as 8.4 wrote
+    them, such as DEV = "mart_dev", is read as {"database": "mart_dev"} (Toolbox 8.5). A
+    Database it doesn't give is left out, and so is each when the file isn't Python. It
+    refuses, naming it: a Database given as neither a dict nor text, a dict with no
+    "database", a value that isn't text, and a name given in one and not the other."""
     text = file_text(root / DATABASES)
-    found = {}
     try:
         tree = ast.parse(text)
     except SyntaxError:
-        return found
+        return {}
+    found: dict[str, dict[str, str]] = {}
     for node in tree.body:
         if (isinstance(node, ast.Assign) and len(node.targets) == 1
                 and isinstance(node.targets[0], ast.Name)
-                and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
-            found[node.targets[0].id] = node.value.value
+                and node.targets[0].id in DATABASE_NAMES):
+            found[node.targets[0].id] = _database_settings_of(node.targets[0].id, node.value)
+    if len(found) == len(DATABASE_NAMES):
+        _check_the_same_names_in_both(found)
     return found
 
 
+def _database_settings_of(name: str, value: ast.expr) -> dict[str, str]:
+    """One Database's settings, DEV's or PROD's, from the code that gives them: refused unless
+    it is text alone, or a dict of text holding "database"."""
+    from .refusals import refuse  # it imports what imports this
+
+    try:
+        given = ast.literal_eval(value)
+    except ValueError:
+        given = ast.unparse(value)
+    if isinstance(given, str) and isinstance(value, ast.Constant):
+        return {DATABASE_NAME: given}
+    if not isinstance(given, dict):
+        refuse(what=f"admin/databases.py: {name} is {given!r}, which is neither the Database's "
+               "settings, a dict, nor its name.",
+               why="The Workflows read each Database's settings from it: its name, and the "
+               "folder its tables' files go under.",
+               fix=f"Write it as a dict, such as {_SETTINGS_EXAMPLE}.", error=ValueError)
+    for setting, each in given.items():
+        if not isinstance(setting, str) or not isinstance(each, str):
+            refuse(what=f"admin/databases.py: {name}[{escaped_literal(setting)}] is "
+                   f"{each!r}, which isn't text.",
+                   why="Each Database setting is text the Toolbox, or your code, writes "
+                   "where it is needed, such as a folder's path or an account's name.",
+                   fix=f"Write each setting's name and value in quotes, such as "
+                   f"{_SETTINGS_EXAMPLE}.", error=ValueError)
+    if DATABASE_NAME not in given:
+        refuse(what=f'admin/databases.py: {name} has no "{DATABASE_NAME}".',
+               why=f'"{DATABASE_NAME}" is the Database\'s name, which every Workflow reads.',
+               fix=f"Add it, such as {_SETTINGS_EXAMPLE}.", error=ValueError)
+    return given
+
+
+def _check_the_same_names_in_both(found: dict[str, dict[str, str]]) -> None:
+    """Refuse a setting DEV gives and PROD doesn't, or PROD and not DEV, naming it."""
+    from .refusals import refuse  # it imports what imports this
+
+    for name, other in (DATABASE_NAMES, DATABASE_NAMES[::-1]):
+        missing = [setting for setting in found[name] if setting not in found[other]]
+        if missing:
+            refuse(what=f'admin/databases.py: "{missing[0]}" is in {name} but not in '
+                   f"{other}.",
+                   why="Carrying a table from dev to prod swaps each of DEV's settings for "
+                   "PROD's, name by name, so each needs its own value for it.",
+                   fix=f'Add "{missing[0]}" to {other}, with its own value, or take it out of '
+                   f"{name}.", error=ValueError)
+
+
+def database_name(root: Path, which: str) -> str:
+    """The name admin/databases.py gives DEV's or PROD's Database, `which`, as written, such
+    as "<DEV_DATABASE>"; "" when it gives none."""
+    return read_database_settings(root).get(which, {}).get(DATABASE_NAME, "")
+
+
+def location_root(root: Path, database: str) -> str | None:
+    """The folder admin/databases.py gives the tables of `database`, DEV's or PROD's by its
+    name, to go under: None for any other Database, or one whose root isn't filled in."""
+    for settings in read_database_settings(root).values():
+        given = settings.get(LOCATION_ROOT, "")
+        if settings[DATABASE_NAME] == database and given and not PLACEHOLDER.search(given):
+            return given
+    return None
+
+
 def databases_to_fill(root: Path, names: tuple[str, ...]) -> list[str]:
-    """Each of `names`, such as DEV, that admin/databases.py doesn't fill in yet."""
-    given = databases(root)
-    return [name for name in names if PLACEHOLDER.fullmatch(given.get(name, "<>")) or
-            not given.get(name)]
+    """Each setting of the Databases `names` gives, such as DEV, that admin/databases.py
+    doesn't fill in yet, as DEV["database"]; the Database's name alone when it gives none."""
+    given = read_database_settings(root)
+    left = []
+    for name in names:
+        settings = given.get(name, {DATABASE_NAME: ""})
+        left += [f'{name}["{setting}"]' for setting, value in settings.items()
+                 if not value or PLACEHOLDER.search(value)]
+    return left
 
 
 def sent_rows(root: Path) -> list[dict[str, str]]:
@@ -921,7 +1004,7 @@ def queries_of(inputs: dict[str, object]) -> list[str]:
 def every_query_table_compared(root: Path, inputs: dict[str, object]) -> bool:
     """Whether each table is written, and each made from a query has passed its compare with
     it, or finished."""
-    dev = databases(root).get("DEV", "")
+    dev = database_name(root, "DEV")
     return every_table_written(root, inputs) and all(
         (root / BATCHES / FINISHED / name).is_dir() or compare_passed(root, f"{dev}.{name}")
         for name in queries_of(inputs))
@@ -1514,10 +1597,9 @@ DECISIONS_CELL = (
     "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
     '# answer "key" here. "all_tables" answers for every table of this notebook, and a\n'
     "# table's own answer overwrites it, kind by kind and tag by tag:\n"
-    '# {"all_tables": {"location_root": "/data/team",\n'
-    '#                 "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
-    "# gives each table with no location its own folder, such as\n"
-    '# "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.\n'
+    '# {"all_tables": {"tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
+    "# gives each table holding PERIOD_END that value. A table's location is placed under\n"
+    '# "location_root" in admin/databases.py; answer "location" only for one it can\'t place.\n'
     "# A tag may be answered with a Run value's function of your Project's, imported above\n"
     '# DECISIONS, such as "PERIOD_END": period_end; and "seed", such as\n'
     '# {"dt": {"from": "2026-01-01"}}, limits the Partitions a table that reads itself\n'

@@ -56,10 +56,15 @@ def warehouse() -> Callable[[str], pd.DataFrame]:
 
 
 def fill_in(root: Path, table: str) -> None:
-    """Answer a dev table's Decisions: its location=, and its Key, which none names."""
-    stem = table.replace(".", "__")
-    project.write_decisions({table: {
-        "location": f"/data/team/mart_dev.db/{stem.split('__')[1]}", "key": None}})
+    """Answer a dev table's Decisions: its Key, which none names. Its location= is placed
+    under DEV's location_root."""
+    project.write_decisions({table: {"key": None}})
+
+
+# admin/databases.py's DEV and PROD, each with a root of its own (Toolbox 8.5, ticket 09).
+SETTINGS = (
+    'DEV = {"database": "mart_dev", "location_root": "/data/team/dev"}\n'
+    'PROD = {"database": "mart", "location_root": "/data/team/prod"}\n')
 
 
 @pytest.fixture
@@ -71,10 +76,7 @@ def started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
-    databases = tmp_path / "admin" / "databases.py"
-    databases.write_text(databases.read_text(encoding="utf-8")
-                         .replace('"<DEV_DATABASE>"', '"mart_dev"')
-                         .replace('"<PROD_DATABASE>"', '"mart"'), encoding="utf-8")
+    (tmp_path / "admin" / "databases.py").write_text(SETTINGS, encoding="utf-8")
     (tmp_path / "weekly.hql").write_text(WEEKLY, encoding="utf-8")
     project.convert("weekly", files=["weekly.hql"], query=example_database.query,
                     database="ops")
@@ -119,17 +121,21 @@ def test_a_rename_names_the_prod_copy(started: Path) -> None:
     assert "INSERT OVERWRITE TABLE mart.fails_per_job PARTITION" in hive
 
 
-def test_a_location_naming_the_dev_database_names_the_prod_one(started: Path) -> None:
-    project.promote([FAILED, PER_JOB])
-    assert 'location="/data/team/mart.db/failed_runs_ops_reports"' in reference(
+def test_a_prod_copy_is_placed_under_prods_location_root(started: Path) -> None:
+    # Toolbox 8.5, ticket 09: two roots, DEV's for dev tables and PROD's for prod copies.
+    assert 'location="/data/team/dev/mart_dev.db/failed_runs_ops_reports"' in reference(
+        started, FAILED)
+    project.promote([FAILED, PER_JOB], rename={PER_JOB: "per_job"})
+    assert 'location="/data/team/prod/mart.db/failed_runs_ops_reports"' in reference(
         started, "mart.failed_runs_ops_reports")
+    assert 'location="/data/team/prod/mart.db/per_job"' in reference(started, "mart.per_job")
 
 
 def test_a_location_you_filled_in_is_kept_when_promoted_again(started: Path) -> None:
     project.promote([FAILED, PER_JOB])
     path = started / "references" / "mart__failed_runs_ops_reports.py"
     path.write_text(path.read_text(encoding="utf-8").replace(
-        "/data/team/mart.db/failed_runs_ops_reports", "/data/prod/failed_runs"),
+        "/data/team/prod/mart.db/failed_runs_ops_reports", "/data/prod/failed_runs"),
         encoding="utf-8")
     project.promote([FAILED, PER_JOB])
     assert 'location="/data/prod/failed_runs"' in path.read_text(encoding="utf-8")
@@ -187,7 +193,7 @@ def test_promoted_tables_gives_each_prod_name(started: Path) -> None:
 def test_a_prod_database_not_filled_in_is_refused(started: Path) -> None:
     databases = started / "admin" / "databases.py"
     databases.write_text(databases.read_text(encoding="utf-8").replace(
-        'PROD = "mart"', 'PROD = "<PROD_DATABASE>"'), encoding="utf-8")
+        '"database": "mart"', '"database": "<PROD_DATABASE>"'), encoding="utf-8")
     with pytest.raises(ValueError, match="PROD in admin/databases.py isn't filled in"):
         project.promote(FAILED)
 
@@ -253,10 +259,7 @@ def test_a_table_only_created_is_promoted_by_its_table_reference(
     set_admin_log()
     monkeypatch.chdir(tmp_path)
     project.start()
-    databases = tmp_path / "admin" / "databases.py"
-    databases.write_text(databases.read_text(encoding="utf-8")
-                         .replace('"<DEV_DATABASE>"', '"mart_dev"')
-                         .replace('"<PROD_DATABASE>"', '"mart"'), encoding="utf-8")
+    (tmp_path / "admin" / "databases.py").write_text(SETTINGS, encoding="utf-8")
     (tmp_path / "lookup.hql").write_text(
         "CREATE TABLE ops_reports.lookup (job_id BIGINT);\n"
         "INSERT OVERWRITE TABLE ops_reports.uses SELECT l.job_id FROM ops_reports.lookup l;\n",
@@ -296,14 +299,23 @@ def test_promoting_again_under_another_name_forgets_the_old_one(started: Path) -
     assert project.promoted_tables(FAILED) == ["mart.failed"]
 
 
-def test_only_a_whole_folder_named_for_the_dev_database_is_renamed(started: Path) -> None:
+def test_a_dev_location_of_its_own_isnt_carried_to_prod(started: Path) -> None:
+    # Toolbox 8.5, ticket 09: promote no longer renames a dev location's .db folder.
     path = started / "references" / "mart_dev__failed_runs_ops_reports.py"
     path.write_text(path.read_text(encoding="utf-8").replace(
-        "/data/team/mart_dev.db/", "/data/mart_dev_team/mart_dev.db/"), encoding="utf-8")
+        "/data/team/dev/mart_dev.db/", "/data/mart_dev_team/mart_dev.db/"), encoding="utf-8")
+    project.promote([FAILED, PER_JOB])
+    assert 'location="/data/team/prod/mart.db/failed_runs_ops_reports"' in reference(
+        started, "mart.failed_runs_ops_reports")
+
+
+def test_with_no_prod_root_a_prod_location_is_left_to_fill_in(started: Path) -> None:
+    # A databases.py holding the two names as text, as 8.4 wrote it, still reads.
+    (started / "admin" / "databases.py").write_text('DEV = "mart_dev"\nPROD = "mart"\n',
+                                                     encoding="utf-8")
     report = repr(project.promote([FAILED, PER_JOB]))
-    expected = "/data/mart_dev_team/mart.db/failed_runs_ops_reports"
-    assert f'location="{expected}"' in reference(started, "mart.failed_runs_ops_reports")
-    assert f"its location= is {expected}, made from dev's: check it" in report
+    assert "    location=None,  # TODO:" in reference(started, "mart.failed_runs_ops_reports")
+    assert "its location= is None: fill it in" in report
 
 
 def test_the_prod_copy_says_it_is_one_and_leaves_dev_records_behind(started: Path) -> None:
@@ -326,7 +338,7 @@ def test_a_new_name_archives_the_prod_copy_under_the_old_one(started: Path) -> N
     project.promote([FAILED, PER_JOB])
     path = started / "references" / "mart__failed_runs_ops_reports.py"
     path.write_text(path.read_text(encoding="utf-8").replace(
-        "/data/team/mart.db/failed_runs_ops_reports", "/data/prod/failed_runs"),
+        "/data/team/prod/mart.db/failed_runs_ops_reports", "/data/prod/failed_runs"),
         encoding="utf-8")
     project.promote([FAILED, PER_JOB], rename={FAILED: "failed"})
     # The location= you filled in goes with it to its new name.
