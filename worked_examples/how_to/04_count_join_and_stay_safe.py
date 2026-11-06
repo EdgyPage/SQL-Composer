@@ -41,6 +41,7 @@ Next: set conn, your connection, in warehouse.py.
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
     ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -158,6 +159,7 @@ all. Add their Table references, before any notebook imports references:
 >>> project.add_references(["ops.region_budgets", "ops.team_notes"], query=query)
 Wrote references/ops__region_budgets.py and references/ops__team_notes.py: fill in their TODO
     lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs,
     ops.region_budgets, ops.run_alerts and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.

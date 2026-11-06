@@ -1,13 +1,12 @@
-# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.4)
+# Copilot file 13: the convert Workflow, Hive into dev (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
 Objective: take the user through converting Hive into Saved tables in their Dev Database,
-with sqlglot Composer 8.4, a Toolbox that writes Hive: the steps left, each its cell of the convert
-Workflow's notebook, in order. Load this file when the user asks how to turn Hive into their
-own tables end to end. File 16 is for promoting dev tables to prod; file 14 for new tables,
-Table references, upgrades and changes to a Saved table; a step's own file, for the Python
-inside it.
+with sqlglot Composer 8.5, a Toolbox that writes Hive: the steps left, each a cell of the convert
+Workflow's notebook, in order. Load this file when the user asks to turn Hive into tables.
+File 16 promotes dev tables to prod; file 14 covers new tables, Table references, upgrades
+and changes to a Saved table; a step's own file, its Python.
 
 ## Terms
 
@@ -18,9 +17,10 @@ inside it.
 - **Saved table**: a table the user's own code writes; its **Table reference** is the file
   of its columns, partitions, Key and location.
 - **DEV**, **PROD**: the Dev Database, where tables are built and compared, and the Prod
-  Database, where others read them; set once in admin/databases.py.
-- **query**, **execute**: the user's warehouse calls, from warehouse.py; a Workflow
-  notebook's first cell imports them with the Toolbox's names.
+  Database, where others read them: dicts in admin/databases.py, each a "database" and a
+  "location_root", placing each new table.
+- **query**, **execute**: the user's warehouse calls, from warehouse.py, which a Workflow
+  notebook's first cell imports.
 
 ## Names for this objective, with their arguments
 
@@ -46,8 +46,8 @@ inside it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
-  the user to answer: a Decision is the user's, never yours.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
+  a Decision is the user's, never yours.
 - If the user names no rename, staging table or database, write `RENAME = {}`,
   `STAGING = {}` or `DATABASE = "default"`. If no Decision is open, write `DECISIONS = {}`.
 - If the user asks to promote the tables to prod, name file 16 for it, once each compare
@@ -62,20 +62,18 @@ inside it.
 ## How a Workflow runs
 
 - DECISIONS holds each answer by the table's name as `project.check()` writes it, each by
-  its kind: `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key":
-  ["job_id"], "types": {"fails": "bigint"}, "tags": {"PERIOD_END": "'2026-10-31'"}}}`;
-  the next step writes each into its table's Table reference.
-- `project.check()`, and convert's step 1, print a whole DECISIONS to paste, each answer
-  still to give `"<FILL IN>"`, which is no answer until filled in.
-- A Script tag, `<PARM="NAME"/>` in the Hive, filled in by the program that ran it, is a
-  Decision of its table under "tags": a bare one is answered with the value's own quotes,
+  its kind: `{"mart_dev.weekly": {"key": ["job_id"], "types": {"fails": "bigint"}, "tags":
+  {"PERIOD_END": "'2026-10-31'"}}}`; the next step writes each into its Table reference.
+- "Run up to your Decisions" prints a whole DECISIONS to paste in the decisions cell under
+  it, each answer still to give `"<FILL IN>"`, no answer until filled in.
+- A Script tag, `<PARM="NAME"/>` in the Hive, is a Decision of its table under "tags": a bare one is answered with the value's own quotes,
   `"'2026-10-31'"`, one inside quotes with none, `"failed"`. Answer it with the value the
   user gives; for one worked out each run, such as the latest Partition, a Run value: a
   function of theirs (file 17). If they give none, never guess: ask.
-- `"all_tables"`, one answer for every table, and `"seed"`, which Partitions a seed copies:
-  file 17.
-- Leave convert's `PARTITIONS = []` unless the user asks to compare a Partition by name:
-  then `PARTITIONS = [{"dt": "2026-09-23"}]`; step 7 compares it too.
+- `"all_tables": {"key": "proposed"}` accepts each table's proposed Key as if typed. More
+  of "all_tables", and `"seed"`, which Partitions a seed copies: file 17.
+- Leave `PARTITIONS = []` unless the user names a Partition for step 7 to compare too:
+  `PARTITIONS = [{"dt": "2026-09-23"}]`.
 - "Run up to your Decisions", then "Run the rest": each runs every step left, up to the first
   only the user can do; `dry_run=True` sends nothing.
 
@@ -83,19 +81,20 @@ inside it.
 
 Its inputs:
 
-- NAME: the batch's name. For the `project.run_workflow(...)` cell, which runs every step
-  left, it may be a list of batches converted already.
-- FILES: the .hql files, saved in admin/workflows/convert/; or `FILES = []` and HIVE the
-  Hive as text. A query that only SELECTs makes a Saved table too, named for its file or
-  NAME.
+- NAME: the batch's name; for the run cells, it may be a list of batches converted already.
+- FILES: the .hql files, beside the notebook or by path, each read where it is; left `[]`,
+  every .hql beside it, or HIVE, the Hive as text. A query alone makes a Saved
+  table too, named for its file or NAME.
+- EACH_SCRIPT_ITS_OWN_BATCH: True makes each file a batch named for it, one decisions cell
+  for all; scripts reading each other's tables are refused.
 - DATABASE: the database of a table the Hive names without one, such as "ops".
-- RENAME: a dev copy's own name, by the table's full name (DATABASE when the scripts give
-  none), the new name without a database: `{"mart.team_fails": "team_fails"}` makes
-  mart_dev.team_fails. Left `{}`, it is <table>_<its database>: mart_dev.team_fails_mart.
-- STAGING: a staging table is one a statement makes and a later one reads; convert's report
-  names each. Folded, its query goes inside each table that reads it, and it is never made;
-  kept, it is a Saved table: `{"ops_reports.failed": "fold"}` or "keep". Each one not named,
-  convert folds if temporary or DROPped, and keeps if not.
+- RENAME: a dev copy's own name, by the table's full name, without a database:
+  `{"mart.team_fails": "team_fails"}` makes mart_dev.team_fails. Left `{}`, it is
+  <table>_<its database>: mart_dev.team_fails_mart.
+- STAGING: a staging table is one a statement makes and a later one reads, named in
+  convert's report. Folded, its query goes inside each table that reads it; kept, it is a
+  Saved table: `{"ops_reports.failed": "fold"}` or "keep". Not named, it is folded if
+  temporary or DROPped, else kept.
 
 1. Convert the scripts: each table they write a Saved table in dev (it is a call to the
    warehouse, yours to run).
@@ -143,9 +142,11 @@ convert notebook's names cell, then its first step's cell:
 NAME = "ops_reports"
 FILES = ["daily.hql", "weekly.hql"]
 HIVE = None
+EACH_SCRIPT_ITS_OWN_BATCH = False
 DATABASE = "default"
 RENAME = {}
 STAGING = {}
+PARTITIONS = []
 
 project.convert(NAME, HIVE, files=FILES, query=query, database=DATABASE,
                 rename=RENAME, staging=STAGING)

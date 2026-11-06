@@ -43,6 +43,7 @@ Next: set conn, your connection, in warehouse.py.
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
     ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -326,11 +327,13 @@ worked, below.
 
 ## Check it worked
 
-The registry lists the block's file, and `project.check()` finds nothing amiss:
+The registry lists the block's file, and `project.check()` finds nothing amiss; it lists
+too, blocking nothing, each line add_references proposed that you haven't kept or changed yet:
 
 >>> project.check()
 Every Table folder, Table reference and Building block is registered, and each one registered is
     there.
+...
 
 The block, checked alone over the two days, gives the failed runs the team Statement adds up:
 

@@ -1,14 +1,12 @@
-# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.4)
+# Copilot file 14: the Workflows, new tables and upkeep (sqlglot Composer 8.5)
 
-**Follow the steps below in order, as written. Add no step or call, and reply in the shape
-the Output section gives.**
+**Follow the steps below in order, as written. Add no step or call; reply as Output says.**
 
-Objective: take the user through a job on their own Project, with sqlglot Composer 8.4, a Toolbox that
-writes Hive: the steps left, each its cell of a Workflow's notebook, in order.
-Load this file when the user asks how to make a new Saved table, from a query or by hand, add
-Table references for tables they read, upgrade to a new Toolbox, or change a Saved table.
-File 13 converts Hive, file 16 promotes to prod; a step's own file is for the Python inside
-it.
+Objective: take the user through a job on their own Project, with sqlglot Composer 8.5, a Toolbox that
+writes Hive: the steps left, each a cell of a Workflow's notebook, in order.
+Load this file when the user asks for a new Saved table, Table references, an upgrade, or a
+change to a Saved table. File 13 converts Hive, file 16 promotes to prod; a step's own file is
+for its Python.
 
 ## Terms
 
@@ -18,10 +16,10 @@ it.
   or a column type, answered in the **decisions cell**, DECISIONS.
 - **Saved table**: a table the user's own code writes, from its **Table notebook**'s logic.
   A **Table reference** is the file of a table's columns, partitions, Key and location.
-- **DEV**: the Dev Database, where tables are built and compared; set once in
-  admin/databases.py.
+- **DEV**: the Dev Database, where tables are built and compared: a dict in
+  admin/databases.py, a "database" and a "location_root" that places each new table.
 - **Reference sheet**: one table of every column of every table with a Table reference.
-- **Admin statement**: a Statement from the admin module that changes a Saved table's
+- **Admin statement**: an admin module Statement that changes a Saved table's
   definition or deletes its data. An **UPGRADE mark** is a comment an upgrade leaves for the
   user.
 
@@ -49,8 +47,8 @@ it.
 - If the user asks for particular cells, give those: a step's cell runs only once the steps
   before it are done.
 - If the user asks for every step's cell, give each one as listed, in order.
-- If the user gives a Decision's answer, write it in DECISIONS. If not, say what it asks, for
-  the user to answer: a Decision is the user's, never yours.
+- If the user gives a Decision's answer, write it in DECISIONS. If not, name what it asks:
+  a Decision is the user's, never yours.
 - If the user has a new table's query, QUERIES gives its .hql file by the table's name
   without its database, and the table is made from it: no `<...>` to fill in. If not,
   `QUERIES = {}`.
@@ -65,8 +63,10 @@ it.
 ## How a Workflow runs
 
 - DECISIONS holds each answer by table, as `project.check()` writes it, each by its kind:
-  `{"mart_dev.weekly": {"location": "/data/team/mart_dev.db/weekly", "key": ["job_id"]}}`;
-  the next step writes each into its table's Table reference.
+  `{"mart_dev.weekly": {"key": ["job_id"]}}`; the next step writes each in.
+- references' step 1 proposes each Key, checked with check_key, and the first line and
+  `does_not_add_up=`, marked # proposed; `"all_tables": {"key": "proposed"}` accepts every
+  Key, a table's own "key" wins.
 - "Run up to your Decisions", then "Run the rest" (new_table, references), else the last
   cell, runs every step left, to the first the user must do; `dry_run=True` sends nothing.
 
@@ -165,13 +165,13 @@ it.
 ## Example
 
 The user: "I have a query that counts each job's failed runs; DEV is mart_dev." The new_table
-notebook's names cell, its decisions cell once the table's location is known, then "Run the
-rest", which makes the table from the query, writes it in dev and compares it with the query:
+notebook's names cell, its decisions cell (its location placed under DEV's root), then "Run
+the rest", which makes, writes and compares the table:
 
 ```python
 TABLES = ["mart_dev.failed_per_job"]
 QUERIES = {"failed_per_job": "failed_per_job.hql"}
-DECISIONS = {"mart_dev.failed_per_job": {"location": "/data/team/mart_dev.db/failed_per_job"}}
+DECISIONS = {"mart_dev.failed_per_job": {"key": ["job_id"]}}
 project.run_workflow("new_table", query=query, execute=execute)
 ```
 
