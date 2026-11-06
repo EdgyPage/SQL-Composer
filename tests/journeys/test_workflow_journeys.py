@@ -70,8 +70,8 @@ KNOWN_FIDDLING = {
 # lowers, one ticket at a time (its ticket 01). A journey taking more fails; one taking fewer
 # asks for its number to be lowered here.
 KNOWN_ACTIONS: dict[str, int] = {
-    "test_promote_a_seeded_table_limiting_its_prod_seed": 20,
-    "test_convert_the_users_batch_with_run_values_through_the_runner": 14,
+    "test_promote_a_seeded_table_limiting_its_prod_seed": 19,
+    "test_convert_the_users_batch_with_run_values_through_the_runner": 13,
 }
 # What a cell that runs the Workflow for the user holds: the intended path's two run cells
 # (8.5), or a notebook's last cell.
@@ -760,6 +760,8 @@ DECISIONS = {
     "mart_dev.team_log_mart": {"key": None, "seed": {"dt": {"from": "2026-09-24"}}},
 }
 """
+# The line above the import that writes the user's function for them (Toolbox 8.5, ticket 06).
+NEW_RUN_VALUE = 'project.new_run_value("period_end", latest_partition="ops.job_runs.dt")\n'
 PERIOD_TABLES = ["mart_dev.job_teams_mart", "mart_dev.recent_runs_mart",
                  "mart_dev.team_log_mart"]
 
@@ -798,13 +800,16 @@ def test_convert_the_users_batch_with_run_values_through_the_runner(started: Sta
     # Toolbox 8.4, ticket 14: the same batch as the notebook's last cell runs it, the decisions
     # cell importing the user's function as before. The runner stops at the Decisions first:
     # the function reads ops.job_runs through the Table reference convert's step 1 writes.
+    # Toolbox 8.5, ticket 06: the function is written by project.new_run_value, at the top of
+    # the decisions cell, which the user types and runs once, as its comment says.
     started.warehouse.execute(PERIOD_SCRIPT.replace('<PARM="PERIOD_END"/>', "'2026-09-24'"))
     journey = started.journey("convert")
     journey.save_by_hand(journey.folder / "weekly.hql", PERIOD_SCRIPT)
     journey.type_names(NAME="weekly", FILES=["weekly.hql"], DATABASE="ops")
     assert "convert, weekly: every step is done." not in journey.run_workflow()
-    journey.save_by_hand(started.root / "building_blocks" / "run_values.py", RUN_VALUES)
-    journey.type_decisions_cell(PERIOD_DECISIONS)
+    journey.type_decisions_cell(NEW_RUN_VALUE + PERIOD_DECISIONS)
+    assert "def period_end() -> datetime.date:" in (
+        started.root / "building_blocks" / "run_values.py").read_text(encoding="utf-8")
     assert "convert, weekly: every step is done." in journey.run_workflow()
     _check_converted(started, PERIOD_TABLES, dict.fromkeys(PERIOD_TABLES))
 
