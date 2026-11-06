@@ -182,10 +182,10 @@ Its names cell, which you fill in and save first:
     # each staging table convert names, kept or folded, such as {"ops_reports.failed":
     # "keep"}: left out, a temporary or DROPped one is folded, any other kept
     STAGING = {}
-    # a Partition for step 7 to compare besides the latest, such as {"dt":
-    # "2026-09-23"}, its value with no quotes of its own: None compares only the latest
-    # Partition your dev table and its original both hold
-    PARTITION = None
+    # the Partitions for step 7 to compare besides the latest, each a dict, such as
+    # [{"dt": "2026-09-23"}], each value with no quotes of its own: [] compares only the
+    # latest Partition your dev table and its original both hold
+    PARTITIONS = []
 
 Under it, "Run up to your Decisions", which runs every step left up to the first only you can
 do, and prints the DECISIONS to paste:
@@ -263,7 +263,7 @@ Its steps' own cells, in order:
 
 7. Compare each table with its original (it is a call to the warehouse, yours to run).
 
-    project.compare_batch(NAME, query=query, partition=PARTITION)
+    project.compare_batch(NAME, query=query, partitions=PARTITIONS)
 
 
 ### The promote Workflow

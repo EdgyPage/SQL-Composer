@@ -17,6 +17,16 @@ grow as each part is built; its Upgrade, from 8.4, comes with the version.
   cell, `project.run_workflow(...)`. Before, the decisions cell sat at the top, under the
   names cell, and `project.check()`, which prints what to paste into it, under the step that
   asks for the Decisions.
+- **`project.new_run_value(name, latest_partition="ops.job_runs.dt")`** writes a Run value's
+  function into `building_blocks/run_values.py`, the latest Partition of a table, with its
+  imports, and registers the file: import it at the top of the decisions cell, by the line it
+  prints. Run again as it was, it changes nothing. Any other kind of Run value is a function
+  you write in the file, as before. The decisions cell's comment names it.
+- **convert compares each Partition you list**: `PARTITIONS`, a list, takes the place of
+  `PARTITION` in its names cell, and step 7, `project.compare_batch(..., partitions=...)`,
+  compares the latest Partition and each you list, a compare.md section each. A finished batch
+  compares again through the same cell, with no script of your own. `compare_batch`'s
+  `partition=` is refused, naming `partitions=`.
 
 ### Fixed
 
