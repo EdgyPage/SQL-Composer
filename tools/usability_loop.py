@@ -400,7 +400,8 @@ def answer(run: Path, number: int, copilot_files: list[str],
 
 @dataclass
 class RunScore:
-    """How a run's end compares with its scenario's answer key."""
+    """How a run's end compares with its scenario's answer key, and each Workflow notebook it
+    added code cells to, which fails it too: on the intended path no step asks for a cell."""
 
     scenario: str
     missing_tables: list[str] = field(default_factory=list)
@@ -489,7 +490,8 @@ def check_files(result: RunScore, key: dict[str, dict]) -> None:
 
 def score(chosen: Scenario, run: Path) -> RunScore:
     """A run's end against its scenario's answer key: each table the key holds, in the run's
-    warehouse with its columns and rows, and each file it holds, in the Project's folder."""
+    warehouse with its columns and rows, and each file it holds, in the Project's folder; and
+    each Workflow notebook of the Project the run added code cells to."""
     key = read_answer_key(chosen)
     result = RunScore(chosen.id, questions=len(read_questions(run)),
                       project=find_the_project(run))
