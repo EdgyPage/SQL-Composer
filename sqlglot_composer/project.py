@@ -42,7 +42,8 @@ You make three things by hand: the Project's folder, the copy of sqlglot_compose
 the notebook you run start() from.
 start() makes the rest of the layout, once, and the Project actions make every file in it.
 new_table makes a Table folder and remove_table archives one; new_block makes a Building block
-and remove_block archives one; add_references writes Table references in bulk,
+and remove_block archives one; new_run_value writes a Run value's function, a table's latest
+Partition, into building_blocks/run_values.py; add_references writes Table references in bulk,
 remove_reference archives one, register adopts a Table folder, Table reference or Building
 block made by hand, and check reports any made or deleted by hand. refresh_reference_sheet
 rebuilds references/reference_sheet.csv, a row per column of every Table reference. load gives
@@ -65,11 +66,11 @@ still in it, as new_table writes one, is left out until it is filled in.
 None of them deletes a file of yours: what they remove moves into admin/removed/, and only a
 Database module, which they write, is deleted, once no Table reference names its Database.
 add_references sends DESCRIBE through your query, and run_tables, given your execute, writes
-your tables; the rest never touch the warehouse. start, new_table, new_block, remove_table,
-remove_reference, remove_block, register, add_references and upgrade, the Project actions, each
-add an entry to admin/admin_log.md, the log that also keeps every Admin statement run inside the
-Project. The rest add no entry of their own: check and load change no file;
-refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
+your tables; the rest never touch the warehouse. start, new_table, new_block, new_run_value,
+remove_table, remove_reference, remove_block, register, add_references and upgrade, the
+Project actions, each add an entry to admin/admin_log.md, the log that also keeps every Admin
+statement run inside the Project. The rest add no entry of their own: check and load change no
+file; refresh_reference_sheet writes the Reference sheet and the Database modules, and no other
 file; run_tables writes only your tables in the warehouse, though an Admin or Unchecked
 statement it sends is logged, as run_execute logs one anywhere.
 """
@@ -149,7 +150,7 @@ __all__ = ["start", "new_table", "remove_table", "new_block", "remove_block", "a
            "run_tables", "upgrade", "scan_hive", "convert",
            "remove_conversion", "do_next", "batch_tables", "compare_batch", "promote",
            "promoted_tables", "table_reference", "write_decisions", "run_workflow",
-           "reference_from_logic"]
+           "reference_from_logic", "new_run_value"]
 
 # The folders and the file start() makes, which a Project has and a folder about to be one
 # can't.
@@ -1099,6 +1100,286 @@ def _importers(root: Path, name: str) -> list[str]:
               for block in sorted((root / BUILDING_BLOCK.folder).glob("*.py"))
               if block.stem != name and imports.search(block.read_text(encoding="utf-8"))]
     return found
+
+
+# --- new_run_value ----------------------------------------------------------------------------
+
+# The Building block new_run_value writes each Run value's function into.
+RUN_VALUES_BLOCK = "run_values"
+# The module docstring of building_blocks/run_values.py, when new_run_value makes the file.
+RUN_VALUES_DOCSTRING = (
+    '"""Run values: functions of your Project\'s, each called as a table is written.\n'
+    "\n"
+    "A Workflow's decisions cell imports one to answer a Script tag or a seed, such as\n"
+    '"PERIOD_END": period_end. project.new_run_value writes one that gives a table\'s latest\n'
+    "Partition; write any other kind here yourself, as a function that takes nothing.\n"
+    '"""')
+# The partition column types whose values latest_partition gives as a number.
+WHOLE_NUMBER_TYPES = ("tinyint", "smallint", "int", "integer", "bigint")
+
+
+def new_run_value(name: str, *, latest_partition: str) -> ProjectReport:
+    '''Write a Run value: a function giving a table's latest Partition.
+
+    >>> from pathlib import Path
+    >>> from sqlglot_composer import example_database, project
+    >>> project.start()
+    Started a Project in the folder you're working in: admin/, references/, building_blocks/,
+    tables/ and warehouse.py.
+    Next: set conn, your connection, in warehouse.py.
+    >>> _ = project.add_references(["ops.job_runs"], query=example_database.query)
+    >>> project.new_run_value("period_end", latest_partition="ops.job_runs.dt")
+    Wrote period_end into building_blocks/run_values.py: the latest Partition of
+    ops.job_runs, by dt.
+    Registered building_blocks/run_values.py.
+    Import it at the top of the decisions cell:
+    from building_blocks.run_values import period_end
+    >>> print(Path("building_blocks/run_values.py").read_text())
+    """Run values: functions of your Project's, each called as a table is written.
+    <BLANKLINE>
+    A Workflow's decisions cell imports one to answer a Script tag or a seed, such as
+    "PERIOD_END": period_end. project.new_run_value writes one that gives a table's latest
+    Partition; write any other kind here yourself, as a function that takes nothing.
+    """
+    <BLANKLINE>
+    import datetime
+    <BLANKLINE>
+    from sqlglot_composer import latest_partition
+    from references.ops__job_runs import job_runs
+    from warehouse import query
+    <BLANKLINE>
+    <BLANKLINE>
+    def period_end() -> datetime.date:
+        """The latest Partition of ops.job_runs, by dt."""
+        return latest_partition(job_runs.dt, query)
+    <BLANKLINE>
+
+    `latest_partition` names a partition column by its table, as "ops.job_runs.dt". The
+    function it writes, period_end() here, gives that column's newest value each time it is
+    called, from SHOW PARTITIONS sent through your query: a date as a datetime.date, as
+    latest_partition(...) gives it, and a column of whole numbers, such as year INT, a
+    number. It goes into building_blocks/run_values.py with the imports it needs, the file
+    made if it isn't there and registered as a Building block. Import it at the top of a
+    Workflow's decisions cell, by the line it prints, and answer a Script tag with it, as
+    "tags": {"PERIOD_END": period_end}.
+
+    In the convert notebook, write the call at the top of the decisions cell, the import under
+    it, and run the cell once before "Run the rest". Run again as it was, it changes nothing,
+    so the cell can run again. A name the file has already for anything else is refused, as
+    is a table with no Table reference, which the references Workflow writes, and a column
+    that isn't one of the table's partition columns. It never touches the warehouse.
+
+    Any other kind of Run value, such as the last day of last month, is a function you write
+    in building_blocks/run_values.py yourself: it takes nothing, and gives a date, a number
+    or text.
+    '''
+    frame = callers_frame()
+    call = (f"project.new_run_value({python_literal(name)}, "
+            f"latest_partition={python_literal(latest_partition)})")
+    root = _project_root(call)
+    _check_run_value_name(name, call)
+    table, column = _partition_column_named(root, latest_partition, call)
+    shown = BUILDING_BLOCK.shown(RUN_VALUES_BLOCK)
+    path = BUILDING_BLOCK.path(root, RUN_VALUES_BLOCK)
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    bound = _names_bound(text, shown, call)
+    function, needs = _run_value_code(bound, name, table, column)
+    import_lines = ["Import it at the top of the decisions cell:",
+                    f"from building_blocks.{RUN_VALUES_BLOCK} import {name}"]
+    if function in text:
+        return ProjectReport([f"{shown} holds {name} already, as this call writes it: "
+                              "nothing changed.", *import_lines])
+    _check_names_are_free(bound, needs, name, shown, call)
+    lacking = [line for local, (from_where, line) in needs.items()
+               if bound.get(local) != from_where]
+    path.write_text(_run_values_with(text, lacking, function), encoding="utf-8")
+    files = [f"{'changed' if text else 'created'} {shown}"]
+    lines = [f"Wrote {name} into {shown}: the latest Partition of {table._name}, by "
+             f"{column}."]
+    registry = Registry(root)
+    if not registry.listed(BUILDING_BLOCK, RUN_VALUES_BLOCK):
+        registry.add([(BUILDING_BLOCK, RUN_VALUES_BLOCK)], unchecked.now())
+        files.append(f"registered {shown}")
+        lines.append(f"Registered {shown}.")
+    _log(root, call, [table._name], files, frame)
+    return ProjectReport([*lines, *import_lines])
+
+
+def _check_run_value_name(name: object, call: str) -> None:
+    """Refuse a Run value's name that a decisions cell couldn't import it by."""
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        refuse(
+            what=f"{call}: {name!r} isn't a name Python can import a Run value by.",
+            why="A decisions cell imports it by its name, as from building_blocks.run_values "
+            "import period_end, so the name is letters, digits and _, not starting with a "
+            "digit.",
+            fix='Write it like "period_end".',
+            error=ValueError,
+        )
+    if keyword.iskeyword(name) or (name.startswith("__") and name.endswith("__")):
+        refuse(
+            what=f"{call}: {name} is a name Python keeps for itself.",
+            why="A decisions cell imports a Run value by its name, and Python can't import "
+            "one named so.",
+            fix=f'Name it something else, such as "{name.strip("_")}_value".',
+            error=ValueError,
+        )
+
+
+def _partition_column_named(root: Path, given: object, call: str) -> tuple[Table, str]:
+    """The Table reference and the partition column new_run_value's latest_partition= names,
+    such as "ops.job_runs.dt"; refused when it names no partition column of a table with a
+    Table reference."""
+    parts = given.split(".") if isinstance(given, str) else []
+    if len(parts) != 3 or not all(re.fullmatch(r"[A-Za-z0-9_]+", part) for part in parts):
+        refuse(
+            what=f"{call}: latest_partition= is {given!r}, which isn't a partition column by "
+            "its table's name.",
+            why="It names the table whose latest Partition the function gives, and its "
+            "partition column: the database, the table and the column, a dot between each.",
+            fix='Write it like "ops.job_runs.dt".',
+            error=ValueError,
+        )
+    name, column = f"{parts[0]}.{parts[1]}", parts[2]
+    if not REFERENCE.path(root, table_stem(name)).is_file():
+        refuse(
+            what=f"{call}: {name} has no Table reference, "
+            f"{REFERENCE.shown(table_stem(name))}, so nothing was written.",
+            why="The function reads the table's partition column through its Table "
+            "reference, as latest_partition(job_runs.dt, query) does.",
+            fix="Write it first with the references Workflow, "
+            "admin/workflows/references/references.ipynb, then run this again.",
+            error=FileNotFoundError,
+        )
+    table = _table_in(root, name)
+    partitioned_by = table._partitioned_by
+    if column in partitioned_by:
+        return table, column
+    if partitioned_by:
+        what = (f"{call}: {column} isn't a partition column of {name}: its partition "
+                f"{singular_or_plural(len(partitioned_by), 'column is', 'columns are')} "
+                f"{in_words(partitioned_by)}.")
+        fix = f'Give one of them, such as "{name}.{partitioned_by[0]}".'
+    else:
+        what = f"{call}: {name} has no partition column, so it has no latest Partition."
+        fix = ("Write the function you need yourself in building_blocks/run_values.py: "
+               "help(project.new_run_value) shows one.")
+    refuse(
+        what=what,
+        why="The function gives the newest value of a partition column, from SHOW "
+        "PARTITIONS, which lists a table's Partitions by their partition columns alone.",
+        fix=fix,
+        error=ValueError,
+    )
+
+
+def _run_value_code(bound: dict[str, str], name: str, table: Table,
+                    column: str) -> tuple[str, dict[str, tuple[str, str]]]:
+    """A Run value's function giving the latest Partition of `table` by `column`, and each
+    name it reads with what it imports and the line importing it, for a file whose top binds
+    the names `bound` holds: the table is imported by its file's name, as ops__job_runs, when
+    the file has its short name for another thing."""
+    stem = table_stem(table._name)
+    short = split_table_name(table._name)[1]
+    origin = f"references.{stem}.{short}"
+    reads, table_import = short, f"from references.{stem} import {short}"
+    if bound.get(short, origin) != origin:
+        # The file has the table's short name for another thing: import it by its file's.
+        reads, table_import = stem, f"{table_import} as {stem}"
+    returns = "datetime.date"
+    if table._columns[column].strip().lower() in WHOLE_NUMBER_TYPES:
+        returns = "int"
+    needs = {"latest_partition": ("sqlglot_composer.latest_partition",
+                                  "from sqlglot_composer import latest_partition"),
+             reads: (origin, table_import),
+             "query": ("warehouse.query", "from warehouse import query")}
+    if returns != "int":
+        needs = {"datetime": ("datetime", "import datetime"), **needs}
+    function = (f"def {name}() -> {returns}:\n"
+                f'    """The latest Partition of {table._name}, by {column}."""\n'
+                f"    return latest_partition({reads}.{column}, query)\n")
+    return function, needs
+
+
+def _names_bound(text: str, shown: str, call: str) -> dict[str, str]:
+    """Each name the top level of a Python file's text binds, and to what: an import's module
+    and name, such as "warehouse.query", or "" for a function, class or assignment of its
+    own; refused when the text isn't Python."""
+    try:
+        tree = ast.parse(text)
+    except SyntaxError as error:
+        refuse(
+            what=f"{call}: {shown} isn't Python that runs: line {error.lineno}, {error.msg}.",
+            why="It adds a function to the file, which each decisions cell importing from it "
+            "runs.",
+            fix=f"Mend {shown} first, then run this again.",
+            error=ValueError,
+        )
+    bound: dict[str, str] = {}
+    for node in tree.body:
+        if isinstance(node, ast.ImportFrom):
+            bound.update({alias.asname or alias.name: f"{node.module}.{alias.name}"
+                          for alias in node.names})
+        elif isinstance(node, ast.Import):
+            bound.update({alias.asname or alias.name.split(".")[0]: alias.name
+                          for alias in node.names})
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound[node.name] = ""
+        elif isinstance(node, ast.Assign):
+            bound.update({target.id: "" for target in node.targets
+                          if isinstance(target, ast.Name)})
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            bound[node.target.id] = ""
+    return bound
+
+
+def _check_names_are_free(bound: dict[str, str], needs: dict[str, tuple[str, str]], name: str,
+                          shown: str, call: str) -> None:
+    """Refuse a Run value's name the file has already, or that an import it needs takes, and
+    an import whose name the file has for another thing."""
+    if name in bound:
+        refuse(
+            what=f"{call}: {shown} has a {name} already, so nothing was written.",
+            why="One name in one file is one thing: a second would hide the first, and each "
+            "import of it would give the second.",
+            fix=f"Give the new Run value a name of its own, or change the {name} {shown} has "
+            "by hand.",
+            error=FileExistsError,
+        )
+    taken = [local for local, (from_where, _) in needs.items()
+             if local == name or bound.get(local, from_where) != from_where]
+    if taken:
+        refuse(
+            what=f"{call}: the function needs {in_words([needs[each][1] for each in taken])}, "
+            f"and {in_words(taken)} {singular_or_plural(len(taken), 'is', 'are')} another "
+            f"thing in {shown} or the Run value's name, so nothing was written.",
+            why="The function reads each import by its name.",
+            fix=f"Give the new Run value another name, or rename the {in_words(taken)} of "
+            f"{shown}.",
+            error=FileExistsError,
+        )
+
+
+def _run_values_with(text: str, imports: list[str], function: str) -> str:
+    """building_blocks/run_values.py's text, `text`, with the import lines it lacked under its
+    own imports and the function at its end; made with its docstring when `text` is empty."""
+    if not text.strip():
+        plain = [line for line in imports if line.startswith("import ")]
+        others = [line for line in imports if not line.startswith("import ")]
+        groups = ["\n".join(group) for group in (plain, others) if group]
+        return RUN_VALUES_DOCSTRING + "\n\n" + "\n\n".join(groups) + "\n\n\n" + function
+    lines = text.rstrip("\n").split("\n")
+    body = ast.parse(text).body
+    own_imports = [node for node in body if isinstance(node, (ast.Import, ast.ImportFrom))]
+    if own_imports:
+        at = own_imports[-1].end_lineno or 0
+        lines[at:at] = imports
+    elif body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant):
+        at = body[0].end_lineno or 0
+        lines[at:at] = ["", *imports] if imports else []
+    elif imports:
+        lines[0:0] = [*imports, ""]
+    return "\n".join(lines) + "\n\n\n" + function
 
 
 # --- add_references ---------------------------------------------------------------------------
