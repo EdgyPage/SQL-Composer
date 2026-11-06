@@ -334,9 +334,12 @@ def _add_conversions(name: str, folder: Path) -> None:
     databases.write_text(databases.read_text(encoding="utf-8").replace(
         '"<DEV_DATABASE>"', f'"{DEV_DATABASE}"'), encoding="utf-8")
     for conversion, original, table in CONVERSIONS[name]:
-        project.convert(conversion, file=str(source / "conversions" / f"{conversion}.hql"),
-                        query=example_database.query, database="ops",
-                        rename={original: table.split(".")[1]})
+        # Saved beside the convert notebook, as a user saves a script, so batch.md names it
+        # by its place in the Project, which reads it where it is (Toolbox 8.5).
+        script = folder / "admin" / "workflows" / "convert" / f"{conversion}.hql"
+        shutil.copyfile(source / "conversions" / f"{conversion}.hql", script)
+        project.convert(conversion, file=str(script), query=example_database.query,
+                        database="ops", rename={original: table.split(".")[1]})
         stem = project.table_stem(table)
         notebook = folder / "tables" / stem / f"{stem}.ipynb"
         cells = []

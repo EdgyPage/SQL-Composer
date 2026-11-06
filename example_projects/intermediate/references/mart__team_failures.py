@@ -20,6 +20,6 @@ team_failures = Table(
         "dt": "string",
     },
     partitioned_by=["dt"],  # filled in from the original's PARTITION(...)
-    key=["team", "dt"],  # proposed from its query; if it is wrong, answer "key" in the decisions cell
+    key=["team", "dt"],
     location="/data/mart.db/team_failures",  # filled in by hand
 )
