@@ -51,3 +51,7 @@ Built 2026-11-05.
   test names 8.3's step and 8.4's.
 - D422, the version item, closes with this commit. CI and the export are the user's: `main`
   and the push stay theirs.
+- **A seed() 8.3 wrote is marked** (`_mark_a_seed_copying_everything`): it copies every
+  Partition as `unchecked_hive(...)`, so the mark says to convert the batch again, as a new one
+  with RENAME, for one SEED limits. The upgrade journeys hold it: their Project, as 8.3 left
+  it, has such a table, and the Workflow's mark step answers the mark.

@@ -845,11 +845,32 @@ def to_8_4(upgrade: Upgrade) -> None:
     the decisions cell's, which tell of all_tables, Run values and seed limits. In a table 8.3
     converted, each place a Script tag stood inside a string, which 8.3 wrote as TAGS["NAME"]
     itself, is written tag_text(TAGS["NAME"]), as 8.4 writes it, so a Run value's function can
-    answer it too: the same Hive for every answer 8.3 took. A seed() 8.3 wrote stays as it
-    was, copying every Partition: convert the batch again to limit it."""
+    answer it too: the same Hive for every answer 8.3 took. A seed() 8.3 wrote, copying every
+    Partition, is marked: convert the batch again for one SEED limits."""
     _write_workflow_notebooks_again(upgrade)
     for notebook in sorted((upgrade.root / "tables").glob("*/*.ipynb")):
         _read_tags_through_tag_text(upgrade, notebook)
+        _mark_a_seed_copying_everything(upgrade, notebook)
+
+
+def _mark_a_seed_copying_everything(upgrade: Upgrade, notebook: Path) -> None:
+    """Mark the seed() of a table 8.3 converted, which copies every Partition of its original
+    as unchecked_hive(...): 8.4's is seed_copy(..., SEED), which the decisions cell limits."""
+    for number, (kind, text) in enumerate(read_cells(notebook), 1):
+        if kind != "code" or not text.startswith("# logic"):
+            continue
+        lines = text.split("\n")
+        for line_number, line in enumerate(lines, 1):
+            body = "\n".join(lines[line_number:line_number + 4])
+            if line.startswith("def seed(") and "unchecked_hive(" in body:
+                upgrade.mark(notebook.relative_to(upgrade.root).as_posix(), line_number,
+                             _SEED_EVERY_PARTITION, cell=number)
+
+
+# The mark on a seed() 8.3 wrote.
+_SEED_EVERY_PARTITION = ("this seed() copies every Partition of the original; to copy only the "
+                         "ones you need, convert the batch again, as a new one with RENAME: "
+                         "8.4 gives it SEED, which \"seed\" in the decisions cell limits")
 
 
 # A place a Table notebook's logic reads a Script tag's answer itself, TAGS["NAME"], not
