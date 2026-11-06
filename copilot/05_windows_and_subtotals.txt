@@ -1,4 +1,4 @@
-# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.4)
+# Copilot file 05: windows, subtotals and stacking (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -10,7 +10,7 @@ the rows of several Statements together.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Statement**: one Hive query; a **Condition**, a test on rows.
 - `t`: a table, as its Table reference describes it: `job_runs`.
 - **Derived table**: a named Statement, `derived(...)`, read like a table.

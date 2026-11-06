@@ -157,14 +157,16 @@ _Avoid_: source table, old table
 
 **Batch**:
 One or more scripts of Hive converted together by one Conversion, with every statement in
-them ordered by what reads what. Its scripts, as given, and the list of what each statement
-became are kept in the convert Workflow's folder, under the batch's name.
+them ordered by what reads what. Where each script is, and the list of what each statement
+became, are kept in the convert Workflow's folder, under the batch's name: a script read from a
+file is read where it is, never copied, and only Hive given as text is kept there.
 _Avoid_: job, bundle, script set
 
 **Conversion folder**:
-A batch's index, in the convert Workflow's folder: its scripts as given, their order, what
-each statement became and the tables that came from them. What belongs to one table, the
-statements it came from, the scan and its checklist, is in that table's own Table folder.
+A batch's index, in the convert Workflow's folder: where each script is (Hive given as text
+kept in its scripts/), their order, what each statement became and the tables that came from
+them. What belongs to one table, the statements it came from, the scan and its checklist, is
+in that table's own Table folder.
 _Avoid_: staging folder, draft, scratch folder
 
 **Script tag**:

@@ -210,14 +210,17 @@ Its decisions cell, under that, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
-    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here. "all_tables" answers for every table of this notebook, and a
-    # table's own answer overwrites it, kind by kind and tag by tag:
-    # {"all_tables": {"location_root": "/data/team",
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
+    # convert or new_table proposed, marked # proposed, is kept unless you answer "key"
+    # here; one add_references proposed stays open until you accept it.
+    # "key": "proposed" accepts either as if typed. "all_tables" answers for every table
+    # of this notebook, and a table's own answer overwrites it, kind by kind and tag by
+    # tag:
+    # {"all_tables": {"key": "proposed",
     #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # gives each table with no location its own folder, such as
-    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
+    # accepts each table's proposed Key and gives each table holding PERIOD_END that
+    # value. A table's location is placed under "location_root" in
+    # admin/databases.py; answer "location" only for one it can't place.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -343,14 +346,17 @@ Its decisions cell, under that, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
-    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here. "all_tables" answers for every table of this notebook, and a
-    # table's own answer overwrites it, kind by kind and tag by tag:
-    # {"all_tables": {"location_root": "/data/team",
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
+    # convert or new_table proposed, marked # proposed, is kept unless you answer "key"
+    # here; one add_references proposed stays open until you accept it.
+    # "key": "proposed" accepts either as if typed. "all_tables" answers for every table
+    # of this notebook, and a table's own answer overwrites it, kind by kind and tag by
+    # tag:
+    # {"all_tables": {"key": "proposed",
     #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # gives each table with no location its own folder, such as
-    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
+    # accepts each table's proposed Key and gives each table holding PERIOD_END that
+    # value. A table's location is placed under "location_root" in
+    # admin/databases.py; answer "location" only for one it can't place.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -486,14 +492,17 @@ Its decisions cell, under that, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
-    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here. "all_tables" answers for every table of this notebook, and a
-    # table's own answer overwrites it, kind by kind and tag by tag:
-    # {"all_tables": {"location_root": "/data/team",
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
+    # convert or new_table proposed, marked # proposed, is kept unless you answer "key"
+    # here; one add_references proposed stays open until you accept it.
+    # "key": "proposed" accepts either as if typed. "all_tables" answers for every table
+    # of this notebook, and a table's own answer overwrites it, kind by kind and tag by
+    # tag:
+    # {"all_tables": {"key": "proposed",
     #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # gives each table with no location its own folder, such as
-    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
+    # accepts each table's proposed Key and gives each table holding PERIOD_END that
+    # value. A table's location is placed under "location_root" in
+    # admin/databases.py; answer "location" only for one it can't place.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top
@@ -607,14 +616,17 @@ Its decisions cell, under that, where you answer each open Decision:
     #                          "key": ["job_id"], "types": {"fails": "bigint"},
     #                          "tags": {"PERIOD_END": "'2026-10-31'"}}}
     # "key": None says no columns name one row. project.check() names each one open, and
-    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the
-    # Toolbox proposed, marked # proposed in its Table reference, is kept unless you
-    # answer "key" here. "all_tables" answers for every table of this notebook, and a
-    # table's own answer overwrites it, kind by kind and tag by tag:
-    # {"all_tables": {"location_root": "/data/team",
+    # prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key
+    # convert or new_table proposed, marked # proposed, is kept unless you answer "key"
+    # here; one add_references proposed stays open until you accept it.
+    # "key": "proposed" accepts either as if typed. "all_tables" answers for every table
+    # of this notebook, and a table's own answer overwrites it, kind by kind and tag by
+    # tag:
+    # {"all_tables": {"key": "proposed",
     #                 "tags": {"PERIOD_END": "'2026-10-31'"}}}
-    # gives each table with no location its own folder, such as
-    # "/data/team/mart_dev.db/weekly_ops", and each table holding PERIOD_END that value.
+    # accepts each table's proposed Key and gives each table holding PERIOD_END that
+    # value. A table's location is placed under "location_root" in
+    # admin/databases.py; answer "location" only for one it can't place.
     # A tag may be answered with a Run value's function of your Project's, imported above
     # DECISIONS, such as "PERIOD_END": period_end. For a table's latest Partition, write
     # project.new_run_value("period_end", latest_partition="ops.job_runs.dt") at the top

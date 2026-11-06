@@ -1,4 +1,4 @@
-# Copilot file 02: Table references (sqlglot Composer 8.4)
+# Copilot file 02: Table references (sqlglot Composer 8.5)
 
 **Follow these steps in order, as written: add no step, skip none, and reply as Output says.**
 
@@ -8,7 +8,7 @@ table, or asks about a table's columns, partitions or Key.
 
 ## Terms
 
-- **Toolbox**: sqlglot Composer 8.4, which writes Hive from Python.
+- **Toolbox**: sqlglot Composer 8.5, which writes Hive from Python.
 - **Table reference**: the file references/<database>__<table>.py, such as
   references/ops__job_runs.py, defining one table's Table.
 - **Key**: the columns that tell one row from another.
@@ -68,11 +68,12 @@ table, or asks about a table's columns, partitions or Key.
 
 - A table that exists: the references Workflow, admin/workflows/references/references.ipynb,
   runs `project.add_references(["ops.job_runs"], query=query)`, writing its Table reference
-  from the warehouse's own description, so its columns and types are right. Its Key is a
-  Decision, `DECISIONS = {"ops.job_runs": {"key": ["run_id"]}}`, which the next step writes.
+  from the warehouse's own description, so its columns and types are right. Its Key,
+  proposed and checked, is a Decision: `{"ops.job_runs": {"key": "proposed"}}` accepts it,
+  `["run_id"]` gives one; the next step writes it.
 - A new Saved table: the new_table Workflow (file 14) writes its Table reference from its
-  logic, `project.reference_from_logic(TABLES)`, or from its query; the user answers its
-  location in the decisions cell.
+  logic, `project.reference_from_logic(TABLES)`, or its query, its location placed under
+  DEV's location_root.
 
 ## Table's arguments
 
@@ -97,7 +98,7 @@ table, or asks about a table's columns, partitions or Key.
   warehouse has it now.
 - `first_look(t)` is a Statement of all its columns and 20 rows, for `run_query`.
 - A check gives back a Verdict `v`: `print(v)` says whether the Key holds; `if v:` is true
-  when it does.
+  then.
 
 ## Steps
 
@@ -118,7 +119,7 @@ table, or asks about a table's columns, partitions or Key.
 Reply with these parts, in this order, and nothing else:
 
 1. **Code**: one ```python block the user can paste into a notebook cell or a file.
-2. **Notes**: a few plain sentences on what it gives.
+2. **Notes**: a few plain sentences.
 
 ## Examples
 

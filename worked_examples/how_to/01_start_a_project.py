@@ -101,9 +101,13 @@ it, and what you fill in:
   the tables, and save it; then run each step's cell in turn, or `project.do_next()`, which
   runs the steps it can for you, those that change only files, up to the first it can't.
   `project.check()` names the next step.
-- admin/databases.py, the names of your Dev Database, where you create and write tables of
-  your own, and your Prod Database, where others read your finished tables:
-  `project.start()`. You fill in the two names, DEV and PROD.
+- admin/databases.py, the Database settings of your Dev Database, where you create and write
+  tables of your own, and your Prod Database, where others read your finished tables:
+  `project.start()`. You fill in DEV and PROD, a dict each, such as
+  `{"database": "mart_dev", "location_root": "/data/team/dev"}`: its name, and the folder its
+  tables' files go under, each table with no folder of its own placed in
+  `<location_root>/<database>.db/<table>`.
+  [Set your Database settings](#set_your_database_settings) shows each setting.
 - admin/sent.csv, a row for each change a notebook of the Project sends to the warehouse:
   `project.start()`, then each change you run on the warehouse. You fill in nothing.
 - admin/admin_log.md, the Admin log, the record of each Project action and each change you
@@ -114,7 +118,8 @@ it, and what you fill in:
 - admin/project_version.txt, the Toolbox version that last wrote the Project:
   `project.start()`, then `project.upgrade()`. You fill in nothing.
 - admin/workflows/convert/<name>/, a Conversion folder per batch of someone else's Hive you
-  convert, its scripts as given and what each statement became: `project.convert(...)`, from
+  convert, its batch.md naming where each script is, read where it is and never copied, and
+  what each statement became: `project.convert(...)`, from
   admin/workflows/convert/convert.ipynb, which makes each table the Hive writes a Saved table
   in your Dev Database. You answer each of its tables' Decisions, the things only you decide,
   as [Convert someone else's Hive](#convert_someone_elses_hive) shows.
@@ -125,8 +130,8 @@ it, and what you fill in:
   `project.start()`. Nothing, unless you want your team's own shape.
 - `references/<db>__<table>.py`, a Table reference per table:
   `project.add_references([...], query=query)` for a table in the warehouse, or
-  `project.new_table(...)` for a Saved table of your own. You fill in its TODO lines, and add
-  your own names for its columns, as [Add your tables' references](#add_your_tables_references)
+  `project.new_table(...)` for a Saved table of your own. You accept or change what it
+  proposed, such as its Key, and add your own names for its columns, as [Add your tables' references](#add_your_tables_references)
   shows.
 - `references/<db>.py`, a Database module per Database, the group of tables a name such as
   `ops` in `ops.jobs` names, such as references/ops.py: written again by each Project action
@@ -135,6 +140,9 @@ it, and what you fill in:
   Table reference for: `project.refresh_reference_sheet()`. You fill in nothing.
 - `building_blocks/<name>.py`, a Building block: `project.new_block("<name>")`. You fill in its
   `<...>` and TODO lines, as [Share Building blocks](#share_building_blocks) shows.
+- `building_blocks/prod/<name>.py`, the prod copy of a Building block a promoted table
+  imports: `project.promote(...)`. You fill in nothing: change the dev block and promote it
+  again.
 - `tables/<db>__<table>/<db>__<table>.ipynb`, a Table notebook per Saved table, whose cells
   create, preview and write it: `project.new_table("<db>.<table>")`. You fill in its `<...>`
   lines, as [Save a table](#save_a_table) shows.

@@ -1633,11 +1633,12 @@ DECISIONS_CELL = (
     '#                          "key": ["job_id"], "types": {"fails": "bigint"},\n'
     '#                          "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
     '# "key": None says no columns name one row. project.check() names each one open, and\n'
-    "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key the\n"
-    "# Toolbox proposed, marked # proposed in its Table reference, is kept unless you\n"
-    '# answer "key" here; "key": "proposed" accepts it as if typed. "all_tables" answers\n'
-    "# for every table of this notebook, and a table's own answer overwrites it, kind by\n"
-    "# kind and tag by tag:\n"
+    "# prints a whole DECISIONS to paste over this line: fill in each <FILL IN>. A Key\n"
+    '# convert or new_table proposed, marked # proposed, is kept unless you answer "key"\n'
+    "# here; one add_references proposed stays open until you accept it.\n"
+    '# "key": "proposed" accepts either as if typed. "all_tables" answers for every table\n'
+    "# of this notebook, and a table's own answer overwrites it, kind by kind and tag by\n"
+    "# tag:\n"
     '# {"all_tables": {"key": "proposed",\n'
     '#                 "tags": {"PERIOD_END": "\'2026-10-31\'"}}}\n'
     "# accepts each table's proposed Key and gives each table holding PERIOD_END that\n"

@@ -6,10 +6,11 @@ For: Getting started
 
 Get every column of the tables you read, each name and its Hive type, into your Project without
 typing them. `project.add_references` asks each table itself and writes its Table reference, a
-small .py file describing the table, into the Project's `references/` folder. You fill in what
-it can't know, add Aliases, your own names for its columns and conditions, and check the file
-against the table. Then `from references import ops` gives each table of the Database `ops`, the
-group of tables whose names start with `ops.`, by its name, and each column at a dot after it.
+small .py file describing the table, into the Project's `references/` folder, with its Key
+proposed and checked. You accept or change what it proposed, add Aliases, your own names for
+its columns and conditions, and check the file against the table. Then
+`from references import ops` gives each table of the Database `ops`, the group of tables whose
+names start with `ops.`, by its name, and each column at a dot after it.
 
 ## When you'd use it
 
@@ -81,13 +82,24 @@ Goal: a Table reference for each table you read. `project.add_references` takes 
 tables. For each, it sends those two commands through your query, turns what comes back into a
 Table reference file in `references/`, and adds it to the registry, admin/registry.csv, the
 list of what each Project action made; then it logs what it did in the Admin log, the record of
-each Project action. Run it from the
-references Workflow's notebook, admin/workflows/references/references.ipynb, which runs this
-call on the names in its names cell, or from any notebook in the Project's folder, as here:
+each Project action. It also proposes each table's Key, the columns that name one row: it
+counts each id column's values, such as run_id's, on the latest Partition, then checks the one
+that names every row with `check_key`, which step 9 shows, on the latest two Partitions. Run it
+from the references Workflow's notebook, admin/workflows/references/references.ipynb, which
+runs this call on the names in its names cell, or from any notebook in the Project's folder, as
+here:
 
 >>> project.add_references(["ops.jobs", "ops.job_runs", "ops.run_alerts"], query=query)
 Wrote references/ops__jobs.py, references/ops__job_runs.py and references/ops__run_alerts.py:
     fill in their TODO lines.
+ops.jobs: its Key proposed, (job_id), checked with check_key:
+  ops.jobs: the key (job_id) holds.
+ops.job_runs: its Key proposed, (run_id), checked with check_key:
+  ops.job_runs: the key (run_id) holds where job_runs.dt IN ('2026-09-23', '2026-09-24').
+ops.run_alerts: its Key proposed, (alert_id), checked with check_key:
+  ops.run_alerts: the key (alert_id) holds where run_alerts.dt IN ('2026-09-23',
+    '2026-09-24').
+To accept every proposed Key, write in the decisions cell: "all_tables": {"key": "proposed"}
 Wrote references/ops.py: from references import ops gives ops.job_runs, ops.jobs and
     ops.run_alerts.
 Restart the kernel of a notebook that imported references, to see a table added since.
@@ -109,20 +121,44 @@ your editor. It imports `Table`, then makes one variable, `job_runs`:
 
 - `columns=` holds every column and its type;
 - `partitioned_by=["dt"]` comes from DESCRIBE's `# Partition Information` rows;
-- three lines say TODO: the line at the top that says what one row is, `key=None` and
-  `does_not_add_up=[]`. The table can't tell anyone those, so the file leaves them to you;
+- three lines are proposed, since the table can't say them for sure: the line at the top,
+  what one row is, `"One row per run_id."  # proposed from its Key`; `does_not_add_up=`, the
+  columns that are averages or ratios, `["avg_retry_secs"]  # proposed from its columns'
+  names`, from names such as avg_*, *_ratio and *_rate; and the Key, `key=None,  # TODO:
+  proposed ["run_id"], checked`, which stays open until you accept it. A table with no id
+  column, or none naming every row, gets no Key proposed, and its line says why;
 - `descriptions=` holds what each column holds, in words, from its comment in the warehouse,
   such as status's `SUCCESS / FAILED / TEST, NULL while running`;
 - under the Aliases heading at the end, commented-out examples show how to add your own names
   for the table's columns and conditions.
 
-Done when you have found the file's three TODO lines. Then step 5.
+Done when you have found the file's three proposed lines. Then step 5.
 
-### 5. Fill in the TODOs
+### 5. Accept or change what it proposed
 
-Goal: a Table reference that says what only you know. Open each file in your editor and
-replace its three TODO lines. This is
-references/ops__job_runs.py with them filled in, and two Aliases of your own at the end:
+Goal: a Table reference that says what only you know. A proposed Key waits for your yes, as
+proof from a few Partitions is evidence, not a promise. In the references Workflow's notebook,
+the decisions cell under "Run up to your Decisions" accepts it: `"key": "proposed"` under
+"all_tables" accepts every table's, under a table's name that one's, and a Key of your own,
+such as `{"ops.job_runs": {"key": ["run_id"]}}`, wins over it. "Run the rest" writes each in.
+This page stands in for that cell and its step:
+
+>>> DECISIONS = {"all_tables": {"key": "proposed"}}
+>>> print(project.write_decisions(DECISIONS, tables=["ops.jobs", "ops.job_runs",
+...                                                  "ops.run_alerts"]))
+Wrote 1 answer into references/ops__jobs.py.
+Each Decision of ops.jobs is made.
+Wrote 1 answer into references/ops__job_runs.py.
+Each Decision of ops.job_runs is made.
+Wrote 1 answer into references/ops__run_alerts.py.
+Each Decision of ops.run_alerts is made.
+all_tables: key "proposed": accepted the proposed Key of ops.jobs, ops.job_runs and
+    ops.run_alerts, each written as if typed.
+
+The other two proposed lines are used as they are, blocking nothing; `project.check()` names
+each one left. Keep each, taking off its `# proposed` comment, or change it: say in your own
+words what one row is. This is references/ops__job_runs.py with them kept, its first line in
+your own words, and two Aliases of your own at the end:
 
 The file `references/ops__job_runs.py`, after you fill it in:
 
@@ -163,12 +199,14 @@ The file `references/ops__job_runs.py`, after you fill it in:
 
 - The first line says, in your own words, what one row is.
 - `key=` lists the columns that pick out one row, the table's Key. Every run has its own
-  `job_runs.run_id`, so it is `key=["run_id"]`. Ask whoever owns the table if you aren't sure:
-  `check_key`, in step 9, checks it. A join uses the Key to warn you when it would repeat rows.
+  `job_runs.run_id`, so it is `key=["run_id"]`, as the decisions cell wrote it. Ask whoever
+  owns the table if you aren't sure: `check_key`, in step 9, checks a Key of your own. A join
+  uses the Key to warn you when it would repeat rows.
 - `does_not_add_up=` lists the columns that are averages, ratios or counts of different values.
   `job_runs.avg_retry_secs` is each run's average wait between retries: adding up two runs'
   averages gives a number that means nothing, so the Toolbox refuses to add it up once it is
-  listed here.
+  listed here. Its name said so, so it was proposed; a column whose name doesn't, such as a
+  share, you add yourself.
 - An Alias is your own name, written by hand. `minutes` is a shorter name for
   `job_runs.duration_mins`, for you: the Hive, and the DataFrame a query gives back, still call
   the column duration_mins. `failed` names a condition on this table alone. Add `equals` to the
@@ -177,7 +215,7 @@ The file `references/ops__job_runs.py`, after you fill it in:
   `"duration_mins": "how long the run took, in minutes"`.
 
 The other two the same way. A job is one row of ops.jobs, and nothing in it is an average, so
-its `does_not_add_up=[]` stays empty; the TODO comments go:
+its proposed `does_not_add_up=[]` stays empty; the `# proposed` comments go:
 
 The file `references/ops__jobs.py`, after you fill it in:
 
@@ -244,7 +282,7 @@ The file `references/ops__run_alerts.py`, after you fill it in:
 
     high = equals(run_alerts.severity, "high")
 
-Done when no file holds a TODO line. Then step 6.
+Done when no file holds a TODO line or a `# proposed` comment. Then step 6.
 
 ### 6. Reach a table and its columns
 
@@ -308,11 +346,12 @@ the line to change in the file. It leaves the file for you to edit.
 
 Done when it says `ops.job_runs matches its Table reference.` Then step 9.
 
-### 9. Check the Key you wrote
+### 9. Check a Key again
 
 Goal: proof that the Key names one row. The warehouse never checks a Key: nothing stops two
-rows sharing one run_id. `check_key`
-counts the rows for each Key, and lists any Key that repeats. ops.job_runs is partitioned, so
+rows sharing one run_id. `check_key`, which step 3 ran on each proposed Key, counts the rows
+for each Key, and lists any Key that repeats. Run it on a Key of your own, and again whenever
+the table may have changed. ops.job_runs is partitioned, so
 `where=` says which Partitions to check, here those whose dt is 2026-09-24; a table that isn't
 partitioned, such as ops.jobs, is checked whole:
 

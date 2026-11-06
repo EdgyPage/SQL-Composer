@@ -27,6 +27,46 @@ grow as each part is built; its Upgrade, from 8.4, comes with the version.
   compares the latest Partition and each you list, a compare.md section each. A finished batch
   compares again through the same cell, with no script of your own. `compare_batch`'s
   `partition=` is refused, naming `partitions=`.
+- **convert's FILES left [] reads every .hql file beside the notebook**, in name order, and
+  its report names each; none there is refused. FILES may name a script anywhere, by its
+  path. Each script is read where it is, never copied into the batch's `scripts/`, and
+  batch.md names its path; Hive pasted into HIVE is still kept in `scripts/hive.hql`.
+- **`EACH_SCRIPT_ITS_OWN_BATCH = True`**, in convert's names cell, makes each file of FILES a
+  batch of its own, named for its file without .hql, for simple, unrelated scripts: the run
+  cells run each in turn and print one DECISIONS for them all, where `"all_tables"` spans
+  every batch. Two scripts where one reads a table the other writes are refused, naming the
+  pair, as are two files of one name.
+- **promote's TABLES left [] promotes every finished table** not promoted yet, or changed in
+  dev since, and each dev table one of those reads, naming each and why.
+  `project.promote([])` is refused, naming the run cells.
+- **`"key": "proposed"` accepts each proposed Key as if typed**, under `"all_tables"` or a
+  table's own name, where 8.4 refused any "key" under `"all_tables"`. A table's own Key
+  wins; one with no proposal stays open, named. The DECISIONS to paste offer it for two
+  tables or more, and `project.check()` names each line still marked `# proposed`. A type is
+  still each table's own.
+- **The references Workflow proposes each table's Key and checks it**: `project.add_references`
+  counts each id column's values on the latest Partition through your query, proposes the
+  one that names every row, and checks it with `check_key` on the latest two, printing each
+  Verdict and the DECISIONS line that accepts it. The Key waits for that answer. It also
+  writes what one row is ("One row per run_id.") and `does_not_add_up=`, from names such as
+  `avg_*` and `*_ratio`, each marked `# proposed`, so you type no `check_key` line and edit no
+  TODO to get started.
+- **Database settings**: `DEV` and `PROD` in `admin/databases.py` are a dict each, such as
+  `{"database": "mart_dev", "location_root": "/data/team/dev"}`, under the same names in
+  both. A table with no folder of its own is placed in `<location_root>/<database>.db/<table>`
+  by convert, new_table and promote, DEV's root for dev tables and PROD's for prod copies, so
+  its location is no Decision; a table's own location is never written over. Any other
+  setting is yours, read by your code through `database_settings(name)`, a new public name.
+  A setting in one and not the other is refused, naming it. 8.4's two strings still read,
+  placing nothing.
+- **`"all_tables"`'s `"location_root"` is refused**, saying to give it in admin/databases.py,
+  and promote no longer renames a dev location's `.db` folder: a prod copy keeps the
+  location an earlier promote gave it, else is placed under PROD's root, else its location
+  is a Decision.
+- **promote copies each Building block a table imports** into `building_blocks/prod/`, Run
+  values among them, and the prod table imports that copy, so dev's blocks change freely and
+  prod's only when promoted again; promoting again archives the old copy in admin/removed/,
+  and `project.check()` names a prod copy edited by hand.
 
 ### Fixed
 

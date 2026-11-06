@@ -50,6 +50,7 @@ Next: set conn, your connection, in warehouse.py.
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs", "ops.job_runs"], query=query)
 Wrote references/ops__jobs.py and references/ops__job_runs.py: fill in their TODO lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_runs and ops.jobs.
 Restart the kernel of a notebook that imported references, to see a table added since.
 >>> project.new_block("runs_per_job")

@@ -61,6 +61,7 @@ started, which should match it run for run but doesn't quite. Add their Table re
 >>> project.add_references(["ops.job_runs", "ops.scheduler_runs"], query=query)
 Wrote references/ops__job_runs.py and references/ops__scheduler_runs.py: fill in their TODO
     lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners,
     ops.job_runs, ops.region_budgets, ops.region_costs, ops.scheduler_runs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.

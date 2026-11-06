@@ -52,6 +52,7 @@ Its TODO lines can wait, since `EXCEPT` compares whole rows and reads no Key:
 >>> from warehouse import query, execute
 >>> project.add_references(["ops.jobs"], query=query)
 Wrote references/ops__jobs.py: fill in its TODO lines.
+...
 Wrote references/ops.py: from references import ops gives ops.job_events, ops.job_owners,
     ops.jobs, ops.region_budgets, ops.region_costs and ops.team_notes.
 Restart the kernel of a notebook that imported references, to see a table added since.

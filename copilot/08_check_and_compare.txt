@@ -1,4 +1,4 @@
-# Copilot file 08: checking and comparing (sqlglot Composer 8.4)
+# Copilot file 08: checking and comparing (sqlglot Composer 8.5)
 
 **Follow the steps below in order, as written, adding none; reply as the Output section says.**
 
