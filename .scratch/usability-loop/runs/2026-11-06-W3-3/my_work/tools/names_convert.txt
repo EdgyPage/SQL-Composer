@@ -1,0 +1,8 @@
+NAME = 'failed_runs'  # the batch's name, plain lowercase, such as "weekly" (or, for the run cells alone, a list of batches converted already); unused when EACH_SCRIPT_ITS_OWN_BATCH is True, each batch named for its file
+FILES = ['C:/Users/myfir/AppData/Local/Temp/usability-loop/runs/2026-11-06-W3-3/from_your_team/failed_runs.hql']  # the scripts' files, such as ["daily.hql"], each beside this notebook or a path anywhere, such as "C:/work/daily.hql", read where it is: left [], every .hql file beside this notebook, or HIVE when it is given
+HIVE = None  # the Hive as text, such as """SELECT ...""", or None to read FILES
+EACH_SCRIPT_ITS_OWN_BATCH = False  # True makes each file of FILES a batch of its own, named for its file without .hql, such as "daily" for daily.hql, for simple scripts that read none of each other's tables: the run cells run each in turn, and one decisions cell answers them all
+DATABASE = 'default'  # the database of a table the Hive names without one
+RENAME = {}  # a name of your own for a table's copy in dev, by the table's full name, such as {"mart.team_fails": "team_fails"} for mart_dev.team_fails: left out, a copy is <table>_<its database>, such as mart_dev.team_fails_mart
+STAGING = {}  # each staging table convert names, kept or folded, such as {"ops_reports.failed": "keep"}: left out, a temporary or DROPped one is folded, any other kept
+PARTITIONS = []  # the Partitions for step 7 to compare besides the latest, each a dict, such as [{"dt": "2026-09-23"}], each value with no quotes of its own: [] compares only the latest Partition your dev table and its original both hold

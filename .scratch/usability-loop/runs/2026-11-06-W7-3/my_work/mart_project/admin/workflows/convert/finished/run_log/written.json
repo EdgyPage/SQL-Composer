@@ -1,0 +1,20 @@
+{
+ "files": {
+  "admin/workflows/convert/run_log/batch.md": "6a12938e7559326a92a77c7bc3a853ebd332e2d166f864284fcf2c9a72442b8c",
+  "references/mart_dev__run_log.py": "eaced6071a7057865b101c9588be1980cb7df0a2561f15ad37d582050c3fcfed",
+  "tables/mart_dev__run_log/conversion/checklist.md": "32e7a61bb387ee57c797ffb3a168adb6a183224f34c6e0b67ec41297889c1c54",
+  "tables/mart_dev__run_log/conversion/in_dev.hql": "86ced9dab77a273449794370a0f2d66c4023540f6918971a33e8cbc74c1f9547",
+  "tables/mart_dev__run_log/conversion/scan.md": "78f6dce65a21254dabf92c6c17694758bf83656e4cd12204c7ed385dcb3b94ee",
+  "tables/mart_dev__run_log/conversion/statement.hql": "18ff126efa3eb39f5fa10238ea2fb962e9b33539c89174fa12c58637ed6ae601",
+  "tables/mart_dev__run_log/mart_dev__run_log.ipynb": "8bc1a02bb3b610fbed5eb061a5316fd38ac832edcdf9a3d6300e21977a05d638"
+ },
+ "originals": {
+  "mart_dev.run_log": "mart.run_log"
+ },
+ "seeded": [
+  "mart_dev.run_log"
+ ],
+ "tables": [
+  "mart_dev.run_log"
+ ]
+}

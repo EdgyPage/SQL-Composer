@@ -1,0 +1,8 @@
+NAME = "run_log"  # the batch's name, plain lowercase, such as "weekly"
+FILES = ["C:/Users/myfir/AppData/Local/Temp/usability-loop/runs/2026-11-06-W7-2/from_your_team/run_log.hql"]  # the scripts' files, read where they are
+HIVE = None  # the Hive as text, or None to read FILES
+EACH_SCRIPT_ITS_OWN_BATCH = False  # True makes each file of FILES a batch of its own
+DATABASE = 'default'  # the database of a table the Hive names without one
+RENAME = {"mart.run_log": "run_log"}  # mart.run_log's copy in dev is mart_dev.run_log
+STAGING = {}  # each staging table convert names, kept or folded
+PARTITIONS = []  # the Partitions for step 7 to compare besides the latest

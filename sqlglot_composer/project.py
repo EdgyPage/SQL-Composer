@@ -5298,10 +5298,23 @@ def promote(tables: str | list[str], *, rename: dict[str, str] | None = None) ->
     _write_databases(root)
     workflows.write_promoted_record(root, record)
     _log(root, call, list(names.values()), written, frame)
-    lines.append("Next: fill in location= in each prod Table reference that has none, then run "
-                 "the promote Workflow's next steps, in admin/workflows/promote/promote.ipynb: "
-                 "create each table in prod, seed each that reads itself, and write each.")
+    lines.append(_promote_next_line(root, list(names.values())))
     return ProjectReport(lines)
+
+
+def _promote_next_line(root: Path, prods: list[str]) -> str:
+    """What promote's report says to do next: run the promote Workflow's next steps, once each
+    prod copy whose Table reference has no location= is given one, naming each."""
+    unplaced = [prod for prod in prods
+                if decisions.NO_LOCATION in workflows.file_text(
+                    REFERENCE.path(root, table_stem(prod)))]
+    first = "Next: run"
+    if unplaced:
+        first = (f"Next: fill in location= in {in_words(unplaced)}'s Table reference, which "
+                 "has none, then run")
+    return (f"{first} the promote Workflow's next steps, in "
+            "admin/workflows/promote/promote.ipynb: create each table in prod, seed each that "
+            "reads itself, and write each.")
 
 
 def _write_prod_blocks(root: Path, names: dict[str, str], record: dict[str, dict[str, object]],

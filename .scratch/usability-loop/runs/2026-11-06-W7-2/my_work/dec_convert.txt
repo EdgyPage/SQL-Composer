@@ -1,0 +1,9 @@
+project.new_run_value("period_end", latest_partition="ops.job_runs.dt")  # writes period_end into building_blocks/run_values.py; run once
+from building_blocks.run_values import period_end  # the import the call printed: a Run value, the latest day ops.job_runs holds at each write
+DECISIONS = {
+    "mart_dev.run_log": {
+        "key": ["run_id"],  # run_id names one row: unique in mart.run_log and in ops.job_runs
+        "tags": {"PERIOD_END": period_end},  # the latest day ops.job_runs holds, as each write is built
+        "seed": {"dt": {"from": "2026-09-24"}},  # copy only the days 2026-09-24 on of mart.run_log
+    },
+}

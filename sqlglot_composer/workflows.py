@@ -1871,7 +1871,9 @@ def intended_path_cells(workflow: Workflow) -> list[tuple[str, str]]:
          "call, `project.run_workflow`, run once before you answer and once after. Run the "
          "cell below: it runs every step left, up to the first only you can do, and says "
          "where it stopped. At a Decision, it prints a whole DECISIONS: paste it into the "
-         f"decisions cell under it, fill in each {decisions.FILL_IN}, and save the notebook."),
+         f"decisions cell under it, fill in each {decisions.FILL_IN}, and save the notebook. "
+         "With nothing waiting on you, it runs every step to the end, its calls to the "
+         "warehouse too: give it dry_run=True first to see what it would send."),
         ("code", run_cell_text(workflow, RUN_UP_TO_DECISIONS)),
         ("code", DECISIONS_CELL),
         ("markdown", f"## {RUN_THE_REST}\n\nRun the cell below once the decisions cell above "

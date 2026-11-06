@@ -1,0 +1,20 @@
+{
+ "mart_dev.failed_runs": {
+  "columns": {
+   "job_id": "bigint",
+   "fails": "bigint"
+  },
+  "partitioned_by": [],
+  "location": "/data/team/mart_dev.db/failed_runs",
+  "rows": [
+   [
+    2,
+    1
+   ],
+   [
+    3,
+    1
+   ]
+  ]
+ }
+}

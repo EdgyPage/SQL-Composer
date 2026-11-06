@@ -1,0 +1,18 @@
+{
+ "files": {
+  "admin/workflows/convert/failed_runs/batch.md": "a88f0bad771006eeabe54a5154c072eb4be6d87906c573cd376ca0e6f43d5e4e",
+  "references/mart_dev__failed_runs.py": "f347e75163388d59376ebcec085e46c9adcb56e9ed828608c820854569ef9a97",
+  "tables/mart_dev__failed_runs/conversion/checklist.md": "298652c3cea9e4400fcecb0a7bd27ad2e4793df9611029db530f10cbd4b51671",
+  "tables/mart_dev__failed_runs/conversion/in_dev.hql": "72a6575fda9f5e56c65c5a5256d97fc87e99a0bbf678cc70ff2ef778c4c2be14",
+  "tables/mart_dev__failed_runs/conversion/scan.md": "1b19a71c73f56c27ebece53e23ef4f57d33d3d9942c48d027ff1d675111a14b0",
+  "tables/mart_dev__failed_runs/conversion/statement.hql": "6fdcb983b4432fb56ac14495582e2015a1037c272073c9a307c1a3b2c4d1130c",
+  "tables/mart_dev__failed_runs/mart_dev__failed_runs.ipynb": "2579b61626ac4b1769210840502d7ae06b4d6e800d9f013a089d61bda27fe798"
+ },
+ "originals": {
+  "mart_dev.failed_runs": null
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.failed_runs"
+ ]
+}

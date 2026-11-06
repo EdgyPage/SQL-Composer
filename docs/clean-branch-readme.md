@@ -820,7 +820,10 @@ The convert, promote, new_table and references notebooks read top to bottom, in 
 2. **Run up to your Decisions.** Action: run the cell under it, "Run up to your Decisions",
    `project.run_workflow(...)`: it runs every step, the calls to the warehouse too, up to the
    first only you can do, and prints the `DECISIONS` to paste, each answer not given yet
-   shown as `"<FILL IN>"`. Done when it says where it stopped; then step 3.
+   shown as `"<FILL IN>"`. With nothing waiting on you, as when convert proposes every Key
+   and places every location, it runs to the end, writing and comparing each table: give it
+   `dry_run=True` first to see what it would send. Done when it says where it stopped; then
+   step 3.
 3. **Make the decisions.** Action: paste what it printed into the decisions cell, directly
    under it, fill in each `"<FILL IN>"`, and save the notebook. Done when it is saved; then
    step 4.

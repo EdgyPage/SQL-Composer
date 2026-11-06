@@ -1,0 +1,18 @@
+{
+ "files": {
+  "admin/workflows/convert/team_fails/batch.md": "d46dff3e40cff014eebe71042a3bba85bca58e1b4610b1413dc0a663f8cdf752",
+  "references/mart_dev__team_fails.py": "ca193a5b0b901c14010fe8d72f3386c88503049aabef30535dcf7beec4cf6862",
+  "tables/mart_dev__team_fails/conversion/checklist.md": "f3b762a5c4a21c3bc3c9c76bc47337da8f464ed277dcc2b6a26ba4569aaaa258",
+  "tables/mart_dev__team_fails/conversion/in_dev.hql": "2f4a8f9d875e2c1c692c1d1b27e3e1a3ef0ffb5514b14636818e9e7c378ce19d",
+  "tables/mart_dev__team_fails/conversion/scan.md": "18498e8912299e6b473cdacfb638c426e87a40b2642c5b2ed67ce8e8ff0f727f",
+  "tables/mart_dev__team_fails/conversion/statement.hql": "7fba1dcc91dfe453409b8801cc944b579888f2e60db38169202d6567bb92f25c",
+  "tables/mart_dev__team_fails/mart_dev__team_fails.ipynb": "0d1d4889682d74075f42aaba97beaded409f0b87d0dec4ba80e8d5bfccfc550f"
+ },
+ "originals": {
+  "mart_dev.team_fails": "mart.team_fails"
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.team_fails"
+ ]
+}

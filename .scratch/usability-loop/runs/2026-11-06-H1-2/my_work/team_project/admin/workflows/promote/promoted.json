@@ -1,0 +1,41 @@
+{
+ "team_prod.job_fails_counted": {
+  "blocks": {},
+  "dev": "mart_dev.job_fails_counted",
+  "dev_code": "1c6e06217bc23e3e3772177ab1130fedf608b62324b0fd26cc55ab4b2b5bc9a4",
+  "files": {
+   "tables/team_prod__job_fails_counted/conversion/in_dev.hql": "a660c61061be47ae3cf4bd422e14a0575ddd32db5f0ea3bc2e41c1a892342038",
+   "tables/team_prod__job_fails_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+   "tables/team_prod__job_fails_counted/team_prod__job_fails_counted.ipynb": "0c06f55aa90b5c043eb3ec8e60406bf35efe62c26fe32c4bc1d023ade0e216a9"
+  },
+  "reference": "ac3837d4f6221dad9561b212f15d545c0e246702cb9d6d92714f4bc7a08211ec",
+  "seeded": false,
+  "writes_when_promoted": 0
+ },
+ "team_prod.job_runs_counted": {
+  "blocks": {},
+  "dev": "mart_dev.job_runs_counted",
+  "dev_code": "609b05e79e5c8f4df02792f1c2e47f7e9436391d6b0aa1d2bad1e84e3f7ba758",
+  "files": {
+   "tables/team_prod__job_runs_counted/conversion/in_dev.hql": "fdd164d92052da989fbb9638c20f8757a63daa89902955fe52aa29bcbe802cc5",
+   "tables/team_prod__job_runs_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+   "tables/team_prod__job_runs_counted/team_prod__job_runs_counted.ipynb": "790bc1ecf46c8fc0230eff4ceaee02d5278c2bc05f62e7e7a1cacde829959db3"
+  },
+  "reference": "6a7637be5e451836859b11088d3ebad40daf2baee06f9202a48e7037bc2d9fa0",
+  "seeded": false,
+  "writes_when_promoted": 0
+ },
+ "team_prod.team_fails": {
+  "blocks": {},
+  "dev": "mart_dev.team_fails",
+  "dev_code": "425387fe12593d0c583b7b3f1c79e8a0469cc156292e001bd1d689819dd6731f",
+  "files": {
+   "tables/team_prod__team_fails/conversion/in_dev.hql": "a3623c3deb4a3c39c97f6992dc9c0199f5beb6747b14c7a443efe250ea52955a",
+   "tables/team_prod__team_fails/conversion/statement.hql": "822699f8e2c1701fe7a696822225fb1925afd91d1c71cf7c048253ed79cc5593",
+   "tables/team_prod__team_fails/team_prod__team_fails.ipynb": "81b8096e794419421144db4a60d1f2edfab8ce23d2b63883f97a884a9790fd0f"
+  },
+  "reference": "064e5d1c78e7676853446adea3499d2768870efee374b47c8212469c9d28c7c3",
+  "seeded": false,
+  "writes_when_promoted": 0
+ }
+}

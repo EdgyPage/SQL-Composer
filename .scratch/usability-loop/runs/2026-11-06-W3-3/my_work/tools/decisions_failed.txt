@@ -1,0 +1,1 @@
+DECISIONS = {"mart_dev.failed_runs": {"key": "proposed"}}  # accepts the Key convert proposed, job_id, which the compare held

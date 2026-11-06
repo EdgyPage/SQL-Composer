@@ -736,3 +736,68 @@ What it showed:
 - **The seed's edge (W7-1, W7-2).** The first write's window, PERIOD_END-1 to PERIOD_END, adds
   2026-09-23's rows the seed left out. Each run said so, matching the original. Expected, and
   how-to 09 could say it.
+| 2026-11-06 | W1 | dev | 2026-11-06-W1-1 | pass | 0 | 8.5 round; 5 actions |
+| 2026-11-06 | W1 | dev | 2026-11-06-W1-2 | pass | 0 | 8.5 round; 4 actions |
+| 2026-11-06 | W1 | dev | 2026-11-06-W1-3 | pass | 0 | 8.5 round; 4 actions |
+| 2026-11-06 | W3 | dev | 2026-11-06-W3-1 | pass | 0 | 8.5 round; 6 actions |
+| 2026-11-06 | W3 | dev | 2026-11-06-W3-2 | pass | 0 | 8.5 round; 7 actions |
+| 2026-11-06 | W3 | dev | 2026-11-06-W3-3 | pass | 0 | 8.5 round; 10 actions |
+| 2026-11-06 | W7 | dev | 2026-11-06-W7-1 | pass | 0 | 8.5 round; 5 actions |
+| 2026-11-06 | W7 | dev | 2026-11-06-W7-2 | pass | 0 | 8.5 round; 17 actions |
+| 2026-11-06 | W7 | dev | 2026-11-06-W7-3 | pass | 0 | 8.5 round; 6 actions |
+| 2026-11-06 | H1 | held_out | 2026-11-06-H1-1 | pass | 0 | 8.5 round; 8 actions |
+| 2026-11-06 | H1 | held_out | 2026-11-06-H1-2 | pass | 0 | 8.5 round; 5 actions |
+| 2026-11-06 | H1 | held_out | 2026-11-06-H1-3 | pass | 0 | 8.5 round; 9 actions |
+
+## The 8.5 round, 2026-11-06: fewer of the user's actions
+
+Main's tree was built from dev at 8.5 (2dbb8a12). A round of the scenarios 8.5 changed the
+path of: convert (W1, W3), a Run value and a seed limit (W7) and convert then promote (H1),
+three fresh Haiku runs each, one phase each. The 12 rows are just above; each row's note
+counts its actions (Toolbox 8.5's ticket 12: cells edited in a Workflow notebook from as the
+Toolbox writes them, and files of the run's own).
+
+| scenario | split | passed | questions | files of its own, 8.4 | files of its own, 8.5 |
+|---|---|---|---|---|---|
+| W1 | dev | 3/3 | 0 | 5, 6, 5 | 4, 3, 3 |
+| W3 | dev | 3/3 | 0 | 6, 7, 12 | 4, 4, 7 |
+| W7 | dev | 3/3 | 0 | 5, 5, 10 | 3, 13, 4 |
+| H1 | held out | 3/3 | 0 | 5 (one run) | 6, 3, 7 |
+
+"Files of its own" counts what a run wrote outside its Project, its helper scripts among
+them (the loop's agents have no Jupyter, so most write a script to set a cell), and each
+script saved into the Project for a Workflow. 8.4's are counted the same way from its kept
+runs (the tickets 23 and 24 round, and ticket 14's W7). Cells edited are counted only for 8.5,
+as 8.4's notebooks were written by 8.4.
+
+What 8.5 did:
+- **The names cell.** Every W1, W7 and H1 run, and two of three W3 runs, gave FILES a path
+  where the script is: no copy saved beside the notebook. Promote's TABLES left [] promoted
+  every finished table (H1-1, H1-2).
+- **Locations placed.** No run answered a location: each table was placed under DEV's root,
+  each prod copy under PROD's.
+- **Run values.** All three W7 runs wrote `project.new_run_value(...)` at the top of the
+  decisions cell; none wrote run_values.py by hand or called register.
+- **Read straight down.** No run scrolled back: the run cells, then the decisions cell, then
+  "Run the rest". Several had nothing to answer at all.
+
+### Found in the 8.5 round, none failing a run
+
+- **"Run up to your Decisions" ran to the end with nothing open** (W1, W3, H1, every run).
+  Correct, but read as a surprise: each expected a stop. Mended after the round: its cell's
+  text and the README's step 2 say it runs to the end, writing and comparing, when nothing
+  waits on you, with dry_run=True to see first.
+- **Promote's report said "fill in location=" when each was placed** (H1-2, H1-3). Mended
+  after the round: it names a table only when its Table reference has none.
+- **Accepting a proposed Key once the batch had finished** (W3-1, W3-3): "Run the rest" skips
+  a finished batch, so `"key": "proposed"` was written only by calling write_decisions. A Key
+  convert proposes is kept anyway; accepting it only takes off the mark. For a later round.
+- **A finished batch compared again** (W7-1, H1-1): one run found "Run the rest" compared the
+  listed Partition and step 7's own cell didn't; another the other way round. To check.
+- **A convert's TODO lines** (W3-1, W3-3): its Table reference's first line and
+  does_not_add_up, which check() doesn't list; and new_run_value's printed import line went
+  unseen when run through the runner (W7-1).
+- **statement.hql of a table from a multi-INSERT FROM** shows the whole statement (H1-2,
+  H1-3), where in_dev.hql has the table's own.
+- **The harness**: the runner's cell numbers are code cells only (W3-3, W7-3); a FILES path
+  that doesn't exist printed nothing through the runner (W7-3).

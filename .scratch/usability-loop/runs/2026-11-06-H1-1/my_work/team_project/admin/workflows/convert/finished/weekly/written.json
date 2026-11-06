@@ -1,0 +1,34 @@
+{
+ "files": {
+  "admin/workflows/convert/weekly/batch.md": "d0ff69310459f00541720f22c2b01c4259778592b93dbc22f6fb485da7c73786",
+  "references/mart_dev__job_fails_counted.py": "e6c3d0c69857197d4f5db4a2240c81c426419183c1d50b7de5b183eb556d9c42",
+  "references/mart_dev__job_runs_counted.py": "4cc7946d544461eaa8343124bd400e7a5cd960cf085bec19e4d5954693458483",
+  "references/mart_dev__team_fails.py": "ca193a5b0b901c14010fe8d72f3386c88503049aabef30535dcf7beec4cf6862",
+  "tables/mart_dev__job_fails_counted/conversion/checklist.md": "e7fe62481dded5b1c7085400cbedf44c97ebcea34908d99bbce916e773fbbd24",
+  "tables/mart_dev__job_fails_counted/conversion/in_dev.hql": "5737aa9a28df929dbc4c699918667c1abed50cf936de5e728e0827437639ca1f",
+  "tables/mart_dev__job_fails_counted/conversion/scan.md": "332b76d4c24b56374e34d274966d35b7f234b37b7a2755845ca15b99e6c09f52",
+  "tables/mart_dev__job_fails_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+  "tables/mart_dev__job_fails_counted/mart_dev__job_fails_counted.ipynb": "f8908f2690ae331c8f1f6a412c6523dd377ef9e445d3bf56ac3bc651dfc5db0a",
+  "tables/mart_dev__job_runs_counted/conversion/checklist.md": "1f946e2b792ec210e30e184b25521617d3179686a30daec92c7d56b223807188",
+  "tables/mart_dev__job_runs_counted/conversion/in_dev.hql": "c9201442cdd5700a66daf93b3acbc225e303a733f94c028dcae047e783c35647",
+  "tables/mart_dev__job_runs_counted/conversion/scan.md": "14eb844313f890a378c96704157c4e829dbf5bae539729c24b460bafdca03b0e",
+  "tables/mart_dev__job_runs_counted/conversion/statement.hql": "756edb8174314baf4601d855212a4717cd9f570a5fac18a55aaadd8155215bf2",
+  "tables/mart_dev__job_runs_counted/mart_dev__job_runs_counted.ipynb": "a57d5d6308e5f2be2456af9df29b1495b76eb934652b3d77e2fa909f874f0780",
+  "tables/mart_dev__team_fails/conversion/checklist.md": "d60aae5ac4d7f223b1ab9f5356a089a7695c376e175e9168309500322320affe",
+  "tables/mart_dev__team_fails/conversion/in_dev.hql": "dc4261779e23d803ac5be2ea66e2066efa70ffe4834696957f044c597918801b",
+  "tables/mart_dev__team_fails/conversion/scan.md": "f45ce1e8e95adc648d6da1ae11dba96f7e8d10ef55e400b2bc634d3761cd010e",
+  "tables/mart_dev__team_fails/conversion/statement.hql": "822699f8e2c1701fe7a696822225fb1925afd91d1c71cf7c048253ed79cc5593",
+  "tables/mart_dev__team_fails/mart_dev__team_fails.ipynb": "c59583ed04a631e56646d7703abd980f64b881b9a38dbde827cc1c27edefbb25"
+ },
+ "originals": {
+  "mart_dev.job_fails_counted": "mart.job_fails_counted",
+  "mart_dev.job_runs_counted": "mart.job_runs_counted",
+  "mart_dev.team_fails": "mart.team_fails"
+ },
+ "seeded": [],
+ "tables": [
+  "mart_dev.team_fails",
+  "mart_dev.job_runs_counted",
+  "mart_dev.job_fails_counted"
+ ]
+}
